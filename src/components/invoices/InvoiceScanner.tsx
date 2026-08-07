@@ -1020,11 +1020,125 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
   };
+
+  // ---- Fuzzy "did you mean?" suggestions ----
+  const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
+  const [aiMatchingAll, setAiMatchingAll] = useState(false);
+
+  const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
+    selectProduct(i, candidate.entry as ProductMasterEntry);
+  };
+
+  /** Ask the AI to match the given line indexes against a shortlist of candidates. */
+  const askAiToMatch = useCallback(async (indexes: number[]) => {
+    const inv = invoices[currentIdx];
+    if (!inv || indexes.length === 0 || !productMaster?.length) return;
+    const supplierName = inv.supplier_name;
+
+    // Shortlist candidates per line, then merge into one candidate pool.
+    const pool = new Map<string, ProductMasterEntry>();
+    const items = indexes.map((idx) => {
+      const l = inv.line_items[idx];
+      scoreCandidates({ itemCode: l.item_code, description: l.description }, productMaster, supplierName, FUZZY.AI_SHORTLIST)
+        .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
+      return {
+        source_index: idx,
+        description: l.description,
+        item_code: l.item_code,
+        pack_size: l.pack_size,
+        unit: l.unit,
+        unit_price: l.unit_price,
+        supplier_name: supplierName,
+      };
+    });
+
+    const candidates = Array.from(pool.values()).map((p) => ({
+      id: p.id,
+      internal_sku: p.internal_sku,
+      internal_product_name: p.internal_product_name,
+      supplier_product_name: p.supplier_product_name,
+      item_code: p.external_sku,
+      supplier: p.supplier,
+      pack_size_norm: p.purchase_unit,
+      unit_norm: p.stock_uom,
+    }));
+    if (candidates.length === 0) {
+      toast({ title: "No candidates", description: "Nothing similar exists in the Product Master yet.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-classify", {
+        body: {
+          op: "suggest_batch",
+          domain: "procurement",
+          workflow: "line_to_product",
+          tenant_id: tenantId,
+          items,
+          context: { candidates, supplier_name: supplierName },
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      const results: any[] = (data as any)?.results ?? [];
+      setInvoices((prev) => {
+        const copy = [...prev];
+        const lines = [...copy[currentIdx].line_items];
+        let hits = 0;
+        results.forEach((r, batchIdx) => {
+          if (!r) return;
+          const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
+          if (lineIdx == null || !lines[lineIdx]) return;
+          const s = r.suggestion || {};
+          const entry =
+            productMaster.find((p) => p.id === s.product_master_id) ||
+            productMaster.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
+          if (!entry) return;
+          hits++;
+          lines[lineIdx] = {
+            ...lines[lineIdx],
+            suggestions: [{ entry, score: Number(r.confidence ?? s.confidence ?? 0.7), reasons: [s.needs_review_reason || "AI match"] }],
+            suggestion_source: "ai",
+          };
+        });
+        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines." });
+        copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+        return copy;
+      });
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      if (msg.includes("rate_limited")) toast({ title: "AI busy", description: "Rate limit reached, try again shortly.", variant: "destructive" });
+      else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
+      else toast({ title: "AI error", description: msg, variant: "destructive" });
+    }
+  }, [invoices, currentIdx, productMaster, tenantId]);
+
+  const askAiForLine = async (i: number) => {
+    setAiMatchingIdx(i);
+    try { await askAiToMatch([i]); } finally { setAiMatchingIdx(null); }
+  };
+
+  const resolveAllWithAi = async () => {
+    const inv = invoices[currentIdx];
+    if (!inv) return;
+    const idxs = inv.line_items
+      .map((l, i) => ({ l, i }))
+      .filter(({ l }) => l.unmatched && (l.description || "").trim())
+      .map(({ i }) => i);
+    if (idxs.length === 0) return;
+    setAiMatchingAll(true);
+    try { await askAiToMatch(idxs); } finally { setAiMatchingAll(false); }
+  };
+
 
   // Editable Accepted Price (Items Master baseline)
   const updateLineAcceptedPrice = (i: number, value: string) => {
