@@ -49,6 +49,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Info, Sparkles } from "lucide-react";
+import QuickAddProductPopover from "./QuickAddProductPopover";
+import QuickAddBulkDialog from "./QuickAddBulkDialog";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
