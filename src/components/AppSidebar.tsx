@@ -2,7 +2,7 @@ import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings, HandCoins,
+  Settings, HandCoins, ArrowLeft,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -10,8 +10,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { useTenantSession } from "@/hooks/useTenantSession";
+import { supabase } from "@/integrations/supabase/client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -314,11 +317,26 @@ function CollapsibleNavGroup({
 export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
+  const { isPlatformAdmin } = usePlatformAdmin();
+  const { activeTenantId, isInsideClient, exitToPlatform } = useTenantSession();
+  const [clientName, setClientName] = useState("");
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
+
+  useEffect(() => {
+    if (!isPlatformAdmin || !isInsideClient || !activeTenantId) {
+      setClientName("");
+      return;
+    }
+    let cancelled = false;
+    supabase.from("tenants").select("name").eq("id", activeTenantId).maybeSingle().then(({ data }) => {
+      if (!cancelled) setClientName(data?.name ?? "Client");
+    });
+    return () => { cancelled = true; };
+  }, [activeTenantId, isInsideClient, isPlatformAdmin]);
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
@@ -338,8 +356,6 @@ export function AppSidebar() {
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey!);
   });
-
-  const { isPlatformAdmin } = usePlatformAdmin();
 
   const canSeeSection = (pageKey: string): boolean => {
     if (isPlatformAdmin) return true;
@@ -374,6 +390,24 @@ export function AppSidebar() {
             </div>
           </div>
         </div>
+        {isPlatformAdmin && isInsideClient && (
+          <div className="mt-3 border-t border-sidebar-border/60 pt-2.5">
+            <div className="flex items-center gap-2 min-w-0 text-[11px] text-warning">
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Client: {clientName || "Loading…"}</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={exitToPlatform}
+              className="mt-1.5 h-7 w-full justify-start px-1.5 text-[11px] text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Exit to Platform
+            </Button>
+          </div>
+        )}
       </div>
 
       <SidebarContent className="py-2 gap-3">
