@@ -316,12 +316,43 @@ ${pmLines}`;
         }
 
         const aiData = JSON.parse(responseText);
-        const finishReason = aiData.choices?.[0]?.finish_reason;
+        const choice = aiData.choices?.[0];
+        const finishReason = choice?.finish_reason;
         if (finishReason === "length") {
           console.warn(`Agent 1 attempt ${attempt + 1} was truncated (finish_reason=length)`);
         }
-        const content = aiData.choices?.[0]?.message?.content || "";
-        extractedData = safeExtractJSON(content);
+        const toolCall = choice?.message?.tool_calls?.[0];
+        let candidate: any = null;
+        if (toolCall?.function?.arguments) {
+          candidate = typeof toolCall.function.arguments === "string"
+            ? JSON.parse(toolCall.function.arguments)
+            : toolCall.function.arguments;
+        } else {
+          const content = choice?.message?.content || "";
+          if (!content.trim()) throw new Error("Model returned no tool call and no content");
+          candidate = safeExtractJSON(content);
+        }
+
+        // Guard: never surface a blank invoice to the UI. If the model returned
+        // nothing usable, treat the attempt as a failure and retry.
+        const candidateInvoices = Array.isArray(candidate?.invoices)
+          ? candidate.invoices
+          : (candidate && (candidate.supplier_name || candidate.invoice_number || candidate.line_items) ? [candidate] : []);
+        const hasUsable = candidateInvoices.some((inv: any) =>
+          (Array.isArray(inv?.line_items) && inv.line_items.length > 0) ||
+          inv?.supplier_name || inv?.invoice_number || inv?.total_amount
+        );
+        if (!hasUsable) {
+          lastError = "Model returned no invoice data (empty extraction)";
+          console.warn(`Agent 1 attempt ${attempt + 1}: ${lastError}`);
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+            continue;
+          }
+          break;
+        }
+
+        extractedData = { invoices: candidateInvoices };
         break;
       } catch (err) {
         console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
@@ -332,6 +363,7 @@ ${pmLines}`;
         }
       }
     }
+
 
     if (!extractedData) {
       console.error("All retries failed. Last error:", lastError);
