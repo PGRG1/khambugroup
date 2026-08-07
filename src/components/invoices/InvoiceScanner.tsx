@@ -589,9 +589,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         accepted_price: acceptedPrice,
         price_disputed: priceDisputed,
         is_free_unit_line: isFreeUnit,
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
       };
     });
-  }, []);
+  }, [linkEntryToLine]);
+
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
