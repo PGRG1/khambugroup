@@ -455,12 +455,20 @@ export default function ProductMasterTab() {
       }
       setDialogOpen(false);
     } else {
+      const toNumOrNull = (v: string) => {
+        if (v === "" || v == null) return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+      };
       const data = {
         ...form,
+        default_coa_account_id: form.default_coa_account_id || null,
         unit_cost: parseFloat(form.unit_cost) || 0,
         purchase_unit_cost: purchaseUnitCost,
         stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
         base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
+        min_stock_qty: toNumOrNull(form.min_stock_qty),
+        reorder_qty: toNumOrNull(form.reorder_qty),
         purchase_yield: py,
         cooking_yield: cy,
       };
