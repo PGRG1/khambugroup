@@ -1576,6 +1576,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const hasSkuMismatches = current?.line_items.some(l => l.sku_mismatch) || false;
   const unmatchedItems = current?.line_items.filter(l => l.unmatched) || [];
   const hasUnmatchedItems = unmatchedItems.length > 0;
+  const unmatchedBulkLines = (current?.line_items || [])
+    .map((l, idx) => ({ line: l, idx }))
+    .filter(({ line }) => line.unmatched && (line.description || "").trim())
+    .map(({ line, idx }) => ({
+      index: idx,
+      item_code: line.item_code,
+      description: line.description,
+      unit: line.unit,
+      unit_price: line.unit_price,
+    }));
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
   const blockingCount = (current?.review_blocking?.length || 0)
