@@ -296,7 +296,7 @@ export default function QuickAddBulkDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={confirmAll} disabled={saving || !tenantId}>
+          <Button onClick={confirmAll} disabled={saving || !tenantId || hasConflicts}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add & link all"}
           </Button>
         </DialogFooter>
