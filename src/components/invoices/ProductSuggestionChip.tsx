@@ -37,6 +37,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
   const rest = candidates.slice(1);
   const label = (c: FuzzyCandidate) =>
     c.entry.internal_product_name || c.entry.supplier_product_name || c.entry.internal_sku;
+  const confidence = (c: FuzzyCandidate) => c.rawNameScore;
 
   return (
     <div className="mt-1 space-y-1">
@@ -50,7 +51,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
         >
           <Check className="h-3 w-3" />
           {label(top)}
-          <span className="font-mono opacity-70">{Math.round(top.score * 100)}%</span>
+          <span className="font-mono opacity-70">{Math.round(confidence(top) * 100)}%</span>
         </button>
         {rest.length > 0 && (
           <button
@@ -63,6 +64,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
           </button>
         )}
         {source === "ai" && <span className="chip chip-info"><span /> AI</span>}
+        {top.blockingReasons[0] && <span className="text-warning">{top.blockingReasons[0]}</span>}
         {onAskAi && (
           <button
             type="button"
@@ -87,7 +89,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
               title={c.reasons.join(", ")}
               onClick={() => onApply(c)}
             >
-              {label(c)} <span className="ml-1 font-mono opacity-60">{Math.round(c.score * 100)}%</span>
+              {label(c)} <span className="ml-1 font-mono opacity-60">{Math.round(confidence(c) * 100)}%</span>
             </Button>
           ))}
         </div>
