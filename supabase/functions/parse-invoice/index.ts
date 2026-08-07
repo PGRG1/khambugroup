@@ -171,6 +171,58 @@ ${pmLines}`;
     });
 
     // --- FIRST PASS: Extract data ---
+    // Use forced tool-calling so the model can never reply with prose/markdown
+    // (the previous free-text JSON mode intermittently returned an empty or
+    // non-invoice object, which surfaced in the UI as a blank scanned invoice).
+    const EXTRACT_TOOL = {
+      type: "function",
+      function: {
+        name: "report_invoices",
+        description: "Return every invoice found in the document.",
+        parameters: {
+          type: "object",
+          required: ["invoices"],
+          properties: {
+            invoices: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["supplier_name", "invoice_number", "invoice_date", "line_items"],
+                properties: {
+                  supplier_name: { type: "string" },
+                  invoice_number: { type: "string" },
+                  invoice_date: { type: "string" },
+                  due_date: { type: "string" },
+                  venue: { type: "string" },
+                  total_amount: { type: "number" },
+                  notes: { type: "string" },
+                  line_items: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["description", "quantity", "unit_price", "total"],
+                      properties: {
+                        item_code: { type: "string" },
+                        description: { type: "string" },
+                        pack_size: { type: "string" },
+                        quantity: { type: "number" },
+                        unit: { type: "string" },
+                        weight: { type: ["number", "null"] },
+                        unit_price: { type: "number" },
+                        discount: { type: "number" },
+                        total: { type: "number" },
+                        matched_sku: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
     const extractionBody = JSON.stringify({
       model: "google/gemini-2.5-flash",
       max_tokens: 32000,
@@ -178,7 +230,10 @@ ${pmLines}`;
         { role: "system", content: fullSystemPrompt },
         { role: "user", content: userContent },
       ],
+      tools: [EXTRACT_TOOL],
+      tool_choice: { type: "function", function: { name: "report_invoices" } },
     });
+
 
     const MAX_RETRIES = 3;
     let extractedData: any = null;
@@ -261,12 +316,43 @@ ${pmLines}`;
         }
 
         const aiData = JSON.parse(responseText);
-        const finishReason = aiData.choices?.[0]?.finish_reason;
+        const choice = aiData.choices?.[0];
+        const finishReason = choice?.finish_reason;
         if (finishReason === "length") {
           console.warn(`Agent 1 attempt ${attempt + 1} was truncated (finish_reason=length)`);
         }
-        const content = aiData.choices?.[0]?.message?.content || "";
-        extractedData = safeExtractJSON(content);
+        const toolCall = choice?.message?.tool_calls?.[0];
+        let candidate: any = null;
+        if (toolCall?.function?.arguments) {
+          candidate = typeof toolCall.function.arguments === "string"
+            ? JSON.parse(toolCall.function.arguments)
+            : toolCall.function.arguments;
+        } else {
+          const content = choice?.message?.content || "";
+          if (!content.trim()) throw new Error("Model returned no tool call and no content");
+          candidate = safeExtractJSON(content);
+        }
+
+        // Guard: never surface a blank invoice to the UI. If the model returned
+        // nothing usable, treat the attempt as a failure and retry.
+        const candidateInvoices = Array.isArray(candidate?.invoices)
+          ? candidate.invoices
+          : (candidate && (candidate.supplier_name || candidate.invoice_number || candidate.line_items) ? [candidate] : []);
+        const hasUsable = candidateInvoices.some((inv: any) =>
+          (Array.isArray(inv?.line_items) && inv.line_items.length > 0) ||
+          inv?.supplier_name || inv?.invoice_number || inv?.total_amount
+        );
+        if (!hasUsable) {
+          lastError = "Model returned no invoice data (empty extraction)";
+          console.warn(`Agent 1 attempt ${attempt + 1}: ${lastError}`);
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+            continue;
+          }
+          break;
+        }
+
+        extractedData = { invoices: candidateInvoices };
         break;
       } catch (err) {
         console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
@@ -278,11 +364,13 @@ ${pmLines}`;
       }
     }
 
+
     if (!extractedData) {
       console.error("All retries failed. Last error:", lastError);
       return new Response(
-        JSON.stringify({ success: false, error: "Could not extract invoice data after multiple attempts. Please try again or use a clearer image." }),
+        JSON.stringify({ success: false, error: `No invoice data could be read from this document after ${MAX_RETRIES} attempts. Please re-scan, or upload a clearer/higher-resolution image. (${lastError})` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+
       );
     }
 

@@ -561,9 +561,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       });
 
       if (error) throw error;
+      if ((data as any)?.success === false && (data as any)?.error) throw new Error(String((data as any).error));
 
       const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : Array.isArray(data?.data?.invoices) ? data.data.invoices : [];
       const review = data?.review || data?.data?.review || null;
+
+      // Never drop the user into a blank review form: if the AI came back with
+      // nothing usable, surface it as a scan failure so they can re-scan.
+      const hasUsableData = rawInvoices.some((inv: any) =>
+        (Array.isArray(inv?.line_items) && inv.line_items.length > 0) ||
+        inv?.supplier_name || inv?.invoice_number || inv?.total_amount
+      );
+      if (!hasUsableData) {
+        throw new Error("The AI could not read any invoice data from these files. Try re-scanning, or upload a clearer / higher-resolution image.");
+      }
+
 
       // Build per-invoice/per-line review lookups from new Agent 2 schema
       type LineReview = {
