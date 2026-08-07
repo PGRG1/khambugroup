@@ -2148,6 +2148,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   const effReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || "");
                   const reasonMissing = qtyDiff !== 0 && !effReason;
                   const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
+                   const linkedNameScore = line.product_master_id && line.scanned_description
+                     ? scoreCandidates(
+                         { description: line.scanned_description },
+                         (productMaster || []).filter((product) => product.id === line.product_master_id),
+                         current.supplier_name,
+                         1,
+                       )[0]?.rawNameScore ?? 0
+                     : 1;
                   return (
                     <tr
                       key={i}
@@ -2217,7 +2225,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                         <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
                           {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
                         </div>
-                        {line.matched_internal_name && line.scanned_description &&
+                        {line.matched_internal_name && line.scanned_description && linkedNameScore < FUZZY.SUGGEST &&
                           normalizeText(line.matched_internal_name) !== normalizeText(line.scanned_description) && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>
                             <AlertTriangle className="h-3 w-3" /> Name differs

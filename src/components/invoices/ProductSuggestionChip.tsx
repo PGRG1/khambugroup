@@ -37,7 +37,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
   const rest = candidates.slice(1);
   const label = (c: FuzzyCandidate) =>
     c.entry.internal_product_name || c.entry.supplier_product_name || c.entry.internal_sku;
-  const confidence = (c: FuzzyCandidate) => c.rawNameScore || c.score;
+  const confidence = (c: FuzzyCandidate) => c.rawNameScore;
 
   return (
     <div className="mt-1 space-y-1">
