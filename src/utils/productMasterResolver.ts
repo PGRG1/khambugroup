@@ -251,11 +251,11 @@ export function resolveExactMatch(
   if (internalSku) {
     if (invoiceSupplier) {
       const m = products.find(p => p.internal_sku === internalSku && supplierMatch(p.supplier, invoiceSupplier));
-      if (m) return m;
+      if (m && namesAgree(desc, m)) return m;
       // supplier known — do not return a different-supplier row
     } else {
       const all = products.filter(p => p.internal_sku === internalSku);
-      if (all.length === 1) return all[0];
+      if (all.length === 1 && namesAgree(desc, all[0])) return all[0];
     }
   }
 

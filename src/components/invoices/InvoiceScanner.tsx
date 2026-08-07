@@ -462,8 +462,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         scanned_description: line.scanned_description ?? line.description,
       };
       const matchInput = {
-        itemCode: workingLine.scanned_item_code || workingLine.item_code,
-        description: workingLine.scanned_description || workingLine.description,
+        itemCode: workingLine.item_code,
+        description: workingLine.description,
       };
 
       // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
@@ -530,7 +530,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         );
         const cls = classifyCandidates(cands);
         if (cls.action === "auto_link" && cls.top) {
-          return linkEntryToLine(workingLine, cls.top.entry as ProductMasterEntry, cls.top.score);
+          return linkEntryToLine(workingLine, cls.top.entry as ProductMasterEntry, cls.top.rawNameScore);
         }
         return {
           ...workingLine,
@@ -921,6 +921,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         line.sku_mismatch = false;
         line.price_changed = false;
         line.pm_unit_price = undefined;
+        line.product_master_id = null;
+        line.supplier_entry_id = null;
         line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
       }
 
