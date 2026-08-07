@@ -1973,12 +1973,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
             {hasUnmatchedItems && (
-              <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
-                {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
-                Resolve {unmatchedItems.length} unmatched with AI
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                  {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                  Resolve {unmatchedItems.length} unmatched with AI
+                </Button>
+                {unmatchedBulkLines.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => setBulkQuickAddOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Quick add {unmatchedBulkLines.length} to master
+                  </Button>
+                )}
+              </div>
             )}
           </div>
+
+          <QuickAddBulkDialog
+            open={bulkQuickAddOpen}
+            onOpenChange={setBulkQuickAddOpen}
+            lines={unmatchedBulkLines}
+            products={(productMaster || []) as any}
+            supplierName={current?.supplier_name}
+            onCreated={(lineIndex, entry) => selectProduct(lineIndex, entry as ProductMasterEntry)}
+            onRefresh={onProductMasterChanged}
+          />
+
 
 
           {missingDeals.length > 0 && (
