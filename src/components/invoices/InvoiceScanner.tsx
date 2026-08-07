@@ -1020,6 +1020,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         ...currentLine,
         scanned_item_code: currentLine.scanned_item_code ?? currentLine.item_code,
         scanned_description: currentLine.scanned_description ?? currentLine.description,
+        // Items master is the source of truth once the line is linked.
+        description: product.supplier_product_name || product.internal_product_name || currentLine.description,
+        item_code: product.external_sku ?? currentLine.item_code,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
         matched_stock_uom: product.stock_uom || "",
