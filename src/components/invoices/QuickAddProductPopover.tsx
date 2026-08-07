@@ -420,7 +420,7 @@ export default function QuickAddProductPopover({
           <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={confirm} disabled={saving || !tenantId}>
+          <Button size="sm" onClick={confirm} disabled={saving || !tenantId || !!skuConflict}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add & link"}
           </Button>
         </div>
