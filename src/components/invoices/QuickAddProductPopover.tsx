@@ -333,14 +333,57 @@ export default function QuickAddProductPopover({
               <Input className="h-8 text-xs" value={internalName} onChange={(e) => setInternalName(e.target.value)} />
             </div>
             <div>
-              <Label className="text-[11px]">Internal SKU</Label>
-              <Input className="h-8 text-xs font-mono" value={internalSku} onChange={(e) => setInternalSku(e.target.value)} />
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px]">Internal SKU</Label>
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                  onClick={() => {
+                    if (skuOverridden) {
+                      setInternalSku(nextQuickSku(products));
+                      setSkuOverridden(false);
+                    } else {
+                      setSkuOverridden(true);
+                    }
+                  }}
+                >
+                  {skuOverridden ? "Auto" : "Override"}
+                </button>
+              </div>
+              <Input
+                className={cn(
+                  "h-8 text-xs font-mono",
+                  skuConflict && "border-destructive focus-visible:ring-destructive",
+                )}
+                value={internalSku}
+                readOnly={!skuOverridden}
+                onChange={(e) => setInternalSku(e.target.value.toUpperCase())}
+              />
             </div>
             <div>
               <Label className="text-[11px]">Supplier</Label>
               <Input className="h-8 text-xs" value={supplierName || ""} disabled />
             </div>
+            {skuConflict && (
+              <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive space-y-1">
+                <div>
+                  SKU already in use by <span className="font-medium">{skuConflict.internal_product_name}</span>.
+                </div>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    setMode("existing");
+                    setPickedId(skuConflict.id);
+                    setPickerQuery(skuConflict.internal_sku || "");
+                  }}
+                >
+                  Add this supplier to that product instead
+                </button>
+              </div>
+            )}
           </div>
+
         )}
 
         <div className="grid grid-cols-2 gap-2">
