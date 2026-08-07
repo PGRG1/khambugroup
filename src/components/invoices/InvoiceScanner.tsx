@@ -2319,6 +2319,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             Invoice: {line.scanned_description}
                           </div>
                         )}
+                        {!line.unmatched && line.product_master_id && (
+                          <ProductSuggestionChip
+                            mode="change"
+                            linkedProductId={line.product_master_id}
+                            candidates={line.suggestions || []}
+                            source={line.suggestion_source || "local"}
+                            onApply={(c) => applySuggestion(i, c)}
+                          />
+                        )}
+
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
                             <ProductSuggestionChip
