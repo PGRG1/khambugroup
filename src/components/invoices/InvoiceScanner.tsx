@@ -2156,14 +2156,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   const effReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || "");
                   const reasonMissing = qtyDiff !== 0 && !effReason;
                   const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
-                   const linkedNameScore = line.product_master_id && line.scanned_description
+                   // Score the linked master against the immutable scanned text.
+                   // Only real conflicts (size / unit / pack / brand) raise a flag —
+                   // longer supplier wording or a reference number is not a conflict.
+                   const linkedMatch = line.product_master_id && line.scanned_description
                      ? scoreCandidates(
                          { description: line.scanned_description },
                          (productMaster || []).filter((product) => product.id === line.product_master_id),
                          current.supplier_name,
                          1,
-                       )[0]?.rawNameScore ?? 0
-                     : 1;
+                       )[0]
+                     : undefined;
+                   const linkedConflict = linkedMatch?.blockingReasons?.[0];
+                   const linkedNameScore = linkedMatch?.rawNameScore ?? 1;
                   return (
                     <tr
                       key={i}
