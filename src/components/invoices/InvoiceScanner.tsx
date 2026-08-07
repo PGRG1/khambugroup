@@ -1031,11 +1031,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       const currentLine = lines[i];
       const scannedPrice = parseFloat(currentLine.unit_price) || 0;
       const pmPrice = product.purchase_unit_cost ?? 0;
+      // Keep alternative candidates around so a wrong pick can be changed later.
+      const scannedDesc = currentLine.scanned_description ?? currentLine.description;
+      const scannedCode = currentLine.scanned_item_code ?? currentLine.item_code;
+      const altCandidates =
+        currentLine.suggestions && currentLine.suggestions.length
+          ? currentLine.suggestions
+          : scoreCandidates(
+              { itemCode: scannedCode, description: scannedDesc },
+              productMaster || [],
+              copy[currentIdx].supplier_name,
+            ).slice(0, FUZZY.MAX_SUGGESTIONS);
       // Directly set all fields from the selected product — no re-resolution
       lines[i] = {
         ...currentLine,
-        scanned_item_code: currentLine.scanned_item_code ?? currentLine.item_code,
-        scanned_description: currentLine.scanned_description ?? currentLine.description,
+        scanned_item_code: scannedCode,
+        scanned_description: scannedDesc,
         // Items master is the source of truth once the line is linked.
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         item_code: product.external_sku ?? currentLine.item_code,
@@ -1056,8 +1067,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
-        suggestions: undefined,
-        suggestion_source: undefined,
+        suggestions: altCandidates,
+        suggestion_source: currentLine.suggestion_source ?? "local",
         auto_matched: false,
         match_hold_reason: undefined,
       };
@@ -1065,6 +1076,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       return copy;
     });
   };
+
 
   // ---- Fuzzy "did you mean?" suggestions ----
   const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
@@ -2307,6 +2319,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             Invoice: {line.scanned_description}
                           </div>
                         )}
+                        {!line.unmatched && line.product_master_id && (
+                          <ProductSuggestionChip
+                            mode="change"
+                            linkedProductId={line.product_master_id}
+                            candidates={line.suggestions || []}
+                            source={line.suggestion_source || "local"}
+                            onApply={(c) => applySuggestion(i, c)}
+                          />
+                        )}
+
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
                             <ProductSuggestionChip
