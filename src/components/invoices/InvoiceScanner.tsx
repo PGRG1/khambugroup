@@ -163,6 +163,8 @@ interface ScannedInvoice {
 interface InvoiceScannerProps {
   suppliers: Supplier[];
   productMaster?: ProductMasterEntry[];
+  /** Called after a Quick Add so the parent can refetch the Product Master. */
+  onProductMasterChanged?: () => void | Promise<void>;
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
