@@ -9,14 +9,54 @@ interface Props {
   onAskAi?: () => void;
   aiLoading?: boolean;
   source?: "local" | "ai";
+  /** Linked lines: render as a compact "Change match" override picker. */
+  mode?: "suggest" | "change";
+  /** Product master id currently linked, so it can be excluded from the list. */
+  linkedProductId?: string | null;
 }
 
 /**
  * "Did you mean …?" inline chip shown under an unmatched invoice line.
  * Purely a suggestion — nothing is linked until the user presses Apply.
  */
-export default function ProductSuggestionChip({ candidates, onApply, onAskAi, aiLoading, source = "local" }: Props) {
+export default function ProductSuggestionChip({ candidates, onApply, onAskAi, aiLoading, source = "local", mode = "suggest", linkedProductId }: Props) {
   const [expanded, setExpanded] = useState(false);
+
+  if (mode === "change") {
+    const others = candidates.filter((c) => c.entry.id !== linkedProductId);
+    if (!others.length) return null;
+    const labelOf = (c: FuzzyCandidate) =>
+      c.entry.supplier_product_name || c.entry.internal_product_name || c.entry.internal_sku;
+    return (
+      <div className="mt-1 space-y-1">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          title="Pick a different product from the other candidates"
+        >
+          <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          Change match ({others.length})
+        </button>
+        {expanded && (
+          <div className="flex flex-wrap gap-1">
+            {others.map((c, idx) => (
+              <Button
+                key={idx}
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[11px]"
+                title={c.reasons.join(", ")}
+                onClick={() => onApply(c)}
+              >
+                {labelOf(c)} <span className="ml-1 font-mono opacity-60">{Math.round(c.rawNameScore * 100)}%</span>
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!candidates.length) {
     if (!onAskAi) return null;
@@ -32,6 +72,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
       </button>
     );
   }
+
 
   const top = candidates[0];
   const rest = candidates.slice(1);
