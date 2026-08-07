@@ -2150,7 +2150,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+                        {line.unmatched && (line.description || "").trim() && (
+                          <ProductSuggestionChip
+                            candidates={line.suggestions || []}
+                            source={line.suggestion_source || "local"}
+                            onApply={(c) => applySuggestion(i, c)}
+                            onAskAi={() => askAiForLine(i)}
+                            aiLoading={aiMatchingIdx === i || aiMatchingAll}
+                          />
+                        )}
+                        {line.auto_matched && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Auto-matched{line.auto_match_score != null ? ` (${Math.round(line.auto_match_score * 100)}%)` : ""} — change above if wrong
+                          </div>
+                        )}
                       </td>
+
 
 
                       {/* Purchase UOM - read-only from PM */}
