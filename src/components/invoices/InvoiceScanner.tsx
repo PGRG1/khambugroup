@@ -2022,8 +2022,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             );
           })()}
 
-
-
+          {/* Blocking issues — always visible, never hidden behind a dialog */}
+          <BlockingBanner
+            issues={collectBlockingIssues(current as any)}
+            onDismissHeader={dismissHeaderBlocking}
+            onGoToLine={goToLine}
+          />
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
