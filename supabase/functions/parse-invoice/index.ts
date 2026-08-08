@@ -577,6 +577,12 @@ If these look wrong, raise a flag — severity "warning" for small/rounding diff
 MATH CHECKS (flags only):
 - per line: |qty * unit_price - discount - total| > 0.05 -> warning; > 1.00 -> blocking
 - sum of line totals vs invoice total: diff > 1.00 -> warning; > 5.00 -> blocking
+- EXCEPTION: if your own recomputation from unit prices and quantities AGREES with the printed
+  invoice total (within 1.00), the invoice reconciles. Any remaining discrepancy is only in the
+  printed per-line totals, so raise it as a "warning" that names the affected lines — never
+  "blocking". Do not emit a blocking flag whose message concludes that the totals match.
+- Keep math flag messages to one short sentence naming the field and the amounts. Do not paste
+  your arithmetic working into the message.
 
 MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
 
