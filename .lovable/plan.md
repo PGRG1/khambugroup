@@ -208,7 +208,16 @@ I agree with your instinct, with one addition.
 - Supplier resolution: `KWAN FUNG LIMITED` / `Kwan Fung Co.` → same supplier; `JEBSEN - BEER DEPT` via seeded alias → Jebsen Beverage; unknown name → unresolved, no line matching attempted.
 - `beef`/`beer` short-token case does **not** pass the relaxed gate.
 
+Price tests:
+
+- `selectProduct` with an entry carrying `supplier_entry_id` → the id lands on the line; picking an entry without one → the id is nulled, not inherited from the previous pick.
+- `applySuggestion`, Quick Add and bulk Quick Add all produce a line with the correct `supplier_entry_id`.
+- `handleUpdateMaster` with no `supplier_entry_id` → **no write at all**, error toast; with one → writes `product_suppliers` only, `product_master.purchase_unit_cost` untouched.
+- Two suppliers carry BR-0011 at different prices; an invoice from supplier A linked to A's entry compares against A's price. A line linked cross-supplier → `pm_unit_price` undefined, no `price_changed`, no "PM: $x", no Update-master button.
+- Saving an accepted line appends exactly one `product_supplier_price_history` row with the right `supplier_entry_id`, cost and source; Update-master appends one with `source = 'master_edit'`.
+
 ## Part 3 — What I think is wrong or unsupported
+
 
 - **BR number and bank account are not available.** Neither the `suppliers` table nor `parse-invoice` has them. Realistic hardening evidence today is: account number (needs a parser change), phone, address, and remembered aliases. I'd lean on aliases and drop BR from scope 1.
 - **`suppliers` already contains duplicates** (`Sze Wo Chaan` appears twice). Introducing `supplier_id` as the identity makes de-duplication a prerequisite, not a follow-up. This is a small manual data task that belongs in this work.
