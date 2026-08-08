@@ -64,7 +64,39 @@ export interface InvoiceForReview {
   line_items: LineForReview[];
 }
 
+/* ───────────────── Shared flag classifier (single source of truth) ────────── */
+
+export type FlagCard = "header" | "supplier" | "math" | "item" | "other";
+
+const CARD_FIELDS: Record<Exclude<FlagCard, "other" | "item">, string[]> = {
+  header: ["invoice_number", "invoice_date", "due_date", "venue"],
+  supplier: ["supplier_name", "supplier_id", "supplier"],
+  math: ["total_amount", "subtotal", "line_totals", "totals", "tax", "discount", "amount"],
+};
+
+/** Messages are stored as "<field>: <message>". Returns the leading field, or "". */
+export function flagField(msg: string): string {
+  const m = /^([a-z0-9_]+):/i.exec(msg.trim());
+  return m ? m[1].toLowerCase() : "";
+}
+
+/** Which check card a header-level flag belongs to. Unrecognised fields => "other". */
+export function classifyFlag(msg: string): FlagCard {
+  const f = flagField(msg);
+  if (!f) return "other";
+  for (const card of ["header", "supplier", "math"] as const) {
+    if (CARD_FIELDS[card].includes(f)) return card;
+  }
+  return "other";
+}
+
+export function flagMessageText(msg: string): string {
+  const f = flagField(msg);
+  return f ? msg.slice(f.length + 1).trim() : msg.trim();
+}
+
 /* ─────────────────────────── Aggregate stats helper ───────────────────────── */
+
 
 export interface ReviewStats {
   totalLines: number;
