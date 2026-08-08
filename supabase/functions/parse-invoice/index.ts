@@ -585,6 +585,8 @@ MATH CHECKS (flags only):
   your arithmetic working into the message.
 
 MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
+DUE DATE IS OPTIONAL: many invoices print no due date, and that is normal. Never emit a blocking flag for due_date — if it is missing, unreadable, or uncertain, either omit the flag or use severity "warning". Still return its header_check (informational) and correct a misread printed due date.
+
 
 ITEMS MASTER STATUS — exactly ONE per line:
 - "matched": ONLY when the invoice item_code exactly matches an Items Master ExtSKU for the same supplier, OR there is an exact supplier product name match for the same supplier. Return matched_sku and confidence >= 0.90.
