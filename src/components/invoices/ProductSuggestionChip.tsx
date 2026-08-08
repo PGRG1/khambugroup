@@ -49,7 +49,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
                 title={c.reasons.join(", ")}
                 onClick={() => onApply(c)}
               >
-                {labelOf(c)} <span className="ml-1 font-mono opacity-60">{Math.round(c.rawNameScore * 100)}%</span>
+                {labelOf(c)} <span className="ml-1 font-mono opacity-60">{Math.round((c.confidence ?? c.rawNameScore) * 100)}%</span>
               </Button>
             ))}
           </div>
