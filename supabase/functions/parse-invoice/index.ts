@@ -585,6 +585,8 @@ MATH CHECKS (flags only):
   your arithmetic working into the message.
 
 MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
+DUE DATE IS OPTIONAL: many invoices print no due date, and that is normal. Never emit a blocking flag for due_date — if it is missing, unreadable, or uncertain, either omit the flag or use severity "warning". Still return its header_check (informational) and correct a misread printed due date.
+
 
 ITEMS MASTER STATUS — exactly ONE per line:
 - "matched": ONLY when the invoice item_code exactly matches an Items Master ExtSKU for the same supplier, OR there is an exact supplier product name match for the same supplier. Return matched_sku and confidence >= 0.90.
@@ -862,6 +864,32 @@ Return ONLY by calling the report_review function.`;
         });
       });
     }
+
+    // Only these header fields may ever block. Anything else (notably the optional
+    // due_date) is downgraded to a warning so it stays visible without gating approval.
+    const BLOCKING_HEADER_FIELDS = new Set([
+      "supplier_name",
+      "invoice_number",
+      "invoice_date",
+      "venue",
+      "total_amount",
+      "subtotal",
+      "tax",
+      "discount",
+      "amount",
+      "line_totals",
+      "totals",
+    ]);
+    if (review && Array.isArray(review.header_flags)) {
+      for (const f of review.header_flags) {
+        const field = String(f?.field || "").toLowerCase();
+        if (f?.severity === "blocking" && !BLOCKING_HEADER_FIELDS.has(field)) {
+          f.severity = "warning";
+        }
+      }
+    }
+
+
 
     return new Response(
       JSON.stringify({ success: true, data: { invoices: invoicesArray, review } }),
