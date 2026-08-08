@@ -269,6 +269,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
+  const [highlightLineIdx, setHighlightLineIdx] = useState<number | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
