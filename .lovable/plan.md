@@ -20,10 +20,20 @@ Two confirmed problems:
 ### 1. Show the real confidence
 The chip shows the name-agreement score (scored against the original scanned text), not the boosted ranking score. Bonuses continue to order candidates; they never inflate the displayed percentage.
 
-### 2. Raise the bar for showing anything
+### 2. Qualifier words are part of the product identity
+
+Confirmed in the code: nothing anywhere treats "EMPTY" (or RETURN, DEPOSIT, FULL, SAMPLE, FOC) as meaningful, and keg/bottle/case are in the stopword list. So "STELLA ARTOIS - 30L KEG (B) - EMPTY KEG" scores as if it read "Stella Artois 30L", which is why the ordinary Stella keg is offered even though the correct empty-keg product exists in the master.
+
+- Qualifier words become a hard attribute of the line, extracted from the scanned text: empty / return / deposit vs full / normal.
+- A candidate with a different qualifier is a **conflict**: it cannot auto-link and cannot be the "did you mean" suggestion — same class of block as a size conflict, reason shown as "empty/return item".
+- A candidate carrying the same qualifier is preferred over the plain product, so the empty-keg master entry ranks first for this line.
+- The same rule applies to the exact-code path, so a supplier SKU shared between the full and empty variants cannot link to the wrong one.
+
+### 3. Raise the bar for showing anything
 - A suggestion appears only when name agreement clears a meaningful floor, and only when at least one distinctive token is shared with the scanned line (brand or head noun) — shared generic words like keg, bottle, case, ml, or the supplier's own name are not evidence.
 - Lines with no plausible candidate stay **empty** — no chip, no "did you mean", just the unmatched state with Quick Add and manual search. Empty is the correct answer far more often than a bad guess.
-- Non-product lines (delivery charge, deposit, discount, rounding) are recognised and never get product suggestions.
+- Non-product lines (delivery charge, discount, rounding) are recognised and never get product suggestions.
+
 
 ### 3. Gate the AI fallback
 - The AI's answer is re-scored locally against the scanned text before it is displayed. If it fails the same distinctive-token and floor checks the local matcher uses, it is discarded and the line stays empty.
