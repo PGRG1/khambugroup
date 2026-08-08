@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
-import { scoreCandidates, classifyCandidates, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
+import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
@@ -1041,7 +1041,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
               { itemCode: scannedCode, description: scannedDesc },
               productMaster || [],
               copy[currentIdx].supplier_name,
-            ).slice(0, FUZZY.MAX_SUGGESTIONS);
+            ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
       // Directly set all fields from the selected product — no re-resolution
       lines[i] = {
         ...currentLine,
@@ -1185,6 +1185,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         const copy = [...prev];
         const lines = [...copy[currentIdx].line_items];
         let hits = 0;
+        let rejected = 0;
         results.forEach((r, batchIdx) => {
           if (!r) return;
           const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
@@ -1194,20 +1195,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             productMaster.find((p) => p.id === s.product_master_id) ||
             productMaster.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
           if (!entry) return;
+
+          // Re-score the AI's answer locally against the scanned text. If it can't
+          // clear the same bar a local match must clear, discard it.
+          const line = lines[lineIdx];
+          const scannedText = (line as any).scanned_description || line.description || "";
+          const [rescored] = scoreCandidates(
+            { description: scannedText, itemCode: (line as any).scanned_item_code || line.item_code },
+            [entry as any],
+            supplierName,
+            1,
+          );
+          if (!rescored || !isSuggestable(rescored)) { rejected++; return; }
+
+          const aiConfidence = Number(r.confidence ?? s.confidence ?? 0);
           hits++;
           lines[lineIdx] = {
-            ...lines[lineIdx],
+            ...line,
             suggestions: [{
-              entry,
-              score: Number(r.confidence ?? s.confidence ?? 0.7),
-              rawNameScore: Number(r.confidence ?? s.confidence ?? 0.7),
-              reasons: [s.needs_review_reason || "AI match"],
-              blockingReasons: [s.needs_review_reason || "AI review required"],
+              ...rescored,
+              score: Math.min(rescored.score, aiConfidence > 0 ? Math.max(aiConfidence, rescored.rawNameScore) : rescored.score),
+              reasons: [s.needs_review_reason || "AI match", ...rescored.reasons],
+              blockingReasons: rescored.blockingReasons,
             }],
             suggestion_source: "ai",
           };
         });
-        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines." });
+        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines — they were left unmatched." });
+        else if (rejected > 0) toast({ title: `${hits} matched`, description: `${rejected} AI answer${rejected === 1 ? "" : "s"} didn't resemble the scanned line and ${rejected === 1 ? "was" : "were"} left unmatched.` });
         copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
         return copy;
       });

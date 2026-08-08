@@ -49,7 +49,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
                 title={c.reasons.join(", ")}
                 onClick={() => onApply(c)}
               >
-                {labelOf(c)} <span className="ml-1 font-mono opacity-60">{Math.round(c.rawNameScore * 100)}%</span>
+                {labelOf(c)} <span className="ml-1 font-mono opacity-60">{Math.round((c.confidence ?? c.rawNameScore) * 100)}%</span>
               </Button>
             ))}
           </div>
@@ -78,7 +78,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
   const rest = candidates.slice(1);
   const label = (c: FuzzyCandidate) =>
     c.entry.supplier_product_name || c.entry.internal_product_name || c.entry.internal_sku;
-  const confidence = (c: FuzzyCandidate) => c.rawNameScore;
+  const confidence = (c: FuzzyCandidate) => c.confidence ?? c.rawNameScore;
 
   return (
     <div className="mt-1 space-y-1">
