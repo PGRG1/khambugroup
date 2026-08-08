@@ -330,9 +330,16 @@ async function callAI(
     }),
   });
   if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    console.error(`AI gateway ${resp.status}: ${bodyText}`);
     if (resp.status === 429) throw new Error("rate_limited");
     if (resp.status === 402) throw new Error("payment_required");
-    throw new Error(`ai_gateway_${resp.status}`);
+    let detail = bodyText;
+    try {
+      const parsed = JSON.parse(bodyText);
+      detail = parsed?.message || parsed?.details || parsed?.error?.message || bodyText;
+    } catch { /* keep raw text */ }
+    throw new Error(`ai_gateway_${resp.status}: ${detail}`.slice(0, 500));
   }
   const j = await resp.json();
   const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
