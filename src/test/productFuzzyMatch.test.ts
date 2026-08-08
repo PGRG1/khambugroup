@@ -88,3 +88,48 @@ describe("classifyCandidates", () => {
     expect(result.action).toBe("suggest");
   });
 });
+
+describe("honest matching guards", () => {
+  const beers: PMEntry[] = [
+    pm({ internal_sku: "BR-0010", internal_product_name: "Stella Artois 30L Keg", supplier_product_name: "STELLA ARTOIS - 30L KEG", supplier: "Beer Co" }),
+    pm({ internal_sku: "BR-0011", internal_product_name: "Stella Artois 30L Keg - Empty Return", supplier_product_name: "STELLA ARTOIS 30L KEG EMPTY", supplier: "Beer Co" }),
+    pm({ internal_sku: "BR-0020", internal_product_name: "Hoegaarden 20L Keg", supplier_product_name: "HOEGAARDEN 20L KEG", supplier: "Beer Co" }),
+  ];
+
+  it("matches an empty keg line to the empty keg product, never the full one", () => {
+    const cands = scoreCandidates({ description: "STELLA ARTOIS - 30L KEG (B) - EMPTY KEG" }, beers, "Beer Co");
+    const { suggestions } = classifyCandidates(cands);
+    expect(suggestions[0]?.entry.internal_sku).toBe("BR-0011");
+    expect(suggestions.some((c) => c.entry.internal_sku === "BR-0010")).toBe(false);
+  });
+
+  it("never suggests the empty variant for a normal line", () => {
+    const cands = scoreCandidates({ description: "STELLA ARTOIS - 30L KEG" }, beers, "Beer Co");
+    const { suggestions } = classifyCandidates(cands);
+    expect(suggestions.some((c) => c.entry.internal_sku === "BR-0011")).toBe(false);
+  });
+
+  it("gives no suggestion for an unrelated product sharing only the supplier", () => {
+    const cands = scoreCandidates({ description: "MCCORMICK VODKA 100ml" }, beers, "Beer Co");
+    const { action, suggestions } = classifyCandidates(cands);
+    expect(suggestions).toHaveLength(0);
+    expect(action).toBe("ask_ai");
+  });
+
+  it("returns nothing for non-product charge lines", () => {
+    expect(scoreCandidates({ description: "Delivery Charge" }, beers, "Beer Co")).toHaveLength(0);
+    expect(scoreCandidates({ description: "Discount" }, beers, "Beer Co")).toHaveLength(0);
+  });
+
+  it("reports the honest name confidence, not the boosted ranking score", () => {
+    const [top] = scoreCandidates({ description: "HOEGAARDEN - 20L KEG Ref No. 6B15" }, beers, "Beer Co");
+    expect(top.entry.internal_sku).toBe("BR-0020");
+    expect(top.confidence).toBe(top.rawNameScore);
+    expect(top.confidence).toBeLessThanOrEqual(top.score);
+  });
+
+  it("still suggests genuine matches", () => {
+    const { suggestions } = classifyCandidates(scoreCandidates({ description: "Strawberry" }, products, "Fresh Co"));
+    expect(suggestions[0]?.entry.internal_sku).toBe("BER-0007");
+  });
+});
