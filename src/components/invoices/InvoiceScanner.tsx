@@ -1041,7 +1041,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
               { itemCode: scannedCode, description: scannedDesc },
               productMaster || [],
               copy[currentIdx].supplier_name,
-            ).slice(0, FUZZY.MAX_SUGGESTIONS);
+            ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
       // Directly set all fields from the selected product — no re-resolution
       lines[i] = {
         ...currentLine,
