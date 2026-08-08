@@ -64,7 +64,39 @@ export interface InvoiceForReview {
   line_items: LineForReview[];
 }
 
+/* ───────────────── Shared flag classifier (single source of truth) ────────── */
+
+export type FlagCard = "header" | "supplier" | "math" | "item" | "other";
+
+const CARD_FIELDS: Record<Exclude<FlagCard, "other" | "item">, string[]> = {
+  header: ["invoice_number", "invoice_date", "due_date", "venue"],
+  supplier: ["supplier_name", "supplier_id", "supplier"],
+  math: ["total_amount", "subtotal", "line_totals", "totals", "tax", "discount", "amount"],
+};
+
+/** Messages are stored as "<field>: <message>". Returns the leading field, or "". */
+export function flagField(msg: string): string {
+  const m = /^([a-z0-9_]+):/i.exec(msg.trim());
+  return m ? m[1].toLowerCase() : "";
+}
+
+/** Which check card a header-level flag belongs to. Unrecognised fields => "other". */
+export function classifyFlag(msg: string): FlagCard {
+  const f = flagField(msg);
+  if (!f) return "other";
+  for (const card of ["header", "supplier", "math"] as const) {
+    if (CARD_FIELDS[card].includes(f)) return card;
+  }
+  return "other";
+}
+
+export function flagMessageText(msg: string): string {
+  const f = flagField(msg);
+  return f ? msg.slice(f.length + 1).trim() : msg.trim();
+}
+
 /* ─────────────────────────── Aggregate stats helper ───────────────────────── */
+
 
 export interface ReviewStats {
   totalLines: number;
@@ -102,17 +134,20 @@ export function computeReviewStats(
   const newItems = lines.filter((l) => l.review_status === "new_item").length;
   const blockingLines = lines.filter((l) => (l.review_blocking?.length || 0) > 0).length;
 
-  // Header check: any header-level correction/warning/blocking on fields like invoice_number/invoice_date/due_date
+  // All header flags are routed through the shared classifier so a flag can never
+  // be counted by the save gate and ignored by every card.
+  const blockCards = (inv.review_blocking || []).map(classifyFlag);
+  const warnCards = (inv.review_warnings || []).map(classifyFlag);
+  const hasBlockOn = (c: FlagCard) => blockCards.includes(c);
+  const hasWarnOn = (c: FlagCard) => warnCards.includes(c);
+
+  // Header check
   const headerFields = ["invoice_number", "invoice_date", "due_date"];
   const headerCorrCount = (inv.review_corrections || []).filter((c) =>
     headerFields.some((f) => c.field?.toLowerCase().includes(f))
   ).length;
-  const headerHasBlock = (inv.review_blocking || []).some((m) =>
-    headerFields.some((f) => m.toLowerCase().startsWith(`${f}:`))
-  );
-  const headerHasWarn = (inv.review_warnings || []).some((m) =>
-    headerFields.some((f) => m.toLowerCase().startsWith(`${f}:`))
-  );
+  const headerHasBlock = hasBlockOn("header");
+  const headerHasWarn = hasWarnOn("header");
   const headerCheckStatus: ReviewStats["headerCheckStatus"] = headerHasBlock
     ? "blocking"
     : headerHasWarn
@@ -127,12 +162,8 @@ export function computeReviewStats(
     : "Passed";
 
   // Supplier check
-  const supplierHasBlock = (inv.review_blocking || []).some((m) =>
-    m.toLowerCase().startsWith("supplier_name:")
-  );
-  const supplierHasWarn = (inv.review_warnings || []).some((m) =>
-    m.toLowerCase().startsWith("supplier_name:")
-  );
+  const supplierHasBlock = hasBlockOn("supplier");
+  const supplierHasWarn = hasWarnOn("supplier");
   const supplierCorrCount = (inv.review_corrections || []).filter((c) =>
     c.field?.toLowerCase().includes("supplier")
   ).length;
@@ -149,9 +180,22 @@ export function computeReviewStats(
     ? "Auto-corrected"
     : "Passed";
 
-  // Math check
-  const mathCheckStatus: ReviewStats["mathCheckStatus"] = opts.totalMismatch ? "warning" : "passed";
-  const mathCheckMsg = opts.totalMismatch ? "Total mismatch" : "Passed";
+  // Math check — reads reviewer flags on totals as well as the arithmetic check.
+  const mathHasBlock = hasBlockOn("math");
+  const mathHasWarn = hasWarnOn("math");
+  const mathCheckStatus: ReviewStats["mathCheckStatus"] = mathHasBlock
+    ? "blocking"
+    : mathHasWarn || opts.totalMismatch
+    ? "warning"
+    : "passed";
+  const mathCheckMsg = mathHasBlock
+    ? "Blocking issue"
+    : opts.totalMismatch
+    ? "Total mismatch"
+    : mathHasWarn
+    ? "Review required"
+    : "Passed";
+
 
   // Item mapping
   const itemMappingStatus: ReviewStats["itemMappingStatus"] =
@@ -209,7 +253,111 @@ export function getLineStatus(line: LineForReview): {
   return { label: "—", variant: "review" };
 }
 
+/* ─────────────────── Always-visible blocking issues banner ─────────────────── */
+
+export interface BlockingIssue {
+  /** "header" flags are dismissible; "line" flags point at a row. */
+  scope: "header" | "line";
+  /** Index into review_blocking (header) or into line_items (line). */
+  index: number;
+  /** Index within that line's review_blocking array. */
+  msgIndex?: number;
+  lineLabel?: string;
+  field: string;
+  message: string;
+  raw: string;
+}
+
+export function collectBlockingIssues(inv: InvoiceForReview): BlockingIssue[] {
+  const out: BlockingIssue[] = [];
+  (inv.review_blocking || []).forEach((raw, i) => {
+    out.push({
+      scope: "header",
+      index: i,
+      field: flagField(raw),
+      message: flagMessageText(raw),
+      raw,
+    });
+  });
+  (inv.line_items || []).forEach((line, li) => {
+    (line.review_blocking || []).forEach((raw, mi) => {
+      out.push({
+        scope: "line",
+        index: li,
+        msgIndex: mi,
+        lineLabel: line.description || line.matched_internal_name || line.item_code || `Line ${li + 1}`,
+        field: flagField(raw),
+        message: flagMessageText(raw),
+        raw,
+      });
+    });
+  });
+  return out;
+}
+
+export function BlockingBanner({
+  issues,
+  onDismissHeader,
+  onGoToLine,
+}: {
+  issues: BlockingIssue[];
+  onDismissHeader?: (index: number) => void;
+  onGoToLine?: (lineIndex: number) => void;
+}) {
+  if (!issues.length) return null;
+  return (
+    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+        <XCircle className="h-4 w-4 shrink-0" />
+        {issues.length} blocking issue{issues.length > 1 ? "s" : ""} — approval is held until these are cleared
+      </div>
+      <ul className="space-y-1.5">
+        {issues.map((iss, i) => (
+          <li
+            key={`${iss.scope}-${iss.index}-${iss.msgIndex ?? 0}-${i}`}
+            className="flex items-start gap-2 rounded-md bg-background/60 border border-destructive/20 px-2.5 py-2"
+          >
+            <span className="text-[10px] uppercase tracking-wide font-medium text-destructive/80 shrink-0 mt-0.5 min-w-[68px]">
+              {iss.scope === "header" ? iss.field || "Header" : `Line ${iss.index + 1}`}
+            </span>
+            <span className="text-xs text-foreground/90 flex-1 break-words">
+              {iss.scope === "line" && iss.lineLabel && (
+                <span className="font-medium mr-1">{iss.lineLabel} —</span>
+              )}
+              {iss.message}
+            </span>
+            {iss.scope === "line" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] shrink-0"
+                onClick={() => onGoToLine?.(iss.index)}
+              >
+                Go to line
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] shrink-0"
+                onClick={() => onDismissHeader?.(iss.index)}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Dismiss
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-muted-foreground">
+        Dismissing a header finding acknowledges it — the message is recorded in the invoice notes for audit.
+      </p>
+    </div>
+  );
+}
+
 /* ─────────────────────────── Status / chip primitives ─────────────────────── */
+
 
 const chipBase =
   "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium border";

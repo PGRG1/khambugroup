@@ -7,6 +7,8 @@ import {
   CorrectionChip,
   LineStatusChip,
   ReviewDrawer,
+  BlockingBanner,
+  collectBlockingIssues,
   computeReviewStats,
   getLineStatus,
 } from "./InvoiceReviewPanels";
@@ -267,6 +269,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
+  const [highlightLineIdx, setHighlightLineIdx] = useState<number | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -880,6 +883,41 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       recheckDuplicate(targetIdx, value, inv?.supplier_id || "");
     }
   };
+
+  /**
+   * Acknowledge a header-level blocking finding. Works for any field prefix
+   * (including reviewer narratives with no recognised field), and records the
+   * dismissal in the invoice notes so the audit trail survives.
+   */
+  const dismissHeaderBlocking = (msgIndex: number) => {
+    const targetIdx = currentIdx;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const inv = copy[targetIdx];
+      if (!inv) return prev;
+      const list = inv.review_blocking || [];
+      const msg = list[msgIndex];
+      if (msg === undefined) return prev;
+      const stamp = new Date().toLocaleString();
+      const note = `[Flag acknowledged @ ${stamp}] ${msg}`;
+      copy[targetIdx] = {
+        ...inv,
+        review_blocking: list.filter((_, i) => i !== msgIndex),
+        notes: inv.notes ? `${inv.notes}\n${note}` : note,
+      };
+      return copy;
+    });
+    toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
+  };
+
+  const goToLine = (lineIdx: number) => {
+    setHighlightLineIdx(lineIdx);
+    requestAnimationFrame(() => {
+      document.getElementById(`inv-line-row-${lineIdx}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    window.setTimeout(() => setHighlightLineIdx((cur) => (cur === lineIdx ? null : cur)), 2500);
+  };
+
 
   const updateInvoiceStatus = (value: string) => {
     const targetIdx = currentIdx;
@@ -1984,8 +2022,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             );
           })()}
 
-
-
+          {/* Blocking issues — always visible, never hidden behind a dialog */}
+          <BlockingBanner
+            issues={collectBlockingIssues(current as any)}
+            onDismissHeader={dismissHeaderBlocking}
+            onGoToLine={goToLine}
+          />
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2222,9 +2264,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   return (
                     <tr
                       key={i}
+                      id={`inv-line-row-${i}`}
                       style={recvTint ? { backgroundColor: recvTint.bg, borderLeft: `3px solid ${recvTint.border}` } : undefined}
                       className={`border-b border-border/50 ${rowClass} ${dragSrcIdx === i ? "opacity-50" : ""} ${
-                        dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""
+                        highlightLineIdx === i ? "ring-2 ring-destructive/60" : ""
+                      } ${dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""}
                       } ${dragOverIdx === i && dragOverPos === "below" ? "border-b-2 border-b-primary" : ""}`}
                       onDragOver={(e) => {
                         if (dragSrcIdx === null) return;
