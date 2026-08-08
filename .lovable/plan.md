@@ -132,6 +132,71 @@ Both get the standard GRANT + tenant RLS block. One entry can hold many aliases 
 3. Lines then match inside scope. Accepting a suggestion writes a product-supplier alias.
 4. A cross-supplier hit shows the amber "add under this supplier" chip instead of a match chip.
 
+## Part 2b — Price: three related problems (verified)
+
+### P1. Price flagging inherits the supplier-scoping bug — confirmed
+
+- `linkEntryToLine` (line 421) takes `entry.purchase_unit_cost` as `pmPrice` and derives `price_changed`, `pm_unit_price`, `master_price` from it.
+- The resolved branch of `flagLineItemIssues` (line 576) does the same with `resolved.purchase_unit_cost`.
+- `selectProduct` (line 1033) does the same with `product.purchase_unit_cost`.
+
+None of these check that the entry belongs to the invoice's supplier. The exact resolver is supplier-scoped so its result is safe; the fuzzy path is not, so an auto-link or applied suggestion can pull a **different supplier's** price in as the baseline. The "PM: $x" hint under Purchase Cost (line 2506) and the `Master: $x` line (line 2567) then present that as this item's agreed price. It never errors — it just reads as a price change. The data makes this plausible in practice: 84 products carry more than one supplier entry and **73 of those have differing prices between suppliers**.
+
+Plan:
+
+- The price baseline comes from the **scoped supplier entry only**. `pmPrice` is read from the entry whose `supplier_id` equals the resolved invoice supplier — never from any other row, and never from `product_master.purchase_unit_cost` as a fallback.
+- If a line is linked through any path where the entry's supplier is not the invoice supplier, `pm_unit_price` / `master_price` are left **undefined** and no comparison, no `price_changed` flag, no "PM: $x" hint and no Update-master button is shown. Absence of a comparison beats a misleading one.
+- With Stage 3 in place this state should be rare — a cross-supplier hit becomes an "add under this supplier" action, and once the alias row exists the price baseline is that new entry's own price (initially the invoice price).
+
+### P2. `supplier_entry_id` is never set on the manual-pick path — confirmed, live data bug
+
+`selectProduct` (lines 1027-1078) spreads `...currentLine` and sets `product_master_id`, but **never sets `supplier_entry_id`** — unlike `linkEntryToLine` (line 446) and the resolved branch (line 603). It therefore stays null, or worse, stale from a previous link. `applySuggestion` (line 1087) is a thin wrapper over `selectProduct`, and Quick Add / bulk Quick Add route through it too. So the manual autocomplete pick, the accepted suggestion and the Quick Add flows all produce a linked line with no entry id.
+
+`handleUpdateMaster` (line 1311) prefers `product_suppliers` when `supplier_entry_id` is present and **falls back to updating `product_master.purchase_unit_cost`** when it is not. So on the most common path — pick manually, correct the price, press "Update master" — the write lands on the shared product row and changes the displayed price for every supplier carrying that internal SKU.
+
+Evidence that this has already happened: 14 multi-supplier products have a `product_master.purchase_unit_cost` that matches **none** of their supplier entries' prices. That is the signature of a shared-row write that bypassed the per-supplier rows. It is not conclusive on its own (a stale seeded value would look the same), so the plan is to list those 14 for the user to eyeball rather than auto-correct them.
+
+Fix (small, standalone):
+
+- `selectProduct` takes and sets `supplier_entry_id` from the chosen entry (`entry.supplier_entry_id ?? null`), and explicitly nulls it when the picked entry has none, so a stale id can never survive a re-pick.
+- `handleUpdateMaster` **refuses** to write when `supplier_entry_id` is absent: toast "This line isn't linked to a supplier-specific entry — link it to this supplier's item first". The silent `product_master` fallback is removed entirely.
+- Add the 14 suspect products to a one-off review list (report only, no automated write).
+
+### P3. No price history — proposed table
+
+Today each `product_suppliers` row holds one current cost and Update-master overwrites it, so cost drift and cross-supplier comparison are simply unanswerable.
+
+```sql
+create table public.product_supplier_price_history (
+  id uuid pk, tenant_id uuid not null,
+  supplier_entry_id uuid references product_suppliers(id) on delete cascade,
+  product_master_id uuid not null references product_master(id) on delete cascade,
+  supplier_id uuid references suppliers(id),
+  unit_cost numeric not null,
+  purchase_unit text,
+  effective_date date not null,
+  source text not null,            -- 'invoice_line' | 'master_edit' | 'import' | 'backfill'
+  source_invoice_line_id uuid references invoice_line_items(id) on delete set null,
+  created_by uuid, created_at timestamptz default now()
+);
+```
+
+Standard GRANT + tenant RLS. Written on every accepted invoice line at save time and on every master price change (including the Update-master action, which becomes: update the entry **and** append history).
+
+**Backfill.** Yes, from the 9,624 linked `invoice_line_items` rows — but only partially reliable, because `supplier_entry_id` was never populated on those rows. The join has to go invoice → supplier → product_master_id → the matching `product_suppliers` entry. For the 512 products with a single supplier entry that is unambiguous. For the 84 multi-supplier products the correct entry can usually be inferred from the invoice's supplier, but where the invoice's supplier has no entry for that product the row is genuinely ambiguous. Recommendation: backfill only where the invoice supplier resolves to exactly one entry, mark those rows `source = 'backfill'`, and leave the rest out rather than guessing. A partial history is useful; a wrong one poisons the drift chart.
+
+**What it unlocks:** per-supplier cost drift over time (sparkline on the line item and on the product page); cross-supplier comparison for one internal SKU ("Beverage World charges 12% more than Jebsen for BR-0011"); and an audit trail for who changed a master price and why — none of which the single-value schema can answer.
+
+**Should "price changed" compare against history?** Eventually yes, but not as the first move. Recommendation: keep the current-price comparison as the primary flag (it is what the buyer agreed), and add a second, softer signal — "up 8% vs the last 3 invoices from this supplier" — driven by history. A pure history-based flag would fire on every legitimate agreed increase and would be noisy on seasonal produce, which is a large share of this catalogue.
+
+## Sequencing
+
+I agree with your instinct, with one addition.
+
+1. **P2 first, standalone.** It is a two-function fix, has no dependency on supplier identity, and it is actively corrupting shared prices today. Ship on its own with tests.
+2. **P1 with the supplier-first rework.** It cannot be properly fixed before scoping exists — "the scoped supplier entry" has no meaning until Stage 2 does. The one part that can go early with P2 is suppressing the comparison when the linked entry's supplier text does not match the invoice supplier; that is a cheap guard using the existing text comparison and I would include it in step 1.
+3. **P3 with or just after the supplier work.** The table itself is independent, but the backfill quality depends on supplier identity being resolved, and the write path depends on P2 (a line with no `supplier_entry_id` cannot write a meaningful history row). Create the table and start writing new rows in the same release as the supplier work; run the backfill after.
+
 ### Regression tests (`src/test/`)
 
 - `HOEGARDEN 20L` in Jebsen scope → suggests BR-0011 (currently: nothing). Out of scope → still nothing.
@@ -143,10 +208,21 @@ Both get the standard GRANT + tenant RLS block. One entry can hold many aliases 
 - Supplier resolution: `KWAN FUNG LIMITED` / `Kwan Fung Co.` → same supplier; `JEBSEN - BEER DEPT` via seeded alias → Jebsen Beverage; unknown name → unresolved, no line matching attempted.
 - `beef`/`beer` short-token case does **not** pass the relaxed gate.
 
+Price tests:
+
+- `selectProduct` with an entry carrying `supplier_entry_id` → the id lands on the line; picking an entry without one → the id is nulled, not inherited from the previous pick.
+- `applySuggestion`, Quick Add and bulk Quick Add all produce a line with the correct `supplier_entry_id`.
+- `handleUpdateMaster` with no `supplier_entry_id` → **no write at all**, error toast; with one → writes `product_suppliers` only, `product_master.purchase_unit_cost` untouched.
+- Two suppliers carry BR-0011 at different prices; an invoice from supplier A linked to A's entry compares against A's price. A line linked cross-supplier → `pm_unit_price` undefined, no `price_changed`, no "PM: $x", no Update-master button.
+- Saving an accepted line appends exactly one `product_supplier_price_history` row with the right `supplier_entry_id`, cost and source; Update-master appends one with `source = 'master_edit'`.
+
 ## Part 3 — What I think is wrong or unsupported
+
 
 - **BR number and bank account are not available.** Neither the `suppliers` table nor `parse-invoice` has them. Realistic hardening evidence today is: account number (needs a parser change), phone, address, and remembered aliases. I'd lean on aliases and drop BR from scope 1.
 - **`suppliers` already contains duplicates** (`Sze Wo Chaan` appears twice). Introducing `supplier_id` as the identity makes de-duplication a prerequisite, not a follow-up. This is a small manual data task that belongs in this work.
 - **Blocking all line matching behind supplier confirmation adds a click to every scan**, including the 90% that resolve exactly. Worth it only because a silent wrong supplier is currently invisible — but the confident path must stay zero-click.
 - **Relaxing to 0.80 auto-link is the risky part of this plan.** With 138 rows in the largest supplier, and beverage catalogues full of near-identical variants (same brand, four pack sizes), I would rather ship the relaxed *suggestion* threshold first and keep auto-link at 0.92 until the replay against the 9,624 accepted historic lines proves 0.80 is clean.
 - **`supplier_item_mappings` should be dropped** or explicitly declared dead — leaving an empty, similarly-named table next to the new alias tables will cause confusion.
+- **On the price items, you were right on all three.** One nuance: `product_master.purchase_unit_cost` being wrong on 14 multi-supplier products is strong but not conclusive evidence of the fallback write — I'd surface the list rather than mass-correct it.
+- **Removing the `product_master` write fallback is a behaviour change users will notice.** Some lines legitimately have no supplier entry (Quick Add drafts). The remedy is to create the supplier entry as part of Quick Add, not to keep the shared-row write.
