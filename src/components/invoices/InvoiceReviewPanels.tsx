@@ -134,17 +134,20 @@ export function computeReviewStats(
   const newItems = lines.filter((l) => l.review_status === "new_item").length;
   const blockingLines = lines.filter((l) => (l.review_blocking?.length || 0) > 0).length;
 
-  // Header check: any header-level correction/warning/blocking on fields like invoice_number/invoice_date/due_date
+  // All header flags are routed through the shared classifier so a flag can never
+  // be counted by the save gate and ignored by every card.
+  const blockCards = (inv.review_blocking || []).map(classifyFlag);
+  const warnCards = (inv.review_warnings || []).map(classifyFlag);
+  const hasBlockOn = (c: FlagCard) => blockCards.includes(c);
+  const hasWarnOn = (c: FlagCard) => warnCards.includes(c);
+
+  // Header check
   const headerFields = ["invoice_number", "invoice_date", "due_date"];
   const headerCorrCount = (inv.review_corrections || []).filter((c) =>
     headerFields.some((f) => c.field?.toLowerCase().includes(f))
   ).length;
-  const headerHasBlock = (inv.review_blocking || []).some((m) =>
-    headerFields.some((f) => m.toLowerCase().startsWith(`${f}:`))
-  );
-  const headerHasWarn = (inv.review_warnings || []).some((m) =>
-    headerFields.some((f) => m.toLowerCase().startsWith(`${f}:`))
-  );
+  const headerHasBlock = hasBlockOn("header");
+  const headerHasWarn = hasWarnOn("header");
   const headerCheckStatus: ReviewStats["headerCheckStatus"] = headerHasBlock
     ? "blocking"
     : headerHasWarn
@@ -159,12 +162,8 @@ export function computeReviewStats(
     : "Passed";
 
   // Supplier check
-  const supplierHasBlock = (inv.review_blocking || []).some((m) =>
-    m.toLowerCase().startsWith("supplier_name:")
-  );
-  const supplierHasWarn = (inv.review_warnings || []).some((m) =>
-    m.toLowerCase().startsWith("supplier_name:")
-  );
+  const supplierHasBlock = hasBlockOn("supplier");
+  const supplierHasWarn = hasWarnOn("supplier");
   const supplierCorrCount = (inv.review_corrections || []).filter((c) =>
     c.field?.toLowerCase().includes("supplier")
   ).length;
@@ -181,9 +180,22 @@ export function computeReviewStats(
     ? "Auto-corrected"
     : "Passed";
 
-  // Math check
-  const mathCheckStatus: ReviewStats["mathCheckStatus"] = opts.totalMismatch ? "warning" : "passed";
-  const mathCheckMsg = opts.totalMismatch ? "Total mismatch" : "Passed";
+  // Math check — reads reviewer flags on totals as well as the arithmetic check.
+  const mathHasBlock = hasBlockOn("math");
+  const mathHasWarn = hasWarnOn("math");
+  const mathCheckStatus: ReviewStats["mathCheckStatus"] = mathHasBlock
+    ? "blocking"
+    : mathHasWarn || opts.totalMismatch
+    ? "warning"
+    : "passed";
+  const mathCheckMsg = mathHasBlock
+    ? "Blocking issue"
+    : opts.totalMismatch
+    ? "Total mismatch"
+    : mathHasWarn
+    ? "Review required"
+    : "Passed";
+
 
   // Item mapping
   const itemMappingStatus: ReviewStats["itemMappingStatus"] =
