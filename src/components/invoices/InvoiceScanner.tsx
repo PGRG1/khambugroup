@@ -7,6 +7,8 @@ import {
   CorrectionChip,
   LineStatusChip,
   ReviewDrawer,
+  BlockingBanner,
+  collectBlockingIssues,
   computeReviewStats,
   getLineStatus,
 } from "./InvoiceReviewPanels";
@@ -2222,9 +2224,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   return (
                     <tr
                       key={i}
+                      id={`inv-line-row-${i}`}
                       style={recvTint ? { backgroundColor: recvTint.bg, borderLeft: `3px solid ${recvTint.border}` } : undefined}
                       className={`border-b border-border/50 ${rowClass} ${dragSrcIdx === i ? "opacity-50" : ""} ${
-                        dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""
+                        highlightLineIdx === i ? "ring-2 ring-destructive/60" : ""
+                      } ${dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""}
                       } ${dragOverIdx === i && dragOverPos === "below" ? "border-b-2 border-b-primary" : ""}`}
                       onDragOver={(e) => {
                         if (dragSrcIdx === null) return;
