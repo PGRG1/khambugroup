@@ -35,21 +35,21 @@ Confirmed in the code: nothing anywhere treats "EMPTY" (or RETURN, DEPOSIT, FULL
 - Non-product lines (delivery charge, discount, rounding) are recognised and never get product suggestions.
 
 
-### 3. Gate the AI fallback
+### 4. Gate the AI fallback
 - The AI's answer is re-scored locally against the scanned text before it is displayed. If it fails the same distinctive-token and floor checks the local matcher uses, it is discarded and the line stays empty.
 - Drop the 0.7 default: an AI answer with no stated confidence is treated as low confidence, not as a good match.
 - AI suggestions are labelled as AI and always require an explicit Apply — unchanged.
 - "Resolve all with AI" reports how many lines it left alone rather than filling every row.
 
-### 4. Make the reason visible
+### 5. Make the reason visible
 Where a candidate exists but is held back, the chip states why in plain words: "size differs", "different brand", "close alternatives", "weak name match". No silent hiding.
 
-### 5. Regression coverage
-Extend the matching tests with the failing categories: unrelated products sharing only a supplier or a generic word, non-product charge lines, and AI answers unrelated to the line — all must yield no suggestion. Existing correct matches (Strawberry, Aus Lime, Hoegaarden) must still be suggested, with their honest percentage.
+### 6. Regression coverage
+Extend the matching tests with the failing categories: unrelated products sharing only a supplier or a generic word, non-product charge lines, AI answers unrelated to the line, and empty/return keg lines whose full-product twin exists — all must yield no suggestion. Existing correct matches (Strawberry, Aus Lime, Hoegaarden) must still be suggested, with their honest percentage.
 
 ## Technical notes
 
-- `src/utils/productFuzzyMatch.ts`: split displayed confidence from ranking score; add distinctive-token evidence requirement (drop generic/unit/supplier tokens before deciding evidence exists); raise `SUGGEST` and expose the hold-back reason; add a non-product line detector.
+- `src/utils/productFuzzyMatch.ts`: split displayed confidence from ranking score; add distinctive-token evidence requirement (drop generic/unit/supplier tokens before deciding evidence exists); raise `SUGGEST` and expose the hold-back reason; add a non-product line detector; add qualifier extraction (empty/return/deposit vs full) as a blocking conflict and a ranking preference.
 - `src/components/invoices/InvoiceScanner.tsx`: in `askAiToMatch`, re-score each AI result with `scoreCandidates` against the scanned text and discard it unless it passes the suggest gate; remove the 0.7 confidence default; render the confidence field rather than `score`.
 - `src/components/invoices/ProductSuggestionChip.tsx`: display confidence plus hold-back reason; unchanged Apply / Change match behaviour.
 - `src/components/procurement/ProcurementInvoicesTab.tsx`: same gating for manually entered lines.
