@@ -863,6 +863,32 @@ Return ONLY by calling the report_review function.`;
       });
     }
 
+    // Only these header fields may ever block. Anything else (notably the optional
+    // due_date) is downgraded to a warning so it stays visible without gating approval.
+    const BLOCKING_HEADER_FIELDS = new Set([
+      "supplier_name",
+      "invoice_number",
+      "invoice_date",
+      "venue",
+      "total_amount",
+      "subtotal",
+      "tax",
+      "discount",
+      "amount",
+      "line_totals",
+      "totals",
+    ]);
+    if (review && Array.isArray(review.header_flags)) {
+      for (const f of review.header_flags) {
+        const field = String(f?.field || "").toLowerCase();
+        if (f?.severity === "blocking" && !BLOCKING_HEADER_FIELDS.has(field)) {
+          f.severity = "warning";
+        }
+      }
+    }
+
+
+
     return new Response(
       JSON.stringify({ success: true, data: { invoices: invoicesArray, review } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
