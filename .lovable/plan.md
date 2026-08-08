@@ -1,32 +1,27 @@
-# Allow Saving Invoices That Have Quantity Disputes
+# Stop Due Date From Randomly Blocking an Invoice
 
 ## Confirmed cause
-In the invoice editor (`src/components/procurement/ProcurementInvoicesTab.tsx`), the Save Changes button is disabled whenever any disputed line is missing a reason, or a line marked "other" is missing a note:
+Due date is an optional field, but nothing enforces that on the review path.
 
-```
-disabled={ saving || !supplier_id || !invoice_number || !invoice_date
-  || editDisputeStats.missingReason > 0
-  || editDisputeStats.missingNote > 0 }
-```
-
-That is why the button is greyed out in your screenshot even though the banner says "You can still save the invoice."
-
-A second effect force-sets the invoice status to `disputed` whenever any accepted quantity differs, overwriting a manual status choice (the same pattern already fixed in the scanner).
+- `supabase/functions/parse-invoice/index.ts:808-824` — the deterministic blocking checks cover `supplier_name`, `invoice_number`, `invoice_date`, `venue`, `total_amount`. `due_date` is correctly **not** in either list.
+- `parse-invoice/index.ts:557,601` — the reviewer prompt still asks Agent 2 to review `due_date` and to return a `header_check` for it, and it tells the model to raise blocking flags for header fields it cannot verify.
+- Result: whether `due_date` becomes a blocking `header_flag` depends entirely on the model's free-form judgement on that run. Same invoice, different run, different outcome — exactly the "sometimes it blocks, sometimes it doesn't" behaviour.
+- Client side (`InvoiceScanner.tsx:724`), any flag with `severity: "blocking"` lands in `review_blocking` and gates the approve button, regardless of which field it names.
 
 ## Changes
 
-1. **Unblock save**
-   - Remove `missingReason` / `missingNote` from the disabled condition. Save stays disabled only for the true requirements: supplier, invoice number, invoice date, and while saving.
+1. **Hard rule: due date can never block** (`supabase/functions/parse-invoice/index.ts`)
+   - After the reviewer output is normalised, downgrade any `header_flag` on `due_date` from `blocking` to `warning` instead of dropping it, so a genuinely misread due date is still surfaced.
+   - Apply the same downgrade to any other header field that is not in the required set, so one optional field can't silently become a gate again later.
 
-2. **Keep the reason prompt as a visible warning, not a blocker**
-   - Keep the amber banner and the red dot on lines missing a reason so the discrepancy is still obvious and can be followed up.
-   - Update the banner wording to state clearly that missing reasons will be saved as unspecified.
-   - Disputed lines without a reason save with `receiving_reason = null`, exactly as today's save path already handles.
+2. **Make the prompt match the rule**
+   - State explicitly that `due_date` is optional: an absent due date is normal and must never produce a blocking flag.
+   - Keep the `due_date` header_check request (useful for correcting a misread date) but mark its status as informational.
 
-3. **Respect a manually chosen status**
-   - Suggest `disputed` when a variance first appears, but do not overwrite the status after the user picks one manually.
-   - Reset that override tracking when a different invoice is opened for editing.
+3. **Verify**
+   - Re-scan an invoice with no printed due date and confirm no blocking issue appears.
+   - Re-scan an invoice with a printed due date and confirm it is still extracted and any mismatch shows as a warning, not a block.
 
 ## Technical scope
-- Single file: `src/components/procurement/ProcurementInvoicesTab.tsx` (button disabled condition, banner copy, status effect).
-- No change to totals, accepted-quantity math, line persistence, GRN sync, or database schema.
+- Single file: `supabase/functions/parse-invoice/index.ts` (severity normalisation + reviewer prompt wording).
+- No client changes, no schema changes, no change to invoice amounts, matching, or the required-field gates for supplier, invoice number, invoice date, venue, and total.
