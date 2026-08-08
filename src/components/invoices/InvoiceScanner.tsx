@@ -884,6 +884,41 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     }
   };
 
+  /**
+   * Acknowledge a header-level blocking finding. Works for any field prefix
+   * (including reviewer narratives with no recognised field), and records the
+   * dismissal in the invoice notes so the audit trail survives.
+   */
+  const dismissHeaderBlocking = (msgIndex: number) => {
+    const targetIdx = currentIdx;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const inv = copy[targetIdx];
+      if (!inv) return prev;
+      const list = inv.review_blocking || [];
+      const msg = list[msgIndex];
+      if (msg === undefined) return prev;
+      const stamp = new Date().toLocaleString();
+      const note = `[Flag acknowledged @ ${stamp}] ${msg}`;
+      copy[targetIdx] = {
+        ...inv,
+        review_blocking: list.filter((_, i) => i !== msgIndex),
+        notes: inv.notes ? `${inv.notes}\n${note}` : note,
+      };
+      return copy;
+    });
+    toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
+  };
+
+  const goToLine = (lineIdx: number) => {
+    setHighlightLineIdx(lineIdx);
+    requestAnimationFrame(() => {
+      document.getElementById(`inv-line-row-${lineIdx}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    window.setTimeout(() => setHighlightLineIdx((cur) => (cur === lineIdx ? null : cur)), 2500);
+  };
+
+
   const updateInvoiceStatus = (value: string) => {
     const targetIdx = currentIdx;
     setInvoices((prev) => {
