@@ -14,6 +14,8 @@ export const FUZZY = {
   AUTO_LINK: 0.92,
   /** At or above this we show a "Did you mean …?" suggestion. */
   SUGGEST: 0.6,
+  /** Name-only confidence required before anything is shown as a suggestion. */
+  SUGGEST_NAME: 0.55,
   /** Top-2 within this gap = ambiguous, worth asking the AI. */
   AMBIGUOUS_GAP: 0.08,
   /** Name evidence required before any ranking bonuses may auto-link. */
@@ -30,13 +32,26 @@ export interface FuzzyCandidate {
   score: number;
   /** Name-only confidence, before supplier / code / pack bonuses. */
   rawNameScore: number;
+  /** Honest confidence shown to the user (identical to rawNameScore). */
+  confidence: number;
   reasons: string[];
   blockingReasons: string[];
+  /** True when the candidate must never be offered (qualifier / no shared evidence). */
+  disqualified: boolean;
 }
 
 const STOPWORDS = new Set([
   "the", "a", "an", "of", "and", "with", "fresh", "pcs", "pc", "product",
   "bottle", "btl", "pack", "case", "box", "imported", "origin", "country",
+]);
+
+/** Words that carry no identifying evidence on their own. */
+const GENERIC_TOKENS = new Set([
+  ...STOPWORDS,
+  "keg", "kegs", "can", "cans", "tin", "carton", "ctn", "bag", "unit", "units",
+  "ref", "no", "item", "code", "each", "ea", "dz", "dozen", "set",
+  "empty", "return", "returns", "returned", "deposit", "refund", "full", "new",
+  "beer", "draught", "draft",
 ]);
 
 export const normalizeText = (v: string | undefined | null): string =>
@@ -75,6 +90,51 @@ const tokens = (v: string): string[] =>
     .split(" ")
     .filter((t) => t && !STOPWORDS.has(t))
     .map(stem);
+
+/**
+ * Tokens that actually identify a product: brand / head noun.
+ * Drops generic packaging words, qualifiers, pure numbers and size tokens.
+ */
+export const distinctiveTokens = (v: string, supplier?: string): Set<string> => {
+  const supplierWords = new Set(normalizeSupplier(supplier).split(" ").filter(Boolean).map(stem));
+  const out = new Set<string>();
+  normalizeText(v)
+    .split(" ")
+    .forEach((raw) => {
+      if (!raw) return;
+      if (/^\d/.test(raw)) return; // 30l, 330ml, 6b15, numbers
+      if (raw.length < 3 && !/[\u4e00-\u9fff]/.test(raw)) return;
+      const t = stem(raw);
+      if (GENERIC_TOKENS.has(t) || GENERIC_TOKENS.has(raw)) return;
+      if (supplierWords.has(t)) return;
+      out.add(t);
+    });
+  return out;
+};
+
+const sharesDistinctiveToken = (a: Set<string>, b: Set<string>): boolean => {
+  if (!a.size || !b.size) return false;
+  for (const t of a) if (b.has(t)) return true;
+  return false;
+};
+
+/** empty / returnable-container lines are a different product from the full one. */
+export type LineQualifier = "empty" | "standard";
+
+export const qualifierOf = (v: string): LineQualifier => {
+  const s = normalizeText(v);
+  if (!s) return "standard";
+  if (/\b(empty|empties|return|returns|returned|deposit|refund|collection)\b/.test(s)) return "empty";
+  return "standard";
+};
+
+/** Lines that are charges, not products — never suggest a product for these. */
+export const isNonProductLine = (v: string | undefined | null): boolean => {
+  const s = normalizeText(v);
+  if (!s) return false;
+  return /\b(delivery|freight|shipping|surcharge|fuel charge|service charge|handling|discount|rebate|rounding|adjustment|subtotal|total|vat|gst)\b/.test(s)
+    && !/\b(keg|bottle|can|case|box)\b/.test(s);
+};
 
 /** Dice coefficient over token sets. */
 const tokenDice = (a: string[], b: string[]): number => {
@@ -162,13 +222,17 @@ export function scoreCandidates(
   const desc = (line.description || "").trim();
   const code = (line.itemCode || "").trim();
   if (!desc && !code) return [];
+  if (isNonProductLine(desc)) return [];
 
   const lineSizes = sizeTokens(desc);
+  const lineQualifier = qualifierOf(desc);
+  const lineDistinct = distinctiveTokens(desc, invoiceSupplier);
 
   const scored: FuzzyCandidate[] = [];
   for (const p of products) {
     const reasons: string[] = [];
     const blockingReasons: string[] = [];
+    let disqualified = false;
     let rawNameScore = 0;
     let rankingScore = 0;
 
@@ -198,9 +262,33 @@ export function scoreCandidates(
 
     if (rankingScore <= 0) continue;
 
+    const candidateText = `${p.supplier_product_name || ""} ${p.internal_product_name || ""}`;
+
+    // Empty / return qualifier must agree — an empty keg is not the full product.
+    if (desc) {
+      const candQualifier = qualifierOf(candidateText);
+      if (candQualifier !== lineQualifier) {
+        rankingScore = Math.max(0, rankingScore - 0.3);
+        blockingReasons.push(lineQualifier === "empty" ? "empty/return item" : "empty/return variant");
+        disqualified = true;
+      } else if (lineQualifier === "empty") {
+        rankingScore = Math.min(1, rankingScore + 0.08);
+        reasons.push("empty/return variant matches");
+      }
+    }
+
+    // At least one distinctive (brand / head-noun) token must be shared.
+    if (desc && lineDistinct.size) {
+      const candDistinct = distinctiveTokens(candidateText, p.supplier);
+      if (!sharesDistinctiveToken(lineDistinct, candDistinct)) {
+        blockingReasons.push("different brand");
+        disqualified = true;
+      }
+    }
+
     // Size token agreement (125G vs 125g)
     if (lineSizes.length) {
-      const candSizes = sizeTokens(`${p.supplier_product_name || ""} ${p.internal_product_name || ""}`);
+      const candSizes = sizeTokens(candidateText);
       if (candSizes.length) {
         if (lineSizes.some((s) => candSizes.includes(s))) {
           rankingScore = Math.min(1, rankingScore + 0.06);
@@ -221,16 +309,22 @@ export function scoreCandidates(
       rankingScore = Math.max(0, rankingScore - 0.05);
     }
 
+    const raw = Math.round(rawNameScore * 1000) / 1000;
     scored.push({
       entry: p,
       score: Math.round(rankingScore * 1000) / 1000,
-      rawNameScore: Math.round(rawNameScore * 1000) / 1000,
+      rawNameScore: raw,
+      confidence: raw,
       reasons,
       blockingReasons,
+      disqualified,
     });
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => {
+    if (a.disqualified !== b.disqualified) return a.disqualified ? 1 : -1;
+    return b.score - a.score;
+  });
 
   // De-duplicate by supplier entry / product so the list shows distinct products
   const seen = new Set<string>();
@@ -252,17 +346,27 @@ export function classifyCandidates(candidates: FuzzyCandidate[]): {
   suggestions: FuzzyCandidate[];
   ambiguous: boolean;
 } {
-  const top = candidates[0] ?? null;
-  const second = candidates[1] ?? null;
-  const ambiguous = !!(top && second && top.score - second.score <= FUZZY.AMBIGUOUS_GAP);
-  const suggestions = candidates.slice(0, FUZZY.MAX_SUGGESTIONS);
+  const eligible = candidates.filter((c) => !c.disqualified);
+  const top = eligible[0] ?? candidates[0] ?? null;
+  const second = eligible[1] ?? null;
+  const ambiguous = !!(eligible[0] && second && eligible[0].score - second.score <= FUZZY.AMBIGUOUS_GAP);
 
-  if (!top || top.score < FUZZY.SUGGEST) return { action: "ask_ai", top, suggestions: [], ambiguous };
+  const best = eligible[0] ?? null;
+  if (!best || best.score < FUZZY.SUGGEST || best.rawNameScore < FUZZY.SUGGEST_NAME) {
+    return { action: "ask_ai", top, suggestions: [], ambiguous };
+  }
+
+  const suggestions = eligible.slice(0, FUZZY.MAX_SUGGESTIONS);
   if (
-    top.score >= FUZZY.AUTO_LINK &&
-    top.rawNameScore >= FUZZY.AUTO_LINK_NAME &&
-    top.blockingReasons.length === 0 &&
+    best.score >= FUZZY.AUTO_LINK &&
+    best.rawNameScore >= FUZZY.AUTO_LINK_NAME &&
+    best.blockingReasons.length === 0 &&
     !ambiguous
-  ) return { action: "auto_link", top, suggestions, ambiguous };
-  return { action: "suggest", top, suggestions, ambiguous };
+  ) return { action: "auto_link", top: best, suggestions, ambiguous };
+  return { action: "suggest", top: best, suggestions, ambiguous };
+}
+
+/** Is a candidate safe to show as a "did you mean?" suggestion at all? */
+export function isSuggestable(c: FuzzyCandidate | null | undefined): boolean {
+  return !!c && !c.disqualified && c.score >= FUZZY.SUGGEST && c.rawNameScore >= FUZZY.SUGGEST_NAME;
 }
