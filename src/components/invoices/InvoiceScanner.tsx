@@ -962,7 +962,66 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     recheckDuplicate(targetIdx, inv?.invoice_number || "", value);
   };
 
+  /**
+   * Drop reviewer flags on a line that describe an arithmetic mismatch which no
+   * longer exists after the user's edit. Without this, fixing the numbers leaves
+   * a permanently unclearable "blocking" flag on the invoice.
+   */
+  const pruneStaleLineFlags = (line: any) => {
+    const qty = parseFloat(line.quantity) || 0;
+    const price = parseFloat(line.unit_price) || 0;
+    const tax = parseFloat(line.tax_amount) || 0;
+    const dMode = normalizeDiscountMode(line.discount_mode);
+    const dRate = parseFloat(line.discount_rate || "0") || 0;
+    const dFixed = parseFloat(line.discount || "0") || 0;
+    const gross = qty * price;
+    const disc = dMode === "percentage"
+      ? Math.max(0, (gross * Math.max(0, Math.min(100, dRate))) / 100)
+      : Math.max(0, dFixed);
+    const expected = gross - disc + tax;
+    const actual = parseFloat(line.total) || 0;
+    const reconciled = Math.abs(expected - actual) <= 0.05;
+    if (!reconciled) return line;
+    const isMathFlag = (msg: string) => {
+      const m = msg.toLowerCase();
+      return m.includes("total does not match")
+        || m.includes("line total")
+        || m.includes("does not equal")
+        || m.includes("qty × price")
+        || m.includes("quantity * price")
+        || m.startsWith("line_total")
+        || m.startsWith("total:");
+    };
+    return {
+      ...line,
+      review_blocking: (line.review_blocking || []).filter((m: string) => !isMathFlag(m)),
+      review_warnings: (line.review_warnings || []).filter((m: string) => !isMathFlag(m)),
+    };
+  };
+
+  /** Acknowledge a line-level blocking finding (audit-noted, same as header). */
+  const dismissLineBlocking = (lineIdx: number, msgIndex: number) => {
+    const targetIdx = currentIdx;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const inv = copy[targetIdx];
+      if (!inv) return prev;
+      const lines = [...inv.line_items];
+      const line = lines[lineIdx];
+      if (!line) return prev;
+      const list = line.review_blocking || [];
+      const msg = list[msgIndex];
+      if (msg === undefined) return prev;
+      lines[lineIdx] = { ...line, review_blocking: list.filter((_, i) => i !== msgIndex) };
+      const note = `[Line ${lineIdx + 1} flag acknowledged @ ${new Date().toLocaleString()}] ${msg}`;
+      copy[targetIdx] = { ...inv, line_items: lines, notes: inv.notes ? `${inv.notes}\n${note}` : note };
+      return copy;
+    });
+    toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
+  };
+
   const updateLine = (i: number, field: string, value: string) => {
+
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
