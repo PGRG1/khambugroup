@@ -2405,35 +2405,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                       </td>
                       {/* Internal Product Name - read-only */}
                       <td className="px-1 py-1 align-top">
-                        {(() => {
-                          const hasHistory =
-                            !!line.product_master_id && (purchaseCounts[line.product_master_id] || 0) >= 2;
-                          return (
-                            <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground flex items-start gap-1">
-                              {hasHistory ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setHistoryLineIdx(i)}
-                                  className="text-left hover:underline"
-                                >
-                                  {line.matched_internal_name}
-                                </button>
-                              ) : (
-                                line.matched_internal_name || <span className="text-muted-foreground">—</span>
-                              )}
-                              {hasHistory && (
-                                <button
-                                  type="button"
-                                  aria-label="View price history"
-                                  onClick={() => setHistoryLineIdx(i)}
-                                  className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                  <History className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
+                          {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
+                        </div>
                         {line.matched_internal_name && line.scanned_description && linkedConflict && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>
                             <AlertTriangle className="h-3 w-3" /> {linkedConflict}
