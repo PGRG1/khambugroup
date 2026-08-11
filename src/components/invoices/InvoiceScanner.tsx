@@ -287,6 +287,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
+  const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
 
   // Load deals when the active supplier changes
   useEffect(() => {
