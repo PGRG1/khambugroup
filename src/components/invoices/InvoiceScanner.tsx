@@ -446,7 +446,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       matched_stock_qty_ratio: entry.stock_qty ?? 1,
       unmatched: false,
       sku_mismatch: false,
-      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
       pm_unit_price: masterPrice,
       product_master_id: entry.id,
       supplier_entry_id: (entry as any).supplier_entry_id ?? line.supplier_entry_id ?? null,
@@ -580,7 +580,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
       const scannedPrice = parseFloat(workingLine.unit_price) || 0;
       const pmPrice = resolved.purchase_unit_cost ?? 0;
-      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
+      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON;
 
       // Seed accepted_price from master if empty/not yet set
       const masterPrice = pmPrice > 0 ? pmPrice : undefined;
@@ -1160,7 +1160,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         matched_stock_qty_ratio: product.stock_qty ?? 1,
         unmatched: false,
         sku_mismatch: false,
-        price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+        price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
         product_master_id: product.id,
         master_price: pmPrice > 0 ? pmPrice : undefined,
@@ -1458,7 +1458,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         l.master_price = newPrice;
         l.pm_unit_price = newPrice;
         const invPrice = parseFloat(l.unit_price) || 0;
-        l.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+        l.price_changed = Math.abs(invPrice - newPrice) > PRICE_VARIANCE_EPSILON;
         lines[lineIdx] = l;
         copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
         return copy;
