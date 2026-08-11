@@ -286,6 +286,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const current = invoices[currentIdx] || null;
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [supplierError, setSupplierError] = useState(false);
+
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
 
