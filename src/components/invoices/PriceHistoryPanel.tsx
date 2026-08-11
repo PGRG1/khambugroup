@@ -66,19 +66,20 @@ export function useSupplierPurchaseCounts(
       return;
     }
     (async () => {
-      const { data, error } = await (supabase.from("invoice_line_items" as any) as any)
-        .select("product_master_id, invoices!inner(supplier_id)")
-        .eq("tenant_id", tenantId)
-        .eq("invoices.supplier_id", supplierId)
-        .in("product_master_id", ids)
-        .limit(2000);
-      if (cancelled || error || !data) return;
+      // Count-only queries — never fetch rows just to size them.
+      const results = await Promise.all(
+        ids.map(async (pid) => {
+          const { count, error } = await (supabase.from("invoice_line_items" as any) as any)
+            .select("id, invoices!inner(supplier_id)", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("product_master_id", pid)
+            .eq("invoices.supplier_id", supplierId);
+          return [pid, error ? 0 : count || 0] as const;
+        }),
+      );
+      if (cancelled) return;
       const next: Record<string, number> = {};
-      for (const row of data as any[]) {
-        const pid = row.product_master_id;
-        if (!pid) continue;
-        next[pid] = (next[pid] || 0) + 1;
-      }
+      for (const [pid, n] of results) next[pid] = n;
       setCounts(next);
     })();
     return () => {
