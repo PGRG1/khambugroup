@@ -1683,7 +1683,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
   const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
-    if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
+    if (!current.supplier_id) {
+      setSupplierError(true);
+      toast({ title: "Add a supplier before saving", description: "This invoice has no supplier set.", variant: "destructive" });
+      return;
+    }
+    setSupplierError(false);
+
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
     if (!opts.forceOverride && hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
