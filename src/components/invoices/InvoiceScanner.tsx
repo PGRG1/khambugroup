@@ -1105,7 +1105,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         lines[i] = flagged[0];
         // Re-link deal for newly-detected free unit
         if (lines[i].is_free_unit_line && lines[i].product_master_id) {
-          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id)?.id ?? null;
+          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id, inv.invoice_date)?.id ?? null;
         }
       } else {
         lines[i] = line;
@@ -2681,7 +2681,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
                             readOnly={line.is_free_unit_line}
                           />
-                          {line.is_free_unit_line && (
+                          {line.is_free_unit_line && line.deal_id && (
                             <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
                           )}
                           {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (

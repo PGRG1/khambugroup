@@ -50,6 +50,7 @@ export interface LineForReview {
   price_changed?: boolean;
   price_disputed?: boolean;
   is_free_unit_line?: boolean;
+  deal_id?: string | null;
   accepted_qty?: string;
   suggested_new_item?: any;
 }
@@ -229,7 +230,7 @@ export function getLineStatus(line: LineForReview): {
   variant: "matched" | "auto" | "warn" | "block" | "new" | "review" | "deal" | "dispute" | "qtyprice";
 } {
   if ((line.review_blocking?.length || 0) > 0) return { label: "Blocking Issue", variant: "block" };
-  if (line.is_free_unit_line) return { label: "Deal — free unit", variant: "deal" };
+  if (line.is_free_unit_line && line.deal_id) return { label: "Deal — free unit", variant: "deal" };
   if (line.review_status === "new_item") return { label: "New Item", variant: "new" };
 
   // Qty + price dispute combo
