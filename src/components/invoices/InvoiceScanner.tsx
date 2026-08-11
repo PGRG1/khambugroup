@@ -2454,10 +2454,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top" data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
-                          onChange={(v) => updateLine(i, "description", v)}
+                          onChange={(v) => {
+                            if (v.trim() === "" && line.product_master_id) {
+                              unlinkProduct(i);
+                            }
+                            updateLine(i, "description", v);
+                          }}
                           onSelect={(p) => selectProduct(i, p)}
                           products={supplierFilteredPM}
                           searchField="name"
@@ -2466,6 +2471,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+
                         {!line.unmatched && line.scanned_description &&
                           normalizeText(line.scanned_description) !== normalizeText(line.description) && (
                           <div
