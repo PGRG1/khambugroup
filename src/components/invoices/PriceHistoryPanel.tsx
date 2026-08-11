@@ -118,8 +118,11 @@ function useSupplierPriceHistory(
         .eq("tenant_id", tenantId)
         .eq("product_master_id", productMasterId)
         .eq("invoices.supplier_id", supplierId)
-        // Most recent first at the database level, so the limit keeps the right rows.
-        .order("invoice_date", { foreignTable: "invoices", ascending: false })
+        // Order the PARENT rows by the embedded invoice date. `foreignTable` only
+        // sorts rows *inside* an embed (a no-op for a to-one relation), so the
+        // spread-column syntax `invoices(invoice_date)` is required here.
+        .order("invoices(invoice_date)", { ascending: false })
+        .order("invoices(invoice_number)", { ascending: false })
         .limit(HISTORY_LIMIT);
       if (cancelled) return;
       if (error || !data) {
