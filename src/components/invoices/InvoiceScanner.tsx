@@ -1771,7 +1771,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   }, [invoices, currentIdx, createProduct, fetchProducts]);
 
   const handleSaveAll = async () => {
+    const noSupplier = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && !inv.supplier_id);
+    if (noSupplier.length > 0) {
+      if (!current?.supplier_id) setSupplierError(true);
+      toast({ title: "Add a supplier before saving", description: `${noSupplier.length} invoice(s) have no supplier set.`, variant: "destructive" });
+      return;
+    }
     // Check all unsaved invoices for unmatched items
+
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
     if (unmatchedInvoices.length > 0) {
       toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
