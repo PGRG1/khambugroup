@@ -53,6 +53,9 @@ import {
 import { Info, Sparkles } from "lucide-react";
 import QuickAddProductPopover from "./QuickAddProductPopover";
 import QuickAddBulkDialog from "./QuickAddBulkDialog";
+import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
+import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
+import { History } from "lucide-react";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
