@@ -466,7 +466,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
 
   const masterNum = masterPrice != null && Number.isFinite(masterPrice) ? Number(masterPrice) : null;
   const variesFromMaster = masterNum != null && Math.abs(currentUnitCost - masterNum) > PRICE_VARIANCE_EPSILON;
-  const changeVaries = lastPrice != null && Math.abs(currentUnitCost - lastPrice) > PRICE_VARIANCE_EPSILON;
+  const changeVaries = lastPrice != null && pctVaries(lastPrice, currentUnitCost);
 
   const openDrill = useCallback((invoiceId: string) => {
     savedScroll.current = scrollRef.current?.scrollTop || 0;
