@@ -3214,6 +3214,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {historyLineIdx !== null && current?.line_items[historyLineIdx] && (() => {
+        const hLine = current.line_items[historyLineIdx];
+        const hMaster = hLine.master_price ?? hLine.pm_unit_price ?? null;
+        const hPrice = parseFloat(hLine.accepted_price || "") || parseFloat(hLine.unit_price) || 0;
+        return (
+          <PriceHistoryPanel
+            open
+            onOpenChange={(o) => { if (!o) setHistoryLineIdx(null); }}
+            tenantId={tenantId}
+            productMasterId={hLine.product_master_id}
+            supplierId={current.supplier_id}
+            supplierName={current.supplier_name}
+            venue={current.venue}
+            itemName={hLine.matched_internal_name || hLine.description}
+            masterPrice={hMaster}
+            currentInvoiceNumber={current.invoice_number}
+            currentInvoiceDate={current.invoice_date}
+            currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
+            currentUnitCost={hPrice}
+            onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
+          />
+        );
+      })()}
     </div>
   );
 };
