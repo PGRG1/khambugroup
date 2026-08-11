@@ -18,6 +18,8 @@ export interface SupplierDealEditable {
   free_qty: number;
   notes?: string | null;
   is_active: boolean;
+  valid_from?: string | null;
+  valid_until?: string | null;
 }
 
 interface Props {
@@ -45,6 +47,8 @@ export default function SupplierDealDialog({
   const [freeQty, setFreeQty] = useState("");
   const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -57,12 +61,16 @@ export default function SupplierDealDialog({
       setFreeQty(String(initial.free_qty));
       setNotes(initial.notes ?? "");
       setIsActive(initial.is_active);
+      setValidFrom(initial.valid_from ?? "");
+      setValidUntil(initial.valid_until ?? "");
     } else {
       setSupplierId(lockedSupplierId || "");
       setBuyQty("");
       setFreeQty("");
       setNotes("");
       setIsActive(true);
+      setValidFrom("");
+      setValidUntil("");
     }
   }, [open, initial, lockedSupplierId]);
 
@@ -82,6 +90,9 @@ export default function SupplierDealDialog({
     if (buy <= 0) return setError("Buy qty must be greater than 0");
     if (free <= 0) return setError("Free qty must be greater than 0");
     if (!tenantId) return setError("Missing tenant");
+    if (validFrom && validUntil && validUntil < validFrom) {
+      return setError("Valid until must be on or after Valid from");
+    }
 
     const dup = existingDeals.find(
       (d) => d.supplier_id === supplierId && d.id !== (initial?.id ?? ""),
@@ -99,6 +110,8 @@ export default function SupplierDealDialog({
             free_qty: free,
             notes: notes || null,
             is_active: isActive,
+            valid_from: validFrom || null,
+            valid_until: validUntil || null,
           })
           .eq("id", initial.id)
           .eq("tenant_id", tenantId);
@@ -123,6 +136,8 @@ export default function SupplierDealDialog({
           free_qty: free,
           notes: notes || null,
           is_active: isActive,
+          valid_from: validFrom || null,
+          valid_until: validUntil || null,
         });
         if (e) throw e;
       }
@@ -179,6 +194,21 @@ export default function SupplierDealDialog({
                 onChange={(e) => setFreeQty(e.target.value)} className="h-9 text-sm" />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Valid from</Label>
+              <Input type="date" value={validFrom}
+                onChange={(e) => setValidFrom(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs">Valid until</Label>
+              <Input type="date" value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground -mt-1">
+            Optional. Leave both blank for a deal that never expires.
+          </p>
           <div>
             <Label className="text-xs">Notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)}
