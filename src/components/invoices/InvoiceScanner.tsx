@@ -53,6 +53,9 @@ import {
 import { Info, Sparkles } from "lucide-react";
 import QuickAddProductPopover from "./QuickAddProductPopover";
 import QuickAddBulkDialog from "./QuickAddBulkDialog";
+import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
+import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
+import { History } from "lucide-react";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -284,6 +287,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
+  const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
+
+  // Prior-purchase counts per linked product, used to gate the history trigger.
+  const linkedProductIds = useMemo(
+    () => (current?.line_items || []).map((l) => l.product_master_id).filter(Boolean) as string[],
+    [current?.line_items],
+  );
+  const purchaseCounts = useSupplierPurchaseCounts(tenantId, current?.supplier_id, linkedProductIds);
+
 
   // Load deals when the active supplier changes
   useEffect(() => {
@@ -443,7 +455,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       matched_stock_qty_ratio: entry.stock_qty ?? 1,
       unmatched: false,
       sku_mismatch: false,
-      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
       pm_unit_price: masterPrice,
       product_master_id: entry.id,
       supplier_entry_id: (entry as any).supplier_entry_id ?? line.supplier_entry_id ?? null,
@@ -577,7 +589,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
       const scannedPrice = parseFloat(workingLine.unit_price) || 0;
       const pmPrice = resolved.purchase_unit_cost ?? 0;
-      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
+      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON;
 
       // Seed accepted_price from master if empty/not yet set
       const masterPrice = pmPrice > 0 ? pmPrice : undefined;
@@ -1157,7 +1169,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         matched_stock_qty_ratio: product.stock_qty ?? 1,
         unmatched: false,
         sku_mismatch: false,
-        price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+        price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
         product_master_id: product.id,
         master_price: pmPrice > 0 ? pmPrice : undefined,
@@ -1455,7 +1467,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         l.master_price = newPrice;
         l.pm_unit_price = newPrice;
         const invPrice = parseFloat(l.unit_price) || 0;
-        l.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+        l.price_changed = Math.abs(invPrice - newPrice) > PRICE_VARIANCE_EPSILON;
         lines[lineIdx] = l;
         copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
         return copy;
@@ -2393,9 +2405,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                       </td>
                       {/* Internal Product Name - read-only */}
                       <td className="px-1 py-1 align-top">
-                        <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
-                          {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
-                        </div>
+                        {(() => {
+                          const hasHistory =
+                            !!line.product_master_id && (purchaseCounts[line.product_master_id] || 0) >= 2;
+                          return (
+                            <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground flex items-start gap-1">
+                              {hasHistory ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setHistoryLineIdx(i)}
+                                  className="text-left hover:underline"
+                                >
+                                  {line.matched_internal_name}
+                                </button>
+                              ) : (
+                                line.matched_internal_name || <span className="text-muted-foreground">—</span>
+                              )}
+                              {hasHistory && (
+                                <button
+                                  type="button"
+                                  aria-label="View price history"
+                                  onClick={() => setHistoryLineIdx(i)}
+                                  className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  <History className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {line.matched_internal_name && line.scanned_description && linkedConflict && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>
                             <AlertTriangle className="h-3 w-3" /> {linkedConflict}
@@ -3176,6 +3214,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {historyLineIdx !== null && current?.line_items[historyLineIdx] && (() => {
+        const hLine = current.line_items[historyLineIdx];
+        const hMaster = hLine.master_price ?? hLine.pm_unit_price ?? null;
+        const hPrice = parseFloat(hLine.accepted_price || "") || parseFloat(hLine.unit_price) || 0;
+        return (
+          <PriceHistoryPanel
+            open
+            onOpenChange={(o) => { if (!o) setHistoryLineIdx(null); }}
+            tenantId={tenantId}
+            productMasterId={hLine.product_master_id}
+            supplierId={current.supplier_id}
+            supplierName={current.supplier_name}
+            venue={current.venue}
+            itemName={hLine.matched_internal_name || hLine.description}
+            masterPrice={hMaster}
+            currentInvoiceNumber={current.invoice_number}
+            currentInvoiceDate={current.invoice_date}
+            currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
+            currentUnitCost={hPrice}
+            onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
+          />
+        );
+      })()}
     </div>
   );
 };
