@@ -2654,6 +2654,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
+                          {!!line.product_master_id && (purchaseCounts[line.product_master_id] || 0) >= 2 && (
+                            <button
+                              type="button"
+                              aria-label="View price history"
+                              onClick={() => setHistoryLineIdx(i)}
+                              className="mt-0.5 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       {/* Accepted Price */}
