@@ -118,24 +118,23 @@ function useSupplierPriceHistory(
         .eq("tenant_id", tenantId)
         .eq("product_master_id", productMasterId)
         .eq("invoices.supplier_id", supplierId)
-        .limit(200);
+        // Most recent first at the database level, so the limit keeps the right rows.
+        .order("invoice_date", { foreignTable: "invoices", ascending: false })
+        .limit(HISTORY_LIMIT);
       if (cancelled) return;
       if (error || !data) {
         setRows([]);
         setLoading(false);
         return;
       }
-      const mapped: PriceHistoryRow[] = (data as any[])
-        .map((r) => ({
-          lineId: r.id,
-          invoiceId: r.invoices?.id || "",
-          invoiceNumber: r.invoices?.invoice_number || "—",
-          invoiceDate: r.invoices?.invoice_date || "",
-          qty: Number(r.accepted_qty ?? r.quantity ?? 0),
-          unitCost: Number(r.accepted_price ?? r.unit_price ?? 0),
-        }))
-        .sort((a, b) => (a.invoiceDate < b.invoiceDate ? 1 : a.invoiceDate > b.invoiceDate ? -1 : 0))
-        .slice(0, HISTORY_LIMIT);
+      const mapped: PriceHistoryRow[] = (data as any[]).map((r) => ({
+        lineId: r.id,
+        invoiceId: r.invoices?.id || "",
+        invoiceNumber: r.invoices?.invoice_number || "—",
+        invoiceDate: r.invoices?.invoice_date || "",
+        qty: Number(r.accepted_qty ?? r.quantity ?? 0),
+        unitCost: Number(r.accepted_price ?? r.unit_price ?? 0),
+      }));
       cache.current.set(cacheKey, mapped);
       setRows(mapped);
       setLoading(false);
