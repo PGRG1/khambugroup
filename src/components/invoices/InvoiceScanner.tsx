@@ -306,6 +306,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
   }, [current?.supplier_id, tenantId]);
 
+  // Clear the required-supplier error as soon as a supplier is set / invoice switched
+  useEffect(() => {
+    if (current?.supplier_id) setSupplierError(false);
+  }, [current?.supplier_id, currentIdx]);
+
+
 
   const normalizeSupplierName = (value: string) =>
     value
