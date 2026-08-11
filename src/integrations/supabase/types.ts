@@ -5222,6 +5222,8 @@ export type Database = {
           supplier_id: string
           tenant_id: string
           updated_at: string
+          valid_from: string | null
+          valid_until: string | null
         }
         Insert: {
           buy_qty: number
@@ -5235,6 +5237,8 @@ export type Database = {
           supplier_id: string
           tenant_id: string
           updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
         }
         Update: {
           buy_qty?: number
@@ -5248,6 +5252,8 @@ export type Database = {
           supplier_id?: string
           tenant_id?: string
           updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
         }
         Relationships: [
           {
