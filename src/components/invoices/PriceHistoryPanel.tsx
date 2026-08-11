@@ -550,7 +550,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
                     let delta: number | null = null;
                     if (older && older.unitCost > 0) delta = ((r.unitCost - older.unitCost) / older.unitCost) * 100;
                     const deltaWarn =
-                      delta != null && delta > 0 && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
+                      delta != null && delta > 0 && pctVaries(older!.unitCost, r.unitCost);
                     const showDelta = delta != null && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
                     return (
                       <tr
