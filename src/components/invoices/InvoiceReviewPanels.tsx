@@ -298,10 +298,12 @@ export function collectBlockingIssues(inv: InvoiceForReview): BlockingIssue[] {
 export function BlockingBanner({
   issues,
   onDismissHeader,
+  onDismissLine,
   onGoToLine,
 }: {
   issues: BlockingIssue[];
   onDismissHeader?: (index: number) => void;
+  onDismissLine?: (lineIndex: number, msgIndex: number) => void;
   onGoToLine?: (lineIndex: number) => void;
 }) {
   if (!issues.length) return null;
@@ -326,7 +328,7 @@ export function BlockingBanner({
               )}
               {iss.message}
             </span>
-            {iss.scope === "line" ? (
+            {iss.scope === "line" && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -335,19 +337,23 @@ export function BlockingBanner({
               >
                 Go to line
               </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[11px] shrink-0"
-                onClick={() => onDismissHeader?.(iss.index)}
-              >
-                <X className="h-3 w-3 mr-1" />
-                Dismiss
-              </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[11px] shrink-0"
+              onClick={() =>
+                iss.scope === "header"
+                  ? onDismissHeader?.(iss.index)
+                  : onDismissLine?.(iss.index, iss.msgIndex ?? 0)
+              }
+            >
+              <X className="h-3 w-3 mr-1" />
+              Dismiss
+            </Button>
           </li>
         ))}
+
       </ul>
       <p className="text-[11px] text-muted-foreground">
         Dismissing a header finding acknowledges it — the message is recorded in the invoice notes for audit.
