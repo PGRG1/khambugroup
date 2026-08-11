@@ -286,6 +286,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const current = invoices[currentIdx] || null;
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [supplierError, setSupplierError] = useState(false);
+
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
 
@@ -303,6 +305,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     if (!sid || !tenantId) { setActiveDeals([]); return; }
     fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
   }, [current?.supplier_id, tenantId]);
+
+  // Clear the required-supplier error as soon as a supplier is set / invoice switched
+  useEffect(() => {
+    if (current?.supplier_id) setSupplierError(false);
+  }, [current?.supplier_id, currentIdx]);
+
 
 
   const normalizeSupplierName = (value: string) =>
@@ -1683,7 +1691,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
   const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
-    if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
+    if (!current.supplier_id) {
+      setSupplierError(true);
+      toast({ title: "Add a supplier before saving", description: "This invoice has no supplier set.", variant: "destructive" });
+      return;
+    }
+    setSupplierError(false);
+
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
     if (!opts.forceOverride && hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
@@ -1757,7 +1771,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   }, [invoices, currentIdx, createProduct, fetchProducts]);
 
   const handleSaveAll = async () => {
+    const noSupplier = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && !inv.supplier_id);
+    if (noSupplier.length > 0) {
+      if (!current?.supplier_id) setSupplierError(true);
+      toast({ title: "Add a supplier before saving", description: `${noSupplier.length} invoice(s) have no supplier set.`, variant: "destructive" });
+      return;
+    }
     // Check all unsaved invoices for unmatched items
+
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
     if (unmatchedInvoices.length > 0) {
       toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
@@ -2110,13 +2131,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={supplierError}
+                  className={supplierError ? "border-destructive focus:ring-destructive" : undefined}
+                >
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
                 <SelectContent>
                   {productMasterSupplierOptions.map((supplier) => (
                     <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {supplierError && (
+                <p className="text-xs text-destructive mt-1">Supplier is required</p>
+              )}
+
               <CorrectionChip
                 corrections={current.review_corrections}
                 warnings={current.review_warnings}
