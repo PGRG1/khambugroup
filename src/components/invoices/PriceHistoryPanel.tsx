@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
+import { PRICE_VARIANCE_EPSILON, pctVaries } from "@/utils/priceVariance";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -66,19 +66,20 @@ export function useSupplierPurchaseCounts(
       return;
     }
     (async () => {
-      const { data, error } = await (supabase.from("invoice_line_items" as any) as any)
-        .select("product_master_id, invoices!inner(supplier_id)")
-        .eq("tenant_id", tenantId)
-        .eq("invoices.supplier_id", supplierId)
-        .in("product_master_id", ids)
-        .limit(2000);
-      if (cancelled || error || !data) return;
+      // Count-only queries — never fetch rows just to size them.
+      const results = await Promise.all(
+        ids.map(async (pid) => {
+          const { count, error } = await (supabase.from("invoice_line_items" as any) as any)
+            .select("id, invoices!inner(supplier_id)", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("product_master_id", pid)
+            .eq("invoices.supplier_id", supplierId);
+          return [pid, error ? 0 : count || 0] as const;
+        }),
+      );
+      if (cancelled) return;
       const next: Record<string, number> = {};
-      for (const row of data as any[]) {
-        const pid = row.product_master_id;
-        if (!pid) continue;
-        next[pid] = (next[pid] || 0) + 1;
-      }
+      for (const [pid, n] of results) next[pid] = n;
       setCounts(next);
     })();
     return () => {
@@ -117,24 +118,23 @@ function useSupplierPriceHistory(
         .eq("tenant_id", tenantId)
         .eq("product_master_id", productMasterId)
         .eq("invoices.supplier_id", supplierId)
-        .limit(200);
+        // Most recent first at the database level, so the limit keeps the right rows.
+        .order("invoice_date", { foreignTable: "invoices", ascending: false })
+        .limit(HISTORY_LIMIT);
       if (cancelled) return;
       if (error || !data) {
         setRows([]);
         setLoading(false);
         return;
       }
-      const mapped: PriceHistoryRow[] = (data as any[])
-        .map((r) => ({
-          lineId: r.id,
-          invoiceId: r.invoices?.id || "",
-          invoiceNumber: r.invoices?.invoice_number || "—",
-          invoiceDate: r.invoices?.invoice_date || "",
-          qty: Number(r.accepted_qty ?? r.quantity ?? 0),
-          unitCost: Number(r.accepted_price ?? r.unit_price ?? 0),
-        }))
-        .sort((a, b) => (a.invoiceDate < b.invoiceDate ? 1 : a.invoiceDate > b.invoiceDate ? -1 : 0))
-        .slice(0, HISTORY_LIMIT);
+      const mapped: PriceHistoryRow[] = (data as any[]).map((r) => ({
+        lineId: r.id,
+        invoiceId: r.invoices?.id || "",
+        invoiceNumber: r.invoices?.invoice_number || "—",
+        invoiceDate: r.invoices?.invoice_date || "",
+        qty: Number(r.accepted_qty ?? r.quantity ?? 0),
+        unitCost: Number(r.accepted_price ?? r.unit_price ?? 0),
+      }));
       cache.current.set(cacheKey, mapped);
       setRows(mapped);
       setLoading(false);
@@ -466,7 +466,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
 
   const masterNum = masterPrice != null && Number.isFinite(masterPrice) ? Number(masterPrice) : null;
   const variesFromMaster = masterNum != null && Math.abs(currentUnitCost - masterNum) > PRICE_VARIANCE_EPSILON;
-  const changeVaries = lastPrice != null && Math.abs(currentUnitCost - lastPrice) > PRICE_VARIANCE_EPSILON;
+  const changeVaries = lastPrice != null && pctVaries(lastPrice, currentUnitCost);
 
   const openDrill = useCallback((invoiceId: string) => {
     savedScroll.current = scrollRef.current?.scrollTop || 0;
@@ -550,7 +550,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
                     let delta: number | null = null;
                     if (older && older.unitCost > 0) delta = ((r.unitCost - older.unitCost) / older.unitCost) * 100;
                     const deltaWarn =
-                      delta != null && delta > 0 && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
+                      delta != null && delta > 0 && pctVaries(older!.unitCost, r.unitCost);
                     const showDelta = delta != null && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
                     return (
                       <tr
