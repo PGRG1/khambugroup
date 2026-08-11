@@ -140,7 +140,7 @@ export default function ProductMasterTab() {
     if (!tenantId || !productId) { setDeals([]); return; }
     const { data } = await supabase
       .from("item_supplier_deals" as any)
-      .select("id, supplier_id, buy_qty, free_qty, notes, is_active")
+      .select("id, supplier_id, buy_qty, free_qty, notes, is_active, valid_from, valid_until")
       .eq("tenant_id", tenantId)
       .eq("product_id", productId)
       .eq("is_active", true)
@@ -1337,7 +1337,13 @@ export default function ProductMasterTab() {
                             const today = new Date().toISOString().slice(0, 10);
                             const expired = !!d.valid_until && d.valid_until < today;
                             const notYet = !!d.valid_from && d.valid_from > today;
-                            const fmtDay = (s: string | null) => (s ? formatDate(s) : "—");
+                            const fmtDay = (v: string | null) => {
+                              if (!v) return "—";
+                              const dt = new Date(`${v}T00:00:00`);
+                              return Number.isNaN(dt.getTime())
+                                ? v
+                                : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+                            };
                             return (
                               <div key={d.id} className={`flex items-center gap-3 border rounded-md px-3 py-2 text-xs ${expired ? "opacity-60" : ""}`}>
                                 <div className="flex-1 min-w-0">
