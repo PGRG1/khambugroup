@@ -32,7 +32,7 @@ import ProductSuggestionChip from "./ProductSuggestionChip";
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
+import { fetchActiveDealsForSupplier, findDealForProduct, isDealValidOn, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1105,7 +1105,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         lines[i] = flagged[0];
         // Re-link deal for newly-detected free unit
         if (lines[i].is_free_unit_line && lines[i].product_master_id) {
-          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id)?.id ?? null;
+          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id, copy[currentIdx].invoice_date)?.id ?? null;
         }
       } else {
         lines[i] = line;
@@ -1184,7 +1184,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         accepted_price: pmPrice > 0 ? String(pmPrice) : currentLine.accepted_price || "",
         price_disputed: scannedPrice > 0 && pmPrice > 0 && Math.round(scannedPrice * 100) !== Math.round(pmPrice * 100),
         is_free_unit_line: scannedPrice === 0 && (parseFloat(currentLine.quantity) || 0) > 0,
-        deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
+        deal_id: scannedPrice === 0
+          ? (findDealForProduct(activeDeals, product.id, current?.invoice_date)?.id ?? null)
+          : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
         suggestions: altCandidates,
@@ -1399,7 +1401,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       let changed = false;
       const next = inv.line_items.map((l) => {
         const isFree = (parseFloat(l.unit_price) || 0) === 0 && (parseFloat(l.quantity) || 0) > 0 && !!l.product_master_id;
-        const dealId = isFree ? (findDealForProduct(activeDeals, l.product_master_id || null)?.id ?? null) : (l.deal_id ?? null);
+        const dealId = isFree
+          ? (findDealForProduct(activeDeals, l.product_master_id || null, inv.invoice_date)?.id ?? null)
+          : (l.deal_id ?? null);
         if (l.is_free_unit_line !== isFree || (l.deal_id ?? null) !== dealId) {
           changed = true;
           return { ...l, is_free_unit_line: isFree, deal_id: dealId };
@@ -1410,13 +1414,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       copy[currentIdx] = { ...inv, line_items: next };
       return copy;
     });
-  }, [activeDeals, currentIdx]);
+  }, [activeDeals, currentIdx, current?.invoice_date]);
 
   // Compute missing deal warnings for current invoice
   const missingDeals = useMemo(() => {
     if (!current || activeDeals.length === 0) return [];
     return computeMissingDeals(
-      activeDeals,
+      activeDeals.filter((d) => isDealValidOn(d, current.invoice_date)),
       current.line_items.map((l) => ({
         product_master_id: l.product_master_id || null,
         quantity: parseFloat(l.quantity) || 0,
@@ -2674,10 +2678,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line ? "border-blue-500 text-blue-600" : ""}`}
+                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
                             readOnly={line.is_free_unit_line}
                           />
-                          {line.is_free_unit_line && (
+                          {line.is_free_unit_line && line.deal_id && (
                             <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
                           )}
                           {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
@@ -2704,8 +2708,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
                             const supName = current?.supplier_name || "";
                             return (
-                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price — unlinked"}>
-                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero — unlinked"}
+                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price"}>
+                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "0.00"}
                               </div>
                             );
                           })()

@@ -39,6 +39,8 @@ interface SupplierDealRow {
   free_qty: number;
   notes: string | null;
   is_active: boolean;
+  valid_from: string | null;
+  valid_until: string | null;
 }
 
 const EMPTY_FORM = {
@@ -138,7 +140,7 @@ export default function ProductMasterTab() {
     if (!tenantId || !productId) { setDeals([]); return; }
     const { data } = await supabase
       .from("item_supplier_deals" as any)
-      .select("id, supplier_id, buy_qty, free_qty, notes, is_active")
+      .select("id, supplier_id, buy_qty, free_qty, notes, is_active, valid_from, valid_until")
       .eq("tenant_id", tenantId)
       .eq("product_id", productId)
       .eq("is_active", true)
@@ -1332,13 +1334,32 @@ export default function ProductMasterTab() {
                             const pc = parseFloat(form.purchase_unit_cost) || 0;
                             const effective = d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
                             const unit = form.purchase_unit || "unit";
+                            const today = new Date().toISOString().slice(0, 10);
+                            const expired = !!d.valid_until && d.valid_until < today;
+                            const notYet = !!d.valid_from && d.valid_from > today;
+                            const fmtDay = (v: string | null) => {
+                              if (!v) return "—";
+                              const dt = new Date(`${v}T00:00:00`);
+                              return Number.isNaN(dt.getTime())
+                                ? v
+                                : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+                            };
                             return (
-                              <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
+                              <div key={d.id} className={`flex items-center gap-3 border rounded-md px-3 py-2 text-xs ${expired ? "opacity-60" : ""}`}>
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">{supplier?.name || "—"}</div>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="font-medium truncate">{supplier?.name || "—"}</span>
+                                    {expired && <span className="chip chip-neutral shrink-0">Expired</span>}
+                                    {notYet && <span className="chip chip-info shrink-0">Scheduled</span>}
+                                  </div>
                                   <div className="text-muted-foreground">
                                     Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free
                                   </div>
+                                  {(d.valid_from || d.valid_until) && (
+                                    <div className="text-muted-foreground">
+                                      Valid: {fmtDay(d.valid_from)} – {fmtDay(d.valid_until)}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="text-right whitespace-nowrap">
                                   <div className="text-muted-foreground">Effective</div>
@@ -1347,7 +1368,7 @@ export default function ProductMasterTab() {
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-8 w-8"
                                     onClick={() => {
-                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, notes: d.notes, is_active: d.is_active });
+                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, notes: d.notes, is_active: d.is_active, valid_from: d.valid_from, valid_until: d.valid_until });
                                       setDealDialogOpen(true);
                                     }}>
                                     <Pencil className="h-3.5 w-3.5" />
