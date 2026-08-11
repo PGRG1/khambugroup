@@ -1105,7 +1105,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         lines[i] = flagged[0];
         // Re-link deal for newly-detected free unit
         if (lines[i].is_free_unit_line && lines[i].product_master_id) {
-          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id, inv.invoice_date)?.id ?? null;
+          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id, copy[currentIdx].invoice_date)?.id ?? null;
         }
       } else {
         lines[i] = line;
