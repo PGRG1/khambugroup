@@ -205,7 +205,7 @@ function TrendChart({ points, masterPrice }: { points: PriceHistoryRow[]; master
         </>
       )}
       {points.length > 1 && (
-        <polyline points={poly} fill="none" stroke="hsl(var(--accent-foreground))" strokeWidth={2} />
+        <polyline points={poly} fill="none" stroke="hsl(var(--primary))" strokeWidth={2} />
       )}
       {points.map((p, i) => (
         <circle
@@ -213,7 +213,7 @@ function TrendChart({ points, masterPrice }: { points: PriceHistoryRow[]; master
           cx={x(i)}
           cy={y(p.unitCost)}
           r={p.isCurrent ? 5 : 3.5}
-          fill={p.isCurrent ? "hsl(var(--warning))" : "hsl(var(--accent-foreground))"}
+          fill={p.isCurrent ? "hsl(var(--warning))" : "hsl(var(--primary))"}
         />
       ))}
       {points.length > 0 && points[points.length - 1].isCurrent && (
@@ -307,7 +307,7 @@ function InvoiceDrillIn({
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1 text-[13px] text-accent-foreground hover:underline"
+        className="inline-flex items-center gap-1 text-[13px] text-primary hover:underline"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
         Back to price history
@@ -382,7 +382,7 @@ function InvoiceDrillIn({
               <button
                 type="button"
                 onClick={() => setDocOpen((v) => !v)}
-                className="inline-flex items-center gap-1 text-[13px] text-accent-foreground hover:underline"
+                className="inline-flex items-center gap-1 text-[13px] text-primary hover:underline"
               >
                 <ChevronRight className={`h-3.5 w-3.5 transition-transform ${docOpen ? "rotate-90" : ""}`} />
                 Source document
@@ -568,7 +568,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
                             <button
                               type="button"
                               onClick={() => openDrill(r.invoiceId)}
-                              className="inline-flex items-center gap-0.5 text-accent-foreground hover:underline font-mono"
+                              className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono"
                             >
                               {r.invoiceNumber}
                               <ChevronRight className="h-[13px] w-[13px]" />
