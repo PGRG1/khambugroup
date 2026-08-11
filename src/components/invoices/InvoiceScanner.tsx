@@ -1031,10 +1031,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       } else {
         lines[i] = line;
       }
+      // A stale reviewer flag must not outlive the problem it describes.
+      lines[i] = pruneStaleLineFlags(lines[i]);
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
   };
+
 
   const updateLineReceiving = (i: number, field: "accepted_qty" | "receiving_reason" | "receiving_note", value: string) => {
     setInvoices((prev) => {
