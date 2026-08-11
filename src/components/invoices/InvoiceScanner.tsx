@@ -2405,8 +2405,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                       </td>
                       {/* Internal Product Name - read-only */}
                       <td className="px-1 py-1 align-top">
-                        <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
-                          {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
+                        <div className="relative">
+                          <div className={`whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
+                            {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
+                          </div>
+                          {line.matched_internal_name && (
+                            <button
+                              type="button"
+                              aria-label="Clear internal name match"
+                              title="Clear match"
+                              className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted"
+                              onClick={() => {
+                                unlinkProduct(i);
+                                requestAnimationFrame(() => {
+                                  const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+                                    `[data-external-name-line="${i}"] textarea, [data-external-name-line="${i}"] input`
+                                  );
+                                  el?.focus();
+                                });
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                         {line.matched_internal_name && line.scanned_description && linkedConflict && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>
@@ -2433,10 +2454,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top" data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
-                          onChange={(v) => updateLine(i, "description", v)}
+                          onChange={(v) => {
+                            if (v.trim() === "" && line.product_master_id) {
+                              unlinkProduct(i);
+                            }
+                            updateLine(i, "description", v);
+                          }}
                           onSelect={(p) => selectProduct(i, p)}
                           products={supplierFilteredPM}
                           searchField="name"
@@ -2445,6 +2471,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+
                         {!line.unmatched && line.scanned_description &&
                           normalizeText(line.scanned_description) !== normalizeText(line.description) && (
                           <div
