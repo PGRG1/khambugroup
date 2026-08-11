@@ -2124,13 +2124,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={supplierError}
+                  className={supplierError ? "border-destructive focus:ring-destructive" : undefined}
+                >
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
                 <SelectContent>
                   {productMasterSupplierOptions.map((supplier) => (
                     <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {supplierError && (
+                <p className="text-xs text-destructive mt-1">Supplier is required</p>
+              )}
+
               <CorrectionChip
                 corrections={current.review_corrections}
                 warnings={current.review_warnings}
