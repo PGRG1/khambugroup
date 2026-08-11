@@ -2088,8 +2088,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           <BlockingBanner
             issues={collectBlockingIssues(current as any)}
             onDismissHeader={dismissHeaderBlocking}
+            onDismissLine={dismissLineBlocking}
             onGoToLine={goToLine}
           />
+
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
