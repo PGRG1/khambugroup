@@ -289,6 +289,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
 
+  // Prior-purchase counts per linked product, used to gate the history trigger.
+  const linkedProductIds = useMemo(
+    () => (current?.line_items || []).map((l) => l.product_master_id).filter(Boolean) as string[],
+    [current?.line_items],
+  );
+  const purchaseCounts = useSupplierPurchaseCounts(tenantId, current?.supplier_id, linkedProductIds);
+
+
   // Load deals when the active supplier changes
   useEffect(() => {
     const sid = current?.supplier_id;
