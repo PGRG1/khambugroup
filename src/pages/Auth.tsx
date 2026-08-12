@@ -2,15 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User as UserIcon } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import baniLogo from "@/assets/bani-logo.png";
 
 const Auth = () => {
   const { session, loading: authLoading } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
@@ -36,21 +34,9 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setMessage(""); setLoading(true);
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-      else navigate("/");
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email, password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { display_name: displayName || email },
-        },
-      });
-      if (error) setError(error.message);
-      else setMessage("Check your email for a confirmation link before signing in.");
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else navigate("/");
     setLoading(false);
   };
 
@@ -131,32 +117,14 @@ const Auth = () => {
             <div className="rounded-lg border border-carbon/10 bg-bone p-7 sm:p-9 lg:p-10">
               <div className="mb-8">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-carbon">
-                  {isLogin ? "Welcome back" : "Create your account"}
+                  Welcome back
                 </h2>
                 <p className="mt-1.5 font-inter text-sm text-carbon/55">
-                  {isLogin ? "Sign in to continue to your workspace." : "Set up your account to get started."}
+                  Sign in to continue to your workspace.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {!isLogin && (
-                  <div>
-                    <label className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-carbon/50">
-                      Display Name
-                    </label>
-                    <div className="relative">
-                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon/40" />
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className={inputClass}
-                        placeholder="Your name"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div>
                   <label className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-carbon/50">
                     Email
@@ -200,26 +168,24 @@ const Auth = () => {
                   </div>
                 </div>
 
-                {isLogin && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="inline-flex cursor-pointer items-center gap-2 font-inter text-sm text-carbon/60">
-                      <input
-                        type="checkbox"
-                        checked={remember}
-                        onChange={(e) => setRemember(e.target.checked)}
-                        className="h-4 w-4 rounded border-carbon/25 accent-sage focus:ring-sage"
-                      />
-                      Remember me
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="font-inter text-sm text-sage hover:underline"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 font-inter text-sm text-carbon/60">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                      className="h-4 w-4 rounded border-carbon/25 accent-sage focus:ring-sage"
+                    />
+                    Remember me
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="font-inter text-sm text-sage hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
 
                 {error && <p className="font-inter text-sm text-destructive">{error}</p>}
                 {message && <p className="font-inter text-sm text-carbon/70">{message}</p>}
@@ -229,22 +195,10 @@ const Auth = () => {
                   disabled={loading}
                   className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
                 >
-                  {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                  {loading ? "Please wait..." : "Sign In"}
                   {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
                 </button>
               </form>
-
-              <div className="mt-8 border-t border-carbon/10 pt-6">
-                <p className="text-center font-inter text-sm text-carbon/55">
-                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                  <button
-                    onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
-                    className="font-medium text-sage hover:underline"
-                  >
-                    {isLogin ? "Sign Up" : "Sign In"}
-                  </button>
-                </p>
-              </div>
             </div>
 
             <p className="mt-6 text-center font-plex text-[11px] tracking-wide text-carbon/35 lg:hidden">
