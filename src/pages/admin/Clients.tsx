@@ -124,19 +124,21 @@ export default function Clients() {
       </KpiGrid>
 
 
-      <div className="card-glass rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-muted-foreground text-[11px] uppercase tracking-wider">
-            <tr>
-              <th className="text-left px-4 py-2.5 font-medium">Client Group</th>
-              <th className="text-left px-4 py-2.5 font-medium">Venues</th>
-              <th className="text-left px-4 py-2.5 font-medium">Users</th>
-              <th className="text-left px-4 py-2.5 font-medium">Setup</th>
-              <th className="text-left px-4 py-2.5 font-medium">Status</th>
-              <th className="text-left px-4 py-2.5 font-medium">Created</th>
-              <th className="text-right px-4 py-2.5 font-medium">Actions</th>
+      <div className="card-glass rounded-xl overflow-hidden">
+        <div className="w-full overflow-x-auto">
+        <table className="w-full text-sm min-w-[820px]">
+          <thead className="bg-muted/40 dark:bg-white/[0.03] text-muted-foreground text-[10px] uppercase tracking-[0.16em] font-plex">
+            <tr className="border-b border-border/60 dark:border-white/[0.07]">
+              <th className="text-left px-4 py-3 font-medium">Client Group</th>
+              <th className="text-left px-4 py-3 font-medium">Venues</th>
+              <th className="text-left px-4 py-3 font-medium">Users</th>
+              <th className="text-left px-4 py-3 font-medium">Setup</th>
+              <th className="text-left px-4 py-3 font-medium">Status</th>
+              <th className="text-left px-4 py-3 font-medium">Created</th>
+              <th className="text-right px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {rows === null && (
               <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">Loading…</td></tr>
