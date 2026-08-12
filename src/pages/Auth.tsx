@@ -103,7 +103,6 @@ const Auth = () => {
         {/* Mobile/tablet brand banner */}
         <div className="relative lg:hidden overflow-hidden bg-carbon">
           <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.14]">
-            <rect width="100%" height="100%" fill="url(#bani-lattice)" />
             <defs>
               <pattern id="bani-lattice-m" width="56" height="56" patternUnits="userSpaceOnUse">
                 <path d="M56 0H0V56" fill="none" stroke="hsl(var(--bone))" strokeWidth="0.6" />
