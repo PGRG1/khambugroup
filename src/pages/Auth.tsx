@@ -197,22 +197,10 @@ const Auth = () => {
                   disabled={loading}
                   className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
                 >
-                  {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                  {loading ? "Please wait..." : "Sign In"}
                   {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
                 </button>
               </form>
-
-              <div className="mt-8 border-t border-carbon/10 pt-6">
-                <p className="text-center font-inter text-sm text-carbon/55">
-                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                  <button
-                    onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
-                    className="font-medium text-sage hover:underline"
-                  >
-                    {isLogin ? "Sign Up" : "Sign In"}
-                  </button>
-                </p>
-              </div>
             </div>
 
             <p className="mt-6 text-center font-plex text-[11px] tracking-wide text-carbon/35 lg:hidden">
