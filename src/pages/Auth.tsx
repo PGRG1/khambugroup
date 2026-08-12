@@ -168,26 +168,24 @@ const Auth = () => {
                   </div>
                 </div>
 
-                {isLogin && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="inline-flex cursor-pointer items-center gap-2 font-inter text-sm text-carbon/60">
-                      <input
-                        type="checkbox"
-                        checked={remember}
-                        onChange={(e) => setRemember(e.target.checked)}
-                        className="h-4 w-4 rounded border-carbon/25 accent-sage focus:ring-sage"
-                      />
-                      Remember me
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="font-inter text-sm text-sage hover:underline"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 font-inter text-sm text-carbon/60">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                      className="h-4 w-4 rounded border-carbon/25 accent-sage focus:ring-sage"
+                    />
+                    Remember me
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="font-inter text-sm text-sage hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
 
                 {error && <p className="font-inter text-sm text-destructive">{error}</p>}
                 {message && <p className="font-inter text-sm text-carbon/70">{message}</p>}
