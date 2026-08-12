@@ -117,32 +117,14 @@ const Auth = () => {
             <div className="rounded-lg border border-carbon/10 bg-bone p-7 sm:p-9 lg:p-10">
               <div className="mb-8">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-carbon">
-                  {isLogin ? "Welcome back" : "Create your account"}
+                  Welcome back
                 </h2>
                 <p className="mt-1.5 font-inter text-sm text-carbon/55">
-                  {isLogin ? "Sign in to continue to your workspace." : "Set up your account to get started."}
+                  Sign in to continue to your workspace.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {!isLogin && (
-                  <div>
-                    <label className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-carbon/50">
-                      Display Name
-                    </label>
-                    <div className="relative">
-                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-carbon/40" />
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className={inputClass}
-                        placeholder="Your name"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div>
                   <label className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-carbon/50">
                     Email
