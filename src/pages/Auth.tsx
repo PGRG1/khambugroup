@@ -88,7 +88,7 @@ const Auth = () => {
       </aside>
 
       {/* RIGHT — Form panel */}
-      <main className="relative flex min-h-screen flex-col bg-bone">
+      <main className="relative flex h-full min-h-screen flex-col bg-bone">
         {/* Mobile/tablet brand banner */}
         <div className="relative lg:hidden overflow-hidden bg-carbon">
           <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.14]">
