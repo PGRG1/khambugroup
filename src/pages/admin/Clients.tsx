@@ -152,7 +152,7 @@ export default function Clients() {
       </div>
 
       {/* Mobile / tablet card list */}
-      <div className="mt-7 grid grid-cols-1 gap-3.5 lg:hidden">
+      <div className="mt-7 grid grid-cols-1 gap-3.5 xl:hidden">
         {rows === null && (
           <div className="card-glass rounded-xl px-5 py-8 text-center text-muted-foreground">Loading…</div>
         )}
@@ -226,7 +226,7 @@ export default function Clients() {
       </div>
 
       {/* Client table (desktop) */}
-      <div className="mt-8 card-glass rounded-xl overflow-hidden hidden lg:block">
+      <div className="mt-8 card-glass rounded-xl overflow-hidden hidden xl:block">
         <div className="w-full overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">
 
