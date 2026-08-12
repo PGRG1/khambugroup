@@ -226,7 +226,7 @@ const Auth = () => {
           </section>
         </main>
 
-        <footer className="shrink-0 pb-[73px] pt-8 lg:-ml-[18px] font-plex text-[11px] tracking-wide text-bone/25">
+        <footer className="shrink-0 pb-[clamp(1.75rem,4vh,3.5rem)] pt-8 font-plex text-[11px] tracking-wide text-bone/25">
           © {new Date().getFullYear()} Bani Technology Limited
         </footer>
       </div>
