@@ -155,24 +155,24 @@ export default function Clients() {
                 <tr
                   key={r.id}
                   onClick={() => navigate(`/platform/clients/${r.id}`)}
-                  className={`border-t border-border/40 cursor-pointer hover:bg-muted/20 ${idx % 2 === 1 ? "bg-muted/10" : ""}`}
+                  className={`border-t border-border/40 dark:border-white/[0.05] cursor-pointer transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.03] ${idx % 2 === 1 ? "bg-muted/10 dark:bg-white/[0.012]" : ""}`}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{r.name}</span>
+                      <span className="font-medium dark:text-white">{r.name}</span>
                       <span className="text-xs text-muted-foreground">/{r.slug}</span>
                       {isLast && (
-                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground border border-border/70 dark:border-white/10 rounded px-1.5 py-0.5">
                           <Clock className="h-3 w-3" /> Last entered
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 td-num">{c?.venues ?? 0}</td>
-                  <td className="px-4 py-3 td-num">{c?.users ?? 0}</td>
+                  <td className="px-4 py-3 td-num text-muted-foreground">{c?.venues ?? 0}</td>
+                  <td className="px-4 py-3 td-num text-muted-foreground">{c?.users ?? 0}</td>
                   <td className="px-4 py-3">
-                    <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="w-20 h-1.5 bg-muted dark:bg-white/[0.07] rounded-full overflow-hidden">
                       <div className={`h-full ${fillClass}`} style={{ width: `${(score / 4) * 100}%` }} />
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-1">{score}/4 steps</div>
@@ -188,6 +188,7 @@ export default function Clients() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                       >
                         Manage <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -200,6 +201,7 @@ export default function Clients() {
                       </Button>
                     </div>
                   </td>
+
                 </tr>
               );
             })}
