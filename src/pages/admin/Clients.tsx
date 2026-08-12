@@ -111,35 +111,37 @@ export default function Clients() {
     { label: "Total venues", value: totalVenues },
   ];
 
+  const sorted = rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : [];
+
   return (
     <div className="w-full">
       {/* Title row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display font-semibold tracking-tight text-[28px] lg:text-[30px] leading-none dark:text-white">
+          <h1 className="font-display font-semibold tracking-tight text-[26px] sm:text-[28px] lg:text-[30px] leading-none dark:text-white">
             Clients
           </h1>
           <p className="text-sm text-muted-foreground mt-2.5 max-w-xl leading-relaxed">
             Bani client groups provisioned on the platform.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="h-[42px] px-4 shrink-0">
+        <Button onClick={() => setOpen(true)} className="h-[42px] px-4 shrink-0 w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-1.5" /> Add Client
         </Button>
       </div>
 
       {/* KPI row */}
-      <div className="mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="mt-8 sm:mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="card-glass rounded-xl border border-border/60 px-5 py-[22px] min-h-[112px] flex flex-col justify-between min-w-0"
+            className="card-glass rounded-xl border border-border/60 px-4 sm:px-5 py-4 sm:py-[22px] min-h-[96px] sm:min-h-[112px] flex flex-col justify-between gap-3 min-w-0"
           >
-            <div className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+            <div className="text-[10px] sm:text-[10.5px] uppercase tracking-[0.16em] sm:tracking-[0.18em] text-muted-foreground font-medium truncate">
               {k.label}
             </div>
             <div
-              className={`font-display font-semibold td-num tabular-nums leading-none text-[30px] ${
+              className={`font-display font-semibold td-num tabular-nums leading-none text-[26px] sm:text-[30px] ${
                 k.accent ? "text-primary" : "dark:text-white"
               }`}
             >
@@ -149,10 +151,85 @@ export default function Clients() {
         ))}
       </div>
 
-      {/* Client table */}
-      <div className="mt-8 card-glass rounded-xl overflow-hidden">
+      {/* Mobile / tablet card list */}
+      <div className="mt-7 grid grid-cols-1 gap-3.5 lg:hidden">
+        {rows === null && (
+          <div className="card-glass rounded-xl px-5 py-8 text-center text-muted-foreground">Loading…</div>
+        )}
+        {rows?.length === 0 && (
+          <div className="card-glass rounded-xl px-5 py-8 text-center text-muted-foreground">No clients yet.</div>
+        )}
+        {sorted.map((r) => {
+          const c = counts[r.id];
+          const score = setupScore(r.id);
+          const fillClass = score >= 4 ? "bg-primary" : "bg-primary/45";
+          const isLast = r.id === lastEnteredTenantId;
+          return (
+            <div key={r.id} className="card-glass rounded-xl p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                    <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground/70 mt-1">/{r.slug}</div>
+                </div>
+                <span className={`chip shrink-0 ${r.status === "active" ? "chip-success" : r.status === "setup" ? "chip-warn" : "chip-neutral"}`}>
+                  <span className="dot" />{STATUS_LABELS[r.status] ?? r.status}
+                </span>
+              </div>
+
+              {isLast && (
+                <span className="mt-3 inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground/70 bg-muted/50 dark:bg-white/[0.04] rounded-full px-2 py-0.5">
+                  <Clock className="h-3 w-3" /> Last entered
+                </span>
+              )}
+
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Venues</div>
+                  <div className="td-num text-sm mt-1 dark:text-white">{c?.venues ?? 0}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Users</div>
+                  <div className="td-num text-sm mt-1 dark:text-white">{c?.users ?? 0}</div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Setup</div>
+                <div className="mt-2 h-1.5 w-full bg-muted dark:bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className={`h-full ${fillClass}`} style={{ width: `${(score / 4) * 100}%` }} />
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1.5">{score}/4 steps</div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground td-num">Created {fmtDate(r.created_at)}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => navigate(`/platform/clients/${r.id}`)}
+                  >
+                    Manage
+                  </Button>
+                  <Button size="sm" className="h-9 px-3.5" onClick={() => enterClient(r.id, "/")}>
+                    <LogIn className="h-3.5 w-3.5 mr-1" /> Enter
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Client table (desktop) */}
+      <div className="mt-8 card-glass rounded-xl overflow-hidden hidden lg:block">
         <div className="w-full overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">
+
           <thead className="bg-muted/30 dark:bg-white/[0.02] text-muted-foreground text-[10px] uppercase tracking-[0.16em] font-plex">
             <tr className="border-b border-border/50 dark:border-white/[0.06]">
               <th className="text-left px-5 py-3.5 font-medium">Client Group</th>
