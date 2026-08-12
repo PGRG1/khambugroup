@@ -116,7 +116,7 @@ const Auth = () => {
             aria-hidden="true"
             viewBox="0 0 320 600"
             preserveAspectRatio="xMidYMid meet"
-            className="hidden h-[600px] w-full text-sage/25 lg:block"
+            className="hidden h-[600px] w-full text-sage/25 lg:block lg:translate-x-[2px]"
             fill="none"
             stroke="currentColor"
             strokeWidth="1"
@@ -133,10 +133,10 @@ const Auth = () => {
           {/* Glass form panel */}
           <section className="w-full lg:justify-self-end lg:pt-12">
             <div
-              className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[64px] sm:pt-[60px]"
+              className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{ boxShadow: "0 0 0 1px hsl(var(--bone) / 0.04), 0 24px 60px -30px hsl(var(--sage) / 0.35), 0 0 40px -20px hsl(var(--sage) / 0.4)" }}
             >
-              <div className="mb-12">
+              <div className="mb-14">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-bone">Welcome back</h2>
 
                 <p className="mt-1.5 font-inter text-sm text-bone/45">
@@ -144,7 +144,7 @@ const Auth = () => {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-7">
                 <div>
                   <label htmlFor="auth-email" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
                     Email
