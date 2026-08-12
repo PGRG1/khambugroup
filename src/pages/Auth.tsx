@@ -46,7 +46,7 @@ const Auth = () => {
   return (
     <div className="min-h-screen w-full bg-bone lg:grid lg:grid-cols-[1.15fr_1fr] xl:grid-cols-[1.25fr_1fr]">
       {/* LEFT — Brand panel (desktop) */}
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-carbon p-10 xl:p-14 2xl:p-16 text-bone">
+      <aside className="relative hidden lg:flex h-full flex-col overflow-hidden bg-carbon p-10 xl:p-14 2xl:p-16 text-bone">
         {/* Quiet geometric lattice */}
         <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.14]">
           <defs>
@@ -57,29 +57,32 @@ const Auth = () => {
           <rect width="100%" height="100%" fill="url(#bani-lattice)" />
         </svg>
         {/* Oversized logo mark, very low opacity */}
-        <img
-          src={baniLogo}
-          alt=""
+        <svg
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -right-20 h-[520px] w-[520px] object-contain opacity-[0.05]"
-        />
+          viewBox="0 0 100 100"
+          className="pointer-events-none absolute -bottom-24 -right-20 h-[520px] w-[520px] text-bone opacity-[0.04]"
+        >
+          <path fill="currentColor" d="M50 8 L92 88 L8 88 Z" />
+        </svg>
 
-        <div className="relative z-10 flex items-center gap-3">
-          <img src={baniLogo} alt="Bani" className="h-8 w-8 object-contain" />
-          <span className="font-geist text-2xl font-light tracking-tight">Bani</span>
+        <div className="relative z-10 flex flex-col gap-12">
+          <div className="flex items-center gap-3">
+            <img src={baniLogo} alt="Bani" className="h-8 w-8 object-contain" />
+            <span className="font-geist text-2xl font-light tracking-tight">Bani</span>
+          </div>
+
+          <div className="max-w-xl">
+            <h1 className="font-geist text-5xl xl:text-6xl font-light leading-[1.06] tracking-tight">
+              Your restaurant&rsquo;s finance team.
+              <span className="block text-sage">Without the headcount.</span>
+            </h1>
+            <p className="mt-6 max-w-md font-inter text-base leading-relaxed text-bone/60">
+              Invoice capture, cost control, payroll and month-to-date margin — run as one finance function.
+            </p>
+          </div>
         </div>
 
-        <div className="relative z-10 max-w-xl">
-          <h1 className="font-geist text-5xl xl:text-6xl font-light leading-[1.06] tracking-tight">
-            Your restaurant&rsquo;s finance team.
-            <span className="block text-sage">Without the headcount.</span>
-          </h1>
-          <p className="mt-6 max-w-md font-inter text-base leading-relaxed text-bone/60">
-            Invoice capture, cost control, payroll and month-to-date margin — run as one finance function.
-          </p>
-        </div>
-
-        <div className="relative z-10 font-plex text-[11px] tracking-wide text-bone/35">
+        <div className="relative z-10 mt-auto font-plex text-[11px] tracking-wide text-bone/35">
           © {new Date().getFullYear()} Bani Technology Limited
         </div>
       </aside>
