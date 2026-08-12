@@ -112,7 +112,7 @@ const Auth = () => {
                 <path d="M0 200 L160 300 L0 400 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M160 300 L320 400 L160 500 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M0 400 L160 500 L0 600 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M160 100 L160 500" opacity="0.45" vectorEffect="non-scaling-stroke" />
+                
               </g>
             </svg>
           </div>
