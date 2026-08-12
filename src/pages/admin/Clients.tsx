@@ -105,7 +105,7 @@ export default function Clients() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+    <div className="space-y-6 w-full">
       <PageHeader
         title="Clients"
         description="Bani client groups provisioned on the platform."
