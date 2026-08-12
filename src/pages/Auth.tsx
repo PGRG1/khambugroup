@@ -103,7 +103,7 @@ const Auth = () => {
           </div>
 
           {/* Headline */}
-          <section className="lg:pl-8 xl:pl-16 lg:translate-y-[24px]">
+          <section className="lg:pl-8 xl:pl-16">
             <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap xl:text-[64px]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
@@ -117,7 +117,7 @@ const Auth = () => {
               aria-hidden="true"
               viewBox="0 0 320 600"
               preserveAspectRatio="none"
-              className="absolute left-[2px] top-0 h-[600px] w-[420px] text-sage/25"
+              className="absolute left-[2px] top-0 h-[600px] w-[440px] text-sage/30"
               fill="none"
               stroke="currentColor"
               strokeWidth="1"
