@@ -26,18 +26,18 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
   const clientsActive = active("/platform/clients");
 
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ "--sidebar-width": "216px" } as React.CSSProperties}>
       <div className="platform-shell min-h-screen flex w-full bg-background text-foreground">
-        <Sidebar collapsible="icon" className="dark:border-r dark:border-sidebar-border">
-          <SidebarHeader className="px-3 py-4">
-            <div className="flex items-center gap-2.5 text-sm">
-              <BaniLoginMark className="h-5 w-[11px] shrink-0 text-sidebar-foreground dark:text-white" />
+        <Sidebar collapsible="icon" className="border-r border-border/60 dark:border-white/[0.06]">
+          <SidebarHeader className="px-4 pt-6 pb-5">
+            <div className="flex items-center gap-3 text-sm">
+              <BaniLoginMark className="h-6 w-[13px] shrink-0 text-sidebar-foreground dark:text-white" />
               <span className="font-geist font-light tracking-tight text-[15px] text-sidebar-foreground dark:text-white">
                 Bani Platform
               </span>
             </div>
           </SidebarHeader>
-          <SidebarContent>
+          <SidebarContent className="px-1.5">
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -47,11 +47,11 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
                       isActive={clientsActive}
                       className={
                         clientsActive
-                          ? "dark:bg-white/[0.07] dark:border dark:border-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                          : "dark:text-sidebar-foreground/65 dark:hover:bg-white/[0.04] dark:hover:text-white"
+                          ? "dark:bg-primary/[0.10] dark:border dark:border-primary/20 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
+                          : "dark:text-sidebar-foreground/60 dark:hover:bg-white/[0.035] dark:hover:text-white"
                       }
                     >
-                      <NavLink to="/platform/clients" className="flex items-center gap-2">
+                      <NavLink to="/platform/clients" className="flex items-center gap-2.5">
                         <Building2 className="h-4 w-4" />
                         <span>Clients</span>
                       </NavLink>
@@ -63,21 +63,22 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
           </SidebarContent>
         </Sidebar>
         <main className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background dark:bg-transparent dark:border-white/[0.07]">
-            <div className="flex items-center gap-3">
+          <header className="h-14 flex items-center justify-between border-b border-border px-5 sm:px-7 bg-background dark:bg-transparent dark:border-white/[0.055]">
+            <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <span className="font-plex text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              <span className="font-plex text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 Platform control plane
               </span>
             </div>
             <UserMenu />
           </header>
-          <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+          <div className="flex-1 w-full max-w-[1420px] mx-auto px-5 sm:px-8 lg:px-10 pt-14 pb-10 lg:pt-16">
             {children}
           </div>
         </main>
       </div>
     </SidebarProvider>
+
   );
 }
 
