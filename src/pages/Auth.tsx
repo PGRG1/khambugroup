@@ -136,7 +136,7 @@ const Auth = () => {
               className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{ boxShadow: "0 0 0 1px hsl(var(--bone) / 0.04), 0 24px 60px -30px hsl(var(--sage) / 0.35), 0 0 40px -20px hsl(var(--sage) / 0.4)" }}
             >
-              <div className="mb-14">
+              <div className="mb-14 sm:mb-[62px]">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-bone">Welcome back</h2>
 
                 <p className="mt-1.5 font-inter text-sm text-bone/45">
