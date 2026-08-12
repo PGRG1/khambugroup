@@ -104,87 +104,113 @@ export default function Clients() {
     return s;
   };
 
+  const kpis: { label: string; value: number; accent?: boolean }[] = [
+    { label: "Total clients", value: totalClients },
+    { label: "Active", value: totalActive, accent: true },
+    { label: "In setup", value: totalSetup },
+    { label: "Total venues", value: totalVenues },
+  ];
+
   return (
-    <div className="space-y-6 w-full">
-      <PageHeader
-        title="Clients"
-        description="Bani client groups provisioned on the platform."
-        actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Add Client
-          </Button>
-        }
-      />
+    <div className="w-full">
+      {/* Title row */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-display font-semibold tracking-tight text-[28px] lg:text-[30px] leading-none dark:text-white">
+            Clients
+          </h1>
+          <p className="text-sm text-muted-foreground mt-2.5 max-w-xl leading-relaxed">
+            Bani client groups provisioned on the platform.
+          </p>
+        </div>
+        <Button onClick={() => setOpen(true)} className="h-[42px] px-4 shrink-0">
+          <Plus className="h-4 w-4 mr-1.5" /> Add Client
+        </Button>
+      </div>
 
-      <KpiGrid>
-        <KpiCard label="Total clients" value={totalClients} />
-        <KpiCard label="Active" value={totalActive} tone="success" />
-        <KpiCard label="In setup" value={totalSetup} tone="warning" />
-        <KpiCard label="Total venues" value={totalVenues} />
-      </KpiGrid>
+      {/* KPI row */}
+      <div className="mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {kpis.map((k) => (
+          <div
+            key={k.label}
+            className="card-glass rounded-xl border border-border/60 px-5 py-[22px] min-h-[112px] flex flex-col justify-between min-w-0"
+          >
+            <div className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+              {k.label}
+            </div>
+            <div
+              className={`font-display font-semibold td-num tabular-nums leading-none text-[30px] ${
+                k.accent ? "text-primary" : "dark:text-white"
+              }`}
+            >
+              {k.value}
+            </div>
+          </div>
+        ))}
+      </div>
 
-
-      <div className="card-glass rounded-xl overflow-hidden">
+      {/* Client table */}
+      <div className="mt-8 card-glass rounded-xl overflow-hidden">
         <div className="w-full overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">
-          <thead className="bg-muted/40 dark:bg-white/[0.03] text-muted-foreground text-[10px] uppercase tracking-[0.16em] font-plex">
-            <tr className="border-b border-border/60 dark:border-white/[0.07]">
-              <th className="text-left px-4 py-3 font-medium">Client Group</th>
-              <th className="text-left px-4 py-3 font-medium">Venues</th>
-              <th className="text-left px-4 py-3 font-medium">Users</th>
-              <th className="text-left px-4 py-3 font-medium">Setup</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-left px-4 py-3 font-medium">Created</th>
-              <th className="text-right px-4 py-3 font-medium">Actions</th>
+          <thead className="bg-muted/30 dark:bg-white/[0.02] text-muted-foreground text-[10px] uppercase tracking-[0.16em] font-plex">
+            <tr className="border-b border-border/50 dark:border-white/[0.06]">
+              <th className="text-left px-5 py-3.5 font-medium">Client Group</th>
+              <th className="text-left px-5 py-3.5 font-medium">Venues</th>
+              <th className="text-left px-5 py-3.5 font-medium">Users</th>
+              <th className="text-left px-5 py-3.5 font-medium">Setup</th>
+              <th className="text-left px-5 py-3.5 font-medium">Status</th>
+              <th className="text-left px-5 py-3.5 font-medium">Created</th>
+              <th className="text-right px-5 py-3.5 font-medium">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {rows === null && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">Loading…</td></tr>
             )}
             {rows?.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No clients yet.</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">No clients yet.</td></tr>
             )}
-            {(rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : []).map((r, idx) => {
+            {(rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : []).map((r) => {
               const c = counts[r.id];
               const score = setupScore(r.id);
-              const fillClass = score >= 4 ? "bg-emerald-500" : "bg-amber-500";
+              const fillClass = score >= 4 ? "bg-primary" : "bg-primary/45";
               const isLast = r.id === lastEnteredTenantId;
               return (
                 <tr
                   key={r.id}
                   onClick={() => navigate(`/platform/clients/${r.id}`)}
-                  className={`border-t border-border/40 dark:border-white/[0.05] cursor-pointer transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.03] ${idx % 2 === 1 ? "bg-muted/10 dark:bg-white/[0.012]" : ""}`}
+                  className="h-[72px] border-t border-border/30 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.025]"
                 >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium dark:text-white">{r.name}</span>
-                      <span className="text-xs text-muted-foreground">/{r.slug}</span>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="h-4 w-4 text-muted-foreground/70" />
+                      <span className="font-medium text-[14.5px] dark:text-white">{r.name}</span>
+                      <span className="text-xs text-muted-foreground/70">/{r.slug}</span>
                       {isLast && (
-                        <span className="inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground border border-border/70 dark:border-white/10 rounded px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground/70 bg-muted/50 dark:bg-white/[0.04] rounded-full px-2 py-0.5">
                           <Clock className="h-3 w-3" /> Last entered
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 td-num text-muted-foreground">{c?.venues ?? 0}</td>
-                  <td className="px-4 py-3 td-num text-muted-foreground">{c?.users ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="w-20 h-1.5 bg-muted dark:bg-white/[0.07] rounded-full overflow-hidden">
+                  <td className="px-5 py-4 td-num text-muted-foreground">{c?.venues ?? 0}</td>
+                  <td className="px-5 py-4 td-num text-muted-foreground">{c?.users ?? 0}</td>
+                  <td className="px-5 py-4">
+                    <div className="w-20 h-1.5 bg-muted dark:bg-white/[0.06] rounded-full overflow-hidden">
                       <div className={`h-full ${fillClass}`} style={{ width: `${(score / 4) * 100}%` }} />
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">{score}/4 steps</div>
+                    <div className="text-[10px] text-muted-foreground mt-1.5">{score}/4 steps</div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <span className={`chip ${r.status === "active" ? "chip-success" : r.status === "setup" ? "chip-warn" : "chip-neutral"}`}>
                       <span className="dot" />{STATUS_LABELS[r.status] ?? r.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground td-num">{fmtDate(r.created_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex gap-1">
+                  <td className="px-5 py-4 text-muted-foreground td-num">{fmtDate(r.created_at)}</td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="inline-flex items-center gap-3">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -195,6 +221,7 @@ export default function Clients() {
                       </Button>
                       <Button
                         size="sm"
+                        className="h-9 px-3.5"
                         onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
                       >
                         <LogIn className="h-3.5 w-3.5 mr-1" /> Enter
@@ -209,6 +236,9 @@ export default function Clients() {
         </table>
         </div>
       </div>
+
+      <div className="h-16" />
+
 
 
       <AddClientDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
