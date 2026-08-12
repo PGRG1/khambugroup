@@ -111,39 +111,45 @@ const Auth = () => {
             </h1>
           </section>
 
-          {/* Central tall geometric construction */}
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 320 600"
-            preserveAspectRatio="xMidYMid meet"
-            className="hidden h-[600px] w-full text-sage/25 lg:block lg:translate-x-[2px]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeLinejoin="round"
-          >
-            <path d="M0 0 L160 100 L0 200 Z" />
-            <path d="M160 100 L320 200 L160 300 Z" />
-            <path d="M0 200 L160 300 L0 400 Z" />
-            <path d="M160 300 L320 400 L160 500 Z" />
-            <path d="M0 400 L160 500 L0 600 Z" />
-            <path d="M160 0 L160 600" opacity="0.5" />
-          </svg>
+          {/* Central tall geometric construction — extends behind the glass card */}
+          <div className="relative z-0 hidden h-[600px] lg:block" style={{ overflow: "visible" }}>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 320 600"
+              preserveAspectRatio="none"
+              className="absolute left-[2px] top-0 h-[600px] w-[440px] text-sage/30"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            >
+              <g vectorEffect="non-scaling-stroke">
+                <path d="M0 0 L160 100 L0 200 Z" vectorEffect="non-scaling-stroke" />
+                <path d="M160 100 L320 200 L160 300 Z" vectorEffect="non-scaling-stroke" />
+                <path d="M0 200 L160 300 L0 400 Z" vectorEffect="non-scaling-stroke" />
+                <path d="M160 300 L320 400 L160 500 Z" vectorEffect="non-scaling-stroke" />
+                <path d="M0 400 L160 500 L0 600 Z" vectorEffect="non-scaling-stroke" />
+                <path d="M160 0 L160 600" opacity="0.5" vectorEffect="non-scaling-stroke" />
+              </g>
+            </svg>
+          </div>
 
           {/* Glass form panel */}
-          <section className="w-full lg:justify-self-end">
+          <section className="relative z-10 w-full lg:justify-self-end">
             <div
               className="relative overflow-hidden rounded-xl px-7 pb-14 pt-9 sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.075) 0%, rgba(143,175,126,0.035) 48%, rgba(8,12,8,0.34) 100%)",
-                backdropFilter: "blur(24px) saturate(125%)",
-                WebkitBackdropFilter: "blur(24px) saturate(125%)",
+                  "linear-gradient(135deg, rgba(255,255,255,0.075) 0%, rgba(143,175,126,0.035) 48%, rgba(8,12,8,0.22) 100%)",
+                backdropFilter: "blur(20px) saturate(125%)",
+                WebkitBackdropFilter: "blur(20px) saturate(125%)",
                 border: "1px solid rgba(180,205,168,0.26)",
                 boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 70px -30px rgba(0,0,0,0.75), 0 0 60px -34px hsl(var(--sage) / 0.45)",
+                  "inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 70px -30px rgba(0,0,0,0.7), 0 0 60px -44px hsl(var(--sage) / 0.35)",
               }}
             >
+
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 rounded-xl"
