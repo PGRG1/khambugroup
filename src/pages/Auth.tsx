@@ -89,7 +89,7 @@ const Auth = () => {
         </header>
 
         {/* Main */}
-        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_300px_477px] lg:items-start lg:gap-0 lg:py-0">
+        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_300px_477px] lg:items-center lg:gap-0 lg:py-0">
           {/* Row numbers aligned to grid rows */}
           <div
             aria-hidden="true"
@@ -103,8 +103,8 @@ const Auth = () => {
           </div>
 
           {/* Headline */}
-          <section className="lg:pl-8 xl:pl-16 lg:pt-[181px]">
-            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl xl:text-[64px]">
+          <section className="lg:pl-8 xl:pl-16">
+            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap xl:text-[64px]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
               <span className="block text-sage/85 xl:whitespace-nowrap">Without the headcount.</span>
@@ -131,11 +131,27 @@ const Auth = () => {
           </svg>
 
           {/* Glass form panel */}
-          <section className="w-full lg:justify-self-end lg:pt-12">
+          <section className="w-full lg:justify-self-end">
             <div
-              className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[64px] sm:pt-16"
-              style={{ boxShadow: "0 0 0 1px hsl(var(--bone) / 0.04), 0 24px 60px -30px hsl(var(--sage) / 0.35), 0 0 40px -20px hsl(var(--sage) / 0.4)" }}
+              className="relative overflow-hidden rounded-xl px-7 pb-14 pt-9 sm:px-10 sm:pb-[64px] sm:pt-16"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(255,255,255,0.075) 0%, rgba(143,175,126,0.035) 48%, rgba(8,12,8,0.34) 100%)",
+                backdropFilter: "blur(24px) saturate(125%)",
+                WebkitBackdropFilter: "blur(24px) saturate(125%)",
+                border: "1px solid rgba(180,205,168,0.26)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 70px -30px rgba(0,0,0,0.75), 0 0 60px -34px hsl(var(--sage) / 0.45)",
+              }}
             >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-xl"
+                style={{
+                  background:
+                    "linear-gradient(128deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 26%, transparent 55%)",
+                }}
+              />
               <div className="mb-14 sm:mb-[62px]">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-bone">Welcome back</h2>
 
