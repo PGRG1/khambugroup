@@ -227,22 +227,23 @@
     --secondary-foreground: 48 20% 95%;
     --border: 60 6% 22%;
     --input: 60 6% 22%;
-    --primary: 38 92% 55%;
+    --primary: 99 26% 62%;
     --primary-foreground: 96 14% 7%;
-    --accent: 38 92% 55%;
+    --accent: 99 26% 62%;
     --accent-foreground: 96 14% 7%;
-    --ring: 38 92% 55%;
-    --warning: 38 92% 58%;
-    --success: 152 55% 45%;
-    --sidebar-background: 96 12% 5%;
+    --ring: 99 26% 62%;
+    --warning: 38 80% 58%;
+    --success: 152 45% 48%;
+    --sidebar-background: 96 12% 4.5%;
     --sidebar-foreground: 60 6% 68%;
-    --sidebar-accent: 90 5% 14%;
+    --sidebar-accent: 99 14% 14%;
     --sidebar-accent-foreground: 48 20% 95%;
-    --sidebar-border: 60 6% 16%;
-    --sidebar-primary: 38 92% 55%;
-    --sidebar-ring: 38 92% 55%;
+    --sidebar-border: 60 6% 15%;
+    --sidebar-primary: 99 26% 62%;
+    --sidebar-ring: 99 26% 62%;
     --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
     --shadow-card: 0 24px 60px -34px rgba(0, 0, 0, 0.85);
+
 
     background:
       radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 60%),
