@@ -205,7 +205,9 @@ export default function Clients() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
+
 
       <AddClientDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
     </div>
