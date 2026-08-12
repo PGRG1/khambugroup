@@ -34,21 +34,9 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setMessage(""); setLoading(true);
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-      else navigate("/");
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email, password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { display_name: displayName || email },
-        },
-      });
-      if (error) setError(error.message);
-      else setMessage("Check your email for a confirmation link before signing in.");
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else navigate("/");
     setLoading(false);
   };
 
