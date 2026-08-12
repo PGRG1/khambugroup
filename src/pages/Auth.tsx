@@ -52,34 +52,28 @@ const Auth = () => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-carbon text-bone">
-      {/* Technical grid */}
-      <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.12]">
-        <defs>
-          <pattern id="bani-grid" width="102" height="51" patternUnits="userSpaceOnUse">
-            <path d="M102 0H0V51" fill="none" stroke="hsl(var(--sage))" strokeWidth="0.4" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#bani-grid)" />
-      </svg>
-      {/* Deep green wash */}
+      {/* Subtle neutral vignette */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(80% 60% at 20% 20%, hsl(var(--sage) / 0.07), transparent 70%)" }}
+        style={{
+          background:
+            "radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.035), transparent 60%), radial-gradient(100% 80% at 50% 110%, rgba(0,0,0,0.45), transparent 70%)",
+        }}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-5 sm:px-8 lg:pl-[70px] lg:pr-[107px]">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1520px] flex-col px-5 sm:px-8 lg:px-[clamp(2rem,4vw,4.5rem)]">
         {/* Header row: logo + stage blocks share one line */}
-        <header className="flex shrink-0 items-center gap-0 border-b border-bone/10 py-6 lg:pb-4 lg:pt-[47px]">
+        <header className="flex shrink-0 items-center gap-0 py-6 lg:pb-4 lg:pt-[clamp(1.75rem,3.2vw,2.9rem)]">
           <div className="flex items-center gap-4 pr-8 lg:pr-14">
-            <BaniLoginMark className="h-9 w-[22px] text-bone lg:h-[58px] lg:w-[31px]" />
+            <BaniLoginMark className="h-9 w-[22px] text-bone lg:h-[52px] lg:w-[28px]" />
             <span className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
           </div>
           <div className="hidden md:flex">
             {RAIL.map((r) => (
               <div
                 key={r.k}
-                className="border-l border-bone/12 px-5 lg:px-7 font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
+                className="border-l border-bone/12 px-5 lg:px-[clamp(1rem,1.6vw,1.75rem)] font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
               >
                 <div className="text-bone/75">{r.k}</div>
                 <div className="text-bone/35">{r.v}</div>
@@ -89,35 +83,23 @@ const Auth = () => {
         </header>
 
         {/* Main */}
-        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_300px_477px] lg:items-center lg:gap-0 lg:py-0">
-          {/* Row numbers aligned to grid rows */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-[20px] top-[27px] hidden flex-col font-plex text-[10px] tracking-widest text-bone/20 xl:flex"
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <span key={i} className="flex h-[51px] items-center">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-            ))}
-          </div>
-
+        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(180px,260px)_minmax(400px,477px)] lg:items-center lg:gap-0 lg:py-0">
           {/* Headline */}
-          <section className="lg:pl-8 xl:pl-16">
-            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap xl:text-[64px]">
+          <section className="lg:pl-[clamp(0px,2vw,3rem)]">
+            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap lg:text-[clamp(2.6rem,3.7vw,4rem)]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
-              <span className="block text-sage/85 xl:whitespace-nowrap">Without the headcount.</span>
+              <span className="block text-sage/85 lg:whitespace-nowrap">Without the headcount.</span>
             </h1>
           </section>
 
           {/* Central tall geometric construction — extends behind the glass card */}
-          <div className="relative z-0 hidden h-[600px] lg:block" style={{ overflow: "visible" }}>
+          <div className="relative z-0 hidden h-[clamp(420px,58vh,600px)] lg:block" style={{ overflow: "visible" }}>
             <svg
               aria-hidden="true"
               viewBox="0 0 320 600"
               preserveAspectRatio="none"
-              className="absolute left-[2px] top-0 h-[600px] w-[440px] text-sage/30"
+              className="absolute left-0 top-0 h-full w-[calc(100%+120px)] text-sage/25"
               fill="none"
               stroke="currentColor"
               strokeWidth="1"
@@ -130,7 +112,7 @@ const Auth = () => {
                 <path d="M0 200 L160 300 L0 400 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M160 300 L320 400 L160 500 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M0 400 L160 500 L0 600 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M160 0 L160 600" opacity="0.5" vectorEffect="non-scaling-stroke" />
+                <path d="M160 100 L160 500" opacity="0.45" vectorEffect="non-scaling-stroke" />
               </g>
             </svg>
           </div>
@@ -141,14 +123,15 @@ const Auth = () => {
               className="relative overflow-hidden rounded-xl px-7 pb-14 pt-9 sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.075) 0%, rgba(143,175,126,0.035) 48%, rgba(8,12,8,0.22) 100%)",
-                backdropFilter: "blur(20px) saturate(125%)",
-                WebkitBackdropFilter: "blur(20px) saturate(125%)",
-                border: "1px solid rgba(180,205,168,0.26)",
+                  "linear-gradient(135deg, rgba(255,255,255,0.085) 0%, rgba(143,175,126,0.03) 45%, rgba(18,21,16,0.42) 100%)",
+                backdropFilter: "blur(20px) saturate(115%)",
+                WebkitBackdropFilter: "blur(20px) saturate(115%)",
+                border: "1px solid rgba(210,220,205,0.14)",
                 boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 70px -30px rgba(0,0,0,0.7), 0 0 60px -44px hsl(var(--sage) / 0.35)",
+                  "inset 0 1px 0 rgba(255,255,255,0.09), 0 30px 70px -34px rgba(0,0,0,0.72)",
               }}
             >
+
 
               <div
                 aria-hidden="true"
