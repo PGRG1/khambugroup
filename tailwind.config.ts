@@ -16,8 +16,15 @@ export default {
       fontFamily: {
         sans: ["DM Sans", "sans-serif"],
         display: ["Space Grotesk", "sans-serif"],
+        geist: ["Geist", "Inter", "sans-serif"],
+        inter: ["Inter", "sans-serif"],
+        plex: ["IBM Plex Mono", "monospace"],
       },
       colors: {
+        bone: "hsl(var(--bone))",
+        carbon: "hsl(var(--carbon))",
+        sage: "hsl(var(--sage))",
+        lime: "hsl(var(--lime))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

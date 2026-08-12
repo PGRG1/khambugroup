@@ -2,7 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Grotesk:wght@400;500;600;700&family=Geist:wght@300;400;500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@layer base {
+  :root {
+    /* Bani brand palette */
+    --bone: 48 20% 95%;      /* #f5f4f0 */
+    --carbon: 96 14% 7%;     /* #121510 */
+    --sage: 99 23% 59%;      /* #8FAF7E */
+    --lime: 73 87% 58%;      /* #C8F135 */
+  }
+}
 
 @layer base {
   /* =========================================================
