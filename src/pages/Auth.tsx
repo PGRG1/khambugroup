@@ -48,7 +48,7 @@ const Auth = () => {
   };
 
   const inputClass =
-    "w-full px-3.5 h-11 rounded-md border border-bone/15 bg-bone/[0.03] text-bone text-sm font-inter placeholder:text-bone/25 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
+    "w-full px-3.5 h-12 rounded-md border border-bone/15 bg-bone/[0.03] text-bone text-sm font-inter placeholder:text-bone/25 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-carbon text-bone">
@@ -144,7 +144,7 @@ const Auth = () => {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="auth-email" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
                     Email
@@ -221,7 +221,7 @@ const Auth = () => {
           </section>
         </main>
 
-        <footer className="shrink-0 py-8 font-plex text-[11px] tracking-wide text-bone/25">
+        <footer className="shrink-0 pb-[73px] pt-8 lg:-ml-[18px] font-plex text-[11px] tracking-wide text-bone/25">
           © {new Date().getFullYear()} Bani Technology Limited
         </footer>
       </div>
