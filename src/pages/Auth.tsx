@@ -48,7 +48,7 @@ const Auth = () => {
   };
 
   const inputClass =
-    "w-full px-3.5 h-12 rounded-md border border-bone/15 bg-bone/[0.03] text-bone text-sm font-inter placeholder:text-bone/25 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
+    "w-full px-3.5 h-12 rounded-md border border-bone/20 bg-carbon/45 text-bone text-sm font-inter placeholder:text-bone/30 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-carbon text-bone">
@@ -112,7 +112,7 @@ const Auth = () => {
                 <path d="M0 200 L160 300 L0 400 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M160 300 L320 400 L160 500 Z" vectorEffect="non-scaling-stroke" />
                 <path d="M0 400 L160 500 L0 600 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M160 100 L160 500" opacity="0.45" vectorEffect="non-scaling-stroke" />
+                
               </g>
             </svg>
           </div>
@@ -123,12 +123,12 @@ const Auth = () => {
               className="relative overflow-hidden rounded-xl px-7 pb-14 pt-9 sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.085) 0%, rgba(143,175,126,0.03) 45%, rgba(18,21,16,0.42) 100%)",
+                  "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(143,175,126,0.035) 45%, rgba(255,255,255,0.045) 100%), rgba(28,31,28,0.55)",
                 backdropFilter: "blur(20px) saturate(115%)",
                 WebkitBackdropFilter: "blur(20px) saturate(115%)",
                 border: "1px solid rgba(210,220,205,0.14)",
                 boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.09), 0 30px 70px -34px rgba(0,0,0,0.72)",
+                  "inset 0 1px 0 rgba(255,255,255,0.12), inset 1px 0 0 rgba(255,255,255,0.06), 0 32px 70px -34px rgba(0,0,0,0.75)",
               }}
             >
 
