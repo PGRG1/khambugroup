@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User as UserIcon } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import baniLogo from "@/assets/bani-logo.png";
 
 const Auth = () => {
