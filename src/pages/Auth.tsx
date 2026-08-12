@@ -7,10 +7,8 @@ import baniLogo from "@/assets/bani-logo.png";
 
 const Auth = () => {
   const { session, loading: authLoading } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
