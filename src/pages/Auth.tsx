@@ -104,7 +104,7 @@ const Auth = () => {
 
           {/* Headline */}
           <section className="lg:pl-8 xl:pl-16">
-            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl xl:text-[64px]">
+            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap xl:text-[64px]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
               <span className="block text-sage/85 xl:whitespace-nowrap">Without the headcount.</span>
