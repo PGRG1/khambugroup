@@ -48,7 +48,7 @@ const Auth = () => {
   };
 
   const inputClass =
-    "w-full px-3.5 h-11 rounded-md border border-bone/15 bg-bone/[0.03] text-bone text-sm font-inter placeholder:text-bone/25 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
+    "w-full px-3.5 h-12 rounded-md border border-bone/15 bg-bone/[0.03] text-bone text-sm font-inter placeholder:text-bone/25 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-carbon text-bone">
@@ -68,12 +68,12 @@ const Auth = () => {
         style={{ background: "radial-gradient(80% 60% at 20% 20%, hsl(var(--sage) / 0.07), transparent 70%)" }}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-5 sm:px-8 lg:px-12">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-5 sm:px-8 lg:pl-[70px] lg:pr-[107px]">
         {/* Header row: logo + stage blocks share one line */}
-        <header className="flex shrink-0 items-center gap-0 border-b border-bone/10 py-6 lg:py-7">
+        <header className="flex shrink-0 items-center gap-0 border-b border-bone/10 py-6 lg:pb-4 lg:pt-[47px]">
           <div className="flex items-center gap-4 pr-8 lg:pr-14">
-            <BaniLoginMark className="h-9 w-[22px] text-bone" />
-            <span className="font-geist text-2xl font-light tracking-tight text-bone">Bani</span>
+            <BaniLoginMark className="h-9 w-[22px] text-bone lg:h-[58px] lg:w-[31px]" />
+            <span className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
           </div>
           <div className="hidden md:flex">
             {RAIL.map((r) => (
@@ -89,11 +89,11 @@ const Auth = () => {
         </header>
 
         {/* Main */}
-        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_300px_477px] lg:gap-8 lg:py-10">
+        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_300px_477px] lg:items-start lg:gap-0 lg:py-0">
           {/* Row numbers aligned to grid rows */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -left-7 top-4 hidden flex-col font-plex text-[10px] tracking-widest text-bone/20 xl:flex"
+            className="pointer-events-none absolute -left-[20px] top-[27px] hidden flex-col font-plex text-[10px] tracking-widest text-bone/20 xl:flex"
           >
             {Array.from({ length: 12 }, (_, i) => (
               <span key={i} className="flex h-[51px] items-center">
@@ -103,7 +103,7 @@ const Auth = () => {
           </div>
 
           {/* Headline */}
-          <section className="lg:pl-8 xl:pl-16">
+          <section className="lg:pl-8 xl:pl-16 lg:pt-[181px]">
             <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl xl:text-[64px]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
@@ -116,7 +116,7 @@ const Auth = () => {
             aria-hidden="true"
             viewBox="0 0 320 600"
             preserveAspectRatio="xMidYMid meet"
-            className="hidden h-[600px] w-full text-sage/25 lg:block"
+            className="hidden h-[600px] w-full text-sage/25 lg:block lg:translate-x-[2px]"
             fill="none"
             stroke="currentColor"
             strokeWidth="1"
@@ -131,19 +131,20 @@ const Auth = () => {
           </svg>
 
           {/* Glass form panel */}
-          <section className="w-full lg:justify-self-end">
+          <section className="w-full lg:justify-self-end lg:pt-12">
             <div
-              className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[60px] sm:pt-10"
+              className="rounded-xl border border-sage/20 bg-bone/[0.04] px-7 pb-14 pt-9 backdrop-blur-xl sm:px-10 sm:pb-[64px] sm:pt-16"
               style={{ boxShadow: "0 0 0 1px hsl(var(--bone) / 0.04), 0 24px 60px -30px hsl(var(--sage) / 0.35), 0 0 40px -20px hsl(var(--sage) / 0.4)" }}
             >
-              <div className="mb-8">
+              <div className="mb-14 sm:mb-[62px]">
                 <h2 className="font-geist text-2xl font-light tracking-tight text-bone">Welcome back</h2>
+
                 <p className="mt-1.5 font-inter text-sm text-bone/45">
                   Sign in to continue to your workspace.
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-7">
                 <div>
                   <label htmlFor="auth-email" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
                     Email
@@ -220,7 +221,7 @@ const Auth = () => {
           </section>
         </main>
 
-        <footer className="shrink-0 py-8 font-plex text-[11px] tracking-wide text-bone/25">
+        <footer className="shrink-0 pb-[73px] pt-8 lg:-ml-[18px] font-plex text-[11px] tracking-wide text-bone/25">
           © {new Date().getFullYear()} Bani Technology Limited
         </footer>
       </div>
