@@ -18,7 +18,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="h-10 w-10 sm:h-9 sm:w-9" />
             <UserMenu />
           </header>
-          <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:p-6 lg:p-8 2xl:px-12">
+          <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
             {children}
           </div>
         </main>
