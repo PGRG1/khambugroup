@@ -442,7 +442,7 @@ export function TableSkeleton({ rows = 5, cols = 6 }: { rows?: number; cols?: nu
 /** KPI grid skeleton — matches the KpiGrid breakpoints. */
 export function KpiSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="glass-surface rounded-xl border border-border/60 p-4">
           <Skeleton className="h-3 w-20" />
