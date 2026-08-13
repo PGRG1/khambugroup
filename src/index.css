@@ -331,3 +331,33 @@
     background: hsl(var(--warning) / 0.12);
   }
 }
+
+/* =========================================================
+   PORTAL RESPONSIVE PASS — phone-first safety net.
+   Scoped to `.app-shell` (client portal main region) and only
+   active below the `sm` breakpoint, where Tailwind's sm:/md:
+   variants are inactive, so desktop layouts are untouched.
+   ========================================================= */
+@media (max-width: 639px) {
+  .app-shell .grid.grid-cols-3,
+  .app-shell .grid.grid-cols-4,
+  .app-shell .grid.grid-cols-5,
+  .app-shell .grid.grid-cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Dense tables stay tabular but scroll inside their own container. */
+  .app-shell table {
+    max-width: none;
+  }
+
+  /* Nothing in the content column may push the page sideways. */
+  .app-shell > div {
+    max-width: 100vw;
+  }
+
+  /* Comfortable touch targets for primary controls. */
+  .app-shell button:not([data-slot="icon-only"]):not(.h-6):not(.h-7) {
+    min-height: 36px;
+  }
+}
