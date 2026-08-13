@@ -63,7 +63,7 @@ export function PageHeader({
 }) {
   return (
     <div className="pb-5 border-b border-border/50">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
         <div className="min-w-0">
           {eyebrow && (
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5 font-medium">
