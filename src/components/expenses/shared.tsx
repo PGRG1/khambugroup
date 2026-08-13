@@ -185,7 +185,29 @@ export function KpiCard({
  */
 export function KpiGrid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * ToolbarRow — shared filter/action row. Wraps instead of compressing
+ * controls at tablet widths; children keep a usable minimum width.
+ */
+export function ToolbarRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={
+        "flex flex-wrap items-center gap-2 sm:gap-2.5 [&>*]:min-w-0 " + className
+      }
+    >
       {children}
     </div>
   );
