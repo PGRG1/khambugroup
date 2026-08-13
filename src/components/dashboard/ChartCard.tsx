@@ -9,7 +9,7 @@ interface ChartCardProps {
 }
 
 const ChartCard = ({ title, subtitle, children, className = "", headerRight }: ChartCardProps) => (
-  <div className={`glass-surface rounded-xl p-5 animate-fade-in ${className}`}>
+  <div className={`card-glass rounded-xl p-5 animate-fade-in ${className}`}>
     <div className="flex items-start justify-between gap-2 mb-1">
       <div>
         <h3 className="text-sm font-display font-semibold text-foreground">{title}</h3>

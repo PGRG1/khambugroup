@@ -10,7 +10,7 @@ interface Props {
 
 export function ChartShell({ title, subtitle, headerRight, children, className = "" }: Props) {
   return (
-    <div className={`glass-surface rounded-xl p-4 ${className}`}>
+    <div className={`card-glass rounded-xl border border-border/60 p-4 ${className}`}>
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <div className="min-w-0">
           <div className="text-[13px] font-medium leading-tight">{title}</div>
