@@ -95,10 +95,10 @@ function KpiCard({
 }: { label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: "default" | "primary" }) {
   return (
     <Card
-      className={`p-4 border-border ${
+      className={`p-4 ${
         tone === "primary"
-          ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20"
-          : "bg-card"
+          ? "glass-surface border-primary/30 ring-1 ring-primary/20"
+          : "glass-surface border-border"
       }`}
     >
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -114,7 +114,7 @@ function KpiCardDot({
   dot, label, value, hint,
 }: { dot: string; label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <Card className="p-3 border-border bg-card">
+    <Card className="p-3 border-border glass-surface">
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

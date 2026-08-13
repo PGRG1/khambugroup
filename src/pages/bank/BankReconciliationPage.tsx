@@ -519,7 +519,7 @@ export default function BankReconciliationPage() {
 function SummaryBox({ label, value, tone }: { label: string; value: string; tone?: "emerald" | "red" | "amber" }) {
   const color = tone === "emerald" ? "text-emerald-400" : tone === "red" ? "text-red-400" : tone === "amber" ? "text-amber-300" : "";
   return (
-    <div className="card-glass rounded-xl p-4">
+    <div className="glass-surface rounded-xl border border-border/60 p-4">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`text-xl font-mono font-semibold mt-1 tabular-nums ${color}`}>{value}</div>
     </div>

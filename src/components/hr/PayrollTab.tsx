@@ -597,7 +597,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
 
       {/* ── Summary cards ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="card-glass rounded-xl p-4">
+        <div className="glass-surface rounded-xl border border-border/60 p-4">
           <SectionLabel>Payroll Summary</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
             <Stat label="Headcount" value={String(grandTotal.headcount)} />
@@ -613,7 +613,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
             </div>
           </div>
         </div>
-        <div className="card-glass rounded-xl p-4">
+        <div className="glass-surface rounded-xl border border-border/60 p-4">
           <SectionLabel>MPF & Venue Breakdown</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
             <Stat label="MPF cap" value={`HK$ ${fmt(MPF_CAP)}`} />

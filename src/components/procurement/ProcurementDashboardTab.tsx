@@ -151,7 +151,7 @@ function KpiCard({ label, value, subline, tone = "default", delta, deltaTone = "
   const clickable = !!onClick;
   const body = (
     <div className={cn(
-      "card-glass rounded-xl border p-4 min-w-0 h-full text-left w-full transition-colors",
+      "glass-surface rounded-xl border p-4 min-w-0 h-full text-left w-full transition-colors",
       clickable ? "border-border/60 hover:border-primary/40 cursor-pointer" : "border-border/60"
     )}>
       <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground truncate">{label}</div>

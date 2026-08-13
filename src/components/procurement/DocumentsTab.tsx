@@ -41,7 +41,7 @@ const STATUS_TONE: Record<string, string> = {
 
 function StatTile({ label, value, tone }: { label: string; value: string; tone?: "primary" }) {
   return (
-    <div className="text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2">
+    <div className="text-left rounded-lg border border-border/60 glass-surface px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
       <div className={`text-lg font-semibold tabular-nums mt-0.5 ${tone === "primary" ? "text-primary" : "text-foreground"}`}>{value}</div>
     </div>

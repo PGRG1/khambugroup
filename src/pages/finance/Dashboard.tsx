@@ -577,7 +577,7 @@ function KpiCard({
   loading?: boolean;
 }) {
   const Inner = (
-    <Card className="card-glass p-4 hover:border-border transition-colors h-full min-w-0">
+    <Card className="glass-surface border border-border/60 p-4 hover:border-border transition-colors h-full min-w-0">
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
         <span className={`p-1.5 rounded-md ${TONE_TILE[tone]}`}>{icon}</span>
         <span className="truncate">{label}</span>
