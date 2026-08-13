@@ -34,9 +34,10 @@ function NavBody({
               collapsed ? "justify-center px-0" : "px-3"
             } ${
               isActive
-                ? "bg-primary/[0.10] border border-primary/20 text-foreground dark:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
+                ? "glass-active text-foreground dark:text-white"
                 : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground"
             }`}
+
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}

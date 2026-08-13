@@ -78,7 +78,7 @@ function KpiTile({ icon: Icon, label, value, hint, tone }: {
     danger: "text-destructive",
   };
   return (
-    <Card className="card-glass p-4">
+    <Card className="glass-surface border border-border/60 p-4">
       <div className="flex items-start gap-3">
         <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${tones[tone]}`}>
           <Icon className="h-5 w-5" />

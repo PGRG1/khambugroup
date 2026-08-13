@@ -89,7 +89,7 @@ function StatTile({ label, value, active, onClick, tone = "neutral" }: {
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors ${onClick ? "hover:border-border cursor-pointer" : "cursor-default"} ${activeCls}`}
+      className={`text-left rounded-lg border border-border/60 glass-surface px-3 py-2 transition-colors ${onClick ? "hover:border-border cursor-pointer" : "cursor-default"} ${activeCls}`}
     >
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
       <div className={`text-lg font-semibold tabular-nums mt-0.5 ${toneCls}`}>{value}</div>

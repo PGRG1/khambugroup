@@ -133,7 +133,7 @@ export default function ClientDetail() {
           { label: "Bank accounts", value: counts.banks },
           { label: "Invoices", value: counts.invoices },
         ].map((k) => (
-          <div key={k.label} className="card-glass rounded-xl border border-border/60 p-4">
+          <div key={k.label} className="glass-surface rounded-xl border border-border/60 p-4">
             <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{k.label}</div>
             <div className="mt-1 text-xl md:text-2xl font-semibold td-num tabular-nums">{k.value}</div>
           </div>

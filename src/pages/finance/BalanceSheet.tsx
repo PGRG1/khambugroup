@@ -185,7 +185,7 @@ export default function BalanceSheet() {
           </div>
 
           <Card className={cn(
-            "card-glass p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 min-w-0 overflow-hidden",
+            "glass-surface border border-border/60 p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 min-w-0 overflow-hidden",
             !balanced && "border-destructive/40",
           )}>
             <div className="min-w-0">
@@ -214,7 +214,7 @@ export default function BalanceSheet() {
 function StatTile({ label, value, tone, icon }: { label: string; value: string; tone?: "primary" | "destructive"; icon?: React.ReactNode }) {
   const toneCls = tone === "primary" ? "text-primary" : tone === "destructive" ? "text-destructive" : "text-foreground";
   return (
-    <Card className="card-glass p-3 min-w-0 overflow-hidden">
+    <Card className="glass-surface border border-border/60 p-3 min-w-0 overflow-hidden">
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground min-w-0">
         {icon}<span className="truncate">{label}</span>
       </div>

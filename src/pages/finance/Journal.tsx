@@ -417,7 +417,7 @@ export default function Journal() {
 function StatTile({ label, value, tone, icon }: { label: string; value: number; tone?: "primary" | "warning" | "muted"; icon?: React.ReactNode }) {
   const toneCls = tone === "primary" ? "text-primary" : tone === "warning" ? "text-warning" : tone === "muted" ? "text-muted-foreground" : "text-foreground";
   return (
-    <Card className="card-glass p-3">
+    <Card className="glass-surface border border-border/60 p-3">
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
         {icon}<span>{label}</span>
       </div>

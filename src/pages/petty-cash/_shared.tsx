@@ -31,7 +31,7 @@ export function KpiTile({
       ? "text-emerald-500"
       : "";
   return (
-    <div className="card-glass rounded-xl p-4">
+    <div className="glass-surface rounded-xl border border-border/60 p-4">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`text-xl font-semibold mt-1 ${toneClass}`}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}

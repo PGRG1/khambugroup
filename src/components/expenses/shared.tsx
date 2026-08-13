@@ -140,12 +140,13 @@ export function KpiCard({
           : undefined
       }
       className={
-        "card-glass relative rounded-xl border border-border/60 pl-4 pr-4 py-4 min-w-0 " +
+        "glass-surface relative rounded-xl border border-border/60 pl-4 pr-4 py-4 min-w-0 " +
         "overflow-hidden " +
         (clickable
           ? "cursor-pointer transition-colors hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
           : "")
       }
+
     >
       <span
         aria-hidden
@@ -419,7 +420,7 @@ export function KpiSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="card-glass rounded-xl border border-border/60 p-4">
+        <div key={i} className="glass-surface rounded-xl border border-border/60 p-4">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-7 w-28 mt-2" />
           <Skeleton className="h-3 w-16 mt-1" />

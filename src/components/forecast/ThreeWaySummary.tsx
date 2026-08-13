@@ -85,7 +85,7 @@ const ThreeWaySummary = ({
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       {/* Statistical */}
-      <div className="card-glass rounded-xl p-4">
+      <div className="glass-surface rounded-xl border border-border/60 p-4">
         <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5" />
           Statistical Target
@@ -121,7 +121,7 @@ const ThreeWaySummary = ({
       </div>
 
       {/* Manager */}
-      <div className="card-glass rounded-xl p-4">
+      <div className="glass-surface rounded-xl border border-border/60 p-4">
         <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
           <TargetIcon className="h-3.5 w-3.5" />
           Manager Target
@@ -150,7 +150,7 @@ const ThreeWaySummary = ({
       </div>
 
       {/* Actual */}
-      <div className="card-glass rounded-xl p-4">
+      <div className="glass-surface rounded-xl border border-border/60 p-4">
         <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
           <TrendingUp className="h-3.5 w-3.5" />
           {actualLabel}

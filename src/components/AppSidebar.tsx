@@ -224,7 +224,7 @@ function ChildLink({ item }: { item: Item }) {
           to={item.url}
           end={item.end ?? item.url === "/"}
           className="relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
-          activeClassName="!bg-sidebar-accent !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
+          activeClassName="glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
         >
           <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
           <span className="truncate">{item.title}</span>
@@ -242,7 +242,7 @@ function TopLink({ item }: { item: Item & { icon: any } }) {
           to={item.url}
           end={item.end ?? item.url === "/"}
           className="relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
-          activeClassName="!bg-sidebar-accent !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
+          activeClassName="glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
         >
           <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
           <item.icon className="h-4 w-4 shrink-0" />

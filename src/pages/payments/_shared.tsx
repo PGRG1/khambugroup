@@ -155,7 +155,7 @@ export function KpiCard({
   valueClass?: string;
 }) {
   return (
-    <Card className="card-glass p-4">
+    <Card className="glass-surface border border-border/60 p-4">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`text-xl font-semibold td-num mt-1 ${valueClass || ""}`}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}

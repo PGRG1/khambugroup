@@ -254,7 +254,7 @@ export default function Ledger() {
 
 function StatTile({ label, value, tone }: { label: string; value: string; tone?: "primary" }) {
   return (
-    <Card className="card-glass p-3 min-w-0 overflow-hidden">
+    <Card className="glass-surface border border-border/60 p-3 min-w-0 overflow-hidden">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground truncate">{label}</div>
       <div className={cn("font-display font-semibold mt-1 tabular-nums whitespace-nowrap min-w-0", kpiValueSizeClass(value), tone === "primary" && "text-primary")} title={value}>{value}</div>
     </Card>

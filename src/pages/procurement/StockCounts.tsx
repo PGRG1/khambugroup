@@ -1454,7 +1454,7 @@ function SummaryTab({
 
 function KpiCard({ label, value, cls = "" }: { label: string; value: string; cls?: string }) {
   return (
-    <div className="card-glass rounded-xl p-4 text-center">
+    <div className="glass-surface rounded-xl border border-border/60 p-4 text-center">
       <div className={`text-2xl font-bold ${cls}`}>{value}</div>
       <div className="text-xs text-muted-foreground mt-1">{label}</div>
     </div>
