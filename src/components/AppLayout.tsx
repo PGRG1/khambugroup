@@ -14,7 +14,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className={`min-h-screen flex w-full ${topPad}`}>
         <AppSidebar />
         <main className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background">
+          <header className="h-12 flex items-center justify-between border-b border-border/70 px-4 glass-topbar sticky top-0 z-30">
             <SidebarTrigger />
             <UserMenu />
           </header>
