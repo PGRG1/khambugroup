@@ -16,31 +16,31 @@
 
 @layer base {
   /* =========================================================
-     LIGHT — Dusty Blue + Copper
+     LIGHT — Bone + Sage + Ink
      ========================================================= */
   :root {
     /* App surfaces */
-    --background: 214 32% 97%;          /* #F6F8FB */
-    --foreground: 213 62% 16%;          /* #102A43 */
+    --background: 48 20% 95%;            /* #F5F4F0 bone */
+    --foreground: 0 0% 10%;              /* #1A1A1A ink */
 
     --card: 0 0% 100%;                   /* #FFFFFF */
-    --card-foreground: 213 62% 16%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 213 62% 16%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Brand — Copper */
-    --primary: 27 60% 46%;               /* #B87333 */
-    --primary-foreground: 0 0% 100%;
+    /* Brand — Sage */
+    --primary: 99 23% 59%;               /* #8FAF7E */
+    --primary-foreground: 140 19% 18%;   /* #25372B ink-green text on sage */
 
-    --secondary: 213 30% 93%;
-    --secondary-foreground: 213 62% 16%;
+    --secondary: 66 12% 89%;             /* warm neutral */
+    --secondary-foreground: 140 19% 18%;
 
-    --muted: 214 32% 94%;                /* #F1F5F9-ish */
-    --muted-foreground: 210 17% 49%;     /* #627D98 */
+    --muted: 72 11% 91%;                 /* pale sage-neutral */
+    --muted-foreground: 100 6% 40%;
 
-    --accent: 32 39% 36%;                /* #7C5C3B secondary copper */
-    --accent-foreground: 0 0% 100%;
+    --accent: 140 19% 18%;               /* #25372B bani ink green */
+    --accent-foreground: 48 20% 95%;
 
     --destructive: 0 62% 48%;            /* #C53030 */
     --destructive-foreground: 0 0% 100%;
@@ -49,18 +49,18 @@
     --warning: 32 95% 44%;               /* #D97706 */
     --info: 217 91% 60%;                 /* #2563EB */
 
-    --border: 213 32% 88%;               /* #D9E2EC */
-    --input: 213 32% 88%;
-    --ring: 27 60% 46%;
+    --border: 72 10% 85%;                /* #D6D8CB-ish */
+    --input: 72 10% 85%;
+    --ring: 99 23% 59%;
 
     --radius: 0.75rem;
 
     /* Surfaces */
     --surface-panel: 0 0% 100%;
-    --surface-muted: 214 32% 94%;
+    --surface-muted: 72 11% 91%;
 
-    /* Charts */
-    --chart-1: 27 60% 46%;   /* copper */
+    /* Charts — semantic multi-hue preserved */
+    --chart-1: 106 25% 40%;  /* sage deep #4F6F46 */
     --chart-2: 217 91% 51%;  /* blue   #2563EB */
     --chart-3: 175 64% 26%;  /* teal   #0F766E */
     --chart-4: 145 47% 35%;  /* green  #2F855A */
@@ -68,48 +68,48 @@
     --chart-6: 0 62% 48%;    /* rose   #C53030 */
     --chart-7: 32 95% 44%;   /* gold   #D97706 */
     --chart-8: 215 16% 47%;  /* slate  #64748B */
-    --chart-grid: 213 32% 88%;
+    --chart-grid: 72 10% 85%;
 
-    /* Sidebar — Dusty navy with light text */
-    --sidebar-background: 213 62% 16%;       /* #102A43 */
-    --sidebar-foreground: 213 30% 88%;
-    --sidebar-primary: 27 60% 56%;           /* copper accent */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 211 37% 23%;           /* #243B53 */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 211 37% 23%;
-    --sidebar-ring: 27 60% 56%;
+    /* Sidebar — deep Bani green with bone text */
+    --sidebar-background: 140 19% 18%;       /* #25372B */
+    --sidebar-foreground: 66 14% 84%;
+    --sidebar-primary: 99 23% 59%;           /* sage accent */
+    --sidebar-primary-foreground: 140 19% 12%;
+    --sidebar-accent: 140 17% 24%;
+    --sidebar-accent-foreground: 48 20% 95%;
+    --sidebar-border: 140 15% 27%;
+    --sidebar-ring: 99 23% 59%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(27 60% 46%), hsl(32 39% 36%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(214 32% 97%));
-    --shadow-glow: 0 0 20px -5px hsl(27 60% 46% / 0.18);
-    --shadow-card: 0 4px 24px -8px hsl(213 62% 16% / 0.08);
+    --gradient-gold: linear-gradient(135deg, hsl(99 23% 59%), hsl(106 25% 40%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(48 20% 97%));
+    --shadow-glow: 0 0 20px -5px hsl(99 23% 45% / 0.22);
+    --shadow-card: 0 4px 24px -8px hsl(140 19% 18% / 0.10);
   }
 
   /* =========================================================
-     DARK — Deep Navy + Copper
+     DARK — Carbon + Bone + Sage
      ========================================================= */
   .dark {
-    --background: 213 53% 10%;           /* #0B1726 */
-    --foreground: 210 40% 98%;           /* #F8FAFC */
+    --background: 96 14% 7%;             /* #121510 */
+    --foreground: 48 20% 95%;            /* #F5F4F0 bone */
 
-    --card: 213 47% 16%;                 /* #14263B */
-    --card-foreground: 210 40% 98%;
+    --card: 96 9% 11%;                   /* raised carbon */
+    --card-foreground: 48 20% 95%;
 
-    --popover: 213 47% 16%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 96 9% 11%;
+    --popover-foreground: 48 20% 95%;
 
-    --primary: 27 60% 46%;               /* copper */
-    --primary-foreground: 0 0% 100%;
+    --primary: 99 23% 59%;               /* sage */
+    --primary-foreground: 96 14% 7%;
 
-    --secondary: 213 45% 19%;            /* #1A2E45 */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 96 7% 15%;
+    --secondary-foreground: 48 20% 95%;
 
-    --muted: 213 45% 19%;
-    --muted-foreground: 213 16% 65%;     /* #A8B3C2 */
+    --muted: 96 7% 15%;
+    --muted-foreground: 60 6% 64%;
 
-    --accent: 32 49% 65%;                /* #D4A373 */
-    --accent-foreground: 213 53% 10%;
+    --accent: 99 23% 59%;
+    --accent-foreground: 96 14% 7%;
 
     --destructive: 0 70% 60%;            /* #E05353 */
     --destructive-foreground: 0 0% 100%;
@@ -118,14 +118,14 @@
     --warning: 38 67% 51%;               /* #D69E2E */
     --info: 217 91% 67%;                 /* #60A5FA */
 
-    --border: 211 37% 23%;               /* #243B53 */
-    --input: 211 37% 23%;
-    --ring: 27 60% 56%;
+    --border: 60 6% 22%;
+    --input: 60 6% 22%;
+    --ring: 99 23% 59%;
 
-    --surface-panel: 213 45% 19%;
-    --surface-muted: 213 47% 16%;
+    --surface-panel: 96 7% 15%;
+    --surface-muted: 96 9% 11%;
 
-    --chart-1: 27 60% 56%;
+    --chart-1: 99 30% 64%;    /* sage   */
     --chart-2: 217 91% 67%;   /* blue   */
     --chart-3: 172 66% 50%;   /* teal   #2DD4BF */
     --chart-4: 142 71% 58%;   /* green  #4ADE80 */
@@ -133,23 +133,24 @@
     --chart-6: 0 91% 71%;     /* rose   #F87171 */
     --chart-7: 43 96% 56%;    /* gold   #FBBF24 */
     --chart-8: 215 20% 65%;   /* slate  #94A3B8 */
-    --chart-grid: 213 35% 25%; /* #2A3B52 */
+    --chart-grid: 90 6% 20%;
 
-    --sidebar-background: 213 53% 7%;        /* #08111D */
-    --sidebar-foreground: 213 16% 75%;
-    --sidebar-primary: 27 60% 56%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 45% 19%;           /* #1A2E45 */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 211 37% 23%;
-    --sidebar-ring: 27 60% 56%;
+    --sidebar-background: 96 12% 4.5%;       /* near-black carbon */
+    --sidebar-foreground: 60 6% 70%;
+    --sidebar-primary: 99 23% 59%;
+    --sidebar-primary-foreground: 96 14% 7%;
+    --sidebar-accent: 99 14% 14%;
+    --sidebar-accent-foreground: 48 20% 95%;
+    --sidebar-border: 60 6% 15%;
+    --sidebar-ring: 99 23% 59%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(27 60% 56%), hsl(32 49% 65%));
-    --gradient-card: linear-gradient(145deg, hsl(213 47% 16%), hsl(213 45% 19%));
-    --shadow-glow: 0 0 24px -6px hsl(27 60% 46% / 0.25);
-    --shadow-card: 0 4px 24px -8px hsl(0 0% 0% / 0.45);
+    --gradient-gold: linear-gradient(135deg, hsl(99 23% 59%), hsl(106 25% 40%));
+    --gradient-card: linear-gradient(145deg, hsl(96 9% 12%), hsl(96 7% 15%));
+    --shadow-glow: 0 0 24px -6px hsl(99 23% 59% / 0.28);
+    --shadow-card: 0 4px 24px -8px hsl(0 0% 0% / 0.55);
   }
 }
+
 
 @layer base {
   * {
