@@ -70,7 +70,7 @@ export function PageHeader({
               {eyebrow}
             </div>
           )}
-          <h1 className="text-[26px] leading-none font-display font-semibold tracking-tight">
+          <h1 className="text-[20px] sm:text-[26px] leading-tight sm:leading-none font-display font-semibold tracking-tight break-words">
             {title}
           </h1>
           {description && (
@@ -183,7 +183,7 @@ export function KpiCard({
  */
 export function KpiGrid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
       {children}
     </div>
   );
