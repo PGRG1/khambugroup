@@ -189,7 +189,7 @@ export default function ExpenseSpendSummaryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KCard label="Total spend" value={fmtMoney(netSpend)} />
         <KCard label="Bills posted" value={String(billCount)} tone="sky" />
         <KCard label="Prev month" value={fmtMoney(prevSpend)} />

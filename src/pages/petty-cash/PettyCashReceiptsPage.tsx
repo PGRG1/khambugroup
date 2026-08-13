@@ -118,7 +118,7 @@ export default function PettyCashReceiptsPage() {
                 <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Import
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
               <div className="md:col-span-1">
                 <Label className="text-xs">Float</Label>
                 <Select value={floatId} onValueChange={setFloatId}>

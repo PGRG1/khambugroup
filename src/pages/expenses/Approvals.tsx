@@ -496,7 +496,7 @@ export default function ExpenseApprovals() {
           })}
         </div>
 
-        <div className="mt-3 grid gap-2 md:grid-cols-6 items-end">
+        <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-6 items-end">
           <div className="md:col-span-2 relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input

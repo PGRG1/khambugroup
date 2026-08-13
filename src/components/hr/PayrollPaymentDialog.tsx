@@ -140,7 +140,7 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
           <TabsList><TabsTrigger value="salary">Salary</TabsTrigger><TabsTrigger value="mpf">MPF</TabsTrigger></TabsList>
           <TabsContent value={kind} className="space-y-4 mt-4">
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
                 <Label className="text-xs">Payment date</Label>
                 <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />

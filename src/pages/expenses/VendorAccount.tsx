@@ -151,7 +151,7 @@ export default function ExpenseVendorAccountPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
         <KCard label="Total billed" value={fmtMoney(totals.billed)} />
         <KCard label="Total paid" value={fmtMoney(totals.paid)} tone="green" />
         <KCard label="Outstanding" value={fmtMoney(totals.outstanding)} tone="amber" />

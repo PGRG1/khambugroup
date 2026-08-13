@@ -192,7 +192,7 @@ export default function SpendSummaryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KCard label="Net spend" value={fmtMoney(netSpend)} />
         <KCard label="Refunds & credits" value={fmtMoney(deductions)} tone="green" sub={`${refundsCount} refunds · ${cnCount} credit notes`} />
         <KCard label="Disputes outstanding" value={fmtMoney(disputed)} tone="amber" />

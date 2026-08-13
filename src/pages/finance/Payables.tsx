@@ -863,7 +863,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
             return <div key={b} className={`${BUCKET_COLOR[b]}`} style={{ width: `${w}%` }} title={`${b}: ${fmt(bucketTotals.totals[b] || 0)}`} />;
           })}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-3">
           {AGE_BUCKETS.map((b) => {
             const v = bucketTotals.totals[b] || 0;
             const pct = bucketTotals.grand > 0 ? (v / bucketTotals.grand) * 100 : 0;

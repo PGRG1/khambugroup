@@ -97,7 +97,7 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6 mt-4">
       <div className="h-9 w-40 rounded-md bg-card/40 animate-pulse" />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
         {Array.from({ length: 5 }).map((_, i) => <Skel key={i} className="h-[92px]" />)}
       </div>
       <Skel className="h-[280px]" />
@@ -773,7 +773,7 @@ export default function ProcurementDashboardTab() {
       <div className="text-[11px] text-muted-foreground tabular-nums -mt-2">{scopeLine}</div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
         <KpiCard
           label="Total Spend" value={fmt(kpis.totalSpend)}
           subline={<>{kpis.count.toLocaleString()} invoices</>}

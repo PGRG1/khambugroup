@@ -413,7 +413,7 @@ export default function ReceivingTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {kpiCards.map((k) => (
           <div key={k.label} className="glass-surface rounded-lg border border-border/60 p-3 flex items-start justify-between gap-2">
             <div className="min-w-0">

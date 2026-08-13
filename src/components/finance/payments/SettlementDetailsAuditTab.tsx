@@ -263,7 +263,7 @@ export function SettlementDetailsAuditTab({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
         <Stat label="Transactions" value={String(totals.count)} />
         <Stat label="Gross" value={fmtMoney(totals.gross)} />
         <Stat label="Expected fee" value={fmtMoney(totals.expected)} />

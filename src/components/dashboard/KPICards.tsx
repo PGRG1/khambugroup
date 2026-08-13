@@ -42,7 +42,7 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 2xl:grid-cols-6 gap-1.5 sm:gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-1.5 sm:gap-3">
       {cards.map((c) => (
         <div key={c.label} className="glass-surface rounded-lg sm:rounded-xl border border-border/60 p-2 sm:p-4 animate-fade-in min-w-0">
           <div className="flex items-center gap-1 mb-0.5 sm:mb-1">

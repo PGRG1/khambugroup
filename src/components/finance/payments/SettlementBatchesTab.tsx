@@ -175,7 +175,7 @@ export function SettlementBatchesTab({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
         <Stat label="Batches" value={String(totals.count)} />
         <Stat label="Gross" value={fmtMoney(totals.gross)} />
         <Stat label="Fees" value={fmtMoney(totals.fees)} />
