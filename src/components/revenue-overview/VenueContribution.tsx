@@ -26,7 +26,7 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
     const max = rows[0]?.revenue || 1;
 
     return (
-      <div className="card-glass rounded-xl border border-border/60 p-4">
+      <div className="glass-surface rounded-xl border border-border/60 p-4">
         <div className="text-[13px] font-medium mb-3">Venue Contribution</div>
         <div className="space-y-3">
           {rows.map((r) => {
@@ -90,7 +90,7 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
   );
 
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-4">
+    <div className="glass-surface rounded-xl border border-border/60 p-4">
       <div className="flex items-baseline justify-between mb-2">
         <div className="text-[13px] font-medium">Seat Economics</div>
         <div className="text-[11px] text-muted-foreground tabular-nums">

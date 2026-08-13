@@ -41,7 +41,7 @@ export function HeroBand({ cur, prev, sparkline90, target, monthProrated, monthA
   const sparkData = sparkline90.map((p) => ({ v: p.revenue }));
 
   return (
-    <div className="card-glass rounded-xl border border-border/60 px-5 py-6 sm:py-7">
+    <div className="glass-surface rounded-xl border border-border/60 px-5 py-6 sm:py-7">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr] lg:gap-0">
         {/* Left: Net revenue */}
         <div className="lg:pr-6">

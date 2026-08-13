@@ -62,7 +62,7 @@ const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="card-glass rounded-xl p-5 animate-fade-in">
+          <div key={card.label} className="glass-surface rounded-xl border border-border/60 p-5 animate-fade-in">
             <div className="flex items-center gap-1.5 mb-2">
               <card.icon className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
@@ -110,7 +110,7 @@ const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
       {/* Actuals summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="card-glass rounded-xl p-5 animate-fade-in">
+          <div key={card.label} className="glass-surface rounded-xl border border-border/60 p-5 animate-fade-in">
             <div className="flex items-center gap-1.5 mb-3">
               <card.icon className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
@@ -131,7 +131,7 @@ const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
       {/* Forecast accuracy cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {forecastCards.map((card) => (
-          <div key={card.label} className="card-glass rounded-xl p-5 animate-fade-in">
+          <div key={card.label} className="glass-surface rounded-xl border border-border/60 p-5 animate-fade-in">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
               <card.icon className={`h-4 w-4 ${card.color}`} />

@@ -421,7 +421,7 @@ export default function Home() {
 
       {/* Needs attention */}
       <SectionHeader title="Needs attention" description="Action items across your books" />
-      <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
+      <div className="glass-surface rounded-xl border border-border/60 overflow-hidden">
         {attentionLoading ? (
           <div className="p-4 space-y-2">
             {[0, 1, 2].map((i) => (
@@ -596,7 +596,7 @@ function PulseCard({
   // Auto-shrink long values
   const size = value.length > 14 ? "text-[19px]" : "text-[22px]";
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-3.5 flex flex-col gap-1.5 min-w-0">
+    <div className="glass-surface rounded-xl border border-border/60 p-3.5 flex flex-col gap-1.5 min-w-0">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground truncate">
         {label}
       </div>

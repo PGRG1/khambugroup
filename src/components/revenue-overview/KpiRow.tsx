@@ -24,7 +24,7 @@ function Card({
   sparkData: { v: number }[];
 }) {
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-4 flex flex-col min-h-[128px]">
+    <div className="glass-surface rounded-xl border border-border/60 p-4 flex flex-col min-h-[128px]">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
         <span className="text-[24px] leading-none font-semibold tabular-nums">{value}</span>
