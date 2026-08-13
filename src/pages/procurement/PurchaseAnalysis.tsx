@@ -564,14 +564,14 @@ export default function PurchaseAnalysis() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="card-glass">
+        <Card className="glass-surface border border-border/60">
           <CardContent className="p-4">
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Net spend</div>
             <div className="mt-1 text-2xl font-semibold td-num">{fmtMoney(totalSpend)}</div>
             <div className="mt-1 text-xs text-muted-foreground">{periodLabel}</div>
           </CardContent>
         </Card>
-        <Card className="card-glass">
+        <Card className="glass-surface border border-border/60">
           <CardContent className="p-4">
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">vs prior period</div>
             <div className={`mt-1 text-2xl font-semibold td-num flex items-center gap-1 ${changePct >= 0 ? "text-red-400" : "text-emerald-400"}`}>
@@ -581,7 +581,7 @@ export default function PurchaseAnalysis() {
             <div className="mt-1 text-xs text-muted-foreground">prior {fmtMoney(priorSpend)}</div>
           </CardContent>
         </Card>
-        <Card className="card-glass">
+        <Card className="glass-surface border border-border/60">
           <CardContent className="p-4">
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Top category</div>
             <div className="mt-1 text-2xl font-semibold td-num truncate">{topCategory?.name || "—"}</div>
@@ -590,7 +590,7 @@ export default function PurchaseAnalysis() {
             </div>
           </CardContent>
         </Card>
-        <Card className="card-glass">
+        <Card className="glass-surface border border-border/60">
           <CardContent className="p-4">
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Items purchased</div>
             <div className="mt-1 text-2xl font-semibold td-num">{distinctProducts.toLocaleString()}</div>

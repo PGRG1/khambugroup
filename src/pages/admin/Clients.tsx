@@ -135,7 +135,7 @@ export default function Clients() {
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="card-glass rounded-xl border border-border/60 px-4 sm:px-5 py-4 sm:py-[22px] min-h-[96px] sm:min-h-[112px] flex flex-col justify-between gap-3 min-w-0"
+            className="glass-surface rounded-xl border border-border/60 px-4 sm:px-5 py-4 sm:py-[22px] min-h-[96px] sm:min-h-[112px] flex flex-col justify-between gap-3 min-w-0"
           >
             <div className="text-[10px] sm:text-[10.5px] uppercase tracking-[0.16em] sm:tracking-[0.18em] text-muted-foreground font-medium truncate">
               {k.label}

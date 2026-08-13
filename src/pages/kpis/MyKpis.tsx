@@ -570,7 +570,7 @@ function CleanCard(props: {
 }) {
   const tone = props.statusTone;
   return (
-    <div className="rounded-xl border border-border/60 card-glass overflow-hidden flex flex-col h-full">
+    <div className="rounded-xl border border-border/60 glass-surface overflow-hidden flex flex-col h-full">
       <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold font-display leading-snug break-words text-foreground">

@@ -36,11 +36,11 @@ export const toneSoft: Record<Tone, string> = {
 };
 
 export const toneTile: Record<Tone, string> = {
-  success: "bg-primary/[0.06] border-primary/25 text-foreground",
-  info: "bg-info/[0.06] border-info/30 text-foreground",
-  warn: "bg-warning/[0.06] border-warning/30 text-foreground",
-  danger: "bg-destructive/[0.06] border-destructive/25 text-foreground",
-  neutral: "bg-card border-border text-foreground",
+  success: "glass-surface border-primary/25 text-foreground",
+  info: "glass-surface border-info/30 text-foreground",
+  warn: "glass-surface border-warning/30 text-foreground",
+  danger: "glass-surface border-destructive/25 text-foreground",
+  neutral: "glass-surface border-border text-foreground",
 };
 
 export const toneTileLabel: Record<Tone, string> = {
