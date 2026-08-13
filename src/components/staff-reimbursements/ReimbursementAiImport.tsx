@@ -283,7 +283,7 @@ export default function ReimbursementAiImport({
             </div>
 
             {files.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-4 gap-2 max-h-72 overflow-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-auto">
                 {files.map((f, idx) => (
                   <div key={idx} className="relative border rounded p-2 bg-muted/30">
                     <button
