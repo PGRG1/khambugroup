@@ -106,7 +106,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-3 flex items-center gap-3">
             <div className="rounded-full p-2 bg-primary/10">

@@ -66,7 +66,7 @@ export default function PettyCashReplenishmentsPage() {
               <RefreshCw className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold">Replenish a float</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <Label className="text-xs">Float</Label>
                 <Select value={floatId} onValueChange={setFloatId}>

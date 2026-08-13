@@ -29,7 +29,7 @@ export default function PettyCashOverviewPage() {
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <PettyCashHeader title="Petty Cash" subtitle="Physical cash floats, receipts and replenishments per venue." />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiTile label="Total float value" value={formatCurrency(totalFloatValue)} sub={`${pc.floats.length} floats`} />
         <KpiTile label="Cash on hand (est.)" value={formatCurrency(totalOnHand)} sub="Replen − posted receipts" />
         <KpiTile label="Pending receipts" value={String(pendingReceipts.length)} sub={formatCurrency(pendingAmount)} tone={pendingReceipts.length ? "warn" : undefined} />

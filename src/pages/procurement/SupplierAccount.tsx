@@ -524,7 +524,7 @@ export default function SupplierAccountPage() {
         onChanged={() => setRefreshKey((k) => k + 1)}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
         <KCard label="Outstanding" value={fmtMoney(outstanding)} tone={outstanding > 0 ? "amber" : "default"} />
         <KCard label="Overdue" value={fmtMoney(overdue)} tone="red" />
         <KCard label="Available credits" value={fmtMoney(availableCreditsTotal)} tone="green" />

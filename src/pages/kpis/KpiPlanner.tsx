@@ -191,7 +191,7 @@ export default function KpiPlanner() {
           </div>
 
           {/* Stat tiles — decision-relevant order */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
             <StatTile label="Status" value={recovery.statusLabel} tone={asTone(RECOVERY_STATUS_TONE[recovery.status])} />
             <StatTile label="Today's Adjusted Minimum" value={fmt(recovery.adjustedMinimum, unit)} tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"} />
             <StatTile

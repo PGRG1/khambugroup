@@ -2081,7 +2081,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   duplicate={!!current.is_duplicate}
                 />
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
                   <CheckCard title="Header Check" status={stats.headerCheckStatus} message={stats.headerCheckMsg} />
                   <CheckCard title="Supplier Check" status={stats.supplierCheckStatus} message={stats.supplierCheckMsg} />
                   <CheckCard title="Math Check" status={stats.mathCheckStatus} message={stats.mathCheckMsg} />

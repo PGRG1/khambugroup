@@ -872,7 +872,7 @@ export default function BillsExpenses() {
 
             {/* Dates */}
             <FormSection title="Dates" description="Recognition and service period.">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <Label>Bill date</Label>
                   <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />

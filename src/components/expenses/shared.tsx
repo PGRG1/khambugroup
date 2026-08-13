@@ -63,7 +63,7 @@ export function PageHeader({
 }) {
   return (
     <div className="pb-5 border-b border-border/50">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
         <div className="min-w-0">
           {eyebrow && (
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5 font-medium">
@@ -80,7 +80,9 @@ export function PageHeader({
           )}
         </div>
         {actions && (
-          <div className="flex flex-wrap gap-2 shrink-0">{actions}</div>
+          <div className="flex flex-wrap items-center gap-2 md:justify-end md:shrink-0 md:max-w-[60%]">
+            {actions}
+          </div>
         )}
       </div>
     </div>
@@ -183,7 +185,29 @@ export function KpiCard({
  */
 export function KpiGrid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * ToolbarRow — shared filter/action row. Wraps instead of compressing
+ * controls at tablet widths; children keep a usable minimum width.
+ */
+export function ToolbarRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={
+        "flex flex-wrap items-center gap-2 sm:gap-2.5 [&>*]:min-w-0 " + className
+      }
+    >
       {children}
     </div>
   );
@@ -418,7 +442,7 @@ export function TableSkeleton({ rows = 5, cols = 6 }: { rows?: number; cols?: nu
 /** KPI grid skeleton — matches the KpiGrid breakpoints. */
 export function KpiSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="glass-surface rounded-xl border border-border/60 p-4">
           <Skeleton className="h-3 w-20" />

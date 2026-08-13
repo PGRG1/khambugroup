@@ -353,7 +353,7 @@
 
   /* Nothing in the content column may push the page sideways. */
   .app-shell > div {
-    max-width: 100vw;
+    max-width: 100%;
   }
 
   /* Comfortable touch targets for primary controls. */

@@ -166,7 +166,7 @@ export default function DocumentsTab() {
   return (
     <div className="space-y-4">
       {/* Stats strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2">
         {loading ? Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />
         )) : (

@@ -176,7 +176,7 @@ export default function CashflowLedger() {
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Opening Cash" value={fmtMoney(totals.opening)} loading={loading} />
         <KPICard icon={<ArrowUpCircle className="h-5 w-5 text-primary" />} label="Cash In" value={fmtMoney(totals.cashIn)} loading={loading} />
         <KPICard icon={<ArrowDownCircle className="h-5 w-5 text-destructive" />} label="Cash Out" value={fmtMoney(totals.cashOut)} loading={loading} />

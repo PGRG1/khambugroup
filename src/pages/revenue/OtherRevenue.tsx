@@ -116,7 +116,7 @@ export default function OtherRevenuePage() {
           <Coins className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Record other revenue</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
             <Label className="text-xs">Date</Label>
             <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />

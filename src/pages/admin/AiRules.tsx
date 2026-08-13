@@ -165,7 +165,7 @@ export default function AiRules() {
         <div className="flex items-center gap-2 text-sm font-medium">
           <Filter className="h-4 w-4" /> Filters
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-3">
           <Select value={fDomain} onValueChange={setFDomain}>
             <SelectTrigger><SelectValue placeholder="Domain" /></SelectTrigger>
             <SelectContent>

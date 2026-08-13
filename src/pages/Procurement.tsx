@@ -37,7 +37,7 @@ interface ProcurementProps {
 function TabFallback() {
   return (
     <div className="space-y-4 mt-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-[92px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />
         ))}

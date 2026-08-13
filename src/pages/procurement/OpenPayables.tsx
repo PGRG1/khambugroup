@@ -135,7 +135,7 @@ export default function OpenPayablesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone="amber" />
         <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
         <KCard label="Due this week" value={fmtMoney(totals.dueWeek)} tone="sky" />

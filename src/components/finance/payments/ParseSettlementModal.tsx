@@ -345,7 +345,7 @@ export function ParseSettlementModal({
                   warnText={`${audit?.transactions_flagged} transaction(s) don't match the contracted rate sheet. Net Δ ${fmtMoney(detailsVariance)}.`}
                 />
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 py-3 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 py-3 text-sm">
                   <Stat label="Transactions" value={String(detailsTotals.count)} />
                   <Stat label="Gross" value={fmtMoney(detailsTotals.gross)} />
                   <Stat label="Expected fee" value={fmtMoney(detailsTotals.expected)} />
@@ -405,7 +405,7 @@ export function ParseSettlementModal({
                   warnText={`${audit?.reconciliation_off} batch(es) don't reconcile. Net Δ ${fmtMoney(monthlyTotals.variance)}.`}
                 />
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 py-3 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 py-3 text-sm">
                   <Stat label="Batches" value={String(monthly.length)} />
                   <Stat label="Gross" value={fmtMoney(monthlyTotals.gross)} />
                   <Stat label="Net settled" value={fmtMoney(monthlyTotals.net)} />

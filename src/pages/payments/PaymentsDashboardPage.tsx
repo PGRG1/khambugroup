@@ -49,7 +49,7 @@ export default function PaymentsDashboardPage() {
 
       <Stepper active={activeStep} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard label="Gross transactions" value={formatCurrency(totalGross)} sub={`${procBatches.length} batches`} />
         <KpiCard label="Total fees" value={formatCurrency(totalFees)} sub="Processor + bank transfer" />
         <KpiCard label="Net settled" value={formatCurrency(totalNet)} sub="To bank accounts" />
