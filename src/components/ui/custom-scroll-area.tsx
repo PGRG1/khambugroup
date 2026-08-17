@@ -177,6 +177,7 @@ export const CustomScrollArea = React.forwardRef<HTMLDivElement, CustomScrollAre
             opacity,
             borderRadius: 6,
             background: "linear-gradient(180deg, #D9A860, #8A6A3E)",
+            display: "none",
             transition:
               "opacity 300ms ease, width 200ms ease, right 200ms ease, background 200ms ease",
             pointerEvents: needed ? "auto" : "none",
