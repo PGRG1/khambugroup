@@ -78,10 +78,14 @@ const Auth = () => {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1520px] flex-col px-5 sm:px-8 lg:px-[clamp(2rem,4vw,4.5rem)]">
         {/* Header row: logo + stage blocks share one line */}
         <header className="flex shrink-0 items-center gap-0 py-6 lg:pb-4 lg:pt-[clamp(1.75rem,3.2vw,2.9rem)]">
-          <div className="flex items-center gap-4 pr-8 lg:pr-14">
-            <BaniLoginMark className="h-9 w-[22px] text-bone lg:h-[52px] lg:w-[28px]" />
-            <span className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
+          <div
+            className="flex items-center gap-4 pr-8 lg:pr-14"
+            style={{ opacity: brandVisible ? 1 : 0 }}
+          >
+            <BaniLoginMark svgRef={markRef} className="h-9 w-[22px] text-bone lg:h-[52px] lg:w-[28px]" />
+            <span ref={wordRef} className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
           </div>
+
           <div className="hidden min-[1100px]:grid ml-auto grid-flow-col auto-cols-max gap-x-11">
             {RAIL.map((r) => (
               <div
