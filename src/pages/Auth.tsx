@@ -70,10 +70,10 @@ const Auth = () => {
             <span className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
           </div>
           <div className="hidden md:ml-auto md:grid md:grid-cols-4">
-            {RAIL.map((r, i) => (
+            {RAIL.map((r) => (
               <div
                 key={r.k}
-                className={`px-5 lg:px-[clamp(1rem,1.6vw,1.75rem)] font-plex text-[10px] leading-[1.9] tracking-[0.16em] ${i > 0 ? "border-l border-bone/12" : ""}`}
+                className="px-5 lg:px-[clamp(1rem,1.6vw,1.75rem)] font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
               >
                 <div className="text-bone/75">{r.k}</div>
                 <div className="text-bone/35">{r.v}</div>
