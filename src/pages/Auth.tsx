@@ -96,7 +96,7 @@ const Auth = () => {
         </header>
 
         {/* Main */}
-        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(180px,260px)_minmax(400px,477px)] lg:items-center lg:gap-0 lg:py-0">
+        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(400px,477px)] lg:items-center lg:gap-16 lg:py-0">
           {/* Headline */}
           <section className="lg:pl-[clamp(0px,2vw,3rem)]">
             <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap lg:text-[clamp(2.6rem,3.7vw,4rem)]">
@@ -106,29 +106,7 @@ const Auth = () => {
             </h1>
           </section>
 
-          {/* Central tall geometric construction — extends behind the glass card */}
-          <div className="relative z-0 hidden h-[clamp(420px,58vh,600px)] lg:block" style={{ overflow: "visible" }}>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 320 600"
-              preserveAspectRatio="none"
-              className="absolute left-0 top-0 h-full w-[calc(100%+120px)] text-sage/25"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            >
-              <g vectorEffect="non-scaling-stroke">
-                <path d="M0 0 L160 100 L0 200 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M160 100 L320 200 L160 300 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M0 200 L160 300 L0 400 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M160 300 L320 400 L160 500 Z" vectorEffect="non-scaling-stroke" />
-                <path d="M0 400 L160 500 L0 600 Z" vectorEffect="non-scaling-stroke" />
-                
-              </g>
-            </svg>
-          </div>
+
 
           {/* Glass form panel */}
           <section className="relative z-10 w-full lg:justify-self-end">
