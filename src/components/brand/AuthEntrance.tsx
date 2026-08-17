@@ -87,7 +87,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
       className="fixed inset-0 z-50 bg-carbon"
       style={{
         opacity: fading ? 0 : 1,
-        transition: `opacity ${T.fadeDur}ms ${EASE}`,
+        transition: `opacity ${T.fadeDur}ms ${FADE_EASE}`,
         pointerEvents: fading ? "none" : "auto",
       }}
     >
@@ -106,7 +106,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
             height: "clamp(240px, 46vh, 420px)",
             aspectRatio: "320 / 600",
             transform: moved ? transform : "none",
-            transition: `transform ${T.moveDur}ms ${EASE}`,
+            transition: `transform ${T.moveDur}ms ${MOVE_EASE}`,
             willChange: "transform",
           }}
         >
@@ -121,7 +121,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
             vectorEffect="non-scaling-stroke"
             style={{
               opacity: solid ? 0 : 1,
-              transition: `opacity ${T.solidDur}ms ${EASE}`,
+              transition: `opacity ${T.solidDur}ms ${FADE_EASE}`,
             }}
           >
             <g opacity="0.18">
@@ -136,11 +136,11 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
                   d={d}
                   pathLength={1}
                   vectorEffect="non-scaling-stroke"
-                  style={{
-                    strokeDasharray: 1,
-                    strokeDashoffset: 1,
-                    animation: `bani-trace ${T.trace - i * 90}ms ${EASE} ${i * 90}ms forwards`,
-                  }}
+                    style={{
+                      strokeDasharray: 1,
+                      strokeDashoffset: 1,
+                      animation: `bani-trace ${T.trace - i * 90}ms ${TRACE_EASE} ${i * 90}ms forwards`,
+                    }}
                 />
               ))}
             </g>
@@ -153,7 +153,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
             fill="currentColor"
             style={{
               opacity: solid ? 1 : 0,
-              transition: `opacity ${T.solidDur}ms ${EASE}`,
+              transition: `opacity ${T.solidDur}ms ${FADE_EASE}`,
             }}
           >
             {PATHS.map((d) => (
@@ -173,7 +173,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
             fontSize: wordBox.fontSize,
             lineHeight: wordBox.lineHeight,
             opacity: word ? 1 : 0,
-            transition: `opacity ${T.wordDur}ms ${EASE}`,
+            transition: `opacity ${T.wordDur}ms ${FADE_EASE}`,
           }}
         >
           Bani
