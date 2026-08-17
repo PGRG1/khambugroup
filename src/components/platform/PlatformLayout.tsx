@@ -34,10 +34,9 @@ function NavBody({
               collapsed ? "justify-center px-0" : "px-3"
             } ${
               isActive
-                ? "glass-active text-foreground dark:text-white"
-                : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground"
+                ? "bg-sage/10 text-bone dark:glass-active dark:text-white"
+                : "text-bone/75 hover:bg-bone/5 hover:text-bone dark:text-muted-foreground dark:hover:bg-foreground/[0.05] dark:hover:text-foreground"
             }`}
-
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
