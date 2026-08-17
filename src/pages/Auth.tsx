@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { AuthEntrance } from "@/components/brand/AuthEntrance";
 
@@ -211,10 +211,9 @@ const Auth = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
+                  className="group inline-flex h-12 w-full items-center justify-center rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
                 >
                   {loading ? "Please wait..." : "Sign In"}
-                  {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
                 </button>
               </form>
             </div>
