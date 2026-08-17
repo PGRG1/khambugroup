@@ -357,6 +357,12 @@
     max-width: 100%;
 }
 
+  /* Comfortable touch targets for primary controls. */
+  .app-shell button:not([data-slot="icon-only"]):not(.h-6):not(.h-7) {
+    min-height: 36px;
+  }
+}
+
 /* =========================================================
    GLOBAL SCROLLBAR STYLING
    ========================================================= */
@@ -418,9 +424,3 @@
   }
 }
 
-
-  /* Comfortable touch targets for primary controls. */
-  .app-shell button:not([data-slot="icon-only"]):not(.h-6):not(.h-7) {
-    min-height: 36px;
-  }
-}
