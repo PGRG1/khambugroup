@@ -225,7 +225,17 @@ const Auth = () => {
           © {new Date().getFullYear()} Bani Technology Limited
         </footer>
       </div>
+
+      {!entranceDone && (
+        <AuthEntrance
+          markRef={markRef}
+          wordRef={wordRef}
+          onHandoff={handleHandoff}
+          onFinish={handleFinish}
+        />
+      )}
     </div>
+
   );
 };
 
