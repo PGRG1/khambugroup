@@ -1,10 +1,12 @@
 interface BaniLoginMarkProps {
   className?: string;
+  svgRef?: React.Ref<SVGSVGElement>;
 }
 
 /** White five-triangle Bani mark (login screen only). */
-export const BaniLoginMark = ({ className }: BaniLoginMarkProps) => (
+export const BaniLoginMark = ({ className, svgRef }: BaniLoginMarkProps) => (
   <svg
+    ref={svgRef}
     viewBox="0 0 320 600"
     aria-hidden="true"
     className={className}
