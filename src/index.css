@@ -355,7 +355,69 @@
   /* Nothing in the content column may push the page sideways. */
   .app-shell > div {
     max-width: 100%;
+}
+
+/* =========================================================
+   GLOBAL SCROLLBAR STYLING
+   ========================================================= */
+
+@media (min-width: 768px) {
+  html,
+  body,
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(37, 55, 43, 0.28) transparent;
   }
+
+  .dark,
+  .dark html,
+  .dark body,
+  .dark * {
+    scrollbar-color: rgba(245, 244, 240, 0.24) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(37, 55, 43, 0.28);
+    border-radius: 9999px;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: rgba(245, 244, 240, 0.24);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(143, 175, 126, 0.72);
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  html,
+  body,
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
 
   /* Comfortable touch targets for primary controls. */
   .app-shell button:not([data-slot="icon-only"]):not(.h-6):not(.h-7) {
