@@ -38,7 +38,7 @@ function NavBody({
                 : "text-bone/75 hover:bg-bone/5 hover:text-bone dark:text-muted-foreground dark:hover:bg-foreground/[0.05] dark:hover:text-foreground"
             }`}
           >
-            <item.icon className="h-4 w-4 shrink-0" />
+            <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-sage dark:text-white" : ""}`} />
             {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
           </NavLink>
         );
@@ -54,9 +54,9 @@ function Branding({ collapsed = false }: { collapsed?: boolean }) {
         collapsed ? "justify-center px-0" : "gap-3 px-5"
       }`}
     >
-      <BaniLoginMark className="h-6 w-[13px] shrink-0 text-sidebar-foreground dark:text-white" />
+      <BaniLoginMark className="h-6 w-[13px] shrink-0 text-bone dark:text-white" />
       {!collapsed && (
-        <span className="font-geist font-light tracking-tight text-[15px] whitespace-nowrap text-sidebar-foreground dark:text-white">
+        <span className="font-geist font-light tracking-tight text-[15px] whitespace-nowrap text-bone dark:text-white">
           Bani Platform
         </span>
       )}
