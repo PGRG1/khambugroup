@@ -69,14 +69,14 @@ const Auth = () => {
             <BaniLoginMark className="h-9 w-[22px] text-bone lg:h-[52px] lg:w-[28px]" />
             <span className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
           </div>
-          <div className="hidden md:ml-auto md:grid md:grid-cols-4">
+          <div className="hidden min-[1100px]:grid ml-auto grid-flow-col auto-cols-max gap-x-11">
             {RAIL.map((r) => (
               <div
                 key={r.k}
-                className="px-5 lg:px-[clamp(1rem,1.6vw,1.75rem)] font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
+                className="font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
               >
-                <div className="text-bone/75">{r.k}</div>
-                <div className="text-bone/35">{r.v}</div>
+                <div className="whitespace-nowrap text-bone/75">{r.k}</div>
+                <div className="whitespace-nowrap text-bone/35">{r.v}</div>
               </div>
             ))}
           </div>
