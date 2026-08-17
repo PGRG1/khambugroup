@@ -14,10 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        display: ["Space Grotesk", "sans-serif"],
-        geist: ["Geist", "Inter", "sans-serif"],
-        inter: ["Inter", "sans-serif"],
+        sans: ["IBM Plex Sans", "sans-serif"],
+        display: ["IBM Plex Sans", "sans-serif"],
+        geist: ["IBM Plex Sans", "sans-serif"],
+        inter: ["IBM Plex Sans", "sans-serif"],
         plex: ["IBM Plex Mono", "monospace"],
       },
       colors: {
