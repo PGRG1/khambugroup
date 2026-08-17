@@ -25,6 +25,17 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const markRef = useRef<SVGSVGElement>(null);
+  const wordRef = useRef<HTMLSpanElement>(null);
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const [entranceDone, setEntranceDone] = useState(reducedMotion);
+  const [brandVisible, setBrandVisible] = useState(reducedMotion);
+  const handleHandoff = useCallback(() => setBrandVisible(true), []);
+  const handleFinish = useCallback(() => setEntranceDone(true), []);
+
+
   useEffect(() => {
     if (!authLoading && session) navigate("/", { replace: true });
   }, [session, authLoading, navigate]);
