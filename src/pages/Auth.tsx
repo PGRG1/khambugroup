@@ -54,6 +54,7 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setMessage(""); setLoading(true);
+    try { localStorage.removeItem("khambu.enteredTenantId"); } catch { /* no-op */ }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     else navigate("/");
