@@ -8,18 +8,20 @@ const PATHS = [
   "M0 400 L160 500 L0 600 Z",
 ];
 
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const TRACE_EASE = "cubic-bezier(0.42, 0, 0.2, 1)";
+const MOVE_EASE = "cubic-bezier(0.65, 0, 0.35, 1)";
+const FADE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 const T = {
-  trace: 1150,
-  solidStart: 950,
-  solidDur: 400,
-  moveStart: 1250,
-  moveDur: 1150,
-  wordStart: 2000,
-  wordDur: 400,
-  fadeStart: 2400,
-  fadeDur: 500,
+  trace: 1500,
+  solidStart: 1300,
+  solidDur: 550,
+  moveStart: 1700,
+  moveDur: 1650,
+  wordStart: 2650,
+  wordDur: 650,
+  fadeStart: 3400,
+  fadeDur: 650,
 };
 
 interface AuthEntranceProps {
