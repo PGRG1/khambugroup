@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
+import { AuthEntrance } from "@/components/brand/AuthEntrance";
+
 
 const RAIL = [
   { k: "CAPTURE", v: "OPERATING DATA" },
