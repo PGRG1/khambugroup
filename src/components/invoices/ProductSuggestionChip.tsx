@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Sparkles, Check, ChevronDown, Loader2 } from "lucide-react";
+import { Sparkles, Check, ChevronDown } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Button } from "@/components/ui/button";
 import type { FuzzyCandidate } from "@/utils/productFuzzyMatch";
 
@@ -67,7 +68,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
         disabled={aiLoading}
         className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-60"
       >
-        {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+        {aiLoading ? <BaniProcessingMark size={14} /> : <Sparkles className="h-3 w-3" />}
         Ask AI to match
       </button>
     );
@@ -114,7 +115,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
             disabled={aiLoading}
             className="inline-flex items-center gap-1 text-primary hover:underline disabled:opacity-60"
           >
-            {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            {aiLoading ? <BaniProcessingMark size={14} /> : <Sparkles className="h-3 w-3" />}
             Ask AI
           </button>
         )}

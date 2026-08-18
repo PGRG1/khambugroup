@@ -2024,16 +2024,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       {scanning && (
         <div className="flex flex-col items-center gap-3 py-12">
           <BaniProcessingMark size={24} />
-          <p className="text-sm text-muted-foreground">
-            {scanProgress.total > 1
-              ? `Scanning file ${scanProgress.current} of ${scanProgress.total}...`
-              : "Scanning for invoices with AI... This may take a moment for large documents."}
-          </p>
           {scanProgress.total > 1 && (
-            <Progress value={(scanProgress.current / scanProgress.total) * 100} className="h-2 w-48" />
+            <>
+              <p className="text-sm text-muted-foreground">{scanProgress.current} of {scanProgress.total}</p>
+              <Progress value={(scanProgress.current / scanProgress.total) * 100} className="h-2 w-48" />
+            </>
           )}
         </div>
       )}
+
 
       {/* Review form */}
       {current && !scanning && (

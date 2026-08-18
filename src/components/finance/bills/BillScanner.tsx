@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Upload, Camera, Loader2, FileText, X } from "lucide-react";
+import { Upload, Camera, FileText, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 

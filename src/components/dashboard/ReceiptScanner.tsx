@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
+
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -321,11 +323,11 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
       {/* Scanning state */}
       {scanning && (
-        <div className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Scanning receipt with AI...</p>
+        <div className="flex flex-col items-center justify-center py-12">
+          <BaniProcessingMark size={24} />
         </div>
       )}
+
 
       {/* Extracted data review */}
       {extractedData && (

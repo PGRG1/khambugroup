@@ -9,6 +9,7 @@ import {
 import {
   Upload, Camera, Loader2, FileText, X, Sparkles, CheckCircle2, AlertCircle, ArrowLeft,
 } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { usePettyCash } from "@/hooks/usePettyCash";
@@ -461,7 +462,7 @@ export default function PettyCashImport({
               <Button variant="ghost" onClick={() => close(false)} disabled={scanning}>Cancel</Button>
               <Button onClick={runExtraction} disabled={scanning || files.length === 0}>
                 {scanning ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Extracting…</>
+                  <><BaniProcessingMark size={18} className="mr-2" /> Extracting…</>
                 ) : (
                   <><Sparkles className="h-4 w-4 mr-2" /> Extract with AI</>
                 )}
