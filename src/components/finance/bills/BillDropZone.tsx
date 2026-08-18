@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { Upload, X, ScanLine, Loader2, Camera, FileText } from "lucide-react";
+import { Upload, X, ScanLine, Camera, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";

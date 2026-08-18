@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, Check, ChevronDown, Loader2 } from "lucide-react";
+import { Sparkles, Check, ChevronDown } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Button } from "@/components/ui/button";
 import type { FuzzyCandidate } from "@/utils/productFuzzyMatch";

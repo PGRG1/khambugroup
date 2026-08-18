@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Loader2, ScanLine, User } from "lucide-react";
+import { Send, ScanLine, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
