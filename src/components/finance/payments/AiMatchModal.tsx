@@ -137,7 +137,7 @@ export function AiMatchModal({
             </p>
             <div className="flex justify-end">
               <Button onClick={run} disabled={running || unmatched.length === 0}>
-                {running ? <><BaniProcessingMark size={18} />Matching…</> : <><Sparkles className="h-4 w-4 mr-2" /> Run AI Match</>}
+                {running ? <><BaniProcessingMark size={18} /><span>Matching…</span></> : <><Sparkles className="h-4 w-4" /><span>Run AI Match</span></>}
               </Button>
             </div>
           </div>
@@ -236,7 +236,7 @@ export function AiMatchModal({
           {suggestions.length > 0 && (
             <>
               <Button variant="outline" onClick={run} disabled={running}>
-                {running ? <BaniProcessingMark size={18} /> : <Sparkles className="h-4 w-4 mr-2" />}
+                {running ? <BaniProcessingMark size={18} /> : <><Sparkles className="h-4 w-4" /><span>Re-run</span></>}
                 Re-run
               </Button>
               <Button onClick={apply} disabled={applying || selectedCount === 0}>
