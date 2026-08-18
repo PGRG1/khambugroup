@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, CheckCircle2 } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { classifyTxn } from "@/utils/bankTxnRules";
 import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
 import type { BankAccount } from "@/hooks/useBankModule";
@@ -257,7 +258,7 @@ export function StatementUploadFlow({
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={startExtract} disabled={!file || extracting}>
-                {extracting ? <><Loader2 className="h-4 w-4 animate-spin" /> Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
+                {extracting ? <><BaniProcessingMark size={18} /> Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
               </Button>
             </DialogFooter>
           </div>

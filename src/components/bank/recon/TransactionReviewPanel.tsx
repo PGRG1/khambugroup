@@ -10,6 +10,7 @@ import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTx
 import { matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
 
@@ -238,7 +239,7 @@ export function TransactionReviewPanel({
           <Section title="🤖 AI classification">
             <div className="space-y-2">
               <Button size="sm" variant="outline" onClick={runAi} disabled={aiBusy || busy} className="w-full">
-                <Sparkles className="h-3 w-3" /> {aiBusy ? "Thinking…" : "Suggest with AI"}
+                {aiBusy ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3 w-3" />} {aiBusy ? "Thinking…" : "Suggest with AI"}
               </Button>
               {aiResult?.suggested_type && (
                 <div className="border border-border rounded-md p-2 bg-card/50 space-y-2">
