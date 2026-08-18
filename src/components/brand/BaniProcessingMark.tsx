@@ -30,8 +30,9 @@ export const BaniProcessingMark = ({ size = 24, className, label = "Bani is work
       "dark:[--bani-rest:#8FAF7E] dark:[--bani-glow:#F5F4F0]",
       className,
     )}
-    style={{ height: size, width: (size * 320) / 600 }}
+    style={{ height: size, width: size }}
   >
+
     <style>{`
       @keyframes bani-breathe {
         0%   { fill: var(--bani-rest); opacity: .45; }
