@@ -2242,8 +2242,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             {hasUnmatchedItems && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
-                  {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
-                  Resolve {unmatchedItems.length} unmatched with AI
+                  {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5" />}
+                  <span>Resolve {unmatchedItems.length} unmatched with AI</span>
                 </Button>
                 {unmatchedBulkLines.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => setBulkQuickAddOpen(true)}>
