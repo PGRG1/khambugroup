@@ -1018,8 +1018,18 @@ Deno.serve(async (req) => {
     const FALLBACK_MODEL = "google/gemini-2.5-flash";
     let currentModel = PRIMARY_MODEL;
 
-    // Tool-calling loop (up to 10 iterations so the model can chain queries)
-    for (let iter = 0; iter < 10; iter++) {
+    // Tool-calling loop (up to 10 iterations so the model can chain queries).
+    // On the last iteration we drop the tools so the model MUST produce a final answer.
+    const MAX_ITERS = 10;
+    for (let iter = 0; iter < MAX_ITERS; iter++) {
+      const forceFinal = iter === MAX_ITERS - 1;
+      if (forceFinal) {
+        conversation.push({
+          role: "system",
+          content:
+            "You have reached the maximum number of data lookups. Do not request any more tools. Answer now using the data already gathered, and state clearly if anything is incomplete.",
+        });
+      }
       // Retry transient gateway failures (502/503/504) up to 3 times with backoff
       let resp: Response | null = null;
       let lastStatus = 0;
@@ -1034,10 +1044,10 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             model: currentModel,
             messages: conversation,
-            tools,
-            tool_choice: "auto",
+            ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
           }),
         });
+
         if (resp.ok) break;
         lastStatus = resp.status;
         lastText = await resp.text();
@@ -1077,8 +1087,11 @@ Deno.serve(async (req) => {
       if (!choice) break;
 
       const toolCalls = choice.tool_calls;
-      if (!toolCalls || toolCalls.length === 0) {
-        const content = choice.content || "";
+      if (forceFinal || !toolCalls || toolCalls.length === 0) {
+        const content =
+          choice.content ||
+          "I couldn't complete that analysis — the request needed too many data lookups. Try narrowing it to a single venue, metric, or period.";
+
         const stream = new ReadableStream({
           start(controller) {
             const encoder = new TextEncoder();
@@ -1137,10 +1150,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ error: "Tool loop exhausted" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Unreachable in practice (the last iteration always answers), but degrade gracefully
+    // as a streamed message instead of a 500 blank screen.
+    const fallback =
+      "I wasn't able to finish that analysis. Please try a narrower question (one venue, metric, or period).";
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: fallback } }] })}\n\n`),
+        );
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
     });
+    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+
   } catch (e) {
     console.error("chat-assistant error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
