@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Loader2, ScanLine, User } from "lucide-react";
@@ -174,7 +175,7 @@ export default function Assistant() {
                   <ScanLine className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <div className="pt-1">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <BaniProcessingMark size={24} />
                 </div>
               </div>
             )}
@@ -200,7 +201,7 @@ export default function Assistant() {
             disabled={loading}
           />
           <Button onClick={() => send(input)} disabled={loading || !input.trim()} size="icon" className="h-12 w-12 shrink-0 rounded-xl">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {loading ? <BaniProcessingMark size={18} /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">

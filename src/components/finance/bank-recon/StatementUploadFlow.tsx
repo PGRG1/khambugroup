@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -253,7 +254,7 @@ export function StatementUploadFlow({
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={startExtract} disabled={!file || extracting}>
-                {extracting ? <><Loader2 className="h-4 w-4 animate-spin" /> Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
+                {extracting ? <><BaniProcessingMark size={18} /> Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
               </Button>
             </DialogFooter>
           </div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight } from "lucide-react";
 import {
   WorkflowStrip,
@@ -2022,7 +2023,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       {/* Scanning */}
       {scanning && (
         <div className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          <BaniProcessingMark size={24} />
           <p className="text-sm text-muted-foreground">
             {scanProgress.total > 1
               ? `Scanning file ${scanProgress.current} of ${scanProgress.total}...`
@@ -2242,7 +2243,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             {hasUnmatchedItems && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
-                  {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                  {aiMatchingAll ? <BaniProcessingMark size={18} className="mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
                   Resolve {unmatchedItems.length} unmatched with AI
                 </Button>
                 {unmatchedBulkLines.length > 0 && (

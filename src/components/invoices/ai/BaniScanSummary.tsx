@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Sparkles, AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,7 +57,7 @@ export function BaniScanSummary({ invoiceId }: Props) {
           </span>
         </div>
         <Button size="sm" variant="ghost" onClick={rerun} disabled={running} className="h-7 gap-1.5">
-          <RefreshCw className={`h-3.5 w-3.5 ${running ? "animate-spin" : ""}`} />
+          {running ? <BaniProcessingMark size={18} /> : <RefreshCw className="h-3.5 w-3.5" />}
           Re-run
         </Button>
       </div>

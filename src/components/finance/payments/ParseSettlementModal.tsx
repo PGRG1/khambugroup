@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -304,7 +305,7 @@ export function ParseSettlementModal({
         <div className="flex-1 overflow-auto pr-1">
           {loading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin" /> Parsing & auditing statement…
+              <BaniProcessingMark size={24} /> Parsing & auditing statement…
             </div>
           )}
 
