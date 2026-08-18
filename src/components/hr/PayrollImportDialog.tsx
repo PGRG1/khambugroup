@@ -395,8 +395,8 @@ export default function PayrollImportDialog({
               <Button variant="ghost" onClick={() => close(false)} disabled={scanning}>Cancel</Button>
               <Button onClick={runExtraction} disabled={scanning || files.length === 0}>
                 {scanning
-                  ? <><BaniProcessingMark size={18} />Extracting…</>
-                  : <><Sparkles className="h-4 w-4 mr-2" /> Extract with AI</>}
+                  ? <><BaniProcessingMark size={18} /><span>Extracting…</span></>
+                  : <><Sparkles className="h-4 w-4" /><span>Extract with AI</span></>}
               </Button>
             </>
           ) : (
