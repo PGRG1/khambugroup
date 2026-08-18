@@ -239,7 +239,7 @@ export function TransactionReviewPanel({
           <Section title="🤖 AI classification">
             <div className="space-y-2">
               <Button size="sm" variant="outline" onClick={runAi} disabled={aiBusy || busy} className="w-full">
-                {aiBusy ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3 w-3" />} {aiBusy ? "Thinking…" : "Suggest with AI"}
+                {aiBusy ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3 w-3" />}<span>{aiBusy ? "Thinking…" : "Suggest with AI"}</span>
               </Button>
               {aiResult?.suggested_type && (
                 <div className="border border-border rounded-md p-2 bg-card/50 space-y-2">

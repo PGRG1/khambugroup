@@ -174,7 +174,7 @@ export default function Assistant() {
                 <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
                   <ScanLine className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <div className="pt-1">
+                <div className="flex h-7 items-center">
                   <BaniProcessingMark size={24} />
                 </div>
               </div>

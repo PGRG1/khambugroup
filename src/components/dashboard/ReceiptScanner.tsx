@@ -323,7 +323,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
       {/* Scanning state */}
       {scanning && (
-        <div className="flex flex-col items-center justify-center py-12">
+        <div className="flex min-h-[260px] flex-col items-center justify-center pb-8">
           <BaniProcessingMark size={24} />
         </div>
       )}

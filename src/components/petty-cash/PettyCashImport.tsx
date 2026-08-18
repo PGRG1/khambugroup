@@ -462,7 +462,7 @@ export default function PettyCashImport({
               <Button variant="ghost" onClick={() => close(false)} disabled={scanning}>Cancel</Button>
               <Button onClick={runExtraction} disabled={scanning || files.length === 0}>
                 {scanning ? (
-                  <><BaniProcessingMark size={18} className="mr-2" /> Extracting…</>
+                  <><BaniProcessingMark size={18} />Extracting…</>
                 ) : (
                   <><Sparkles className="h-4 w-4 mr-2" /> Extract with AI</>
                 )}

@@ -254,7 +254,7 @@ export function StatementUploadFlow({
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={startExtract} disabled={!file || extracting}>
-                {extracting ? <><BaniProcessingMark size={18} /> Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
+                {extracting ? <><BaniProcessingMark size={18} />Extracting…</> : <><Upload className="h-4 w-4" /> Extract</>}
               </Button>
             </DialogFooter>
           </div>
