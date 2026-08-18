@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Upload, X, ScanLine, Loader2, Camera, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,7 +164,7 @@ export default function BillDropZone({ onParsed }: Props) {
 
       {scanning ? (
         <div className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          <BaniProcessingMark size={24} />
           <p className="text-sm text-muted-foreground">Scanning bill with AI…</p>
         </div>
       ) : (

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Upload, Camera, Loader2, FileText, X } from "lucide-react";
@@ -245,7 +246,7 @@ export default function BillScanner({ open, onOpenChange, onParsed }: Props) {
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={scanning}>Cancel</Button>
           <Button onClick={handleScan} disabled={scanning || files.length === 0}>
-            {scanning ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scanning…</>) : "Scan & Extract"}
+            {scanning ? (<><BaniProcessingMark size={18} className="mr-2" />Scanning…</>) : "Scan & Extract"}
           </Button>
         </DialogFooter>
       </DialogContent>
