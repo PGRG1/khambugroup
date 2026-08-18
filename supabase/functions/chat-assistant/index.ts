@@ -1150,10 +1150,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ error: "Tool loop exhausted" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Unreachable in practice (the last iteration always answers), but degrade gracefully
+    // as a streamed message instead of a 500 blank screen.
+    const fallback =
+      "I wasn't able to finish that analysis. Please try a narrower question (one venue, metric, or period).";
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: fallback } }] })}\n\n`),
+        );
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
     });
+    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+
   } catch (e) {
     console.error("chat-assistant error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
