@@ -43,7 +43,12 @@ export const BaniProcessingMark = ({ size = 24, className, label = "Bani is work
         .bani-pm path { animation: none !important; opacity: .8; fill: var(--bani-rest); }
       }
     `}</style>
-    <svg viewBox="0 0 320 600" aria-hidden="true" className="bani-pm h-full w-full overflow-visible">
+    <svg
+      viewBox="0 0 320 600"
+      aria-hidden="true"
+      className="bani-pm overflow-visible"
+      style={{ height: size, width: (size * 320) / 600, maxWidth: "none", maxHeight: "none" }}
+    >
       {TRIANGLES.map((t) => (
         <path
           key={t.d}
