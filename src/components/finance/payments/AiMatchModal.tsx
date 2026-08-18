@@ -236,8 +236,8 @@ export function AiMatchModal({
           {suggestions.length > 0 && (
             <>
               <Button variant="outline" onClick={run} disabled={running}>
-                {running ? <BaniProcessingMark size={18} /> : <><Sparkles className="h-4 w-4" /><span>Re-run</span></>}
-                Re-run
+                {running ? <BaniProcessingMark size={18} /> : <Sparkles className="h-4 w-4" />}
+                <span>Re-run</span>
               </Button>
               <Button onClick={apply} disabled={applying || selectedCount === 0}>
                 {applying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Applying…</> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Apply {selectedCount} match{selectedCount === 1 ? "" : "es"}</>}
