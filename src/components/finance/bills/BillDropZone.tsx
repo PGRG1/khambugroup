@@ -163,7 +163,7 @@ export default function BillDropZone({ onParsed }: Props) {
       </div>
 
       {scanning ? (
-        <div className="flex flex-col items-center justify-center py-12">
+        <div className="flex min-h-[260px] flex-col items-center justify-center pb-8">
           <BaniProcessingMark size={24} />
         </div>
 

@@ -2022,7 +2022,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
       {/* Scanning */}
       {scanning && (
-        <div className="flex flex-col items-center gap-3 py-12">
+        <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 pb-8">
           <BaniProcessingMark size={24} />
           {scanProgress.total > 1 && (
             <>
@@ -2242,7 +2242,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             {hasUnmatchedItems && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
-                  {aiMatchingAll ? <BaniProcessingMark size={18} className="mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                  {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
                   Resolve {unmatchedItems.length} unmatched with AI
                 </Button>
                 {unmatchedBulkLines.length > 0 && (

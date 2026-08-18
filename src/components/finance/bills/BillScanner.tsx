@@ -246,7 +246,7 @@ export default function BillScanner({ open, onOpenChange, onParsed }: Props) {
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={scanning}>Cancel</Button>
           <Button onClick={handleScan} disabled={scanning || files.length === 0}>
-            {scanning ? (<><BaniProcessingMark size={18} className="mr-2" />Scanning…</>) : "Scan & Extract"}
+            {scanning ? (<><BaniProcessingMark size={18} />Scanning…</>) : "Scan & Extract"}
           </Button>
         </DialogFooter>
       </DialogContent>

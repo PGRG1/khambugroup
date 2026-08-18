@@ -57,7 +57,7 @@ export function BaniScanSummary({ invoiceId }: Props) {
           </span>
         </div>
         <Button size="sm" variant="ghost" onClick={rerun} disabled={running} className="h-7 gap-1.5">
-          {running ? <BaniProcessingMark size={18} /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {running ? <BaniProcessingMark size={14} /> : <RefreshCw className="h-3.5 w-3.5" />}
           Re-run
         </Button>
       </div>

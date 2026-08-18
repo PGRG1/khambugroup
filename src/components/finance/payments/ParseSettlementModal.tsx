@@ -304,7 +304,7 @@ export function ParseSettlementModal({
 
         <div className="flex-1 overflow-auto pr-1">
           {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
+            <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
               <BaniProcessingMark size={24} /> Parsing & auditing statement…
             </div>
           )}
