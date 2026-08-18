@@ -36,9 +36,10 @@ export function AiSuggestionPanel({
           {title}
         </div>
         {!suggestion && (
-          <Button size="sm" variant="outline" onClick={onFetch} disabled={isLoading}>
+          <Button size="sm" variant="outline" onClick={onFetch} disabled={isLoading} className="min-w-[80px] justify-center">
             {isLoading ? <BaniProcessingMark size={18} /> : "Ask AI"}
           </Button>
+
         )}
       </div>
 
