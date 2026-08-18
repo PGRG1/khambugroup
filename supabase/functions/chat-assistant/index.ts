@@ -1018,8 +1018,18 @@ Deno.serve(async (req) => {
     const FALLBACK_MODEL = "google/gemini-2.5-flash";
     let currentModel = PRIMARY_MODEL;
 
-    // Tool-calling loop (up to 10 iterations so the model can chain queries)
-    for (let iter = 0; iter < 10; iter++) {
+    // Tool-calling loop (up to 10 iterations so the model can chain queries).
+    // On the last iteration we drop the tools so the model MUST produce a final answer.
+    const MAX_ITERS = 10;
+    for (let iter = 0; iter < MAX_ITERS; iter++) {
+      const forceFinal = iter === MAX_ITERS - 1;
+      if (forceFinal) {
+        conversation.push({
+          role: "system",
+          content:
+            "You have reached the maximum number of data lookups. Do not request any more tools. Answer now using the data already gathered, and state clearly if anything is incomplete.",
+        });
+      }
       // Retry transient gateway failures (502/503/504) up to 3 times with backoff
       let resp: Response | null = null;
       let lastStatus = 0;
@@ -1034,10 +1044,10 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             model: currentModel,
             messages: conversation,
-            tools,
-            tool_choice: "auto",
+            ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
           }),
         });
+
         if (resp.ok) break;
         lastStatus = resp.status;
         lastText = await resp.text();
