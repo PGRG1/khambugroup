@@ -1,4 +1,6 @@
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
+
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AiSuggestion } from "@/hooks/useAiSuggestion";
@@ -35,7 +37,7 @@ export function AiSuggestionPanel({
         </div>
         {!suggestion && (
           <Button size="sm" variant="outline" onClick={onFetch} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ask AI"}
+            {isLoading ? <BaniProcessingMark size={18} /> : "Ask AI"}
           </Button>
         )}
       </div>
