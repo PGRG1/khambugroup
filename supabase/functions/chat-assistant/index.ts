@@ -1087,8 +1087,11 @@ Deno.serve(async (req) => {
       if (!choice) break;
 
       const toolCalls = choice.tool_calls;
-      if (!toolCalls || toolCalls.length === 0) {
-        const content = choice.content || "";
+      if (forceFinal || !toolCalls || toolCalls.length === 0) {
+        const content =
+          choice.content ||
+          "I couldn't complete that analysis — the request needed too many data lookups. Try narrowing it to a single venue, metric, or period.";
+
         const stream = new ReadableStream({
           start(controller) {
             const encoder = new TextEncoder();
