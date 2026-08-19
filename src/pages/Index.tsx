@@ -7,7 +7,6 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useVenues } from "@/hooks/useVenues";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import DateFilter from "@/components/dashboard/DateFilter";
-import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
 import { FileText, Armchair } from "lucide-react";
