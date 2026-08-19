@@ -73,7 +73,7 @@ function formatWeekdays(days: number[]) {
   return WEEKDAYS.filter((w) => days.includes(w.n)).map((w) => w.label).join(", ");
 }
 
-export default function ServicePeriods() {
+export default function ServicePeriods({ embedded = false }: { embedded?: boolean }) {
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const [selectedVenueId, setSelectedVenueId] = useState<string>("");
@@ -171,13 +171,15 @@ export default function ServicePeriods() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={embedded ? "space-y-4" : "p-6 space-y-6"}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            Service Periods
-          </h1>
+          {!embedded && (
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Service Periods
+            </h1>
+          )}
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Configure lunch, dinner, happy hour and other operating windows per venue. These periods
             drive daily target breakdowns and do not modify historical data.

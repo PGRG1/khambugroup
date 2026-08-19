@@ -1,13 +1,22 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useManualRevenue } from "@/hooks/useManualRevenue";
 import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
-import { Upload, PenLine, ScanLine } from "lucide-react";
+import { OtherRevenuePanel } from "@/pages/revenue/OtherRevenue";
+import { Upload, PenLine, ScanLine, Plus, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   PageHeader,
   KpiCard,
@@ -17,17 +26,25 @@ import {
   fmtHKWhole,
   fmtInt,
 } from "@/components/expenses/shared";
-import { getPaymentTotal } from "@/utils/salesUtils";
 
-function currentMonthKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+type ViewKey = "all" | "daily" | "other";
+const VIEWS: { key: ViewKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "daily", label: "Daily Sales" },
+  { key: "other", label: "Other Revenue" },
+];
 
 const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
+  const mr = useManualRevenue();
+
+  const [params, setParams] = useSearchParams();
+  const rawView = params.get("view") as ViewKey | null;
+  const view: ViewKey = rawView && VIEWS.some((v) => v.key === rawView) ? rawView : "all";
+  const setView = (v: ViewKey) => setParams(v === "all" ? {} : { view: v }, { replace: true });
+
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -36,77 +53,89 @@ const DataPage = () => {
   const hideScanReceipt = isActionHidden("data.scan_receipt");
   const hideManualEntry = isActionHidden("data.manual_entry");
 
-  // KPI strip — current month totals (never chart, just at-a-glance numbers).
   const kpis = useMemo(() => {
-    const monthKey = currentMonthKey();
-    const monthRows = data.filter((r) => r.date && r.date.slice(0, 7) === monthKey);
-    const totalSales = monthRows.reduce((s, r) => s + r.totalSales, 0);
-    const totalGuests = monthRows.reduce((s, r) => s + r.guests, 0);
-    const totalOrders = monthRows.reduce((s, r) => s + r.orders, 0);
-    const uniqueDays = new Set(monthRows.map((r) => r.date)).size;
-    const cashTotal = monthRows.reduce((s, r) => s + r.cash, 0);
-    const paymentTotal = monthRows.reduce((s, r) => s + getPaymentTotal(r), 0);
-    const mismatched = monthRows.filter((r) => Math.abs(r.totalSales - (r.subtotal + r.serviceCharge + r.discount)) > 0.01).length;
-    return {
-      monthKey,
-      records: monthRows.length,
-      totalSales,
-      totalGuests,
-      totalOrders,
-      uniqueDays,
-      cashTotal,
-      paymentTotal,
-      mismatched,
-    };
-  }, [data]);
+    const totalSales = data.reduce((s, r) => s + r.totalSales, 0);
+    const uniqueDays = new Set(data.map((r) => r.date)).size;
+    const needsReview = data.filter(
+      (r) => Math.abs(r.totalSales - (r.subtotal + r.serviceCharge + r.discount)) > 0.01
+    ).length;
+    const otherRevenue = mr.entries.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const otherDrafts = mr.entries.filter((e) => e.status === "draft").length;
+    return { totalSales, uniqueDays, needsReview, otherRevenue, otherDrafts };
+  }, [data, mr.entries]);
 
-  const monthLabel = new Date(kpis.monthKey + "-01").toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); };
 
   const actions = isAdmin ? (
     <div className="flex flex-wrap gap-2">
       {!hideUpload && (
         <Button
-          variant={showUpload ? "secondary" : "default"}
+          variant={showUpload ? "secondary" : "outline"}
           size="sm"
-          className="h-9 gap-1.5"
-          onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
+          className="h-9"
+          onClick={() => { const next = !showUpload; closePanels(); setShowUpload(next); }}
         >
           <Upload className="h-4 w-4" />
-          Upload Data
+          <span>Upload Sales</span>
         </Button>
       )}
-      {!hideScanReceipt && (
-        <Button
-          variant={showScanner ? "secondary" : "outline"}
-          size="sm"
-          className="h-9 gap-1.5"
-          onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
-        >
-          <ScanLine className="h-4 w-4" />
-          Scan Receipt
-        </Button>
-      )}
-      {!hideManualEntry && (
-        <Button
-          variant={showManual ? "secondary" : "outline"}
-          size="sm"
-          className="h-9 gap-1.5"
-          onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
-        >
-          <PenLine className="h-4 w-4" />
-          Manual Entry
-        </Button>
+      {(!hideManualEntry || !hideScanReceipt) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="h-9">
+              <Plus className="h-4 w-4" />
+              <span>Add Revenue</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {!hideManualEntry && (
+              <DropdownMenuItem
+                onSelect={() => { closePanels(); setShowManual(true); setView("daily"); }}
+              >
+                <PenLine className="h-4 w-4 mr-2" /> Daily sales entry
+              </DropdownMenuItem>
+            )}
+            {!hideScanReceipt && (
+              <DropdownMenuItem onSelect={() => { closePanels(); setShowScanner(true); setView("daily"); }}>
+                <ScanLine className="h-4 w-4 mr-2" /> Scan receipt
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => { closePanels(); setView("other"); }}>
+              <Coins className="h-4 w-4 mr-2" /> Other revenue entry
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   ) : undefined;
 
+  const showDaily = view === "all" || view === "daily";
+  const showOther = view === "all" || view === "other";
+
   return (
     <div className="w-full mx-auto space-y-6">
       <PageHeader
-        title="Sales Data"
-        description={loading ? "Loading…" : `${fmtInt(data.length)} record${data.length === 1 ? "" : "s"} across all venues`}
+        title="Sales Records"
+        description="Review, validate and manage recorded revenue"
         actions={actions}
       />
+
+      {/* View filter */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            onClick={() => setView(v.key)}
+            className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${
+              view === v.key
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <>
@@ -119,26 +148,26 @@ const DataPage = () => {
         <>
           <KpiGrid>
             <KpiCard
-              label={`Total Sales · ${monthLabel}`}
+              label="Total Recorded"
               value={fmtHKWhole(kpis.totalSales)}
-              hint={`${fmtInt(kpis.records)} record${kpis.records === 1 ? "" : "s"} · ${fmtInt(kpis.uniqueDays)} trading day${kpis.uniqueDays === 1 ? "" : "s"}`}
+              hint={`${fmtInt(data.length)} record${data.length === 1 ? "" : "s"}`}
               tone="info"
             />
             <KpiCard
-              label={`Guests · ${monthLabel}`}
-              value={fmtInt(kpis.totalGuests)}
-              hint={`${fmtInt(kpis.totalOrders)} order${kpis.totalOrders === 1 ? "" : "s"}`}
+              label="Sales Days"
+              value={fmtInt(kpis.uniqueDays)}
+              hint="Unique trading days recorded"
             />
             <KpiCard
-              label={`Cash Collected · ${monthLabel}`}
-              value={fmtHKWhole(kpis.cashTotal)}
-              hint={kpis.totalSales > 0 ? `${((kpis.cashTotal / kpis.totalSales) * 100).toFixed(1)}% of sales` : "—"}
+              label="Needs Review"
+              value={fmtInt(kpis.needsReview)}
+              hint={kpis.needsReview > 0 ? "Totals do not balance" : "All balanced"}
+              tone={kpis.needsReview > 0 ? "warning" : "success"}
             />
             <KpiCard
-              label="Mismatched Totals"
-              value={fmtInt(kpis.mismatched)}
-              hint={kpis.mismatched > 0 ? "Needs review" : "All balanced"}
-              tone={kpis.mismatched > 0 ? "warning" : "success"}
+              label="Other Revenue"
+              value={fmtHKWhole(kpis.otherRevenue)}
+              hint={`${fmtInt(mr.entries.length)} entr${mr.entries.length === 1 ? "y" : "ies"} · ${fmtInt(kpis.otherDrafts)} draft`}
             />
           </KpiGrid>
 
@@ -152,7 +181,8 @@ const DataPage = () => {
             <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
           )}
 
-          <DataTable data={data} />
+          {showDaily && <DataTable data={data} />}
+          {showOther && <OtherRevenuePanel embedded />}
         </>
       )}
     </div>

@@ -29,7 +29,8 @@ import {
   chartTooltipContentStyle,
   compactHK,
   DESTRUCTIVE,
-  monthOpacity,
+  seriesColor,
+  seriesOpacity,
   PRIMARY,
 } from "./chartTheme";
 import CumulativeSalesChart from "@/components/dashboard/CumulativeSalesChart";
@@ -78,7 +79,9 @@ function useDaily(data: SalesRecord[]) {
   }, [data]);
 }
 
-export function LegacyDaily({ data, venue, seatingKey }: Props) {
+
+function useAnalytics(data: SalesRecord[], venue: string, seatingKey?: number) {
+
   const daily = useDaily(data);
   const seats = venue !== "All Venues" ? getVenueSeats(venue) : null;
   // seatingKey forces recompute on seat edits (via getDayOfWeekStats reading current config)
@@ -143,16 +146,18 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
     return rec ? `${formatShortDate(d)} (${rec.day})` : formatShortDate(d);
   };
 
-  // Legend swatch — force primary color visualization at series opacity
-  const legendPayload = months.map((m, i) => ({
-    value: getMonthLabel(m),
-    type: "square" as const,
-    id: m,
-    color: `hsl(var(--primary))`,
-  }));
+  return {
+    daily, seats, dayStats, months, hasSeats, paymentData, venueData,
+    avgDailySales, avgDailyGuests, avgPerGuest, avgPerOrder,
+    spendData, discountData, avgDiscountPct, venueList, getTopBottom, dayTooltipLabel,
+  };
+}
 
+export function AnalysisTrends({ data, venue, seatingKey }: Props) {
+  const a = useAnalytics(data, venue, seatingKey);
   return (
     <div className="space-y-4">
+
       {/* ================= Momentum ================= */}
       <SectionHeader title="Momentum" description="How the period is building day over day" />
       <CumulativeSalesChart data={data} />
@@ -161,17 +166,17 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
         <ChartShell
           title="Daily Sales"
           subtitle="Total revenue per day"
-          headerRight={<>Avg <span className="text-foreground font-medium">${formatCurrency(avgDailySales)}</span></>}
+          headerRight={<>Avg <span className="text-foreground font-medium">${formatCurrency(a.avgDailySales)}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={daily}>
+            <LineChart data={a.daily}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
                 formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]}
-                labelFormatter={dayTooltipLabel}
+                labelFormatter={a.dayTooltipLabel}
               />
               <Line type="monotone" dataKey="totalSales" stroke={PRIMARY} strokeWidth={2} dot={false} />
             </LineChart>
@@ -181,17 +186,17 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
         <ChartShell
           title="Daily Guests"
           subtitle="Guest count per day"
-          headerRight={<>Avg <span className="text-foreground font-medium">{avgDailyGuests}</span></>}
+          headerRight={<>Avg <span className="text-foreground font-medium">{a.avgDailyGuests}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={daily}>
+            <LineChart data={a.daily}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
                 formatter={(v: number) => [formatCurrency(v), "Guests"]}
-                labelFormatter={dayTooltipLabel}
+                labelFormatter={a.dayTooltipLabel}
               />
               <Line type="monotone" dataKey="guests" stroke={PRIMARY} strokeWidth={2} dot={false} strokeOpacity={0.7} />
             </LineChart>
@@ -205,17 +210,17 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
         <ChartShell
           title="Avg Spend / Guest"
           subtitle="Total sales ÷ guests, per day"
-          headerRight={<>Avg <span className="text-foreground font-medium">${avgPerGuest}</span></>}
+          headerRight={<>Avg <span className="text-foreground font-medium">${a.avgPerGuest}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={spendData}>
+            <BarChart data={a.spendData}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${v}`} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
                 formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Guest"]}
-                labelFormatter={dayTooltipLabel}
+                labelFormatter={a.dayTooltipLabel}
               />
               <Bar dataKey="perGuest" fill={PRIMARY} fillOpacity={0.85} radius={[2, 2, 0, 0]} />
             </BarChart>
@@ -225,17 +230,17 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
         <ChartShell
           title="Avg Spend / Order"
           subtitle="Total sales ÷ orders, per day"
-          headerRight={<>Avg <span className="text-foreground font-medium">${avgPerOrder}</span></>}
+          headerRight={<>Avg <span className="text-foreground font-medium">${a.avgPerOrder}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={spendData}>
+            <BarChart data={a.spendData}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${v}`} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
                 formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Order"]}
-                labelFormatter={dayTooltipLabel}
+                labelFormatter={a.dayTooltipLabel}
               />
               <Bar dataKey="perOrder" fill={PRIMARY} fillOpacity={0.85} radius={[2, 2, 0, 0]} />
             </BarChart>
@@ -243,42 +248,66 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
         </ChartShell>
       </div>
 
-      {/* ================= Weekday Deep Dive ================= */}
-      <SectionHeader title="Weekday Deep Dive" description="Performance broken down by day of week, per month" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DowChart title="Avg Sales by Day of Week" data={dayStats} months={months} prefix="sales" fmt={(v) => `$${compactHK(v)}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-        <DowChart title="Avg Guests by Day of Week" data={dayStats} months={months} prefix="guests" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
-        <DowChart title="Avg Spend / Guest by Day of Week" data={dayStats} months={months} prefix="spendPerGuest" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-        <DowChart title="Avg Spend / Order by Day of Week" data={dayStats} months={months} prefix="spendPerOrder" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-        {hasSeats && (
-          <>
-            <DowChart title="Avg Rev / Seat by Day of Week" data={dayStats} months={months} prefix="revPerSeat" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-            <DowChart title="Avg Seat Turnover by Day of Week" data={dayStats} months={months} prefix="seatTurnover" fmt={(v) => `${v}x`} fmtTooltip={(v) => `${v}x`} />
-            <DowChart title="Avg Occupancy % by Day of Week" data={dayStats} months={months} prefix="occupancy" fmt={(v) => `${v}%`} fmtTooltip={(v) => `${v}%`} />
-            <DowChart title="Avg Orders by Day of Week" data={dayStats} months={months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
-          </>
-        )}
-        {!hasSeats && (
-          <DowChart title="Avg Orders by Day of Week" data={dayStats} months={months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
-        )}
-      </div>
-
-      {/* ================= Mix ================= */}
-      <SectionHeader title="Mix" description="Where the revenue comes from" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <VenuePerformanceChart data={venueData} venue={venue} />
-        <PaymentBreakdownChart data={paymentData} />
-      </div>
-
       {/* ================= Distribution ================= */}
       <SectionHeader title="Distribution" description="Individual data points by day of month" />
       <ScatterAnalysisCharts data={data} />
 
+    </div>
+  );
+}
+
+export function AnalysisWeekdays({ data, venue, seatingKey }: Props) {
+  const a = useAnalytics(data, venue, seatingKey);
+  return (
+    <div className="space-y-4">
+      {/* ================= Weekday Deep Dive ================= */}
+      <SectionHeader title="Weekday Deep Dive" description="Performance broken down by day of week, per month" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DowChart title="Avg Sales by Day of Week" data={a.dayStats} months={a.months} prefix="sales" fmt={(v) => `$${compactHK(v)}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        <DowChart title="Avg Guests by Day of Week" data={a.dayStats} months={a.months} prefix="guests" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+        <DowChart title="Avg Spend / Guest by Day of Week" data={a.dayStats} months={a.months} prefix="spendPerGuest" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        <DowChart title="Avg Spend / Order by Day of Week" data={a.dayStats} months={a.months} prefix="spendPerOrder" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        {a.hasSeats && (
+          <>
+            <DowChart title="Avg Rev / Seat by Day of Week" data={a.dayStats} months={a.months} prefix="revPerSeat" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+            <DowChart title="Avg Seat Turnover by Day of Week" data={a.dayStats} months={a.months} prefix="seatTurnover" fmt={(v) => `${v}x`} fmtTooltip={(v) => `${v}x`} />
+            <DowChart title="Avg Occupancy % by Day of Week" data={a.dayStats} months={a.months} prefix="occupancy" fmt={(v) => `${v}%`} fmtTooltip={(v) => `${v}%`} />
+            <DowChart title="Avg Orders by Day of Week" data={a.dayStats} months={a.months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+          </>
+        )}
+        {!a.hasSeats && (
+          <DowChart title="Avg Orders by Day of Week" data={a.dayStats} months={a.months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+export function AnalysisVenueMix({ data, venue, seatingKey }: Props) {
+  const a = useAnalytics(data, venue, seatingKey);
+  return (
+    <div className="space-y-4">
+      {/* ================= Mix ================= */}
+      <SectionHeader title="Mix" description="Where the revenue comes from" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <VenuePerformanceChart data={a.venueData} venue={venue} />
+        <PaymentBreakdownChart data={a.paymentData} />
+      </div>
+
+    </div>
+  );
+}
+
+export function AnalysisLeakage({ data, venue, seatingKey }: Props) {
+  const a = useAnalytics(data, venue, seatingKey);
+  return (
+    <div className="space-y-4">
       {/* ================= Records & Leakage ================= */}
       <SectionHeader title="Records & Leakage" description="Best/worst days per venue and discount trends" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {venueList.map((v) => {
-          const { top5, bottom5 } = getTopBottom(v);
+        {a.venueList.map((v) => {
+          const { top5, bottom5 } = a.getTopBottom(v);
           if (top5.length === 0) return null;
           return (
             <ChartShell key={v} title={v} subtitle="Top & bottom sales days">
@@ -314,17 +343,17 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
       <ChartShell
         title="Discount Trend"
         subtitle="Absolute discount dollars per day"
-        headerRight={<>Avg discount <span className="text-foreground font-medium">{avgDiscountPct}%</span></>}
+        headerRight={<>Avg discount <span className="text-foreground font-medium">{a.avgDiscountPct}%</span></>}
       >
         <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={discountData}>
+          <BarChart data={a.discountData}>
             <CartesianGrid {...chartGrid} />
             <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
             <YAxis {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
             <Tooltip
               contentStyle={chartTooltipContentStyle}
               formatter={(v: number) => [`$${formatCurrency(v)}`, "Discount"]}
-              labelFormatter={dayTooltipLabel}
+              labelFormatter={a.dayTooltipLabel}
             />
             <Bar dataKey="discount" fill={DESTRUCTIVE} fillOpacity={0.8} radius={[2, 2, 0, 0]} />
           </BarChart>
@@ -363,8 +392,8 @@ function DowChart({ title, data, months, prefix, fmt, fmtTooltip }: DowChartProp
               key={m}
               dataKey={`${prefix}_${m}`}
               name={getMonthLabel(m)}
-              fill={PRIMARY}
-              fillOpacity={monthOpacity(i)}
+              fill={seriesColor(i)}
+              fillOpacity={seriesOpacity(i, months.length)}
               radius={[2, 2, 0, 0]}
             />
           ))}

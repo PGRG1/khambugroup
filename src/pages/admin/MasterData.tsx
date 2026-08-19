@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { PageHeader, EmptyState } from "@/components/expenses/shared";
 
 // ---------- Revenue Sources ----------
-function RevenueSourcesCard() {
+export function RevenueSourcesCard() {
   const { sources, loading, create, update, remove } = useRevenueSources();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState({ name: "", description: "" });
