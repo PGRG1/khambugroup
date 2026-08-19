@@ -63,11 +63,11 @@ export default function RevenueSetup() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
-        <TabsList>
-          <TabsTrigger value="service-periods">Service Periods</TabsTrigger>
-          <TabsTrigger value="mapping">Revenue Mapping</TabsTrigger>
-          <TabsTrigger value="sources">Data Sources</TabsTrigger>
-          <TabsTrigger value="venues">Venues</TabsTrigger>
+        <TabsList className="h-auto w-full justify-start gap-4 rounded-none border-b border-border/60 bg-transparent p-0">
+          <TabsTrigger value="service-periods" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Service Periods</TabsTrigger>
+          <TabsTrigger value="mapping" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Revenue Mapping</TabsTrigger>
+          <TabsTrigger value="sources" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Data Sources</TabsTrigger>
+          <TabsTrigger value="venues" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Venues</TabsTrigger>
         </TabsList>
 
         <TabsContent value="service-periods" className="mt-4 space-y-4">
