@@ -762,10 +762,56 @@ export default function RevenueTargets() {
 
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
+          {/* Compact venue scope */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
+              All venues
+            </PillToggle>
+            {activeVenues.map((v) => (
+              <PillToggle
+                key={v.id}
+                active={venueIds.includes(v.id)}
+                onClick={() => setVenues(venueIds.includes(v.id) ? venueIds.filter((x) => x !== v.id) : [...venueIds, v.id])}
+                variant="outlined"
+              >
+                {v.name}
+              </PillToggle>
+            ))}
+          </div>
+
+          {/* Month navigation */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border/60 px-1 h-8">
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-[12px] font-medium min-w-[104px] text-center tabular-nums">
+              {monthName(month)} {year}
+            </div>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Button variant="outline" size="sm" className="h-8" onClick={exportCsv}>
+            <Download className="h-4 w-4" /> Export
           </Button>
+
+          {effectiveVenueIds.length > 0 && canEdit && (
+            managerLines.length === 0 ? (
+              <Button size="sm" className="h-8" onClick={handleSetUpMonth} disabled={generatingStat}>
+                <Sparkles className="h-4 w-4" /> Set Up This Month
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
+                onClick={handleRecomputeStat} disabled={generatingStat} title="Refresh benchmarks">
+                <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
+              </Button>
+            )
+          )}
         </div>
+
       </div>
 
       {/* FILTER BAR — single inline chip toolbar */}
