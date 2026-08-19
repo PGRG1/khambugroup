@@ -8,8 +8,10 @@ import {
   chartGrid,
   chartTooltipContentStyle,
   compactHK,
-  monthOpacity,
-  PRIMARY,
+  CHART_CURRENT,
+  CHART_COMPARISON,
+  CHART_HISTORICAL,
+  HISTORICAL_OPACITY,
 } from "@/components/revenue-overview/chartTheme";
 
 function median(arr: number[]): number {
@@ -29,20 +31,28 @@ interface Props {
 
 export default function CumulativeSalesChart({ data }: Props) {
   const allMonths = useMemo(() => [...new Set(data.map((r) => getMonthKey(r.date)))].sort(), [data]);
-  const [activeMonths, setActiveMonths] = useState<string[]>([]);
-  const toggleMonth = useCallback((mk: string) => {
-    setActiveMonths((prev) => (prev.includes(mk) ? prev.filter((m) => m !== mk) : [...prev, mk]));
-  }, []);
-  const isMonthHidden = useCallback(
-    (mk: string) => activeMonths.length > 0 && !activeMonths.includes(mk),
-    [activeMonths]
+  const latestMonth = allMonths.length ? allMonths[allMonths.length - 1] : null;
+  const defaultComparison = allMonths.length > 1 ? allMonths[allMonths.length - 2] : null;
+  const [comparisonOverride, setComparisonOverride] = useState<string | null>(null);
+  const comparisonMonth =
+    comparisonOverride && allMonths.includes(comparisonOverride) ? comparisonOverride : defaultComparison;
+
+  const selectComparison = useCallback(
+    (mk: string) => setComparisonOverride((prev) => (prev === mk ? null : mk)),
+    []
   );
 
-  const opacityMap = useMemo(() => {
-    const map = new Map<string, number>();
-    allMonths.forEach((mk, i) => map.set(mk, monthOpacity(i)));
-    return map;
-  }, [allMonths]);
+  const seriesStyle = useCallback(
+    (mk: string) => {
+      if (mk === latestMonth)
+        return { stroke: CHART_CURRENT, strokeWidth: 2.75, strokeOpacity: 1, role: "Actual" as const };
+      if (mk === comparisonMonth)
+        return { stroke: CHART_COMPARISON, strokeWidth: 2, strokeOpacity: 0.95, role: "Comparison" as const };
+      return { stroke: CHART_HISTORICAL, strokeWidth: 1, strokeOpacity: HISTORICAL_OPACITY, role: "History" as const };
+    },
+    [latestMonth, comparisonMonth]
+  );
+
 
   const dayOfWeekMedians = useMemo(() => {
     const dailyMap = new Map<string, { guests: number; sales: number }>();
@@ -163,34 +173,43 @@ export default function CumulativeSalesChart({ data }: Props) {
                   const isProj = name.endsWith("_proj");
                   const monthKey = isProj ? name.replace("_proj", "") : name;
                   const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
+                  const role = isProj ? "Projection" : seriesStyle(monthKey).role;
+                  return [`$${formatCurrency(v)}`, `${label} · ${role}`];
                 }}
                 labelFormatter={(l) => `Day ${l}`}
               />
-              {cumulativeData.months.map((mk) => (
-                <Line
-                  key={mk}
-                  dataKey={mk}
-                  type="monotone"
-                  stroke={PRIMARY}
-                  strokeOpacity={opacityMap.get(mk) ?? 1}
-                  strokeWidth={2}
-                  dot={false}
-                  hide={isMonthHidden(mk)}
-                />
-              ))}
+              {[...cumulativeData.months]
+                .sort((a, b) => {
+                  const rank = (m: string) => (m === latestMonth ? 2 : m === comparisonMonth ? 1 : 0);
+                  return rank(a) - rank(b);
+                })
+                .map((mk) => {
+                  const s = seriesStyle(mk);
+                  return (
+                    <Line
+                      key={mk}
+                      dataKey={mk}
+                      type="monotone"
+                      stroke={s.stroke}
+                      strokeOpacity={s.strokeOpacity}
+                      strokeWidth={s.strokeWidth}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  );
+                })}
               {cumulativeData.hasProjection && currentMonthKey && (
                 <Line
                   key={`${currentMonthKey}_proj`}
                   dataKey={`${currentMonthKey}_proj`}
                   type="monotone"
-                  stroke={PRIMARY}
-                  strokeOpacity={opacityMap.get(currentMonthKey) ?? 1}
-                  strokeWidth={2}
+                  stroke={currentMonthKey === latestMonth ? CHART_CURRENT : seriesStyle(currentMonthKey).stroke}
+                  strokeOpacity={1}
+                  strokeWidth={2.75}
                   strokeDasharray="6 4"
                   dot={false}
-                  hide={isMonthHidden(currentMonthKey)}
                   connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
             </LineChart>
@@ -198,40 +217,41 @@ export default function CumulativeSalesChart({ data }: Props) {
 
           <div className="flex items-center justify-center gap-3 flex-wrap mt-2">
             {allMonths.map((mk) => {
-              const hidden = isMonthHidden(mk);
-              const op = opacityMap.get(mk) ?? 1;
-              const isCurrentMonth = mk === currentMonthKey && cumulativeData.hasProjection;
+              const s = seriesStyle(mk);
+              const isLatest = mk === latestMonth;
+              const isComparison = mk === comparisonMonth;
+              const withProj = mk === currentMonthKey && cumulativeData.hasProjection;
               return (
                 <button
                   key={mk}
-                  onClick={() => toggleMonth(mk)}
-                  className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
-                  style={{ opacity: hidden ? 0.35 : 1 }}
+                  onClick={() => !isLatest && selectComparison(mk)}
+                  disabled={isLatest}
+                  title={isLatest ? "Current period" : "Set as comparison month"}
+                  className={`flex items-center gap-1.5 text-[11px] font-medium transition-opacity ${
+                    isLatest ? "cursor-default" : "cursor-pointer hover:opacity-80"
+                  }`}
                 >
                   <svg width="28" height="10" className="shrink-0">
-                    {isCurrentMonth ? (
+                    {withProj ? (
                       <>
-                        <line x1="0" y1="5" x2="12" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <line x1="14" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" strokeDasharray="3 2" />
-                        <circle cx="12" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
+                        <line x1="0" y1="5" x2="12" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth="2" />
+                        <line x1="14" y1="5" x2="28" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth="2" strokeDasharray="3 2" />
                       </>
                     ) : (
-                      <>
-                        <line x1="0" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <circle cx="14" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                      </>
+                      <line x1="0" y1="5" x2="28" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth={isLatest ? 2.5 : isComparison ? 2 : 1.5} />
                     )}
                   </svg>
-                  <span
-                    className={hidden ? "text-muted-foreground line-through" : "text-foreground"}
-                  >
+                  <span className={isLatest || isComparison ? "text-foreground" : "text-muted-foreground"}>
                     {getMonthLabel(mk)}
-                    {isCurrentMonth && " + Proj."}
+                    {isLatest && " · Current"}
+                    {isComparison && " · Comparison"}
+                    {withProj && " + Proj."}
                   </span>
                 </button>
               );
             })}
           </div>
+
         </>
       ) : (
         <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">No data available.</div>
