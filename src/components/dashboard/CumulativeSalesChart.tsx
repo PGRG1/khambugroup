@@ -173,34 +173,43 @@ export default function CumulativeSalesChart({ data }: Props) {
                   const isProj = name.endsWith("_proj");
                   const monthKey = isProj ? name.replace("_proj", "") : name;
                   const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
+                  const role = isProj ? "Projection" : seriesStyle(monthKey).role;
+                  return [`$${formatCurrency(v)}`, `${label} · ${role}`];
                 }}
                 labelFormatter={(l) => `Day ${l}`}
               />
-              {cumulativeData.months.map((mk) => (
-                <Line
-                  key={mk}
-                  dataKey={mk}
-                  type="monotone"
-                  stroke={PRIMARY}
-                  strokeOpacity={opacityMap.get(mk) ?? 1}
-                  strokeWidth={2}
-                  dot={false}
-                  hide={isMonthHidden(mk)}
-                />
-              ))}
+              {[...cumulativeData.months]
+                .sort((a, b) => {
+                  const rank = (m: string) => (m === latestMonth ? 2 : m === comparisonMonth ? 1 : 0);
+                  return rank(a) - rank(b);
+                })
+                .map((mk) => {
+                  const s = seriesStyle(mk);
+                  return (
+                    <Line
+                      key={mk}
+                      dataKey={mk}
+                      type="monotone"
+                      stroke={s.stroke}
+                      strokeOpacity={s.strokeOpacity}
+                      strokeWidth={s.strokeWidth}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  );
+                })}
               {cumulativeData.hasProjection && currentMonthKey && (
                 <Line
                   key={`${currentMonthKey}_proj`}
                   dataKey={`${currentMonthKey}_proj`}
                   type="monotone"
-                  stroke={PRIMARY}
-                  strokeOpacity={opacityMap.get(currentMonthKey) ?? 1}
-                  strokeWidth={2}
+                  stroke={currentMonthKey === latestMonth ? CHART_CURRENT : seriesStyle(currentMonthKey).stroke}
+                  strokeOpacity={1}
+                  strokeWidth={2.75}
                   strokeDasharray="6 4"
                   dot={false}
-                  hide={isMonthHidden(currentMonthKey)}
                   connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
             </LineChart>
@@ -208,40 +217,41 @@ export default function CumulativeSalesChart({ data }: Props) {
 
           <div className="flex items-center justify-center gap-3 flex-wrap mt-2">
             {allMonths.map((mk) => {
-              const hidden = isMonthHidden(mk);
-              const op = opacityMap.get(mk) ?? 1;
-              const isCurrentMonth = mk === currentMonthKey && cumulativeData.hasProjection;
+              const s = seriesStyle(mk);
+              const isLatest = mk === latestMonth;
+              const isComparison = mk === comparisonMonth;
+              const withProj = mk === currentMonthKey && cumulativeData.hasProjection;
               return (
                 <button
                   key={mk}
-                  onClick={() => toggleMonth(mk)}
-                  className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
-                  style={{ opacity: hidden ? 0.35 : 1 }}
+                  onClick={() => !isLatest && selectComparison(mk)}
+                  disabled={isLatest}
+                  title={isLatest ? "Current period" : "Set as comparison month"}
+                  className={`flex items-center gap-1.5 text-[11px] font-medium transition-opacity ${
+                    isLatest ? "cursor-default" : "cursor-pointer hover:opacity-80"
+                  }`}
                 >
                   <svg width="28" height="10" className="shrink-0">
-                    {isCurrentMonth ? (
+                    {withProj ? (
                       <>
-                        <line x1="0" y1="5" x2="12" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <line x1="14" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" strokeDasharray="3 2" />
-                        <circle cx="12" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
+                        <line x1="0" y1="5" x2="12" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth="2" />
+                        <line x1="14" y1="5" x2="28" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth="2" strokeDasharray="3 2" />
                       </>
                     ) : (
-                      <>
-                        <line x1="0" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <circle cx="14" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                      </>
+                      <line x1="0" y1="5" x2="28" y2="5" stroke={s.stroke} strokeOpacity={Math.max(s.strokeOpacity, 0.5)} strokeWidth={isLatest ? 2.5 : isComparison ? 2 : 1.5} />
                     )}
                   </svg>
-                  <span
-                    className={hidden ? "text-muted-foreground line-through" : "text-foreground"}
-                  >
+                  <span className={isLatest || isComparison ? "text-foreground" : "text-muted-foreground"}>
                     {getMonthLabel(mk)}
-                    {isCurrentMonth && " + Proj."}
+                    {isLatest && " · Current"}
+                    {isComparison && " · Comparison"}
+                    {withProj && " + Proj."}
                   </span>
                 </button>
               );
             })}
           </div>
+
         </>
       ) : (
         <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">No data available.</div>
