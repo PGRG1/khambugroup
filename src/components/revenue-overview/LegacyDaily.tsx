@@ -30,7 +30,7 @@ import {
   chartTooltipContentStyle,
   compactHK,
   DESTRUCTIVE,
-  PRIMARY,
+  
   CHART_CURRENT,
   CHART_COMPARISON,
   CHART_EXCEPTION,
