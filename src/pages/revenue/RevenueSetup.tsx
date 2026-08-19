@@ -117,10 +117,29 @@ export default function RevenueSetup() {
           <TabsTrigger value="venues" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Venues</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="service-periods" className="mt-4 space-y-4">
+        <TabsContent value="service-periods" className="mt-4 space-y-3.5">
           {tab === "service-periods" && (
             <>
-              <div className="card-glass rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* SLIM STATUS STRIP — every value derived from live tenant data */}
+              <div className="card-glass rounded-xl border border-border/60 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatusRow
+                  done={setupReady}
+                  label={statusLoading ? "Checking setup…" : setupReady ? "Ready" : "Incomplete setup"}
+                  hint={
+                    statusLoading
+                      ? "Loading configuration"
+                      : setupReady
+                        ? "Venues, periods, sources and mapping configured"
+                        : [
+                            !venuesComplete ? "no active venues" : null,
+                            !coverageComplete ? "missing service periods" : null,
+                            !sourcesComplete ? "no active sources" : null,
+                            !mappingComplete ? `${unmappedCount} venue${unmappedCount === 1 ? "" : "s"} unmapped` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                  }
+                />
                 <StatusRow
                   done={activeVenues.length > 0}
                   label={`${activeVenues.length} active venue${activeVenues.length === 1 ? "" : "s"}`}
@@ -132,15 +151,83 @@ export default function RevenueSetup() {
                   hint="Channels revenue can be classified into"
                 />
                 <StatusRow
-                  done={seatedVenues.length > 0}
-                  label={`${seatedVenues.length} venue${seatedVenues.length === 1 ? "" : "s"} with seating`}
-                  hint="Required for seat-based analytics"
+                  done={coverageComplete}
+                  label={`${venuesWithPeriods} of ${activeVenues.length} venue${activeVenues.length === 1 ? "" : "s"} covered`}
+                  hint={
+                    seatedVenues.length > 0
+                      ? `${seatedVenues.length} with seating configured`
+                      : "Venues with at least one active service period"
+                  }
                 />
               </div>
-              <ServicePeriods embedded />
+
+              {/* 65 / 35 WORKSPACE */}
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] gap-3.5 items-start">
+                <div className="card-glass rounded-xl border border-border/60 p-4 min-w-0">
+                  <div className="text-[13px] font-semibold">Service Periods</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Define how each venue's trading day is classified
+                  </p>
+                  <div className="mt-3">
+                    <ServicePeriods
+                      embedded
+                      hideIntro
+                      venueId={selectedVenueId}
+                      onVenueChange={setSelectedVenueId}
+                      onDataChanged={refetchPeriods}
+                    />
+                  </div>
+                </div>
+
+                <TodayClassification
+                  venueName={selectedVenue?.name ?? null}
+                  periods={selectedVenuePeriods}
+                  loading={periodsLoading}
+                />
+              </div>
+
+              {/* SETUP READINESS */}
+              <div className="card-glass rounded-xl border border-border/60 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+                <ReadinessItem
+                  label="Service periods"
+                  done={coverageComplete}
+                  state={`${venuesWithPeriods}/${activeVenues.length} venues`}
+                />
+                <ReadinessItem
+                  label="Revenue mapping"
+                  done={mappingComplete}
+                  state={
+                    mappingLoading
+                      ? "Checking…"
+                      : mappingComplete
+                        ? "All venues mapped"
+                        : `${unmappedCount} unmapped${unmappedVenues.length ? `: ${unmappedVenues.join(", ")}` : ""}`
+                  }
+                />
+                <ReadinessItem
+                  label="Data sources"
+                  done={sourcesComplete}
+                  state={`${activeSources.length} of ${sources.length} active`}
+                />
+                <ReadinessItem
+                  label="Venues"
+                  done={venuesComplete}
+                  state={`${activeVenues.length} of ${venues.length} active`}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-8 text-[12px]"
+                  onClick={() => setParams({ tab: "mapping" }, { replace: true })}
+                >
+                  <span>Review Revenue Mapping</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </>
           )}
         </TabsContent>
+
 
         <TabsContent value="mapping" className="mt-4">
           {tab === "mapping" && <RevenueMapping embedded />}
