@@ -731,10 +731,14 @@ export default function RevenueTargets() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Revenue Targets</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Set and monitor daily Revenue, Guest and Spend-per-Guest targets by venue, date and service period.
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">
+            <span className="text-gradient-gold">Revenue</span>
+            <span className="text-muted-foreground ml-2 text-[13px] font-normal">Targets</span>
+          </h1>
+          <p className="text-[13px] text-muted-foreground mt-0.5 max-w-2xl">
+            Set the monthly plan and track daily delivery
           </p>
+
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportCsv}>

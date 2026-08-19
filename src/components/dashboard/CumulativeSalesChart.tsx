@@ -8,7 +8,8 @@ import {
   chartGrid,
   chartTooltipContentStyle,
   compactHK,
-  monthOpacity,
+  seriesColor,
+  seriesOpacity,
   PRIMARY,
 } from "@/components/revenue-overview/chartTheme";
 
@@ -38,9 +39,16 @@ export default function CumulativeSalesChart({ data }: Props) {
     [activeMonths]
   );
 
+  // Each month gets its own restrained series colour; older months are dimmed.
+  const colorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allMonths.forEach((mk, i) => map.set(mk, seriesColor(i)));
+    return map;
+  }, [allMonths]);
+
   const opacityMap = useMemo(() => {
     const map = new Map<string, number>();
-    allMonths.forEach((mk, i) => map.set(mk, monthOpacity(i)));
+    allMonths.forEach((mk, i) => map.set(mk, seriesOpacity(i, allMonths.length)));
     return map;
   }, [allMonths]);
 
@@ -172,7 +180,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   key={mk}
                   dataKey={mk}
                   type="monotone"
-                  stroke={PRIMARY}
+                  stroke={colorMap.get(mk) ?? PRIMARY}
                   strokeOpacity={opacityMap.get(mk) ?? 1}
                   strokeWidth={2}
                   dot={false}
@@ -184,7 +192,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   key={`${currentMonthKey}_proj`}
                   dataKey={`${currentMonthKey}_proj`}
                   type="monotone"
-                  stroke={PRIMARY}
+                  stroke={colorMap.get(currentMonthKey) ?? PRIMARY}
                   strokeOpacity={opacityMap.get(currentMonthKey) ?? 1}
                   strokeWidth={2}
                   strokeDasharray="6 4"
@@ -200,6 +208,7 @@ export default function CumulativeSalesChart({ data }: Props) {
             {allMonths.map((mk) => {
               const hidden = isMonthHidden(mk);
               const op = opacityMap.get(mk) ?? 1;
+              const col = colorMap.get(mk) ?? PRIMARY;
               const isCurrentMonth = mk === currentMonthKey && cumulativeData.hasProjection;
               return (
                 <button
@@ -211,14 +220,14 @@ export default function CumulativeSalesChart({ data }: Props) {
                   <svg width="28" height="10" className="shrink-0">
                     {isCurrentMonth ? (
                       <>
-                        <line x1="0" y1="5" x2="12" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <line x1="14" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" strokeDasharray="3 2" />
-                        <circle cx="12" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
+                        <line x1="0" y1="5" x2="12" y2="5" stroke={col} strokeOpacity={op} strokeWidth="2" />
+                        <line x1="14" y1="5" x2="28" y2="5" stroke={col} strokeOpacity={op} strokeWidth="2" strokeDasharray="3 2" />
+                        <circle cx="12" cy="5" r="3" fill="hsl(var(--card))" stroke={col} strokeOpacity={op} strokeWidth="2" />
                       </>
                     ) : (
                       <>
-                        <line x1="0" y1="5" x2="28" y2="5" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
-                        <circle cx="14" cy="5" r="3" fill="hsl(var(--card))" stroke={PRIMARY} strokeOpacity={op} strokeWidth="2" />
+                        <line x1="0" y1="5" x2="28" y2="5" stroke={col} strokeOpacity={op} strokeWidth="2" />
+                        <circle cx="14" cy="5" r="3" fill="hsl(var(--card))" stroke={col} strokeOpacity={op} strokeWidth="2" />
                       </>
                     )}
                   </svg>

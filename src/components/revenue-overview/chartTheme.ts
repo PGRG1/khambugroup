@@ -35,11 +35,39 @@ export function monthOpacity(idx: number): number {
   return MONTH_OPACITY_STOPS[idx] ?? Math.max(0.06, MONTH_OPACITY_STOPS[MONTH_OPACITY_STOPS.length - 1] - 0.01 * (idx - MONTH_OPACITY_STOPS.length));
 }
 
+// Restrained multi-series palette for genuinely different series (e.g. months
+// compared side by side). Single-series charts must keep using PRIMARY.
+export const SERIES_COLORS = [
+  "hsl(var(--chart-1))", // sage
+  "hsl(var(--chart-2))", // blue
+  "hsl(var(--chart-3))", // teal
+  "hsl(var(--chart-5))", // purple
+  "hsl(var(--chart-7))", // gold
+  "hsl(var(--chart-8))", // slate
+  "hsl(var(--chart-4))", // green
+];
+
+/**
+ * Colour for series `idx` where `total` is the number of concurrent series.
+ * The most recent series is index `total - 1`.
+ */
+export function seriesColor(idx: number): string {
+  return SERIES_COLORS[idx % SERIES_COLORS.length];
+}
+
+/** Older / non-focus series are dimmed so the latest month reads first. */
+export function seriesOpacity(idx: number, total: number): number {
+  if (total <= 1) return 1;
+  const distance = total - 1 - idx; // 0 = most recent
+  return Math.max(0.35, 1 - distance * 0.18);
+}
+
 export const PRIMARY = "hsl(var(--primary))";
 export const DESTRUCTIVE = "hsl(var(--destructive))";
 export const FG = "hsl(var(--foreground))";
 export const MUTED_FG = "hsl(var(--muted-foreground))";
 export const BORDER = "hsl(var(--border))";
+
 
 export function compactHK(v: number): string {
   const n = Number(v);

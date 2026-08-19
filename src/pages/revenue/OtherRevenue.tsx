@@ -17,7 +17,7 @@ import { useRevenueSources } from "@/hooks/useRevenueSources";
 
 const NONE = "__none__";
 
-export default function OtherRevenuePage() {
+export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) {
   const mr = useManualRevenue();
   const { venues } = useVenues();
   const { sources } = useRevenueSources();
@@ -97,9 +97,9 @@ export default function OtherRevenuePage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className={embedded ? "space-y-4" : "p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto"}>
       <div>
-        <h1 className="text-2xl font-semibold">Other Revenue</h1>
+        {!embedded && <h1 className="text-2xl font-semibold">Other Revenue</h1>}
         <p className="text-sm text-muted-foreground">
           Log revenue that happened outside POS (e.g. a private event paid in cash). Saved as a draft, then posted to the general ledger.
         </p>
@@ -212,4 +212,8 @@ export default function OtherRevenuePage() {
       </Card>
     </div>
   );
+}
+
+export default function OtherRevenuePage() {
+  return <OtherRevenuePanel />;
 }

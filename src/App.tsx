@@ -45,9 +45,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import Reconciliation from "./pages/revenue/Reconciliation";
-import ServicePeriods from "./pages/revenue/ServicePeriods";
-import RevenueMapping from "./pages/revenue/Mapping";
-import OtherRevenuePage from "./pages/revenue/OtherRevenue";
+import RevenueAnalysis from "./pages/revenue/Analysis";
+import RevenueSetup from "./pages/revenue/RevenueSetup";
 import AccessDenied from "./pages/AccessDenied";
 
 import Procurement from "./pages/Procurement";
@@ -223,9 +222,12 @@ function App() {
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
                 <Route path="/revenue/reconciliation" element={<ProtectedRoute pageKey="revenue"><Reconciliation /></ProtectedRoute>} />
-                <Route path="/revenue/service-periods" element={<ProtectedRoute pageKey="revenue"><ServicePeriods /></ProtectedRoute>} />
-                <Route path="/revenue/mapping" element={<ProtectedRoute pageKey="revenue"><RevenueMapping /></ProtectedRoute>} />
-                <Route path="/revenue/other" element={<ProtectedRoute pageKey="revenue"><OtherRevenuePage /></ProtectedRoute>} />
+                <Route path="/revenue/analysis" element={<ProtectedRoute pageKey="revenue"><RevenueAnalysis /></ProtectedRoute>} />
+                <Route path="/revenue/setup" element={<ProtectedRoute pageKey="revenue"><RevenueSetup /></ProtectedRoute>} />
+                {/* Legacy routes consolidated into Revenue Setup / Sales Records */}
+                <Route path="/revenue/service-periods" element={<Navigate to="/revenue/setup?tab=service-periods" replace />} />
+                <Route path="/revenue/mapping" element={<Navigate to="/revenue/setup?tab=mapping" replace />} />
+                <Route path="/revenue/other" element={<Navigate to="/sales-data?view=other" replace />} />
 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />

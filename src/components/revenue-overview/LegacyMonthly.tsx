@@ -19,7 +19,7 @@ interface Props {
   venue: string;
 }
 
-export function LegacyMonthly({ data, venue }: Props) {
+export function MonthlyAverages({ data, venue }: Props) {
   const monthlyAverages = useMemo(() => {
     const monthKeys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
     return monthKeys.map((key) => {
@@ -51,9 +51,6 @@ export function LegacyMonthly({ data, venue }: Props) {
     });
   }, [data]);
 
-  const paymentData = useMemo(() => getPaymentBreakdown(data), [data]);
-  const venueData = useMemo(() => getVenueComparison(data), [data]);
-
   return (
     <div className="space-y-4">
       <SectionHeader title="Monthly Averages" description="Per-day averages within each month of the selected range" />
@@ -66,6 +63,15 @@ export function LegacyMonthly({ data, venue }: Props) {
         <MiniPanel title="Spend / Order" data={monthlyAverages} dataKey="spendPerOrder" tickFmt={(v) => `$${v}`} tipFmt={(v) => `$${formatCurrency(v)}`} />
       </div>
 
+    </div>
+  );
+}
+
+export function MonthlyMix({ data, venue }: Props) {
+  const paymentData = useMemo(() => getPaymentBreakdown(data), [data]);
+  const venueData = useMemo(() => getVenueComparison(data), [data]);
+  return (
+    <div className="space-y-4">
       <SectionHeader title="Mix" description="Where the revenue comes from" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <VenuePerformanceChart data={venueData} venue={venue} />

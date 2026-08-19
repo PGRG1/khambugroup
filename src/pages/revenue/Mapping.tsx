@@ -4,13 +4,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function RevenueMapping() {
+export default function RevenueMapping({ embedded = false }: { embedded?: boolean }) {
   const { items, loading } = useChartOfAccounts();
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? "space-y-4" : "space-y-6"}>
       <div>
-        <h1 className="text-2xl font-display font-semibold tracking-tight">Revenue Mapping</h1>
+        {!embedded && <h1 className="text-2xl font-display font-semibold tracking-tight">Revenue Mapping</h1>}
         <p className="text-sm text-muted-foreground mt-1">
           How each sales field posts to the books — same data as Chart of Accounts → Account Mappings.
         </p>

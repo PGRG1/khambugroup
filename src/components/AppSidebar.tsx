@@ -39,12 +39,10 @@ const navItems: (Item & { icon: any })[] = [
 
 const revenueItems: Item[] = [
   { title: "Overview", url: "/revenue", pageKey: "revenue", end: true },
-  { title: "Daily Sales", url: "/sales-data", pageKey: "revenue" },
+  { title: "Analysis", url: "/revenue/analysis", pageKey: "revenue" },
   { title: "Targets", url: "/forecast/assembly", pageKey: "forecast" },
-  { title: "Service Periods", url: "/revenue/service-periods", pageKey: "revenue" },
-  { title: "Reconciliation", url: "/revenue/reconciliation", pageKey: "revenue" },
-  { title: "Mapping", url: "/revenue/mapping", pageKey: "revenue" },
-  { title: "Other Revenue", url: "/revenue/other", pageKey: "revenue" },
+  { title: "Sales Records", url: "/sales-data", pageKey: "revenue" },
+  { title: "Revenue Setup", url: "/revenue/setup", pageKey: "revenue" },
 ];
 
 const financeItems: Item[] = [
