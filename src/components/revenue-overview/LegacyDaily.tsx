@@ -142,6 +142,27 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
     perOrder: d.orders ? Math.round(d.totalSales / d.orders) : 0,
   }));
 
+  // Rolling 7-trading-day averages + significant-low flags (shared helper, no duplicated logic)
+  const dailyRolled = useMemo(
+    () => withRolling(withRolling(daily, "totalSales"), "guests") as any[],
+    [daily]
+  );
+  const spendRolled = useMemo(
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => withRolling(withRolling(spendData, "perGuest"), "perOrder") as any[],
+    [daily]
+  );
+
+  // Weekday deep dive: latest month vs one selected comparison month
+  const latestMonth = months.length ? months[months.length - 1] : null;
+  const defaultComparison = months.length > 1 ? months[months.length - 2] : null;
+  const [dowComparisonOverride, setDowComparisonOverride] = useState<string | null>(null);
+  const dowComparison =
+    dowComparisonOverride && months.includes(dowComparisonOverride) && dowComparisonOverride !== latestMonth
+      ? dowComparisonOverride
+      : defaultComparison;
+
+
   const discountData = daily.map((d) => ({
     date: d.date,
     day: d.day,
