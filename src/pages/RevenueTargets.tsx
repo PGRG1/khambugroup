@@ -341,6 +341,27 @@ export default function RevenueTargets() {
     });
   }, [dailyChartData, asOf]);
 
+  // Run-rate projection built from the same cumulative series: extends the last
+  // recorded actual forward using the achieved daily average. Rendered dashed in
+  // the same colour family as Actual (never a second hue).
+  const progressData = useMemo(() => {
+    const withAct = cumulativeData.filter((r) => r.act != null);
+    const lastActual = withAct.length ? withAct[withAct.length - 1] : null;
+    const runRate = withAct.length ? (lastActual!.act as number) / withAct.length : null;
+    let step = 0;
+    const rows = cumulativeData.map((r) => {
+      let forecast: number | null = null;
+      if (lastActual && runRate != null) {
+        if (r.date === lastActual.date) forecast = lastActual.act as number;
+        else if (r.date > lastActual.date) { step += 1; forecast = (lastActual.act as number) + runRate * step; }
+      }
+      return { ...r, forecast };
+    });
+    const finish = rows.length ? rows[rows.length - 1].forecast : null;
+    return { rows, runRate, finish, trackedDays: withAct.length };
+  }, [cumulativeData]);
+
+
   const varianceData = useMemo(() => {
     return dailyChartData
       .filter((r) => r.act != null)
