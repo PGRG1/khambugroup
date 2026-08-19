@@ -351,7 +351,7 @@ export default function ServicePeriods({
         </div>
       )}
 
-      <div className="card-glass rounded-lg overflow-hidden">
+      <div className={`${embedded ? "rounded-xl border border-border/60" : "card-glass rounded-lg"} overflow-hidden`}>
         <div className="px-5 py-3 border-b border-border/60">
           <div className="text-sm font-semibold">Periods</div>
           <div className="text-xs text-muted-foreground">
