@@ -65,11 +65,11 @@ export default function RevenueAnalysis() {
         </div>
       ) : (
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList>
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="weekdays">Weekdays</TabsTrigger>
-            <TabsTrigger value="mix">Venue &amp; Mix</TabsTrigger>
-            <TabsTrigger value="leakage">Leakage</TabsTrigger>
+          <TabsList className="h-auto w-full justify-start gap-4 rounded-none border-b border-border/60 bg-transparent p-0">
+            <TabsTrigger value="trends" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Trends</TabsTrigger>
+            <TabsTrigger value="weekdays" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Weekdays</TabsTrigger>
+            <TabsTrigger value="mix" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Venue &amp; Mix</TabsTrigger>
+            <TabsTrigger value="leakage" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Leakage</TabsTrigger>
           </TabsList>
 
           {/* Only the active tab mounts its charts. */}

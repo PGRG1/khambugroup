@@ -341,6 +341,27 @@ export default function RevenueTargets() {
     });
   }, [dailyChartData, asOf]);
 
+  // Run-rate projection built from the same cumulative series: extends the last
+  // recorded actual forward using the achieved daily average. Rendered dashed in
+  // the same colour family as Actual (never a second hue).
+  const progressData = useMemo(() => {
+    const withAct = cumulativeData.filter((r) => r.act != null);
+    const lastActual = withAct.length ? withAct[withAct.length - 1] : null;
+    const runRate = withAct.length ? (lastActual!.act as number) / withAct.length : null;
+    let step = 0;
+    const rows = cumulativeData.map((r) => {
+      let forecast: number | null = null;
+      if (lastActual && runRate != null) {
+        if (r.date === lastActual.date) forecast = lastActual.act as number;
+        else if (r.date > lastActual.date) { step += 1; forecast = (lastActual.act as number) + runRate * step; }
+      }
+      return { ...r, forecast };
+    });
+    const finish = rows.length ? rows[rows.length - 1].forecast : null;
+    return { rows, runRate, finish, trackedDays: withAct.length };
+  }, [cumulativeData]);
+
+
   const varianceData = useMemo(() => {
     return dailyChartData
       .filter((r) => r.act != null)
@@ -741,10 +762,56 @@ export default function RevenueTargets() {
 
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
+          {/* Compact venue scope */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
+              All venues
+            </PillToggle>
+            {activeVenues.map((v) => (
+              <PillToggle
+                key={v.id}
+                active={venueIds.includes(v.id)}
+                onClick={() => setVenues(venueIds.includes(v.id) ? venueIds.filter((x) => x !== v.id) : [...venueIds, v.id])}
+                variant="outlined"
+              >
+                {v.name}
+              </PillToggle>
+            ))}
+          </div>
+
+          {/* Month navigation */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border/60 px-1 h-8">
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-[12px] font-medium min-w-[104px] text-center tabular-nums">
+              {monthName(month)} {year}
+            </div>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Button variant="outline" size="sm" className="h-8" onClick={exportCsv}>
+            <Download className="h-4 w-4" /> Export
           </Button>
+
+          {effectiveVenueIds.length > 0 && canEdit && (
+            managerLines.length === 0 ? (
+              <Button size="sm" className="h-8" onClick={handleSetUpMonth} disabled={generatingStat}>
+                <Sparkles className="h-4 w-4" /> Set Up This Month
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
+                onClick={handleRecomputeStat} disabled={generatingStat} title="Refresh benchmarks">
+                <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
+              </Button>
+            )
+          )}
         </div>
+
       </div>
 
       {/* FILTER BAR — single inline chip toolbar */}
@@ -772,10 +839,6 @@ export default function RevenueTargets() {
             setPeriods(Array.from(next));
           }
         };
-        const toggleVenue = (id: string) => {
-          if (venueIds.includes(id)) setVenues(venueIds.filter((x) => x !== id));
-          else setVenues([...venueIds, id]);
-        };
         const toggleWeekday = (i: number) => {
           if (weekdays.includes(i)) setWeekdays(weekdays.filter((x) => x !== i));
           else setWeekdays([...weekdays, i]);
@@ -786,39 +849,6 @@ export default function RevenueTargets() {
         };
         return (
           <div className="card-glass rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
-            {/* Month nav */}
-            <div className="flex items-center gap-0.5">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="text-sm font-medium min-w-[120px] text-center tabular-nums">
-                {monthName(month)} {year}
-              </div>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <ToolbarDivider />
-
-            {/* Venue Scope */}
-            <GroupLabel>Venue Scope</GroupLabel>
-            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
-              All
-            </PillToggle>
-            {activeVenues.map((v) => (
-              <PillToggle key={v.id}
-                active={venueIds.includes(v.id)}
-                onClick={() => toggleVenue(v.id)}
-                variant="outlined">
-                {v.name}
-              </PillToggle>
-            ))}
-
-            <ToolbarDivider />
-
             {/* Day of Week */}
             <GroupLabel>Day of Week</GroupLabel>
             <PillToggle active={weekdays.length === 0} onClick={() => setWeekdays([])} variant="filled">
@@ -856,23 +886,6 @@ export default function RevenueTargets() {
                 {s.replace("_", " ")}
               </LinkToggle>
             ))}
-
-            {/* Right-aligned action */}
-            <div className="ml-auto flex items-center gap-1">
-              {effectiveVenueIds.length > 0 && (
-                managerLines.length === 0 ? (
-                  <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
-                    <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
-                  </Button>
-                ) : (
-                  <Button size="icon" variant="ghost" className="h-7 w-7"
-                    onClick={handleRecomputeStat} disabled={generatingStat}
-                    title="Refresh data">
-                    <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
-                  </Button>
-                )
-              )}
-            </div>
           </div>
         );
       })()}
@@ -908,60 +921,64 @@ export default function RevenueTargets() {
         const HeadlineCard = ({ label, value, hint, color }: {
           label: string; value: React.ReactNode; hint: React.ReactNode; color?: string;
         }) => (
-          <Card className="p-4 border-border bg-card flex flex-col justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="card-glass rounded-xl border border-border/60 p-4 flex flex-col justify-between min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
               {label}
             </div>
-            <div className="mt-1 text-3xl font-bold tabular-nums" style={{ color }}>
+            <div className="mt-1 text-2xl font-semibold tabular-nums truncate" style={{ color }}>
               {value}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
-          </Card>
+            <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
+          </div>
         );
 
         const SecondaryCard = ({ dot, label, value }: {
           dot: string; label: string; value: React.ReactNode;
         }) => (
-          <Card className="p-2.5 border-border bg-card">
+          <div className="rounded-xl border border-border/60 bg-card p-2.5 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ background: dot }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground truncate">
                 {label}
               </span>
             </div>
-            <div className="mt-0.5 text-base font-semibold tabular-nums text-foreground/90">{value}</div>
-          </Card>
+            <div className="mt-0.5 text-base font-semibold tabular-nums text-foreground/90 truncate">{value}</div>
+          </div>
         );
+
+        const forecastFinish = progressData.finish;
+        const forecastVsTarget = forecastFinish != null && monthly.managerRevenue > 0
+          ? (forecastFinish / monthly.managerRevenue - 1) * 100
+          : null;
 
         return (
           <div className="space-y-2.5">
-            {/* Row 1: 4 equal-weight headline cards */}
+            {/* Row 1: 4 equal compact KPI cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               <HeadlineCard
-                label="Actual vs Manager"
-                value={pctFmt(avm)}
+                label="Monthly Target"
+                value={fmtHKD(monthly.managerRevenue)}
+                hint={`${fmtHKD(monthly.statRevenue)} statistical benchmark`}
+              />
+              <HeadlineCard
+                label="Actual MTD"
+                value={fmtHKD(monthly.actualRevenue)}
                 color={pctColor(avm)}
-                hint={`${fmtHKD(monthly.actualRevenue)} of ${fmtHKD(monthly.managerRevenueToDate)} planned to date`}
+                hint={`${pctFmt(avm)} vs ${fmtHKD(monthly.managerRevenueToDate)} planned to date`}
               />
               <HeadlineCard
-                label="Actual vs Statistical"
-                value={pctFmt(avs)}
-                color={pctColor(avs)}
-                hint={`Model accuracy — ${completedDays} days tracked`}
-              />
-              <HeadlineCard
-                label="Required Daily Pace"
+                label="Pace to Target"
                 value={paceValue}
                 color="hsl(var(--primary))"
                 hint={paceHint}
               />
               <HeadlineCard
-                label="Actual SPG vs Statistical SPG"
-                value={pctFmt(spgPct)}
-                color={pctColor(spgPct)}
-                hint={monthly.actualSpgToDate != null && monthly.statSpgToDate != null
-                  ? `HK$ ${monthly.actualSpgToDate.toFixed(0)} vs HK$ ${monthly.statSpgToDate.toFixed(0)} model`
-                  : "—"}
+                label="Forecast"
+                value={fmtHKD(forecastFinish)}
+                color={pctColor(forecastVsTarget)}
+                hint={forecastVsTarget == null
+                  ? "Awaiting completed days"
+                  : `${pctFmt(forecastVsTarget)} vs target · ${progressData.trackedDays} days tracked`}
               />
             </div>
 
@@ -972,10 +989,95 @@ export default function RevenueTargets() {
               <SecondaryCard dot={C.actual} label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)} />
               <SecondaryCard dot={C.manager} label="Manager Guests" value={fmtInt(monthly.managerGuests)} />
               <SecondaryCard dot={C.actual} label="Actual Guests" value={fmtInt(monthly.actualGuests)} />
+              <SecondaryCard dot={C.actual} label="Actual SPG vs Model" value={pctFmt(spgPct)} />
             </div>
           </div>
         );
       })()}
+
+      {/* TARGET PROGRESS — cumulative actual vs target with run-rate projection */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        <div className="card-glass rounded-xl border border-border/60 p-4 lg:col-span-2 min-w-0">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="text-[13px] font-semibold tracking-tight">Target Progress</div>
+              <div className="text-[11px] text-muted-foreground">
+                Cumulative actual against plan, with run-rate projection
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="hsl(var(--primary))" strokeWidth="2" /></svg>
+                Actual
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 3" /></svg>
+                Forecast
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={C.muted} strokeWidth="1.5" strokeDasharray="4 3" /></svg>
+                Target
+              </span>
+            </div>
+          </div>
+          {progressData.rows.length === 0 ? (
+            <EmptyChart label="No target data for this period." />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={progressData.rows}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.grid} opacity={0.35} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false} tickLine={false} width={48}
+                  tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: any) => fmtHKD(Number(v))}
+                  labelFormatter={(l) => `Day ${l}`}
+                />
+                <Line type="monotone" dataKey="mgr" name="Target" stroke={C.muted} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.7} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Line type="monotone" dataKey="forecast" name="Forecast" stroke="hsl(var(--primary))" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Operational summary — existing values only */}
+        <div className="card-glass rounded-xl border border-border/60 p-4 min-w-0">
+          <div className="text-[13px] font-semibold tracking-tight mb-3">Operational Summary</div>
+          <div className="space-y-2 text-sm">
+            <SummaryRow label="Days elapsed" value={String(completedDays)} />
+            <SummaryRow label="Days remaining" value={String(remainingDays)} />
+            <div className="h-px bg-border/60 my-2" />
+            <SummaryRow
+              label="Daily target"
+              value={fmtHKD(filteredPoints.length > 0 ? monthly.managerRevenue / filteredPoints.length : null)}
+            />
+            <SummaryRow
+              label="Needed per remaining day"
+              value={remainingDays > 0 && monthly.managerRevenue - monthly.actualRevenue > 0
+                ? fmtHKD((monthly.managerRevenue - monthly.actualRevenue) / remainingDays)
+                : "HK$ 0"}
+              strong
+            />
+            <SummaryRow
+              label="Achieved run-rate / day"
+              value={fmtHKD(progressData.runRate)}
+            />
+            <div className="h-px bg-border/60 my-2" />
+            <SummaryRow label="Expected finish" value={fmtHKD(progressData.finish)} strong />
+            <SummaryRow label="Monthly target" value={fmtHKD(monthly.managerRevenue)} />
+            <SummaryRow
+              label="Gap to target"
+              value={progressData.finish != null ? fmtHKD(progressData.finish - monthly.managerRevenue) : "—"}
+            />
+          </div>
+        </div>
+      </div>
+
 
       {/* SECTION 4: Daily performance + summary */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-3.5">
@@ -1028,25 +1130,8 @@ export default function RevenueTargets() {
         </SectionCard>
       </div>
 
-      {/* SECTION 5: Secondary charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        <SectionCard title="Cumulative Revenue Pace">
-          {cumulativeData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={cumulativeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
-                <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} connectNulls={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
+      {/* SECTION 5: Daily variance (cumulative pace now lives in Target Progress) */}
+      <div className="grid grid-cols-1 gap-3.5">
         <SectionCard title="Daily Revenue Variance to Manager">
           {varianceData.length === 0 ? <EmptyChart label="No completed days yet." /> : (
             <ResponsiveContainer width="100%" height={260}>
@@ -1248,62 +1333,106 @@ export default function RevenueTargets() {
           hint={`of ${managerLines.length} lines`} />
       </div>
 
-      {/* SECTION 10: Daily Target Register */}
-      <DailyRegister
-        year={year} month={month}
-        venues={activeVenues.filter((v) => effectiveVenueIds.includes(v.id))}
-        periods={allPeriods}
-        opPeriods={opPeriods}
-        days={days}
-        lines={linesWithEdits}
-        statistical={statistical}
-        actuals={actuals}
-        actualsByPeriod={actualsByPeriod}
+      {/* SECTION 10: Daily Target Plan + Day-of-Week Allocation */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-start">
+        <div className="lg:col-span-2 min-w-0">
+        <DailyRegister
+          year={year} month={month}
+          venues={activeVenues.filter((v) => effectiveVenueIds.includes(v.id))}
+          periods={allPeriods}
+          opPeriods={opPeriods}
+          days={days}
+          lines={linesWithEdits}
+          statistical={statistical}
+          actuals={actuals}
+          actualsByPeriod={actualsByPeriod}
 
-        pendingIds={new Set(Object.keys(pendingEdits))}
-        canEdit={canEdit}
-        canApprove={perms.canApprove}
-        onEdit={editLine}
-        onSaveDay={saveDay}
-        onApproveDay={approveDay}
-        onApplyStatistical={applyStatistical}
-        onSetStatus={setOperatingStatus}
-        requestReason={requestReason}
-        onLineStatus={async (line, lineStatus, reason) => {
-          const commit = async (r: string | null) => {
-            const res = await mutations.upsertManagerLine({
-              id: line.id, venueId: line.venueId, targetDate: line.targetDate,
-              lineType: line.lineType, servicePeriodId: line.servicePeriodId,
-              targetInputMode: line.targetInputMode,
-              managerGuestTarget: line.managerGuestTarget,
-              managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
-              lineStatus, zeroReason: r,
-              status: line.status,
+          pendingIds={new Set(Object.keys(pendingEdits))}
+          canEdit={canEdit}
+          canApprove={perms.canApprove}
+          onEdit={editLine}
+          onSaveDay={saveDay}
+          onApproveDay={approveDay}
+          onApplyStatistical={applyStatistical}
+          onSetStatus={setOperatingStatus}
+          requestReason={requestReason}
+          onLineStatus={async (line, lineStatus, reason) => {
+            const commit = async (r: string | null) => {
+              const res = await mutations.upsertManagerLine({
+                id: line.id, venueId: line.venueId, targetDate: line.targetDate,
+                lineType: line.lineType, servicePeriodId: line.servicePeriodId,
+                targetInputMode: line.targetInputMode,
+                managerGuestTarget: line.managerGuestTarget,
+                managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
+                lineStatus, zeroReason: r,
+                status: line.status,
+              });
+              if (res.ok) await refetchLines();
+            };
+            // Reactivation and operating do not require a reason
+            if (lineStatus === "operating") return commit(null);
+            if (reason) return commit(reason);
+            const kind: AdjustmentReasonKind =
+              lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
+            requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
+          }}
+          onAddEvent={async (venueId, date, ev) => {
+            // Atomic RPC: event creation + replacement in one DB call.
+            const r = await mutations.addEventWithReplacement({
+              venueId, targetDate: date,
+              eventName: ev.name, eventMode: ev.mode,
+              replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
+              targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
+              managerGuestTarget: ev.guests ?? null,
+              managerSpendPerGuestTarget: ev.spg ?? null,
+              managerRevenueOverride: ev.contractedRevenue ?? null,
+              notes: ev.reason ?? null,
             });
-            if (res.ok) await refetchLines();
-          };
-          // Reactivation and operating do not require a reason
-          if (lineStatus === "operating") return commit(null);
-          if (reason) return commit(reason);
-          const kind: AdjustmentReasonKind =
-            lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
-          requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
-        }}
-        onAddEvent={async (venueId, date, ev) => {
-          // Atomic RPC: event creation + replacement in one DB call.
-          const r = await mutations.addEventWithReplacement({
-            venueId, targetDate: date,
-            eventName: ev.name, eventMode: ev.mode,
-            replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
-            targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
-            managerGuestTarget: ev.guests ?? null,
-            managerSpendPerGuestTarget: ev.spg ?? null,
-            managerRevenueOverride: ev.contractedRevenue ?? null,
-            notes: ev.reason ?? null,
-          });
-          if (r.ok) await refetchLines();
-        }}
-      />
+            if (r.ok) await refetchLines();
+          }}
+        />
+        </div>
+        <div className="card-glass rounded-xl border border-border/60 p-4 min-w-0">
+          <div className="text-[13px] font-semibold tracking-tight">Day-of-Week Allocation</div>
+          <div className="text-[11px] text-muted-foreground mb-3">
+            Share of the monthly plan by weekday
+          </div>
+          {weekdayRows.length === 0 ? (
+            <div className="text-[12px] text-muted-foreground py-6 text-center">No planned days yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {(() => {
+                const totals = weekdayRows.map((r) => r.avgMgr * r.occurrences);
+                const grand = totals.reduce((a, b) => a + b, 0);
+                const max = Math.max(...totals, 0);
+                return weekdayRows.map((r, i) => {
+                  const total = totals[i];
+                  const share = grand > 0 ? total / grand : 0;
+                  return (
+                    <div key={r.weekday} className="min-w-0">
+                      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                        <span className="text-foreground/80">{WEEKDAY_LONG[r.weekday]}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {fmtHKD(total)} · {(share * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: max > 0 ? `${(total / max) * 100}%` : "0%" }}
+                        />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+          <div className="mt-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground">
+            Use the Day of Week filters above to focus the plan on specific weekdays.
+          </div>
+        </div>
+      </div>
 
       {reasonReq && (
         <AdjustmentReasonDialog

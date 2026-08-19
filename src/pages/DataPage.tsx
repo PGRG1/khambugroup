@@ -18,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  PageHeader,
   KpiCard,
   KpiGrid,
   KpiSkeleton,
@@ -114,11 +113,18 @@ const DataPage = () => {
 
   return (
     <div className="w-full mx-auto space-y-6">
-      <PageHeader
-        title="Sales Records"
-        description="Review, validate and manage recorded revenue"
-        actions={actions}
-      />
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">
+            <span className="text-gradient-gold">Revenue</span>
+            <span className="text-muted-foreground ml-2 text-[13px] font-normal">Sales Records</span>
+          </h1>
+          <p className="text-[13px] text-muted-foreground mt-0.5">
+            Review, validate and manage recorded revenue
+          </p>
+        </div>
+        {actions}
+      </div>
 
       {/* View filter */}
       <div className="flex items-center gap-1 flex-wrap">
