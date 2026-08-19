@@ -111,12 +111,6 @@ const Index = () => {
     return { daysInMonth, monthLabel, monthProrated, monthActualMTD, targetPerDay };
   }, [monthContext, targetForMonth, cur.revenue]);
 
-  const currentMonthLabel = useMemo(() => {
-    if (from) return getMonthLabel(`${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}`);
-    if (months.length > 0) return months[months.length - 1].label;
-    return new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }, [from, months]);
-
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
   const hideViewToggle = isActionHidden("revenue.view_toggle");
