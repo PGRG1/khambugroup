@@ -185,6 +185,7 @@ export default function ServicePeriods({
       toast({ title: form.id ? "Service period updated" : "Service period created" });
       resetForm();
       refetch();
+      onDataChanged?.();
     }
   };
 
@@ -194,47 +195,52 @@ export default function ServicePeriods({
     if (res.ok) {
       toast({ title: "Service period deactivated" });
       refetch();
+      onDataChanged?.();
     }
     setDeactivating(null);
   };
 
   return (
-    <div className={embedded ? "space-y-4" : "p-6 space-y-6"}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className={embedded ? "space-y-3.5" : "p-6 space-y-6"}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
           {!embedded && (
             <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               Service Periods
             </h1>
           )}
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Configure lunch, dinner, happy hour and other operating windows per venue. These periods
-            drive daily target breakdowns and do not modify historical data.
-          </p>
+          {!hideIntro && (
+            <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl">
+              Configure lunch, dinner, happy hour and other operating windows per venue. These periods
+              drive daily target breakdowns and do not modify historical data.
+            </p>
+          )}
+          {!hideVenuePicker && (
+            <div className="mt-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Venue</Label>
+              <div className="mt-1 w-[220px] max-w-full">
+                <Select value={selectedVenueId} onValueChange={setSelectedVenueId} disabled={venuesLoading}>
+                  <SelectTrigger className="h-9 text-[13px]">
+                    <SelectValue placeholder={venuesLoading ? "Loading venues…" : "Select a venue"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeVenues.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
         {canEditManagerTargets && selectedVenueId && !showForm && (
           <Button size="sm" onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> Add Period
+            <Plus className="h-4 w-4" /> <span>Add Period</span>
           </Button>
         )}
       </div>
 
-      <div className="card-glass rounded-lg p-4">
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Venue</Label>
-        <div className="mt-2 max-w-sm">
-          <Select value={selectedVenueId} onValueChange={setSelectedVenueId} disabled={venuesLoading}>
-            <SelectTrigger>
-              <SelectValue placeholder={venuesLoading ? "Loading venues…" : "Select a venue"} />
-            </SelectTrigger>
-            <SelectContent>
-              {activeVenues.map((v) => (
-                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       {showForm && canEditManagerTargets && (
         <div className="card-glass rounded-lg p-5 space-y-4">
