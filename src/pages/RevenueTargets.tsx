@@ -839,10 +839,6 @@ export default function RevenueTargets() {
             setPeriods(Array.from(next));
           }
         };
-        const toggleVenue = (id: string) => {
-          if (venueIds.includes(id)) setVenues(venueIds.filter((x) => x !== id));
-          else setVenues([...venueIds, id]);
-        };
         const toggleWeekday = (i: number) => {
           if (weekdays.includes(i)) setWeekdays(weekdays.filter((x) => x !== i));
           else setWeekdays([...weekdays, i]);
@@ -853,39 +849,6 @@ export default function RevenueTargets() {
         };
         return (
           <div className="card-glass rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
-            {/* Month nav */}
-            <div className="flex items-center gap-0.5">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="text-sm font-medium min-w-[120px] text-center tabular-nums">
-                {monthName(month)} {year}
-              </div>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <ToolbarDivider />
-
-            {/* Venue Scope */}
-            <GroupLabel>Venue Scope</GroupLabel>
-            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
-              All
-            </PillToggle>
-            {activeVenues.map((v) => (
-              <PillToggle key={v.id}
-                active={venueIds.includes(v.id)}
-                onClick={() => toggleVenue(v.id)}
-                variant="outlined">
-                {v.name}
-              </PillToggle>
-            ))}
-
-            <ToolbarDivider />
-
             {/* Day of Week */}
             <GroupLabel>Day of Week</GroupLabel>
             <PillToggle active={weekdays.length === 0} onClick={() => setWeekdays([])} variant="filled">
@@ -923,23 +886,6 @@ export default function RevenueTargets() {
                 {s.replace("_", " ")}
               </LinkToggle>
             ))}
-
-            {/* Right-aligned action */}
-            <div className="ml-auto flex items-center gap-1">
-              {effectiveVenueIds.length > 0 && (
-                managerLines.length === 0 ? (
-                  <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
-                    <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
-                  </Button>
-                ) : (
-                  <Button size="icon" variant="ghost" className="h-7 w-7"
-                    onClick={handleRecomputeStat} disabled={generatingStat}
-                    title="Refresh data">
-                    <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
-                  </Button>
-                )
-              )}
-            </div>
           </div>
         );
       })()}
