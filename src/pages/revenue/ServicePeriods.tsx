@@ -73,13 +73,40 @@ function formatWeekdays(days: number[]) {
   return WEEKDAYS.filter((w) => days.includes(w.n)).map((w) => w.label).join(", ");
 }
 
-export default function ServicePeriods({ embedded = false }: { embedded?: boolean }) {
+export type ServicePeriodsProps = {
+  embedded?: boolean;
+  /** Controlled venue selection (lifted by RevenueSetup so the preview shares it). */
+  venueId?: string;
+  onVenueChange?: (id: string) => void;
+  /** Hide the internal venue picker when the parent renders its own. */
+  hideVenuePicker?: boolean;
+  /** Hide the intro copy when the parent supplies a title/subtitle. */
+  hideIntro?: boolean;
+  /** Fired after any successful mutation so parents can refetch derived views. */
+  onDataChanged?: () => void;
+};
+
+export default function ServicePeriods({
+  embedded = false,
+  venueId,
+  onVenueChange,
+  hideVenuePicker = false,
+  hideIntro = false,
+  onDataChanged,
+}: ServicePeriodsProps) {
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
-  const [selectedVenueId, setSelectedVenueId] = useState<string>("");
+  const [internalVenueId, setInternalVenueId] = useState<string>("");
+  const controlled = venueId !== undefined;
+  const selectedVenueId = controlled ? venueId : internalVenueId;
+  const setSelectedVenueId = (id: string) => {
+    if (!controlled) setInternalVenueId(id);
+    onVenueChange?.(id);
+  };
 
   useEffect(() => {
     if (!selectedVenueId && activeVenues.length) setSelectedVenueId(activeVenues[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeVenues, selectedVenueId]);
 
   const { rows, loading, refetch } = useVenueServicePeriods(
@@ -87,6 +114,7 @@ export default function ServicePeriods({ embedded = false }: { embedded?: boolea
   );
   const { upsertServicePeriod, deactivateServicePeriod } = useRevenueTargetMutations();
   const { canEditManagerTargets } = useRevenueTargetPermissions();
+
 
   const scoped = useMemo(
     () => rows.filter((r) => r.venueId === selectedVenueId),
