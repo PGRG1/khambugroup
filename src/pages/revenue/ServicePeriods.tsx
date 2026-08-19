@@ -243,7 +243,7 @@ export default function ServicePeriods({
 
 
       {showForm && canEditManagerTargets && (
-        <div className="card-glass rounded-lg p-5 space-y-4">
+        <div className={`${embedded ? "rounded-xl border border-border/60 bg-muted/20" : "card-glass rounded-lg"} p-5 space-y-4`}>
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">
               {form.id ? "Edit service period" : "New service period"}
