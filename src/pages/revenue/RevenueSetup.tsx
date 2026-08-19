@@ -1,13 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ShieldCheck, Check, Minus } from "lucide-react";
+import { ShieldCheck, Check, Minus, ArrowRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import ServicePeriods from "@/pages/revenue/ServicePeriods";
 import RevenueMapping from "@/pages/revenue/Mapping";
+import TodayClassification from "@/components/revenue-setup/TodayClassification";
 import { RevenueSourcesCard } from "@/pages/admin/MasterData";
 import { useVenues } from "@/hooks/useVenues";
 import { useRevenueSources } from "@/hooks/useRevenueSources";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
+import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useRevenueTargetPermissions } from "@/hooks/useRevenueTargetPermissions";
 
 const TABS = ["service-periods", "mapping", "sources", "venues"] as const;
@@ -31,18 +35,61 @@ function StatusRow({ done, label, hint }: { done: boolean; label: string; hint: 
   );
 }
 
+function ReadinessItem({ label, state, done }: { label: string; state: string; done: boolean }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span
+        className={`h-1.5 w-1.5 rounded-full shrink-0 ${done ? "bg-primary" : "bg-muted-foreground/40"}`}
+        aria-hidden
+      />
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">{label}</span>
+      <span className={`text-[12px] truncate ${done ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+        {state}
+      </span>
+    </div>
+  );
+}
+
 export default function RevenueSetup() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("tab") as TabKey | null;
   const tab: TabKey = raw && (TABS as readonly string[]).includes(raw) ? raw : "service-periods";
 
   const { venues, loading: venuesLoading } = useVenues();
-  const { sources } = useRevenueSources();
+  const { sources, loading: sourcesLoading } = useRevenueSources();
   const perms = useRevenueTargetPermissions();
 
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeSources = useMemo(() => sources.filter((s) => s.is_active), [sources]);
   const seatedVenues = activeVenues.filter((v) => (v.seats ?? 0) > 0);
+
+  // Shared venue selection between the editor (left) and the preview (right).
+  const [selectedVenueId, setSelectedVenueId] = useState<string>("");
+  const selectedVenue = activeVenues.find((v) => v.id === selectedVenueId) ?? null;
+
+  // Tenant-wide periods: drives both the coverage metric and the live preview.
+  const { rows: allPeriods, loading: periodsLoading, refetch: refetchPeriods } = useVenueServicePeriods();
+  const { unmappedCount, unmappedVenues, loading: mappingLoading } = useUnmappedVenues();
+
+  const venuesWithPeriods = useMemo(() => {
+    const ids = new Set(
+      allPeriods.filter((p) => p.isActive && !p.isRollupOnly).map((p) => p.venueId),
+    );
+    return activeVenues.filter((v) => ids.has(v.id)).length;
+  }, [allPeriods, activeVenues]);
+
+  const selectedVenuePeriods = useMemo(
+    () => allPeriods.filter((p) => p.venueId === selectedVenueId),
+    [allPeriods, selectedVenueId],
+  );
+
+  const coverageComplete = activeVenues.length > 0 && venuesWithPeriods === activeVenues.length;
+  const mappingComplete = activeVenues.length > 0 && unmappedCount === 0;
+  const sourcesComplete = activeSources.length > 0;
+  const venuesComplete = activeVenues.length > 0;
+  const setupReady = coverageComplete && mappingComplete && sourcesComplete && venuesComplete;
+  const statusLoading = venuesLoading || sourcesLoading || periodsLoading || mappingLoading;
+
 
   return (
     <div className="w-full mx-auto space-y-6">
