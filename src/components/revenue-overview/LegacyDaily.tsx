@@ -494,18 +494,20 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
   );
 }
 
-/* ------------- Small grouped-by-month DoW chart ------------- */
+/* ------------- Latest vs one comparison month, by day of week ------------- */
 
 interface DowChartProps {
   title: string;
   data: any[];
-  months: string[];
+  latestMonth: string | null;
+  comparisonMonth: string | null;
   prefix: string;
   fmt: (v: number) => string;
   fmtTooltip: (v: number) => string;
 }
 
-function DowChart({ title, data, months, prefix, fmt, fmtTooltip }: DowChartProps) {
+function DowChart({ title, data, latestMonth, comparisonMonth, prefix, fmt, fmtTooltip }: DowChartProps) {
+  if (!latestMonth) return null;
   return (
     <ChartShell title={title}>
       <ResponsiveContainer width="100%" height={260}>
@@ -518,18 +520,29 @@ function DowChart({ title, data, months, prefix, fmt, fmtTooltip }: DowChartProp
             formatter={(v: number, name: string) => [fmtTooltip(v), name]}
           />
           <Legend wrapperStyle={chartLegendStyle} align="right" verticalAlign="top" iconSize={8} iconType="square" />
-          {months.map((m, i) => (
+          {comparisonMonth && (
             <Bar
-              key={m}
-              dataKey={`${prefix}_${m}`}
-              name={getMonthLabel(m)}
-              fill={PRIMARY}
-              fillOpacity={monthOpacity(i)}
+              key={comparisonMonth}
+              dataKey={`${prefix}_${comparisonMonth}`}
+              name={getMonthLabel(comparisonMonth)}
+              fill={CHART_COMPARISON}
+              fillOpacity={0.75}
               radius={[2, 2, 0, 0]}
+              isAnimationActive={false}
             />
-          ))}
+          )}
+          <Bar
+            key={latestMonth}
+            dataKey={`${prefix}_${latestMonth}`}
+            name={getMonthLabel(latestMonth)}
+            fill={CHART_CURRENT}
+            fillOpacity={0.95}
+            radius={[2, 2, 0, 0]}
+            isAnimationActive={false}
+          />
         </BarChart>
       </ResponsiveContainer>
     </ChartShell>
   );
 }
+
