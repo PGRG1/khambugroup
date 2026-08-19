@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
   Line,
   BarChart,
   Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   Tooltip,
@@ -29,8 +30,11 @@ import {
   chartTooltipContentStyle,
   compactHK,
   DESTRUCTIVE,
-  monthOpacity,
   PRIMARY,
+  CHART_CURRENT,
+  CHART_COMPARISON,
+  CHART_EXCEPTION,
+  withRolling,
 } from "./chartTheme";
 import CumulativeSalesChart from "@/components/dashboard/CumulativeSalesChart";
 import ScatterAnalysisCharts from "@/components/dashboard/ScatterAnalysisCharts";
@@ -48,6 +52,36 @@ const formatShortDate = (d: string) => {
   const parts = d.split("-");
   return `${MONTH_NAMES[parseInt(parts[1]) - 1]} ${parseInt(parts[2])}`;
 };
+
+/** Small inline legend: Daily / 7-day average / Significant low */
+function MiniLegend({ dailyColor, avgColor }: { dailyColor: string; avgColor: string }) {
+  const Item = ({ color, label, faint }: { color: string; label: string; faint?: boolean }) => (
+    <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+      <span
+        className="inline-block h-[2px] w-4 rounded-full"
+        style={{ background: color, opacity: faint ? 0.35 : 1 }}
+      />
+      {label}
+    </span>
+  );
+  return (
+    <div className="flex items-center justify-end gap-3 flex-wrap mt-1.5">
+      <Item color={dailyColor} label="Daily" faint />
+      <Item color={avgColor} label="7-day average" />
+      <Item color={CHART_EXCEPTION} label="Significant low" />
+    </div>
+  );
+}
+
+/** Dot renderer that only marks genuine significant lows. */
+function makeLowDot(flagKey: string) {
+  return (props: any) => {
+    const { cx, cy, payload, index } = props;
+    if (!payload?.[flagKey] || cx == null || cy == null) return <g key={`nd-${index}`} />;
+    return <circle key={`ld-${index}`} cx={cx} cy={cy} r={3} fill={CHART_EXCEPTION} stroke="none" />;
+  };
+}
+
 
 function useDaily(data: SalesRecord[]) {
   return useMemo(() => {
