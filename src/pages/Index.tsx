@@ -118,16 +118,6 @@ const Index = () => {
     return new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
   }, [from, months]);
 
-  const handleGenerateReport = () => {
-    if (filtered.length === 0) {
-      toast({ title: "No data to report", description: "Select a period with data first.", variant: "destructive" });
-      return;
-    }
-    generateMTDReport({ data: filtered, venue, monthLabel: currentMonthLabel });
-    toast({ title: "Report downloaded", description: `${currentMonthLabel} MTD report saved.` });
-  };
-
-  const hideGenerateReport = isActionHidden("revenue.generate_report");
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
   const hideViewToggle = isActionHidden("revenue.view_toggle");
