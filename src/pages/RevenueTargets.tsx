@@ -1130,25 +1130,8 @@ export default function RevenueTargets() {
         </SectionCard>
       </div>
 
-      {/* SECTION 5: Secondary charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        <SectionCard title="Cumulative Revenue Pace">
-          {cumulativeData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={cumulativeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
-                <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} connectNulls={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
+      {/* SECTION 5: Daily variance (cumulative pace now lives in Target Progress) */}
+      <div className="grid grid-cols-1 gap-3.5">
         <SectionCard title="Daily Revenue Variance to Manager">
           {varianceData.length === 0 ? <EmptyChart label="No completed days yet." /> : (
             <ResponsiveContainer width="100%" height={260}>
@@ -1350,62 +1333,106 @@ export default function RevenueTargets() {
           hint={`of ${managerLines.length} lines`} />
       </div>
 
-      {/* SECTION 10: Daily Target Register */}
-      <DailyRegister
-        year={year} month={month}
-        venues={activeVenues.filter((v) => effectiveVenueIds.includes(v.id))}
-        periods={allPeriods}
-        opPeriods={opPeriods}
-        days={days}
-        lines={linesWithEdits}
-        statistical={statistical}
-        actuals={actuals}
-        actualsByPeriod={actualsByPeriod}
+      {/* SECTION 10: Daily Target Plan + Day-of-Week Allocation */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-start">
+        <div className="lg:col-span-2 min-w-0">
+        <DailyRegister
+          year={year} month={month}
+          venues={activeVenues.filter((v) => effectiveVenueIds.includes(v.id))}
+          periods={allPeriods}
+          opPeriods={opPeriods}
+          days={days}
+          lines={linesWithEdits}
+          statistical={statistical}
+          actuals={actuals}
+          actualsByPeriod={actualsByPeriod}
 
-        pendingIds={new Set(Object.keys(pendingEdits))}
-        canEdit={canEdit}
-        canApprove={perms.canApprove}
-        onEdit={editLine}
-        onSaveDay={saveDay}
-        onApproveDay={approveDay}
-        onApplyStatistical={applyStatistical}
-        onSetStatus={setOperatingStatus}
-        requestReason={requestReason}
-        onLineStatus={async (line, lineStatus, reason) => {
-          const commit = async (r: string | null) => {
-            const res = await mutations.upsertManagerLine({
-              id: line.id, venueId: line.venueId, targetDate: line.targetDate,
-              lineType: line.lineType, servicePeriodId: line.servicePeriodId,
-              targetInputMode: line.targetInputMode,
-              managerGuestTarget: line.managerGuestTarget,
-              managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
-              lineStatus, zeroReason: r,
-              status: line.status,
+          pendingIds={new Set(Object.keys(pendingEdits))}
+          canEdit={canEdit}
+          canApprove={perms.canApprove}
+          onEdit={editLine}
+          onSaveDay={saveDay}
+          onApproveDay={approveDay}
+          onApplyStatistical={applyStatistical}
+          onSetStatus={setOperatingStatus}
+          requestReason={requestReason}
+          onLineStatus={async (line, lineStatus, reason) => {
+            const commit = async (r: string | null) => {
+              const res = await mutations.upsertManagerLine({
+                id: line.id, venueId: line.venueId, targetDate: line.targetDate,
+                lineType: line.lineType, servicePeriodId: line.servicePeriodId,
+                targetInputMode: line.targetInputMode,
+                managerGuestTarget: line.managerGuestTarget,
+                managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
+                lineStatus, zeroReason: r,
+                status: line.status,
+              });
+              if (res.ok) await refetchLines();
+            };
+            // Reactivation and operating do not require a reason
+            if (lineStatus === "operating") return commit(null);
+            if (reason) return commit(reason);
+            const kind: AdjustmentReasonKind =
+              lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
+            requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
+          }}
+          onAddEvent={async (venueId, date, ev) => {
+            // Atomic RPC: event creation + replacement in one DB call.
+            const r = await mutations.addEventWithReplacement({
+              venueId, targetDate: date,
+              eventName: ev.name, eventMode: ev.mode,
+              replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
+              targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
+              managerGuestTarget: ev.guests ?? null,
+              managerSpendPerGuestTarget: ev.spg ?? null,
+              managerRevenueOverride: ev.contractedRevenue ?? null,
+              notes: ev.reason ?? null,
             });
-            if (res.ok) await refetchLines();
-          };
-          // Reactivation and operating do not require a reason
-          if (lineStatus === "operating") return commit(null);
-          if (reason) return commit(reason);
-          const kind: AdjustmentReasonKind =
-            lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
-          requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
-        }}
-        onAddEvent={async (venueId, date, ev) => {
-          // Atomic RPC: event creation + replacement in one DB call.
-          const r = await mutations.addEventWithReplacement({
-            venueId, targetDate: date,
-            eventName: ev.name, eventMode: ev.mode,
-            replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
-            targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
-            managerGuestTarget: ev.guests ?? null,
-            managerSpendPerGuestTarget: ev.spg ?? null,
-            managerRevenueOverride: ev.contractedRevenue ?? null,
-            notes: ev.reason ?? null,
-          });
-          if (r.ok) await refetchLines();
-        }}
-      />
+            if (r.ok) await refetchLines();
+          }}
+        />
+        </div>
+        <div className="card-glass rounded-xl border border-border/60 p-4 min-w-0">
+          <div className="text-[13px] font-semibold tracking-tight">Day-of-Week Allocation</div>
+          <div className="text-[11px] text-muted-foreground mb-3">
+            Share of the monthly plan by weekday
+          </div>
+          {weekdayRows.length === 0 ? (
+            <div className="text-[12px] text-muted-foreground py-6 text-center">No planned days yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {(() => {
+                const totals = weekdayRows.map((r) => r.avgMgr * r.occurrences);
+                const grand = totals.reduce((a, b) => a + b, 0);
+                const max = Math.max(...totals, 0);
+                return weekdayRows.map((r, i) => {
+                  const total = totals[i];
+                  const share = grand > 0 ? total / grand : 0;
+                  return (
+                    <div key={r.weekday} className="min-w-0">
+                      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                        <span className="text-foreground/80">{WEEKDAY_LONG[r.weekday]}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {fmtHKD(total)} · {(share * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: max > 0 ? `${(total / max) * 100}%` : "0%" }}
+                        />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+          <div className="mt-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground">
+            Use the Day of Week filters above to focus the plan on specific weekdays.
+          </div>
+        </div>
+      </div>
 
       {reasonReq && (
         <AdjustmentReasonDialog
