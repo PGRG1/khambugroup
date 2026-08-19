@@ -17,7 +17,6 @@ export type PageKey = (typeof ALL_PAGES)[number]["key"];
 // Per-page actions surfaced in the User Editor as "hide-able" toggles.
 export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   revenue: [
-    { key: "revenue.generate_report", label: "Generate Report (PDF)" },
     { key: "revenue.date_range", label: "Date Range Picker" },
     { key: "revenue.venue_filter", label: "Venue Filter" },
     { key: "revenue.view_toggle", label: "Daily / Monthly Toggle" },
