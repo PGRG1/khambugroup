@@ -7,11 +7,9 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useVenues } from "@/hooks/useVenues";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import DateFilter from "@/components/dashboard/DateFilter";
-import { generateMTDReport } from "@/utils/generateReport";
-import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
-import { FileDown, FileText, Armchair } from "lucide-react";
+import { FileText, Armchair } from "lucide-react";
 
 import { HeroBand } from "@/components/revenue-overview/HeroBand";
 import { KpiRow } from "@/components/revenue-overview/KpiRow";
@@ -113,22 +111,6 @@ const Index = () => {
     return { daysInMonth, monthLabel, monthProrated, monthActualMTD, targetPerDay };
   }, [monthContext, targetForMonth, cur.revenue]);
 
-  const currentMonthLabel = useMemo(() => {
-    if (from) return getMonthLabel(`${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}`);
-    if (months.length > 0) return months[months.length - 1].label;
-    return new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }, [from, months]);
-
-  const handleGenerateReport = () => {
-    if (filtered.length === 0) {
-      toast({ title: "No data to report", description: "Select a period with data first.", variant: "destructive" });
-      return;
-    }
-    generateMTDReport({ data: filtered, venue, monthLabel: currentMonthLabel });
-    toast({ title: "Report downloaded", description: `${currentMonthLabel} MTD report saved.` });
-  };
-
-  const hideGenerateReport = isActionHidden("revenue.generate_report");
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
   const hideViewToggle = isActionHidden("revenue.view_toggle");
@@ -164,17 +146,11 @@ const Index = () => {
                 <span className="hidden sm:inline">Seats</span>
               </button>
             )}
-            {isAdmin && !hideGenerateReport && (
-              <>
-                <button onClick={() => setShowMTDText(true)} className={btnGhost}>
-                  <FileText className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">MTD Summary</span>
-                </button>
-                <button onClick={handleGenerateReport} className={btnGhost}>
-                  <FileDown className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Report</span>
-                </button>
-              </>
+            {isAdmin && (
+              <button onClick={() => setShowMTDText(true)} className={btnGhost}>
+                <FileText className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">MTD Summary</span>
+              </button>
             )}
           </div>
         </div>
