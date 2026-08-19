@@ -41,46 +41,6 @@ export const FG = "hsl(var(--foreground))";
 export const MUTED_FG = "hsl(var(--muted-foreground))";
 export const BORDER = "hsl(var(--border))";
 
-// Semantic chart roles — focused comparison instead of rainbow coding.
-export const CHART_CURRENT = PRIMARY; // latest / current period (BANI sage)
-export const CHART_COMPARISON = "hsl(var(--chart-2))"; // one selected comparison period (muted blue)
-export const CHART_HISTORICAL = MUTED_FG; // faint context lines
-export const CHART_EXCEPTION = DESTRUCTIVE; // genuine negative outliers
-
-export const HISTORICAL_OPACITY = 0.14;
-
-/** 7-point trailing rolling average over trading days (nulls until the window fills). */
-export function rollingAverage(values: number[], window = 7): (number | null)[] {
-  const out: (number | null)[] = [];
-  let sum = 0;
-  for (let i = 0; i < values.length; i++) {
-    sum += values[i];
-    if (i >= window) sum -= values[i - window];
-    out.push(i >= window - 1 ? Math.round(sum / window) : null);
-  }
-  return out;
-}
-
-/** Attach `<key>Avg` rolling average and `<key>Low` significant-negative-outlier flag. */
-export function withRolling<T extends Record<string, unknown>>(
-  rows: T[],
-  key: keyof T & string,
-  window = 7,
-  lowRatio = 0.75
-): (T & { [k: string]: unknown })[] {
-  const values = rows.map((r) => Number(r[key]) || 0);
-  const avg = rollingAverage(values, window);
-  return rows.map((r, i) => {
-    const a = avg[i];
-    return {
-      ...r,
-      [`${key}Avg`]: a,
-      [`${key}Low`]: a !== null && a > 0 && values[i] < a * lowRatio,
-    };
-  });
-}
-
-
 export function compactHK(v: number): string {
   const n = Number(v);
   if (!isFinite(n)) return "—";
