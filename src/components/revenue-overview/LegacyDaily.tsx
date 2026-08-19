@@ -198,13 +198,16 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
     return rec ? `${formatShortDate(d)} (${rec.day})` : formatShortDate(d);
   };
 
-  // Legend swatch — force primary color visualization at series opacity
-  const legendPayload = months.map((m, i) => ({
-    value: getMonthLabel(m),
-    type: "square" as const,
-    id: m,
-    color: `hsl(var(--primary))`,
-  }));
+  const seriesLabel: Record<string, string> = {
+    totalSales: "Sales",
+    totalSalesAvg: "7-day average",
+    guests: "Guests",
+    guestsAvg: "7-day average",
+    perGuest: "Per Guest",
+    perGuestAvg: "7-day average",
+    perOrder: "Per Order",
+    perOrderAvg: "7-day average",
+  };
 
   return (
     <div className="space-y-4">
@@ -219,18 +222,37 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
           headerRight={<>Avg <span className="text-foreground font-medium">${formatCurrency(avgDailySales)}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={daily}>
+            <LineChart data={dailyRolled}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
-                formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]}
+                formatter={(v: number, n: string) => [`$${formatCurrency(v)}`, seriesLabel[n] ?? n]}
                 labelFormatter={dayTooltipLabel}
               />
-              <Line type="monotone" dataKey="totalSales" stroke={PRIMARY} strokeWidth={2} dot={false} />
+              <Line
+                type="monotone"
+                dataKey="totalSales"
+                stroke={CHART_CURRENT}
+                strokeWidth={1.5}
+                strokeOpacity={0.28}
+                dot={makeLowDot("totalSalesLow")}
+                activeDot={{ r: 3 }}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="totalSalesAvg"
+                stroke={CHART_CURRENT}
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
+          <MiniLegend dailyColor={CHART_CURRENT} avgColor={CHART_CURRENT} />
         </ChartShell>
 
         <ChartShell
@@ -239,18 +261,37 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
           headerRight={<>Avg <span className="text-foreground font-medium">{avgDailyGuests}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={daily}>
+            <LineChart data={dailyRolled}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
-                formatter={(v: number) => [formatCurrency(v), "Guests"]}
+                formatter={(v: number, n: string) => [formatCurrency(v), seriesLabel[n] ?? n]}
                 labelFormatter={dayTooltipLabel}
               />
-              <Line type="monotone" dataKey="guests" stroke={PRIMARY} strokeWidth={2} dot={false} strokeOpacity={0.7} />
+              <Line
+                type="monotone"
+                dataKey="guests"
+                stroke={CHART_COMPARISON}
+                strokeWidth={1.5}
+                strokeOpacity={0.28}
+                dot={makeLowDot("guestsLow")}
+                activeDot={{ r: 3 }}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="guestsAvg"
+                stroke={CHART_COMPARISON}
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
+          <MiniLegend dailyColor={CHART_COMPARISON} avgColor={CHART_COMPARISON} />
         </ChartShell>
       </div>
 
@@ -263,18 +304,38 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
           headerRight={<>Avg <span className="text-foreground font-medium">${avgPerGuest}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={spendData}>
+            <ComposedChart data={spendRolled}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${v}`} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
-                formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Guest"]}
+                formatter={(v: number, n: string) => [`$${formatCurrency(v)}`, seriesLabel[n] ?? n]}
                 labelFormatter={dayTooltipLabel}
               />
-              <Bar dataKey="perGuest" fill={PRIMARY} fillOpacity={0.85} radius={[2, 2, 0, 0]} />
-            </BarChart>
+              <Bar dataKey="perGuest" fill={CHART_CURRENT} fillOpacity={0.22} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey="perGuestAvg"
+                stroke={CHART_CURRENT}
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="perGuest"
+                stroke="none"
+                strokeWidth={0}
+                legendType="none"
+                dot={makeLowDot("perGuestLow")}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
+          <MiniLegend dailyColor={CHART_CURRENT} avgColor={CHART_CURRENT} />
         </ChartShell>
 
         <ChartShell
@@ -283,40 +344,84 @@ export function LegacyDaily({ data, venue, seatingKey }: Props) {
           headerRight={<>Avg <span className="text-foreground font-medium">${avgPerOrder}</span></>}
         >
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={spendData}>
+            <ComposedChart data={spendRolled}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${v}`} width={40} />
               <Tooltip
                 contentStyle={chartTooltipContentStyle}
-                formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Order"]}
+                formatter={(v: number, n: string) => [`$${formatCurrency(v)}`, seriesLabel[n] ?? n]}
                 labelFormatter={dayTooltipLabel}
               />
-              <Bar dataKey="perOrder" fill={PRIMARY} fillOpacity={0.85} radius={[2, 2, 0, 0]} />
-            </BarChart>
+              <Bar dataKey="perOrder" fill={CHART_CURRENT} fillOpacity={0.22} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey="perOrderAvg"
+                stroke={CHART_CURRENT}
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="perOrder"
+                stroke="none"
+                strokeWidth={0}
+                legendType="none"
+                dot={makeLowDot("perOrderLow")}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
+          <MiniLegend dailyColor={CHART_CURRENT} avgColor={CHART_CURRENT} />
         </ChartShell>
       </div>
 
       {/* ================= Weekday Deep Dive ================= */}
-      <SectionHeader title="Weekday Deep Dive" description="Performance broken down by day of week, per month" />
+      <SectionHeader title="Weekday Deep Dive" description="Latest month compared with one selected month" />
+      {latestMonth && months.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground font-medium">Compare to</span>
+          {months
+            .filter((m) => m !== latestMonth)
+            .map((m) => {
+              const active = m === dowComparison;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setDowComparisonOverride(m)}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
+                    active
+                      ? "border-[hsl(var(--chart-2))] bg-[hsl(var(--chart-2)/0.12)] text-foreground"
+                      : "border-border bg-transparent text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {getMonthLabel(m)}
+                </button>
+              );
+            })}
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DowChart title="Avg Sales by Day of Week" data={dayStats} months={months} prefix="sales" fmt={(v) => `$${compactHK(v)}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-        <DowChart title="Avg Guests by Day of Week" data={dayStats} months={months} prefix="guests" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
-        <DowChart title="Avg Spend / Guest by Day of Week" data={dayStats} months={months} prefix="spendPerGuest" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-        <DowChart title="Avg Spend / Order by Day of Week" data={dayStats} months={months} prefix="spendPerOrder" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        <DowChart title="Avg Sales by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="sales" fmt={(v) => `$${compactHK(v)}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        <DowChart title="Avg Guests by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="guests" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+        <DowChart title="Avg Spend / Guest by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="spendPerGuest" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+        <DowChart title="Avg Spend / Order by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="spendPerOrder" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
         {hasSeats && (
           <>
-            <DowChart title="Avg Rev / Seat by Day of Week" data={dayStats} months={months} prefix="revPerSeat" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
-            <DowChart title="Avg Seat Turnover by Day of Week" data={dayStats} months={months} prefix="seatTurnover" fmt={(v) => `${v}x`} fmtTooltip={(v) => `${v}x`} />
-            <DowChart title="Avg Occupancy % by Day of Week" data={dayStats} months={months} prefix="occupancy" fmt={(v) => `${v}%`} fmtTooltip={(v) => `${v}%`} />
-            <DowChart title="Avg Orders by Day of Week" data={dayStats} months={months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+            <DowChart title="Avg Rev / Seat by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="revPerSeat" fmt={(v) => `$${v}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
+            <DowChart title="Avg Seat Turnover by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="seatTurnover" fmt={(v) => `${v}x`} fmtTooltip={(v) => `${v}x`} />
+            <DowChart title="Avg Occupancy % by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="occupancy" fmt={(v) => `${v}%`} fmtTooltip={(v) => `${v}%`} />
+            <DowChart title="Avg Orders by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
           </>
         )}
         {!hasSeats && (
-          <DowChart title="Avg Orders by Day of Week" data={dayStats} months={months} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
+          <DowChart title="Avg Orders by Day of Week" data={dayStats} latestMonth={latestMonth} comparisonMonth={dowComparison} prefix="orders" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
         )}
       </div>
+
 
       {/* ================= Mix ================= */}
       <SectionHeader title="Mix" description="Where the revenue comes from" />
