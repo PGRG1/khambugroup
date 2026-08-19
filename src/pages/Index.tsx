@@ -153,17 +153,11 @@ const Index = () => {
                 <span className="hidden sm:inline">Seats</span>
               </button>
             )}
-            {isAdmin && !hideGenerateReport && (
-              <>
-                <button onClick={() => setShowMTDText(true)} className={btnGhost}>
-                  <FileText className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">MTD Summary</span>
-                </button>
-                <button onClick={handleGenerateReport} className={btnGhost}>
-                  <FileDown className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Report</span>
-                </button>
-              </>
+            {isAdmin && (
+              <button onClick={() => setShowMTDText(true)} className={btnGhost}>
+                <FileText className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">MTD Summary</span>
+              </button>
             )}
           </div>
         </div>
