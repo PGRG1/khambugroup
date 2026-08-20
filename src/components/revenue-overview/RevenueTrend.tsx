@@ -21,28 +21,17 @@ interface Props {
   targetPerDay: number | null;
 }
 
-function movingAvgArr(arr: number[], w = 7): (number | null)[] {
-  return arr.map((_, i) => {
-    if (i < w - 1) return null;
-    let s = 0;
-    for (let j = i - w + 1; j <= i; j++) s += arr[j];
-    return s / w;
-  });
-}
 
 export function RevenueTrend({ data, view, targetPerDay }: Props) {
   const chartData = useMemo(() => {
     if (view === "daily") {
       const daily = toDaily(data);
-      const rev = daily.map((d) => d.revenue);
-      const ma = movingAvgArr(rev, 7);
-      return daily.map((d, i) => ({
+      return daily.map((d) => ({
         key: d.date,
         label: new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
         revenue: d.revenue,
         guests: d.guests,
         orders: d.orders,
-        ma: ma[i],
         avgPerGuest: d.guests ? d.revenue / d.guests : 0,
       }));
     }
@@ -64,7 +53,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
         revenue: v.revenue,
         guests: v.guests,
         orders: v.orders,
-        ma: null,
         avgPerGuest: v.guests ? v.revenue / v.guests : 0,
       }));
   }, [data, view]);
