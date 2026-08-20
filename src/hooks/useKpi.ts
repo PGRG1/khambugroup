@@ -33,6 +33,8 @@ export interface KpiTarget {
   target_mode?: "absolute" | "ratio_of_revenue";
 }
 
+export type KpiVisibility = "team" | "management" | "assignee_only";
+
 export interface KpiAssignment {
   id: string;
   kpi_card_id: string;
@@ -42,6 +44,7 @@ export interface KpiAssignment {
   assigned_by: string | null;
   assigned_at: string;
   active: boolean;
+  visibility_scope: KpiVisibility;
 }
 
 export interface KpiActual {
@@ -56,9 +59,12 @@ export interface KpiActual {
   updated_at: string;
 }
 
+export type KpiActionStatus = "open" | "in_progress" | "done";
+
 export interface KpiAction {
   id: string;
   kpi_card_id: string;
+  kpi_assignment_id: string | null;
   venue_id: string | null;
   period_date: string | null;
   assigned_user_id: string | null;
@@ -67,7 +73,10 @@ export interface KpiAction {
   due_date: string | null;
   completed_date: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
 
 function showError(title: string, e: any) {
   toast({ title, description: e?.message ?? String(e), variant: "destructive" });
