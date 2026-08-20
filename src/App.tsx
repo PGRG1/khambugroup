@@ -183,6 +183,23 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <AppLayout>{children}</AppLayout>;
 };
 
+/** Authority-aware KPI gate: view_only < edit < admin. */
+const KpiAuthorityGate = ({ children, need }: { children: React.ReactNode; need: "view_only" | "edit" | "admin" }) => {
+  const { authority, loading } = useKpiCapability();
+  if (loading) return <p className="p-6 text-muted-foreground">Loading...</p>;
+  const rank = { view_only: 0, edit: 1, admin: 2 } as const;
+  if (rank[authority] < rank[need]) return <AccessDenied />;
+  return <>{children}</>;
+};
+
+const KpiRoute = ({ children, need = "view_only" }: { children: React.ReactNode; need?: "view_only" | "edit" | "admin" }) => (
+  <ProtectedRoute pageKey="kpis">
+    <KpiAuthorityGate need={need}>{children}</KpiAuthorityGate>
+  </ProtectedRoute>
+);
+
+
+
 const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
