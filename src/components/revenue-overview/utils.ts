@@ -112,3 +112,36 @@ export function inRange(dateStr: string, from?: Date, to?: Date): boolean {
   }
   return true;
 }
+
+/** First day of current local month → end of today. */
+export function mtdRange(): { from: Date; to: Date } {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  return { from, to };
+}
+
+/** True when the range equals the current month-to-date range (local calendar). */
+export function isMtdRange(from?: Date, to?: Date): boolean {
+  if (!from || !to) return false;
+  const r = mtdRange();
+  return (
+    from.getFullYear() === r.from.getFullYear() &&
+    from.getMonth() === r.from.getMonth() &&
+    from.getDate() === 1 &&
+    to.getFullYear() === r.to.getFullYear() &&
+    to.getMonth() === r.to.getMonth() &&
+    to.getDate() === r.to.getDate()
+  );
+}
+
+/** Same elapsed dates in the immediately previous calendar month (e.g. Aug 1–20 → Jul 1–20). */
+export function priorCalendarMonthRange(from: Date, to: Date): { from: Date; to: Date } {
+  const y = from.getFullYear();
+  const m = from.getMonth();
+  const pFrom = new Date(y, m - 1, 1, 0, 0, 0, 0);
+  const daysInPrev = new Date(y, m, 0).getDate();
+  const day = Math.min(to.getDate(), daysInPrev);
+  const pTo = new Date(pFrom.getFullYear(), pFrom.getMonth(), day, 23, 59, 59, 999);
+  return { from: pFrom, to: pTo };
+}
