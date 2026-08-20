@@ -102,6 +102,9 @@ export function RevenueControls({
             onToChange={setTo}
             months={months.map((m) => m.label)}
             onPeriodSelect={onPeriodSelect}
+            includeMtd
+            initialPeriod="MTD"
+
           />
         )}
         {!hideViewToggle && (
