@@ -20,12 +20,10 @@ export function HeroBand({ cur, prev, sparkline90, target, monthProrated, monthA
   const delta = prev && prev.days ? pctDelta(cur.revenue, prev.revenue) : null;
 
   const projected =
-    target && monthActualMTD !== null && daysInMonth && monthLabel
+    target && monthActualMTD !== null && daysInMonth && elapsedDays
       ? (() => {
-          // run-rate through today
-          const day = new Date();
-          const today = day.getDate();
-          const runRate = monthActualMTD / Math.max(1, today);
+          // run-rate through the elapsed days of the selected month
+          const runRate = monthActualMTD / Math.max(1, elapsedDays);
           return runRate * daysInMonth;
         })()
       : null;
