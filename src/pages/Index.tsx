@@ -17,7 +17,7 @@ import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
 import { BestWorstStrip } from "@/components/revenue-overview/BestWorstStrip";
-import { aggregate, priorRange, toDaily } from "@/components/revenue-overview/utils";
+import { aggregate, priorRange, toDaily, mtdRange, isMtdRange, priorCalendarMonthRange } from "@/components/revenue-overview/utils";
 
 const Index = () => {
   const { data, loading } = useSalesData();
