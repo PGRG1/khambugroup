@@ -86,6 +86,7 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               width={48}
             />
             <Tooltip
+              cursor={{ fill: "hsl(var(--foreground))", opacity: 0.08 }}
               contentStyle={{
                 background: "hsl(var(--card))",
                 border: "1px solid hsl(var(--border))",
