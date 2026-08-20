@@ -4,7 +4,6 @@ import {
   BarChart,
   CartesianGrid,
   ComposedChart,
-  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -21,28 +20,17 @@ interface Props {
   targetPerDay: number | null;
 }
 
-function movingAvgArr(arr: number[], w = 7): (number | null)[] {
-  return arr.map((_, i) => {
-    if (i < w - 1) return null;
-    let s = 0;
-    for (let j = i - w + 1; j <= i; j++) s += arr[j];
-    return s / w;
-  });
-}
 
 export function RevenueTrend({ data, view, targetPerDay }: Props) {
   const chartData = useMemo(() => {
     if (view === "daily") {
       const daily = toDaily(data);
-      const rev = daily.map((d) => d.revenue);
-      const ma = movingAvgArr(rev, 7);
-      return daily.map((d, i) => ({
+      return daily.map((d) => ({
         key: d.date,
         label: new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
         revenue: d.revenue,
         guests: d.guests,
         orders: d.orders,
-        ma: ma[i],
         avgPerGuest: d.guests ? d.revenue / d.guests : 0,
       }));
     }
@@ -64,7 +52,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
         revenue: v.revenue,
         guests: v.guests,
         orders: v.orders,
-        ma: null,
         avgPerGuest: v.guests ? v.revenue / v.guests : 0,
       }));
   }, [data, view]);
@@ -75,7 +62,7 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
         <div>
           <div className="text-[13px] font-medium">Revenue Trend</div>
           <div className="text-[11px] text-muted-foreground">
-            {view === "daily" ? "Daily · 7-day moving average" : "Monthly totals"}
+            {view === "daily" ? "Daily" : "Monthly totals"}
           </div>
         </div>
       </div>
@@ -107,7 +94,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               }}
               formatter={(val: any, name: string) => {
                 if (name === "revenue") return [`HK$${fmtHKD(Number(val))}`, "Revenue"];
-                if (name === "ma") return [`HK$${fmtHKD(Number(val))}`, "7-day avg"];
                 return [val, name];
               }}
               labelFormatter={(l, payload) => {
@@ -117,17 +103,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               }}
             />
             <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40} />
-            {view === "daily" && (
-              <Line
-                type="monotone"
-                dataKey="ma"
-                stroke="hsl(var(--foreground))"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                connectNulls
-              />
-            )}
             {targetPerDay && view === "daily" && (
               <ReferenceLine
                 y={targetPerDay}
