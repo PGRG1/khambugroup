@@ -224,6 +224,7 @@ const Index = () => {
             monthActualMTD={monthMeta.monthActualMTD}
             daysInMonth={monthMeta.daysInMonth}
             monthLabel={monthMeta.monthLabel}
+            elapsedDays={monthMeta.monthElapsedDays}
           />
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
