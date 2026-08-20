@@ -11,16 +11,21 @@ interface DateFilterProps {
   onToChange: (d: Date | undefined) => void;
   months: string[];
   onPeriodSelect: (period: string) => void;
+  /** Adds an "MTD" (month-to-date) option to the period menu. */
+  includeMtd?: boolean;
+  /** Label shown before the user picks a period. Defaults to "All Time". */
+  initialPeriod?: string;
 }
 
-const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect }: DateFilterProps) => {
+const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect, includeMtd, initialPeriod }: DateFilterProps) => {
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState("All Time");
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod ?? "All Time");
   const [showCustom, setShowCustom] = useState(false);
 
-  const options = ["All Time", ...months, "Custom"];
+  const options = [...(includeMtd ? ["MTD"] : []), "All Time", ...months, "Custom"];
+
 
   const handleSelect = (option: string) => {
     setSelectedPeriod(option);

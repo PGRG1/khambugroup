@@ -17,7 +17,7 @@ import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
 import { BestWorstStrip } from "@/components/revenue-overview/BestWorstStrip";
-import { aggregate, priorRange, toDaily } from "@/components/revenue-overview/utils";
+import { aggregate, priorRange, toDaily, mtdRange, isMtdRange, priorCalendarMonthRange } from "@/components/revenue-overview/utils";
 
 const Index = () => {
   const { data, loading } = useSalesData();
@@ -28,8 +28,8 @@ const Index = () => {
   const { isActionHidden } = usePagePermissions();
 
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
-  const [from, setFrom] = useState<Date | undefined>();
-  const [to, setTo] = useState<Date | undefined>();
+  const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
+  const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
   const [view, setView] = useState<"daily" | "monthly">("daily");
   const [showMTDText, setShowMTDText] = useState(false);
   const [showSeatingEditor, setShowSeatingEditor] = useState(false);
@@ -41,6 +41,7 @@ const Index = () => {
   }, [data]);
 
   const handlePeriodSelect = (period: string) => {
+    if (period === "MTD") { const r = mtdRange(); setFrom(r.from); setTo(r.to); return; }
     if (period === "All Time") { setFrom(undefined); setTo(undefined); return; }
     if (period === "Custom") return;
     const month = months.find((m) => m.label === period);
@@ -52,12 +53,15 @@ const Index = () => {
 
   const filtered = useMemo(() => filterData(data, venue, from, to), [data, venue, from, to]);
 
-  // Prior comparable
-  const prior = priorRange(from, to);
+  // Prior comparable — MTD compares against the same elapsed dates last calendar month
+  const prior = isMtdRange(from, to)
+    ? priorCalendarMonthRange(from!, to!)
+    : priorRange(from, to);
   const priorFiltered = useMemo(
     () => (prior ? filterData(data, venue, prior.from, prior.to) : []),
     [data, venue, prior?.from, prior?.to]
   );
+
 
   // 90-day sparkline (venue-scoped, unfiltered by date)
   const sparkline90 = useMemo(() => {
@@ -180,6 +184,9 @@ const Index = () => {
                 onToChange={setTo}
                 months={months.map((m) => m.label)}
                 onPeriodSelect={handlePeriodSelect}
+                includeMtd
+                initialPeriod="MTD"
+
               />
             )}
             {!hideViewToggle && (
