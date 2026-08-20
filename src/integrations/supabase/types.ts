@@ -5489,13 +5489,16 @@ export type Database = {
           assigned_user_id: string | null
           completed_date: string | null
           created_at: string
+          created_by: string | null
           due_date: string | null
           id: string
+          kpi_assignment_id: string | null
           kpi_card_id: string
           notes: string | null
           period_date: string | null
           tenant_id: string
           updated_at: string
+          updated_by: string | null
           venue_id: string | null
         }
         Insert: {
@@ -5504,13 +5507,16 @@ export type Database = {
           assigned_user_id?: string | null
           completed_date?: string | null
           created_at?: string
+          created_by?: string | null
           due_date?: string | null
           id?: string
+          kpi_assignment_id?: string | null
           kpi_card_id: string
           notes?: string | null
           period_date?: string | null
           tenant_id?: string
           updated_at?: string
+          updated_by?: string | null
           venue_id?: string | null
         }
         Update: {
@@ -5519,16 +5525,26 @@ export type Database = {
           assigned_user_id?: string | null
           completed_date?: string | null
           created_at?: string
+          created_by?: string | null
           due_date?: string | null
           id?: string
+          kpi_assignment_id?: string | null
           kpi_card_id?: string
           notes?: string | null
           period_date?: string | null
           tenant_id?: string
           updated_at?: string
+          updated_by?: string | null
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "kpi_actions_assignment_fk"
+            columns: ["kpi_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_assignments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "kpi_actions_kpi_card_id_fkey"
             columns: ["kpi_card_id"]
@@ -5629,6 +5645,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           venue_id: string | null
+          visibility_scope: string
         }
         Insert: {
           active?: boolean
@@ -5642,6 +5659,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           venue_id?: string | null
+          visibility_scope?: string
         }
         Update: {
           active?: boolean
@@ -5655,6 +5673,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           venue_id?: string | null
+          visibility_scope?: string
         }
         Relationships: [
           {
