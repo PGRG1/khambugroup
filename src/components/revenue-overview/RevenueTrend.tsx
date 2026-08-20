@@ -4,7 +4,6 @@ import {
   BarChart,
   CartesianGrid,
   ComposedChart,
-  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -63,7 +62,7 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
         <div>
           <div className="text-[13px] font-medium">Revenue Trend</div>
           <div className="text-[11px] text-muted-foreground">
-            {view === "daily" ? "Daily · 7-day moving average" : "Monthly totals"}
+            {view === "daily" ? "Daily" : "Monthly totals"}
           </div>
         </div>
       </div>
@@ -95,7 +94,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               }}
               formatter={(val: any, name: string) => {
                 if (name === "revenue") return [`HK$${fmtHKD(Number(val))}`, "Revenue"];
-                if (name === "ma") return [`HK$${fmtHKD(Number(val))}`, "7-day avg"];
                 return [val, name];
               }}
               labelFormatter={(l, payload) => {
@@ -105,17 +103,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               }}
             />
             <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40} />
-            {view === "daily" && (
-              <Line
-                type="monotone"
-                dataKey="ma"
-                stroke="hsl(var(--foreground))"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                connectNulls
-              />
-            )}
             {targetPerDay && view === "daily" && (
               <ReferenceLine
                 y={targetPerDay}
