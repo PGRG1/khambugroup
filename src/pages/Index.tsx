@@ -184,6 +184,9 @@ const Index = () => {
                 onToChange={setTo}
                 months={months.map((m) => m.label)}
                 onPeriodSelect={handlePeriodSelect}
+                includeMtd
+                initialPeriod="MTD"
+
               />
             )}
             {!hideViewToggle && (
