@@ -8,6 +8,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -323,6 +324,7 @@ export function AppSidebar() {
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
+  const kpiCapability = useKpiCapability();
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
