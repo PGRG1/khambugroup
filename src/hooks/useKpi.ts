@@ -192,8 +192,10 @@ export function useKpiAssignments() {
       venue_id: p.venue_id ?? null,
       assigned_by: u.user?.id ?? null,
       active: p.active ?? true,
+      visibility_scope: p.visibility_scope ?? "team",
       tenant_id: tenantId,
     });
+
     if (error) return showError("Create assignment failed", error), false;
     await load(); return true;
   };
