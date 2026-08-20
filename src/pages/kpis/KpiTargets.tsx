@@ -17,7 +17,7 @@ import { BottomSheetDialog } from "@/components/kpi/BottomSheetDialog";
 const DOWS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const ALL = "__all__";
 
-export default function KpiTargets() {
+export default function KpiTargets({ embedded = false }: { embedded?: boolean } = {}) {
   const { cards } = useKpiCards();
   const { targets, create, update, remove } = useKpiTargets();
   const { venues } = useVenues();
