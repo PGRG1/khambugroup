@@ -17,7 +17,7 @@ import { BottomSheetDialog } from "@/components/kpi/BottomSheetDialog";
 const DOWS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const ALL = "__all__";
 
-export default function KpiTargets() {
+export default function KpiTargets({ embedded = false }: { embedded?: boolean } = {}) {
   const { cards } = useKpiCards();
   const { targets, create, update, remove } = useKpiTargets();
   const { venues } = useVenues();
@@ -70,14 +70,22 @@ export default function KpiTargets() {
   const venueLabel = venueFilter === ALL ? "All Venues" : (activeVenues.find(v => v.id === venueFilter)?.name ?? "—");
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
+    <div className={embedded ? "space-y-5" : "p-4 sm:p-6 max-w-6xl mx-auto space-y-5"}>
       <header className="space-y-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Targets</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
+        {!embedded && (
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Targets</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              Type a value next to each KPI and press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">Enter</kbd> to save.
+            </p>
+          </div>
+        )}
+        {embedded && (
+          <p className="text-[13px] text-muted-foreground">
             Type a value next to each KPI and press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">Enter</kbd> to save.
           </p>
-        </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-w-md gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">Venue</Label>

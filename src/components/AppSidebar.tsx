@@ -8,6 +8,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -185,13 +186,15 @@ const hrItems: Item[] = [
 ];
 
 const kpiItems: Item[] = [
-  { title: "My KPI Cards", url: "/kpis/my-cards", pageKey: "kpis" },
+  { title: "My KPIs", url: "/kpis/my-cards", pageKey: "kpis" },
+];
+const kpiPlannerItems: Item[] = [
+  { title: "Planner", url: "/kpis/planner" },
 ];
 const kpiAdminItems: Item[] = [
-  { title: "KPI Assignment", url: "/kpis/assignments" },
-  { title: "KPI Targets", url: "/kpis/targets" },
-  { title: "KPI Planner", url: "/kpis/planner" },
+  { title: "KPI Setup", url: "/kpis/setup" },
 ];
+
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "pettycash" | "staffreimb" | "hr" | "admin" | "platform";
@@ -321,6 +324,7 @@ export function AppSidebar() {
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
+  const kpiCapability = useKpiCapability();
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
@@ -434,16 +438,18 @@ export function AppSidebar() {
         )}
 
         <CollapsibleNavGroup
-          label="KPI Management"
+          label="KPIs"
           icon={Target}
           defaultOpen={groupState.kpi}
           onOpenChange={(o) => setGroup("kpi", o)}
         >
           <SidebarMenu className="gap-1 pt-1">
             {kpiItems.map((it) => <ChildLink key={it.url} item={it} />)}
-            {isAdmin && !isPreviewActive && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            {kpiCapability.canPlan && kpiPlannerItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            {kpiCapability.canConfigure && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
           </SidebarMenu>
         </CollapsibleNavGroup>
+
 
         {showFinance && (
           <CollapsibleNavGroup

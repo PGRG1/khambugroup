@@ -21,10 +21,10 @@ import Home from "./pages/Home";
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
 import Notifications from "./pages/Notifications";
-import MyKpis from "./pages/kpis/MyKpis";
-import KpiAssignmentBoard from "./pages/kpis/KpiAssignmentBoard";
-import KpiTargets from "./pages/kpis/KpiTargets";
+import KpiHome from "./pages/kpis/KpiHome";
+import KpiSetup from "./pages/kpis/KpiSetup";
 import KpiPlanner from "./pages/kpis/KpiPlanner";
+import { useKpiCapability } from "@/hooks/useKpiCapability";
 
 import ForecastInput from "./pages/ForecastInput";
 import RevenueTargets from "./pages/RevenueTargets";
@@ -182,6 +182,23 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isAdmin) return <Navigate to="/" replace />;
   return <AppLayout>{children}</AppLayout>;
 };
+
+/** Authority-aware KPI gate: view_only < edit < admin. */
+const KpiAuthorityGate = ({ children, need }: { children: React.ReactNode; need: "view_only" | "edit" | "admin" }) => {
+  const { authority, loading } = useKpiCapability();
+  if (loading) return <p className="p-6 text-muted-foreground">Loading...</p>;
+  const rank = { view_only: 0, edit: 1, admin: 2 } as const;
+  if (rank[authority] < rank[need]) return <AccessDenied />;
+  return <>{children}</>;
+};
+
+const KpiRoute = ({ children, need = "view_only" }: { children: React.ReactNode; need?: "view_only" | "edit" | "admin" }) => (
+  <ProtectedRoute pageKey="kpis">
+    <KpiAuthorityGate need={need}>{children}</KpiAuthorityGate>
+  </ProtectedRoute>
+);
+
+
 
 const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
@@ -362,10 +379,12 @@ function App() {
                 <Route path="/expenses/finance/payables" element={<AdminRoute><ExpenseOpenPayablesPage /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
-                <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
-                <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignmentBoard /></AdminRoute>} />
-                <Route path="/kpis/targets" element={<AdminRoute><KpiTargets /></AdminRoute>} />
-                <Route path="/kpis/planner" element={<AdminRoute><KpiPlanner /></AdminRoute>} />
+                <Route path="/kpis" element={<Navigate to="/kpis/my-cards" replace />} />
+                <Route path="/kpis/my-cards" element={<KpiRoute><KpiHome /></KpiRoute>} />
+                <Route path="/kpis/setup" element={<KpiRoute need="admin"><KpiSetup /></KpiRoute>} />
+                <Route path="/kpis/assignments" element={<Navigate to="/kpis/setup?tab=assignments" replace />} />
+                <Route path="/kpis/targets" element={<Navigate to="/kpis/setup?tab=targets" replace />} />
+                <Route path="/kpis/planner" element={<KpiRoute need="edit"><KpiPlanner /></KpiRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

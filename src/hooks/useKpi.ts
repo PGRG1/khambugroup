@@ -33,6 +33,8 @@ export interface KpiTarget {
   target_mode?: "absolute" | "ratio_of_revenue";
 }
 
+export type KpiVisibility = "team" | "management" | "assignee_only";
+
 export interface KpiAssignment {
   id: string;
   kpi_card_id: string;
@@ -42,6 +44,7 @@ export interface KpiAssignment {
   assigned_by: string | null;
   assigned_at: string;
   active: boolean;
+  visibility_scope: KpiVisibility;
 }
 
 export interface KpiActual {
@@ -56,9 +59,12 @@ export interface KpiActual {
   updated_at: string;
 }
 
+export type KpiActionStatus = "open" | "in_progress" | "done";
+
 export interface KpiAction {
   id: string;
   kpi_card_id: string;
+  kpi_assignment_id: string | null;
   venue_id: string | null;
   period_date: string | null;
   assigned_user_id: string | null;
@@ -67,7 +73,10 @@ export interface KpiAction {
   due_date: string | null;
   completed_date: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
 
 function showError(title: string, e: any) {
   toast({ title, description: e?.message ?? String(e), variant: "destructive" });
@@ -183,8 +192,10 @@ export function useKpiAssignments() {
       venue_id: p.venue_id ?? null,
       assigned_by: u.user?.id ?? null,
       active: p.active ?? true,
+      visibility_scope: p.visibility_scope ?? "team",
       tenant_id: tenantId,
     });
+
     if (error) return showError("Create assignment failed", error), false;
     await load(); return true;
   };
@@ -252,5 +263,62 @@ export function useKpiActions() {
     setLoading(false);
   }, [tenantId]);
   useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
-  return { actions, loading, reload: load };
+
+  const create = async (p: {
+    kpi_card_id: string;
+    kpi_assignment_id?: string | null;
+    venue_id?: string | null;
+    period_date?: string | null;
+    assigned_user_id?: string | null;
+    action_required: string;
+    due_date?: string | null;
+    notes?: string | null;
+  }) => {
+    if (!tenantId) return false;
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("kpi_actions").insert({
+      kpi_card_id: p.kpi_card_id,
+      kpi_assignment_id: p.kpi_assignment_id ?? null,
+      venue_id: p.venue_id ?? null,
+      period_date: p.period_date ?? null,
+      assigned_user_id: p.assigned_user_id ?? null,
+      action_required: p.action_required,
+      action_status: "open",
+      due_date: p.due_date ?? null,
+      notes: p.notes ?? null,
+      created_by: u.user?.id ?? null,
+      updated_by: u.user?.id ?? null,
+      tenant_id: tenantId,
+    });
+    if (error) return showError("Create action failed", error), false;
+    await load(); return true;
+  };
+
+  const update = async (id: string, patch: Partial<KpiAction>) => {
+    if (!tenantId) return false;
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from("kpi_actions")
+      .update({ ...patch, updated_by: u.user?.id ?? null } as any)
+      .eq("id", id).eq("tenant_id", tenantId);
+    if (error) return showError("Update action failed", error), false;
+    await load(); return true;
+  };
+
+  const setStatus = async (id: string, status: KpiActionStatus) => {
+    return update(id, {
+      action_status: status,
+      completed_date: status === "done" ? new Date().toISOString().slice(0, 10) : null,
+    });
+  };
+
+  const remove = async (id: string) => {
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_actions").delete().eq("id", id).eq("tenant_id", tenantId);
+    if (error) return showError("Delete action failed", error), false;
+    await load(); return true;
+  };
+
+  return { actions, loading, reload: load, create, update, setStatus, remove };
+
 }
