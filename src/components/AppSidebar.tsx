@@ -436,16 +436,18 @@ export function AppSidebar() {
         )}
 
         <CollapsibleNavGroup
-          label="KPI Management"
+          label="KPIs"
           icon={Target}
           defaultOpen={groupState.kpi}
           onOpenChange={(o) => setGroup("kpi", o)}
         >
           <SidebarMenu className="gap-1 pt-1">
             {kpiItems.map((it) => <ChildLink key={it.url} item={it} />)}
-            {isAdmin && !isPreviewActive && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            {kpiCapability.canPlan && kpiPlannerItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            {kpiCapability.canConfigure && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
           </SidebarMenu>
         </CollapsibleNavGroup>
+
 
         {showFinance && (
           <CollapsibleNavGroup
