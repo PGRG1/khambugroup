@@ -101,7 +101,7 @@ const Index = () => {
   const dailyCurrent = useMemo(() => toDaily(filtered), [filtered]);
 
   const monthMeta = useMemo(() => {
-    if (!monthContext) return { daysInMonth: null as number | null, monthLabel: null as string | null, monthProrated: null as number | null, monthActualMTD: null as number | null, targetPerDay: null as number | null };
+    if (!monthContext) return { daysInMonth: null as number | null, monthLabel: null as string | null, monthProrated: null as number | null, monthActualMTD: null as number | null, targetPerDay: null as number | null, monthElapsedDays: null as number | null };
     const daysInMonth = new Date(monthContext.y, monthContext.m, 0).getDate();
     const monthLabel = getMonthLabel(`${monthContext.y}-${String(monthContext.m).padStart(2, "0")}`);
     const today = new Date();
@@ -110,7 +110,8 @@ const Index = () => {
     const targetPerDay = targetForMonth ? targetForMonth / daysInMonth : null;
     const monthProrated = targetPerDay ? targetPerDay * dayOfMonth : null;
     const monthActualMTD = cur.revenue;
-    return { daysInMonth, monthLabel, monthProrated, monthActualMTD, targetPerDay };
+    const monthElapsedDays = dayOfMonth;
+    return { daysInMonth, monthLabel, monthProrated, monthActualMTD, targetPerDay, monthElapsedDays };
   }, [monthContext, targetForMonth, cur.revenue]);
 
   const hideDateRange = isActionHidden("revenue.date_range");
@@ -223,6 +224,7 @@ const Index = () => {
             monthActualMTD={monthMeta.monthActualMTD}
             daysInMonth={monthMeta.daysInMonth}
             monthLabel={monthMeta.monthLabel}
+            elapsedDays={monthMeta.monthElapsedDays}
           />
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
