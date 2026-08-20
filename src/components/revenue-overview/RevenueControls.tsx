@@ -22,8 +22,8 @@ export function useRevenueFilters() {
   ];
 
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
-  const [from, setFrom] = useState<Date | undefined>();
-  const [to, setTo] = useState<Date | undefined>();
+  const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
+  const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
   const [view, setView] = useState<"daily" | "monthly">("daily");
 
   const months = useMemo(() => {
@@ -32,6 +32,7 @@ export function useRevenueFilters() {
   }, [data]);
 
   const onPeriodSelect = (period: string) => {
+    if (period === "MTD") { const r = mtdRange(); setFrom(r.from); setTo(r.to); return; }
     if (period === "All Time") { setFrom(undefined); setTo(undefined); return; }
     if (period === "Custom") return;
     const month = months.find((m) => m.label === period);
@@ -40,6 +41,7 @@ export function useRevenueFilters() {
     setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
   };
+
 
   const filtered = useMemo(() => filterData(data, venue, from, to), [data, venue, from, to]);
 
