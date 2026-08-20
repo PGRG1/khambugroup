@@ -12,9 +12,10 @@ interface Props {
   monthActualMTD: number | null;
   daysInMonth: number | null;
   monthLabel: string | null;
+  elapsedDays: number | null; // days used for run-rate pacing in selected month
 }
 
-export function HeroBand({ cur, prev, sparkline90, target, monthProrated, monthActualMTD, daysInMonth, monthLabel }: Props) {
+export function HeroBand({ cur, prev, sparkline90, target, monthProrated, monthActualMTD, daysInMonth, monthLabel, elapsedDays }: Props) {
   const avgPerDay = cur.days ? cur.revenue / cur.days : 0;
   const delta = prev && prev.days ? pctDelta(cur.revenue, prev.revenue) : null;
 
