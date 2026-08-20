@@ -185,13 +185,15 @@ const hrItems: Item[] = [
 ];
 
 const kpiItems: Item[] = [
-  { title: "My KPI Cards", url: "/kpis/my-cards", pageKey: "kpis" },
+  { title: "My KPIs", url: "/kpis/my-cards", pageKey: "kpis" },
+];
+const kpiPlannerItems: Item[] = [
+  { title: "Planner", url: "/kpis/planner" },
 ];
 const kpiAdminItems: Item[] = [
-  { title: "KPI Assignment", url: "/kpis/assignments" },
-  { title: "KPI Targets", url: "/kpis/targets" },
-  { title: "KPI Planner", url: "/kpis/planner" },
+  { title: "KPI Setup", url: "/kpis/setup" },
 ];
+
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "pettycash" | "staffreimb" | "hr" | "admin" | "platform";
