@@ -173,12 +173,16 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <button
                 key={day}
                 onClick={() => toggleDay(day)}
-                className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
+                className={`flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
                   active
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-transparent text-muted-foreground hover:bg-muted"
                 }`}
               >
+                <span
+                  className="w-1.5 h-1.5 rounded-full mr-1.5"
+                  style={{ backgroundColor: dayColor(day) }}
+                />
                 {day}
               </button>
             );
