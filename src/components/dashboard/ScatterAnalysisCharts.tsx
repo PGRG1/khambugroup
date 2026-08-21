@@ -235,7 +235,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="guests" type="number" {...chartAxis} width={40} />
               <Tooltip content={<CustomTooltip metric="guests" />} />
               {renderRefLines(guestStats, false)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
@@ -248,7 +252,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="spendPerGuest" type="number" {...chartAxis} tickFormatter={(v) => `$${v}`} width={44} />
               <Tooltip content={<CustomTooltip metric="spend" />} />
               {renderRefLines(spendStats, true)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
