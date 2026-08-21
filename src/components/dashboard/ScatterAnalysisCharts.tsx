@@ -25,6 +25,20 @@ import {
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const DAY_COLORS: Record<string, string> = {
+  Mon: "hsl(152 76% 50%)",   // sage green
+  Tue: "hsl(174 72% 45%)",   // teal
+  Wed: "hsl(205 70% 55%)",   // muted blue
+  Thu: "hsl(260 55% 65%)",   // soft violet
+  Fri: "hsl(43 90% 58%)",    // warm gold
+  Sat: "hsl(12 75% 60%)",    // muted coral
+  Sun: "hsl(340 55% 65%)",   // dusty rose
+};
+
+function dayColor(day: string) {
+  return DAY_COLORS[day] ?? PRIMARY;
+}
+
 interface ScatterPoint {
   date: string;
   day: string;
