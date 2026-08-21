@@ -12,15 +12,16 @@ interface Props {
 
 export function VenueContribution({ data, prevData, venue, seatingKey }: Props) {
   if (venue === "All Venues") {
-    const map = new Map<string, { revenue: number; guests: number }>();
+    const map = new Map<string, { revenue: number; guests: number; dates: Set<string> }>();
     for (const r of data) {
-      const c = map.get(r.venue) ?? { revenue: 0, guests: 0 };
+      const c = map.get(r.venue) ?? { revenue: 0, guests: 0, dates: new Set<string>() };
       c.revenue += r.totalSales;
       c.guests += r.guests;
+      c.dates.add(r.date);
       map.set(r.venue, c);
     }
     const rows = [...map.entries()]
-      .map(([name, v]) => ({ name, ...v }))
+      .map(([name, v]) => ({ name, revenue: v.revenue, guests: v.guests, dateCount: v.dates.size }))
       .sort((a, b) => b.revenue - a.revenue);
     const total = rows.reduce((s, r) => s + r.revenue, 0) || 1;
     const max = rows[0]?.revenue || 1;
@@ -34,7 +35,11 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
             const bar = (r.revenue / max) * 100;
             const spg = r.guests ? r.revenue / r.guests : 0;
             return (
-              <div key={r.name}>
+              <div
+                key={r.name}
+                className="px-1 -mx-1 rounded transition-colors hover:bg-muted/40"
+                title={`${r.name} · ${r.dateCount} trading day(s)`}
+              >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[13px] font-medium">{r.name}</span>
                   <div className="text-[12px] tabular-nums">
@@ -44,7 +49,7 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
                 </div>
                 <div className="mt-1 h-3 rounded-sm bg-muted overflow-hidden">
                   <div
-                    className="h-full bg-primary/80 rounded-sm"
+                    className="h-full bg-primary/80 rounded-sm transition-all duration-500 ease-out"
                     style={{ width: `${bar}%` }}
                   />
                 </div>
