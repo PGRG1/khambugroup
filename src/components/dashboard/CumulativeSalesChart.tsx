@@ -128,7 +128,7 @@ export default function CumulativeSalesChart({ data }: Props) {
           row[mk] = cumSum;
         }
       });
-      if (hasProjection && currentMonthKey && d > projectionStartDay && d <= projectionMonthDays) {
+      if (hasProjection && currentMonthKey && d >= projectionStartDay && d <= projectionMonthDays) {
         const [y, m] = currentMonthKey.split("-").map(Number);
         let projCum = lastActualCum;
         for (let pd = projectionStartDay + 1; pd <= d; pd++) {
