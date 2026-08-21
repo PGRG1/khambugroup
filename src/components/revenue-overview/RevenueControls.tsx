@@ -108,12 +108,12 @@ export function RevenueControls({
           />
         )}
         {!hideViewToggle && (
-          <div className="flex gap-0.5 p-0.5 bg-muted rounded-md">
+          <div className="flex gap-[3px] p-[3px] bg-muted rounded-md">
             {(["daily", "monthly"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-3 h-7 text-[12px] font-medium rounded transition-colors ${
+                className={`px-3 h-7 text-[12px] font-medium rounded-[3px] transition-colors ${
                   view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
