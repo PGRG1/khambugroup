@@ -218,7 +218,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="totalSales" type="number" {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip content={<CustomTooltip metric="revenue" />} />
               {renderRefLines(revenueStats, true)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
