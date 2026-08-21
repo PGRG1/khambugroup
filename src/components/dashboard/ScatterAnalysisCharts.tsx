@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  Cell,
 } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
@@ -23,6 +24,20 @@ import {
 } from "@/components/revenue-overview/chartTheme";
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const DAY_COLORS: Record<string, string> = {
+  Mon: "hsl(152 76% 50%)",   // sage green
+  Tue: "hsl(174 72% 45%)",   // teal
+  Wed: "hsl(205 70% 55%)",   // muted blue
+  Thu: "hsl(260 55% 65%)",   // soft violet
+  Fri: "hsl(43 90% 58%)",    // warm gold
+  Sat: "hsl(12 75% 60%)",    // muted coral
+  Sun: "hsl(340 55% 65%)",   // dusty rose
+};
+
+function dayColor(day: string) {
+  return DAY_COLORS[day] ?? PRIMARY;
+}
 
 interface ScatterPoint {
   date: string;
@@ -158,12 +173,16 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <button
                 key={day}
                 onClick={() => toggleDay(day)}
-                className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
+                className={`flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
                   active
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-transparent text-muted-foreground hover:bg-muted"
                 }`}
               >
+                <span
+                  className="w-1.5 h-1.5 rounded-full mr-1.5"
+                  style={{ backgroundColor: dayColor(day) }}
+                />
                 {day}
               </button>
             );
@@ -199,7 +218,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="totalSales" type="number" {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip content={<CustomTooltip metric="revenue" />} />
               {renderRefLines(revenueStats, true)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
@@ -212,7 +235,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="guests" type="number" {...chartAxis} width={40} />
               <Tooltip content={<CustomTooltip metric="guests" />} />
               {renderRefLines(guestStats, false)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
@@ -225,7 +252,11 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               <YAxis dataKey="spendPerGuest" type="number" {...chartAxis} tickFormatter={(v) => `$${v}`} width={44} />
               <Tooltip content={<CustomTooltip metric="spend" />} />
               {renderRefLines(spendStats, true)}
-              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.6} shape="circle" isAnimationActive={false} />
+              <Scatter data={filteredPoints} fill={PRIMARY} fillOpacity={0.85} shape="circle" isAnimationActive={false}>
+                {filteredPoints.map((p) => (
+                  <Cell key={p.date} fill={dayColor(p.day)} fillOpacity={0.85} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </ChartShell>
