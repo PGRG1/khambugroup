@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  Cell,
 } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
