@@ -225,6 +225,104 @@
     overscroll-behavior-x: contain;
   }
 
+  /* =========================================================
+     OPTION 1 — SUBTLE SMOKE GLASS (interactive controls only)
+     Restrained translucent surface for buttons, toggles, tabs
+     and select triggers. Never used for cards/panels/surfaces.
+     ========================================================= */
+  .glass-control {
+    background: hsl(var(--foreground) / 0.035);
+    border: 1px solid hsl(var(--foreground) / 0.09);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.05),
+      0 1px 2px hsl(0 0% 0% / 0.06);
+    backdrop-filter: blur(8px) saturate(112%);
+    -webkit-backdrop-filter: blur(8px) saturate(112%);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      color 150ms ease;
+  }
+  .glass-control:hover:not(:disabled):not([data-state="on"]):not([data-state="active"]) {
+    background: hsl(var(--foreground) / 0.06);
+    border-color: hsl(var(--foreground) / 0.14);
+  }
+
+  /* Quiet, borderless variant for ghost-style controls */
+  .glass-control-quiet {
+    background: transparent;
+    border: 1px solid transparent;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      color 150ms ease;
+  }
+  .glass-control-quiet:hover:not(:disabled):not([data-state="on"]):not([data-state="active"]) {
+    background: hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--foreground) / 0.08);
+    backdrop-filter: blur(8px) saturate(112%);
+    -webkit-backdrop-filter: blur(8px) saturate(112%);
+  }
+
+  /* Selected / active segment — denser smoke with a hint of sage */
+  .glass-control-active,
+  .glass-control[data-state="on"],
+  .glass-control[data-state="active"],
+  .glass-control-quiet[data-state="on"],
+  .glass-control-quiet[data-state="active"] {
+    background:
+      linear-gradient(180deg, hsl(var(--foreground) / 0.10), hsl(var(--foreground) / 0.055)),
+      hsl(var(--sage) / 0.06);
+    border: 1px solid hsl(var(--foreground) / 0.14);
+    color: hsl(var(--foreground));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.08),
+      0 1px 3px hsl(0 0% 0% / 0.10);
+    backdrop-filter: blur(10px) saturate(115%);
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+  }
+
+  .dark .glass-control {
+    background: hsl(0 0% 100% / 0.035);
+    border-color: hsl(0 0% 100% / 0.08);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.06),
+      0 1px 2px hsl(0 0% 0% / 0.35);
+  }
+  .dark .glass-control:hover:not(:disabled):not([data-state="on"]):not([data-state="active"]) {
+    background: hsl(0 0% 100% / 0.06);
+    border-color: hsl(0 0% 100% / 0.13);
+  }
+  .dark .glass-control-quiet:hover:not(:disabled):not([data-state="on"]):not([data-state="active"]) {
+    background: hsl(0 0% 100% / 0.05);
+    border-color: hsl(0 0% 100% / 0.08);
+  }
+  .dark .glass-control-active,
+  .dark .glass-control[data-state="on"],
+  .dark .glass-control[data-state="active"],
+  .dark .glass-control-quiet[data-state="on"],
+  .dark .glass-control-quiet[data-state="active"] {
+    background:
+      linear-gradient(180deg, hsl(0 0% 100% / 0.10), hsl(0 0% 100% / 0.045)),
+      hsl(var(--sage) / 0.07);
+    border-color: hsl(0 0% 100% / 0.13);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.09),
+      0 1px 3px hsl(0 0% 0% / 0.45);
+  }
+
+  /* Container for segmented controls — concentric radii with a 3px inset */
+  .glass-track {
+    background: hsl(var(--foreground) / 0.04);
+    border: 1px solid hsl(var(--foreground) / 0.07);
+  }
+  .dark .glass-track {
+    background: hsl(0 0% 100% / 0.03);
+    border-color: hsl(0 0% 100% / 0.06);
+  }
+
   .glass-active {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -233,6 +331,7 @@
     -webkit-backdrop-filter: blur(12px) saturate(115%);
   }
 }
+
 
 
 /* =========================================================
