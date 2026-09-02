@@ -207,7 +207,8 @@ export default function QuickAddBulkDialog({
               internal_sku: sku,
               internal_product_name: name,
               status: "Draft",
-              unit: (l.unit || "").trim() || null,
+              // Scanned UOM is the supplier's purchase UOM; it is NOT the canonical internal
+              // Stock UOM, so it is deliberately not copied into product_master.unit/stock_uom.
               unit_cost: parseFloat(l.unit_price || "") || 0,
             } as any)
             .select("id")

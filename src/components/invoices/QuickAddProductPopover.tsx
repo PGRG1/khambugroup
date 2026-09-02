@@ -157,6 +157,7 @@ export default function QuickAddProductPopover({
   const [status, setStatus] = useState("Active");
   const [notes, setNotes] = useState("");
   const [errorText, setErrorText] = useState("");
+  const [confirmUomOpen, setConfirmUomOpen] = useState(false);
 
   const uniqueProducts = useMemo(() => {
     const seen = new Map<string, QuickAddEntry>();
@@ -437,8 +438,23 @@ export default function QuickAddProductPopover({
           {duplicateEntry && <Alert className="mt-3 border-primary/30 bg-primary/5 py-2"><Check className="h-4 w-4" /><AlertDescription className="text-xs">This supplier entry already exists. Saving will update its configuration and link it to the scanned line.</AlertDescription></Alert>}
           {errorText && <Alert className="mt-3 border-destructive/40 bg-destructive/10 py-2"><AlertTriangle className="h-4 w-4" /><AlertDescription className="text-xs">{errorText}</AlertDescription></Alert>}
         </div>
-        <SheetFooter className="shrink-0 border-t bg-background px-5 py-3"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="button" onClick={save} disabled={saving || !tenantId}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save & link line"}</Button></SheetFooter>
+        <SheetFooter className="shrink-0 border-t bg-background px-5 py-3"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="button" onClick={() => void save()} disabled={saving || !tenantId}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save & link line"}</Button></SheetFooter>
       </SheetContent>
+      <AlertDialog open={confirmUomOpen} onOpenChange={setConfirmUomOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change internal Stock UOM from {pickedStockUom} to {stockUom.trim()} for this product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stock UOM is the single internal inventory unit for this product, so the change applies to every supplier of it.
+              Existing purchase → stock conversion quantities are left untouched and must be reviewed so they still convert correctly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmUomOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmUomOpen(false); void save(true); }}>Change Stock UOM & save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
