@@ -348,7 +348,7 @@ export default function QuickAddProductPopover({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-[11px]"><Plus className="h-3 w-3" />{buttonLabel}</Button>
+        <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-[11px]"><Plus className="h-3 w-3" />{triggerLabel ?? buttonLabel}</Button>
       </SheetTrigger>
       <SheetContent side={isMobile ? "bottom" : "right"} className={cn("flex flex-col gap-0 p-0", isMobile ? "h-[94vh] w-full rounded-t-2xl" : "w-full sm:max-w-[720px]")}>
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
