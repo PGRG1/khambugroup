@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildProductMasterEditorPayload, preservesInvoiceLineValues, productMasterEditorForm, syncCanonicalStockUomPayload, validateProductMasterEditor, type ProductMasterEditorForm } from "@/utils/productMasterEditor";
 
@@ -38,5 +39,10 @@ describe("product master editor ownership", () => {
   it("preserves invoice draft values while master data changes", () => {
     const line = { quantity: "2", unit_price: "12.5", discount: "1", discount_mode: "fixed", discount_rate: "0", tax_amount: "3", accepted_qty: "1", accepted_price: "11", description: "scanned" };
     expect(preservesInvoiceLineValues(line)).toEqual({ quantity: "2", unit_price: "12.5", discount: "1", discount_mode: "fixed", discount_rate: "0", tax_amount: "3", accepted_qty: "1", accepted_price: "11" });
+  });
+  it("keeps the price-only action distinct from full editing", () => {
+    const source = readFileSync("src/components/invoices/InvoiceScanner.tsx", "utf8");
+    expect(source).toContain("Update master price");
+    expect(source).toContain("Edit master item");
   });
 });

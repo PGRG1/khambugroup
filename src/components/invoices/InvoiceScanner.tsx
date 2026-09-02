@@ -2747,7 +2747,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             Invoice: {line.scanned_description}
                           </div>
                         )}
-                        {!line.unmatched && line.product_master_id && (
+                        {line.product_master_id && (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => setEditingMasterLineIdx(i)}>
                               <Pencil className="mr-1 h-3 w-3" />Edit master item
