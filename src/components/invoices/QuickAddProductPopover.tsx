@@ -208,7 +208,7 @@ export default function QuickAddProductPopover({
     setStockQty("1");
     setBaseUnit("g");
     setBaseQty("1");
-    setInternalUnit("");
+    setPickedStockUom("");
     setLevel1(""); setLevel2(""); setLevel3("");
     setAccountingCategory("purchases"); setFinancialTreatment("");
     setCoaId(""); setCreatesStock(true);
