@@ -2250,44 +2250,37 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <Label className="text-xs">Supplier</Label>
               <div className="flex items-center gap-1.5">
-                <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
-                  <SelectTrigger
-                    aria-invalid={supplierError}
-                    className={supplierError ? "border-destructive focus:ring-destructive" : undefined}
-                  >
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supplierOptions.map((supplier) => (
-                      <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
-                    ))}
-                    <div className="border-t mt-1 pt-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-full justify-start gap-1 text-xs"
-                        onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }}
-                      >
-                        <Plus className="h-3.5 w-3.5" /><span>Add new supplier</span>
-                      </Button>
-                    </div>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  className="h-9 w-9 shrink-0"
-                  title="Add new supplier"
-                  aria-label="Add new supplier"
-                  onClick={() => setSupplierSheetOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <Label className="text-xs">Supplier</Label>
+                <CorrectionChip
+                  corrections={current.review_corrections}
+                  warnings={current.review_warnings}
+                  blocking={current.review_blocking}
+                  fieldAliases={["supplier_name", "supplier"]}
+                />
               </div>
+              <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
+                <SelectTrigger
+                  aria-invalid={supplierError}
+                  className={supplierError ? "w-full border-destructive focus:ring-destructive" : "w-full"}
+                >
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {supplierOptions.map((supplier) => (
+                    <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
+                  ))}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="relative flex w-full cursor-pointer select-none items-center gap-1.5 rounded-sm border-t border-border py-1.5 pl-8 pr-2 text-sm text-primary outline-none hover:bg-accent focus:bg-accent"
+                    onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSupplierSheetOpen(true); } }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /><span>Add new supplier</span>
+                  </div>
+                </SelectContent>
+              </Select>
               {supplierError && (
                 <p className="text-xs text-destructive mt-1">Supplier is required</p>
               )}
@@ -2298,14 +2291,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 existingSuppliers={allSuppliers}
                 defaultName={current.supplier_id ? "" : current.supplier_name}
                 onCreated={handleSupplierCreated}
-              />
-
-
-              <CorrectionChip
-                corrections={current.review_corrections}
-                warnings={current.review_warnings}
-                blocking={current.review_blocking}
-                fieldAliases={["supplier_name", "supplier"]}
               />
             </div>
             <div>
