@@ -989,28 +989,79 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     if (value.startsWith("pm:")) {
       return; // Suppliers must be added manually via the Suppliers tab
     }
-    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+    const selectedSupplier = allSuppliers.find((supplier) => supplier.id === value);
     setInvoices((prev) => {
       const copy = [...prev];
       const newSupplierName = selectedSupplier?.name || copy[targetIdx].supplier_name;
       const mode = getRoundingMode(selectedSupplier ?? { name: newSupplierName });
-      const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
+      const scoped = scopePMToSupplier(productMaster, newSupplierName);
+      const scopedEntryIds = new Set(scoped.map((entry) => (entry as any).supplier_entry_id).filter(Boolean));
+
+      const revalidated = (copy[targetIdx].line_items || []).map((line) => {
         const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
-        return { ...line, total: formatLineTotal(raw, mode) };
+        const withTotal = { ...line, total: formatLineTotal(raw, mode) };
+        if (!withTotal.product_master_id && !withTotal.supplier_entry_id) return withTotal;
+        const stillValid = withTotal.supplier_entry_id
+          ? scopedEntryIds.has(withTotal.supplier_entry_id)
+          : scoped.some((entry) => entry.id === withTotal.product_master_id);
+        if (stillValid) return withTotal;
+        // The link belonged to a different supplier — unlink but keep the immutable scan.
+        return {
+          ...withTotal,
+          item_code: withTotal.scanned_item_code ?? withTotal.item_code,
+          description: withTotal.scanned_description ?? withTotal.description,
+          scanned_item_code: withTotal.scanned_item_code ?? withTotal.item_code,
+          scanned_description: withTotal.scanned_description ?? withTotal.description,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          product_master_id: null,
+          supplier_entry_id: null,
+          pm_unit_price: undefined,
+          master_price: undefined,
+          price_changed: false,
+          sku_mismatch: false,
+          unmatched: true,
+          auto_matched: false,
+          auto_match_score: undefined,
+          suggestions: undefined,
+          suggestion_source: undefined,
+          review_status: "needs_review" as const,
+          match_hold_reason: "Supplier changed — re-match required",
+        };
       });
+
+      // Re-match only the lines that are not currently linked to this supplier.
+      const rematched = revalidated.map((line) =>
+        line.product_master_id ? line : flagLineItemIssues([line], productMaster, newSupplierName)[0],
+      );
+
       copy[targetIdx] = {
         ...copy[targetIdx],
         supplier_id: value,
         supplier_name: newSupplierName,
         review_blocking: (copy[targetIdx].review_blocking || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
         review_warnings: (copy[targetIdx].review_warnings || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
-        line_items: recomputedLines,
+        line_items: rematched,
       };
       return copy;
     });
     const inv = invoices[targetIdx];
     recheckDuplicate(targetIdx, inv?.invoice_number || "", value);
   };
+
+  /** Create a supplier inline and adopt it on the current invoice. */
+  const handleSupplierCreated = async (created: { id: string; name: string; [key: string]: any }) => {
+    setLocalSuppliers((previous) =>
+      previous.some((supplier) => supplier.id === created.id) ? previous : [...previous, created as Supplier],
+    );
+    setSupplierError(false);
+    handleSupplierChange(created.id);
+    await onSuppliersChanged?.();
+  };
+
 
   /**
    * Drop reviewer flags on a line that describe an arithmetic mismatch which no
