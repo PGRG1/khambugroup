@@ -2334,7 +2334,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">
-            <div data-evidence-field="supplier_name" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("supplier_name")} onFocus={() => setActiveEvidenceField("supplier_name")} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "supplier_name" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div data-evidence-field="supplier_name" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "supplier_name" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("supplier_name")}>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Supplier</Label>
                 <CorrectionChip
@@ -2383,7 +2383,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 onCreated={handleSupplierCreated}
               />
             </div>
-            <div data-evidence-field="venue" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("venue")} onFocus={() => setActiveEvidenceField("venue")} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "venue" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div data-evidence-field="venue" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "venue" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("venue")}>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Venue</Label>
                 <CorrectionChip
@@ -2403,7 +2403,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 </SelectContent>
               </Select>
             </div>
-            <div data-evidence-field="invoice_number" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("invoice_number")} onFocus={() => setActiveEvidenceField("invoice_number")} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_number" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div data-evidence-field="invoice_number" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_number" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("invoice_number")}>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Invoice #</Label>
                 <CorrectionChip
@@ -2416,7 +2416,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </div>
               <Input className="w-full min-w-0" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
-            <div data-evidence-field="status" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("status")} onFocus={() => setActiveEvidenceField("status")} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "status" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Status</Label>
               </div>
@@ -2442,7 +2442,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 </div>
               )}
             </div>
-            <div data-evidence-field="invoice_date" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("invoice_date")} onFocus={() => setActiveEvidenceField("invoice_date")} className={cn("rounded-md transition-colors", activeEvidenceField === "invoice_date" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div data-evidence-field="invoice_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("invoice_date")}>
               <Label className="text-xs">Invoice Date</Label>
               <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
               <CorrectionChip
@@ -2452,7 +2452,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 fieldAliases={["invoice_date"]}
               />
             </div>
-            <div data-evidence-field="due_date" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("due_date")} onFocus={() => setActiveEvidenceField("due_date")} className={cn("rounded-md transition-colors", activeEvidenceField === "due_date" && "bg-primary/5 ring-1 ring-primary/50")}>
+            <div data-evidence-field="due_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "due_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("due_date")}>
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
               <CorrectionChip
@@ -3281,7 +3281,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               );
             })()}
             {aiTotal !== undefined && (
-              <div>
+              <div data-evidence-field="total_amount" tabIndex={-1} {...evidenceFieldHandlers("total_amount")} className={cn("rounded-md px-1 transition-colors", activeEvidenceField === "total_amount" && "bg-primary/5 ring-2 ring-primary/60")}>
                 <span className="text-xs text-muted-foreground">
                   Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
