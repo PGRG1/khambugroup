@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight, Pencil } from "lucide-react";
 import {
   WorkflowStrip,
   CheckCard,
@@ -62,6 +62,7 @@ import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
+import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 
 /**
@@ -327,6 +328,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
+  const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
 
   // Prior-purchase counts per linked product, used to gate the history trigger.
   const linkedProductIds = useMemo(
@@ -2745,6 +2747,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             Invoice: {line.scanned_description}
                           </div>
                         )}
+                        {line.product_master_id && (
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => setEditingMasterLineIdx(i)}>
+                              <Pencil className="mr-1 h-3 w-3" />Edit master item
+                            </Button>
+                          </div>
+                        )}
                         {!line.unmatched && line.product_master_id && (
                           <ProductSuggestionChip
                             mode="change"
@@ -3018,7 +3027,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                       onClick={() => handleUpdateMaster(i)}
                                       className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
                                     >
-                                      {updatingMasterIdx === i ? "Updating…" : "Update master"}
+                                      {updatingMasterIdx === i ? "Updating…" : "Update master price"}
                                     </button>
                                   )}
                                 </div>
@@ -3532,6 +3541,40 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           />
         );
       })()}
+
+      {editingMasterLineIdx !== null && current?.line_items[editingMasterLineIdx]?.product_master_id && (
+        <MasterItemEditSheet
+          open
+          productId={current.line_items[editingMasterLineIdx].product_master_id || null}
+          supplierEntryId={current.line_items[editingMasterLineIdx].supplier_entry_id}
+          supplierName={current.supplier_name}
+          onOpenChange={(open) => { if (!open) setEditingMasterLineIdx(null); }}
+          onSaved={async ({ product, supplier }) => {
+            const idx = editingMasterLineIdx;
+            setInvoices((prev) => {
+              const copy = [...prev];
+              const invoice = copy[currentIdx];
+              if (!invoice) return prev;
+              const lines = [...invoice.line_items];
+              const line = lines[idx];
+              if (!line) return prev;
+              lines[idx] = {
+                ...line,
+                matched_sku: product.internal_sku,
+                matched_internal_name: product.internal_product_name,
+                matched_stock_uom: supplier?.stock_uom || product.stock_uom || product.unit || "",
+                matched_purchase_uom: supplier?.purchase_unit || line.matched_purchase_uom,
+                matched_stock_qty_ratio: supplier?.stock_qty ?? line.matched_stock_qty_ratio,
+                master_price: supplier?.purchase_unit_cost ?? line.master_price,
+                pm_unit_price: supplier?.purchase_unit_cost ?? line.pm_unit_price,
+              };
+              copy[currentIdx] = { ...invoice, line_items: lines };
+              return copy;
+            });
+            await onProductMasterChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 };
