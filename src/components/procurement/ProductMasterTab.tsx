@@ -860,6 +860,15 @@ export default function ProductMasterTab() {
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={setupFilter} onValueChange={(v) => setSetupFilter(v as SetupHealthState | "all")}>
+            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Setup</SelectItem>
+              <SelectItem value="needs_setup">Needs setup</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -1092,6 +1101,9 @@ export default function ProductMasterTab() {
                     <SetupStatusBadge row={r} />
                   </TableCell>
                   <TableCell>
+                    <SetupStatusBadge row={r} />
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
                   </TableCell>
                   {showLegacyCols && (
@@ -1166,6 +1178,15 @@ export default function ProductMasterTab() {
             <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
+            {editingSetupHealth?.state === "needs_setup" && (
+              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-xs">
+                  <span className="font-medium">Setup issues:</span>{" "}{editingSetupHealth.issues.join(", ")}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {editingSetupHealth?.state === "needs_setup" && (
               <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
                 <AlertTriangle className="h-4 w-4 text-warning" />
