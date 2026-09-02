@@ -1,2 +1,2 @@
 # Roadmap
-- [ ] Add in-place invoice scanner master item editor
+- [x] Add in-place invoice scanner master item editor
