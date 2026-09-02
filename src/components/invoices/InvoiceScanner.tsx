@@ -1325,7 +1325,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       };
       const candidates = scoreCandidates(
         { itemCode: restored.scanned_item_code, description: restored.scanned_description },
-        productMaster || [],
+        scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
         copy[currentIdx].supplier_name,
       );
       const classified = classifyCandidates(candidates);
