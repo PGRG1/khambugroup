@@ -314,6 +314,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
+  const activateEvidence = useCallback((field: string) => {
+    if (field) setActiveEvidenceField(field);
+  }, []);
+  const evidenceFieldHandlers = useCallback((field: string) => ({
+    onPointerDown: () => activateEvidence(field),
+    onClick: () => activateEvidence(field),
+    onMouseEnter: () => activateEvidence(field),
+    onFocus: () => activateEvidence(field),
+  }), [activateEvidence]);
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [supplierError, setSupplierError] = useState(false);
