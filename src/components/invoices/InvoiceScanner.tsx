@@ -486,8 +486,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     };
   }, []);
 
-  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
-    if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
+  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], rawPm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
+    // Only the selected supplier's entries may match or supply master data.
+    const pm = scopePMToSupplier(rawPm, supplierName);
+    if (!pm.length) {
+      return lines.map(line => ({
+        ...line,
+        scanned_item_code: line.scanned_item_code ?? line.item_code,
+        scanned_description: line.scanned_description ?? line.description,
+        unmatched: true,
+        matched_sku: "",
+        matched_internal_name: "",
+        matched_stock_uom: "",
+        matched_purchase_uom: "",
+        matched_stock_qty_ratio: 1,
+        product_master_id: null,
+        supplier_entry_id: null,
+        sku_mismatch: false,
+        price_changed: false,
+        pm_unit_price: undefined,
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
+        match_hold_reason: supplierName ? undefined : "Select a supplier first",
+      }));
+    }
+
     return lines.map(line => {
       let workingLine = {
         ...line,
