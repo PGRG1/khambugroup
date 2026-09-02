@@ -49,8 +49,8 @@ export function productMasterEditorForm(product: ProductMasterItem, supplier: Pr
     stock_uom: product.stock_uom || product.unit || "",
     base_unit_type: supplier?.base_unit_type || product.base_unit_type || "",
     base_unit_qty: String(supplier?.base_unit_qty ?? product.base_unit_qty ?? 1),
-    min_stock_qty: product.min_stock_qty == null ? "" : String(product.min_stock_qty),
-    reorder_qty: product.reorder_qty == null ? "" : String(product.reorder_qty),
+    min_stock_qty: (product as any).min_stock_qty == null ? "" : String((product as any).min_stock_qty),
+    reorder_qty: (product as any).reorder_qty == null ? "" : String((product as any).reorder_qty),
     creates_stock_movement: product.creates_stock_movement ?? true,
     purchase_yield: String(product.purchase_yield ?? 100),
     cooking_yield: String(product.cooking_yield ?? 100),
@@ -59,7 +59,7 @@ export function productMasterEditorForm(product: ProductMasterItem, supplier: Pr
     purchase_unit: supplier?.purchase_unit || "",
     purchase_unit_cost: String(supplier?.purchase_unit_cost ?? product.purchase_unit_cost ?? 0),
     stock_qty: String(supplier?.stock_qty ?? product.stock_qty ?? 1),
-    supplier_accounting_category: supplier?.accounting_category || product.accounting_category || "",
+    supplier_accounting_category: (supplier as any)?.accounting_category || product.accounting_category || "",
     supplier_status: supplier?.status || product.status || "Active",
   };
 }
