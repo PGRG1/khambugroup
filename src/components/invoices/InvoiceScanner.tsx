@@ -57,6 +57,24 @@ import QuickAddBulkDialog from "./QuickAddBulkDialog";
 import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
 import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
+import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
+
+/**
+ * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
+ * purchase UOM/cost, stock UOM/conversion) may only ever come from a product_suppliers
+ * row whose normalized supplier name equals the selected invoice supplier.
+ * No partial / contains matching — that leaks another supplier's wording onto a line.
+ */
+const scopePMToSupplier = <T extends { supplier?: string | null }>(
+  pm: T[] | undefined,
+  supplierName?: string,
+): T[] => {
+  if (!pm) return [];
+  const norm = normalizeSupplierKey(supplierName || "");
+  if (!norm) return [];
+  return pm.filter((entry) => entry.supplier && normalizeSupplierKey(entry.supplier) === norm);
+};
+
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
