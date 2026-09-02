@@ -74,7 +74,7 @@ export function resolveFitScale(
   natural: Size,
   viewport: Size,
   rotation: number,
-  manualZoom: number,
+  manualZoom = 1,
   padding = 24,
 ): number {
   if (mode === "page") return fitPageScale(natural, viewport, rotation, padding);
