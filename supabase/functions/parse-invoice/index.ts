@@ -201,8 +201,19 @@ ${pmLines}`;
                    evidence: {
                      type: "object",
                      properties: {
-                       header: { type: "object", additionalProperties: false },
-                       lines: { type: "array", items: { type: "object", additionalProperties: false } },
+                       header: {
+                         type: "object",
+                         properties: Object.fromEntries(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "total_amount"].map((field) => [field, { type: "object", properties: { page: { type: "integer" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number" }, height: { type: "number" } }, required: ["page", "x", "y", "width", "height"], additionalProperties: false }])),
+                         additionalProperties: false,
+                       },
+                       lines: {
+                         type: "array",
+                         items: {
+                           type: "object",
+                           properties: Object.fromEntries(["item_code", "description", "quantity", "unit", "unit_price", "discount", "total"].map((field) => [field, { type: "object", properties: { page: { type: "integer" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number" }, height: { type: "number" } }, required: ["page", "x", "y", "width", "height"], additionalProperties: false }])),
+                           additionalProperties: false,
+                         },
+                       },
                      },
                      additionalProperties: false,
                    },
