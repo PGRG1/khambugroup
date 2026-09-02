@@ -115,7 +115,7 @@ export default function SourceDocumentViewer({ files, activeEvidenceField }: Sou
                 {isPdf ? (
                   <iframe src={activeUrl} title={activeFile.name} className="h-[62vh] min-h-[420px] w-full rounded-md border border-border bg-background" />
                 ) : (
-                  <div className="flex min-h-[260px] justify-center overflow-auto">
+                  <div className="flex min-h-[260px] w-full justify-center">
                     <img
                       src={activeUrl}
                       alt={`Source invoice page ${pageIndex + 1}`}
