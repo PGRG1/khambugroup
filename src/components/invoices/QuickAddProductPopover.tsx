@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { buildProductMasterStockUomUpdate, buildSupplierStockUomSync, buildSupplierUomPayload, requiresStockUomConfirmation, resolveCanonicalStockUom } from "@/utils/quickAddStockUom";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
@@ -155,6 +157,7 @@ export default function QuickAddProductPopover({
   const [status, setStatus] = useState("Active");
   const [notes, setNotes] = useState("");
   const [errorText, setErrorText] = useState("");
+  const [confirmUomOpen, setConfirmUomOpen] = useState(false);
 
   const uniqueProducts = useMemo(() => {
     const seen = new Map<string, QuickAddEntry>();
@@ -217,8 +220,9 @@ export default function QuickAddProductPopover({
   };
 
   /**
-   * Stock UOM is the internal inventory UOM and belongs to the product, not the supplier.
-   * When adding a supplier to an existing product, inherit it and lock it if already set.
+   * Stock UOM is the canonical internal inventory UOM and belongs to the product, not the
+   * supplier. When adding a supplier to an existing product we prefill it, but it stays
+   * editable (changing it is confirmed and then synchronised across all supplier rows).
    */
   React.useEffect(() => {
     if (!open || mode !== "existing" || !pickedId || !tenantId) { setPickedStockUom(""); return; }
@@ -231,14 +235,13 @@ export default function QuickAddProductPopover({
         .eq("tenant_id", tenantId)
         .maybeSingle();
       if (cancelled) return;
-      const existing = ((data as any)?.stock_uom || (data as any)?.unit || "").trim();
+      const existing = resolveCanonicalStockUom(data as any);
       setPickedStockUom(existing);
       if (existing) setStockUom(existing);
     })();
     return () => { cancelled = true; };
   }, [open, mode, pickedId, tenantId]);
 
-  const stockUomLocked = mode === "existing" && !!pickedStockUom;
 
   const loadSuppliers = async () => {
     if (!tenantId) return;
@@ -302,15 +305,19 @@ export default function QuickAddProductPopover({
     return true;
   };
 
-  const save = async () => {
+  const save = async (confirmedUomChange = false) => {
     if (!tenantId || saving || !validate()) return;
+    if (mode === "existing" && !confirmedUomChange && requiresStockUomConfirmation(pickedStockUom, stockUom)) {
+      setConfirmUomOpen(true);
+      return;
+    }
     setSaving(true); setErrorText("");
     try {
       const supplier = selectedSupplierName.trim();
       const supplierPayload = {
         supplier, external_sku: externalSku.trim(), supplier_product_name: externalName.trim(),
-        purchase_unit: purchaseUnit.trim(), purchase_unit_cost: parseFloat(purchaseCost) || 0,
-        stock_uom: stockUom.trim(), stock_qty: parseFloat(stockQty) || 1,
+        purchase_unit_cost: parseFloat(purchaseCost) || 0,
+        ...buildSupplierUomPayload({ purchaseUnit, stockUom, stockQty }),
         base_unit_type: baseUnit.trim() || "g", base_unit_qty: parseFloat(baseQty) || 1,
         accounting_category: accountingCategory.trim(), status,
       };
@@ -339,15 +346,26 @@ export default function QuickAddProductPopover({
         productId = (data as any).id;
       } else if (!picked) {
         throw new Error("Select an existing product first.");
-      } else if (!pickedStockUom) {
-        // Internal product has no stock UOM yet — set it once, from this form.
+      } else if (!pickedStockUom || requiresStockUomConfirmation(pickedStockUom, stockUom)) {
+        // Canonical internal Stock UOM is set for the first time, or changed after confirmation.
         const { error } = await supabase
           .from("product_master" as any)
-          .update({ unit: stockUom.trim(), stock_uom: stockUom.trim() } as any)
+          .update(buildProductMasterStockUomUpdate(stockUom) as any)
           .eq("id", productId)
           .eq("tenant_id", tenantId);
         if (error) throw error;
+        if (pickedStockUom) {
+          // Keep every supplier row on the canonical UOM; purchase_unit / stock_qty untouched.
+          const { error: syncError } = await supabase
+            .from("product_suppliers" as any)
+            .update(buildSupplierStockUomSync(stockUom) as any)
+            .eq("product_master_id", productId)
+            .eq("tenant_id", tenantId);
+          if (syncError) throw syncError;
+        }
+        setPickedStockUom(stockUom.trim());
       }
+
 
       let entry: any = duplicateEntry;
       if (entry) {
@@ -405,14 +423,14 @@ export default function QuickAddProductPopover({
                 <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="h-9 pl-8 text-sm" placeholder="Search internal products…" value={pickerQuery} onChange={(event) => setPickerQuery(event.target.value)} /></div>
                 <div className="max-h-44 overflow-y-auto rounded-md border border-border/60">{filteredPicker.map((product) => <Button key={product.id} type="button" variant="ghost" className={cn("h-auto w-full justify-start rounded-none px-3 py-2 text-left", product.id === pickedId && "bg-muted")} onClick={() => setPickedId(product.id)}><span><span className="block text-sm">{product.internal_product_name}</span><span className="font-mono text-[11px] text-muted-foreground">{product.internal_sku}</span></span></Button>)}{filteredPicker.length === 0 && <div className="px-3 py-5 text-center text-xs text-muted-foreground">No products found.</div>}</div>
               </AccordionContent></AccordionItem>
-              <AccordionItem value="supplier" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Supplier entry</AccordionTrigger><AccordionContent className="space-y-3 pb-3">{field("Supplier product name", externalName, setExternalName, { placeholder: "Supplier's name for this item" })}{field("External SKU", externalSku, setExternalSku, { className: "font-mono" })}<SupplierFields {...{ suppliers, supplierId, setSupplierId, selectedSupplierName, creatingSupplier, setCreatingSupplier, supplierForm, updateSupplierForm, supplierCodeEdited, setSupplierCodeEdited, createSupplier, saving }} /> <SupplierEntryFields {...{ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockUomLocked, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }} /></AccordionContent></AccordionItem>
+              <AccordionItem value="supplier" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Supplier entry</AccordionTrigger><AccordionContent className="space-y-3 pb-3">{field("Supplier product name", externalName, setExternalName, { placeholder: "Supplier's name for this item" })}{field("External SKU", externalSku, setExternalSku, { className: "font-mono" })}<SupplierFields {...{ suppliers, supplierId, setSupplierId, selectedSupplierName, creatingSupplier, setCreatingSupplier, supplierForm, updateSupplierForm, supplierCodeEdited, setSupplierCodeEdited, createSupplier, saving }} /> <SupplierEntryFields {...{ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }} /></AccordionContent></AccordionItem>
             </Accordion>
           ) : (
             <Accordion type="multiple" defaultValue={["identity", "classification", "financial", "supplier", "stock", "notes"]} className="space-y-2">
               <AccordionItem value="identity" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Identity</AccordionTrigger><AccordionContent className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">{field("Internal SKU *", internalSku, setInternalSku, { className: cn("font-mono", skuConflict && "border-destructive") })}<div className="sm:col-span-2">{field("Internal product name *", internalName, setInternalName)} </div>{field("Supplier product name", externalName, setExternalName)}{field("External SKU", externalSku, setExternalSku, { className: "font-mono" })}{skuConflict && <Alert className="sm:col-span-2 border-destructive/40 bg-destructive/10 py-2"><AlertTriangle className="h-4 w-4" /><AlertDescription className="text-xs">SKU already belongs to {skuConflict.internal_product_name}. Switch to the existing-product path.</AlertDescription></Alert>}</AccordionContent></AccordionItem>
               <AccordionItem value="classification" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Classification</AccordionTrigger><AccordionContent className="space-y-3 pb-3"><Label className="text-xs">Categories (L1 → L2 → L3)</Label><CategoryCascadeSelect level1={level1} level2={level2} level3={level3} onChange={(next) => { setLevel1(next.level1); setLevel2(next.level2); setLevel3(next.level3); }} /></AccordionContent></AccordionItem>
               <AccordionItem value="financial" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Financial mapping</AccordionTrigger><AccordionContent className="space-y-3 pb-3"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label className="text-xs">Financial treatment</Label><Select value={financialTreatment || NONE} onValueChange={(value) => { const treatment = value === NONE ? "" : value; setFinancialTreatment(treatment); setCreatesStock(treatment === "COGS"); setCoaId(""); }}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger><SelectContent><SelectItem value={NONE}>— None —</SelectItem>{FINANCIAL_TREATMENTS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1.5"><Label className="text-xs">Default COA account</Label><Select value={coaId || NONE} onValueChange={(value) => setCoaId(value === NONE ? "" : value)}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger><SelectContent><SelectItem value={NONE}>— Inherit from mapping —</SelectItem>{coaAccounts.filter((account) => account.is_active).filter((account) => !financialTreatment || (financialTreatment === "COGS" ? account.account_type === "cogs" : financialTreatment === "OpEx" ? account.account_type === "opex" : financialTreatment.startsWith("Asset") ? account.account_type === "asset" : true)).map((account) => <SelectItem key={account.id} value={account.id}><span className="font-mono text-xs">{account.code}</span> {account.name}</SelectItem>)}</SelectContent></Select></div></div><div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5"><div><Label className="text-xs">Creates stock movement</Label><p className="mt-0.5 text-[10px] text-muted-foreground">Receiving this item updates inventory when enabled.</p></div><Switch checked={createsStock} onCheckedChange={setCreatesStock} /></div></AccordionContent></AccordionItem>
-              <AccordionItem value="supplier" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Supplier configuration</AccordionTrigger><AccordionContent className="space-y-3 pb-3"><SupplierFields {...{ suppliers, supplierId, setSupplierId, selectedSupplierName, creatingSupplier, setCreatingSupplier, supplierForm, updateSupplierForm, supplierCodeEdited, setSupplierCodeEdited, createSupplier, saving }} /> <SupplierEntryFields {...{ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockUomLocked, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }} /><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{field("Purchase yield (%)", purchaseYield, setPurchaseYield, { type: "number", min: 1, max: 100, step: "0.01" })}{field("Cooking yield (%)", cookingYield, setCookingYield, { type: "number", min: 1, max: 100, step: "0.01" })}</div></AccordionContent></AccordionItem>
+              <AccordionItem value="supplier" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Supplier configuration</AccordionTrigger><AccordionContent className="space-y-3 pb-3"><SupplierFields {...{ suppliers, supplierId, setSupplierId, selectedSupplierName, creatingSupplier, setCreatingSupplier, supplierForm, updateSupplierForm, supplierCodeEdited, setSupplierCodeEdited, createSupplier, saving }} /> <SupplierEntryFields {...{ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }} /><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{field("Purchase yield (%)", purchaseYield, setPurchaseYield, { type: "number", min: 1, max: 100, step: "0.01" })}{field("Cooking yield (%)", cookingYield, setCookingYield, { type: "number", min: 1, max: 100, step: "0.01" })}</div></AccordionContent></AccordionItem>
               <AccordionItem value="stock" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Stock controls</AccordionTrigger><AccordionContent className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">{field("Minimum stock quantity", minStockQty, setMinStockQty, { type: "number", min: 0, step: "0.01" })}{field("Reorder quantity", reorderQty, setReorderQty, { type: "number", min: 0, step: "0.01" })}</AccordionContent></AccordionItem>
               <AccordionItem value="notes" className="rounded-lg border px-3"><AccordionTrigger className="py-3 text-sm font-medium">Notes & status</AccordionTrigger><AccordionContent className="space-y-3 pb-3"><div className="space-y-1.5"><Label className="text-xs">Notes</Label><Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional notes…" className="min-h-20 text-sm" /></div><div className="space-y-1.5"><Label className="text-xs">Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Active">Active</SelectItem><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent></Select></div></AccordionContent></AccordionItem>
             </Accordion>
@@ -420,8 +438,23 @@ export default function QuickAddProductPopover({
           {duplicateEntry && <Alert className="mt-3 border-primary/30 bg-primary/5 py-2"><Check className="h-4 w-4" /><AlertDescription className="text-xs">This supplier entry already exists. Saving will update its configuration and link it to the scanned line.</AlertDescription></Alert>}
           {errorText && <Alert className="mt-3 border-destructive/40 bg-destructive/10 py-2"><AlertTriangle className="h-4 w-4" /><AlertDescription className="text-xs">{errorText}</AlertDescription></Alert>}
         </div>
-        <SheetFooter className="shrink-0 border-t bg-background px-5 py-3"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="button" onClick={save} disabled={saving || !tenantId}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save & link line"}</Button></SheetFooter>
+        <SheetFooter className="shrink-0 border-t bg-background px-5 py-3"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="button" onClick={() => void save()} disabled={saving || !tenantId}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save & link line"}</Button></SheetFooter>
       </SheetContent>
+      <AlertDialog open={confirmUomOpen} onOpenChange={setConfirmUomOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change internal Stock UOM from {pickedStockUom} to {stockUom.trim()} for this product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stock UOM is the single internal inventory unit for this product, so the change applies to every supplier of it.
+              Existing purchase → stock conversion quantities are left untouched and must be reviewed so they still convert correctly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmUomOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmUomOpen(false); void save(true); }}>Change Stock UOM & save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
@@ -447,11 +480,11 @@ function supplierInput(label: string, value: string, onChange: (value: string) =
 
 interface SupplierEntryFieldsProps {
   purchaseUnit: string; setPurchaseUnit: (value: string) => void; purchaseCost: string; setPurchaseCost: (value: string) => void;
-  stockUom: string; setStockUom: (value: string) => void; stockUomLocked?: boolean; stockQty: string; setStockQty: (value: string) => void;
+  stockUom: string; setStockUom: (value: string) => void; stockQty: string; setStockQty: (value: string) => void;
   baseUnit: string; setBaseUnit: (value: string) => void; baseQty: string; setBaseQty: (value: string) => void;
   costPerStock: number; costPerBase: number;
 }
 
-function SupplierEntryFields({ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockUomLocked, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }: SupplierEntryFieldsProps) {
-  return <div className="space-y-3"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label className="text-xs">Purchase UOM *</Label><UomSelect type="purchase" value={purchaseUnit} onChange={setPurchaseUnit} placeholder="Select purchase UOM" /></div>{supplierInput("Purchase cost (HK$) *", purchaseCost, setPurchaseCost, { type: "number", min: 0, step: "0.01", className: "font-mono" })}<div className="space-y-1.5"><Label className="text-xs">Stock UOM *</Label><UomSelect type="stock" value={stockUom} onChange={stockUomLocked ? () => {} : setStockUom} placeholder="Select stock UOM" className={cn("h-9 text-sm", stockUomLocked && "pointer-events-none opacity-70")} /></div>{supplierInput("Purchase → stock quantity *", stockQty, setStockQty, { type: "number", min: 0.0001, step: "0.01", className: "font-mono" })}</div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label className="text-xs">Recipe / base UOM</Label><UomSelect type="base" value={baseUnit} onChange={setBaseUnit} placeholder="Select base UOM" /></div>{supplierInput("Recipe / base quantity", baseQty, setBaseQty, { type: "number", min: 0.0001, step: "0.01", className: "font-mono" })}</div><div className="grid grid-cols-1 gap-2 rounded-md bg-muted/30 p-2 text-xs sm:grid-cols-2"><div><span className="text-muted-foreground">Cost per stock unit</span><div className="font-mono font-medium">HK$ {costPerStock.toFixed(4)}</div></div><div><span className="text-muted-foreground">Cost per base unit</span><div className="font-mono font-medium">HK$ {costPerBase.toFixed(4)}</div></div></div></div>;
+function SupplierEntryFields({ purchaseUnit, setPurchaseUnit, purchaseCost, setPurchaseCost, stockUom, setStockUom, stockQty, setStockQty, baseUnit, setBaseUnit, baseQty, setBaseQty, costPerStock, costPerBase }: SupplierEntryFieldsProps) {
+  return <div className="space-y-3"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label className="text-xs">Purchase UOM *</Label><UomSelect type="purchase" value={purchaseUnit} onChange={setPurchaseUnit} placeholder="Select purchase UOM" /></div>{supplierInput("Purchase cost (HK$) *", purchaseCost, setPurchaseCost, { type: "number", min: 0, step: "0.01", className: "font-mono" })}<div className="space-y-1.5"><Label className="text-xs">Stock UOM (internal) *</Label><UomSelect type="stock" value={stockUom} onChange={setStockUom} placeholder="Select stock UOM" className="h-9 text-sm" /><p className="text-[10px] text-muted-foreground">Independent of Purchase UOM. Example: buy by Case, stock by Bottle.</p></div>{supplierInput("Purchase → stock quantity *", stockQty, setStockQty, { type: "number", min: 0.0001, step: "0.01", className: "font-mono" })}</div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label className="text-xs">Recipe / base UOM</Label><UomSelect type="base" value={baseUnit} onChange={setBaseUnit} placeholder="Select base UOM" /></div>{supplierInput("Recipe / base quantity", baseQty, setBaseQty, { type: "number", min: 0.0001, step: "0.01", className: "font-mono" })}</div><div className="grid grid-cols-1 gap-2 rounded-md bg-muted/30 p-2 text-xs sm:grid-cols-2"><div><span className="text-muted-foreground">Cost per stock unit</span><div className="font-mono font-medium">HK$ {costPerStock.toFixed(4)}</div></div><div><span className="text-muted-foreground">Cost per base unit</span><div className="font-mono font-medium">HK$ {costPerBase.toFixed(4)}</div></div></div></div>;
 }
