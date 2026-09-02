@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import UomSelect from "@/components/procurement/UomSelect";
 import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
 import { formatCurrency } from "@/utils/salesUtils";
+import { computeSetupHealth, type SetupHealthState } from "@/utils/productSetupHealth";
+
 
 interface SupplierDealRow {
   id: string;
