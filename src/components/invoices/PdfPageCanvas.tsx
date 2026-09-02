@@ -25,6 +25,7 @@ export default function PdfPageCanvas({ url, fileName, pageNumber, onDocumentLoa
   const [error, setError] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
   const [logical, setLogical] = useState<Size>({ width: 0, height: 0 });
+  const [docVersion, setDocVersion] = useState(0);
 
   // Load the document (per file / retry)
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function PdfPageCanvas({ url, fileName, pageNumber, onDocumentLoa
           return;
         }
         docRef.current = doc;
+        setDocVersion((n) => n + 1);
         onDocumentLoad(doc.numPages);
       })
       .catch((err: unknown) => {
@@ -103,7 +105,7 @@ export default function PdfPageCanvas({ url, fileName, pageNumber, onDocumentLoa
       renderTaskRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, status === "error" ? attempt : attempt, url]);
+  }, [pageNumber, docVersion]);
 
   if (status === "error") {
     return (
