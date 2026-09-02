@@ -49,11 +49,59 @@ export const normalizeSupplierKey = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/**
+ * Suggest the next supplier code. If existing codes follow a stable
+ * PREFIX + number pattern (e.g. SUP-001), continue the sequence; otherwise
+ * derive a short uppercase code from the supplier name. Always unique.
+ */
+export const suggestSupplierCode = (
+  name: string,
+  existing: { code?: string | null }[],
+  attempt = 0,
+): string => {
+  const codes = existing.map((s) => (s.code || "").trim()).filter(Boolean);
+  const taken = new Set(codes.map((c) => c.toUpperCase()));
+
+  // Detect dominant PREFIX123 / PREFIX-123 pattern among existing codes.
+  const prefixCounts = new Map<string, { count: number; maxNum: number; width: number; sep: string }>();
+  for (const code of codes) {
+    const m = /^([A-Za-z]{1,8})([-_]?)(\d{1,6})$/.exec(code);
+    if (!m) continue;
+    const key = m[1].toUpperCase();
+    const entry = prefixCounts.get(key) || { count: 0, maxNum: 0, width: m[3].length, sep: m[2] };
+    entry.count += 1;
+    entry.maxNum = Math.max(entry.maxNum, parseInt(m[3], 10));
+    entry.width = Math.max(entry.width, m[3].length);
+    prefixCounts.set(key, entry);
+  }
+
+  let candidate = "";
+  const dominant = [...prefixCounts.entries()].sort((a, b) => b[1].count - a[1].count)[0];
+  if (dominant && dominant[1].count >= Math.max(2, Math.ceil(codes.length * 0.6))) {
+    const [prefix, info] = dominant;
+    candidate = `${prefix}${info.sep}${String(info.maxNum + 1 + attempt).padStart(info.width, "0")}`;
+  } else {
+    // Derive from the supplier name: word initials, else first alnum characters.
+    const words = (name || "").toUpperCase().replace(/[^A-Z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    let base = words.length > 1
+      ? words.slice(0, 4).map((w) => w[0]).join("")
+      : (words[0] || "SUP").replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    if (!base) base = "SUP";
+    candidate = attempt === 0 ? base : `${base}${attempt + 1}`;
+  }
+
+  while (taken.has(candidate.toUpperCase())) {
+    const m = /^(.*?)(\d+)$/.exec(candidate);
+    candidate = m ? `${m[1]}${parseInt(m[2], 10) + 1}` : `${candidate}2`;
+  }
+  return candidate;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Authoritative supplier list, used for duplicate detection. */
-  existingSuppliers: { id: string; name: string }[];
+  /** Authoritative supplier list, used for duplicate detection and code suggestions. */
+  existingSuppliers: { id: string; name: string; code?: string | null }[];
   /** Pre-fill (usually the scanned supplier wording). */
   defaultName?: string;
   onCreated: (supplier: CreatedSupplier) => void | Promise<void>;
