@@ -100,6 +100,30 @@ interface FlatRow {
 }
 
 
+function SetupStatusBadge({ row }: { row: FlatRow }) {
+  if (row.setup_state === "inactive") {
+    return <span className="chip chip-neutral">Inactive</span>;
+  }
+  if (row.setup_state === "complete") {
+    return <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Complete</span>;
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="chip chip-warn h-5 px-1.5 text-[10px] font-medium gap-1" title="Show setup issues">
+          <AlertTriangle className="h-3 w-3" /> {row.setup_issue_count} missing
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-3">
+        <div className="text-xs font-medium mb-1.5">Setup issues</div>
+        <ul className="space-y-1 text-xs text-muted-foreground list-disc pl-4">
+          {row.setup_issues.map(issue => <li key={issue}>{issue}</li>)}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { tenantId } = useActiveTenant();
@@ -115,6 +139,7 @@ export default function ProductMasterTab() {
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [setupFilter, setSetupFilter] = useState<SetupHealthState | "all">("all");
   
   const [treatmentFilter, setTreatmentFilter] = useState("all");
   const [mappingFilter, setMappingFilter] = useState("all");
@@ -301,6 +326,7 @@ export default function ProductMasterTab() {
       if (subCatFilter !== "all" && r.level3_category !== subCatFilter) return false;
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (setupFilter !== "all" && r.setup_state !== setupFilter) return false;
       
       if (treatmentFilter !== "all") {
         if (treatmentFilter === "__unmapped__") {
@@ -319,10 +345,10 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, treatmentFilter, mappingFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, setupFilter, treatmentFilter, mappingFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || setupFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSetupFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
 
   // Collect legacy free-text UOMs from existing products so dropdowns still display them.
   const legacyPurchaseUoms = useMemo(() => flatRows.map(r => r.purchase_unit), [flatRows]);
@@ -528,6 +554,25 @@ export default function ProductMasterTab() {
     return rq > 0 ? puc / rq : 0;
   })();
 
+  const editingSetupHealth = useMemo(() => {
+    if (!editingProductId) return null;
+    return computeSetupHealth({
+      internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
+      supplier: form.supplier, supplier_product_name: form.supplier_product_name,
+      supplier_scoped: Boolean(editingSupplierEntryId || form.supplier.trim()),
+      level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
+      financial_treatment: form.financial_treatment, default_coa_account_id: form.default_coa_account_id || null,
+      purchase_unit: form.purchase_unit,
+      purchase_unit_cost: form.purchase_unit_cost === "" ? null : Number(form.purchase_unit_cost),
+      creates_stock_movement: form.creates_stock_movement, stock_uom: form.stock_uom,
+      stock_qty: form.stock_qty === "" ? null : Number(form.stock_qty),
+      base_unit_type: form.base_unit_type,
+      base_unit_qty: form.base_unit_qty === "" ? null : Number(form.base_unit_qty),
+      purchase_yield: form.purchase_yield === "" ? null : Number(form.purchase_yield),
+      cooking_yield: form.cooking_yield === "" ? null : Number(form.cooking_yield), status: form.status,
+    });
+  }, [editingProductId, editingSupplierEntryId, form]);
+
   const baseColumns = [
     { key: "internal_product_name", label: "Product Name" },
     { key: "supplier", label: "Supplier & Vendor" },
@@ -536,6 +581,7 @@ export default function ProductMasterTab() {
     { key: "level3_category", label: "L3" },
     { key: "financial_treatment", label: "Financial Treatment" },
     { key: "mapping_status", label: "Mapping" },
+    { key: "setup_state", label: "Setup" },
     { key: "status", label: "Active" },
   ];
   const legacyColumns = [
@@ -589,6 +635,7 @@ export default function ProductMasterTab() {
     (l2Filter !== "all" ? 1 : 0) +
     (subCatFilter !== "all" ? 1 : 0) +
     (supplierFilter !== "all" ? 1 : 0) +
+    (setupFilter !== "all" ? 1 : 0) +
     (treatmentFilter !== "all" ? 1 : 0) +
     (mappingFilter !== "all" ? 1 : 0);
 
@@ -679,14 +726,14 @@ export default function ProductMasterTab() {
         const total = flatRows.length;
         const mapped = flatRows.filter(r => r.mapping_status === "Mapped").length;
         const unmapped = flatRows.filter(r => r.mapping_status === "Unmapped").length;
-        const inactive = flatRows.filter(r => r.status !== "Active").length;
-        const drafts = flatRows.filter(r => r.status === "Draft").length;
+        const inactive = flatRows.filter(r => r.setup_state === "inactive").length;
+        const needsSetup = flatRows.filter(r => r.status === "Active" && r.setup_state === "needs_setup").length;
         const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"|"warn"; active: boolean; onClick: () => void }[] = [
-          { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); } },
+          { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all" && setupFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); setSetupFilter("all"); } },
           { label: "Mapped", count: mapped, tone: "success", active: mappingFilter === "Mapped", onClick: () => setMappingFilter(mappingFilter === "Mapped" ? "all" : "Mapped") },
           { label: "Unmapped", count: unmapped, tone: "danger", active: mappingFilter === "Unmapped", onClick: () => setMappingFilter(mappingFilter === "Unmapped" ? "all" : "Unmapped") },
-          { label: "Needs setup", count: drafts, tone: "warn", active: statusFilter === "Draft", onClick: () => setStatusFilter(statusFilter === "Draft" ? "all" : "Draft") },
-          { label: "Inactive", count: inactive, tone: "neutral", active: statusFilter === "Inactive", onClick: () => setStatusFilter(statusFilter === "Inactive" ? "all" : "Inactive") },
+          { label: "Needs setup", count: needsSetup, tone: "warn", active: setupFilter === "needs_setup", onClick: () => setSetupFilter(setupFilter === "needs_setup" ? "all" : "needs_setup") },
+          { label: "Inactive", count: inactive, tone: "neutral", active: setupFilter === "inactive", onClick: () => setSetupFilter(setupFilter === "inactive" ? "all" : "inactive") },
         ];
         return (
           <div className="flex flex-wrap gap-2">
@@ -792,6 +839,15 @@ export default function ProductMasterTab() {
       {/* Document-Centre-style toolbar */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
+          <Select value={setupFilter} onValueChange={(v) => setSetupFilter(v as SetupHealthState | "all")}>
+            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Setup</SelectItem>
+              <SelectItem value="needs_setup">Needs setup</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -926,7 +982,7 @@ export default function ProductMasterTab() {
               <div className="text-center text-muted-foreground py-12">No products found.</div>
             )}
             {pageItems.map(r => (
-              <div key={r.rowKey} className="p-3 space-y-1.5">
+              <div key={r.rowKey} className={cn("p-3 space-y-1.5", r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]")}>
                 <div className="flex items-start justify-between gap-2">
                   <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r)}>
                     <div className="font-medium text-sm truncate">{r.internal_product_name}</div>
@@ -948,6 +1004,7 @@ export default function ProductMasterTab() {
                   </div>
                 )}
                 <div className="flex items-center flex-wrap gap-1.5">
+                  <SetupStatusBadge row={r} />
                   {r.financial_treatment && (
                     <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
                       {r.financial_treatment}
@@ -990,7 +1047,7 @@ export default function ProductMasterTab() {
                 </TableRow>
               )}
               {pageItems.map((r) => (
-                <TableRow key={r.rowKey}>
+                <TableRow key={r.rowKey} className={cn(r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]")}>
                   <TableCell className="font-medium max-w-[280px] truncate" title={r.internal_product_name}>{r.internal_product_name}</TableCell>
                   <TableCell className="truncate max-w-[180px]" title={r.supplier}>{r.supplier}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level1_category}</TableCell>
@@ -1018,6 +1075,9 @@ export default function ProductMasterTab() {
                     ) : (
                       <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <SetupStatusBadge row={r} />
                   </TableCell>
                   <TableCell>
                     <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
@@ -1094,6 +1154,15 @@ export default function ProductMasterTab() {
             <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
+            {editingSetupHealth?.state === "needs_setup" && (
+              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-xs">
+                  <span className="font-medium">Setup issues:</span>{" "}{editingSetupHealth.issues.join(", ")}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {duplicateSku !== null && (
               <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
                 <AlertTriangle className="h-4 w-4 text-warning" />
