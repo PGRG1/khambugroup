@@ -332,62 +332,46 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
 
 
-  const normalizeSupplierName = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[\r\n\t]+/g, " ")
-      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
-      .replace(/\b(limited|ltd|co|company)\b/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const normalizeSupplierName = normalizeSupplierKey;
 
-  const productMasterSupplierOptions = useMemo(() => {
-    const productMasterNames = Array.from(
-      new Set(
-        (productMaster || [])
-          .map((entry) => entry.supplier?.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim())
-          .filter((name): name is string => Boolean(name))
-      )
-    ).sort((a, b) => a.localeCompare(b));
+  // Suppliers created inside the scanner show up immediately, before the parent refetches.
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>([]);
+  const [supplierSheetOpen, setSupplierSheetOpen] = useState(false);
 
-    const options = (productMasterNames.length > 0 ? productMasterNames : suppliers.map((supplier) => supplier.name))
-      .map((name) => {
-        const normalizedName = normalizeSupplierName(name);
-        const matchedSupplier = suppliers.find((supplier) => normalizeSupplierName(supplier.name) === normalizedName)
-          ?? suppliers.find((supplier) => {
-            const normalizedSupplierName = normalizeSupplierName(supplier.name);
-            return normalizedSupplierName.includes(normalizedName) || normalizedName.includes(normalizedSupplierName);
-          });
+  const allSuppliers = useMemo(() => {
+    const byId = new Map<string, Supplier>();
+    [...suppliers, ...localSuppliers].forEach((supplier) => byId.set(supplier.id, supplier));
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [suppliers, localSuppliers]);
 
-        return {
-          label: name,
-          value: matchedSupplier?.id ?? `pm:${name}`,
-        };
-      })
-      .filter((option, index, allOptions) => allOptions.findIndex((candidate) => candidate.label === option.label) === index);
+  // Authoritative supplier list — NOT limited to suppliers that already have Product Master rows.
+  const supplierOptions = useMemo(
+    () => allSuppliers.map((supplier) => ({ label: supplier.name, value: supplier.id })),
+    [allSuppliers],
+  );
 
-    if (current?.supplier_id && !options.some((option) => option.value === current.supplier_id)) {
-      const currentSupplier = suppliers.find((supplier) => supplier.id === current.supplier_id);
-      if (currentSupplier) {
-        return [{ label: currentSupplier.name, value: currentSupplier.id }, ...options];
-      }
-    }
+  /** Canonical supplier name of the current invoice (the record's name wins over OCR wording). */
+  const activeSupplierName = useMemo(() => {
+    if (!current) return "";
+    return allSuppliers.find((supplier) => supplier.id === current.supplier_id)?.name || current.supplier_name || "";
+  }, [allSuppliers, current?.supplier_id, current?.supplier_name]);
 
-    return options;
-  }, [current?.supplier_id, productMaster, suppliers]);
+  /** Product Master rows belonging strictly to the selected supplier. Empty when no supplier. */
+  const supplierScopedPM = useMemo(
+    () => scopePMToSupplier(productMaster, activeSupplierName),
+    [productMaster, activeSupplierName],
+  );
 
-  // Sort product master: supplier matches first, then everything else
-  const supplierFilteredPM = useMemo(() => {
-    if (!productMaster || !current) return productMaster || [];
-    const supplierName = current.supplier_name || "";
-    if (!supplierName) return productMaster;
-    const normSupplier = normalizeSupplierName(supplierName);
-    return [...productMaster].sort((a, b) => {
-      const aMatch = a.supplier && (() => { const n = normalizeSupplierName(a.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
-      const bMatch = b.supplier && (() => { const n = normalizeSupplierName(b.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
-      return aMatch - bMatch;
-    });
-  }, [productMaster, current?.supplier_name]);
+  /** True when a Product Master entry belongs to the currently selected supplier. */
+  const isEntryForActiveSupplier = useCallback(
+    (entry?: { supplier?: string | null } | null) => {
+      const norm = normalizeSupplierKey(activeSupplierName);
+      if (!norm || !entry?.supplier) return false;
+      return normalizeSupplierKey(entry.supplier) === norm;
+    },
+    [activeSupplierName],
+  );
+
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
