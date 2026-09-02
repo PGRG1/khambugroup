@@ -217,8 +217,9 @@ export default function QuickAddProductPopover({
   };
 
   /**
-   * Stock UOM is the internal inventory UOM and belongs to the product, not the supplier.
-   * When adding a supplier to an existing product, inherit it and lock it if already set.
+   * Stock UOM is the canonical internal inventory UOM and belongs to the product, not the
+   * supplier. When adding a supplier to an existing product we prefill it, but it stays
+   * editable (changing it is confirmed and then synchronised across all supplier rows).
    */
   React.useEffect(() => {
     if (!open || mode !== "existing" || !pickedId || !tenantId) { setPickedStockUom(""); return; }
@@ -231,14 +232,13 @@ export default function QuickAddProductPopover({
         .eq("tenant_id", tenantId)
         .maybeSingle();
       if (cancelled) return;
-      const existing = ((data as any)?.stock_uom || (data as any)?.unit || "").trim();
+      const existing = resolveCanonicalStockUom(data as any);
       setPickedStockUom(existing);
       if (existing) setStockUom(existing);
     })();
     return () => { cancelled = true; };
   }, [open, mode, pickedId, tenantId]);
 
-  const stockUomLocked = mode === "existing" && !!pickedStockUom;
 
   const loadSuppliers = async () => {
     if (!tenantId) return;
