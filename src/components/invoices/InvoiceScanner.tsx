@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -348,7 +349,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   // Authoritative supplier list — NOT limited to suppliers that already have Product Master rows.
   const supplierOptions = useMemo(
-    () => allSuppliers.map((supplier) => ({ label: supplier.name, value: supplier.id })),
+    () => allSuppliers.map((supplier) => ({ label: (supplier.name || "").trim(), value: supplier.id })),
     [allSuppliers],
   );
 
