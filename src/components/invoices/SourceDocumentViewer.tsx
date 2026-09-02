@@ -126,7 +126,7 @@ export default function SourceDocumentViewer({ files, activeEvidenceField }: Sou
                 )}
               </div>
 
-              <div className="flex gap-1.5 overflow-x-auto border-t border-border/70 p-2">
+              <div className="bani-visible-scrollbar flex gap-1.5 overflow-x-auto border-t border-border/70 p-2 pb-2.5">
                 {files.map((file, index) => (
                   <Button
                     key={`${file.name}-${index}`}
