@@ -159,6 +159,7 @@ interface ScannedLineItem {
     purchase_unit_cost?: number;
     level1_category?: string;
   };
+  evidence?: Partial<Record<string, { page: number; x: number; y: number; width: number; height: number }>>;
 }
 
 interface ReviewCorrection {
