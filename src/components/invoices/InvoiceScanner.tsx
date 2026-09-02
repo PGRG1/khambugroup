@@ -2702,7 +2702,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === "item_code" && "bg-primary/5") } onMouseEnter={() => setActiveEvidenceField("item_code")} onFocus={() => setActiveEvidenceField("item_code")}>
+                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
@@ -2720,7 +2720,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === "description" && "bg-primary/5")} onMouseEnter={() => setActiveEvidenceField("description")} onFocus={() => setActiveEvidenceField("description")} data-external-name-line={i}>
+                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
                           onChange={(v) => {
@@ -2816,7 +2816,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
                       {/* Purchase UOM - read-only from PM */}
-                      <td data-evidence-field={`line-${i}-purchase_unit`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === "purchase_unit" && "bg-primary/5")} onMouseEnter={() => setActiveEvidenceField("purchase_unit")} onFocus={() => setActiveEvidenceField("purchase_unit")}>
+                      <td data-evidence-field={`line-${i}-purchase_unit`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-purchase_unit` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-purchase_unit`)}>
 
                         <Input
                           value={line.matched_purchase_uom}
@@ -2827,7 +2827,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         />
                       </td>
                       {/* Purchase Qty - editable */}
-                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === "quantity" && "bg-primary/5")} onMouseEnter={() => setActiveEvidenceField("quantity")} onFocus={() => setActiveEvidenceField("quantity")}>
+                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
 
                         <Input
                           type="number"
@@ -2924,7 +2924,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === "unit_price" && "bg-primary/5")} onMouseEnter={() => setActiveEvidenceField("unit_price")} onFocus={() => setActiveEvidenceField("unit_price")}>
+                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
 
                         <div className="relative">
                           <Input
