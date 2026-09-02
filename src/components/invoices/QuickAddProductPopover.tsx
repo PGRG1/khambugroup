@@ -139,7 +139,8 @@ export default function QuickAddProductPopover({
   const [stockQty, setStockQty] = useState("1");
   const [baseUnit, setBaseUnit] = useState("g");
   const [baseQty, setBaseQty] = useState("1");
-  const [internalUnit, setInternalUnit] = useState("");
+  /** Stock UOM already recorded on the selected internal product (existing-product path). */
+  const [pickedStockUom, setPickedStockUom] = useState("");
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
   const [level3, setLevel3] = useState("");
