@@ -109,7 +109,7 @@ When you see "ASAHI 10L" in returned section → item_code: "ABADEK", descriptio
 When you see "ASAHI 20L" → item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L", pack_size: "", unit: "Keg", unit_price: 50
 When you see "ASAHI SOUR" or "ASAHI SOUR (BLUE)" → item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
 When you see "PERONI" → item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L", pack_size: "", unit: "Keg", unit_price: 50
-When you see "KURONAMA" or "DARK" keg → item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "KURONAMA" or "DARK" keg → item_code: "ABAKBKZJ-EMPTY", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
 When you see "SINGHA" → item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L", pack_size: "", unit: "Keg", unit_price: 50
 
 Additional rules for returned kegs:
@@ -416,7 +416,7 @@ ${pmLines}`;
     const kegMappings: { pattern: RegExp; item_code: string; description: string }[] = [
       { pattern: /asahi\s*(super\s*dry\s*)?20\s*l/i, item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L" },
       { pattern: /asahi\s*sour|asahi\s*sour\s*\(blue\)/i, item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L" },
-      { pattern: /kuronama|dark.*keg/i, item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L" },
+      { pattern: /kuronama|dark.*keg/i, item_code: "ABAKBKZJ-EMPTY", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L" },
       { pattern: /asahi\s*(super\s*dry\s*)?10\s*l|asahi\s*(super\s*dry\s*)?keg(?!.*20)/i, item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L" },
       { pattern: /peroni/i, item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L" },
       { pattern: /singha/i, item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L" },
@@ -443,8 +443,10 @@ ${pmLines}`;
                 li.description = mapping.description;
                 li.pack_size = "";
                 li.unit = "Keg";
-                if (!li.unit_price || li.unit_price === 0) li.unit_price = 50;
-                li.total = li.quantity * li.unit_price;
+                // Known returned keg deposits are always 50 per keg, regardless
+                // of what the AI read off the document.
+                li.unit_price = 50;
+                li.total = li.quantity * 50;
                 break;
               }
             }
