@@ -302,7 +302,7 @@ export default function QuickAddProductPopover({
           internal_product_name: internalNameValue, supplier_product_name: externalName.trim(),
           level1_category: level1 || "Other", level2_category: level2, level3_category: level3,
           accounting_category: accountingCategory.trim(), financial_treatment: financialTreatment,
-          default_coa_account_id: coaId || null, unit: internalUnit.trim() || purchaseUnit.trim(),
+          default_coa_account_id: coaId || null, unit: stockUom.trim(),
           unit_cost: purchase, status, notes: notes.trim() || null,
           purchase_unit: purchaseUnit.trim(), purchase_unit_cost: purchase,
           stock_uom: stockUom.trim(), stock_qty: qty, cost_per_stock_unit: costPerStock,
