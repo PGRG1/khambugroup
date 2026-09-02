@@ -1092,9 +1092,6 @@ export default function ProductMasterTab() {
                     <SetupStatusBadge row={r} />
                   </TableCell>
                   <TableCell>
-                    <SetupStatusBadge row={r} />
-                  </TableCell>
-                  <TableCell>
                     <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
                   </TableCell>
                   {showLegacyCols && (
