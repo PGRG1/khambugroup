@@ -26,7 +26,9 @@ export function canvasBackingSize(logical: Size, devicePixelRatio = 1, maxDpr = 
  * A single multi-page PDF paginates by PDF page; otherwise by attached file.
  */
 export function resolveNavigation(fileCount: number, isPdf: boolean, pdfPageCount: number, fileIndex: number, pdfPage: number) {
-  if (isPdf && fileCount === 1) {
+  // The bottom strip handles file selection. Once a PDF is active, the toolbar
+  // always navigates its internal pages, even when other files are attached.
+  if (isPdf) {
     const total = Math.max(1, pdfPageCount);
     return { mode: "pdf" as const, current: clampPdfPage(pdfPage, total), total };
   }
