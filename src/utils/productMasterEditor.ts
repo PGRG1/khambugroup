@@ -3,6 +3,7 @@ import type { ProductMasterItem, ProductSupplierEntry } from "@/hooks/useProduct
 export interface ProductMasterEditorForm {
   internal_sku: string;
   internal_product_name: string;
+  unit_cost: string;
   level1_category: string;
   level2_category: string;
   level3_category: string;
