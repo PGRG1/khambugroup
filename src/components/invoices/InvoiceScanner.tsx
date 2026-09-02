@@ -194,6 +194,8 @@ interface InvoiceScannerProps {
   productMaster?: ProductMasterEntry[];
   /** Called after a Quick Add so the parent can refetch the Product Master. */
   onProductMasterChanged?: () => void | Promise<void>;
+  /** Called after a supplier is created inline so the parent can refetch suppliers. */
+  onSuppliersChanged?: () => void | Promise<void>;
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
@@ -280,7 +282,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
@@ -2556,7 +2558,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
+                            products={supplierScopedPM}
                             searchField="code"
                             placeholder="Code"
                             className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
@@ -2578,7 +2580,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             updateLine(i, "description", v);
                           }}
                           onSelect={(p) => selectProduct(i, p)}
-                          products={supplierFilteredPM}
+                          products={supplierScopedPM}
                           searchField="name"
                           placeholder="Item name"
                           className="text-xs"
