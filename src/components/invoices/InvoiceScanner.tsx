@@ -1347,12 +1347,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
     const supplierName = inv.supplier_name;
+    // Strict supplier scope — the AI may only ever pick this supplier's entries.
+    const scopedPM = scopePMToSupplier(productMaster, supplierName);
+    if (!scopedPM.length) {
+      toast.error("Select the invoice supplier before AI matching.");
+      return;
+    }
 
     // Shortlist candidates per line, then merge into one candidate pool.
     const pool = new Map<string, ProductMasterEntry>();
     const items = indexes.map((idx) => {
       const l = inv.line_items[idx];
-      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, productMaster, supplierName, FUZZY.AI_SHORTLIST)
+      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
         .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
       return {
         source_index: idx,
@@ -1406,8 +1412,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           if (lineIdx == null || !lines[lineIdx]) return;
           const s = r.suggestion || {};
           const entry =
-            productMaster.find((p) => p.id === s.product_master_id) ||
-            productMaster.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
+            scopedPM.find((p) => p.id === s.product_master_id) ||
+            scopedPM.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
           if (!entry) return;
 
           // Re-score the AI's answer locally against the scanned text. If it can't
@@ -1689,7 +1695,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         if (!pmId && productMaster) {
           const resolved = resolveExactMatch(
             { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
-            productMaster,
+            scopePMToSupplier(productMaster, supplierName),
             supplierName,
           );
           if (resolved) pmId = resolved.id;
