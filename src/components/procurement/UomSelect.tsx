@@ -18,7 +18,11 @@ interface Props {
  */
 export default function UomSelect({ value, onChange, type, placeholder, legacyValues = [], className }: Props) {
   const { items } = useUomOptions();
-  const merged = mergeWithLegacy(items, type, legacyValues);
+  // Always include the current non-empty value so legacy UOMs (e.g. "BOT") remain
+  // visible even if they are not yet registered in the UOM master.
+  const currentLegacy = value && value.trim() !== "" ? [value.trim()] : [];
+  const mergedLegacy = Array.from(new Set([...currentLegacy, ...legacyValues]));
+  const merged = mergeWithLegacy(items, type, mergedLegacy);
   // Radix Select cannot use empty string — use a sentinel for "none".
   const NONE = "__none__";
   const v = value && value.trim() !== "" ? value : NONE;
