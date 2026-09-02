@@ -1250,11 +1250,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const selectProduct = (i: number, product: ProductMasterEntry) => {
     // Supplier-facing master data may never come from another supplier's entry.
     if (!isEntryForActiveSupplier(product)) {
-      toast.error(
-        activeSupplierName
+      toast({
+        title: "Different supplier",
+        description: activeSupplierName
           ? `${product.internal_product_name || "This product"} has no entry for ${activeSupplierName}. Use "Add this supplier" to create one.`
           : "Select the invoice supplier first.",
-      );
+        variant: "destructive",
+      });
       return;
     }
     setInvoices((prev) => {
@@ -1370,7 +1372,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     // Strict supplier scope — the AI may only ever pick this supplier's entries.
     const scopedPM = scopePMToSupplier(productMaster, supplierName);
     if (!scopedPM.length) {
-      toast.error("Select the invoice supplier before AI matching.");
+      toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
       return;
     }
 
