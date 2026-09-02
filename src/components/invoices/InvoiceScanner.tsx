@@ -1228,6 +1228,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   const selectProduct = (i: number, product: ProductMasterEntry) => {
+    // Supplier-facing master data may never come from another supplier's entry.
+    if (!isEntryForActiveSupplier(product)) {
+      toast.error(
+        activeSupplierName
+          ? `${product.internal_product_name || "This product"} has no entry for ${activeSupplierName}. Use "Add this supplier" to create one.`
+          : "Select the invoice supplier first.",
+      );
+      return;
+    }
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1242,7 +1251,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           ? currentLine.suggestions
           : scoreCandidates(
               { itemCode: scannedCode, description: scannedDesc },
-              productMaster || [],
+              scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
               copy[currentIdx].supplier_name,
             ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
       // Directly set all fields from the selected product — no re-resolution
