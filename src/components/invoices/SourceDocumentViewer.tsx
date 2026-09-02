@@ -81,7 +81,7 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
     setRotation(0);
     setFitMode("page");
     setNatural(EMPTY_SIZE);
-  }, [pageIndex]);
+  }, [activeUrl]);
 
   // PDF page change resets orientation + fit
   useEffect(() => {
