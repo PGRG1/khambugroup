@@ -61,9 +61,10 @@ CRITICAL — NUMBER ACCURACY RULES:
 - Read EVERY number carefully from the invoice. Numbers are the most important part.
 - "quantity" = the number in the QTY/QUANTITY column. It is typically a small integer (1-20). If you see a large number in the quantity field, double-check — it is likely wrong.
 - "unit_price" = the price per unit from the UNIT PRICE / PRICE column. Cross-check: quantity × unit_price should approximately equal the line total.
-- "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
-- "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly. This is critical for validation.
-- VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
+ - "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
+ - "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly. This is critical for validation.
+ - VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
+ - EVIDENCE: For every extracted header field and every extracted line field, optionally return an evidence box using normalized coordinates (0 to 1) for the exact printed source. Use 1-based page numbers and {page,x,y,width,height}; never invent a box when the source is not visible. Header keys: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount. Line keys: item_code, description, quantity, unit, unit_price, discount, total.
 - Watch for multi-page invoices: the same invoice number on consecutive pages means those pages belong together. Merge all line items and use the grand total from the last page.
 - Be careful with columns — some invoices have a DISCOUNT column between UNIT PRICE and AMOUNT. Don't confuse discount with amount.
 
@@ -81,14 +82,11 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
           "invoice_number": "Invoice number/reference",
           "invoice_date": "YYYY-MM-DD format",
           "due_date": "YYYY-MM-DD format or empty string if not shown on invoice",
-          "venue": "Assembly or Caliente - infer from delivery address or customer name",
-          "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
-          "notes": "any special notes, payment terms, or remarks (in English)",
-          "evidence": {
-            "header": { "supplier_name": { "page": 1, "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.04 } },
-            "lines": [{ "description": { "page": 1, "x": 0.1, "y": 0.4, "width": 0.3, "height": 0.03 } }]
-          },
-      "line_items": [
+           "venue": "Assembly or Caliente - infer from delivery address or customer name",
+           "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
+           "notes": "any special notes, payment terms, or remarks (in English)",
+           "evidence": { "header": { "supplier_name": { "page": 1, "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.04 } }, "lines": [{ "description": { "page": 1, "x": 0.1, "y": 0.4, "width": 0.3, "height": 0.03 } }] },
+           "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description in English (clean product name without pack size info)",
@@ -197,10 +195,18 @@ ${pmLines}`;
                   invoice_number: { type: "string" },
                   invoice_date: { type: "string" },
                   due_date: { type: "string" },
-                  venue: { type: "string" },
-                  total_amount: { type: "number" },
-                  notes: { type: "string" },
-                  line_items: {
+                   venue: { type: "string" },
+                   total_amount: { type: "number" },
+                   notes: { type: "string" },
+                   evidence: {
+                     type: "object",
+                     properties: {
+                       header: { type: "object", additionalProperties: false },
+                       lines: { type: "array", items: { type: "object", additionalProperties: false } },
+                     },
+                     additionalProperties: false,
+                   },
+                   line_items: {
                     type: "array",
                     items: {
                       type: "object",
