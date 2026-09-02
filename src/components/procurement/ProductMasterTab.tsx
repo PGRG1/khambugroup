@@ -860,15 +860,6 @@ export default function ProductMasterTab() {
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={setupFilter} onValueChange={(v) => setSetupFilter(v as SetupHealthState | "all")}>
-            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Setup</SelectItem>
-              <SelectItem value="needs_setup">Needs setup</SelectItem>
-              <SelectItem value="complete">Complete</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
