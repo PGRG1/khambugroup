@@ -79,8 +79,8 @@ export default function MasterItemEditSheet({ open, onOpenChange, productId, sup
       else if (supplierName?.trim()) supplierQuery = supplierQuery.ilike("supplier", supplierName.trim());
       const supplierResult = await supplierQuery.limit(1);
       if (cancelled) return;
-      const loadedProduct = productResult.data as ProductMasterItem;
-      const loadedSupplier = ((supplierResult.data || [])[0] as ProductSupplierEntry | undefined) || null;
+      const loadedProduct = productResult.data as unknown as ProductMasterItem;
+      const loadedSupplier = (((supplierResult.data || [])[0] as unknown) as ProductSupplierEntry | undefined) || null;
       setProduct(loadedProduct);
       setSupplier(loadedSupplier);
       setForm(productMasterEditorForm(loadedProduct, loadedSupplier));
