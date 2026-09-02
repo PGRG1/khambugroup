@@ -7,6 +7,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 export interface Supplier {
   id: string;
   name: string;
+  code?: string | null;
   contact_person: string | null;
   email: string | null;
   phone: string | null;

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,11 +49,59 @@ export const normalizeSupplierKey = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/**
+ * Suggest the next supplier code. If existing codes follow a stable
+ * PREFIX + number pattern (e.g. SUP-001), continue the sequence; otherwise
+ * derive a short uppercase code from the supplier name. Always unique.
+ */
+export const suggestSupplierCode = (
+  name: string,
+  existing: { code?: string | null }[],
+  attempt = 0,
+): string => {
+  const codes = existing.map((s) => (s.code || "").trim()).filter(Boolean);
+  const taken = new Set(codes.map((c) => c.toUpperCase()));
+
+  // Detect dominant PREFIX123 / PREFIX-123 pattern among existing codes.
+  const prefixCounts = new Map<string, { count: number; maxNum: number; width: number; sep: string }>();
+  for (const code of codes) {
+    const m = /^([A-Za-z]{1,8})([-_]?)(\d{1,6})$/.exec(code);
+    if (!m) continue;
+    const key = m[1].toUpperCase();
+    const entry = prefixCounts.get(key) || { count: 0, maxNum: 0, width: m[3].length, sep: m[2] };
+    entry.count += 1;
+    entry.maxNum = Math.max(entry.maxNum, parseInt(m[3], 10));
+    entry.width = Math.max(entry.width, m[3].length);
+    prefixCounts.set(key, entry);
+  }
+
+  let candidate = "";
+  const dominant = [...prefixCounts.entries()].sort((a, b) => b[1].count - a[1].count)[0];
+  if (dominant && dominant[1].count >= Math.max(2, Math.ceil(codes.length * 0.6))) {
+    const [prefix, info] = dominant;
+    candidate = `${prefix}${info.sep}${String(info.maxNum + 1 + attempt).padStart(info.width, "0")}`;
+  } else {
+    // Derive from the supplier name: word initials, else first alnum characters.
+    const words = (name || "").toUpperCase().replace(/[^A-Z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    let base = words.length > 1
+      ? words.slice(0, 4).map((w) => w[0]).join("")
+      : (words[0] || "SUP").replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    if (!base) base = "SUP";
+    candidate = attempt === 0 ? base : `${base}${attempt + 1}`;
+  }
+
+  while (taken.has(candidate.toUpperCase())) {
+    const m = /^(.*?)(\d+)$/.exec(candidate);
+    candidate = m ? `${m[1]}${parseInt(m[2], 10) + 1}` : `${candidate}2`;
+  }
+  return candidate;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Authoritative supplier list, used for duplicate detection. */
-  existingSuppliers: { id: string; name: string }[];
+  /** Authoritative supplier list, used for duplicate detection and code suggestions. */
+  existingSuppliers: { id: string; name: string; code?: string | null }[];
   /** Pre-fill (usually the scanned supplier wording). */
   defaultName?: string;
   onCreated: (supplier: CreatedSupplier) => void | Promise<void>;
@@ -67,16 +115,44 @@ export default function SupplierQuickCreateSheet({
   const [form, setForm] = useState({ ...emptySupplier });
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState("");
+  /** Once the user edits the code manually, never overwrite it with a suggestion. */
+  const codeTouched = useRef(false);
+  const suggestAttempt = useRef(0);
+
+  const suggestedCode = useMemo(
+    () => suggestSupplierCode(form.name, existingSuppliers, suggestAttempt.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.name, existingSuppliers],
+  );
 
   useEffect(() => {
     if (open) {
-      setForm({ ...emptySupplier, name: (defaultName || "").trim() });
+      codeTouched.current = false;
+      suggestAttempt.current = 0;
+      const name = (defaultName || "").trim();
+      setForm({ ...emptySupplier, name, code: name ? suggestSupplierCode(name, existingSuppliers) : "" });
       setErrorText("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultName]);
 
-  const update = (key: keyof typeof emptySupplier, value: string) =>
+  // Keep the code suggestion in sync with the name until the user edits it.
+  useEffect(() => {
+    if (!open || codeTouched.current || !form.name.trim()) return;
+    setForm((previous) => (previous.code === suggestedCode ? previous : { ...previous, code: suggestedCode }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedCode, open]);
+
+  const regenerateCode = () => {
+    codeTouched.current = false;
+    suggestAttempt.current += 1;
+    setForm((previous) => ({ ...previous, code: suggestSupplierCode(previous.name, existingSuppliers, suggestAttempt.current) }));
+  };
+
+  const update = (key: keyof typeof emptySupplier, value: string) => {
+    if (key === "code") codeTouched.current = true;
     setForm((previous) => ({ ...previous, [key]: value }));
+  };
 
   const duplicate = existingSuppliers.find(
     (supplier) => normalizeSupplierKey(supplier.name) === normalizeSupplierKey(form.name) && form.name.trim(),
@@ -163,7 +239,31 @@ export default function SupplierQuickCreateSheet({
             </Alert>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {field("Supplier code", "code", { className: "font-mono" })}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs">Supplier code</Label>
+                {!codeTouched.current && form.code && (
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Suggested</span>
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  value={form.code}
+                  onChange={(event) => update("code", event.target.value)}
+                  className="h-9 pr-8 font-mono text-sm"
+                  placeholder="e.g. SUP-001"
+                />
+                <button
+                  type="button"
+                  title="Regenerate suggestion"
+                  aria-label="Regenerate supplier code suggestion"
+                  onClick={regenerateCode}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
             {field("Account number", "account_number", { className: "font-mono" })}
             {field("Contact person", "contact_person")}
             {field("Phone", "phone")}
