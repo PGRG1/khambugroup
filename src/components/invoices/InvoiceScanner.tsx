@@ -62,7 +62,7 @@ import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
-import { normalizeInvoiceEvidence, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 
 /**
  * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
