@@ -200,7 +200,7 @@ export default function QuickAddProductPopover({
     setBaseQty("1");
     setInternalUnit("");
     setLevel1(""); setLevel2(""); setLevel3("");
-    setAccountingCategory("purchases"); setFinancialTreatment("');
+    setAccountingCategory("purchases"); setFinancialTreatment("");
     setCoaId(""); setCreatesStock(true);
     setPurchaseYield("100"); setCookingYield("100");
     setMinStockQty(""); setReorderQty(""); setStatus("Active"); setNotes(""); setErrorText("");
