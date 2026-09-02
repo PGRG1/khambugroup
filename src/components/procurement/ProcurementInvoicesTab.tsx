@@ -178,7 +178,7 @@ function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; bord
 
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
@@ -1719,6 +1719,7 @@ export default function ProcurementInvoicesTab() {
           suppliers={suppliers}
           productMaster={productMaster}
           onProductMasterChanged={loadProductMaster}
+          onSuppliersChanged={fetchAll}
           onSave={async (inv, lines, files) => {
             let fileUrl: string | null = null;
             let fileName: string | null = null;

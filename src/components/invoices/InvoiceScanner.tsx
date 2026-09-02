@@ -57,6 +57,24 @@ import QuickAddBulkDialog from "./QuickAddBulkDialog";
 import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
 import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
+import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
+
+/**
+ * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
+ * purchase UOM/cost, stock UOM/conversion) may only ever come from a product_suppliers
+ * row whose normalized supplier name equals the selected invoice supplier.
+ * No partial / contains matching — that leaks another supplier's wording onto a line.
+ */
+const scopePMToSupplier = <T extends { supplier?: string | null }>(
+  pm: T[] | undefined,
+  supplierName?: string,
+): T[] => {
+  if (!pm) return [];
+  const norm = normalizeSupplierKey(supplierName || "");
+  if (!norm) return [];
+  return pm.filter((entry) => entry.supplier && normalizeSupplierKey(entry.supplier) === norm);
+};
+
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -176,6 +194,8 @@ interface InvoiceScannerProps {
   productMaster?: ProductMasterEntry[];
   /** Called after a Quick Add so the parent can refetch the Product Master. */
   onProductMasterChanged?: () => void | Promise<void>;
+  /** Called after a supplier is created inline so the parent can refetch suppliers. */
+  onSuppliersChanged?: () => void | Promise<void>;
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
@@ -262,7 +282,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
@@ -314,62 +334,66 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
 
 
-  const normalizeSupplierName = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[\r\n\t]+/g, " ")
-      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
-      .replace(/\b(limited|ltd|co|company)\b/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const normalizeSupplierName = normalizeSupplierKey;
 
-  const productMasterSupplierOptions = useMemo(() => {
-    const productMasterNames = Array.from(
-      new Set(
-        (productMaster || [])
-          .map((entry) => entry.supplier?.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim())
-          .filter((name): name is string => Boolean(name))
-      )
-    ).sort((a, b) => a.localeCompare(b));
+  // Suppliers created inside the scanner show up immediately, before the parent refetches.
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>([]);
+  const [supplierSheetOpen, setSupplierSheetOpen] = useState(false);
 
-    const options = (productMasterNames.length > 0 ? productMasterNames : suppliers.map((supplier) => supplier.name))
-      .map((name) => {
-        const normalizedName = normalizeSupplierName(name);
-        const matchedSupplier = suppliers.find((supplier) => normalizeSupplierName(supplier.name) === normalizedName)
-          ?? suppliers.find((supplier) => {
-            const normalizedSupplierName = normalizeSupplierName(supplier.name);
-            return normalizedSupplierName.includes(normalizedName) || normalizedName.includes(normalizedSupplierName);
-          });
+  const allSuppliers = useMemo(() => {
+    const byId = new Map<string, Supplier>();
+    [...suppliers, ...localSuppliers].forEach((supplier) => byId.set(supplier.id, supplier));
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [suppliers, localSuppliers]);
 
-        return {
-          label: name,
-          value: matchedSupplier?.id ?? `pm:${name}`,
-        };
-      })
-      .filter((option, index, allOptions) => allOptions.findIndex((candidate) => candidate.label === option.label) === index);
+  // Authoritative supplier list — NOT limited to suppliers that already have Product Master rows.
+  const supplierOptions = useMemo(
+    () => allSuppliers.map((supplier) => ({ label: supplier.name, value: supplier.id })),
+    [allSuppliers],
+  );
 
-    if (current?.supplier_id && !options.some((option) => option.value === current.supplier_id)) {
-      const currentSupplier = suppliers.find((supplier) => supplier.id === current.supplier_id);
-      if (currentSupplier) {
-        return [{ label: currentSupplier.name, value: currentSupplier.id }, ...options];
-      }
-    }
+  /** Canonical supplier name of the current invoice (the record's name wins over OCR wording). */
+  const activeSupplierName = useMemo(() => {
+    if (!current) return "";
+    return allSuppliers.find((supplier) => supplier.id === current.supplier_id)?.name || current.supplier_name || "";
+  }, [allSuppliers, current?.supplier_id, current?.supplier_name]);
 
-    return options;
-  }, [current?.supplier_id, productMaster, suppliers]);
+  /** Product Master rows belonging strictly to the selected supplier. Empty when no supplier. */
+  const supplierScopedPM = useMemo(
+    () => scopePMToSupplier(productMaster, activeSupplierName),
+    [productMaster, activeSupplierName],
+  );
 
-  // Sort product master: supplier matches first, then everything else
-  const supplierFilteredPM = useMemo(() => {
-    if (!productMaster || !current) return productMaster || [];
-    const supplierName = current.supplier_name || "";
-    if (!supplierName) return productMaster;
-    const normSupplier = normalizeSupplierName(supplierName);
-    return [...productMaster].sort((a, b) => {
-      const aMatch = a.supplier && (() => { const n = normalizeSupplierName(a.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
-      const bMatch = b.supplier && (() => { const n = normalizeSupplierName(b.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
-      return aMatch - bMatch;
-    });
-  }, [productMaster, current?.supplier_name]);
+  /** True when a Product Master entry belongs to the currently selected supplier. */
+  const isEntryForActiveSupplier = useCallback(
+    (entry?: { supplier?: string | null } | null) => {
+      const norm = normalizeSupplierKey(activeSupplierName);
+      if (!norm || !entry?.supplier) return false;
+      return normalizeSupplierKey(entry.supplier) === norm;
+    },
+    [activeSupplierName],
+  );
+
+
+  /** Cross-supplier discovery: an INTERNAL product exists, but not for this supplier. */
+  const findCrossSupplierInternal = useCallback(
+    (line: ScannedLineItem) => {
+      if (!activeSupplierName) return null;
+      const others = (productMaster || []).filter((entry) => !isEntryForActiveSupplier(entry));
+      if (!others.length) return null;
+      const [top] = scoreCandidates(
+        {
+          itemCode: line.scanned_item_code || line.item_code,
+          description: line.scanned_description || line.description,
+        },
+        others,
+        undefined,
+        1,
+      );
+      return top && isSuggestable(top) ? (top.entry as ProductMasterEntry) : null;
+    },
+    [activeSupplierName, productMaster, isEntryForActiveSupplier],
+  );
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -421,15 +445,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     }
   }, []);
 
-  // Resolve PM data for a matched line — uses shared resolver with SKU-first priority
-  const resolvePMData = useCallback((itemCode: string, matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
-    if (!pm) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null as ProductMasterEntry | null };
+  // Resolve PM data for a matched line — uses shared resolver with SKU-first priority.
+  // Strictly scoped: only the selected supplier's entries may supply master data.
+  const resolvePMData = useCallback((itemCode: string, matchedSku: string, rawPm: ProductMasterEntry[] | undefined, supplierName?: string) => {
+    const pm = scopePMToSupplier(rawPm, supplierName);
+    if (!pm.length) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null as ProductMasterEntry | null };
     const entry = resolveProductMatch(
       { itemCode, internalSku: matchedSku },
       pm,
       supplierName,
     );
     if (!entry) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null };
+
     return {
       internal_name: entry.internal_product_name,
       stock_uom: entry.stock_uom || "",
@@ -481,8 +508,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     };
   }, []);
 
-  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
-    if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
+  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], rawPm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
+    // Only the selected supplier's entries may match or supply master data.
+    const pm = scopePMToSupplier(rawPm, supplierName);
+    if (!pm.length) {
+      return lines.map(line => ({
+        ...line,
+        scanned_item_code: line.scanned_item_code ?? line.item_code,
+        scanned_description: line.scanned_description ?? line.description,
+        unmatched: true,
+        matched_sku: "",
+        matched_internal_name: "",
+        matched_stock_uom: "",
+        matched_purchase_uom: "",
+        matched_stock_qty_ratio: 1,
+        product_master_id: null,
+        supplier_entry_id: null,
+        sku_mismatch: false,
+        price_changed: false,
+        pm_unit_price: undefined,
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
+        match_hold_reason: supplierName ? undefined : "Select a supplier first",
+      }));
+    }
+
     return lines.map(line => {
       let workingLine = {
         ...line,
@@ -960,28 +1011,79 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     if (value.startsWith("pm:")) {
       return; // Suppliers must be added manually via the Suppliers tab
     }
-    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+    const selectedSupplier = allSuppliers.find((supplier) => supplier.id === value);
     setInvoices((prev) => {
       const copy = [...prev];
       const newSupplierName = selectedSupplier?.name || copy[targetIdx].supplier_name;
       const mode = getRoundingMode(selectedSupplier ?? { name: newSupplierName });
-      const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
+      const scoped = scopePMToSupplier(productMaster, newSupplierName);
+      const scopedEntryIds = new Set(scoped.map((entry) => (entry as any).supplier_entry_id).filter(Boolean));
+
+      const revalidated = (copy[targetIdx].line_items || []).map((line) => {
         const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
-        return { ...line, total: formatLineTotal(raw, mode) };
+        const withTotal = { ...line, total: formatLineTotal(raw, mode) };
+        if (!withTotal.product_master_id && !withTotal.supplier_entry_id) return withTotal;
+        const stillValid = withTotal.supplier_entry_id
+          ? scopedEntryIds.has(withTotal.supplier_entry_id)
+          : scoped.some((entry) => entry.id === withTotal.product_master_id);
+        if (stillValid) return withTotal;
+        // The link belonged to a different supplier — unlink but keep the immutable scan.
+        return {
+          ...withTotal,
+          item_code: withTotal.scanned_item_code ?? withTotal.item_code,
+          description: withTotal.scanned_description ?? withTotal.description,
+          scanned_item_code: withTotal.scanned_item_code ?? withTotal.item_code,
+          scanned_description: withTotal.scanned_description ?? withTotal.description,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          product_master_id: null,
+          supplier_entry_id: null,
+          pm_unit_price: undefined,
+          master_price: undefined,
+          price_changed: false,
+          sku_mismatch: false,
+          unmatched: true,
+          auto_matched: false,
+          auto_match_score: undefined,
+          suggestions: undefined,
+          suggestion_source: undefined,
+          review_status: "needs_review" as const,
+          match_hold_reason: "Supplier changed — re-match required",
+        };
       });
+
+      // Re-match only the lines that are not currently linked to this supplier.
+      const rematched = revalidated.map((line) =>
+        line.product_master_id ? line : flagLineItemIssues([line], productMaster, newSupplierName)[0],
+      );
+
       copy[targetIdx] = {
         ...copy[targetIdx],
         supplier_id: value,
         supplier_name: newSupplierName,
         review_blocking: (copy[targetIdx].review_blocking || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
         review_warnings: (copy[targetIdx].review_warnings || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
-        line_items: recomputedLines,
+        line_items: rematched,
       };
       return copy;
     });
     const inv = invoices[targetIdx];
     recheckDuplicate(targetIdx, inv?.invoice_number || "", value);
   };
+
+  /** Create a supplier inline and adopt it on the current invoice. */
+  const handleSupplierCreated = async (created: { id: string; name: string; [key: string]: any }) => {
+    setLocalSuppliers((previous) =>
+      previous.some((supplier) => supplier.id === created.id) ? previous : [...previous, created as Supplier],
+    );
+    setSupplierError(false);
+    handleSupplierChange(created.id);
+    await onSuppliersChanged?.();
+  };
+
 
   /**
    * Drop reviewer flags on a line that describe an arithmetic mismatch which no
@@ -1146,6 +1248,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   };
 
   const selectProduct = (i: number, product: ProductMasterEntry) => {
+    // Supplier-facing master data may never come from another supplier's entry.
+    if (!isEntryForActiveSupplier(product)) {
+      toast.error(
+        activeSupplierName
+          ? `${product.internal_product_name || "This product"} has no entry for ${activeSupplierName}. Use "Add this supplier" to create one.`
+          : "Select the invoice supplier first.",
+      );
+      return;
+    }
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1160,7 +1271,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           ? currentLine.suggestions
           : scoreCandidates(
               { itemCode: scannedCode, description: scannedDesc },
-              productMaster || [],
+              scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
               copy[currentIdx].supplier_name,
             ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
       // Directly set all fields from the selected product — no re-resolution
@@ -1234,7 +1345,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       };
       const candidates = scoreCandidates(
         { itemCode: restored.scanned_item_code, description: restored.scanned_description },
-        productMaster || [],
+        scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
         copy[currentIdx].supplier_name,
       );
       const classified = classifyCandidates(candidates);
@@ -1256,12 +1367,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
     const supplierName = inv.supplier_name;
+    // Strict supplier scope — the AI may only ever pick this supplier's entries.
+    const scopedPM = scopePMToSupplier(productMaster, supplierName);
+    if (!scopedPM.length) {
+      toast.error("Select the invoice supplier before AI matching.");
+      return;
+    }
 
     // Shortlist candidates per line, then merge into one candidate pool.
     const pool = new Map<string, ProductMasterEntry>();
     const items = indexes.map((idx) => {
       const l = inv.line_items[idx];
-      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, productMaster, supplierName, FUZZY.AI_SHORTLIST)
+      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
         .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
       return {
         source_index: idx,
@@ -1315,8 +1432,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           if (lineIdx == null || !lines[lineIdx]) return;
           const s = r.suggestion || {};
           const entry =
-            productMaster.find((p) => p.id === s.product_master_id) ||
-            productMaster.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
+            scopedPM.find((p) => p.id === s.product_master_id) ||
+            scopedPM.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
           if (!entry) return;
 
           // Re-score the AI's answer locally against the scanned text. If it can't
@@ -1598,7 +1715,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         if (!pmId && productMaster) {
           const resolved = resolveExactMatch(
             { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
-            productMaster,
+            scopePMToSupplier(productMaster, supplierName),
             supplierName,
           );
           if (resolved) pmId = resolved.id;
@@ -2134,22 +2251,55 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
-              <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
-                <SelectTrigger
-                  aria-invalid={supplierError}
-                  className={supplierError ? "border-destructive focus:ring-destructive" : undefined}
+              <div className="flex items-center gap-1.5">
+                <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
+                  <SelectTrigger
+                    aria-invalid={supplierError}
+                    className={supplierError ? "border-destructive focus:ring-destructive" : undefined}
+                  >
+                    <SelectValue placeholder="Select supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {supplierOptions.map((supplier) => (
+                      <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
+                    ))}
+                    <div className="border-t mt-1 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-full justify-start gap-1 text-xs"
+                        onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }}
+                      >
+                        <Plus className="h-3.5 w-3.5" /><span>Add new supplier</span>
+                      </Button>
+                    </div>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-9 w-9 shrink-0"
+                  title="Add new supplier"
+                  aria-label="Add new supplier"
+                  onClick={() => setSupplierSheetOpen(true)}
                 >
-                  <SelectValue placeholder="Select supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productMasterSupplierOptions.map((supplier) => (
-                    <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               {supplierError && (
                 <p className="text-xs text-destructive mt-1">Supplier is required</p>
               )}
+
+              <SupplierQuickCreateSheet
+                open={supplierSheetOpen}
+                onOpenChange={setSupplierSheetOpen}
+                existingSuppliers={allSuppliers}
+                defaultName={current.supplier_id ? "" : current.supplier_name}
+                onCreated={handleSupplierCreated}
+              />
+
 
               <CorrectionChip
                 corrections={current.review_corrections}
@@ -2476,7 +2626,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
+                            products={supplierScopedPM}
                             searchField="code"
                             placeholder="Code"
                             className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
@@ -2498,7 +2648,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                             updateLine(i, "description", v);
                           }}
                           onSelect={(p) => selectProduct(i, p)}
-                          products={supplierFilteredPM}
+                          products={supplierScopedPM}
                           searchField="name"
                           placeholder="Item name"
                           className="text-xs"
@@ -2546,6 +2696,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                               onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
                               onRefresh={onProductMasterChanged}
                             />
+                            {(() => {
+                              const crossMatch = findCrossSupplierInternal(line);
+                              if (!crossMatch) return null;
+                              return (
+                                <QuickAddProductPopover
+                                  products={(productMaster || []) as any}
+                                  supplierName={activeSupplierName}
+                                  initialMode="existing"
+                                  initialProductId={crossMatch.id}
+                                  triggerLabel={`Existing internal product: ${crossMatch.internal_product_name} — add this supplier`}
+                                  line={{
+                                    item_code: line.scanned_item_code ?? line.item_code,
+                                    description: line.scanned_description ?? line.description,
+                                    unit: line.unit,
+                                    unit_price: line.unit_price,
+                                  }}
+                                  onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
+                                  onRefresh={onProductMasterChanged}
+                                />
+                              );
+                            })()}
                           </div>
                         )}
 
