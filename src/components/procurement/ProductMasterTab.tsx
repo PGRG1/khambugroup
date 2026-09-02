@@ -253,7 +253,7 @@ export default function ProductMasterTab() {
           rows.push(row);
         }
       } else {
-        rows.push({
+        const row: FlatRow = {
           product: p, supplier_entry: null, rowKey: p.id,
           internal_sku: p.internal_sku, external_sku: p.external_sku,
           internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
@@ -267,7 +267,13 @@ export default function ProductMasterTab() {
           creates_stock_movement: p.creates_stock_movement ?? true,
           purchase_yield: p.purchase_yield ?? 100,
           cooking_yield: p.cooking_yield ?? 100,
-        });
+          setup_state: "complete", setup_issues: [], setup_issue_count: 0,
+        };
+        const health = computeSetupHealth({ ...row, supplier_scoped: false });
+        row.setup_state = health.state;
+        row.setup_issues = health.issues;
+        row.setup_issue_count = health.issueCount;
+        rows.push(row);
       }
     }
     return rows;
