@@ -375,6 +375,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   );
 
 
+  /** Cross-supplier discovery: an INTERNAL product exists, but not for this supplier. */
+  const findCrossSupplierInternal = useCallback(
+    (line: ScannedLineItem) => {
+      if (!activeSupplierName) return null;
+      const others = (productMaster || []).filter((entry) => !isEntryForActiveSupplier(entry));
+      if (!others.length) return null;
+      const [top] = scoreCandidates(
+        {
+          itemCode: line.scanned_item_code || line.item_code,
+          description: line.scanned_description || line.description,
+        },
+        others,
+        undefined,
+        1,
+      );
+      return top && isSuggestable(top) ? (top.entry as ProductMasterEntry) : null;
+    },
+    [activeSupplierName, productMaster, isEntryForActiveSupplier],
+  );
+
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -2676,6 +2696,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
                               onRefresh={onProductMasterChanged}
                             />
+                            {(() => {
+                              const crossMatch = findCrossSupplierInternal(line);
+                              if (!crossMatch) return null;
+                              return (
+                                <QuickAddProductPopover
+                                  products={(productMaster || []) as any}
+                                  supplierName={activeSupplierName}
+                                  initialMode="existing"
+                                  initialProductId={crossMatch.id}
+                                  triggerLabel={`Existing internal product: ${crossMatch.internal_product_name} — add this supplier`}
+                                  line={{
+                                    item_code: line.scanned_item_code ?? line.item_code,
+                                    description: line.scanned_description ?? line.description,
+                                    unit: line.unit,
+                                    unit_price: line.unit_price,
+                                  }}
+                                  onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
+                                  onRefresh={onProductMasterChanged}
+                                />
+                              );
+                            })()}
                           </div>
                         )}
 
