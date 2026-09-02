@@ -6,7 +6,7 @@ export interface EvidenceBox {
   height: number;
 }
 
-export type EvidenceField = "supplier_name" | "venue" | "invoice_number" | "invoice_date" | "due_date" | "total_amount" | "item_code" | "description" | "quantity" | "unit" | "unit_price" | "discount" | "total";
+export type EvidenceField = "supplier_name" | "venue" | "invoice_number" | "invoice_date" | "due_date" | "total_amount" | "item_code" | "description" | "quantity" | "unit" | "purchase_unit" | "unit_price" | "discount" | "total";
 
 export interface InvoiceEvidenceMap {
   header: Partial<Record<EvidenceField, EvidenceBox>>;
