@@ -2815,17 +2815,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
 
-                      {/* Purchase UOM - read-only from PM */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
-
-                        <Input
-                          value={line.matched_purchase_uom}
-                          readOnly
-                          tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8"
-                          placeholder="—"
-                        />
-                      </td>
+                       {/* Purchase UOM - read-only from PM; the source evidence is the scanned unit. */}
+                       <td data-evidence-field={`line-${i}-unit`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit`)}>
+                         <Input
+                           value={line.matched_purchase_uom}
+                           readOnly
+                           tabIndex={-1}
+                           className="text-xs bg-muted/50 cursor-default h-8"
+                           placeholder="—"
+                         />
+                       </td>
                       {/* Purchase Qty - editable */}
                       <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
 
@@ -3035,8 +3034,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           })()
                         )}
                       </td>
-                      {/* Discount (% or $) */}
-                      <td style={{ minWidth: 130 }} className="px-1 py-1 align-top">
+                       {/* Discount (% or $) */}
+                       <td data-evidence-field={`line-${i}-discount`} style={{ minWidth: 130 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-discount` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-discount`)}>
                         {(() => {
                           const dMode = normalizeDiscountMode(line.discount_mode);
                           const q = parseFloat(line.quantity) || 0;
@@ -3074,8 +3073,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           );
                         })()}
                       </td>
-                      {/* Invoiced Amount */}
-                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                       {/* Invoiced Amount */}
+                       <td data-evidence-field={`line-${i}-total`} style={{ minWidth: 90 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-total` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-total`)}>
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           return (
