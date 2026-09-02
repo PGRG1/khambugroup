@@ -423,15 +423,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     }
   }, []);
 
-  // Resolve PM data for a matched line — uses shared resolver with SKU-first priority
-  const resolvePMData = useCallback((itemCode: string, matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
-    if (!pm) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null as ProductMasterEntry | null };
+  // Resolve PM data for a matched line — uses shared resolver with SKU-first priority.
+  // Strictly scoped: only the selected supplier's entries may supply master data.
+  const resolvePMData = useCallback((itemCode: string, matchedSku: string, rawPm: ProductMasterEntry[] | undefined, supplierName?: string) => {
+    const pm = scopePMToSupplier(rawPm, supplierName);
+    if (!pm.length) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null as ProductMasterEntry | null };
     const entry = resolveProductMatch(
       { itemCode, internalSku: matchedSku },
       pm,
       supplierName,
     );
     if (!entry) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null };
+
     return {
       internal_name: entry.internal_product_name,
       stock_uom: entry.stock_uom || "",
