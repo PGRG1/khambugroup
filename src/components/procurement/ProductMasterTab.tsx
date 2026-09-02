@@ -92,7 +92,11 @@ interface FlatRow {
   purchase_yield: number;
   cooking_yield: number;
   rowKey: string;
+  setup_state: SetupHealthState;
+  setup_issues: string[];
+  setup_issue_count: number;
 }
+
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
