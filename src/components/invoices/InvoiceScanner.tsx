@@ -854,6 +854,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const raw = rawInvoices[invIdx];
         const supplierName = raw?.supplier_name || "";
         const supplierId = matchSupplier(supplierName);
+        const invoiceEvidence = normalizeInvoiceEvidence(raw?.evidence, preparedFiles.length > 0 ? preparedFiles.length : undefined);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
             const matchedSku = li?.matched_sku || "";
