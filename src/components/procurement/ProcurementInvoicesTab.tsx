@@ -2091,12 +2091,11 @@ function InvoiceTableSection({
 
   const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
     { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-muted-foreground", icon: <Ban className="h-4 w-4" />, tone: "text-muted-foreground" },
     { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-primary", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
-
+    { label: "Total Value", value: `HK$ ${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-muted-foreground", icon: <Ban className="h-4 w-4" />, tone: "text-muted-foreground" },
     { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-warning", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-warning" },
     { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-info", icon: <CopyIcon className="h-4 w-4" />, tone: "text-info" },
-    { label: "Total Value", value: `HK$ ${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
   return (
@@ -2105,12 +2104,12 @@ function InvoiceTableSection({
         <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {kpiCards.map((k) => (
-          <div key={k.label} className="glass-surface rounded-lg border border-border/60 p-3 flex items-start justify-between gap-2">
-            <div className="min-w-0">
+          <div key={k.label} className="glass-surface rounded-lg border border-border/60 p-3 sm:p-4 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
-              <div className="td-num text-xl font-bold mt-1 truncate">{k.value}</div>
+              <div className="td-num text-base sm:text-lg lg:text-xl font-bold mt-1 whitespace-nowrap">{k.value}</div>
               <div className={`text-[10px] mt-0.5 ${k.subTone || "text-muted-foreground"}`}>{k.sub}</div>
             </div>
             <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
