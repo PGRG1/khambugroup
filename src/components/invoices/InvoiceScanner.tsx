@@ -2462,7 +2462,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 fieldAliases={["due_date"]}
               />
             </div>
-            <div data-evidence-field="notes" tabIndex={-1} onMouseEnter={() => setActiveEvidenceField("notes")} onFocus={() => setActiveEvidenceField("notes")} className={cn("rounded-md transition-colors", activeEvidenceField === "notes" && "bg-primary/5 ring-1 ring-primary/50")}><Label className="text-xs">Notes</Label>
+            <div><Label className="text-xs">Notes</Label>
               <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
@@ -2702,7 +2702,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
+                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5 ring-2 ring-primary/60") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
@@ -2720,7 +2720,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
+                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
                           onChange={(v) => {
@@ -2816,7 +2816,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
                       {/* Purchase UOM - read-only from PM */}
-                      <td data-evidence-field={`line-${i}-purchase_unit`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-purchase_unit` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-purchase_unit`)}>
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
 
                         <Input
                           value={line.matched_purchase_uom}
@@ -2827,7 +2827,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         />
                       </td>
                       {/* Purchase Qty - editable */}
-                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
+                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
 
                         <Input
                           type="number"
@@ -2924,7 +2924,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
+                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
 
                         <div className="relative">
                           <Input
