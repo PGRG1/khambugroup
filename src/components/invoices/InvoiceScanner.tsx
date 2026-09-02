@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -348,7 +349,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   // Authoritative supplier list — NOT limited to suppliers that already have Product Master rows.
   const supplierOptions = useMemo(
-    () => allSuppliers.map((supplier) => ({ label: supplier.name, value: supplier.id })),
+    () => allSuppliers.map((supplier) => ({ label: (supplier.name || "").trim(), value: supplier.id })),
     [allSuppliers],
   );
 
@@ -2250,11 +2251,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
           {/* Header fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">
+            <div className="min-w-0">
+              <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Supplier</Label>
                 <CorrectionChip
+                  className=""
                   corrections={current.review_corrections}
                   warnings={current.review_warnings}
                   blocking={current.review_blocking}
@@ -2264,9 +2266,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
                 <SelectTrigger
                   aria-invalid={supplierError}
-                  className={supplierError ? "w-full border-destructive focus:ring-destructive" : "w-full"}
+                  className={cn("w-full min-w-0", supplierError && "border-destructive focus:ring-destructive")}
                 >
-                  <SelectValue placeholder="Select supplier" />
+                  <SelectValue placeholder="Select supplier" className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   {supplierOptions.map((supplier) => (
@@ -2275,11 +2277,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   <div
                     role="button"
                     tabIndex={0}
-                    className="relative flex w-full cursor-pointer select-none items-center gap-1.5 rounded-sm border-t border-border py-1.5 pl-8 pr-2 text-sm text-primary outline-none hover:bg-accent focus:bg-accent"
+                    className="relative flex w-full cursor-pointer select-none items-center rounded-sm border-t border-border py-1.5 pl-8 pr-2 text-sm text-primary outline-none hover:bg-accent focus:bg-accent"
                     onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }}
                     onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSupplierSheetOpen(true); } }}
                   >
-                    <Plus className="h-3.5 w-3.5" /><span>Add new supplier</span>
+                    {/* Plus sits in the Radix checkmark gutter so the label starts at the same x as every option. */}
+                    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                      <Plus className="h-3.5 w-3.5" />
+                    </span>
+                    <span>Add new supplier</span>
                   </div>
                 </SelectContent>
               </Select>
@@ -2295,37 +2301,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 onCreated={handleSupplierCreated}
               />
             </div>
-            <div>
-              <Label className="text-xs">Venue</Label>
+            <div className="min-w-0">
+              <div className="flex h-5 items-center gap-1.5">
+                <Label className="text-xs">Venue</Label>
+                <CorrectionChip
+                  className=""
+                  corrections={current.review_corrections}
+                  warnings={current.review_warnings}
+                  blocking={current.review_blocking}
+                  fieldAliases={["venue"]}
+                />
+              </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full min-w-0"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Assembly">Assembly</SelectItem>
                   <SelectItem value="Caliente">Caliente</SelectItem>
                   <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
-              <CorrectionChip
-                corrections={current.review_corrections}
-                warnings={current.review_warnings}
-                blocking={current.review_blocking}
-                fieldAliases={["venue"]}
-              />
             </div>
-            <div>
-              <Label className="text-xs">Invoice #</Label>
-              <Input value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
-              <CorrectionChip
-                corrections={current.review_corrections}
-                warnings={current.review_warnings}
-                blocking={current.review_blocking}
-                fieldAliases={["invoice_number"]}
-              />
+            <div className="min-w-0">
+              <div className="flex h-5 items-center gap-1.5">
+                <Label className="text-xs">Invoice #</Label>
+                <CorrectionChip
+                  className=""
+                  corrections={current.review_corrections}
+                  warnings={current.review_warnings}
+                  blocking={current.review_blocking}
+                  fieldAliases={["invoice_number"]}
+                />
+              </div>
+              <Input className="w-full min-w-0" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
-            <div>
-              <Label className="text-xs">Status</Label>
+            <div className="min-w-0">
+              <div className="flex h-5 items-center gap-1.5">
+                <Label className="text-xs">Status</Label>
+              </div>
               <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

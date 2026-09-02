@@ -450,7 +450,7 @@ export default function ProductMasterTab() {
         accounting_category: form.accounting_category,
         financial_treatment: form.financial_treatment,
         default_coa_account_id: form.default_coa_account_id || null,
-        unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
+        unit: form.stock_uom, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
         min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
         reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
@@ -521,6 +521,7 @@ export default function ProductMasterTab() {
       const data = {
         ...form,
         default_coa_account_id: form.default_coa_account_id || null,
+        unit: form.stock_uom,
         unit_cost: parseFloat(form.unit_cost) || 0,
         purchase_unit_cost: purchaseUnitCost,
         stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,

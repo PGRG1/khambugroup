@@ -393,11 +393,14 @@ export function CorrectionChip({
   fieldAliases,
   warnings,
   blocking,
+  className = "mt-1",
 }: {
   corrections?: ReviewCorrectionLite[];
   fieldAliases: string[];
   warnings?: string[];
   blocking?: string[];
+  /** Spacing override — pass "" for inline (beside-label) usage. */
+  className?: string;
 }) {
   const matchedCorr = (corrections || []).filter((c) =>
     fieldAliases.some((f) => c.field?.toLowerCase().includes(f))
@@ -416,20 +419,20 @@ export function CorrectionChip({
 
   if (hasBlock) {
     return (
-      <span className={`${chipBase} ${chipVariants.block} mt-1`} title={title || undefined}>
+      <span className={`${chipBase} ${chipVariants.block} ${className}`} title={title || undefined}>
         <XCircle className="h-2.5 w-2.5" /> Blocking
       </span>
     );
   }
   if (hasWarn) {
     return (
-      <span className={`${chipBase} ${chipVariants.warn} mt-1`} title={title || undefined}>
+      <span className={`${chipBase} ${chipVariants.warn} ${className}`} title={title || undefined}>
         <AlertTriangle className="h-2.5 w-2.5" /> Warning
       </span>
     );
   }
   return (
-    <span className={`${chipBase} ${chipVariants.auto} mt-1`} title={title || undefined}>
+    <span className={`${chipBase} ${chipVariants.auto} ${className}`} title={title || undefined}>
       <Sparkles className="h-2.5 w-2.5" /> Auto-corrected
     </span>
   );
