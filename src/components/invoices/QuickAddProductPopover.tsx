@@ -304,15 +304,19 @@ export default function QuickAddProductPopover({
     return true;
   };
 
-  const save = async () => {
+  const save = async (confirmedUomChange = false) => {
     if (!tenantId || saving || !validate()) return;
+    if (mode === "existing" && !confirmedUomChange && requiresStockUomConfirmation(pickedStockUom, stockUom)) {
+      setConfirmUomOpen(true);
+      return;
+    }
     setSaving(true); setErrorText("");
     try {
       const supplier = selectedSupplierName.trim();
       const supplierPayload = {
         supplier, external_sku: externalSku.trim(), supplier_product_name: externalName.trim(),
-        purchase_unit: purchaseUnit.trim(), purchase_unit_cost: parseFloat(purchaseCost) || 0,
-        stock_uom: stockUom.trim(), stock_qty: parseFloat(stockQty) || 1,
+        purchase_unit_cost: parseFloat(purchaseCost) || 0,
+        ...buildSupplierUomPayload({ purchaseUnit, stockUom, stockQty }),
         base_unit_type: baseUnit.trim() || "g", base_unit_qty: parseFloat(baseQty) || 1,
         accounting_category: accountingCategory.trim(), status,
       };
@@ -341,15 +345,26 @@ export default function QuickAddProductPopover({
         productId = (data as any).id;
       } else if (!picked) {
         throw new Error("Select an existing product first.");
-      } else if (!pickedStockUom) {
-        // Internal product has no stock UOM yet — set it once, from this form.
+      } else if (!pickedStockUom || requiresStockUomConfirmation(pickedStockUom, stockUom)) {
+        // Canonical internal Stock UOM is set for the first time, or changed after confirmation.
         const { error } = await supabase
           .from("product_master" as any)
-          .update({ unit: stockUom.trim(), stock_uom: stockUom.trim() } as any)
+          .update(buildProductMasterStockUomUpdate(stockUom) as any)
           .eq("id", productId)
           .eq("tenant_id", tenantId);
         if (error) throw error;
+        if (pickedStockUom) {
+          // Keep every supplier row on the canonical UOM; purchase_unit / stock_qty untouched.
+          const { error: syncError } = await supabase
+            .from("product_suppliers" as any)
+            .update(buildSupplierStockUomSync(stockUom) as any)
+            .eq("product_master_id", productId)
+            .eq("tenant_id", tenantId);
+          if (syncError) throw syncError;
+        }
+        setPickedStockUom(stockUom.trim());
       }
+
 
       let entry: any = duplicateEntry;
       if (entry) {
