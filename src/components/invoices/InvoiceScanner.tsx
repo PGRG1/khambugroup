@@ -62,7 +62,7 @@ import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
-import { normalizeInvoiceEvidence, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 
 /**
  * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
@@ -317,12 +317,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const activateEvidence = useCallback((field: string) => {
     if (field) setActiveEvidenceField(field);
   }, []);
-  const evidenceFieldHandlers = useCallback((field: string) => ({
-    onPointerDown: () => activateEvidence(field),
-    onClick: () => activateEvidence(field),
-    onMouseEnter: () => activateEvidence(field),
-    onFocus: () => activateEvidence(field),
-  }), [activateEvidence]);
+  const evidenceFieldHandlers = useCallback(
+    (field: string) => getEvidenceFieldHandlers(field, activateEvidence),
+    [activateEvidence],
+  );
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [supplierError, setSupplierError] = useState(false);

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  getEvidenceFieldHandlers,
   getEvidenceLabel,
   getEvidencePage,
   normalizeEvidenceBox,
@@ -60,5 +61,33 @@ describe("invoice evidence", () => {
     const activeKey = "line-1-total";
     expect(resolveEvidenceBox(evidence, activeKey)).toEqual(evidence.lines[1].total);
     expect(resolveEvidenceBox(evidence, "line-0-total")).not.toEqual(resolveEvidenceBox(evidence, activeKey));
+  });
+});
+
+describe("evidence field handlers", () => {
+  it("activates on click, pointer down, and focus but never on hover", () => {
+    const setActive = vi.fn();
+    const handlers = getEvidenceFieldHandlers("line-3-description", setActive);
+
+    expect("onMouseEnter" in handlers).toBe(false);
+    expect(handlers.onClick).toBeDefined();
+    expect(handlers.onPointerDown).toBeDefined();
+    expect(handlers.onFocus).toBeDefined();
+
+    handlers.onClick();
+    expect(setActive).toHaveBeenCalledWith("line-3-description");
+    handlers.onPointerDown();
+    expect(setActive).toHaveBeenCalledTimes(2);
+    handlers.onFocus();
+    expect(setActive).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not include an onMouseEnter property at all", () => {
+    const handlers = getEvidenceFieldHandlers("supplier_name", vi.fn());
+    const keys = Object.keys(handlers);
+    expect(keys).toContain("onClick");
+    expect(keys).toContain("onPointerDown");
+    expect(keys).toContain("onFocus");
+    expect(keys).not.toContain("onMouseEnter");
   });
 });
