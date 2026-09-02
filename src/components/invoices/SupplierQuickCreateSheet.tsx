@@ -239,7 +239,31 @@ export default function SupplierQuickCreateSheet({
             </Alert>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {field("Supplier code", "code", { className: "font-mono" })}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs">Supplier code</Label>
+                {!codeTouched.current && form.code && (
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Suggested</span>
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  value={form.code}
+                  onChange={(event) => update("code", event.target.value)}
+                  className="h-9 pr-8 font-mono text-sm"
+                  placeholder="e.g. SUP-001"
+                />
+                <button
+                  type="button"
+                  title="Regenerate suggestion"
+                  aria-label="Regenerate supplier code suggestion"
+                  onClick={regenerateCode}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
             {field("Account number", "account_number", { className: "font-mono" })}
             {field("Contact person", "contact_person")}
             {field("Phone", "phone")}
