@@ -2004,20 +2004,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       const field = message.split(":")[0]?.trim().toLowerCase() || "header";
       targets.push({ scope: "header", field });
     });
-    current.line_items.forEach((line, lineIdx) => {
-      if ((line.review_blocking?.length || 0) > 0 || (line.review_warnings?.length || 0) > 0 || line.unmatched || line.price_changed) {
-        targets.push({ scope: "line", field: line.price_changed ? "unit_price" : "description", lineIdx });
-      }
-    });
-    return targets;
-  }, [current]);
+      current.line_items.forEach((line, lineIdx) => {
+       if ((line.review_blocking?.length || 0) > 0 || (line.review_warnings?.length || 0) > 0 || line.unmatched || line.price_changed) {
+         targets.push({ scope: "line", field: line.price_changed ? `line-${lineIdx}-unit_price` : `line-${lineIdx}-description`, lineIdx });
+       }
+     });
+     return targets;
+   }, [current]);
 
-  const goToNextIssue = () => {
-    if (!reviewIssueTargets.length) return;
-    const target = reviewIssueTargets[nextIssueIndex % reviewIssueTargets.length];
-    setNextIssueIndex((index) => (index + 1) % reviewIssueTargets.length);
-    if (target.scope === "line" && target.lineIdx !== undefined) {
-      setActiveEvidenceField(target.field);
+   const goToNextIssue = () => {
+     if (!reviewIssueTargets.length) return;
+     const target = reviewIssueTargets[nextIssueIndex % reviewIssueTargets.length];
+     setNextIssueIndex((index) => (index + 1) % reviewIssueTargets.length);
+     if (target.scope === "line" && target.lineIdx !== undefined) {
+       activateEvidence(target.field);
       goToLine(target.lineIdx);
       return;
     }
