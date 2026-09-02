@@ -416,27 +416,28 @@ ${pmLines}`;
          }
          return out;
        };
-       if (!value || typeof value !== "object") return undefined;
-       return {
-         header: record(value.header, evidenceHeaders),
-         lines: Array.isArray(value.lines) ? value.lines.map((line: any) => record(line, evidenceLines)) : [],
-       };
-     };
-     invoicesArray = undefined as any;
-     console.log(
-      "Agent 1 extraction complete. Invoices:",
-      Array.isArray(extractedData?.invoices) ? extractedData.invoices.length : 1
-    );
+        if (!value || typeof value !== "object") return undefined;
+        return {
+          header: record(value.header, evidenceHeaders),
+          lines: Array.isArray(value.lines) ? value.lines.map((line: any) => record(line, evidenceLines)) : [],
+        };
+      };
+      console.log(
+       "Agent 1 extraction complete. Invoices:",
+       Array.isArray(extractedData?.invoices) ? extractedData.invoices.length : 1
+     );
 
-    // Normalize: support both old single-invoice format and new multi-invoice format
-    let invoicesArray;
-    if (Array.isArray(extractedData.invoices)) {
-      invoicesArray = extractedData.invoices;
-    } else if (extractedData.supplier_name || extractedData.invoice_number) {
-      invoicesArray = [extractedData];
-    } else {
-      invoicesArray = [extractedData];
-    }
+     // Normalize: support both old single-invoice format and new multi-invoice format.
+     let invoicesArray: any[];
+     if (Array.isArray(extractedData.invoices)) {
+       invoicesArray = extractedData.invoices;
+     } else if (extractedData.supplier_name || extractedData.invoice_number) {
+       invoicesArray = [extractedData];
+     } else {
+       invoicesArray = [extractedData];
+     }
+     // Keep evidence UI metadata separate from accounting fields and validate every box.
+     invoicesArray.forEach((inv: any) => { inv.evidence = normalizeEvidence(inv.evidence); });
 
     // Post-process: force-translate any remaining Chinese characters in unit/pack_size fields
     const chineseToEnglish: Record<string, string> = {
