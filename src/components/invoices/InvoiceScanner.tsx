@@ -62,6 +62,7 @@ import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
+import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 
 /**
@@ -327,6 +328,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
+  const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
 
   // Prior-purchase counts per linked product, used to gate the history trigger.
   const linkedProductIds = useMemo(
@@ -3018,7 +3020,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                       onClick={() => handleUpdateMaster(i)}
                                       className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
                                     >
-                                      {updatingMasterIdx === i ? "Updating…" : "Update master"}
+                                      {updatingMasterIdx === i ? "Updating…" : "Update master price"}
                                     </button>
                                   )}
                                 </div>
