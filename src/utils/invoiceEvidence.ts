@@ -94,3 +94,15 @@ export function getEvidenceLabel(activeKey: string | null | undefined): string {
 export function getEvidencePage(box: EvidenceBox | null | undefined): number | null {
   return box?.page ?? null;
 }
+
+export function getEvidenceFieldHandlers(
+  field: string,
+  setActive: (field: string) => void,
+): { onPointerDown: () => void; onClick: () => void; onFocus: () => void } {
+  const activate = () => setActive(field);
+  return {
+    onPointerDown: activate,
+    onClick: activate,
+    onFocus: activate,
+  };
+}
