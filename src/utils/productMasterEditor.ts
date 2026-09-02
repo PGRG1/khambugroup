@@ -39,6 +39,7 @@ export function productMasterEditorForm(product: ProductMasterItem, supplier: Pr
   return {
     internal_sku: product.internal_sku || "",
     internal_product_name: product.internal_product_name || "",
+    unit_cost: String(product.unit_cost ?? 0),
     level1_category: product.level1_category || "",
     level2_category: product.level2_category || "",
     level3_category: product.level3_category || "",
@@ -101,6 +102,7 @@ export function buildProductMasterEditorPayload(form: ProductMasterEditorForm) {
       notes: form.notes.trim() || null,
       unit: form.stock_uom.trim(),
       stock_uom: form.stock_uom.trim(),
+      unit_cost: Number(form.unit_cost) || 0,
       base_unit_type: form.base_unit_type.trim(),
       base_unit_qty: baseQty,
       min_stock_qty: nullableNumber(form.min_stock_qty),

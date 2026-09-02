@@ -32,7 +32,7 @@ interface Props {
 }
 
 const emptyForm: ProductMasterEditorForm = {
-  internal_sku: "", internal_product_name: "", level1_category: "", level2_category: "", level3_category: "",
+  internal_sku: "", internal_product_name: "", unit_cost: "0", level1_category: "", level2_category: "", level3_category: "",
   accounting_category: "", financial_treatment: "", default_coa_account_id: "", status: "Active", notes: "",
   stock_uom: "", base_unit_type: "", base_unit_qty: "1", min_stock_qty: "", reorder_qty: "", creates_stock_movement: true,
   purchase_yield: "100", cooking_yield: "100", supplier_product_name: "", external_sku: "", purchase_unit: "",
