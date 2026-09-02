@@ -111,7 +111,7 @@ export default function SourceDocumentViewer({ files, activeEvidenceField }: Sou
                 </div>
               </div>
 
-              <div className="custom-scroll-hide max-h-[68vh] overflow-auto bg-background/40 p-3">
+              <div className="bani-visible-scrollbar max-h-[68vh] overflow-auto bg-background/40 p-3">
                 {isPdf ? (
                   <iframe src={activeUrl} title={activeFile.name} className="h-[62vh] min-h-[420px] w-full rounded-md border border-border bg-background" />
                 ) : (
