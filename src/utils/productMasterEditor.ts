@@ -110,6 +110,7 @@ export function buildProductMasterEditorPayload(form: ProductMasterEditorForm) {
       creates_stock_movement: form.creates_stock_movement,
       purchase_yield: Number(form.purchase_yield),
       cooking_yield: Number(form.cooking_yield),
+      cost_per_stock_unit: stockQty > 0 ? purchaseCost / stockQty : 0,
       cost_per_base_unit: baseQty > 0 ? purchaseCost / baseQty : 0,
     },
     supplier: {
