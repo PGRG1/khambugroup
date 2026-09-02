@@ -57,6 +57,12 @@ interface Props {
   onCreated: (entry: QuickAddEntry) => void;
   onRefresh?: () => void | Promise<void>;
   buttonLabel?: string;
+  /** Preselect the "add supplier to existing product" path (cross-supplier discovery). */
+  initialMode?: "existing" | "new";
+  /** Product Master id (internal product) to preselect in the existing-product path. */
+  initialProductId?: string;
+  /** Optional trigger override; falls back to the default Quick add button. */
+  triggerLabel?: string;
 }
 
 const productSchema = z.object({
@@ -106,6 +112,9 @@ export default function QuickAddProductPopover({
   onCreated,
   onRefresh,
   buttonLabel = "Quick add",
+  initialMode,
+  initialProductId,
+  triggerLabel,
 }: Props) {
   const { tenantId } = useActiveTenant();
   const { items: coaAccounts } = useChartOfAccounts();
@@ -218,7 +227,12 @@ export default function QuickAddProductPopover({
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next) { resetForm(); void loadSuppliers(); }
+    if (next) {
+      resetForm();
+      if (initialMode) setMode(initialMode);
+      if (initialProductId) setPickedId(initialProductId);
+      void loadSuppliers();
+    }
   };
 
   const updateSupplierForm = (key: keyof typeof emptySupplier, value: string) => {
