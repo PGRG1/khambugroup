@@ -271,7 +271,13 @@ export default function ProductMasterTab() {
             cooking_yield: p.cooking_yield ?? 100,
             setup_state: "complete", setup_issues: [], setup_issue_count: 0,
           };
-          const health = computeSetupHealth({ ...row, supplier_scoped: true });
+          const health = computeSetupHealth({
+            ...row,
+            supplier_scoped: true,
+            creates_stock_movement: p.creates_stock_movement,
+            purchase_yield: p.purchase_yield,
+            cooking_yield: p.cooking_yield,
+          });
           row.setup_state = health.state;
           row.setup_issues = health.issues;
           row.setup_issue_count = health.issueCount;
@@ -294,7 +300,13 @@ export default function ProductMasterTab() {
           cooking_yield: p.cooking_yield ?? 100,
           setup_state: "complete", setup_issues: [], setup_issue_count: 0,
         };
-        const health = computeSetupHealth({ ...row, supplier_scoped: false });
+        const health = computeSetupHealth({
+          ...row,
+          supplier_scoped: false,
+          creates_stock_movement: p.creates_stock_movement,
+          purchase_yield: p.purchase_yield,
+          cooking_yield: p.cooking_yield,
+        });
         row.setup_state = health.state;
         row.setup_issues = health.issues;
         row.setup_issue_count = health.issueCount;
