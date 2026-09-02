@@ -3534,6 +3534,40 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           />
         );
       })()}
+
+      {editingMasterLineIdx !== null && current?.line_items[editingMasterLineIdx]?.product_master_id && (
+        <MasterItemEditSheet
+          open
+          productId={current.line_items[editingMasterLineIdx].product_master_id || null}
+          supplierEntryId={current.line_items[editingMasterLineIdx].supplier_entry_id}
+          supplierName={current.supplier_name}
+          onOpenChange={(open) => { if (!open) setEditingMasterLineIdx(null); }}
+          onSaved={async ({ product, supplier }) => {
+            const idx = editingMasterLineIdx;
+            setInvoices((prev) => {
+              const copy = [...prev];
+              const invoice = copy[currentIdx];
+              if (!invoice) return prev;
+              const lines = [...invoice.line_items];
+              const line = lines[idx];
+              if (!line) return prev;
+              lines[idx] = {
+                ...line,
+                matched_sku: product.internal_sku,
+                matched_internal_name: product.internal_product_name,
+                matched_stock_uom: supplier?.stock_uom || product.stock_uom || product.unit || "",
+                matched_purchase_uom: supplier?.purchase_unit || line.matched_purchase_uom,
+                matched_stock_qty_ratio: supplier?.stock_qty ?? line.matched_stock_qty_ratio,
+                master_price: supplier?.purchase_unit_cost ?? line.master_price,
+                pm_unit_price: supplier?.purchase_unit_cost ?? line.pm_unit_price,
+              };
+              copy[currentIdx] = { ...invoice, line_items: lines };
+              return copy;
+            });
+            await onProductMasterChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 };
