@@ -317,12 +317,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const activateEvidence = useCallback((field: string) => {
     if (field) setActiveEvidenceField(field);
   }, []);
-  const evidenceFieldHandlers = useCallback((field: string) => ({
-    onPointerDown: () => activateEvidence(field),
-    onClick: () => activateEvidence(field),
-    onMouseEnter: () => activateEvidence(field),
-    onFocus: () => activateEvidence(field),
-  }), [activateEvidence]);
+  const evidenceFieldHandlers = useCallback(
+    (field: string) => getEvidenceFieldHandlers(field, activateEvidence),
+    [activateEvidence],
+  );
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [supplierError, setSupplierError] = useState(false);
