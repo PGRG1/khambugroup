@@ -62,7 +62,7 @@ import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
 import { History } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
-import { normalizeInvoiceEvidence, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { normalizeInvoiceEvidence, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 
 /**
  * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
@@ -159,7 +159,7 @@ interface ScannedLineItem {
     purchase_unit_cost?: number;
     level1_category?: string;
   };
-  evidence?: Partial<Record<string, { page: number; x: number; y: number; width: number; height: number }>>;
+  evidence?: Partial<Record<string, EvidenceBox>>;
 }
 
 interface ReviewCorrection {
@@ -185,6 +185,7 @@ interface ScannedInvoice {
   invoice_discount_mode?: DiscountMode;
   invoice_discount_rate?: string;
   line_items: ScannedLineItem[];
+  evidence?: InvoiceEvidenceMap;
   saved?: boolean;
   sourceFiles?: File[];
   ai_total?: number;
@@ -2217,7 +2218,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       {current && !scanning && (
         <div className="space-y-4">
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
-            <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} />
+            <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
             <div className="bani-visible-scrollbar min-w-0 space-y-4 lg:max-h-[calc(100dvh-10rem)] lg:min-h-0 lg:overflow-y-auto lg:pr-2">
           {/* Navigation bar */}
           {totalInvoices > 1 && (
