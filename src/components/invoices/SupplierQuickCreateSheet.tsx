@@ -115,16 +115,44 @@ export default function SupplierQuickCreateSheet({
   const [form, setForm] = useState({ ...emptySupplier });
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState("");
+  /** Once the user edits the code manually, never overwrite it with a suggestion. */
+  const codeTouched = useRef(false);
+  const suggestAttempt = useRef(0);
+
+  const suggestedCode = useMemo(
+    () => suggestSupplierCode(form.name, existingSuppliers, suggestAttempt.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.name, existingSuppliers],
+  );
 
   useEffect(() => {
     if (open) {
-      setForm({ ...emptySupplier, name: (defaultName || "").trim() });
+      codeTouched.current = false;
+      suggestAttempt.current = 0;
+      const name = (defaultName || "").trim();
+      setForm({ ...emptySupplier, name, code: name ? suggestSupplierCode(name, existingSuppliers) : "" });
       setErrorText("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultName]);
 
-  const update = (key: keyof typeof emptySupplier, value: string) =>
+  // Keep the code suggestion in sync with the name until the user edits it.
+  useEffect(() => {
+    if (!open || codeTouched.current || !form.name.trim()) return;
+    setForm((previous) => (previous.code === suggestedCode ? previous : { ...previous, code: suggestedCode }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedCode, open]);
+
+  const regenerateCode = () => {
+    codeTouched.current = false;
+    suggestAttempt.current += 1;
+    setForm((previous) => ({ ...previous, code: suggestSupplierCode(previous.name, existingSuppliers, suggestAttempt.current) }));
+  };
+
+  const update = (key: keyof typeof emptySupplier, value: string) => {
+    if (key === "code") codeTouched.current = true;
     setForm((previous) => ({ ...previous, [key]: value }));
+  };
 
   const duplicate = existingSuppliers.find(
     (supplier) => normalizeSupplierKey(supplier.name) === normalizeSupplierKey(form.name) && form.name.trim(),
