@@ -2476,7 +2476,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
 
-          <div className="overflow-x-auto w-full -mx-2">
+          <div className="bani-visible-scrollbar w-full min-w-0 overflow-x-scroll pb-2">
 
             <div className="flex justify-end pb-1">
               <button
