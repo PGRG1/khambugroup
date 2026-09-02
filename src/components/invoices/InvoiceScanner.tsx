@@ -16,6 +16,8 @@ import {
 import InvoiceCamera from "./InvoiceCamera";
 import ProductAutocomplete from "./ProductAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
+import { computeAcceptedAmount, amountsEqual } from "@/utils/invoiceAcceptedAmount";
+import { isReturnedKegLine, getMatchIdentity, resolveReturnedKegEntry } from "@/utils/returnedKegs";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -385,11 +387,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (!activeSupplierName) return null;
       const others = (productMaster || []).filter((entry) => !isEntryForActiveSupplier(entry));
       if (!others.length) return null;
+      if (isReturnedKegLine(line)) return null;
       const [top] = scoreCandidates(
-        {
-          itemCode: line.scanned_item_code || line.item_code,
-          description: line.scanned_description || line.description,
-        },
+        getMatchIdentity(line),
         others,
         undefined,
         1,
@@ -544,10 +544,33 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         scanned_item_code: line.scanned_item_code ?? line.item_code,
         scanned_description: line.scanned_description ?? line.description,
       };
-      const matchInput = {
-        itemCode: workingLine.item_code,
-        description: workingLine.description,
-      };
+      const matchInput = getMatchIdentity(workingLine);
+
+      // Returned/empty keg deposit lines may only bind to their dedicated
+      // empty-deposit product — never to the filled, stock-bearing keg.
+      if (isReturnedKegLine(workingLine)) {
+        const kegEntry = resolveReturnedKegEntry(workingLine, pm as any[]);
+        if (kegEntry) return linkEntryToLine(workingLine, kegEntry as ProductMasterEntry);
+        return {
+          ...workingLine,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          product_master_id: null,
+          supplier_entry_id: null,
+          sku_mismatch: false,
+          unmatched: true,
+          price_changed: false,
+          pm_unit_price: undefined,
+          suggestions: undefined,
+          suggestion_source: undefined,
+          auto_matched: false,
+          review_status: "needs_review" as const,
+          match_hold_reason: "Returned keg — dedicated empty-deposit product required",
+        };
+      }
 
       // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
       // new/ambiguous/needs review, do not let the local fuzzy resolver silently
@@ -2528,14 +2551,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   const hFixedRow = current.invoice_discount || "0";
                   const recalc = recalcAllDiscounts(current.line_items, hModeRow, hRateRow, hFixedRow, currentMode);
                   const rowAmounts = current.line_items.map((l, i) => {
-                    const q = parseFloat(l.quantity) || 0;
-                    const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                     const invoiced = parseFloat(recalc.perLine[i].total) || 0;
-                    const accPrice = parseFloat(l.accepted_price || "");
-                    const invPrice = parseFloat(l.unit_price) || 0;
-                    const grossInv = invPrice * q;
-                    const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
-                    const accepted = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
+                    const accepted = computeAcceptedAmount({
+                      quantity: l.quantity,
+                      unitPrice: l.unit_price,
+                      invoicedTotal: invoiced,
+                      acceptedQty: l.accepted_qty,
+                      acceptedPrice: l.accepted_price,
+                    });
                     return { invoiced, accepted };
                   });
                   return current.line_items.map((line, i) => {
@@ -3207,25 +3230,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               const invRaw: number[] = [];
               const accRaw: number[] = [];
               lines.forEach((l, i) => {
-                const q = parseFloat(l.quantity) || 0;
-                const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(recalc.perLine[i].total) || 0;
                 invRaw.push(invoiced);
-                 const accPrice = parseFloat(l.accepted_price || "");
-                 const invPrice = parseFloat(l.unit_price) || 0;
-                 // Mirror the per-row calculation: scale the invoiced amount by the
-                 // accepted price/qty ratio. Zero-priced lines (free deal units)
-                 // contribute nothing, even if an accepted price was auto-filled.
-                 const grossInv = invPrice * q;
-                 const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
-                 const accLine = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
-                 accRaw.push(accLine);
+                // Shared signed helper — mirrors the per-row calculation exactly.
+                accRaw.push(computeAcceptedAmount({
+                  quantity: l.quantity,
+                  unitPrice: l.unit_price,
+                  invoicedTotal: invoiced,
+                  acceptedQty: l.accepted_qty,
+                  acceptedPrice: l.accepted_price,
+                }));
               });
               // Apply per-supplier rounding rule so subtotals match the Suppliers & Vendors logic.
               const invSub = aggregateTotal(invRaw, currentMode);
               const accSub = aggregateTotal(accRaw, currentMode);
               const disputed = invSub - accSub;
-              const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
+              const accCls = amountsEqual(accSub, invSub) ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
               return (
                 <>
                   <div>
@@ -3236,7 +3256,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     <span className="text-muted-foreground">Accepted subtotal: </span>
                     <span className={`font-mono font-medium ${accCls}`}>{accSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  {Math.abs(disputed) > 0.001 && (
+                  {!amountsEqual(invSub, accSub) && (
                     <div>
                       <span className="text-muted-foreground">Disputed: </span>
                       <span className="font-mono font-medium text-red-400">

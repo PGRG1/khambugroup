@@ -202,15 +202,15 @@ export function recalcAllDiscounts<T extends DiscountLineInput>(
       toNum(l.discount),
     ),
   );
-  const lineNets = lineGross.map((g, i) => Math.max(0, round2(g - lineDiscounts[i])));
+  // Signed nets: credits/refunds (negative lines) must reduce the net subtotal
+  // rather than being clamped to zero.
+  const lineNets = lineGross.map((g, i) => round2(g - lineDiscounts[i]));
 
   const subtotalAfterLine = round2(lineNets.reduce((s, v) => s + v, 0));
-  const headerAmt = calcHeaderDiscount(
-    subtotalAfterLine,
-    headerMode,
-    toNum(headerRate),
-    toNum(headerFixed),
-  );
+  // Never derive a discount from a zero/negative invoice base.
+  const headerAmt = subtotalAfterLine > 0
+    ? calcHeaderDiscount(subtotalAfterLine, headerMode, toNum(headerRate), toNum(headerFixed))
+    : 0;
   const shares = distributeHeaderDiscount(lineNets, headerAmt);
 
   const perLine: DiscountLineOutput[] = lines.map((l, i) => {
