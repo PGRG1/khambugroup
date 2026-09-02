@@ -84,6 +84,10 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
           "venue": "Assembly or Caliente - infer from delivery address or customer name",
           "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
           "notes": "any special notes, payment terms, or remarks (in English)",
+          "evidence": {
+            "header": { "supplier_name": { "page": 1, "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.04 } },
+            "lines": [{ "description": { "page": 1, "x": 0.1, "y": 0.4, "width": 0.3, "height": 0.03 } }]
+          },
       "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
