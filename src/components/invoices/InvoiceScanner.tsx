@@ -914,6 +914,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           invoice_discount_mode: "fixed",
           invoice_discount_rate: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
+          evidence: invoiceEvidence,
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
           review_warnings: ir?.warnings,
