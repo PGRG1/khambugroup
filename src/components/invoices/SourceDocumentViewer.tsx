@@ -111,11 +111,11 @@ export default function SourceDocumentViewer({ files, activeEvidenceField }: Sou
                 </div>
               </div>
 
-              <div className="custom-scroll-hide max-h-[68vh] overflow-auto bg-background/40 p-3">
+              <div className="bani-visible-scrollbar max-h-[68vh] overflow-auto bg-background/40 p-3">
                 {isPdf ? (
                   <iframe src={activeUrl} title={activeFile.name} className="h-[62vh] min-h-[420px] w-full rounded-md border border-border bg-background" />
                 ) : (
-                  <div className="flex min-h-[260px] justify-center overflow-auto">
+                  <div className="flex min-h-[260px] w-full justify-center">
                     <img
                       src={activeUrl}
                       alt={`Source invoice page ${pageIndex + 1}`}
@@ -126,7 +126,7 @@ export default function SourceDocumentViewer({ files, activeEvidenceField }: Sou
                 )}
               </div>
 
-              <div className="flex gap-1.5 overflow-x-auto border-t border-border/70 p-2">
+              <div className="bani-visible-scrollbar flex gap-1.5 overflow-x-auto border-t border-border/70 p-2 pb-2.5">
                 {files.map((file, index) => (
                   <Button
                     key={`${file.name}-${index}`}

@@ -2193,7 +2193,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         <div className="space-y-4">
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} />
-            <div className="min-w-0 space-y-4 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-1">
+            <div className="bani-visible-scrollbar min-w-0 space-y-4 lg:max-h-[calc(100dvh-10rem)] lg:min-h-0 lg:overflow-y-auto lg:pr-2">
           {/* Navigation bar */}
           {totalInvoices > 1 && (
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
@@ -2476,7 +2476,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
 
-          <div className="overflow-x-auto w-full -mx-2">
+          <div className="bani-visible-scrollbar w-full min-w-0 overflow-x-scroll pb-2">
 
             <div className="flex justify-end pb-1">
               <button
