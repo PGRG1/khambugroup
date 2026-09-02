@@ -384,12 +384,46 @@ ${pmLines}`;
       );
     }
 
-    // NOTE: The standalone verification pass was removed because three sequential
-    // vision-LLM calls (extract + verify + review) exceeded the edge-function
-    // wall-clock limit, causing the function to be killed before responding
-    // (the client saw a non-2xx FunctionsHttpError). Agent 2 below does
-    // image-based verification AND correction in a single tool-call pass.
-    console.log(
+     // NOTE: The standalone verification pass was removed because three sequential
+     // vision-LLM calls (extract + verify + review) exceeded the edge-function
+     // wall-clock limit, causing the function to be killed before responding
+     // (the client saw a non-2xx FunctionsHttpError). Agent 2 below does
+     // image-based verification AND correction in a single tool-call pass.
+     const evidenceHeaders = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "total_amount"]);
+     const evidenceLines = new Set(["item_code", "description", "quantity", "unit", "unit_price", "discount", "total"]);
+     const normalizeEvidence = (value: any) => {
+       const normalizeBox = (box: any) => {
+         if (!box || typeof box !== "object") return null;
+         const values = [box.page, box.x, box.y, box.width, box.height];
+         if (values.some((v) => typeof v !== "number" || !Number.isFinite(v))) return null;
+         const page = Math.round(box.page);
+         if (page < 1 || box.width <= 0 || box.height <= 0) return null;
+         const x = Math.max(0, Math.min(1, box.x));
+         const y = Math.max(0, Math.min(1, box.y));
+         const right = Math.max(0, Math.min(1, box.x + box.width));
+         const bottom = Math.max(0, Math.min(1, box.y + box.height));
+         if (right <= x || bottom <= y) return null;
+         return { page, x, y, width: right - x, height: bottom - y };
+       };
+       const record = (raw: any, allowed: Set<string>) => {
+         const out: Record<string, any> = {};
+         if (!raw || typeof raw !== "object") return out;
+         for (const [key, box] of Object.entries(raw)) {
+           if (allowed.has(key)) {
+             const normalized = normalizeBox(box);
+             if (normalized) out[key] = normalized;
+           }
+         }
+         return out;
+       };
+       if (!value || typeof value !== "object") return undefined;
+       return {
+         header: record(value.header, evidenceHeaders),
+         lines: Array.isArray(value.lines) ? value.lines.map((line: any) => record(line, evidenceLines)) : [],
+       };
+     };
+     invoicesArray = undefined as any;
+     console.log(
       "Agent 1 extraction complete. Invoices:",
       Array.isArray(extractedData?.invoices) ? extractedData.invoices.length : 1
     );
