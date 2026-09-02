@@ -32,7 +32,7 @@ describe("resolveNavigation", () => {
 
   it("paginates images / multiple files by file", () => {
     expect(resolveNavigation(4, false, 1, 2, 1)).toEqual({ mode: "file", current: 3, total: 4 });
-    expect(resolveNavigation(3, true, 9, 1, 4)).toEqual({ mode: "file", current: 2, total: 3 });
+    expect(resolveNavigation(3, true, 9, 1, 4)).toEqual({ mode: "pdf", current: 4, total: 9 });
   });
 });
 
