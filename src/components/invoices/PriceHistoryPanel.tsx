@@ -50,16 +50,26 @@ const HISTORY_LIMIT = 6;
 export interface SupplierInsightAvailability {
   historyCount: number;
   otherSupplierCount: number;
+  cheaperCount: number;
 }
 
-/** One lightweight query sizes every linked row trigger in the scanner. */
+interface CurrentInsightLine {
+  unitPrice: number;
+  stockQty: number;
+  purchaseUnit: string;
+  stockUom: string;
+}
+
+/** One batched query sizes every linked row trigger in the scanner. */
 export function useSupplierInsightAvailability(
   tenantId: string | null | undefined,
   supplierName: string | null | undefined,
   productMasterIds: string[],
+  currentLines: Record<string, CurrentInsightLine> = {},
 ) {
   const [availability, setAvailability] = useState<Record<string, SupplierInsightAvailability>>({});
   const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
+  const currentKey = useMemo(() => JSON.stringify(currentLines), [currentLines]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,27 +79,35 @@ export function useSupplierInsightAvailability(
       return;
     }
     (async () => {
-      const { data } = await (supabase.from("product_suppliers" as any) as any)
-        .select("product_master_id, supplier")
-        .eq("tenant_id", tenantId)
-        .in("product_master_id", ids);
+      const [entriesRes, linesRes, suppliersRes] = await Promise.all([
+        (supabase.from("product_suppliers" as any) as any).select("id, product_master_id, supplier, purchase_unit, purchase_unit_cost, stock_uom, stock_qty").eq("tenant_id", tenantId).in("product_master_id", ids),
+        (supabase.from("invoice_line_items" as any) as any).select("product_master_id, accepted_price, unit_price, accepted_qty, quantity, is_free_unit_line, invoices!inner(supplier_id, invoice_date, invoice_number)").eq("tenant_id", tenantId).in("product_master_id", ids),
+        (supabase.from("suppliers" as any) as any).select("id, name").eq("tenant_id", tenantId),
+      ]);
       if (cancelled) return;
-      const currentKey = supplierName.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-      const next: Record<string, SupplierInsightAvailability> = {};
-      ids.forEach((id) => { next[id] = { historyCount: 0, otherSupplierCount: 0 }; });
-      for (const row of (data || []) as any[]) {
-        const item = next[row.product_master_id] || { historyCount: 0, otherSupplierCount: 0 };
-        const supplierKey = String(row.supplier || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
-        if (supplierKey === currentKey) item.historyCount += 1;
-        else if (supplierKey) item.otherSupplierCount += 1;
-        next[row.product_master_id] = item;
+      const supplierNames = new Map<string, string>((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+      const entries = (entriesRes.data || []).map((entry: any): SupplierInsightEntry => ({ id: entry.id, productMasterId: entry.product_master_id, supplierName: entry.supplier || "", purchaseUnit: entry.purchase_unit || "—", purchasePrice: Number(entry.purchase_unit_cost), stockUom: entry.stock_uom || "", stockQty: Number(entry.stock_qty) }));
+      const purchasesByProduct = new Map<string, SupplierPurchase[]>();
+      for (const line of (linesRes.data || []) as any[]) {
+        const purchases = purchasesByProduct.get(line.product_master_id) || [];
+        purchases.push({ supplierName: supplierNames.get(line.invoices?.supplier_id) || "", price: Number(line.accepted_price ?? line.unit_price), date: line.invoices?.invoice_date || "", invoiceNumber: line.invoices?.invoice_number || "", isFree: !!line.is_free_unit_line, quantity: Number(line.accepted_qty ?? line.quantity) });
+        purchasesByProduct.set(line.product_master_id, purchases);
       }
-      // A product supplier entry means comparison is available; history is
-      // resolved lazily when the overlay opens, so keep this trigger cheap.
+      const currentSupplierId = [...supplierNames.entries()].find(([, name]) => normalizeSupplierName(name) === normalizeSupplierName(supplierName))?.[0];
+      const next: Record<string, SupplierInsightAvailability> = {};
+      for (const id of ids) {
+        const productEntries = entries.filter((entry) => entry.productMasterId === id);
+        const productLines = (linesRes.data || []).filter((line: any) => line.product_master_id === id);
+        const otherSupplierCount = productEntries.filter((entry) => normalizeSupplierName(entry.supplierName) !== normalizeSupplierName(supplierName)).length;
+        const historyCount = productLines.filter((line: any) => currentSupplierId && line.invoices?.supplier_id === currentSupplierId).length;
+        const line = currentLines[id];
+        const result = line ? buildSupplierInsights({ entries: productEntries, purchases: purchasesByProduct.get(id) || [], currentSupplierName: supplierName, currentPurchasePrice: line.unitPrice, currentStockQty: line.stockQty, currentPurchaseUnit: line.purchaseUnit, canonicalStockUom: line.stockUom }) : null;
+        next[id] = { historyCount, otherSupplierCount, cheaperCount: result?.cheaperCount || 0 };
+      }
       setAvailability(next);
     })();
     return () => { cancelled = true; };
-  }, [tenantId, supplierName, key]);
+  }, [tenantId, supplierName, key, currentKey]);
 
   return availability;
 }
