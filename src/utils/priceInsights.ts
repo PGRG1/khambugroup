@@ -78,13 +78,14 @@ const daysBetween = (from: string, to: string) => {
 export function buildSupplierInsights(input: BuildSupplierInsightsInput): SupplierInsightsResult {
   const currentSupplierKey = normalizeSupplierName(input.currentSupplierName);
   const currentEntry = input.entries.find((entry) => normalizeSupplierName(entry.supplierName) === currentSupplierKey);
+  const currentProductMasterId = currentEntry?.productMasterId;
   const currentNormalizedCost = currentEntry && isComparableSupplierEntry(currentEntry, input.canonicalStockUom)
     ? normalizedSupplierCost(input.currentPurchasePrice, input.currentStockQty)
     : null;
   const asOf = input.asOf || new Date().toISOString().slice(0, 10);
 
   const rows = input.entries
-    .filter((entry) => normalizeSupplierName(entry.supplierName) !== currentSupplierKey)
+    .filter((entry) => (!currentProductMasterId || entry.productMasterId === currentProductMasterId) && normalizeSupplierName(entry.supplierName) !== currentSupplierKey)
     .map((entry): SupplierInsightRow => {
       const purchase = input.purchases
         .filter((candidate) =>

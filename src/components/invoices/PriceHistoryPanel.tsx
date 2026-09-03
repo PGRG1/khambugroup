@@ -655,7 +655,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="min-w-0">
             <DialogTitle className="text-[15px] font-medium truncate">Price insights · {itemName || "Item"}</DialogTitle>
