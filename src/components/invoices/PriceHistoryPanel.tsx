@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { PRICE_VARIANCE_EPSILON, pctVaries } from "@/utils/priceVariance";
+import { buildSupplierInsights, normalizeSupplierName, type SupplierInsightEntry, type SupplierPurchase, type SupplierInsightsResult } from "@/utils/priceInsights";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -23,20 +24,20 @@ interface PriceHistoryPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: string | null | undefined;
-  /** Product master id of the linked line (history is scoped to it + the supplier). */
+  /** Product master id is the only bridge used across supplier entries. */
   productMasterId: string | null | undefined;
-  /** Supplier of the invoice being scanned — history never crosses suppliers. */
   supplierId: string | null | undefined;
   supplierName: string;
   venue: string;
   itemName: string;
   masterPrice: number | null | undefined;
-  /** Live, unsaved values from the invoice form. */
   currentInvoiceNumber: string;
   currentInvoiceDate: string;
   currentQty: number;
   currentUnitCost: number;
-  /** Reuses the existing inline "Update master" mutation. */
+  currentPurchaseUnit: string;
+  currentStockQty: number;
+  currentStockUom: string;
   onUpdateMaster: () => void;
 }
 
@@ -46,10 +47,72 @@ interface PriceHistoryPanelProps {
 
 const HISTORY_LIMIT = 6;
 
-/**
- * How many prior purchases exist for each product master id under this
- * supplier. Used to decide whether a row shows the history trigger at all.
- */
+export interface SupplierInsightAvailability {
+  historyCount: number;
+  otherSupplierCount: number;
+  cheaperCount: number;
+}
+
+interface CurrentInsightLine {
+  unitPrice: number;
+  stockQty: number;
+  purchaseUnit: string;
+  stockUom: string;
+}
+
+/** One batched query sizes every linked row trigger in the scanner. */
+export function useSupplierInsightAvailability(
+  tenantId: string | null | undefined,
+  supplierName: string | null | undefined,
+  productMasterIds: string[],
+  currentLines: Record<string, CurrentInsightLine> = {},
+) {
+  const [availability, setAvailability] = useState<Record<string, SupplierInsightAvailability>>({});
+  const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
+  const currentKey = useMemo(() => JSON.stringify(currentLines), [currentLines]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = key ? key.split(",") : [];
+    if (!tenantId || !ids.length || !supplierName) {
+      setAvailability({});
+      return;
+    }
+    (async () => {
+      const [entriesRes, linesRes, suppliersRes] = await Promise.all([
+        (supabase.from("product_suppliers" as any) as any).select("id, product_master_id, supplier, purchase_unit, purchase_unit_cost, stock_uom, stock_qty").eq("tenant_id", tenantId).in("product_master_id", ids),
+        (supabase.from("invoice_line_items" as any) as any).select("product_master_id, accepted_price, unit_price, accepted_qty, quantity, is_free_unit_line, invoices!inner(supplier_id, invoice_date, invoice_number)").eq("tenant_id", tenantId).in("product_master_id", ids),
+        (supabase.from("suppliers" as any) as any).select("id, name").eq("tenant_id", tenantId),
+      ]);
+      if (cancelled) return;
+      const supplierNames = new Map<string, string>((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+      const entries = (entriesRes.data || []).map((entry: any): SupplierInsightEntry => ({ id: entry.id, productMasterId: entry.product_master_id, supplierName: entry.supplier || "", purchaseUnit: entry.purchase_unit || "—", purchasePrice: Number(entry.purchase_unit_cost), stockUom: entry.stock_uom || "", stockQty: Number(entry.stock_qty) }));
+      const purchasesByProduct = new Map<string, SupplierPurchase[]>();
+      for (const line of (linesRes.data || []) as any[]) {
+        const purchases = purchasesByProduct.get(line.product_master_id) || [];
+        purchases.push({ supplierName: supplierNames.get(line.invoices?.supplier_id) || "", price: Number(line.accepted_price ?? line.unit_price), date: line.invoices?.invoice_date || "", invoiceNumber: line.invoices?.invoice_number || "", isFree: !!line.is_free_unit_line, quantity: Number(line.accepted_qty ?? line.quantity) });
+        purchasesByProduct.set(line.product_master_id, purchases);
+      }
+      const currentSupplierId = [...supplierNames.entries()].find(([, name]) => normalizeSupplierName(name) === normalizeSupplierName(supplierName))?.[0];
+      const next: Record<string, SupplierInsightAvailability> = {};
+      for (const id of ids) {
+        const productEntries = entries.filter((entry) => entry.productMasterId === id);
+        const productLines = (linesRes.data || []).filter((line: any) => line.product_master_id === id);
+        const otherSupplierCount = productEntries.filter((entry) => normalizeSupplierName(entry.supplierName) !== normalizeSupplierName(supplierName)).length;
+        const historyCount = productLines.filter((line: any) => currentSupplierId && line.invoices?.supplier_id === currentSupplierId).length;
+        const line = currentLines[id];
+        const result = line ? buildSupplierInsights({ entries: productEntries, purchases: purchasesByProduct.get(id) || [], currentSupplierName: supplierName, currentPurchasePrice: line.unitPrice, currentStockQty: line.stockQty, currentPurchaseUnit: line.purchaseUnit, canonicalStockUom: line.stockUom }) : null;
+        next[id] = { historyCount, otherSupplierCount, cheaperCount: result?.cheaperCount || 0 };
+      }
+      setAvailability(next);
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, supplierName, key, currentKey]);
+
+  return availability;
+}
+
+/** Backward-compatible count hook for other invoice consumers. */
 export function useSupplierPurchaseCounts(
   tenantId: string | null | undefined,
   supplierId: string | null | undefined,
@@ -57,37 +120,107 @@ export function useSupplierPurchaseCounts(
 ) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
-
   useEffect(() => {
     let cancelled = false;
     const ids = key ? key.split(",") : [];
-    if (!tenantId || !supplierId || ids.length === 0) {
-      setCounts({});
-      return;
-    }
+    if (!tenantId || !supplierId || !ids.length) { setCounts({}); return; }
     (async () => {
-      // Count-only queries — never fetch rows just to size them.
-      const results = await Promise.all(
-        ids.map(async (pid) => {
-          const { count, error } = await (supabase.from("invoice_line_items" as any) as any)
-            .select("id, invoices!inner(supplier_id)", { count: "exact", head: true })
-            .eq("tenant_id", tenantId)
-            .eq("product_master_id", pid)
-            .eq("invoices.supplier_id", supplierId);
-          return [pid, error ? 0 : count || 0] as const;
-        }),
-      );
+      const { data } = await (supabase.from("invoice_line_items" as any) as any)
+        .select("product_master_id, invoices!inner(supplier_id)")
+        .eq("tenant_id", tenantId).eq("invoices.supplier_id", supplierId).in("product_master_id", ids);
       if (cancelled) return;
       const next: Record<string, number> = {};
-      for (const [pid, n] of results) next[pid] = n;
+      for (const row of (data || []) as any[]) next[row.product_master_id] = (next[row.product_master_id] || 0) + 1;
       setCounts(next);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [tenantId, supplierId, key]);
-
   return counts;
+}
+
+function useSupplierInsights(
+  open: boolean,
+  tenantId: string | null | undefined,
+  productMasterId: string | null | undefined,
+  supplierName: string,
+  currentUnitCost: number,
+  currentStockQty: number,
+  currentPurchaseUnit: string,
+  currentStockUom: string,
+): { result: SupplierInsightsResult | null; loading: boolean; error: string | null } {
+  const [result, setResult] = useState<SupplierInsightsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cache = useRef<Map<string, SupplierInsightsResult>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !tenantId || !productMasterId) return;
+    const cacheKey = `${tenantId}|${productMasterId}|${supplierName}`;
+    const cached = cache.current.get(cacheKey);
+    if (cached) { setResult(cached); return; }
+    setLoading(true);
+    setError(null);
+    (async () => {
+      const [entriesRes, linesRes, suppliersRes] = await Promise.all([
+        (supabase.from("product_suppliers" as any) as any)
+          .select("id, product_master_id, supplier, purchase_unit, purchase_unit_cost, stock_uom, stock_qty")
+          .eq("tenant_id", tenantId).eq("product_master_id", productMasterId),
+        (supabase.from("invoice_line_items" as any) as any)
+          .select("accepted_price, unit_price, accepted_qty, quantity, is_free_unit_line, invoices!inner(supplier_id, invoice_date, invoice_number)")
+          .eq("tenant_id", tenantId).eq("product_master_id", productMasterId)
+          .order("invoices(invoice_date)", { ascending: false }),
+        (supabase.from("suppliers" as any) as any).select("id, name").eq("tenant_id", tenantId),
+      ]);
+      if (cancelled) return;
+      if (entriesRes.error || linesRes.error) {
+        setError(entriesRes.error?.message || linesRes.error?.message || "Unable to load supplier prices");
+        setLoading(false);
+        return;
+      }
+      const supplierNames = new Map<string, string>((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+      const entries: SupplierInsightEntry[] = (entriesRes.data || []).map((entry: any) => ({
+        id: entry.id,
+        productMasterId: entry.product_master_id,
+        supplierName: entry.supplier || "",
+        purchaseUnit: entry.purchase_unit || "—",
+        purchasePrice: Number(entry.purchase_unit_cost),
+        stockUom: entry.stock_uom || "",
+        stockQty: Number(entry.stock_qty),
+      }));
+      const purchases: SupplierPurchase[] = (linesRes.data || []).map((line: any) => {
+        const hasAcceptedPrice = line.accepted_price !== null && line.accepted_price !== undefined && String(line.accepted_price).trim() !== "";
+        const hasAcceptedQty = line.accepted_qty !== null && line.accepted_qty !== undefined && String(line.accepted_qty).trim() !== "";
+        const acceptedPrice = Number(line.accepted_price);
+        const scannedPrice = Number(line.unit_price);
+        const acceptedQty = Number(line.accepted_qty);
+        const scannedQty = Number(line.quantity);
+        return {
+          supplierName: supplierNames.get(line.invoices?.supplier_id) || "",
+          price: hasAcceptedPrice && Number.isFinite(acceptedPrice) ? acceptedPrice : scannedPrice,
+          date: line.invoices?.invoice_date || "",
+          invoiceNumber: line.invoices?.invoice_number || "",
+          isFree: !!line.is_free_unit_line,
+          quantity: hasAcceptedQty && Number.isFinite(acceptedQty) ? acceptedQty : scannedQty,
+        };
+      });
+      const built = buildSupplierInsights({
+        entries,
+        purchases,
+        currentSupplierName: supplierName,
+        currentPurchasePrice: currentUnitCost,
+        currentStockQty,
+        currentPurchaseUnit,
+        canonicalStockUom: currentStockUom,
+      });
+      cache.current.set(cacheKey, built);
+      setResult(built);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, tenantId, productMasterId, supplierName, currentUnitCost, currentStockQty, currentPurchaseUnit, currentStockUom]);
+
+  return { result, loading, error };
 }
 
 function useSupplierPriceHistory(
@@ -155,7 +288,7 @@ function useSupplierPriceHistory(
 /* ------------------------------------------------------------------ */
 
 const money = (v: number | null | undefined) =>
-  v == null || !Number.isFinite(v) ? "—" : `$${v.toFixed(2)}`;
+  v == null || !Number.isFinite(v) ? "—" : `HK$ ${v.toFixed(2)}`;
 
 const shortDate = (d: string) => {
   if (!d) return "—";
@@ -434,17 +567,40 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
     currentInvoiceDate,
     currentQty,
     currentUnitCost,
+    currentPurchaseUnit,
+    currentStockQty,
+    currentStockUom,
     onUpdateMaster,
   } = props;
 
   const { rows, loading } = useSupplierPriceHistory(open, tenantId, supplierId, productMasterId);
+  const supplierInsights = useSupplierInsights(
+    open,
+    tenantId,
+    productMasterId,
+    supplierName,
+    currentUnitCost,
+    currentStockQty,
+    currentPurchaseUnit,
+    currentStockUom,
+  );
   const [drillInvoiceId, setDrillInvoiceId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"history" | "suppliers">("history");
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
 
   useEffect(() => {
-    if (!open) setDrillInvoiceId(null);
+    if (!open) {
+      setDrillInvoiceId(null);
+      setTab("history");
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (open && !loading && rows.length === 0 && (supplierInsights.result?.rows.length || 0) > 0) {
+      setTab("suppliers");
+    }
+  }, [open, loading, rows.length, supplierInsights.result?.rows.length]);
 
   const currentRow: PriceHistoryRow = useMemo(
     () => ({
@@ -490,19 +646,34 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
     </div>
   );
 
+  const insight = supplierInsights.result;
+  const currentComparable = insight?.currentNormalizedCost != null;
+  const currentSourceRow = {
+    supplierName,
+    purchasePrice: currentUnitCost,
+    purchaseUnit: currentPurchaseUnit || "—",
+    normalizedCost: insight?.currentNormalizedCost ?? null,
+    stockUom: currentStockUom || "—",
+    percentDifference: 0,
+    latestPurchaseDate: currentInvoiceDate || null,
+    source: "This invoice" as const,
+    stale: false,
+    comparable: currentComparable,
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[720px] p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="min-w-0">
-            <div className="text-[15px] font-medium truncate">{itemName || "Item"}</div>
-            <div className="text-[13px] text-muted-foreground truncate">
-              {supplierName || "—"} · {venue || "—"} · last {rows.length} purchases
-            </div>
+            <DialogTitle className="text-[15px] font-medium truncate">Price insights · {itemName || "Item"}</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[13px] text-muted-foreground truncate">
+              {supplierName || "—"} · {venue || "—"} · {rows.length} prior purchases
+            </DialogDescription>
           </div>
           <button
             type="button"
-            aria-label="Close price history"
+            aria-label="Close price insights"
             onClick={() => onOpenChange(false)}
             className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
@@ -510,104 +681,67 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
           </button>
         </div>
 
+        <div className="flex border-y border-border/60 px-5" role="tablist" aria-label="Price insight views">
+          <button type="button" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")} className={`border-b-2 px-1 py-2.5 mr-5 text-xs font-medium ${tab === "history" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}>
+            Price history
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "suppliers"} onClick={() => setTab("suppliers")} className={`border-b-2 px-1 py-2.5 text-xs font-medium ${tab === "suppliers" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}>
+            Other suppliers{insight && insight.cheaperCount > 0 ? ` · ${insight.cheaperCount} cheaper` : ""}
+          </button>
+        </div>
+
         <div ref={scrollRef} className="px-5 pb-4 max-h-[70vh] overflow-y-auto">
           {drillInvoiceId ? (
             <InvoiceDrillIn invoiceId={drillInvoiceId} productMasterId={productMasterId} onBack={backToHistory} />
-          ) : loading ? (
-            <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading price history…
-            </div>
-          ) : (
-            <>
-              {/* Stat strip */}
-              <div className="flex gap-2">
-                {stat("Master price", masterNum != null ? money(masterNum) : "—")}
-                {stat("This invoice", money(currentUnitCost), variesFromMaster)}
-                {stat("6-mo average", avg6 != null ? money(avg6) : "—")}
-                {stat(
-                  "Change vs last",
-                  changeVsLast == null ? "—" : `${changeVsLast > 0 ? "+" : ""}${changeVsLast.toFixed(1)}%`,
-                  changeVaries,
-                )}
-              </div>
-
-              {/* Trend */}
-              <div className="mt-3">
-                <TrendChart points={chartPoints} masterPrice={masterNum} />
-              </div>
-
-              {/* History table */}
-              <table className="w-full mt-2 text-[13px]">
-                <thead>
-                  <tr className="text-xs text-muted-foreground">
-                    <th className="text-left font-normal py-1.5 border-b border-border/60 w-[88px]">Date</th>
-                    <th className="text-left font-normal py-1.5 border-b border-border/60">Invoice</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[62px]">Δ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((r, i) => {
-                    const older = tableRows[i + 1];
-                    let delta: number | null = null;
-                    if (older && older.unitCost > 0) delta = ((r.unitCost - older.unitCost) / older.unitCost) * 100;
-                    const deltaWarn =
-                      delta != null && delta > 0 && pctVaries(older!.unitCost, r.unitCost);
-                    const showDelta = delta != null && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
-                    return (
-                      <tr
-                        key={r.lineId}
-                        className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}
-                      >
-                        <td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td>
-                        <td className="py-2.5">
-                          {r.isCurrent ? (
-                            <span className="text-warning font-mono">
-                              {r.invoiceNumber}
-                              <span className="text-[11px] font-sans"> · current</span>
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openDrill(r.invoiceId)}
-                              className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono"
-                            >
-                              {r.invoiceNumber}
-                              <ChevronRight className="h-[13px] w-[13px]" />
-                            </button>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-right font-mono">{r.qty}</td>
-                        <td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td>
-                        <td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>
-                          {showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* Action footer */}
-              {variesFromMaster && (
-                <div className="flex gap-2 border-t border-border/60 mt-3 pt-3">
-                  <Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>
-                    Keep master at {money(masterNum)}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => {
-                      onUpdateMaster();
-                      onOpenChange(false);
-                    }}
-                  >
-                    Update master to {money(currentUnitCost)}
-                  </Button>
-                </div>
+          ) : tab === "suppliers" ? (
+            <div className="pt-4" role="tabpanel" aria-label="Other suppliers">
+              {supplierInsights.loading ? (
+                <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading supplier prices…</div>
+              ) : supplierInsights.error ? (
+                <div className="py-8 text-sm text-destructive">{supplierInsights.error}</div>
+              ) : !insight || insight.rows.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No other supplier entries for this product.</div>
+              ) : (
+                <>
+                  <div className="mb-3 text-xs text-muted-foreground">
+                    Current invoice: <span className="font-medium text-foreground">{money(currentUnitCost)} / {currentPurchaseUnit || "—"}</span>
+                    {insight.currentNormalizedCost == null && <span className="ml-2 text-warning">Not comparable — conversion missing</span>}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px] text-xs">
+                      <thead><tr className="border-b border-border/60 text-muted-foreground">
+                        <th className="py-2 text-left font-normal">Supplier</th><th className="py-2 text-right font-normal">Purchase</th><th className="py-2 text-right font-normal">Per {currentStockUom || "stock UOM"}</th><th className="py-2 text-right font-normal">vs current</th><th className="py-2 text-right font-normal">Latest</th><th className="py-2 text-left font-normal">Source</th>
+                      </tr></thead>
+                      <tbody>
+                        <tr className="border-b border-border/40 bg-warning/10"><td className="py-2.5 font-medium">{currentSourceRow.supplierName} <span className="text-[10px] text-warning">current</span></td><td className="py-2.5 text-right font-mono">{money(currentSourceRow.purchasePrice)} / {currentSourceRow.purchaseUnit}</td><td className="py-2.5 text-right font-mono">{money(currentSourceRow.normalizedCost)}</td><td className="py-2.5 text-right text-muted-foreground">—</td><td className="py-2.5 text-right font-mono">{shortDate(currentSourceRow.latestPurchaseDate || "")}</td><td className="py-2.5">This invoice</td></tr>
+                        {insight.rows.map((row) => (
+                          <tr key={row.entryId} className="border-b border-border/40 last:border-0">
+                            <td className="py-2.5 font-medium">{row.supplierName}{row.stale && <span className="ml-1 text-warning" title="Latest purchase is over 90 days old">stale</span>}</td>
+                            <td className="py-2.5 text-right font-mono">{money(row.purchasePrice)} / {row.purchaseUnit}</td>
+                            <td className={`py-2.5 text-right font-mono ${row.normalizedCost != null && row.percentDifference != null && row.percentDifference < 0 && currentComparable ? "text-primary" : ""}`}>{row.normalizedCost == null ? <span className="text-warning whitespace-nowrap">Not comparable</span> : money(row.normalizedCost)}</td>
+                            <td className={`py-2.5 text-right font-mono ${row.percentDifference != null && row.percentDifference < 0 ? "text-primary" : "text-muted-foreground"}`}>{row.percentDifference == null ? "—" : `${row.percentDifference > 0 ? "+" : ""}${row.percentDifference.toFixed(1)}%`}</td>
+                            <td className="py-2.5 text-right font-mono">{shortDate(row.latestPurchaseDate || "")}</td><td className="py-2.5 text-muted-foreground">{row.source}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {insight.rows.some((row) => !row.comparable) && <div className="mt-3 text-xs text-warning">Some suppliers cannot be compared — conversion missing.</div>}
+                  <div className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">Compared only when UOM conversion is available.</div>
+                </>
               )}
-            </>
+            </div>
+          ) : loading ? (
+            <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading price history…</div>
+          ) : (
+            <div role="tabpanel" aria-label="Price history">
+              <div className="flex gap-2 pt-4">
+                {stat("Master price", masterNum != null ? money(masterNum) : "—")}{stat("This invoice", money(currentUnitCost), variesFromMaster)}{stat("6-mo average", avg6 != null ? money(avg6) : "—")}{stat("Change vs last", changeVsLast == null ? "—" : `${changeVsLast > 0 ? "+" : ""}${changeVsLast.toFixed(1)}%`, changeVaries)}
+              </div>
+              <div className="mt-3"><TrendChart points={chartPoints} masterPrice={masterNum} /></div>
+              <table className="w-full mt-2 text-[13px]"><thead><tr className="text-xs text-muted-foreground"><th className="text-left font-normal py-1.5 border-b border-border/60 w-[88px]">Date</th><th className="text-left font-normal py-1.5 border-b border-border/60">Invoice</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[62px]">Δ</th></tr></thead><tbody>{tableRows.map((r, i) => { const older = tableRows[i + 1]; const delta = older && older.unitCost > 0 ? ((r.unitCost - older.unitCost) / older.unitCost) * 100 : null; const deltaWarn = delta != null && delta > 0 && older ? pctVaries(older.unitCost, r.unitCost) : false; const showDelta = delta != null && older != null && Math.abs(r.unitCost - older.unitCost) > PRICE_VARIANCE_EPSILON; return <tr key={r.lineId} className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}><td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td><td className="py-2.5">{r.isCurrent ? <span className="text-warning font-mono">{r.invoiceNumber}<span className="text-[11px] font-sans"> · current</span></span> : <button type="button" onClick={() => openDrill(r.invoiceId)} className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono">{r.invoiceNumber}<ChevronRight className="h-[13px] w-[13px]" /></button>}</td><td className="py-2.5 text-right font-mono">{r.qty}</td><td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td><td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>{showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}</td></tr>; })}</tbody></table>
+              {variesFromMaster && <div className="flex gap-2 border-t border-border/60 mt-3 pt-3"><Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>Keep master at {money(masterNum)}</Button><Button variant="secondary" className="flex-1" onClick={() => { onUpdateMaster(); onOpenChange(false); }}>Update master to {money(currentUnitCost)}</Button></div>}
+            </div>
           )}
         </div>
       </DialogContent>

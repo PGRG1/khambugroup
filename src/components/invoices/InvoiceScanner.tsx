@@ -57,9 +57,9 @@ import {
 import { Info, Sparkles } from "lucide-react";
 import QuickAddProductPopover from "./QuickAddProductPopover";
 import QuickAddBulkDialog from "./QuickAddBulkDialog";
-import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
+import PriceHistoryPanel, { useSupplierInsightAvailability } from "./PriceHistoryPanel";
 import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
-import { History } from "lucide-react";
+import { TrendingDown } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
@@ -330,12 +330,28 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
   const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
 
-  // Prior-purchase counts per linked product, used to gate the history trigger.
+  // Batched availability and cheaper counts for the single Price insights action on each linked line.
+  const currentInsightLines = useMemo(() => {
+    const next: Record<string, { unitPrice: number; stockQty: number; purchaseUnit: string; stockUom: string }> = {};
+    for (const line of current?.line_items || []) {
+      if (!line.product_master_id) continue;
+      const hasAcceptedPrice = line.accepted_price !== null && line.accepted_price !== undefined && line.accepted_price.trim() !== "";
+      const acceptedPrice = parseFloat(line.accepted_price || "");
+      const scannedPrice = parseFloat(line.unit_price || "");
+      next[line.product_master_id] = {
+        unitPrice: hasAcceptedPrice && Number.isFinite(acceptedPrice) ? acceptedPrice : (Number.isFinite(scannedPrice) ? scannedPrice : 0),
+        stockQty: Number(line.matched_stock_qty_ratio),
+        purchaseUnit: line.matched_purchase_uom || line.unit || "",
+        stockUom: line.matched_stock_uom || "",
+      };
+    }
+    return next;
+  }, [current?.line_items]);
   const linkedProductIds = useMemo(
-    () => (current?.line_items || []).map((l) => l.product_master_id).filter(Boolean) as string[],
-    [current?.line_items],
+    () => Object.keys(currentInsightLines),
+    [currentInsightLines],
   );
-  const purchaseCounts = useSupplierPurchaseCounts(tenantId, current?.supplier_id, linkedProductIds);
+  const insightAvailability = useSupplierInsightAvailability(tenantId, current?.supplier_name, linkedProductIds, currentInsightLines);
 
 
   // Load deals when the active supplier changes
@@ -2948,14 +2964,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
-                          {!!line.product_master_id && (purchaseCounts[line.product_master_id] || 0) >= 2 && (
+                          {!!line.product_master_id && (insightAvailability[line.product_master_id]?.historyCount > 0 || insightAvailability[line.product_master_id]?.otherSupplierCount > 0) && (
                             <button
                               type="button"
-                              aria-label="View price history"
+                              aria-label="Price insights"
                               onClick={() => setHistoryLineIdx(i)}
-                              className="mt-0.5 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                              className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                             >
-                              <History className="h-4 w-4" />
+                              <TrendingDown className="h-3.5 w-3.5" />
+                              Price insights
+                              {insightAvailability[line.product_master_id]?.cheaperCount > 0 && ` · ${insightAvailability[line.product_master_id].cheaperCount} cheaper`}
                             </button>
                           )}
                         </div>
@@ -3537,6 +3555,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             currentInvoiceDate={current.invoice_date}
             currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
             currentUnitCost={hPrice}
+            currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
+            currentStockQty={Number(hLine.matched_stock_qty_ratio)}
+            currentStockUom={hLine.matched_stock_uom}
             onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
           />
         );
