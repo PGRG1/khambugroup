@@ -2948,14 +2948,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
-                          {!!line.product_master_id && (purchaseCounts[line.product_master_id] || 0) >= 2 && (
+                          {!!line.product_master_id && (insightAvailability[line.product_master_id]?.historyCount > 0 || insightAvailability[line.product_master_id]?.otherSupplierCount > 0) && (
                             <button
                               type="button"
-                              aria-label="View price history"
+                              aria-label="Price insights"
                               onClick={() => setHistoryLineIdx(i)}
-                              className="mt-0.5 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                              className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                             >
-                              <History className="h-4 w-4" />
+                              <TrendingDown className="h-3.5 w-3.5" />
+                              Price insights
+                              {insightAvailability[line.product_master_id]?.otherSupplierCount > 0 && " · compare"}
                             </button>
                           )}
                         </div>
