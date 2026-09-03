@@ -189,17 +189,19 @@ function useSupplierInsights(
         stockQty: Number(entry.stock_qty),
       }));
       const purchases: SupplierPurchase[] = (linesRes.data || []).map((line: any) => {
+        const hasAcceptedPrice = line.accepted_price !== null && line.accepted_price !== undefined && String(line.accepted_price).trim() !== "";
+        const hasAcceptedQty = line.accepted_qty !== null && line.accepted_qty !== undefined && String(line.accepted_qty).trim() !== "";
         const acceptedPrice = Number(line.accepted_price);
         const scannedPrice = Number(line.unit_price);
         const acceptedQty = Number(line.accepted_qty);
         const scannedQty = Number(line.quantity);
         return {
           supplierName: supplierNames.get(line.invoices?.supplier_id) || "",
-          price: Number.isFinite(acceptedPrice) ? acceptedPrice : scannedPrice,
+          price: hasAcceptedPrice && Number.isFinite(acceptedPrice) ? acceptedPrice : scannedPrice,
           date: line.invoices?.invoice_date || "",
           invoiceNumber: line.invoices?.invoice_number || "",
           isFree: !!line.is_free_unit_line,
-          quantity: Number.isFinite(acceptedQty) ? acceptedQty : scannedQty,
+          quantity: hasAcceptedQty && Number.isFinite(acceptedQty) ? acceptedQty : scannedQty,
         };
       });
       const built = buildSupplierInsights({

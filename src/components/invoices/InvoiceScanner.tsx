@@ -335,10 +335,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const next: Record<string, { unitPrice: number; stockQty: number; purchaseUnit: string; stockUom: string }> = {};
     for (const line of current?.line_items || []) {
       if (!line.product_master_id) continue;
+      const hasAcceptedPrice = line.accepted_price !== null && line.accepted_price !== undefined && line.accepted_price.trim() !== "";
       const acceptedPrice = parseFloat(line.accepted_price || "");
       const scannedPrice = parseFloat(line.unit_price || "");
       next[line.product_master_id] = {
-        unitPrice: Number.isFinite(acceptedPrice) ? acceptedPrice : (Number.isFinite(scannedPrice) ? scannedPrice : 0),
+        unitPrice: hasAcceptedPrice && Number.isFinite(acceptedPrice) ? acceptedPrice : (Number.isFinite(scannedPrice) ? scannedPrice : 0),
         stockQty: Number(line.matched_stock_qty_ratio),
         purchaseUnit: line.matched_purchase_uom || line.unit || "",
         stockUom: line.matched_stock_uom || "",
