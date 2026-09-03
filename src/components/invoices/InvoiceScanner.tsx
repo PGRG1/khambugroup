@@ -2957,7 +2957,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             >
                               <TrendingDown className="h-3.5 w-3.5" />
                               Price insights
-                              {insightAvailability[line.product_master_id]?.otherSupplierCount > 0 && " · compare"}
                             </button>
                           )}
                         </div>
