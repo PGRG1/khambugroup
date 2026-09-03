@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { PRICE_VARIANCE_EPSILON, pctVaries } from "@/utils/priceVariance";
+import { buildSupplierInsights, type SupplierInsightEntry, type SupplierPurchase, type SupplierInsightsResult } from "@/utils/priceInsights";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
