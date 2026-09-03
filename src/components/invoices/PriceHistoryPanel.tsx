@@ -541,11 +541,25 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
     currentInvoiceDate,
     currentQty,
     currentUnitCost,
+    currentPurchaseUnit,
+    currentStockQty,
+    currentStockUom,
     onUpdateMaster,
   } = props;
 
   const { rows, loading } = useSupplierPriceHistory(open, tenantId, supplierId, productMasterId);
+  const supplierInsights = useSupplierInsights(
+    open,
+    tenantId,
+    productMasterId,
+    supplierName,
+    currentUnitCost,
+    currentStockQty,
+    currentPurchaseUnit,
+    currentStockUom,
+  );
   const [drillInvoiceId, setDrillInvoiceId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"history" | "suppliers">("history");
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
 
