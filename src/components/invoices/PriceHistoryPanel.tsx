@@ -262,7 +262,7 @@ function useSupplierPriceHistory(
 /* ------------------------------------------------------------------ */
 
 const money = (v: number | null | undefined) =>
-  v == null || !Number.isFinite(v) ? "—" : `$${v.toFixed(2)}`;
+  v == null || !Number.isFinite(v) ? "—" : `HK$ ${v.toFixed(2)}`;
 
 const shortDate = (d: string) => {
   if (!d) return "—";
