@@ -3539,6 +3539,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             currentInvoiceDate={current.invoice_date}
             currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
             currentUnitCost={hPrice}
+            currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
+            currentStockQty={hLine.matched_stock_qty_ratio || 1}
+            currentStockUom={hLine.matched_stock_uom}
             onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
           />
         );
