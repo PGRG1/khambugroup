@@ -620,19 +620,34 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
     </div>
   );
 
+  const insight = supplierInsights.result;
+  const currentComparable = insight?.currentNormalizedCost != null;
+  const currentSourceRow = {
+    supplierName,
+    purchasePrice: currentUnitCost,
+    purchaseUnit: currentPurchaseUnit || "—",
+    normalizedCost: insight?.currentNormalizedCost ?? null,
+    stockUom: currentStockUom || "—",
+    percentDifference: 0,
+    latestPurchaseDate: currentInvoiceDate || null,
+    source: "This invoice" as const,
+    stale: false,
+    comparable: currentComparable,
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[720px] p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full">
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="min-w-0">
-            <div className="text-[15px] font-medium truncate">{itemName || "Item"}</div>
-            <div className="text-[13px] text-muted-foreground truncate">
-              {supplierName || "—"} · {venue || "—"} · last {rows.length} purchases
-            </div>
+            <DialogTitle className="text-[15px] font-medium truncate">Price insights · {itemName || "Item"}</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[13px] text-muted-foreground truncate">
+              {supplierName || "—"} · {venue || "—"} · {rows.length} prior purchases
+            </DialogDescription>
           </div>
           <button
             type="button"
-            aria-label="Close price history"
+            aria-label="Close price insights"
             onClick={() => onOpenChange(false)}
             className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
@@ -640,104 +655,67 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
           </button>
         </div>
 
+        <div className="flex border-y border-border/60 px-5" role="tablist" aria-label="Price insight views">
+          <button type="button" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")} className={`border-b-2 px-1 py-2.5 mr-5 text-xs font-medium ${tab === "history" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}>
+            Price history
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "suppliers"} onClick={() => setTab("suppliers")} className={`border-b-2 px-1 py-2.5 text-xs font-medium ${tab === "suppliers" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}>
+            Other suppliers{insight && insight.cheaperCount > 0 ? ` · ${insight.cheaperCount} cheaper` : ""}
+          </button>
+        </div>
+
         <div ref={scrollRef} className="px-5 pb-4 max-h-[70vh] overflow-y-auto">
           {drillInvoiceId ? (
             <InvoiceDrillIn invoiceId={drillInvoiceId} productMasterId={productMasterId} onBack={backToHistory} />
-          ) : loading ? (
-            <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading price history…
-            </div>
-          ) : (
-            <>
-              {/* Stat strip */}
-              <div className="flex gap-2">
-                {stat("Master price", masterNum != null ? money(masterNum) : "—")}
-                {stat("This invoice", money(currentUnitCost), variesFromMaster)}
-                {stat("6-mo average", avg6 != null ? money(avg6) : "—")}
-                {stat(
-                  "Change vs last",
-                  changeVsLast == null ? "—" : `${changeVsLast > 0 ? "+" : ""}${changeVsLast.toFixed(1)}%`,
-                  changeVaries,
-                )}
-              </div>
-
-              {/* Trend */}
-              <div className="mt-3">
-                <TrendChart points={chartPoints} masterPrice={masterNum} />
-              </div>
-
-              {/* History table */}
-              <table className="w-full mt-2 text-[13px]">
-                <thead>
-                  <tr className="text-xs text-muted-foreground">
-                    <th className="text-left font-normal py-1.5 border-b border-border/60 w-[88px]">Date</th>
-                    <th className="text-left font-normal py-1.5 border-b border-border/60">Invoice</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th>
-                    <th className="text-right font-normal py-1.5 border-b border-border/60 w-[62px]">Δ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((r, i) => {
-                    const older = tableRows[i + 1];
-                    let delta: number | null = null;
-                    if (older && older.unitCost > 0) delta = ((r.unitCost - older.unitCost) / older.unitCost) * 100;
-                    const deltaWarn =
-                      delta != null && delta > 0 && pctVaries(older!.unitCost, r.unitCost);
-                    const showDelta = delta != null && Math.abs(r.unitCost - (older?.unitCost ?? 0)) > PRICE_VARIANCE_EPSILON;
-                    return (
-                      <tr
-                        key={r.lineId}
-                        className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}
-                      >
-                        <td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td>
-                        <td className="py-2.5">
-                          {r.isCurrent ? (
-                            <span className="text-warning font-mono">
-                              {r.invoiceNumber}
-                              <span className="text-[11px] font-sans"> · current</span>
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openDrill(r.invoiceId)}
-                              className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono"
-                            >
-                              {r.invoiceNumber}
-                              <ChevronRight className="h-[13px] w-[13px]" />
-                            </button>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-right font-mono">{r.qty}</td>
-                        <td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td>
-                        <td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>
-                          {showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* Action footer */}
-              {variesFromMaster && (
-                <div className="flex gap-2 border-t border-border/60 mt-3 pt-3">
-                  <Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>
-                    Keep master at {money(masterNum)}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => {
-                      onUpdateMaster();
-                      onOpenChange(false);
-                    }}
-                  >
-                    Update master to {money(currentUnitCost)}
-                  </Button>
-                </div>
+          ) : tab === "suppliers" ? (
+            <div className="pt-4" role="tabpanel" aria-label="Other suppliers">
+              {supplierInsights.loading ? (
+                <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading supplier prices…</div>
+              ) : supplierInsights.error ? (
+                <div className="py-8 text-sm text-destructive">{supplierInsights.error}</div>
+              ) : !insight || insight.rows.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No other supplier entries for this product.</div>
+              ) : (
+                <>
+                  <div className="mb-3 text-xs text-muted-foreground">
+                    Current invoice: <span className="font-medium text-foreground">{money(currentUnitCost)} / {currentPurchaseUnit || "—"}</span>
+                    {insight.currentNormalizedCost == null && <span className="ml-2 text-warning">Not comparable — conversion missing</span>}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px] text-xs">
+                      <thead><tr className="border-b border-border/60 text-muted-foreground">
+                        <th className="py-2 text-left font-normal">Supplier</th><th className="py-2 text-right font-normal">Purchase</th><th className="py-2 text-right font-normal">Per {currentStockUom || "stock UOM"}</th><th className="py-2 text-right font-normal">vs current</th><th className="py-2 text-right font-normal">Latest</th><th className="py-2 text-left font-normal">Source</th>
+                      </tr></thead>
+                      <tbody>
+                        <tr className="border-b border-border/40 bg-warning/10"><td className="py-2.5 font-medium">{currentSourceRow.supplierName} <span className="text-[10px] text-warning">current</span></td><td className="py-2.5 text-right font-mono">{money(currentSourceRow.purchasePrice)} / {currentSourceRow.purchaseUnit}</td><td className="py-2.5 text-right font-mono">{money(currentSourceRow.normalizedCost)}</td><td className="py-2.5 text-right text-muted-foreground">—</td><td className="py-2.5 text-right font-mono">{shortDate(currentSourceRow.latestPurchaseDate || "")}</td><td className="py-2.5">This invoice</td></tr>
+                        {insight.rows.map((row) => (
+                          <tr key={row.entryId} className="border-b border-border/40 last:border-0">
+                            <td className="py-2.5 font-medium">{row.supplierName}{row.stale && <span className="ml-1 text-warning" title="Latest purchase is over 90 days old">stale</span>}</td>
+                            <td className="py-2.5 text-right font-mono">{money(row.purchasePrice)} / {row.purchaseUnit}</td>
+                            <td className={`py-2.5 text-right font-mono ${row.normalizedCost != null && row.percentDifference != null && row.percentDifference < 0 && currentComparable ? "text-primary" : ""}`}>{row.normalizedCost == null ? <span className="text-warning whitespace-nowrap">Not comparable</span> : money(row.normalizedCost)}</td>
+                            <td className={`py-2.5 text-right font-mono ${row.percentDifference != null && row.percentDifference < 0 ? "text-primary" : "text-muted-foreground"}`}>{row.percentDifference == null ? "—" : `${row.percentDifference > 0 ? "+" : ""}${row.percentDifference.toFixed(1)}%`}</td>
+                            <td className="py-2.5 text-right font-mono">{shortDate(row.latestPurchaseDate || "")}</td><td className="py-2.5 text-muted-foreground">{row.source}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {insight.rows.some((row) => !row.comparable) && <div className="mt-3 text-xs text-warning">Some suppliers cannot be compared — conversion missing.</div>}
+                  <div className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">Compared only when UOM conversion is available.</div>
+                </>
               )}
-            </>
+            </div>
+          ) : loading ? (
+            <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading price history…</div>
+          ) : (
+            <div role="tabpanel" aria-label="Price history">
+              <div className="flex gap-2 pt-4">
+                {stat("Master price", masterNum != null ? money(masterNum) : "—")}{stat("This invoice", money(currentUnitCost), variesFromMaster)}{stat("6-mo average", avg6 != null ? money(avg6) : "—")}{stat("Change vs last", changeVsLast == null ? "—" : `${changeVsLast > 0 ? "+" : ""}${changeVsLast.toFixed(1)}%`, changeVaries)}
+              </div>
+              <div className="mt-3"><TrendChart points={chartPoints} masterPrice={masterNum} /></div>
+              <table className="w-full mt-2 text-[13px]"><thead><tr className="text-xs text-muted-foreground"><th className="text-left font-normal py-1.5 border-b border-border/60 w-[88px]">Date</th><th className="text-left font-normal py-1.5 border-b border-border/60">Invoice</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[62px]">Δ</th></tr></thead><tbody>{tableRows.map((r, i) => { const older = tableRows[i + 1]; const delta = older && older.unitCost > 0 ? ((r.unitCost - older.unitCost) / older.unitCost) * 100 : null; const deltaWarn = delta != null && delta > 0 && older ? pctVaries(older.unitCost, r.unitCost) : false; const showDelta = delta != null && older != null && Math.abs(r.unitCost - older.unitCost) > PRICE_VARIANCE_EPSILON; return <tr key={r.lineId} className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}><td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td><td className="py-2.5">{r.isCurrent ? <span className="text-warning font-mono">{r.invoiceNumber}<span className="text-[11px] font-sans"> · current</span></span> : <button type="button" onClick={() => openDrill(r.invoiceId)} className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono">{r.invoiceNumber}<ChevronRight className="h-[13px] w-[13px]" /></button>}</td><td className="py-2.5 text-right font-mono">{r.qty}</td><td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td><td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>{showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}</td></tr>; })}</tbody></table>
+              {variesFromMaster && <div className="flex gap-2 border-t border-border/60 mt-3 pt-3"><Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>Keep master at {money(masterNum)}</Button><Button variant="secondary" className="flex-1" onClick={() => { onUpdateMaster(); onOpenChange(false); }}>Update master to {money(currentUnitCost)}</Button></div>}
+            </div>
           )}
         </div>
       </DialogContent>
