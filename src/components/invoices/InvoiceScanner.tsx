@@ -330,12 +330,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
   const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
 
-  // Lightweight availability for the single Price insights action on each linked line.
+  // Batched availability and cheaper counts for the single Price insights action on each linked line.
+  const currentInsightLines = useMemo(() => {
+    const next: Record<string, { unitPrice: number; stockQty: number; purchaseUnit: string; stockUom: string }> = {};
+    for (const line of current?.line_items || []) {
+      if (!line.product_master_id) continue;
+      const unitPrice = parseFloat(line.accepted_price || "") || parseFloat(line.unit_price) || 0;
+      next[line.product_master_id] = {
+        unitPrice,
+        stockQty: Number(line.matched_stock_qty_ratio) || 1,
+        purchaseUnit: line.matched_purchase_uom || line.unit || "",
+        stockUom: line.matched_stock_uom || "",
+      };
+    }
+    return next;
+  }, [current?.line_items]);
   const linkedProductIds = useMemo(
-    () => (current?.line_items || []).map((l) => l.product_master_id).filter(Boolean) as string[],
-    [current?.line_items],
+    () => Object.keys(currentInsightLines),
+    [currentInsightLines],
   );
-  const insightAvailability = useSupplierInsightAvailability(tenantId, current?.supplier_name, linkedProductIds);
+  const insightAvailability = useSupplierInsightAvailability(tenantId, current?.supplier_name, linkedProductIds, currentInsightLines);
 
 
   // Load deals when the active supplier changes
