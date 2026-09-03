@@ -188,14 +188,20 @@ function useSupplierInsights(
         stockUom: entry.stock_uom || "",
         stockQty: Number(entry.stock_qty),
       }));
-      const purchases: SupplierPurchase[] = (linesRes.data || []).map((line: any) => ({
-        supplierName: supplierNames.get(line.invoices?.supplier_id) || "",
-        price: Number(line.accepted_price ?? line.unit_price),
-        date: line.invoices?.invoice_date || "",
-        invoiceNumber: line.invoices?.invoice_number || "",
-        isFree: !!line.is_free_unit_line,
-        quantity: Number(line.accepted_qty ?? line.quantity),
-      }));
+      const purchases: SupplierPurchase[] = (linesRes.data || []).map((line: any) => {
+        const acceptedPrice = Number(line.accepted_price);
+        const scannedPrice = Number(line.unit_price);
+        const acceptedQty = Number(line.accepted_qty);
+        const scannedQty = Number(line.quantity);
+        return {
+          supplierName: supplierNames.get(line.invoices?.supplier_id) || "",
+          price: Number.isFinite(acceptedPrice) ? acceptedPrice : scannedPrice,
+          date: line.invoices?.invoice_date || "",
+          invoiceNumber: line.invoices?.invoice_number || "",
+          isFree: !!line.is_free_unit_line,
+          quantity: Number.isFinite(acceptedQty) ? acceptedQty : scannedQty,
+        };
+      });
       const built = buildSupplierInsights({
         entries,
         purchases,

@@ -335,10 +335,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const next: Record<string, { unitPrice: number; stockQty: number; purchaseUnit: string; stockUom: string }> = {};
     for (const line of current?.line_items || []) {
       if (!line.product_master_id) continue;
-      const unitPrice = parseFloat(line.accepted_price || "") || parseFloat(line.unit_price) || 0;
+      const acceptedPrice = parseFloat(line.accepted_price || "");
+      const scannedPrice = parseFloat(line.unit_price || "");
       next[line.product_master_id] = {
-        unitPrice,
-        stockQty: Number(line.matched_stock_qty_ratio) || 1,
+        unitPrice: Number.isFinite(acceptedPrice) ? acceptedPrice : (Number.isFinite(scannedPrice) ? scannedPrice : 0),
+        stockQty: Number(line.matched_stock_qty_ratio),
         purchaseUnit: line.matched_purchase_uom || line.unit || "",
         stockUom: line.matched_stock_uom || "",
       };
@@ -3554,7 +3555,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
             currentUnitCost={hPrice}
             currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
-            currentStockQty={hLine.matched_stock_qty_ratio || 1}
+            currentStockQty={Number(hLine.matched_stock_qty_ratio)}
             currentStockUom={hLine.matched_stock_uom}
             onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
           />

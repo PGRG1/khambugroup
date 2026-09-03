@@ -95,7 +95,8 @@ export function buildSupplierInsights(input: BuildSupplierInsightsInput): Suppli
           Number(candidate.quantity ?? 0) > 0,
         )
         .sort((a, b) => b.date.localeCompare(a.date))[0];
-      const rawPrice = purchase?.price ?? Number(entry.purchasePrice);
+      const masterPrice = Number(entry.purchasePrice);
+      const rawPrice = purchase?.price ?? masterPrice;
       const comparable = isComparableSupplierEntry(entry, input.canonicalStockUom) && finitePositive(rawPrice);
       const normalizedCost = comparable ? normalizedSupplierCost(rawPrice, Number(entry.stockQty)) : null;
       const percentDifference = currentNormalizedCost && normalizedCost != null
