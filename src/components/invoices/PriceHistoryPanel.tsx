@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { PRICE_VARIANCE_EPSILON, pctVaries } from "@/utils/priceVariance";
-import { buildSupplierInsights, type SupplierInsightEntry, type SupplierPurchase, type SupplierInsightsResult } from "@/utils/priceInsights";
+import { buildSupplierInsights, normalizeSupplierName, type SupplierInsightEntry, type SupplierPurchase, type SupplierInsightsResult } from "@/utils/priceInsights";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
