@@ -564,8 +564,17 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
   const savedScroll = useRef(0);
 
   useEffect(() => {
-    if (!open) setDrillInvoiceId(null);
+    if (!open) {
+      setDrillInvoiceId(null);
+      setTab("history");
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (open && !loading && rows.length === 0 && (supplierInsights.result?.rows.length || 0) > 0) {
+      setTab("suppliers");
+    }
+  }, [open, loading, rows.length, supplierInsights.result?.rows.length]);
 
   const currentRow: PriceHistoryRow = useMemo(
     () => ({
