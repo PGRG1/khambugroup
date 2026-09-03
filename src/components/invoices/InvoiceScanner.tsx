@@ -57,9 +57,9 @@ import {
 import { Info, Sparkles } from "lucide-react";
 import QuickAddProductPopover from "./QuickAddProductPopover";
 import QuickAddBulkDialog from "./QuickAddBulkDialog";
-import PriceHistoryPanel, { useSupplierPurchaseCounts } from "./PriceHistoryPanel";
+import PriceHistoryPanel, { useSupplierInsightAvailability } from "./PriceHistoryPanel";
 import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
-import { History } from "lucide-react";
+import { TrendingDown } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
