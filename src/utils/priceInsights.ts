@@ -91,7 +91,7 @@ export function buildSupplierInsights(input: BuildSupplierInsightsInput): Suppli
           normalizeSupplierName(candidate.supplierName) === normalizeSupplierName(entry.supplierName) &&
           !candidate.isFree &&
           finitePositive(Number(candidate.price)) &&
-          Number(candidate.quantity ?? 1) >= 0,
+          Number(candidate.quantity ?? 0) > 0,
         )
         .sort((a, b) => b.date.localeCompare(a.date))[0];
       const rawPrice = purchase?.price ?? Number(entry.purchasePrice);
