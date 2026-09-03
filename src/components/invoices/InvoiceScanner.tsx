@@ -330,12 +330,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
   const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
 
-  // Prior-purchase counts per linked product, used to gate the history trigger.
+  // Lightweight availability for the single Price insights action on each linked line.
   const linkedProductIds = useMemo(
     () => (current?.line_items || []).map((l) => l.product_master_id).filter(Boolean) as string[],
     [current?.line_items],
   );
-  const purchaseCounts = useSupplierPurchaseCounts(tenantId, current?.supplier_id, linkedProductIds);
+  const insightAvailability = useSupplierInsightAvailability(tenantId, current?.supplier_name, linkedProductIds);
 
 
   // Load deals when the active supplier changes
