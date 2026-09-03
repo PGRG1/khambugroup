@@ -24,20 +24,20 @@ interface PriceHistoryPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: string | null | undefined;
-  /** Product master id of the linked line (history is scoped to it + the supplier). */
+  /** Product master id is the only bridge used across supplier entries. */
   productMasterId: string | null | undefined;
-  /** Supplier of the invoice being scanned — history never crosses suppliers. */
   supplierId: string | null | undefined;
   supplierName: string;
   venue: string;
   itemName: string;
   masterPrice: number | null | undefined;
-  /** Live, unsaved values from the invoice form. */
   currentInvoiceNumber: string;
   currentInvoiceDate: string;
   currentQty: number;
   currentUnitCost: number;
-  /** Reuses the existing inline "Update master" mutation. */
+  currentPurchaseUnit: string;
+  currentStockQty: number;
+  currentStockUom: string;
   onUpdateMaster: () => void;
 }
 
@@ -47,10 +47,54 @@ interface PriceHistoryPanelProps {
 
 const HISTORY_LIMIT = 6;
 
-/**
- * How many prior purchases exist for each product master id under this
- * supplier. Used to decide whether a row shows the history trigger at all.
- */
+export interface SupplierInsightAvailability {
+  historyCount: number;
+  otherSupplierCount: number;
+}
+
+/** One lightweight query sizes every linked row trigger in the scanner. */
+export function useSupplierInsightAvailability(
+  tenantId: string | null | undefined,
+  supplierName: string | null | undefined,
+  productMasterIds: string[],
+) {
+  const [availability, setAvailability] = useState<Record<string, SupplierInsightAvailability>>({});
+  const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = key ? key.split(",") : [];
+    if (!tenantId || !ids.length || !supplierName) {
+      setAvailability({});
+      return;
+    }
+    (async () => {
+      const { data } = await (supabase.from("product_suppliers" as any) as any)
+        .select("product_master_id, supplier")
+        .eq("tenant_id", tenantId)
+        .in("product_master_id", ids);
+      if (cancelled) return;
+      const currentKey = supplierName.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+      const next: Record<string, SupplierInsightAvailability> = {};
+      ids.forEach((id) => { next[id] = { historyCount: 0, otherSupplierCount: 0 }; });
+      for (const row of (data || []) as any[]) {
+        const item = next[row.product_master_id] || { historyCount: 0, otherSupplierCount: 0 };
+        const supplierKey = String(row.supplier || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+        if (supplierKey === currentKey) item.historyCount += 1;
+        else if (supplierKey) item.otherSupplierCount += 1;
+        next[row.product_master_id] = item;
+      }
+      // A product supplier entry means comparison is available; history is
+      // resolved lazily when the overlay opens, so keep this trigger cheap.
+      setAvailability(next);
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, supplierName, key]);
+
+  return availability;
+}
+
+/** Backward-compatible count hook for other invoice consumers. */
 export function useSupplierPurchaseCounts(
   tenantId: string | null | undefined,
   supplierId: string | null | undefined,
@@ -58,36 +102,21 @@ export function useSupplierPurchaseCounts(
 ) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
-
   useEffect(() => {
     let cancelled = false;
     const ids = key ? key.split(",") : [];
-    if (!tenantId || !supplierId || ids.length === 0) {
-      setCounts({});
-      return;
-    }
+    if (!tenantId || !supplierId || !ids.length) { setCounts({}); return; }
     (async () => {
-      // Count-only queries — never fetch rows just to size them.
-      const results = await Promise.all(
-        ids.map(async (pid) => {
-          const { count, error } = await (supabase.from("invoice_line_items" as any) as any)
-            .select("id, invoices!inner(supplier_id)", { count: "exact", head: true })
-            .eq("tenant_id", tenantId)
-            .eq("product_master_id", pid)
-            .eq("invoices.supplier_id", supplierId);
-          return [pid, error ? 0 : count || 0] as const;
-        }),
-      );
+      const { data } = await (supabase.from("invoice_line_items" as any) as any)
+        .select("product_master_id, invoices!inner(supplier_id)")
+        .eq("tenant_id", tenantId).eq("invoices.supplier_id", supplierId).in("product_master_id", ids);
       if (cancelled) return;
       const next: Record<string, number> = {};
-      for (const [pid, n] of results) next[pid] = n;
+      for (const row of (data || []) as any[]) next[row.product_master_id] = (next[row.product_master_id] || 0) + 1;
       setCounts(next);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [tenantId, supplierId, key]);
-
   return counts;
 }
 
