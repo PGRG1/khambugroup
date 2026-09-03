@@ -120,6 +120,83 @@ export function useSupplierPurchaseCounts(
   return counts;
 }
 
+function useSupplierInsights(
+  open: boolean,
+  tenantId: string | null | undefined,
+  productMasterId: string | null | undefined,
+  supplierName: string,
+  currentUnitCost: number,
+  currentStockQty: number,
+  currentPurchaseUnit: string,
+  currentStockUom: string,
+): { result: SupplierInsightsResult | null; loading: boolean; error: string | null } {
+  const [result, setResult] = useState<SupplierInsightsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cache = useRef<Map<string, SupplierInsightsResult>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !tenantId || !productMasterId) return;
+    const cacheKey = `${tenantId}|${productMasterId}|${supplierName}`;
+    const cached = cache.current.get(cacheKey);
+    if (cached) { setResult(cached); return; }
+    setLoading(true);
+    setError(null);
+    (async () => {
+      const [entriesRes, linesRes, suppliersRes] = await Promise.all([
+        (supabase.from("product_suppliers" as any) as any)
+          .select("id, product_master_id, supplier, purchase_unit, purchase_unit_cost, stock_uom, stock_qty")
+          .eq("tenant_id", tenantId).eq("product_master_id", productMasterId),
+        (supabase.from("invoice_line_items" as any) as any)
+          .select("accepted_price, unit_price, accepted_qty, quantity, is_free_unit_line, invoices!inner(supplier_id, invoice_date, invoice_number)")
+          .eq("tenant_id", tenantId).eq("product_master_id", productMasterId)
+          .order("invoices(invoice_date)", { ascending: false }),
+        (supabase.from("suppliers" as any) as any).select("id, name").eq("tenant_id", tenantId),
+      ]);
+      if (cancelled) return;
+      if (entriesRes.error || linesRes.error) {
+        setError(entriesRes.error?.message || linesRes.error?.message || "Unable to load supplier prices");
+        setLoading(false);
+        return;
+      }
+      const supplierNames = new Map<string, string>((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+      const entries: SupplierInsightEntry[] = (entriesRes.data || []).map((entry: any) => ({
+        id: entry.id,
+        productMasterId: entry.product_master_id,
+        supplierName: entry.supplier || "",
+        purchaseUnit: entry.purchase_unit || "—",
+        purchasePrice: Number(entry.purchase_unit_cost),
+        stockUom: entry.stock_uom || "",
+        stockQty: Number(entry.stock_qty),
+      }));
+      const purchases: SupplierPurchase[] = (linesRes.data || []).map((line: any) => ({
+        supplierName: supplierNames.get(line.invoices?.supplier_id) || "",
+        price: Number(line.accepted_price ?? line.unit_price),
+        date: line.invoices?.invoice_date || "",
+        invoiceNumber: line.invoices?.invoice_number || "",
+        isFree: !!line.is_free_unit_line,
+        quantity: Number(line.accepted_qty ?? line.quantity),
+      }));
+      const built = buildSupplierInsights({
+        entries,
+        purchases,
+        currentSupplierName: supplierName,
+        currentPurchasePrice: currentUnitCost,
+        currentStockQty,
+        currentPurchaseUnit,
+        canonicalStockUom: currentStockUom,
+      });
+      cache.current.set(cacheKey, built);
+      setResult(built);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, tenantId, productMasterId, supplierName, currentUnitCost, currentStockQty, currentPurchaseUnit, currentStockUom]);
+
+  return { result, loading, error };
+}
+
 function useSupplierPriceHistory(
   open: boolean,
   tenantId: string | null | undefined,
