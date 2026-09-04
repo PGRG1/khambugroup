@@ -181,7 +181,7 @@ function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; bord
 
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
@@ -1753,45 +1753,45 @@ export default function ProcurementInvoicesTab() {
               throw e;
             }
 
-            const { file_url: fileUrl, file_name: fileName } = attachmentsToColumns(stored);
             const cleanupAttempt = async () => {
-              const created = newlyCreatedPaths(stored);
-              if (created.length > 0) await storage.remove(created).catch(() => undefined);
+              const createdPaths = newlyCreatedPaths(stored);
+              if (createdPaths.length > 0) await storage.remove(createdPaths).catch(() => undefined);
             };
 
-            const created = await createInvoice(
-              {
-                ...inv,
-                discount: inv.discount ?? 0,
-                discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
-                status: inv.status === "paid" ? "paid" : "unpaid",
-                review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved",
-                subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
-                tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
-                total_amount: lines.reduce((sum, line) => sum + line.total, 0),
-                entered_by: user?.id || "",
-                source_origin: "scanner",
-              } as any,
-              lines,
-              fileUrl,
-              fileName
-            );
-            if (!created) {
-              console.error("[invoice-attachment] invoice insert failed after successful upload", { invoice_number: inv.invoice_number, fileUrl });
-              await cleanupAttempt();
-              throw new Error("INVOICE_SAVE_FAILED");
-            }
-
+            // Single DB transaction: invoice + line items + attachment metadata +
+            // audit event. Nothing financial is written unless linkage commits.
+            let createdId: string;
             try {
-              await linkInvoiceAttachments(tenantId, created.id, stored, "scanner");
+              createdId = await createScannerInvoiceWithAttachments(
+                {
+                  ...inv,
+                  discount: inv.discount ?? 0,
+                  discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
+                  status: inv.status === "paid" ? "paid" : "unpaid",
+                  review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved",
+                  subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
+                  tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
+                  total_amount: lines.reduce((sum, line) => sum + line.total, 0),
+                  entered_by: user?.id || "",
+                } as any,
+                lines,
+                stored.map((s) => ({
+                  bucket: s.bucket,
+                  path: s.path,
+                  original_name: s.original_name,
+                  mime_type: s.mime_type,
+                  size_bytes: s.size_bytes,
+                  checksum: s.checksum,
+                  sort_order: s.sort_order,
+                })),
+              );
             } catch (e: any) {
-              console.error("[invoice-attachment] linkage failed — rolling back invoice", { invoice_id: created.id, error: e?.message });
-              await deleteInvoice(created.id).catch(() => undefined);
+              console.error("[invoice-attachment] atomic scanner save failed", { invoice_number: inv.invoice_number, error: e?.message });
               await cleanupAttempt();
-              toast.error(`Attachment linkage failed — invoice not saved. ${e?.message || ""}`);
+              toast.error(`Invoice not saved — ${e?.message || "attachment linkage failed"}.`);
               throw e;
             }
-
+            const created = { id: createdId } as { id: string };
 
             // Auto-trigger Bani's post-scan analysis (non-blocking).
             if (created?.id && tenantId) {
