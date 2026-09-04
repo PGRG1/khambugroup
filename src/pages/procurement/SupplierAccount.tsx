@@ -22,6 +22,7 @@ import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNo
 import { ExerciseCreditDialog } from "@/components/procurement/ExerciseCreditDialog";
 import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
+import { paymentMethodLabel } from "@/utils/paymentMethods";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -335,8 +336,8 @@ export default function SupplierAccountPage() {
         id: `pay-${p.id}`,
         date: p.payment_date,
         type: "payment",
-        reference: p.reference_number || p.payment_method || "",
-        description: `Payment — ${p.payment_method || ""}`,
+        reference: p.reference_number || paymentMethodLabel(p.payment_method),
+        description: `Payment — ${paymentMethodLabel(p.payment_method)}`,
         venue: "",
         debit: 0,
         credit: amt,
@@ -694,7 +695,7 @@ export default function SupplierAccountPage() {
                         <tr key={p.id} className="border-b border-border/30">
                           <td className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(amt)}</td>
-                          <td className="py-2 pr-4">{p.payment_method || "—"}</td>
+                          <td className="py-2 pr-4">{paymentMethodLabel(p.payment_method)}</td>
                           <td className="py-2 pr-4 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(alloc)}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(unalloc)}</td>
@@ -747,7 +748,7 @@ export default function SupplierAccountPage() {
                         <tr key={p.id} className="border-b border-border/30">
                           <td className="py-2 px-3">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums text-emerald-400">{fmt(Number(p.amount) || 0)}</td>
-                          <td className="py-2 px-3">{p.payment_method || "—"}</td>
+                          <td className="py-2 px-3">{paymentMethodLabel(p.payment_method)}</td>
                           <td className="py-2 px-3 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums">{invCount}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums">{cnApplied > 0 ? fmt(cnApplied) : "—"}</td>

@@ -10,8 +10,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Receipt } from "lucide-react";
 import type { APInvoice, APBankAccountLite, APCreditNote } from "@/hooks/usePayables";
+import {
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_METHOD_TBC,
+  UNASSIGNED_ACCOUNT,
+  isBankLinkedMethod,
+  referencePlaceholder,
+  resolvePaidFromAccountId,
+} from "@/utils/paymentMethods";
 
-const METHODS = ["FPS", "Cheque", "Bank Transfer", "Cash", "Credit Card", "Other"];
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Allocation = { cash: string; creditNoteId: string | null; creditAmt: string };
@@ -49,8 +56,14 @@ export function RecordPaymentDialog({
       setStep(1);
       setDate(new Date().toISOString().slice(0, 10));
       setAmount(invoice.outstanding_amount.toFixed(2));
-      setMethod(invoice.last_payment_method || "Bank Transfer");
-      setBankAccountId(invoice.last_paid_from_account_id || (bankAccounts[0]?.id ?? ""));
+      const initialMethod = invoice.last_payment_method || PAYMENT_METHOD_TBC;
+      setMethod(initialMethod);
+      // Never auto-select the first bank account; unknown stays unassigned.
+      setBankAccountId(
+        isBankLinkedMethod(initialMethod) && invoice.last_paid_from_account_id
+          ? invoice.last_paid_from_account_id
+          : UNASSIGNED_ACCOUNT
+      );
       setReference("");
       setChequeNumber("");
       setNotes("");
@@ -102,11 +115,17 @@ export function RecordPaymentDialog({
 
   if (!invoice) return null;
 
+  const bankLinked = isBankLinkedMethod(method);
+  // Switching to a non-bank / TBC method must immediately drop any selected account.
+  const changeMethod = (m: string) => {
+    setMethod(m);
+    if (!isBankLinkedMethod(m)) setBankAccountId(UNASSIGNED_ACCOUNT);
+  };
+
   const goNext = () => {
     if (paymentAmt < 0) return toast.error("Payment amount cannot be negative");
     if (paymentAmt > 0) {
       if (!method) return toast.error("Select a payment method");
-      if (!bankAccountId) return toast.error("Select a paid-from account");
       if (method === "Cheque" && !chequeNumber.trim()) return toast.error("Enter the cheque number");
     }
     setStep(2);
@@ -203,7 +222,7 @@ export function RecordPaymentDialog({
         payment_date: date,
         amount: paymentAmt,
         payment_method: paymentAmt > 0 ? method : "Credit Note",
-        paid_from_account_id: paymentAmt > 0 ? bankAccountId : null,
+        paid_from_account_id: paymentAmt > 0 ? resolvePaidFromAccountId(method, bankAccountId) : null,
         reference_number: reference,
         cheque_number: method === "Cheque" ? chequeNumber : "",
         notes,
@@ -249,7 +268,7 @@ export function RecordPaymentDialog({
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div>
-              <Label>Cash Payment Amount (HK$)</Label>
+              <Label>Payment Amount (HK$)</Label>
               <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Use 0 if fully settling with a credit note.
@@ -259,29 +278,32 @@ export function RecordPaymentDialog({
               <>
                 <div>
                   <Label>Payment Method</Label>
-                  <Select value={method} onValueChange={setMethod}>
+                  <Select value={method} onValueChange={changeMethod}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                      {PAYMENT_METHOD_OPTIONS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Paid From Account</Label>
-                  <Select value={bankAccountId} onValueChange={setBankAccountId}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                    <SelectContent>
-                      {bankAccounts.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.account_name || b.bank_name} {b.account_number_last4 ? `•••${b.account_number_last4}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {bankLinked && (
+                  <div>
+                    <Label>Paid From Account</Label>
+                    <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                      <SelectTrigger><SelectValue placeholder="Unassigned / TBC" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={UNASSIGNED_ACCOUNT}>Unassigned / TBC</SelectItem>
+                        {bankAccounts.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.account_name || b.bank_name} {b.account_number_last4 ? `•••${b.account_number_last4}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label>Reference Number</Label>
-                  <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="FPS ref, txn id…" />
+                  <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder={referencePlaceholder(method)} />
                 </div>
                 {method === "Cheque" && (
                   <div>

@@ -12,6 +12,7 @@ import { RecordPaymentDialog } from "@/components/finance/payables/RecordPayment
 import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import { ExerciseCreditDialog } from "./ExerciseCreditDialog";
 import { AddChargeDialog } from "./AddChargeDialog";
+import { paymentMethodLabel } from "@/utils/paymentMethods";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmt = (n: number) => (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -136,8 +137,8 @@ export function SupplierLedgerSheet({
           id: `pay-${p.id}`,
           date: p.payment_date,
           type: "payment",
-          reference: p.reference_number || p.payment_method || "",
-          description: `Payment — ${p.payment_method || ""}`,
+          reference: p.reference_number || paymentMethodLabel(p.payment_method),
+          description: `Payment — ${paymentMethodLabel(p.payment_method)}`,
           debit: 0,
           credit: amt,
         });
@@ -447,7 +448,7 @@ export function SupplierLedgerSheet({
                         <tr key={p.id} className="border-b border-border/30">
                           <td className="py-2 px-3 td-num">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 px-3 text-right td-num text-green-400">{fmt(p.amount)}</td>
-                          <td className="py-2 px-3">{p.payment_method}</td>
+                          <td className="py-2 px-3">{paymentMethodLabel(p.payment_method)}</td>
                           <td className="py-2 px-3 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 px-3 text-right td-num">{allocCountByPayment.get(p.id) || 0}</td>
                           <td className="py-2 px-3"><Badge variant="outline" className="text-[10px]">{p.match_status || "—"}</Badge></td>
