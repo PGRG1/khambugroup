@@ -4784,6 +4784,7 @@ export type Database = {
       }
       invoice_attachments: {
         Row: {
+          attached_at: string
           attached_by: string | null
           bucket: string
           checksum: string | null
@@ -4799,6 +4800,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attached_at?: string
           attached_by?: string | null
           bucket?: string
           checksum?: string | null
@@ -4814,6 +4816,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attached_at?: string
           attached_by?: string | null
           bucket?: string
           checksum?: string | null
@@ -4829,6 +4832,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_attachments_invoice_fk"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_attachments_invoice_fk"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_attachments_invoice_fk"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
           {
             foreignKeyName: "invoice_attachments_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -10654,6 +10678,8 @@ export type Database = {
           id: string | null
           invoice_date: string | null
           invoice_number: string | null
+          missing_file_url: boolean | null
+          missing_metadata: boolean | null
           source_origin: string | null
           status: string | null
           supplier_id: string | null
@@ -10665,6 +10691,8 @@ export type Database = {
           id?: string | null
           invoice_date?: string | null
           invoice_number?: string | null
+          missing_file_url?: never
+          missing_metadata?: never
           source_origin?: string | null
           status?: string | null
           supplier_id?: string | null
@@ -10676,6 +10704,8 @@ export type Database = {
           id?: string | null
           invoice_date?: string | null
           invoice_number?: string | null
+          missing_file_url?: never
+          missing_metadata?: never
           source_origin?: string | null
           status?: string | null
           supplier_id?: string | null
@@ -10910,6 +10940,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_scanner_invoice_with_attachments: {
+        Args: {
+          p_attachments: Json
+          p_invoice: Json
+          p_line_items: Json
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       current_user_tenant_id: { Args: never; Returns: string }
       dispose_fixed_asset: {
         Args: {
@@ -10981,6 +11020,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      invoice_storage_path_allowed: {
+        Args: { p_name: string }
         Returns: boolean
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
