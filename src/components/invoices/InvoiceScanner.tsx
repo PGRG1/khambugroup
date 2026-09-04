@@ -2131,7 +2131,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   return (
-    <div className="card-glass rounded-xl p-6 animate-fade-in">
+    <div data-testid="scanner-shell" className="card-glass flex max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-xl p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
           <ScanLine className="h-5 w-5 text-primary" />
