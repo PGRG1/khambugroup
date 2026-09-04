@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { APInvoice } from "@/hooks/usePayables";
+import { paymentMethodLabel } from "@/utils/paymentMethods";
 
 type AllocRow = {
   id: string;
@@ -103,7 +104,7 @@ export function PaymentHistoryDialog({
                     <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-400">
                       {r.credit_note_amount_applied > 0 ? fmt(r.credit_note_amount_applied) : "—"}
                     </td>
-                    <td className="px-3 py-2 text-xs">{r.payment?.payment_method || "—"}</td>
+                    <td className="px-3 py-2 text-xs">{paymentMethodLabel(r.payment?.payment_method)}</td>
                     <td className="px-3 py-2 text-xs">
                       {r.payment?.reference_number || r.payment?.cheque_number || "—"}
                     </td>

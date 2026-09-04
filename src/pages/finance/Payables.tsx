@@ -26,6 +26,7 @@ import {
 import { RecordPaymentDialog } from "@/components/finance/payables/RecordPaymentDialog";
 import { AllocatePaymentDialog } from "@/components/finance/payables/AllocatePaymentDialog";
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
+import { paidFromAccountLabel, paymentMethodLabel } from "@/utils/paymentMethods";
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtWhole = (n: number) =>
@@ -296,7 +297,7 @@ function OpenPayablesTab({
         invoice_amount: i.total_amount.toFixed(2),
         outstanding: i.outstanding_amount.toFixed(2),
         payment_status: paymentStatusLabel(i.payment_status),
-        last_payment_method: i.last_payment_method || "",
+        last_payment_method: paymentMethodLabel(i.last_payment_method),
         paid_from: i.last_paid_from_account_name || "",
         bank_match: bankMatchLabel(i.bank_match_status),
         issue: i.exception_note || "",
@@ -385,7 +386,7 @@ function OpenPayablesTab({
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(i.total_amount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs font-semibold">{fmt(i.outstanding_amount)}</td>
                   <td className="px-3 py-2"><PaymentStatusBadge status={i.payment_status} /></td>
-                  <td className="px-3 py-2 text-xs">{i.last_payment_method || "—"}</td>
+                  <td className="px-3 py-2 text-xs">{paymentMethodLabel(i.last_payment_method)}</td>
                   <td className="px-3 py-2 text-xs">{i.last_paid_from_account_name || "—"}</td>
                   <td className="px-3 py-2"><BankMatchBadge status={i.bank_match_status} /></td>
                   <td className="px-3 py-2 text-xs text-warning">{i.exception_note || "—"}</td>
@@ -504,8 +505,8 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
         date: p.payment_date,
         ref: p.reference_number || p.id.slice(0, 8),
         supplier: p.supplier_name,
-        paid_from: p.paid_from_account_name || "",
-        method: p.payment_method,
+        paid_from: paidFromAccountLabel(p.paid_from_account_name),
+        method: paymentMethodLabel(p.payment_method),
         amount: p.amount.toFixed(2),
         allocated: p.allocated_amount.toFixed(2),
         credit: p.credit_applied.toFixed(2),
@@ -582,8 +583,8 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
                   <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                   <td className="px-3 py-2 text-xs font-mono">{p.reference_number || `PAY-${p.id.slice(0, 6).toUpperCase()}`}</td>
                   <td className="px-3 py-2 text-xs font-medium">{p.supplier_name}</td>
-                  <td className="px-3 py-2 text-xs">{p.paid_from_account_name || "—"}</td>
-                  <td className="px-3 py-2 text-xs">{p.payment_method}</td>
+                  <td className="px-3 py-2 text-xs">{paidFromAccountLabel(p.paid_from_account_name)}</td>
+                  <td className="px-3 py-2 text-xs">{paymentMethodLabel(p.payment_method)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.amount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
                   <td className={`px-3 py-2 text-right tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-warning" : ""}`}>{fmt(p.unallocated_amount)}</td>
