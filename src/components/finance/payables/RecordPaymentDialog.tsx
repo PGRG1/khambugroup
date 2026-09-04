@@ -86,7 +86,9 @@ export function RecordPaymentDialog({
       setChequeNumber("");
       setNotes("");
       setReceipts([]);
-      setAlloc({ [invoice.id]: { cash: invoice.outstanding_amount.toFixed(2), creditNoteId: null, creditAmt: "" } });
+      // Default: no allocation. Allocation is optional and never forced.
+      setAlloc({});
+      setAllocSuggested(false);
     }
   }, [open, invoice, bankAccounts]);
 
