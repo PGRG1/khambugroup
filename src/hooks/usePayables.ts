@@ -27,6 +27,10 @@ export type APInvoice = {
   last_paid_from_account_name: string | null;
   file_url: string | null;
   supplier_account_id: string | null;
+  /** Canonical dispute mechanism: invoices.review_status */
+  review_status: string | null;
+  is_disputed: boolean;
+  dispute_notes: string | null;
 };
 
 export type APSupplierSummary = {
@@ -127,12 +131,14 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, dispute_notes, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
         undefined,
         tenantId,
       );
+      // Disputed invoices stay visible (statement / open documents) but are
+      // excluded from automatic allocation downstream.
       const approved = (rawInvoices || []).filter(
-        (i: any) => i.review_status === "Approved"
+        (i: any) => i.review_status === "Approved" || i.review_status === "Disputed"
       );
       const invoiceNumberById = new Map<string, string>(
         (rawInvoices as any[]).map((i) => [i.id, i.invoice_number || ""])
@@ -292,6 +298,9 @@ export function usePayables() {
             : null,
           file_url: i.file_url || null,
           supplier_account_id: i.supplier_account_id || null,
+          review_status: i.review_status || null,
+          is_disputed: String(i.review_status || "").toLowerCase() === "disputed",
+          dispute_notes: i.dispute_notes || null,
         };
       });
       list.sort((a, b) => b.age_days - a.age_days);

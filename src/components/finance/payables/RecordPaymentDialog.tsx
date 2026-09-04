@@ -22,6 +22,11 @@ import {
 } from "@/utils/paymentReceipts";
 import type { APInvoice, APBankAccountLite, APCreditNote } from "@/hooks/usePayables";
 import {
+  autoAllocateFifo,
+  eligibleNetDue,
+  supplierAdvanceAmount,
+} from "@/utils/supplierPaymentAllocation";
+import {
   PAYMENT_METHOD_OPTIONS,
   PAYMENT_METHOD_TBC,
   UNASSIGNED_ACCOUNT,
@@ -60,6 +65,7 @@ export function RecordPaymentDialog({
   const [chequeNumber, setChequeNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [alloc, setAlloc] = useState<Record<string, Allocation>>({});
+  const [allocSuggested, setAllocSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<File[]>([]);
   const { tenantId } = useActiveTenant();
@@ -81,7 +87,9 @@ export function RecordPaymentDialog({
       setChequeNumber("");
       setNotes("");
       setReceipts([]);
-      setAlloc({ [invoice.id]: { cash: invoice.outstanding_amount.toFixed(2), creditNoteId: null, creditAmt: "" } });
+      // Default: no allocation. Allocation is optional and never forced.
+      setAlloc({});
+      setAllocSuggested(false);
     }
   }, [open, invoice, bankAccounts]);
 
@@ -91,6 +99,20 @@ export function RecordPaymentDialog({
       .filter((i) => i.supplier_id === invoice.supplier_id && i.outstanding_amount > 0.01 && i.payment_status !== "voided")
       .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
   }, [supplierInvoices, invoice]);
+
+  const allocatableInvoices = useMemo(
+    () =>
+      openInvoices.map((i) => ({
+        id: i.id,
+        invoice_number: i.invoice_number,
+        invoice_date: i.invoice_date,
+        due_date: i.due_date,
+        outstanding_amount: i.outstanding_amount,
+        payment_status: i.payment_status,
+        review_status: (i as any).review_status ?? null,
+      })),
+    [openInvoices],
+  );
 
   const supplierCNs = useMemo(
     () => creditNotes.filter((c) => invoice && c.supplier_id === invoice.supplier_id),
@@ -107,6 +129,9 @@ export function RecordPaymentDialog({
     [alloc]
   );
   const unallocated = Math.max(0, paymentAmt - totalCash);
+  const netDue = useMemo(() => eligibleNetDue(allocatableInvoices, date), [allocatableInvoices, date]);
+  // Only the portion beyond what the supplier is genuinely owed is an advance.
+  const advance = supplierAdvanceAmount(paymentAmt, netDue);
   const remainingOutstanding = useMemo(
     () =>
       openInvoices.reduce(
@@ -148,6 +173,23 @@ export function RecordPaymentDialog({
     if (accepted.length) setReceipts((prev) => [...prev, ...accepted]);
   };
   const removeReceipt = (idx: number) => setReceipts((prev) => prev.filter((_, i) => i !== idx));
+
+  /** Optional FIFO suggestion — the user reviews it on step 2 before saving. */
+  const applyAutoAllocation = () => {
+    if (paymentAmt <= 0) return toast.error("Enter a payment amount first");
+    if (!method) return toast.error("Select a payment method");
+    const suggestions = autoAllocateFifo(paymentAmt, allocatableInvoices, date);
+    if (suggestions.length === 0) {
+      toast.info("No eligible invoices dated on or before this payment date");
+    }
+    const next: Record<string, Allocation> = {};
+    for (const s of suggestions) {
+      next[s.invoice_id] = { cash: s.amount.toFixed(2), creditNoteId: null, creditAmt: "" };
+    }
+    setAlloc(next);
+    setAllocSuggested(true);
+    setStep(2);
+  };
 
   const goNext = () => {
     if (paymentAmt < 0) return toast.error("Payment amount cannot be negative");
@@ -227,9 +269,11 @@ export function RecordPaymentDialog({
     if (paymentAmt === 0 && totalCredit === 0) {
       return toast.error("Enter a cash amount or apply a credit note");
     }
-    if (unallocated > 0.01 && paymentAmt > 0) {
+    // An unallocated payment is normal: it still reduces the supplier balance
+    // in full. Only confirm when the account genuinely goes into credit.
+    if (advance > 0.01) {
       const ok = window.confirm(
-        `HK$ ${fmt(unallocated)} will be saved as an Advance / On-Account payment. Continue?`
+        `HK$ ${fmt(advance)} of this payment exceeds what is currently due and will sit as supplier credit. Continue?`
       );
       if (!ok) return;
     }
@@ -543,11 +587,31 @@ export function RecordPaymentDialog({
                 {receipts.map((f) => f.name).join(", ")}
               </div>
             )}
-            <div className="grid grid-cols-5 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border/40">
+            {allocSuggested && (
+              <div className="text-[11px] text-amber-400 border border-amber-500/30 bg-amber-500/10 rounded-md px-3 py-2">
+                Suggested automatic allocation (oldest invoices first). Review and adjust before saving.
+              </div>
+            )}
+            <div className="grid grid-cols-6 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border/40">
               <SumItem label="Payment Amount" value={paymentAmt} />
               <SumItem label="Credit Applied" value={totalCredit} accent={totalCredit > 0 ? "text-emerald-400" : ""} />
               <SumItem label="Cash Allocated" value={totalCash} accent={totalCash > paymentAmt + 0.01 ? "text-red-400" : ""} />
-              <SumItem label="Unallocated" value={unallocated} accent={unallocated > 0.01 ? "text-amber-400" : ""} hint={unallocated > 0.01 ? "Advance / On-Account" : undefined} />
+              <SumItem
+                label="Unallocated payment"
+                value={unallocated}
+                accent={unallocated > 0.01 ? "text-amber-400" : ""}
+                hint={
+                  unallocated > 0.01
+                    ? "The full payment still reduces the supplier running balance. You can match it to invoices later."
+                    : undefined
+                }
+              />
+              <SumItem
+                label="Supplier credit / advance"
+                value={advance}
+                accent={advance > 0.01 ? "text-sky-400" : ""}
+                hint={advance > 0.01 ? "Portion that puts the supplier account in credit" : undefined}
+              />
               <SumItem label="Remaining Outstanding" value={remainingOutstanding} />
             </div>
           </div>
@@ -559,7 +623,17 @@ export function RecordPaymentDialog({
           )}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           {step === 1 ? (
-            <Button onClick={goNext}>Next <ArrowRight className="h-4 w-4 ml-1" /></Button>
+            <>
+              <Button variant="outline" onClick={applyAutoAllocation} disabled={paymentAmt <= 0}>
+                Auto-allocate
+              </Button>
+              <Button variant="outline" onClick={goNext}>
+                Allocate manually <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Record Payment"}
+              </Button>
+            </>
           ) : (
             <Button onClick={save} disabled={saving || totalCash > paymentAmt + 0.01}>
               {saving ? "Saving…" : "Record Payment"}
