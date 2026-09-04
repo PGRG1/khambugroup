@@ -269,9 +269,11 @@ export function RecordPaymentDialog({
     if (paymentAmt === 0 && totalCredit === 0) {
       return toast.error("Enter a cash amount or apply a credit note");
     }
-    if (unallocated > 0.01 && paymentAmt > 0) {
+    // An unallocated payment is normal: it still reduces the supplier balance
+    // in full. Only confirm when the account genuinely goes into credit.
+    if (advance > 0.01) {
       const ok = window.confirm(
-        `HK$ ${fmt(unallocated)} will be saved as an Advance / On-Account payment. Continue?`
+        `HK$ ${fmt(advance)} of this payment exceeds what is currently due and will sit as supplier credit. Continue?`
       );
       if (!ok) return;
     }
