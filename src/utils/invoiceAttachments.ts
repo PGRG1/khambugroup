@@ -60,12 +60,19 @@ function extOf(name: string): string {
   return raw || "bin";
 }
 
+async function readArrayBuffer(blob: Blob | File): Promise<ArrayBuffer> {
+  if (typeof (blob as any).arrayBuffer === "function") return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
 /** SHA-256 hex digest of the file contents (stable idempotency identifier). */
 export async function checksumOf(blob: Blob | File): Promise<string> {
-  const buf =
-    typeof (blob as any).arrayBuffer === "function"
-      ? await blob.arrayBuffer()
-      : await new Response(blob as any).arrayBuffer();
+  const buf = await readArrayBuffer(blob);
   const digest = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
