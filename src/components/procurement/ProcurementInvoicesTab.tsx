@@ -32,6 +32,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
+import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, INVOICE_BUCKET } from "@/utils/invoiceAttachments";
+import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
