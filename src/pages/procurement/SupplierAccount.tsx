@@ -495,11 +495,15 @@ export default function SupplierAccountPage() {
     if (error) toast.error("Failed to update deal"); else refetch();
   };
 
+  const receiptCounts = usePaymentReceiptCounts(allSupplierPayments.map((p) => p.id));
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+
   const pendingCNs = supplierCNs.filter((c) => c.status === "draft" || c.status === "needs_review");
   const historicalCNs = supplierCNs.filter((c) => c.status === "fully_applied" || c.status === "voided");
 
   return (
     <div className="p-6 space-y-6">
+      <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <div>
         <Link to="/procurement/finance/suppliers" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Supplier Accounts
