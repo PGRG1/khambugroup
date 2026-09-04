@@ -1851,6 +1851,7 @@ export default function ProcurementInvoicesTab() {
         onUpdateField={(id, patch) => updateInvoice(id, patch as any)}
         onUploadClick={() => setScannerOpen(true)}
         invoiceVarianceMap={invoiceVarianceMap}
+        onAttachSource={(inv) => setAttachTarget(inv)}
       />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -2062,6 +2063,7 @@ interface InvoiceTableSectionProps {
   onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
   invoiceVarianceMap: Record<string, boolean>;
+  onAttachSource: (inv: any) => void;
 }
 
 function InvoiceTableSection({
@@ -2070,7 +2072,7 @@ function InvoiceTableSection({
   reviewStatusFilter, setReviewStatusFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
-  invoiceVarianceMap,
+  invoiceVarianceMap, onAttachSource,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
   const { venues: dbVenues } = useVenues();
@@ -2239,7 +2241,7 @@ function InvoiceTableSection({
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                     ) : (
-                      <button onClick={(e) => { e.stopPropagation(); setAttachTarget(inv); }} className="rounded p-1 text-amber-500 hover:bg-amber-500/10" title="Attachment missing — attach source">
+                      <button onClick={(e) => { e.stopPropagation(); onAttachSource(inv); }} className="rounded p-1 text-amber-500 hover:bg-amber-500/10" title="Attachment missing — attach source">
                         <AlertTriangle className="h-3.5 w-3.5" />
                       </button>
                     )}
