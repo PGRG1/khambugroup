@@ -4782,6 +4782,76 @@ export type Database = {
           },
         ]
       }
+      invoice_attachments: {
+        Row: {
+          attached_by: string | null
+          bucket: string
+          checksum: string | null
+          created_at: string
+          id: string
+          invoice_id: string
+          mime_type: string
+          original_name: string
+          path: string
+          size_bytes: number
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attached_by?: string | null
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          id?: string
+          invoice_id: string
+          mime_type?: string
+          original_name: string
+          path: string
+          size_bytes?: number
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attached_by?: string | null
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          mime_type?: string
+          original_name?: string
+          path?: string
+          size_bytes?: number
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           accepted_price: number | null
@@ -10922,6 +10992,15 @@ export type Database = {
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      link_invoice_attachments: {
+        Args: {
+          p_attachments: Json
+          p_invoice_id: string
+          p_reason?: string
+          p_tenant_id: string
+        }
+        Returns: Json
       }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
