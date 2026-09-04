@@ -121,6 +121,9 @@ export function RecordPaymentDialog({
     [alloc]
   );
   const unallocated = Math.max(0, paymentAmt - totalCash);
+  const netDue = useMemo(() => eligibleNetDue(allocatableInvoices, date), [allocatableInvoices, date]);
+  // Only the portion beyond what the supplier is genuinely owed is an advance.
+  const advance = supplierAdvanceAmount(paymentAmt, netDue);
   const remainingOutstanding = useMemo(
     () =>
       openInvoices.reduce(
