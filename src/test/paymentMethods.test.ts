@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   PAYMENT_METHOD_OPTIONS,
   PAYMENT_METHOD_TBC,
@@ -84,5 +86,31 @@ describe("display labels", () => {
     expect(referencePlaceholder(PAYMENT_METHOD_TBC)).toBe("Optional");
     expect(referencePlaceholder("Other")).toBe("Optional");
     expect(referencePlaceholder("FPS")).toContain("FPS");
+  });
+});
+
+describe("RecordPaymentDialog source contract", () => {
+  const src = readFileSync(
+    resolve(__dirname, "../components/finance/payables/RecordPaymentDialog.tsx"),
+    "utf8"
+  );
+
+  it("uses a generic payment amount label", () => {
+    expect(src).toContain("Payment Amount (HK$)");
+    expect(src).not.toContain("Cash Payment Amount");
+  });
+
+  it("hides the bank selector for non-bank methods and offers Unassigned / TBC", () => {
+    expect(src).toContain("{bankLinked && (");
+    expect(src).toContain("<SelectItem value={UNASSIGNED_ACCOUNT}>Unassigned / TBC</SelectItem>");
+  });
+
+  it("does not auto-select the first bank account", () => {
+    expect(src).not.toContain("bankAccounts[0]?.id");
+  });
+
+  it("clears the account when the method changes and resolves it on save", () => {
+    expect(src).toContain("if (!isBankLinkedMethod(m)) setBankAccountId(UNASSIGNED_ACCOUNT);");
+    expect(src).toContain("resolvePaidFromAccountId(method, bankAccountId)");
   });
 });
