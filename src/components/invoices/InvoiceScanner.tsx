@@ -2328,12 +2328,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             );
           })()}
 
-          {reviewIssueTargets.length > 0 && (
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">{reviewIssueTargets.length} review issue{reviewIssueTargets.length === 1 ? "" : "s"} in this invoice</span>
-              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={goToNextIssue}>
-                <ArrowRight className="h-3 w-3" /> Next issue
-              </Button>
+          {currentIssue && (
+            <div
+              data-testid="review-issue-bar"
+              className={cn("flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-xs", issueToneClasses(currentIssue.severity))}
+            >
+              <span className="min-w-0 whitespace-normal break-words">
+                <span className="font-medium">Issue {nextIssueIndex + 1} of {reviewIssueTargets.length}</span>
+                {" · "}
+                <span className="font-medium">{currentIssue.label}</span>
+                {" — "}
+                <span>{currentIssue.message}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1">
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={goToPrevIssue} aria-label="Previous issue">
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 px-2 text-xs" onClick={goToNextIssue} aria-label="Next issue">
+                  Next <ArrowRight className="h-3 w-3" />
+                </Button>
+              </span>
             </div>
           )}
 
