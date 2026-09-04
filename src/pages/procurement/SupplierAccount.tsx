@@ -23,6 +23,8 @@ import { ExerciseCreditDialog } from "@/components/procurement/ExerciseCreditDia
 import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
+import { AllocateExistingPaymentDialog, type ExistingPayment } from "@/components/finance/payables/AllocateExistingPaymentDialog";
+import { isDisputedInvoice, supplierCreditFromBalance } from "@/utils/supplierPaymentAllocation";
 import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
 import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
 import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
@@ -281,6 +283,13 @@ export default function SupplierAccountPage() {
     return s;
   }, [supplierPayments, allocSumByPayment]);
 
+  const disputedOutstanding = useMemo(
+    () => supplierInvoices
+      .filter((i) => isDisputedInvoice(i) && i.outstanding_amount > 0 && i.payment_status !== "voided")
+      .reduce((s, i) => s + i.outstanding_amount, 0),
+    [supplierInvoices]
+  );
+
   const scopedRefundLines = useMemo(
     () => (selectedAccountId
       ? refundLines.filter((l: any) => invoiceAccountMap.get(l.invoice_id) === selectedAccountId)
@@ -497,12 +506,52 @@ export default function SupplierAccountPage() {
 
   const receiptCounts = usePaymentReceiptCounts(allSupplierPayments.map((p) => p.id));
   const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+  const [matchPayment, setMatchPayment] = useState<ExistingPayment | null>(null);
+
+  const openMatchDialog = (p: any) => setMatchPayment({
+    id: p.id,
+    payment_date: p.payment_date,
+    amount: Number(p.amount) || 0,
+    payment_method: p.payment_method,
+    reference_number: p.reference_number || null,
+    allocated: allocSumByPayment.get(p.id) || 0,
+  });
+
+  const handleDisputeInvoice = async (inv: APInvoice) => {
+    if (!tenantId) return;
+    const reason = window.prompt(`Dispute invoice ${inv.invoice_number}. Short reason:`)?.trim();
+    if (!reason) return;
+    const { error } = await supabase
+      .from("invoices")
+      .update({ review_status: "Disputed", has_disputes: true, dispute_notes: reason, updated_at: new Date().toISOString() } as any)
+      .eq("id", inv.id)
+      .eq("tenant_id", tenantId);
+    if (error) toast.error("Failed to mark disputed"); else { toast.success("Invoice marked disputed"); refetch(); }
+  };
+
+  const handleResolveDispute = async (inv: APInvoice) => {
+    if (!tenantId) return;
+    const resolution = window.prompt(`Resolve dispute on ${inv.invoice_number}. Short note (optional):`) ?? "";
+    const { error } = await supabase
+      .from("invoices")
+      .update({ review_status: "Approved", has_disputes: false, dispute_resolution: resolution || null, updated_at: new Date().toISOString() } as any)
+      .eq("id", inv.id)
+      .eq("tenant_id", tenantId);
+    if (error) toast.error("Failed to resolve dispute"); else { toast.success("Dispute resolved"); refetch(); }
+  };
 
   const pendingCNs = supplierCNs.filter((c) => c.status === "draft" || c.status === "needs_review");
   const historicalCNs = supplierCNs.filter((c) => c.status === "fully_applied" || c.status === "voided");
 
   return (
     <div className="p-6 space-y-6">
+      <AllocateExistingPaymentDialog
+        open={!!matchPayment}
+        onOpenChange={(o) => !o && setMatchPayment(null)}
+        payment={matchPayment}
+        invoices={openInvoicesList}
+        onSaved={refetch}
+      />
       <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <div>
         <Link to="/procurement/finance/suppliers" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
@@ -538,6 +587,9 @@ export default function SupplierAccountPage() {
         <KCard label="Available credits" value={fmtMoney(availableCreditsTotal)} tone="green" />
         <KCard label="Unallocated payments" value={fmtMoney(unallocatedPayments)} tone={unallocatedPayments > 0 ? "amber" : "default"} />
         <KCard label="Deposits outstanding" value={fmtMoney(depositsOutstanding)} tone="sky" />
+        {supplierCreditFromBalance(ledgerTotals.net) > 0 && (
+          <KCard label="Supplier credit" value={fmtMoney(supplierCreditFromBalance(ledgerTotals.net))} tone="green" />
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -595,7 +647,12 @@ export default function SupplierAccountPage() {
                           <td className="py-2 px-3 td-num tabular-nums">{fmtDate(e.date)}</td>
                           <td className="py-2 px-3"><Badge variant="outline" className={`text-[10px] ${cfg.className}`}>{cfg.label}</Badge></td>
                           <td className="py-2 px-3 font-mono text-xs">{e.reference}</td>
-                          <td className="py-2 px-3 truncate max-w-[320px]" title={e.description}>{e.description}</td>
+                          <td className="py-2 px-3 truncate max-w-[320px]" title={e.description}>
+                            {e.description}
+                            {e.type === "payment" && e.unallocated ? (
+                              <Badge variant="outline" className="ml-2 text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">Unallocated</Badge>
+                            ) : null}
+                          </td>
                           <td className="py-2 px-3 text-muted-foreground">{e.venue || "—"}</td>
                           <td className={`py-2 px-3 text-right td-num tabular-nums ${e.debit > 0 ? "text-amber-400" : "text-muted-foreground/40"}`}>{e.debit > 0 ? fmt(e.debit) : "—"}</td>
                           <td className={`py-2 px-3 text-right td-num tabular-nums ${e.credit > 0 ? "text-emerald-400" : "text-muted-foreground/40"}`}>{e.credit > 0 ? fmt(e.credit) : "—"}</td>
@@ -625,6 +682,12 @@ export default function SupplierAccountPage() {
           <Card className="card-glass">
             <CardContent className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unpaid invoices ({openInvoicesList.length})</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-xs">
+                <div><div className="text-muted-foreground">Gross open invoices</div><div className="td-num tabular-nums text-amber-400">{fmtMoney(outstanding)}</div></div>
+                <div><div className="text-muted-foreground">Disputed</div><div className="td-num tabular-nums text-red-400">{fmtMoney(disputedOutstanding)}</div></div>
+                <div><div className="text-muted-foreground">Unallocated payments</div><div className="td-num tabular-nums">{fmtMoney(unallocatedPayments)}</div></div>
+                <div><div className="text-muted-foreground">Net supplier balance</div><div className="td-num tabular-nums">{fmtMoney(ledgerTotals.net)}</div></div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -644,14 +707,26 @@ export default function SupplierAccountPage() {
                       <tr><td colSpan={8} className="text-center text-muted-foreground py-6">No unpaid invoices.</td></tr>
                     ) : openInvoicesList.map((inv) => (
                       <tr key={inv.id} className="border-b border-border/30">
-                        <td className="py-2 pr-4 font-mono text-xs">{inv.invoice_number}</td>
+                        <td className="py-2 pr-4 font-mono text-xs">
+                          {inv.invoice_number}
+                          {isDisputedInvoice(inv) && (
+                            <Badge variant="outline" className="ml-2 text-[10px] bg-red-500/15 text-red-400 border-red-500/30" title={inv.dispute_notes || undefined}>Disputed</Badge>
+                          )}
+                        </td>
                         <td className="py-2 pr-4">{fmtDate(inv.invoice_date)}</td>
                         <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(inv.outstanding_amount)}</td>
                         <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-red-400" : ""}`}>{inv.age_days}d</td>
-                        <td className="py-2 text-right"><Button size="sm" variant="outline" onClick={() => handlePayInvoice(inv)}>Pay this</Button></td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <Button size="sm" variant="outline" onClick={() => handlePayInvoice(inv)}>Pay this</Button>
+                          {isDisputedInvoice(inv) ? (
+                            <Button size="sm" variant="ghost" className="ml-1" onClick={() => handleResolveDispute(inv)}>Resolve dispute</Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="ml-1" onClick={() => handleDisputeInvoice(inv)}>Dispute</Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -707,7 +782,7 @@ export default function SupplierAccountPage() {
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(alloc)}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(unalloc)}</td>
                           <td className="py-2 text-right">
-                            <Button size="sm" variant="outline" onClick={() => toast.info("Use Finance → Accounts Payable to allocate payments to invoices.")}>Allocate</Button>
+                            <Button size="sm" variant="outline" onClick={() => openMatchDialog(p)}>Match to invoices</Button>
                           </td>
                         </tr>
                       ));
