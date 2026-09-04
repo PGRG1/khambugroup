@@ -2243,7 +2243,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         <div className="space-y-4">
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
-            <div className="bani-visible-scrollbar min-w-0 space-y-4 lg:max-h-[calc(100dvh-10rem)] lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+            <div data-testid="review-right-pane" className="flex min-w-0 min-h-0 flex-col gap-4 overflow-hidden lg:h-[calc(100dvh-10rem)]">
+          {/* Header / review fields: scroll independently above the line items */}
+          <div data-testid="review-fields-scroll" className="bani-visible-scrollbar min-h-0 shrink-0 space-y-4 overflow-y-auto pr-2 lg:max-h-[45%]">
+
           {/* Navigation bar */}
           {totalInvoices > 1 && (
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
