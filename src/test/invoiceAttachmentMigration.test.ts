@@ -23,6 +23,22 @@ function functionBody(name: string): string {
   return sql.slice(start, end);
 }
 
+function invoiceInsertColumns(body: string): string[] {
+  const match = body.match(/INSERT INTO public\.invoices\s*\(([^)]+)\)\s*VALUES/is);
+  expect(match, "scanner RPC must use an explicit invoices column list").not.toBeNull();
+  return (match?.[1] ?? "").split(",").map((column) => column.trim());
+}
+
+// Snapshot from information_schema.columns for public.invoices. These are the
+// application-supplied NOT NULL columns with neither a default nor generation.
+const INVOICE_REQUIRED_NO_DEFAULT_COLUMNS = [
+  "supplier_id",
+  "venue",
+  "invoice_number",
+  "invoice_date",
+  "entered_by",
+] as const;
+
 describe("committed invoice attachment migrations", () => {
   it("creates the invoice_attachments table with tenant, invoice and metadata columns", () => {
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.invoice_attachments");
@@ -140,13 +156,15 @@ describe("committed invoice attachment migrations", () => {
     expect(sql).toContain("public.invoice_storage_path_allowed(name)");
   });
 
-  it("initializes server-controlled created_at and updated_at before the invoice insert", () => {
+  it("covers every invoices NOT NULL/no-default column without a rowtype insert", () => {
     const body = functionBody("create_scanner_invoice_with_attachments");
-    const insertAt = body.indexOf("INSERT INTO public.invoices");
-    expect(insertAt).toBeGreaterThan(-1);
-    const before = body.slice(0, insertAt);
-    expect(before).toContain("v_invoice.created_at := now()");
-    expect(before).toContain("v_invoice.updated_at := now()");
+    const insertColumns = invoiceInsertColumns(body);
+
+    expect(insertColumns).toEqual(expect.arrayContaining([...INVOICE_REQUIRED_NO_DEFAULT_COLUMNS]));
+    expect(body).not.toContain("INSERT INTO public.invoices SELECT v_invoice.*");
+    expect(body).not.toContain("jsonb_populate_record(NULL::public.invoices");
+    expect(body).toContain("COALESCE(NULLIF(p_invoice->>'payment_status', ''), 'unpaid')");
+    expect(body).toContain("v_uid");
     // the attachment transaction logic is preserved in the same body
     expect(body).toContain("INSERT INTO public.invoice_line_items");
     expect(body).toContain("INSERT INTO public.invoice_attachments");
