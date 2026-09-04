@@ -209,6 +209,7 @@ export default function ProcurementInvoicesTab() {
     }
   }, [searchParams, setSearchParams]);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [attachTarget, setAttachTarget] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
