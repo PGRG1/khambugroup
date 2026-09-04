@@ -203,7 +203,7 @@ describe("committed invoice attachment migrations", () => {
     // Any defaulted column we do list must be COALESCEd to a non-null value.
     for (const column of ["quantity", "unit_price", "tax_amount", "total", "discount", "discount_mode", "discount_rate", "line_discount_amount", "header_discount_share", "net_unit_cost", "price_disputed", "is_free_unit_line"]) {
       if (columns.includes(column)) {
-        expect(body).toMatch(new RegExp(`COALESCE\\(\\(?x->>'${column}'`));
+        expect(body).toMatch(new RegExp(`COALESCE\\(\\(?(NULLIF\\()?x->>'${column}'`));
       }
     }
     expect(body).not.toMatch(/INSERT INTO public\.invoice_line_items\s*\n?\s*SELECT \(r\)\.\*/i);
