@@ -92,6 +92,20 @@ export function RecordPaymentDialog({
       .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
   }, [supplierInvoices, invoice]);
 
+  const allocatableInvoices = useMemo(
+    () =>
+      openInvoices.map((i) => ({
+        id: i.id,
+        invoice_number: i.invoice_number,
+        invoice_date: i.invoice_date,
+        due_date: i.due_date,
+        outstanding_amount: i.outstanding_amount,
+        payment_status: i.payment_status,
+        review_status: (i as any).review_status ?? null,
+      })),
+    [openInvoices],
+  );
+
   const supplierCNs = useMemo(
     () => creditNotes.filter((c) => invoice && c.supplier_id === invoice.supplier_id),
     [creditNotes, invoice]
