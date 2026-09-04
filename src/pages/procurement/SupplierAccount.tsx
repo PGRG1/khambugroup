@@ -24,7 +24,7 @@ import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
 import { AllocateExistingPaymentDialog, type ExistingPayment } from "@/components/finance/payables/AllocateExistingPaymentDialog";
-import { isDisputedInvoice, supplierCreditFromBalance } from "@/utils/supplierPaymentAllocation";
+import { isDisputedInvoice, splitLedgerByPeriod, supplierCreditFromBalance } from "@/utils/supplierPaymentAllocation";
 import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
 import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
 import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
@@ -427,12 +427,35 @@ export default function SupplierAccountPage() {
       balance = balance + (e.debit || 0) - (e.credit || 0);
       return { ...e, balance };
     });
-  }, [supplierInvoices, supplierPayments, supplierCNs, scopedRefundLines, scopedDepositLines, openingBalances]);
+  }, [supplierInvoices, supplierPayments, supplierCNs, scopedRefundLines, scopedDepositLines, openingBalances, allocSumByPayment]);
 
   const filteredLedger = useMemo(() => {
     const start = periodStart(period);
     if (!start) return ledger;
-    return ledger.filter((e) => (e.date || "") >= start);
+    // Period filtering must keep the brought-forward balance so the running
+    // balance inside the window stays correct.
+    const { broughtForward, rows } = splitLedgerByPeriod(
+      ledger.map((e) => ({ ...e, date: e.date || "" })),
+      start,
+    );
+    const withBf: typeof ledger =
+      Math.abs(broughtForward) > 0.005
+        ? [{
+            id: "bf",
+            date: start,
+            type: "opening_balance" as LedgerType,
+            reference: "Brought forward",
+            description: `Balance brought forward as of ${fmtDate(start)}`,
+            venue: "",
+            debit: broughtForward > 0 ? broughtForward : 0,
+            credit: broughtForward < 0 ? -broughtForward : 0,
+          }, ...rows]
+        : rows;
+    let balance = 0;
+    return withBf.map((e) => {
+      balance = balance + (e.debit || 0) - (e.credit || 0);
+      return { ...e, balance };
+    });
   }, [ledger, period]);
 
   const ledgerTotals = useMemo(() => {
