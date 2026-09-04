@@ -2564,8 +2564,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </button>
             </div>
             <table className="w-max min-w-full text-xs border-collapse table-auto">
-              <thead>
+              <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
                   <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
 
