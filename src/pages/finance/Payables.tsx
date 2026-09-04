@@ -487,6 +487,9 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
     });
   }, [payments, search, supplierF, methodF, paidFromF, matchF, from, to]);
 
+  const receiptCounts = usePaymentReceiptCounts((filtered as any[]).slice(0, 500).map((p) => p.id));
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+
   const kpis = useMemo(() => {
     const monthStart = new Date(); monthStart.setDate(1);
     const ms = monthStart.toISOString().slice(0, 10);
@@ -536,6 +539,7 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
 
   return (
     <>
+      <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <KPIGrid cols={5}>
         <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmtWhole(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-primary" tint="bg-primary/10" />
         <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-warning" tint="bg-warning/10" />

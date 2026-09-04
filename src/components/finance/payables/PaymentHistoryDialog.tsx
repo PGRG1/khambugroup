@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { APInvoice } from "@/hooks/usePayables";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
+import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
+import { PaymentReceiptsDialog } from "./PaymentReceiptsDialog";
+import { ReceiptIndicator } from "./ReceiptIndicator";
 
 type AllocRow = {
   id: string;
@@ -38,6 +41,8 @@ export function PaymentHistoryDialog({
 }) {
   const [rows, setRows] = useState<AllocRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const receiptCounts = usePaymentReceiptCounts(rows.map((r) => r.payment?.id).filter(Boolean) as string[]);
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !invoice) return;
@@ -104,7 +109,7 @@ export function PaymentHistoryDialog({
                     <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-400">
                       {r.credit_note_amount_applied > 0 ? fmt(r.credit_note_amount_applied) : "—"}
                     </td>
-                    <td className="px-3 py-2 text-xs">{paymentMethodLabel(r.payment?.payment_method)}</td>
+                    <td className="px-3 py-2 text-xs"><span className="inline-flex items-center gap-1">{paymentMethodLabel(r.payment?.payment_method)}<ReceiptIndicator count={receiptCounts.get(r.payment?.id) || 0} onClick={() => setReceiptPaymentId(r.payment?.id)} /></span></td>
                     <td className="px-3 py-2 text-xs">
                       {r.payment?.reference_number || r.payment?.cheque_number || "—"}
                     </td>
