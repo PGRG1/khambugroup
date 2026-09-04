@@ -65,6 +65,7 @@ export function RecordPaymentDialog({
   const [chequeNumber, setChequeNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [alloc, setAlloc] = useState<Record<string, Allocation>>({});
+  const [allocSuggested, setAllocSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<File[]>([]);
   const { tenantId } = useActiveTenant();
