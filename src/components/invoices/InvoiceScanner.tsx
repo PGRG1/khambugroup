@@ -32,6 +32,7 @@ import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
+import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
@@ -2015,34 +2016,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   // One compact queue drives exception-first navigation without changing the save gate.
-  const reviewIssueTargets = useMemo(() => {
-    if (!current) return [];
-    const targets: Array<{ scope: "header" | "line"; field: string; lineIdx?: number }> = [];
-    [...(current.review_blocking || []), ...(current.review_warnings || [])].forEach((message) => {
-      const field = message.split(":")[0]?.trim().toLowerCase() || "header";
-      targets.push({ scope: "header", field });
-    });
-    current.line_items.forEach((line, lineIdx) => {
-      if ((line.review_blocking?.length || 0) > 0 || (line.review_warnings?.length || 0) > 0 || line.unmatched || line.price_changed) {
-        targets.push({ scope: "line", field: line.price_changed ? `line-${lineIdx}-unit_price` : `line-${lineIdx}-description`, lineIdx });
-      }
-    });
-    return targets;
-  }, [current]);
+  const reviewIssueTargets = useMemo(() => buildReviewIssues(current as any), [current]);
 
-  const goToNextIssue = () => {
-    if (!reviewIssueTargets.length) return;
-    const target = reviewIssueTargets[nextIssueIndex % reviewIssueTargets.length];
-    setNextIssueIndex((index) => (index + 1) % reviewIssueTargets.length);
+  // Keep the position honest when findings are resolved or removed.
+  useEffect(() => {
+    if (nextIssueIndex >= reviewIssueTargets.length) setNextIssueIndex(0);
+  }, [reviewIssueTargets.length, nextIssueIndex]);
+
+  const focusIssue = useCallback((index: number) => {
+    const total = reviewIssueTargets.length;
+    if (!total) return;
+    const safe = ((index % total) + total) % total;
+    const target = reviewIssueTargets[safe];
+    setNextIssueIndex(safe);
     activateEvidence(target.field);
-    if (target.scope === "line" && target.lineIdx !== undefined) {
-      goToLine(target.lineIdx);
-      return;
-    }
+    if (target.scope === "line" && target.lineIdx !== undefined) goToLine(target.lineIdx);
     requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document
+        .querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
-  };
+  }, [reviewIssueTargets, activateEvidence]);
+
+  const currentIssue = reviewIssueTargets[Math.min(nextIssueIndex, Math.max(reviewIssueTargets.length - 1, 0))] || null;
+  const goToNextIssue = () => focusIssue(nextIssueIndex + 1);
+  const goToPrevIssue = () => focusIssue(nextIssueIndex - 1);
 
   // GRN receiving: detect disputed lines (any qty diff) and missing reason/notes.
   const disputeStats = useMemo(() => {
@@ -2319,7 +2317,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.matched} matched</span> ·{" "}
                       <span className="text-indigo-600 dark:text-indigo-400 font-medium">{stats.newItems} new</span>
                     </span>
-                    {((current.review_corrections?.length || 0) + (current.review_warnings?.length || 0) + (current.review_blocking?.length || 0)) > 0 && (
+                    {((current.review_corrections?.length || 0) + reviewIssueTargets.length) > 0 && (
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowInvoiceDetails(true)}>
                         View review summary
                       </Button>
@@ -2330,12 +2328,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             );
           })()}
 
-          {reviewIssueTargets.length > 0 && (
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">{reviewIssueTargets.length} review issue{reviewIssueTargets.length === 1 ? "" : "s"} in this invoice</span>
-              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={goToNextIssue}>
-                <ArrowRight className="h-3 w-3" /> Next issue
-              </Button>
+          {currentIssue && (
+            <div
+              data-testid="review-issue-bar"
+              className={cn("flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-xs", issueToneClasses(currentIssue.severity))}
+            >
+              <span className="min-w-0 whitespace-normal break-words">
+                <span className="font-medium">Issue {nextIssueIndex + 1} of {reviewIssueTargets.length}</span>
+                {" · "}
+                <span className="font-medium">{currentIssue.label}</span>
+                {" — "}
+                <span>{currentIssue.message}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1">
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={goToPrevIssue} aria-label="Previous issue">
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 px-2 text-xs" onClick={goToNextIssue} aria-label="Next issue">
+                  Next <ArrowRight className="h-3 w-3" />
+                </Button>
+              </span>
             </div>
           )}
 
@@ -3436,8 +3448,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Invoice header review</DialogTitle>
-            <DialogDescription>Header-level corrections and flags from the review agent.</DialogDescription>
+            <DialogTitle>Invoice review summary</DialogTitle>
+            <DialogDescription>Every header and line finding from the review agent.</DialogDescription>
           </DialogHeader>
           {current && (
             <div className="space-y-4 text-sm">
@@ -3460,20 +3472,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {current.review_warnings && current.review_warnings.length > 0 && (
+              {reviewIssueTargets.length > 0 && (
                 <div>
-                  <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  <div className="font-medium mb-1">Findings</div>
+                  <table className="w-full text-xs border" data-testid="review-summary-table">
+                    <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Where</th><th className="text-left p-1.5">Severity</th><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Message</th></tr></thead>
+                    <tbody>
+                      {reviewIssueTargets.map((issue) => (
+                        <tr key={issue.id} className="border-t align-top">
+                          <td className="p-1.5 whitespace-nowrap">{issue.label}</td>
+                          <td className={cn("p-1.5 capitalize", issue.severity === "blocking" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{issue.severity}</td>
+                          <td className="p-1.5 font-mono">{issue.field}</td>
+                          <td className="p-1.5">{issue.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              {current.review_blocking && current.review_blocking.length > 0 && (
-                <div>
-                  <div className="font-medium mb-1 text-destructive">Blocking issues</div>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
-                </div>
-              )}
-              {(!current.review_corrections?.length && !current.review_warnings?.length && !current.review_blocking?.length) && (
-                <div className="text-muted-foreground">No header-level findings.</div>
+              {(!current.review_corrections?.length && reviewIssueTargets.length === 0) && (
+                <div className="text-muted-foreground">No findings.</div>
               )}
             </div>
           )}
