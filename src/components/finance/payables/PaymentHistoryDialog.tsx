@@ -74,6 +74,7 @@ export function PaymentHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Payment History</DialogTitle>
