@@ -3472,20 +3472,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {current.review_warnings && current.review_warnings.length > 0 && (
+              {reviewIssueTargets.length > 0 && (
                 <div>
-                  <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  <div className="font-medium mb-1">Findings</div>
+                  <table className="w-full text-xs border" data-testid="review-summary-table">
+                    <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Where</th><th className="text-left p-1.5">Severity</th><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Message</th></tr></thead>
+                    <tbody>
+                      {reviewIssueTargets.map((issue) => (
+                        <tr key={issue.id} className="border-t align-top">
+                          <td className="p-1.5 whitespace-nowrap">{issue.label}</td>
+                          <td className={cn("p-1.5 capitalize", issue.severity === "blocking" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{issue.severity}</td>
+                          <td className="p-1.5 font-mono">{issue.field}</td>
+                          <td className="p-1.5">{issue.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              {current.review_blocking && current.review_blocking.length > 0 && (
-                <div>
-                  <div className="font-medium mb-1 text-destructive">Blocking issues</div>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
-                </div>
-              )}
-              {(!current.review_corrections?.length && !current.review_warnings?.length && !current.review_blocking?.length) && (
-                <div className="text-muted-foreground">No header-level findings.</div>
+              {(!current.review_corrections?.length && reviewIssueTargets.length === 0) && (
+                <div className="text-muted-foreground">No findings.</div>
               )}
             </div>
           )}
