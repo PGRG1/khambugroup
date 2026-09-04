@@ -16,7 +16,7 @@ const sql = readdirSync(MIGRATIONS_DIR)
 
 /** Body of a committed function, used to prove single-transaction behaviour. */
 function functionBody(name: string): string {
-  const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
+  const start = sql.lastIndexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
   expect(start, `${name} is not defined in any committed migration`).toBeGreaterThan(-1);
   const end = sql.indexOf("\n$$;", start);
   expect(end).toBeGreaterThan(start);
