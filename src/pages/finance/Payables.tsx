@@ -27,6 +27,9 @@ import { RecordPaymentDialog } from "@/components/finance/payables/RecordPayment
 import { AllocatePaymentDialog } from "@/components/finance/payables/AllocatePaymentDialog";
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
 import { paidFromAccountLabel, paymentMethodLabel } from "@/utils/paymentMethods";
+import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
+import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
+import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtWhole = (n: number) =>
@@ -584,7 +587,7 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
                   <td className="px-3 py-2 text-xs font-mono">{p.reference_number || `PAY-${p.id.slice(0, 6).toUpperCase()}`}</td>
                   <td className="px-3 py-2 text-xs font-medium">{p.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{paidFromAccountLabel(p.paid_from_account_name)}</td>
-                  <td className="px-3 py-2 text-xs">{paymentMethodLabel(p.payment_method)}</td>
+                  <td className="px-3 py-2 text-xs"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.amount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
                   <td className={`px-3 py-2 text-right tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-warning" : ""}`}>{fmt(p.unallocated_amount)}</td>
