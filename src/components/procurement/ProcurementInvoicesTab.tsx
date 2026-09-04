@@ -32,7 +32,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
-import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, INVOICE_BUCKET } from "@/utils/invoiceAttachments";
+import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
+import { supabaseStorageAdapter, linkInvoiceAttachments } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 
 
@@ -1870,6 +1871,7 @@ export default function ProcurementInvoicesTab() {
         open={!!attachTarget}
         onOpenChange={(o) => { if (!o) setAttachTarget(null); }}
         invoice={attachTarget}
+        tenantId={tenantId}
         onAttached={() => { setAttachTarget(null); fetchAll(); }}
       />
 
