@@ -3424,7 +3424,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               ))}
             </div>
           )}
+          </div>
             </div>
+
           </div>
         </div>
       )}
