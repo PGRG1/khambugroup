@@ -32,7 +32,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
-import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, INVOICE_BUCKET } from "@/utils/invoiceAttachments";
+import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
+import { supabaseStorageAdapter, linkInvoiceAttachments } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 
 
@@ -1731,21 +1732,17 @@ export default function ProcurementInvoicesTab() {
               toast.error("Source document missing — re-attach the scanned file before saving.");
               throw new Error("MISSING_SOURCE_ATTACHMENT");
             }
+            if (!tenantId) {
+              toast.error("No active client selected — invoice not saved.");
+              throw new Error("MISSING_TENANT");
+            }
 
+            const storage = supabaseStorageAdapter();
             let stored;
             try {
               stored = await uploadInvoiceSources(
-                {
-                  upload: (path, file, opts) =>
-                    supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: opts.upsert, contentType: opts.contentType }).then((r) => ({ error: r.error ? { message: r.error.message } : null })),
-                  exists: async (path) => {
-                    const slash = path.lastIndexOf("/");
-                    const dir = slash > 0 ? path.slice(0, slash) : "";
-                    const base = slash > 0 ? path.slice(slash + 1) : path;
-                    const { data } = await supabase.storage.from(INVOICE_BUCKET).list(dir, { search: base, limit: 100 });
-                    return !!data?.some((o) => o.name === base);
-                  },
-                },
+                storage,
+                tenantId,
                 inv.invoice_date,
                 inv.invoice_number,
                 files.map((f) => ({ name: f.name, type: f.type, size: f.size, blob: f })),
@@ -1757,6 +1754,10 @@ export default function ProcurementInvoicesTab() {
             }
 
             const { file_url: fileUrl, file_name: fileName } = attachmentsToColumns(stored);
+            const cleanupAttempt = async () => {
+              const created = newlyCreatedPaths(stored);
+              if (created.length > 0) await storage.remove(created).catch(() => undefined);
+            };
 
             const created = await createInvoice(
               {
@@ -1777,8 +1778,20 @@ export default function ProcurementInvoicesTab() {
             );
             if (!created) {
               console.error("[invoice-attachment] invoice insert failed after successful upload", { invoice_number: inv.invoice_number, fileUrl });
+              await cleanupAttempt();
               throw new Error("INVOICE_SAVE_FAILED");
             }
+
+            try {
+              await linkInvoiceAttachments(tenantId, created.id, stored, "scanner");
+            } catch (e: any) {
+              console.error("[invoice-attachment] linkage failed — rolling back invoice", { invoice_id: created.id, error: e?.message });
+              await deleteInvoice(created.id).catch(() => undefined);
+              await cleanupAttempt();
+              toast.error(`Attachment linkage failed — invoice not saved. ${e?.message || ""}`);
+              throw e;
+            }
+
 
             // Auto-trigger Bani's post-scan analysis (non-blocking).
             if (created?.id && tenantId) {
@@ -1858,6 +1871,7 @@ export default function ProcurementInvoicesTab() {
         open={!!attachTarget}
         onOpenChange={(o) => { if (!o) setAttachTarget(null); }}
         invoice={attachTarget}
+        tenantId={tenantId}
         onAttached={() => { setAttachTarget(null); fetchAll(); }}
       />
 

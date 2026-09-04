@@ -1,21 +1,19 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/expenses/shared";
-import { lazyWithReload } from "@/utils/lazyWithReload";
 
-const ProcurementDashboardTab = lazyWithReload(() => import("@/components/procurement/ProcurementDashboardTab"));
-const SuppliersTab = lazyWithReload(() => import("@/components/procurement/SuppliersTab"));
-const ProductMasterTab = lazyWithReload(() => import("@/components/procurement/ProductMasterTab"));
-const CategoriesTab = lazyWithReload(() => import("@/components/procurement/CategoriesTab"));
-const ProcurementInvoicesTab = lazyWithReload(() => import("@/components/procurement/ProcurementInvoicesTab"));
-const PurchaseOrdersTab = lazyWithReload(() => import("@/components/procurement/PurchaseOrdersTab"));
-const ReceivingTab = lazyWithReload(() => import("@/components/procurement/ReceivingTab"));
-const ProcurementLineItemsTab = lazyWithReload(() => import("@/components/procurement/ProcurementLineItemsTab"));
-const DepositLedgerTab = lazyWithReload(() => import("@/components/procurement/DepositLedgerTab"));
-const InventoryOnHandTab = lazyWithReload(() => import("@/components/procurement/InventoryOnHandTab"));
-const MenuCostingTab = lazyWithReload(() => import("@/components/procurement/MenuCostingTab"));
-const DocumentsTab = lazyWithReload(() => import("@/components/procurement/DocumentsTab"));
-
+const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
+const SuppliersTab = lazy(() => import("@/components/procurement/SuppliersTab"));
+const ProductMasterTab = lazy(() => import("@/components/procurement/ProductMasterTab"));
+const CategoriesTab = lazy(() => import("@/components/procurement/CategoriesTab"));
+const ProcurementInvoicesTab = lazy(() => import("@/components/procurement/ProcurementInvoicesTab"));
+const PurchaseOrdersTab = lazy(() => import("@/components/procurement/PurchaseOrdersTab"));
+const ReceivingTab = lazy(() => import("@/components/procurement/ReceivingTab"));
+const ProcurementLineItemsTab = lazy(() => import("@/components/procurement/ProcurementLineItemsTab"));
+const DepositLedgerTab = lazy(() => import("@/components/procurement/DepositLedgerTab"));
+const InventoryOnHandTab = lazy(() => import("@/components/procurement/InventoryOnHandTab"));
+const MenuCostingTab = lazy(() => import("@/components/procurement/MenuCostingTab"));
+const DocumentsTab = lazy(() => import("@/components/procurement/DocumentsTab"));
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
