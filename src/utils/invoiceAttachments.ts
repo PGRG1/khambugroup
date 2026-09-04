@@ -62,7 +62,10 @@ function extOf(name: string): string {
 
 /** SHA-256 hex digest of the file contents (stable idempotency identifier). */
 export async function checksumOf(blob: Blob | File): Promise<string> {
-  const buf = await blob.arrayBuffer();
+  const buf =
+    typeof (blob as any).arrayBuffer === "function"
+      ? await blob.arrayBuffer()
+      : await new Response(blob as any).arrayBuffer();
   const digest = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
