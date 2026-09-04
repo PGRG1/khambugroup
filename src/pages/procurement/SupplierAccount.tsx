@@ -313,7 +313,7 @@ export default function SupplierAccountPage() {
   }, [scopedDepositLines]);
 
   // Ledger build
-  type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number };
+  type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number; unallocated?: boolean };
 
   const ledger = useMemo<Entry[]>(() => {
     const entries: Entry[] = [];
@@ -353,6 +353,8 @@ export default function SupplierAccountPage() {
         venue: "",
         debit: 0,
         credit: amt,
+        // Informational only — the full payment always reduces the balance.
+        unallocated: amt - (allocSumByPayment.get(p.id) || 0) > 0.01,
       });
     });
     supplierCNs.filter((cn) => cn.status !== "voided").forEach((cn) => {
