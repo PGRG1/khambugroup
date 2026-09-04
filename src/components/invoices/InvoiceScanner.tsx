@@ -2317,7 +2317,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.matched} matched</span> ·{" "}
                       <span className="text-indigo-600 dark:text-indigo-400 font-medium">{stats.newItems} new</span>
                     </span>
-                    {((current.review_corrections?.length || 0) + (current.review_warnings?.length || 0) + (current.review_blocking?.length || 0)) > 0 && (
+                    {((current.review_corrections?.length || 0) + reviewIssueTargets.length) > 0 && (
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowInvoiceDetails(true)}>
                         View review summary
                       </Button>
