@@ -2539,8 +2539,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               ))}
             </div>
           )}
+          </div>
 
-          <div className="bani-visible-scrollbar w-full min-w-0 overflow-x-scroll pb-2">
+          {/* Line items: own bounded scroll viewport (both axes in one container) */}
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto pb-2">
+
 
             <div className="flex justify-end pb-1">
               <button
