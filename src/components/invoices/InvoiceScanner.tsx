@@ -3448,8 +3448,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Invoice header review</DialogTitle>
-            <DialogDescription>Header-level corrections and flags from the review agent.</DialogDescription>
+            <DialogTitle>Invoice review summary</DialogTitle>
+            <DialogDescription>Every header and line finding from the review agent.</DialogDescription>
           </DialogHeader>
           {current && (
             <div className="space-y-4 text-sm">
