@@ -67,15 +67,21 @@ export function useSupplierInsightAvailability(
   productMasterIds: string[],
   currentLines: Record<string, CurrentInsightLine> = {},
 ) {
-  const [availability, setAvailability] = useState<Record<string, SupplierInsightAvailability>>({});
+  const [data, setData] = useState<{
+    ids: string[];
+    entries: SupplierInsightEntry[];
+    purchasesByProduct: Map<string, SupplierPurchase[]>;
+    historyCounts: Record<string, number>;
+  }>({ ids: [], entries: [], purchasesByProduct: new Map(), historyCounts: {} });
   const key = useMemo(() => [...new Set(productMasterIds.filter(Boolean))].sort().join(","), [productMasterIds]);
-  const currentKey = useMemo(() => JSON.stringify(currentLines), [currentLines]);
 
+  // Data fetch depends only on tenant / supplier / linked products — never on
+  // the prices the user is editing, so typing does not refetch.
   useEffect(() => {
     let cancelled = false;
     const ids = key ? key.split(",") : [];
     if (!tenantId || !ids.length || !supplierName) {
-      setAvailability({});
+      setData({ ids: [], entries: [], purchasesByProduct: new Map(), historyCounts: {} });
       return;
     }
     (async () => {
@@ -94,22 +100,28 @@ export function useSupplierInsightAvailability(
         purchasesByProduct.set(line.product_master_id, purchases);
       }
       const currentSupplierId = [...supplierNames.entries()].find(([, name]) => normalizeSupplierName(name) === normalizeSupplierName(supplierName))?.[0];
-      const next: Record<string, SupplierInsightAvailability> = {};
+      const historyCounts: Record<string, number> = {};
       for (const id of ids) {
-        const productEntries = entries.filter((entry) => entry.productMasterId === id);
-        const productLines = (linesRes.data || []).filter((line: any) => line.product_master_id === id);
-        const otherSupplierCount = productEntries.filter((entry) => normalizeSupplierName(entry.supplierName) !== normalizeSupplierName(supplierName)).length;
-        const historyCount = productLines.filter((line: any) => currentSupplierId && line.invoices?.supplier_id === currentSupplierId).length;
-        const line = currentLines[id];
-        const result = line ? buildSupplierInsights({ entries: productEntries, purchases: purchasesByProduct.get(id) || [], currentSupplierName: supplierName, currentPurchasePrice: line.unitPrice, currentStockQty: line.stockQty, currentPurchaseUnit: line.purchaseUnit, canonicalStockUom: line.stockUom }) : null;
-        next[id] = { historyCount, otherSupplierCount, cheaperCount: result?.cheaperCount || 0 };
+        historyCounts[id] = ((linesRes.data || []) as any[]).filter((line: any) => line.product_master_id === id && currentSupplierId && line.invoices?.supplier_id === currentSupplierId).length;
       }
-      setAvailability(next);
+      setData({ ids, entries, purchasesByProduct, historyCounts });
     })();
     return () => { cancelled = true; };
-  }, [tenantId, supplierName, key, currentKey]);
+  }, [tenantId, supplierName, key]);
 
-  return availability;
+  // Cheaper-count recomputation is local: price edits never hit the network.
+  return useMemo(() => {
+    const next: Record<string, SupplierInsightAvailability> = {};
+    if (!supplierName) return next;
+    for (const id of data.ids) {
+      const productEntries = data.entries.filter((entry) => entry.productMasterId === id);
+      const otherSupplierCount = productEntries.filter((entry) => normalizeSupplierName(entry.supplierName) !== normalizeSupplierName(supplierName)).length;
+      const line = currentLines[id];
+      const result = line ? buildSupplierInsights({ entries: productEntries, purchases: data.purchasesByProduct.get(id) || [], currentSupplierName: supplierName, currentPurchasePrice: line.unitPrice, currentStockQty: line.stockQty, currentPurchaseUnit: line.purchaseUnit, canonicalStockUom: line.stockUom }) : null;
+      next[id] = { historyCount: data.historyCounts[id] || 0, otherSupplierCount, cheaperCount: result?.cheaperCount || 0 };
+    }
+    return next;
+  }, [data, supplierName, currentLines]);
 }
 
 /** Backward-compatible count hook for other invoice consumers. */
