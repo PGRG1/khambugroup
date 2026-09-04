@@ -32,8 +32,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
-import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
-import { supabaseStorageAdapter, linkInvoiceAttachments } from "@/utils/invoiceAttachmentClient";
+import { uploadInvoiceSources, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
+import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 
 
