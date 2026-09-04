@@ -22,6 +22,11 @@ import {
 } from "@/utils/paymentReceipts";
 import type { APInvoice, APBankAccountLite, APCreditNote } from "@/hooks/usePayables";
 import {
+  autoAllocateFifo,
+  eligibleNetDue,
+  supplierAdvanceAmount,
+} from "@/utils/supplierPaymentAllocation";
+import {
   PAYMENT_METHOD_OPTIONS,
   PAYMENT_METHOD_TBC,
   UNASSIGNED_ACCOUNT,
