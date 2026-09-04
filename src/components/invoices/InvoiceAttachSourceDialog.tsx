@@ -1,23 +1,25 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, FileText, AlertTriangle } from "lucide-react";
-import { uploadInvoiceSources, attachmentsToColumns, INVOICE_BUCKET } from "@/utils/invoiceAttachments";
+import { uploadInvoiceSources, newlyCreatedPaths } from "@/utils/invoiceAttachments";
+import { supabaseStorageAdapter, linkInvoiceAttachments } from "@/utils/invoiceAttachmentClient";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  invoice: { id: string; invoice_number: string; invoice_date: string; tenant_id?: string | null } | null;
+  invoice: { id: string; invoice_number: string; invoice_date: string } | null;
+  tenantId: string | null | undefined;
   onAttached: () => void;
 }
 
 /**
  * Repair flow: attaches a source document to an existing invoice without
- * touching its id, line items, financial posting or status.
+ * touching its id, line items, financial posting or status. Storage upload is
+ * verified first, then linkage + audit happen in one tenant-scoped transaction.
  */
-export default function InvoiceAttachSourceDialog({ open, onOpenChange, invoice, onAttached }: Props) {
+export default function InvoiceAttachSourceDialog({ open, onOpenChange, invoice, tenantId, onAttached }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -25,52 +27,28 @@ export default function InvoiceAttachSourceDialog({ open, onOpenChange, invoice,
 
   const handleAttach = async () => {
     if (!invoice || files.length === 0) return;
+    if (!tenantId) { toast.error("No active client selected — cannot attach a source document."); return; }
     setBusy(true);
+    const storage = supabaseStorageAdapter();
+    let stored: Awaited<ReturnType<typeof uploadInvoiceSources>> | null = null;
     try {
-      const stored = await uploadInvoiceSources(
-        {
-          upload: (path, file, opts) =>
-            supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: opts.upsert, contentType: opts.contentType })
-              .then((r) => ({ error: r.error ? { message: r.error.message } : null })),
-          exists: async (path) => {
-            const slash = path.lastIndexOf("/");
-            const dir = slash > 0 ? path.slice(0, slash) : "";
-            const base = slash > 0 ? path.slice(slash + 1) : path;
-            const { data } = await supabase.storage.from(INVOICE_BUCKET).list(dir, { search: base, limit: 100 });
-            return !!data?.some((o) => o.name === base);
-          },
-        },
+      stored = await uploadInvoiceSources(
+        storage,
+        tenantId,
         invoice.invoice_date,
-        `${invoice.invoice_number}_repair`,
+        invoice.invoice_number,
         files.map((f) => ({ name: f.name, type: f.type, size: f.size, blob: f })),
       );
-
-      const cols = attachmentsToColumns(stored);
-      const { data: userRes } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("invoices")
-        .update({ file_url: cols.file_url, file_name: cols.file_name } as any)
-        .eq("id", invoice.id);
-      if (error) throw new Error(error.message);
-
-      try {
-        await supabase.from("audit_log").insert({
-          user_id: userRes.user?.id,
-          user_display_name: userRes.user?.email || "Unknown",
-          action: "attach_receipt",
-          entity_type: "invoice",
-          entity_id: invoice.id,
-          details: { repaired_attachment: cols.file_url, invoice_number: invoice.invoice_number },
-        } as any);
-      } catch (e) {
-        console.warn("[invoice-attachment] audit log failed", e);
-      }
-
+      await linkInvoiceAttachments(tenantId, invoice.id, stored, "repair");
       toast.success("Source document attached.");
       onAttached();
       close();
     } catch (e: any) {
-      console.error("[invoice-attachment] repair failed", e);
+      console.error("[invoice-attachment] repair failed", { invoice_id: invoice.id, error: e?.message });
+      if (stored) {
+        const created = newlyCreatedPaths(stored);
+        if (created.length > 0) await storage.remove(created).catch(() => undefined);
+      }
       toast.error(`Attach failed — nothing was changed. ${e?.message || ""}`);
       setBusy(false);
     }
@@ -86,7 +64,7 @@ export default function InvoiceAttachSourceDialog({ open, onOpenChange, invoice,
           </DialogTitle>
           <DialogDescription>
             Invoice {invoice?.invoice_number} has no stored source file. Upload the original document —
-            invoice data, line items and status stay exactly as they are.
+            invoice data, line items, posting and status stay exactly as they are.
           </DialogDescription>
         </DialogHeader>
 
