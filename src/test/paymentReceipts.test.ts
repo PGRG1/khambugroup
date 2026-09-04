@@ -105,7 +105,7 @@ describe("multi-file upload and metadata", () => {
   });
 
   it("cleans up only objects created by a failed attempt", async () => {
-    const s = fakeStorage(new Set(), "1-");
+    const s = fakeStorage(new Set(), "/1-");
     await expect(
       uploadPaymentReceipts(s.adapter, TENANT_A, DATE, [
         file("ok.pdf", "application/pdf", 100, "a"),
