@@ -231,6 +231,36 @@ export function useInvoiceData() {
     return data;
   }, [fetchAll, toast, matchLineItemsToProductMaster, tenantId]);
 
+  /**
+   * Atomic scanner creation: the invoice row, its line items and the durable
+   * attachment metadata (plus the audit event) are written by a single DB
+   * function, so no financial side effect can survive a linkage failure.
+   */
+  const createScannerInvoiceWithAttachments = useCallback(async (
+    invoice: Record<string, any>,
+    lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
+    attachments: Record<string, any>[],
+  ): Promise<string> => {
+    if (!tenantId) throw new Error("No active client selected.");
+    if (!attachments || attachments.length === 0) {
+      throw new Error("A scanned invoice requires at least one durable source attachment.");
+    }
+    const matched = lineItems.length > 0
+      ? await matchLineItemsToProductMaster(lineItems.map((li) => ({ ...li })))
+      : [];
+    const { data, error } = await (supabase as any).rpc("create_scanner_invoice_with_attachments", {
+      p_tenant_id: tenantId,
+      p_invoice: invoice,
+      p_line_items: matched,
+      p_attachments: attachments,
+    });
+    if (error) throw new Error(error.message);
+    await fetchAll();
+    return data as string;
+  }, [fetchAll, matchLineItemsToProductMaster, tenantId]);
+
+
+
   const updateInvoice = useCallback(async (
     id: string,
     updates: Partial<Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name">>,
@@ -292,7 +322,7 @@ export function useInvoiceData() {
 
   return {
     invoices, suppliers, categories, loading,
-    fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus,
+    fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice, updateInvoiceStatus,
     createSupplier, createCategory,
   };
 }
