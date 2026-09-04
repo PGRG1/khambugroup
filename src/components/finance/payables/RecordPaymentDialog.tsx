@@ -568,11 +568,31 @@ export function RecordPaymentDialog({
                 {receipts.map((f) => f.name).join(", ")}
               </div>
             )}
-            <div className="grid grid-cols-5 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border/40">
+            {allocSuggested && (
+              <div className="text-[11px] text-amber-400 border border-amber-500/30 bg-amber-500/10 rounded-md px-3 py-2">
+                Suggested automatic allocation (oldest invoices first). Review and adjust before saving.
+              </div>
+            )}
+            <div className="grid grid-cols-6 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border/40">
               <SumItem label="Payment Amount" value={paymentAmt} />
               <SumItem label="Credit Applied" value={totalCredit} accent={totalCredit > 0 ? "text-emerald-400" : ""} />
               <SumItem label="Cash Allocated" value={totalCash} accent={totalCash > paymentAmt + 0.01 ? "text-red-400" : ""} />
-              <SumItem label="Unallocated" value={unallocated} accent={unallocated > 0.01 ? "text-amber-400" : ""} hint={unallocated > 0.01 ? "Advance / On-Account" : undefined} />
+              <SumItem
+                label="Unallocated payment"
+                value={unallocated}
+                accent={unallocated > 0.01 ? "text-amber-400" : ""}
+                hint={
+                  unallocated > 0.01
+                    ? "The full payment still reduces the supplier running balance. You can match it to invoices later."
+                    : undefined
+                }
+              />
+              <SumItem
+                label="Supplier credit / advance"
+                value={advance}
+                accent={advance > 0.01 ? "text-sky-400" : ""}
+                hint={advance > 0.01 ? "Portion that puts the supplier account in credit" : undefined}
+              />
               <SumItem label="Remaining Outstanding" value={remainingOutstanding} />
             </div>
           </div>
@@ -584,7 +604,17 @@ export function RecordPaymentDialog({
           )}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           {step === 1 ? (
-            <Button onClick={goNext}>Next <ArrowRight className="h-4 w-4 ml-1" /></Button>
+            <>
+              <Button variant="outline" onClick={applyAutoAllocation} disabled={paymentAmt <= 0}>
+                Auto-allocate
+              </Button>
+              <Button variant="outline" onClick={goNext}>
+                Allocate manually <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Record Payment"}
+              </Button>
+            </>
           ) : (
             <Button onClick={save} disabled={saving || totalCash > paymentAmt + 0.01}>
               {saving ? "Saving…" : "Record Payment"}
