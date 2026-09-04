@@ -18,10 +18,29 @@ const sql = readdirSync(MIGRATIONS_DIR)
 function functionBody(name: string): string {
   const start = sql.lastIndexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
   expect(start, `${name} is not defined in any committed migration`).toBeGreaterThan(-1);
-  const end = sql.indexOf("\n$$;", start);
-  expect(end).toBeGreaterThan(start);
-  return sql.slice(start, end);
+  const ends = ["\n$$;", "\n$function$;"]
+    .map((marker) => sql.indexOf(marker, start))
+    .filter((idx) => idx > start);
+  expect(ends.length).toBeGreaterThan(0);
+  return sql.slice(start, Math.min(...ends));
 }
+
+function lineItemInsertColumns(body: string): string[] {
+  const match = body.match(/INSERT INTO public\.invoice_line_items\s*\(([^)]+)\)/is);
+  expect(match, "scanner RPC must use an explicit invoice_line_items column list").not.toBeNull();
+  return (match?.[1] ?? "").split(",").map((column) => column.trim());
+}
+
+// Snapshot from information_schema.columns for public.invoice_line_items:
+// NOT NULL columns with no default that the application must supply.
+const LINE_ITEM_REQUIRED_NO_DEFAULT_COLUMNS = ["invoice_id", "description"] as const;
+// NOT NULL columns that have a DB default — they must be either omitted or
+// supplied with a non-null value, never forced to NULL by a rowtype insert.
+const LINE_ITEM_REQUIRED_WITH_DEFAULT_COLUMNS = [
+  "id", "quantity", "unit_price", "tax_amount", "total", "created_at", "discount",
+  "tenant_id", "discount_mode", "discount_rate", "line_discount_amount",
+  "header_discount_share", "net_unit_cost", "price_disputed", "is_free_unit_line",
+] as const;
 
 function invoiceInsertColumns(body: string): string[] {
   const match = body.match(/INSERT INTO public\.invoices\s*\(([^)]+)\)\s*VALUES/is);
@@ -170,6 +189,30 @@ describe("committed invoice attachment migrations", () => {
     expect(body).toContain("INSERT INTO public.invoice_attachments");
     expect(body).toContain("INSERT INTO public.audit_log");
     expect(body).toContain("NOT LIKE (p_tenant_id::text || '/%')");
+  });
+
+  it("inserts invoice line items by explicit column, never as a rowtype", () => {
+    const body = functionBody("create_scanner_invoice_with_attachments");
+    const columns = lineItemInsertColumns(body);
+
+    expect(columns).toEqual(expect.arrayContaining([...LINE_ITEM_REQUIRED_NO_DEFAULT_COLUMNS]));
+    // Defaulted required columns must be left to the database.
+    for (const column of LINE_ITEM_REQUIRED_WITH_DEFAULT_COLUMNS) {
+      if (column === "id" || column === "created_at") expect(columns).not.toContain(column);
+    }
+    // Any defaulted column we do list must be COALESCEd to a non-null value.
+    for (const column of ["quantity", "unit_price", "tax_amount", "total", "discount", "discount_mode", "discount_rate", "line_discount_amount", "header_discount_share", "net_unit_cost", "price_disputed", "is_free_unit_line"]) {
+      if (columns.includes(column)) {
+        expect(body).toMatch(new RegExp(`COALESCE\\(\\(?(NULLIF\\()?x->>'${column}'`));
+      }
+    }
+    expect(body).not.toMatch(/INSERT INTO public\.invoice_line_items\s*\n?\s*SELECT \(r\)\.\*/i);
+    expect(body).not.toContain("jsonb_populate_record(NULL::public.invoice_line_items");
+    expect(body).not.toContain("jsonb_populate_record(NULL::public.invoices");
+    // realistic multi-line invoice fields (VegFresh-style produce lines)
+    for (const column of ["item_code", "unit", "weight", "pack_size", "accepted_qty", "qty_difference", "receiving_reason", "product_master_id"]) {
+      expect(columns).toContain(column);
+    }
   });
 
   it("stays idempotent so it can be replayed on a fresh database", () => {
