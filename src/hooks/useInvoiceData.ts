@@ -322,7 +322,7 @@ export function useInvoiceData() {
 
   return {
     invoices, suppliers, categories, loading,
-    fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus,
+    fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice, updateInvoiceStatus,
     createSupplier, createCategory,
   };
 }
