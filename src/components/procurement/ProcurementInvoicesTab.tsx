@@ -1721,30 +1721,39 @@ export default function ProcurementInvoicesTab() {
           onProductMasterChanged={loadProductMaster}
           onSuppliersChanged={fetchAll}
           onSave={async (inv, lines, files) => {
-            let fileUrl: string | null = null;
-            let fileName: string | null = null;
-
-            if (files && files.length > 0) {
-              const uploadedPaths: string[] = [];
-              const fileNames: string[] = [];
-
-              for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const ext = file.name.split(".").pop() || "pdf";
-                const suffix = files.length > 1 ? `_page${i + 1}` : "";
-                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}${suffix}.${ext}`;
-                const { error: uploadErr } = await supabase.storage.from("invoice-files").upload(storagePath, file, { upsert: true });
-                if (!uploadErr) {
-                  uploadedPaths.push(storagePath);
-                  fileNames.push(file.name);
-                }
-              }
-
-              if (uploadedPaths.length > 0) {
-                fileUrl = uploadedPaths.join(",");
-                fileName = fileNames.join(", ");
-              }
+            // Durable-before-data: the source document must exist in storage and be
+            // verified BEFORE any invoice row is created. Any failure throws so the
+            // scanner keeps the draft open and no orphan invoice is written.
+            if (!files || files.length === 0) {
+              toast.error("Source document missing — re-attach the scanned file before saving.");
+              throw new Error("MISSING_SOURCE_ATTACHMENT");
             }
+
+            let stored;
+            try {
+              stored = await uploadInvoiceSources(
+                {
+                  upload: (path, file, opts) =>
+                    supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: opts.upsert, contentType: opts.contentType }).then((r) => ({ error: r.error ? { message: r.error.message } : null })),
+                  exists: async (path) => {
+                    const slash = path.lastIndexOf("/");
+                    const dir = slash > 0 ? path.slice(0, slash) : "";
+                    const base = slash > 0 ? path.slice(slash + 1) : path;
+                    const { data } = await supabase.storage.from(INVOICE_BUCKET).list(dir, { search: base, limit: 100 });
+                    return !!data?.some((o) => o.name === base);
+                  },
+                },
+                inv.invoice_date,
+                inv.invoice_number,
+                files.map((f) => ({ name: f.name, type: f.type, size: f.size, blob: f })),
+              );
+            } catch (e: any) {
+              console.error("[invoice-attachment] upload/verify failed", { invoice_number: inv.invoice_number, invoice_date: inv.invoice_date, error: e?.message });
+              toast.error(`Attachment upload failed — invoice not saved. ${e?.message || ""}`);
+              throw e;
+            }
+
+            const { file_url: fileUrl, file_name: fileName } = attachmentsToColumns(stored);
 
             const created = await createInvoice(
               {
@@ -1757,11 +1766,17 @@ export default function ProcurementInvoicesTab() {
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
                 entered_by: user?.id || "",
-              },
+                source_origin: "scanner",
+              } as any,
               lines,
               fileUrl,
               fileName
             );
+            if (!created) {
+              console.error("[invoice-attachment] invoice insert failed after successful upload", { invoice_number: inv.invoice_number, fileUrl });
+              throw new Error("INVOICE_SAVE_FAILED");
+            }
+
             // Auto-trigger Bani's post-scan analysis (non-blocking).
             if (created?.id && tenantId) {
               runBaniScan({ invoiceId: created.id, tenantId, force: true }).catch((e) =>
