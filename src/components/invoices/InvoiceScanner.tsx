@@ -2240,8 +2240,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       {/* Review form */}
       {current && !scanning && (
-        <div className="space-y-4">
-          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
+        <div className="flex min-h-0 flex-1 flex-col space-y-4">
+          <div className="grid min-h-0 min-w-0 flex-1 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
+
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
             <div data-testid="review-right-pane" className="flex min-w-0 min-h-0 flex-col gap-4 overflow-hidden lg:h-[calc(100dvh-10rem)]">
           {/* Header / review fields: scroll independently above the line items */}
