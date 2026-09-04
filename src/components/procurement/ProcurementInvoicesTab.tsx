@@ -1854,6 +1854,13 @@ export default function ProcurementInvoicesTab() {
         onAttachSource={(inv) => setAttachTarget(inv)}
       />
 
+      <InvoiceAttachSourceDialog
+        open={!!attachTarget}
+        onOpenChange={(o) => { if (!o) setAttachTarget(null); }}
+        invoice={attachTarget}
+        onAttached={() => { setAttachTarget(null); fetchAll(); }}
+      />
+
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
           {selectedInvoice && (() => {
@@ -1892,10 +1899,15 @@ export default function ProcurementInvoicesTab() {
                     <Button size="sm" variant="outline" onClick={startEditing}>
                       <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                     </Button>
-                    {selectedInvoice.file_url && (
+                    {hasDurableAttachment(selectedInvoice.file_url) ? (
                       <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
                         <Eye className="h-3.5 w-3.5 mr-1" />
-                        View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
+                        View Attachments ({selectedInvoice.file_url!.split(",").length} {selectedInvoice.file_url!.split(",").length === 1 ? "page" : "pages"})
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="border-amber-500/40 text-amber-500 hover:text-amber-400" onClick={() => setAttachTarget(selectedInvoice)}>
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                        Attachment missing — Attach source
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
