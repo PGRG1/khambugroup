@@ -2233,11 +2233,16 @@ function InvoiceTableSection({
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="flex gap-1">
-                    {inv.file_url && (
-                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
+                    {hasDurableAttachment(inv.file_url) ? (
+                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title={`View attachments (${inv.file_url!.split(",").length})`}>
                         <Eye className="h-3.5 w-3.5" />
                       </button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setAttachTarget(inv); }} className="rounded p-1 text-amber-500 hover:bg-amber-500/10" title="Attachment missing — attach source">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </button>
                     )}
+
                     <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
