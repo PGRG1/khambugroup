@@ -2016,34 +2016,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   // One compact queue drives exception-first navigation without changing the save gate.
-  const reviewIssueTargets = useMemo(() => {
-    if (!current) return [];
-    const targets: Array<{ scope: "header" | "line"; field: string; lineIdx?: number }> = [];
-    [...(current.review_blocking || []), ...(current.review_warnings || [])].forEach((message) => {
-      const field = message.split(":")[0]?.trim().toLowerCase() || "header";
-      targets.push({ scope: "header", field });
-    });
-    current.line_items.forEach((line, lineIdx) => {
-      if ((line.review_blocking?.length || 0) > 0 || (line.review_warnings?.length || 0) > 0 || line.unmatched || line.price_changed) {
-        targets.push({ scope: "line", field: line.price_changed ? `line-${lineIdx}-unit_price` : `line-${lineIdx}-description`, lineIdx });
-      }
-    });
-    return targets;
-  }, [current]);
+  const reviewIssueTargets = useMemo(() => buildReviewIssues(current as any), [current]);
 
-  const goToNextIssue = () => {
-    if (!reviewIssueTargets.length) return;
-    const target = reviewIssueTargets[nextIssueIndex % reviewIssueTargets.length];
-    setNextIssueIndex((index) => (index + 1) % reviewIssueTargets.length);
+  // Keep the position honest when findings are resolved or removed.
+  useEffect(() => {
+    if (nextIssueIndex >= reviewIssueTargets.length) setNextIssueIndex(0);
+  }, [reviewIssueTargets.length, nextIssueIndex]);
+
+  const focusIssue = useCallback((index: number) => {
+    const total = reviewIssueTargets.length;
+    if (!total) return;
+    const safe = ((index % total) + total) % total;
+    const target = reviewIssueTargets[safe];
+    setNextIssueIndex(safe);
     activateEvidence(target.field);
-    if (target.scope === "line" && target.lineIdx !== undefined) {
-      goToLine(target.lineIdx);
-      return;
-    }
+    if (target.scope === "line" && target.lineIdx !== undefined) goToLine(target.lineIdx);
     requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document
+        .querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
-  };
+  }, [reviewIssueTargets, activateEvidence]);
+
+  const currentIssue = reviewIssueTargets[Math.min(nextIssueIndex, Math.max(reviewIssueTargets.length - 1, 0))] || null;
+  const goToNextIssue = () => focusIssue(nextIssueIndex + 1);
+  const goToPrevIssue = () => focusIssue(nextIssueIndex - 1);
 
   // GRN receiving: detect disputed lines (any qty diff) and missing reason/notes.
   const disputeStats = useMemo(() => {
