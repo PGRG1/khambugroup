@@ -32,6 +32,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
+import { uploadInvoiceSources, attachmentsToColumns, hasDurableAttachment, INVOICE_BUCKET } from "@/utils/invoiceAttachments";
+import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -207,6 +209,7 @@ export default function ProcurementInvoicesTab() {
     }
   }, [searchParams, setSearchParams]);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [attachTarget, setAttachTarget] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -1721,30 +1724,39 @@ export default function ProcurementInvoicesTab() {
           onProductMasterChanged={loadProductMaster}
           onSuppliersChanged={fetchAll}
           onSave={async (inv, lines, files) => {
-            let fileUrl: string | null = null;
-            let fileName: string | null = null;
-
-            if (files && files.length > 0) {
-              const uploadedPaths: string[] = [];
-              const fileNames: string[] = [];
-
-              for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const ext = file.name.split(".").pop() || "pdf";
-                const suffix = files.length > 1 ? `_page${i + 1}` : "";
-                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}${suffix}.${ext}`;
-                const { error: uploadErr } = await supabase.storage.from("invoice-files").upload(storagePath, file, { upsert: true });
-                if (!uploadErr) {
-                  uploadedPaths.push(storagePath);
-                  fileNames.push(file.name);
-                }
-              }
-
-              if (uploadedPaths.length > 0) {
-                fileUrl = uploadedPaths.join(",");
-                fileName = fileNames.join(", ");
-              }
+            // Durable-before-data: the source document must exist in storage and be
+            // verified BEFORE any invoice row is created. Any failure throws so the
+            // scanner keeps the draft open and no orphan invoice is written.
+            if (!files || files.length === 0) {
+              toast.error("Source document missing — re-attach the scanned file before saving.");
+              throw new Error("MISSING_SOURCE_ATTACHMENT");
             }
+
+            let stored;
+            try {
+              stored = await uploadInvoiceSources(
+                {
+                  upload: (path, file, opts) =>
+                    supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: opts.upsert, contentType: opts.contentType }).then((r) => ({ error: r.error ? { message: r.error.message } : null })),
+                  exists: async (path) => {
+                    const slash = path.lastIndexOf("/");
+                    const dir = slash > 0 ? path.slice(0, slash) : "";
+                    const base = slash > 0 ? path.slice(slash + 1) : path;
+                    const { data } = await supabase.storage.from(INVOICE_BUCKET).list(dir, { search: base, limit: 100 });
+                    return !!data?.some((o) => o.name === base);
+                  },
+                },
+                inv.invoice_date,
+                inv.invoice_number,
+                files.map((f) => ({ name: f.name, type: f.type, size: f.size, blob: f })),
+              );
+            } catch (e: any) {
+              console.error("[invoice-attachment] upload/verify failed", { invoice_number: inv.invoice_number, invoice_date: inv.invoice_date, error: e?.message });
+              toast.error(`Attachment upload failed — invoice not saved. ${e?.message || ""}`);
+              throw e;
+            }
+
+            const { file_url: fileUrl, file_name: fileName } = attachmentsToColumns(stored);
 
             const created = await createInvoice(
               {
@@ -1757,11 +1769,17 @@ export default function ProcurementInvoicesTab() {
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
                 entered_by: user?.id || "",
-              },
+                source_origin: "scanner",
+              } as any,
               lines,
               fileUrl,
               fileName
             );
+            if (!created) {
+              console.error("[invoice-attachment] invoice insert failed after successful upload", { invoice_number: inv.invoice_number, fileUrl });
+              throw new Error("INVOICE_SAVE_FAILED");
+            }
+
             // Auto-trigger Bani's post-scan analysis (non-blocking).
             if (created?.id && tenantId) {
               runBaniScan({ invoiceId: created.id, tenantId, force: true }).catch((e) =>
@@ -1833,6 +1851,14 @@ export default function ProcurementInvoicesTab() {
         onUpdateField={(id, patch) => updateInvoice(id, patch as any)}
         onUploadClick={() => setScannerOpen(true)}
         invoiceVarianceMap={invoiceVarianceMap}
+        onAttachSource={(inv) => setAttachTarget(inv)}
+      />
+
+      <InvoiceAttachSourceDialog
+        open={!!attachTarget}
+        onOpenChange={(o) => { if (!o) setAttachTarget(null); }}
+        invoice={attachTarget}
+        onAttached={() => { setAttachTarget(null); fetchAll(); }}
       />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -1873,10 +1899,15 @@ export default function ProcurementInvoicesTab() {
                     <Button size="sm" variant="outline" onClick={startEditing}>
                       <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                     </Button>
-                    {selectedInvoice.file_url && (
+                    {hasDurableAttachment(selectedInvoice.file_url) ? (
                       <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
                         <Eye className="h-3.5 w-3.5 mr-1" />
-                        View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
+                        View Attachments ({selectedInvoice.file_url!.split(",").length} {selectedInvoice.file_url!.split(",").length === 1 ? "page" : "pages"})
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="border-amber-500/40 text-amber-500 hover:text-amber-400" onClick={() => setAttachTarget(selectedInvoice)}>
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                        Attachment missing — Attach source
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
@@ -2044,6 +2075,7 @@ interface InvoiceTableSectionProps {
   onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
   invoiceVarianceMap: Record<string, boolean>;
+  onAttachSource: (inv: any) => void;
 }
 
 function InvoiceTableSection({
@@ -2052,7 +2084,7 @@ function InvoiceTableSection({
   reviewStatusFilter, setReviewStatusFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
-  invoiceVarianceMap,
+  invoiceVarianceMap, onAttachSource,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
   const { venues: dbVenues } = useVenues();
@@ -2216,11 +2248,16 @@ function InvoiceTableSection({
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="flex gap-1">
-                    {inv.file_url && (
-                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
+                    {hasDurableAttachment(inv.file_url) ? (
+                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title={`View attachments (${inv.file_url!.split(",").length})`}>
                         <Eye className="h-3.5 w-3.5" />
                       </button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); onAttachSource(inv); }} className="rounded p-1 text-amber-500 hover:bg-amber-500/10" title="Attachment missing — attach source">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </button>
                     )}
+
                     <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

@@ -1502,6 +1502,13 @@ export type Database = {
             foreignKeyName: "credit_notes_source_invoice_id_fkey"
             columns: ["source_invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_invoices_postable"
             referencedColumns: ["invoice_id"]
           },
@@ -3350,6 +3357,13 @@ export type Database = {
             foreignKeyName: "goods_received_notes_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_received_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_invoices_postable"
             referencedColumns: ["invoice_id"]
           },
@@ -4906,6 +4920,13 @@ export type Database = {
             foreignKeyName: "invoice_line_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_invoices_postable"
             referencedColumns: ["invoice_id"]
           },
@@ -5008,6 +5029,13 @@ export type Database = {
             foreignKeyName: "invoice_payments_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "v_invoices_postable"
             referencedColumns: ["invoice_id"]
           },
@@ -5055,6 +5083,7 @@ export type Database = {
           remaining_balance: number
           review_status: string
           scheduled_payment_date: string | null
+          source_origin: string | null
           status: string
           subtotal: number
           supplier_account_id: string | null
@@ -5105,6 +5134,7 @@ export type Database = {
           remaining_balance?: number
           review_status?: string
           scheduled_payment_date?: string | null
+          source_origin?: string | null
           status?: string
           subtotal?: number
           supplier_account_id?: string | null
@@ -5155,6 +5185,7 @@ export type Database = {
           remaining_balance?: number
           review_status?: string
           scheduled_payment_date?: string | null
+          source_origin?: string | null
           status?: string
           subtotal?: number
           supplier_account_id?: string | null
@@ -6384,6 +6415,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
             referencedColumns: ["id"]
           },
           {
@@ -10536,6 +10574,57 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      v_invoices_missing_attachment: {
+        Row: {
+          created_at: string | null
+          entered_by: string | null
+          id: string | null
+          invoice_date: string | null
+          invoice_number: string | null
+          source_origin: string | null
+          status: string | null
+          supplier_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entered_by?: string | null
+          id?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          source_origin?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entered_by?: string | null
+          id?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          source_origin?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           },
         ]
       }
