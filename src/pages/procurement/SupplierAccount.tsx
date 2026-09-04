@@ -23,6 +23,9 @@ import { ExerciseCreditDialog } from "@/components/procurement/ExerciseCreditDia
 import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
+import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
+import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
+import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -492,11 +495,15 @@ export default function SupplierAccountPage() {
     if (error) toast.error("Failed to update deal"); else refetch();
   };
 
+  const receiptCounts = usePaymentReceiptCounts(allSupplierPayments.map((p) => p.id));
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+
   const pendingCNs = supplierCNs.filter((c) => c.status === "draft" || c.status === "needs_review");
   const historicalCNs = supplierCNs.filter((c) => c.status === "fully_applied" || c.status === "voided");
 
   return (
     <div className="p-6 space-y-6">
+      <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <div>
         <Link to="/procurement/finance/suppliers" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Supplier Accounts
@@ -695,7 +702,7 @@ export default function SupplierAccountPage() {
                         <tr key={p.id} className="border-b border-border/30">
                           <td className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(amt)}</td>
-                          <td className="py-2 pr-4">{paymentMethodLabel(p.payment_method)}</td>
+                          <td className="py-2 pr-4"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                           <td className="py-2 pr-4 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(alloc)}</td>
                           <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(unalloc)}</td>
@@ -748,7 +755,7 @@ export default function SupplierAccountPage() {
                         <tr key={p.id} className="border-b border-border/30">
                           <td className="py-2 px-3">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums text-emerald-400">{fmt(Number(p.amount) || 0)}</td>
-                          <td className="py-2 px-3">{paymentMethodLabel(p.payment_method)}</td>
+                          <td className="py-2 px-3"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                           <td className="py-2 px-3 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums">{invCount}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums">{cnApplied > 0 ? fmt(cnApplied) : "—"}</td>

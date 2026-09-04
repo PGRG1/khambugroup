@@ -27,6 +27,9 @@ import { RecordPaymentDialog } from "@/components/finance/payables/RecordPayment
 import { AllocatePaymentDialog } from "@/components/finance/payables/AllocatePaymentDialog";
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
 import { paidFromAccountLabel, paymentMethodLabel } from "@/utils/paymentMethods";
+import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
+import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
+import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtWhole = (n: number) =>
@@ -484,6 +487,9 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
     });
   }, [payments, search, supplierF, methodF, paidFromF, matchF, from, to]);
 
+  const receiptCounts = usePaymentReceiptCounts((filtered as any[]).slice(0, 500).map((p) => p.id));
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
+
   const kpis = useMemo(() => {
     const monthStart = new Date(); monthStart.setDate(1);
     const ms = monthStart.toISOString().slice(0, 10);
@@ -533,6 +539,7 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
 
   return (
     <>
+      <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
       <KPIGrid cols={5}>
         <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmtWhole(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-primary" tint="bg-primary/10" />
         <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-warning" tint="bg-warning/10" />
@@ -584,7 +591,7 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
                   <td className="px-3 py-2 text-xs font-mono">{p.reference_number || `PAY-${p.id.slice(0, 6).toUpperCase()}`}</td>
                   <td className="px-3 py-2 text-xs font-medium">{p.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{paidFromAccountLabel(p.paid_from_account_name)}</td>
-                  <td className="px-3 py-2 text-xs">{paymentMethodLabel(p.payment_method)}</td>
+                  <td className="px-3 py-2 text-xs"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.amount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
                   <td className={`px-3 py-2 text-right tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-warning" : ""}`}>{fmt(p.unallocated_amount)}</td>

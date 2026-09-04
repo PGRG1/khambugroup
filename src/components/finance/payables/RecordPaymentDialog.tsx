@@ -8,7 +8,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Receipt } from "lucide-react";
+import { ArrowLeft, ArrowRight, Paperclip, Receipt, X } from "lucide-react";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
+import {
+  PAYMENT_RECEIPT_ACCEPT,
+  PAYMENT_RECEIPT_BUCKET,
+  formatFileSize,
+  newlyCreatedPaths,
+  receiptMetadataPayload,
+  uploadPaymentReceipts,
+  validateReceiptFile,
+} from "@/utils/paymentReceipts";
 import type { APInvoice, APBankAccountLite, APCreditNote } from "@/hooks/usePayables";
 import {
   PAYMENT_METHOD_OPTIONS,
@@ -50,6 +61,8 @@ export function RecordPaymentDialog({
   const [notes, setNotes] = useState("");
   const [alloc, setAlloc] = useState<Record<string, Allocation>>({});
   const [saving, setSaving] = useState(false);
+  const [receipts, setReceipts] = useState<File[]>([]);
+  const { tenantId } = useActiveTenant();
 
   useEffect(() => {
     if (open && invoice) {
@@ -67,6 +80,7 @@ export function RecordPaymentDialog({
       setReference("");
       setChequeNumber("");
       setNotes("");
+      setReceipts([]);
       setAlloc({ [invoice.id]: { cash: invoice.outstanding_amount.toFixed(2), creditNoteId: null, creditAmt: "" } });
     }
   }, [open, invoice, bankAccounts]);
@@ -121,6 +135,19 @@ export function RecordPaymentDialog({
     setMethod(m);
     if (!isBankLinkedMethod(m)) setBankAccountId(UNASSIGNED_ACCOUNT);
   };
+
+  const addReceipts = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const accepted: File[] = [];
+    for (const f of Array.from(files)) {
+      const problem = validateReceiptFile({ name: f.name, type: f.type, size: f.size });
+      if (problem) { toast.error(problem); continue; }
+      if (receipts.some((r) => r.name === f.name && r.size === f.size)) continue;
+      accepted.push(f);
+    }
+    if (accepted.length) setReceipts((prev) => [...prev, ...accepted]);
+  };
+  const removeReceipt = (idx: number) => setReceipts((prev) => prev.filter((_, i) => i !== idx));
 
   const goNext = () => {
     if (paymentAmt < 0) return toast.error("Payment amount cannot be negative");
@@ -217,7 +244,34 @@ export function RecordPaymentDialog({
       }))
       .filter((a) => a.amount_allocated > 0 || a.credit_note_amount_applied > 0);
 
-    const { data: paymentId, error } = await (supabase as any).rpc("record_payment_with_allocations", {
+    // Optional receipts: upload + verify BEFORE the transaction; roll back only
+    // objects this attempt created if the database write fails.
+    let receiptPayload: ReturnType<typeof receiptMetadataPayload> = [];
+    let createdPaths: string[] = [];
+    if (receipts.length > 0) {
+      if (!tenantId) { setSaving(false); return toast.error("No active business selected — cannot attach receipts."); }
+      try {
+        const stored = await uploadPaymentReceipts(
+          supabaseStorageAdapter(PAYMENT_RECEIPT_BUCKET),
+          tenantId,
+          date,
+          receipts.map((f) => ({ name: f.name, type: f.type, size: f.size, blob: f })),
+        );
+        receiptPayload = receiptMetadataPayload(stored);
+        createdPaths = newlyCreatedPaths(stored);
+      } catch (e: any) {
+        setSaving(false);
+        return toast.error(e?.message || "Receipt upload failed");
+      }
+    }
+
+    const rpcName = receipts.length > 0 ? "record_payment_with_receipts" : "record_payment_with_allocations";
+    const rpcArgs: Record<string, unknown> = receipts.length > 0
+      ? { p_tenant_id: tenantId, p_receipts: receiptPayload }
+      : {};
+
+    const { data: paymentId, error } = await (supabase as any).rpc(rpcName, {
+      ...rpcArgs,
       p_payment: {
         payment_date: date,
         amount: paymentAmt,
@@ -232,7 +286,13 @@ export function RecordPaymentDialog({
       p_allocations: allocations,
     });
 
-    if (error) { setSaving(false); return toast.error(error.message); }
+    if (error) {
+      if (createdPaths.length > 0) {
+        await supabase.storage.from(PAYMENT_RECEIPT_BUCKET).remove(createdPaths).catch(() => undefined);
+      }
+      setSaving(false);
+      return toast.error(error.message);
+    }
 
     // Post the payment JE (Dr AP / Cr bank + optional credit-note offset).
     if (paymentId) {
@@ -316,6 +376,42 @@ export function RecordPaymentDialog({
             <div className="col-span-2">
               <Label>Notes</Label>
               <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Label>Payment receipt <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  id="payment-receipt-input"
+                  type="file"
+                  multiple
+                  accept={PAYMENT_RECEIPT_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => { addReceipts(e.target.files); e.currentTarget.value = ""; }}
+                />
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <label htmlFor="payment-receipt-input" className="cursor-pointer">
+                    <Paperclip className="h-3.5 w-3.5 mr-1" /> Attach files
+                  </label>
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  PDF, JPEG, PNG or HEIC · max 10 MB each · not required to save
+                </span>
+              </div>
+              {receipts.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {receipts.map((f, i) => (
+                    <li key={`${f.name}-${f.size}-${i}`} className="flex items-center gap-2 text-[11px] border border-border/50 rounded px-2 py-1">
+                      <span className="truncate flex-1">{f.name}</span>
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {f.type || "file"} · {formatFileSize(f.size)}
+                      </span>
+                      <button type="button" onClick={() => removeReceipt(i)} className="text-muted-foreground hover:text-red-400" aria-label={`Remove ${f.name}`}>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         ) : (
@@ -439,6 +535,14 @@ export function RecordPaymentDialog({
               </table>
             </div>
 
+            {receipts.length > 0 && (
+              <div className="text-[11px] text-muted-foreground border border-border/40 rounded p-2">
+                <span className="font-medium text-foreground">
+                  {receipts.length} payment receipt{receipts.length > 1 ? "s" : ""} attached:
+                </span>{" "}
+                {receipts.map((f) => f.name).join(", ")}
+              </div>
+            )}
             <div className="grid grid-cols-5 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border/40">
               <SumItem label="Payment Amount" value={paymentAmt} />
               <SumItem label="Credit Applied" value={totalCredit} accent={totalCredit > 0 ? "text-emerald-400" : ""} />

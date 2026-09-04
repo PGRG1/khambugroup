@@ -6720,6 +6720,65 @@ export type Database = {
           },
         ]
       }
+      payment_receipts: {
+        Row: {
+          bucket: string
+          checksum: string | null
+          created_at: string
+          id: string
+          mime_type: string
+          original_name: string
+          path: string
+          payment_id: string
+          size_bytes: number
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          id?: string
+          mime_type?: string
+          original_name: string
+          path: string
+          payment_id: string
+          size_bytes?: number
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          id?: string
+          mime_type?: string
+          original_name?: string
+          path?: string
+          payment_id?: string
+          size_bytes?: number
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_settlement_batches: {
         Row: {
           adjustments: number
@@ -11204,6 +11263,15 @@ export type Database = {
       }
       record_payment_with_allocations: {
         Args: { p_allocations: Json; p_payment: Json }
+        Returns: string
+      }
+      record_payment_with_receipts: {
+        Args: {
+          p_allocations: Json
+          p_payment: Json
+          p_receipts?: Json
+          p_tenant_id: string
+        }
         Returns: string
       }
       reverse_and_regenerate_sales_journal: {
