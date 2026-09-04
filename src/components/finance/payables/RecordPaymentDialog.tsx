@@ -174,6 +174,23 @@ export function RecordPaymentDialog({
   };
   const removeReceipt = (idx: number) => setReceipts((prev) => prev.filter((_, i) => i !== idx));
 
+  /** Optional FIFO suggestion — the user reviews it on step 2 before saving. */
+  const applyAutoAllocation = () => {
+    if (paymentAmt <= 0) return toast.error("Enter a payment amount first");
+    if (!method) return toast.error("Select a payment method");
+    const suggestions = autoAllocateFifo(paymentAmt, allocatableInvoices, date);
+    if (suggestions.length === 0) {
+      toast.info("No eligible invoices dated on or before this payment date");
+    }
+    const next: Record<string, Allocation> = {};
+    for (const s of suggestions) {
+      next[s.invoice_id] = { cash: s.amount.toFixed(2), creditNoteId: null, creditAmt: "" };
+    }
+    setAlloc(next);
+    setAllocSuggested(true);
+    setStep(2);
+  };
+
   const goNext = () => {
     if (paymentAmt < 0) return toast.error("Payment amount cannot be negative");
     if (paymentAmt > 0) {
