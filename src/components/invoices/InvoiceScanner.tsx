@@ -2131,7 +2131,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   return (
-    <div className="card-glass rounded-xl p-6 animate-fade-in">
+    <div data-testid="scanner-shell" className="card-glass flex max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-xl p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
           <ScanLine className="h-5 w-5 text-primary" />
@@ -2240,10 +2240,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       {/* Review form */}
       {current && !scanning && (
-        <div className="space-y-4">
-          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
+        <div className="flex min-h-0 flex-1 flex-col space-y-4">
+          <div className="grid min-h-0 min-w-0 flex-1 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
+
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
-            <div className="bani-visible-scrollbar min-w-0 space-y-4 lg:max-h-[calc(100dvh-10rem)] lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+            <div data-testid="review-right-pane" className="flex min-w-0 min-h-0 flex-col gap-4 overflow-hidden lg:h-[calc(100dvh-10rem)]">
+          {/* Header / review fields: scroll independently above the line items */}
+          <div data-testid="review-fields-scroll" className="bani-visible-scrollbar min-h-0 shrink-0 space-y-4 overflow-y-auto pr-2 lg:max-h-[45%]">
+
           {/* Navigation bar */}
           {totalInvoices > 1 && (
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
@@ -2539,8 +2543,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               ))}
             </div>
           )}
+          </div>
 
-          <div className="bani-visible-scrollbar w-full min-w-0 overflow-x-scroll pb-2">
+          {/* Line items: own bounded scroll viewport (both axes in one container) */}
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto pb-2">
+
 
             <div className="flex justify-end pb-1">
               <button
@@ -2558,8 +2565,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </button>
             </div>
             <table className="w-max min-w-full text-xs border-collapse table-auto">
-              <thead>
+              <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
                   <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
 
@@ -3203,8 +3211,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </table>
           </div>
 
-
+          {/* Fixed footer region: totals + actions stay out of the line-item scroll */}
+          <div data-testid="scanner-footer" className="shrink-0 space-y-2 border-t border-border bg-card px-1 pt-2">
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
+
 
           {/* Totals */}
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
@@ -3424,7 +3434,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               ))}
             </div>
           )}
+          </div>
             </div>
+
           </div>
         </div>
       )}
