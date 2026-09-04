@@ -3203,8 +3203,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </table>
           </div>
 
-
+          {/* Fixed footer region: totals + actions stay out of the line-item scroll */}
+          <div data-testid="scanner-footer" className="shrink-0 space-y-2 border-t border-border bg-card px-1 pt-2">
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
+
 
           {/* Totals */}
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
