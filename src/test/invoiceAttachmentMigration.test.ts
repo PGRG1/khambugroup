@@ -140,9 +140,27 @@ describe("committed invoice attachment migrations", () => {
     expect(sql).toContain("public.invoice_storage_path_allowed(name)");
   });
 
+  it("initializes server-controlled created_at and updated_at before the invoice insert", () => {
+    const body = functionBody("create_scanner_invoice_with_attachments");
+    const insertAt = body.indexOf("INSERT INTO public.invoices");
+    expect(insertAt).toBeGreaterThan(-1);
+    const before = body.slice(0, insertAt);
+    expect(before).toContain("v_invoice.created_at := now()");
+    expect(before).toContain("v_invoice.updated_at := now()");
+    // the attachment transaction logic is preserved in the same body
+    expect(body).toContain("INSERT INTO public.invoice_line_items");
+    expect(body).toContain("INSERT INTO public.invoice_attachments");
+    expect(body).toContain("INSERT INTO public.audit_log");
+    expect(body).toContain("NOT LIKE (p_tenant_id::text || '/%')");
+  });
+
   it("stays idempotent so it can be replayed on a fresh database", () => {
-    const latest = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort().at(-1)!;
-    const body = readFileSync(join(MIGRATIONS_DIR, latest), "utf8");
+    const attachmentMigration = readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => readFileSync(join(MIGRATIONS_DIR, f), "utf8").includes("CREATE TABLE IF NOT EXISTS public.invoice_attachments"))
+      .at(-1)!;
+    const body = readFileSync(join(MIGRATIONS_DIR, attachmentMigration), "utf8");
     expect(body).toContain("CREATE TABLE IF NOT EXISTS");
     expect(body).toContain("CREATE UNIQUE INDEX IF NOT EXISTS");
     expect(body).toMatch(/DROP POLICY IF EXISTS/);
