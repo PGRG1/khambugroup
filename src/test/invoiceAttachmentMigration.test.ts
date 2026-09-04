@@ -191,6 +191,30 @@ describe("committed invoice attachment migrations", () => {
     expect(body).toContain("NOT LIKE (p_tenant_id::text || '/%')");
   });
 
+  it("inserts invoice line items by explicit column, never as a rowtype", () => {
+    const body = functionBody("create_scanner_invoice_with_attachments");
+    const columns = lineItemInsertColumns(body);
+
+    expect(columns).toEqual(expect.arrayContaining([...LINE_ITEM_REQUIRED_NO_DEFAULT_COLUMNS]));
+    // Defaulted required columns must be left to the database.
+    for (const column of LINE_ITEM_REQUIRED_WITH_DEFAULT_COLUMNS) {
+      if (column === "id" || column === "created_at") expect(columns).not.toContain(column);
+    }
+    // Any defaulted column we do list must be COALESCEd to a non-null value.
+    for (const column of ["quantity", "unit_price", "tax_amount", "total", "discount", "discount_mode", "discount_rate", "line_discount_amount", "header_discount_share", "net_unit_cost", "price_disputed", "is_free_unit_line"]) {
+      if (columns.includes(column)) {
+        expect(body).toMatch(new RegExp(`COALESCE\\(\\(?x->>'${column}'`));
+      }
+    }
+    expect(body).not.toMatch(/INSERT INTO public\.invoice_line_items\s*\n?\s*SELECT \(r\)\.\*/i);
+    expect(body).not.toContain("jsonb_populate_record(NULL::public.invoice_line_items");
+    expect(body).not.toContain("jsonb_populate_record(NULL::public.invoices");
+    // realistic multi-line invoice fields (VegFresh-style produce lines)
+    for (const column of ["item_code", "unit", "weight", "pack_size", "accepted_qty", "qty_difference", "receiving_reason", "product_master_id"]) {
+      expect(columns).toContain(column);
+    }
+  });
+
   it("stays idempotent so it can be replayed on a fresh database", () => {
     const attachmentMigration = readdirSync(MIGRATIONS_DIR)
       .filter((f) => f.endsWith(".sql"))
