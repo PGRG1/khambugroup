@@ -27,6 +27,10 @@ export type APInvoice = {
   last_paid_from_account_name: string | null;
   file_url: string | null;
   supplier_account_id: string | null;
+  /** Canonical dispute mechanism: invoices.review_status */
+  review_status: string | null;
+  is_disputed: boolean;
+  dispute_notes: string | null;
 };
 
 export type APSupplierSummary = {
