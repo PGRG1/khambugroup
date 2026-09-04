@@ -160,7 +160,7 @@ describe("committed invoice attachment migrations", () => {
     const body = functionBody("create_scanner_invoice_with_attachments");
     const insertColumns = invoiceInsertColumns(body);
 
-    expect(insertColumns).toEqual(expect.arrayContaining(INVOICE_REQUIRED_NO_DEFAULT_COLUMNS));
+    expect(insertColumns).toEqual(expect.arrayContaining([...INVOICE_REQUIRED_NO_DEFAULT_COLUMNS]));
     expect(body).not.toContain("INSERT INTO public.invoices SELECT v_invoice.*");
     expect(body).not.toContain("jsonb_populate_record(NULL::public.invoices");
     expect(body).toContain("COALESCE(NULLIF(p_invoice->>'payment_status', ''), 'unpaid')");
