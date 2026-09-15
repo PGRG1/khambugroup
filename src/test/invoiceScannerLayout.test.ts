@@ -27,10 +27,13 @@ describe("InvoiceScanner layout ownership", () => {
     expect(c).toContain("overflow-hidden");
   });
 
-  it("header/review fields scroll independently", () => {
+  it("header/review fields size to content without owning a desktop scrollbar", () => {
     const c = classesFor("review-fields-scroll");
-    expect(c).toContain("overflow-y-auto");
+    expect(c).toContain("shrink-0");
     expect(c).toContain("min-h-0");
+    expect(c).toContain("lg:overflow-visible");
+    expect(c).not.toMatch(/max-h-\[/);
+    expect(c).not.toContain("overflow-y-auto");
   });
 
   it("line items own a single scroll container for both axes", () => {
@@ -46,9 +49,22 @@ describe("InvoiceScanner layout ownership", () => {
     expect(src).toMatch(/<thead className="sticky top-0[^"]*"/);
   });
 
+  it("keeps compact line controls and Add Line outside the scroll body", () => {
+    const toolbarIdx = src.indexOf('data-testid="line-items-toolbar"');
+    const scrollIdx = src.indexOf('data-testid="line-items-scroll"');
+    const footerIdx = src.indexOf('data-testid="scanner-footer"');
+    expect(toolbarIdx).toBeGreaterThan(-1);
+    expect(toolbarIdx).toBeLessThan(scrollIdx);
+    expect(src.slice(toolbarIdx, scrollIdx)).toContain("Add Line");
+    expect(src.slice(scrollIdx, footerIdx)).not.toContain("Add Line");
+    expect(src.slice(scrollIdx, footerIdx)).toContain('className="text-xs bg-muted/50 cursor-default font-mono h-7"');
+  });
+
   it("footer with totals and actions sits outside the line-item scroll", () => {
     const c = classesFor("scanner-footer");
     expect(c).toContain("shrink-0");
+    expect(c).toContain("flex");
+    expect(c).toContain("flex-wrap");
     expect(c).toContain("border-t");
     expect(c).toMatch(/bg-card/);
     const footerIdx = src.indexOf('data-testid="scanner-footer"');
