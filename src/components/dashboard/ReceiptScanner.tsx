@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 
@@ -16,6 +16,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 interface ReceiptScannerProps {
   onSave: (record: SalesRecord, file?: File | null) => Promise<void>;
   onClose: () => void;
+  /** When supplied (e.g. a PDF/photo dropped on Upload Sales) extraction starts immediately. */
+  initialFile?: File | null;
 }
 
 const numberFields = [
