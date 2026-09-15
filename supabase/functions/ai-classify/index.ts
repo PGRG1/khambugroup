@@ -72,7 +72,7 @@ Use the supplied "categories", "coa_accounts" and "venues" arrays. Inventory_tre
 
   invoice_anomaly:
     `You detect anomalies on a procurement invoice. You receive {invoice, lines, history_window, duplicates_check}.
-Each line has normalized_unit_cost. history_window contains median_90d per (supplier_id, product_master_id).
+Lines MAY have normalized_unit_cost (cost per stock unit). history_window contains median_90d per (supplier_id, product_master_id).
 Return output_action:
 {
   "confidence": 0..1,
@@ -85,7 +85,13 @@ Return output_action:
     }
   ]
 }
-Use evidence with concrete numbers (current_norm_cost, median_90d, n_observations, etc.). Return empty flags array if nothing is wrong.`,
+Use evidence with concrete numbers (current_norm_cost, median_90d, n_observations, etc.). Return empty flags array if nothing is wrong.
+
+HARD RULES about normalized_unit_cost:
+- normalized_unit_cost is price-comparison metadata ONLY. It is NOT accounting coding and is NOT required.
+- If a line's normalized_unit_cost is null/missing, SKIP all price-history and price-spike/price-drop comparison for that line.
+- NEVER emit "missing_coding" (or any other flag) merely because normalized_unit_cost, pack size or price normalization is unavailable.
+- Do not surface any warning whose only cause is missing price normalization.`,
 };
 
 type Caller = { user_id: string; tenant_id: string; role: string; isSuper: boolean };
