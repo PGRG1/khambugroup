@@ -1046,7 +1046,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const goToLine = useCallback((lineIdx: number) => {
     setHighlightLineIdx(lineIdx);
     requestAnimationFrame(() => {
-      const container = document.querySelector<HTMLElement>('[data-testid="line-items-scroll"]');
+      const container = document.querySelector<HTMLElement>("[data-testid=line-items-scroll]");
       const row = document.getElementById(`inv-line-row-${lineIdx}`);
       if (!container || !row) return;
       const containerRect = container.getBoundingClientRect();
