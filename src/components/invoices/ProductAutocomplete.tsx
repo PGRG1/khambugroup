@@ -93,11 +93,21 @@ const ProductAutocomplete = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Scroll highlighted item into view
+  // Keep highlighted item visible inside the dropdown only; never scroll ancestors
   useEffect(() => {
     if (highlightIdx >= 0 && listRef.current) {
-      const el = listRef.current.children[highlightIdx] as HTMLElement;
-      el?.scrollIntoView({ block: "nearest" });
+      const list = listRef.current;
+      const el = list.children[highlightIdx] as HTMLElement | undefined;
+      if (!el) return;
+      const listTop = list.scrollTop;
+      const listBottom = listTop + list.clientHeight;
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.clientHeight;
+      if (elTop < listTop) {
+        list.scrollTop = elTop;
+      } else if (elBottom > listBottom) {
+        list.scrollTop = elBottom - list.clientHeight;
+      }
     }
   }, [highlightIdx]);
 
