@@ -1,6 +1,13 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import {
+  clearStoredAuthTokens,
+  initialAuthSessionState,
+  reduceAuthSession,
+  type AuthSessionAction,
+  type AuthSessionState,
+} from "@/utils/authSessionState";
 
 interface AuthContextType {
   session: Session | null;
@@ -27,53 +34,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleLoading, setRoleLoading] = useState(true);
+  // Single authoritative auth-state machine shared by both producers
+  // (initial getSession + onAuthStateChange), so neither can regress the other.
+  const authStateRef = useRef<AuthSessionState<Session>>(initialAuthSessionState as AuthSessionState<Session>);
 
   useEffect(() => {
     let cancelled = false;
 
-    const forceSignOut = async () => {
-      try {
-        await supabase.auth.signOut();
-      } catch {}
-      try {
-        // Clear any stale supabase auth keys from localStorage
-        Object.keys(localStorage)
-          .filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"))
-          .forEach((k) => localStorage.removeItem(k));
-      } catch {}
-      if (!cancelled) {
-        setSession(null);
-        setLoading(false);
-      }
+    const dispatch = (action: AuthSessionAction<Session>) => {
+      if (cancelled) return;
+      const { state, effects } = reduceAuthSession(authStateRef.current, action);
+      const prev = authStateRef.current;
+      authStateRef.current = state;
+      if (effects.clearStoredTokens) clearStoredAuthTokens();
+      if (state.session !== prev.session) setSession(state.session);
+      if (!state.loading) setLoading(false);
     };
 
-    // Get initial session; if refresh fails, clean up the stale token
+    // Auth events are authoritative and registered first.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      dispatch({ type: "auth_event", event, session: s });
+    });
+
+    // Initial session read; a stale/failed result can never overwrite an event.
     supabase.auth
       .getSession()
       .then(({ data: { session: s }, error }) => {
-        if (cancelled) return;
-        const msg = (error as any)?.message?.toLowerCase?.() ?? "";
-        if (error && (msg.includes("refresh") || msg.includes("token"))) {
-          forceSignOut();
-          return;
-        }
-        setSession(s);
-        setLoading(false);
+        if (error) dispatch({ type: "initial_error", error });
+        else dispatch({ type: "initial_session", session: s });
       })
-      .catch(() => forceSignOut());
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, s) => {
-        if (cancelled) return;
-        if ((event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") && !s) {
-          forceSignOut();
-          return;
-        }
-        setSession(s);
-        setLoading(false);
-      }
-    );
+      .catch((error) => dispatch({ type: "initial_error", error }));
 
     return () => {
       cancelled = true;
