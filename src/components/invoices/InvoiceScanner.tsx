@@ -915,7 +915,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           productMaster,
           canonicalSupplierName
           // Reviewer flags that the structured numbers contradict must never reach review state.
-        ).map((li: any) => pruneStaleLineMathFlags(li));
+        ).map((li: any, lineIdx: number) =>
+          pruneStaleLineMathFlags(li, { actualTotal: rawLineTotals[lineIdx] })
+        );
 
 
         const ir = invoiceReviewMap.get(invIdx);
