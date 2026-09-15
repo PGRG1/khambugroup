@@ -19,7 +19,7 @@ function renderInScrollable() {
   parent.style.height = "200px";
   document.body.appendChild(parent);
 
-  const { unmount } = render(
+  const { unmount, container } = render(
     <div data-testid="scrollable-parent" style={{ width: "800px", height: "800px" }}>
       <ProductAutocomplete
         value=""
@@ -37,7 +37,12 @@ function renderInScrollable() {
   scrollable.scrollLeft = 50;
   scrollable.scrollTop = 60;
 
-  return { unmount, scrollable };
+  const getSuggestions = () =>
+    Array.from(container.querySelectorAll("button[type='button']")).filter((b) =>
+      b.textContent?.includes("Supplier Product")
+    );
+
+  return { unmount, scrollable, getSuggestions };
 }
 
 describe("ProductAutocomplete scroll isolation", () => {
@@ -52,14 +57,13 @@ describe("ProductAutocomplete scroll isolation", () => {
   });
 
   it("does not call scrollIntoView and preserves parent scroll position while navigating suggestions", () => {
-    const { scrollable, unmount } = renderInScrollable();
+    const { scrollable, unmount, getSuggestions } = renderInScrollable();
 
     const input = screen.getByPlaceholderText("Search product");
     fireEvent.change(input, { target: { value: "Supplier" } });
     fireEvent.focus(input);
 
-    const list = screen.getByRole("listbox");
-    expect(list).toBeTruthy();
+    expect(getSuggestions().length).toBeGreaterThan(0);
 
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "ArrowDown" });
@@ -75,17 +79,17 @@ describe("ProductAutocomplete scroll isolation", () => {
   });
 
   it("keeps parent scroll position when hovering suggestions", () => {
-    const { scrollable, unmount } = renderInScrollable();
+    const { scrollable, unmount, getSuggestions } = renderInScrollable();
 
     const input = screen.getByPlaceholderText("Search product");
     fireEvent.change(input, { target: { value: "Product 5" } });
     fireEvent.focus(input);
 
-    const options = screen.getAllByRole("option");
-    expect(options.length).toBeGreaterThan(0);
+    const suggestions = getSuggestions();
+    expect(suggestions.length).toBeGreaterThan(0);
 
-    fireEvent.mouseEnter(options[0]);
-    fireEvent.mouseEnter(options[options.length - 1]);
+    fireEvent.mouseEnter(suggestions[0]);
+    fireEvent.mouseEnter(suggestions[suggestions.length - 1]);
 
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
     expect(scrollable.scrollLeft).toBe(50);
