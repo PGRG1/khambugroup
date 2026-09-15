@@ -45,10 +45,10 @@ describe("suggest_batch response alignment", () => {
       ] },
       [0, 1],
     );
-    expect(out).toHaveLength(2);
+    // only the valid index survives; the 2 leftovers !== 1 free line -> dropped
+    expect(out).toHaveLength(1);
+    expect(out[0].line_index).toBe(0);
     expect(out[0].item.product_master_id).toBe("a");
-    // remaining leftovers (2) !== free lines (1) -> dropped
-    expect(out[1].line_index).toBe(0);
   });
 
   it("extracts items from lines/results wrappers too", () => {
