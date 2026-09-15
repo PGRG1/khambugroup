@@ -3,7 +3,6 @@ import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight, Pencil } from "lucide-react";
 import {
   WorkflowStrip,
-  CheckCard,
   KpiStrip,
   CorrectionChip,
   LineStatusChip,
@@ -2238,7 +2237,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
             <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
-          {/* Header / review fields: scroll independently above the line items */}
+          {/* Content-sized review header above the independently scrolling line items */}
           <div data-testid="review-fields-scroll" className="min-h-0 shrink-0 space-y-2 lg:overflow-visible">
 
           {/* Navigation bar */}
@@ -2277,22 +2276,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           {(() => {
             const stats = computeReviewStats(current, { totalMismatch });
             return (
-              <div className="space-y-3">
-                <WorkflowStrip
-                  extractorDone={true}
-                  reviewerDone={(stats.autoCorrections + stats.warnings + stats.blocking + stats.matched + stats.newItems) > 0}
-                  blocking={stats.blocking + (current.is_duplicate ? 1 : 0)}
-                  duplicate={!!current.is_duplicate}
-                />
-
-                <div className="hidden">
-                  <CheckCard title="Header Check" status={stats.headerCheckStatus} message={stats.headerCheckMsg} />
-                  <CheckCard title="Supplier Check" status={stats.supplierCheckStatus} message={stats.supplierCheckMsg} />
-                  <CheckCard title="Math Check" status={stats.mathCheckStatus} message={stats.mathCheckMsg} />
-                  <CheckCard title="Item Mapping" status={stats.itemMappingStatus} message={stats.itemMappingMsg} />
+              <div className="space-y-1.5">
+                <div className="grid gap-1.5 xl:grid-cols-[minmax(0,1fr)_auto]">
+                  <WorkflowStrip
+                    extractorDone={true}
+                    reviewerDone={(stats.autoCorrections + stats.warnings + stats.blocking + stats.matched + stats.newItems) > 0}
+                    blocking={stats.blocking + (current.is_duplicate ? 1 : 0)}
+                    duplicate={!!current.is_duplicate}
+                    compact
+                  />
+                  <KpiStrip stats={stats} compact />
                 </div>
-
-                <KpiStrip stats={stats} />
 
                 {current.is_duplicate && !current.saved && (
                   <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs">
@@ -2696,20 +2690,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           <div className={`whitespace-normal break-words text-xs min-h-7 px-2 py-1 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
                             {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
                           </div>
-                          {line.matched_internal_name && (
-                            <button
-                              type="button"
-                              aria-label="Remove match"
-                              title="Remove match — keeps the scanned invoice details"
-                              className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted"
-                              onClick={() => {
-                                removeMatch(i);
-                                openProductSearch(i);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
                         </div>
                         {line.matched_internal_name && line.scanned_description && linkedConflict && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>

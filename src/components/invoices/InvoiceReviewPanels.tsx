@@ -445,11 +445,13 @@ export function WorkflowStrip({
   reviewerDone,
   blocking,
   duplicate,
+  compact = false,
 }: {
   extractorDone: boolean;
   reviewerDone: boolean;
   blocking: number;
   duplicate?: boolean;
+  compact?: boolean;
 }) {
   const Step = ({
     title,
@@ -469,8 +471,8 @@ export function WorkflowStrip({
         ? "text-destructive"
         : "text-muted-foreground";
     return (
-      <div className="flex items-center gap-2 min-w-[150px]">
-        <Icon className={`h-5 w-5 ${color}`} />
+      <div className={compact ? "flex min-w-[120px] items-center gap-1.5" : "flex min-w-[150px] items-center gap-2"}>
+        <Icon className={`${compact ? "h-4 w-4" : "h-5 w-5"} ${color}`} />
         <div className="leading-tight">
           <div className="text-xs font-semibold text-foreground">{title}</div>
           <div className={`text-[10px] ${color}`}>{sub}</div>
@@ -486,7 +488,7 @@ export function WorkflowStrip({
     : "pending";
 
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-lg border border-border bg-card/50 px-3 py-2">
+    <div className={`flex items-center gap-1 flex-wrap rounded-lg border border-border bg-card/50 ${compact ? "px-2 py-1" : "px-3 py-2"}`}>
       <Step
         title="AI Extractor"
         sub={extractorDone ? "Completed" : "Pending"}
@@ -562,7 +564,7 @@ export function CheckCard({
 
 /* ─────────────────────────── KPI strip ────────────────────────────────────── */
 
-export function KpiStrip({ stats }: { stats: ReviewStats }) {
+export function KpiStrip({ stats, compact = false }: { stats: ReviewStats; compact?: boolean }) {
   const Item = ({
     label,
     value,
@@ -583,9 +585,9 @@ export function KpiStrip({ stats }: { stats: ReviewStats }) {
         ? "text-sky-600 dark:text-sky-400"
         : "text-foreground";
     return (
-      <div className="px-3 py-2 min-w-[100px]">
+      <div className={compact ? "min-w-[62px] px-2 py-1" : "min-w-[100px] px-3 py-2"}>
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className={`text-lg font-semibold tabular-nums ${toneClass}`}>{value}</div>
+        <div className={`${compact ? "text-sm" : "text-lg"} font-semibold tabular-nums ${toneClass}`}>{value}</div>
       </div>
     );
   };
