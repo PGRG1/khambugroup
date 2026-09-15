@@ -1,7 +1,9 @@
-// Data-aware AI analyst for KHAMBU dashboard.
+// Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
+import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
+import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -59,7 +61,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          venue: { type: "string", enum: ["All", "Assembly", "Caliente", "Hanabi", "Events"] },
+          venue: { type: "string", description: "Venue name exactly as stored in this workspace, or 'All'." },
           date_from: { type: "string", description: "YYYY-MM-DD inclusive" },
           date_to: { type: "string", description: "YYYY-MM-DD inclusive" },
           group_by: { type: "string", enum: ["none", "venue", "month", "day"], default: "none" },
@@ -104,7 +106,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_cost_of_revenue",
-      description: "Compute cost-of-revenue % = (invoice spend / total revenue) * 100 for a date range, optionally per venue.",
+      description:
+        "INVOICE-SPEND-TO-REVENUE PROXY: (all invoice spend / total revenue) * 100 for a date range, optionally per venue. This includes non-COGS purchases, so it is NOT cost of goods sold, gross margin or net margin. Always label it as a proxy.",
       parameters: {
         type: "object",
         properties: {
@@ -203,7 +206,7 @@ const tools = [
     type: "function",
     function: {
       name: "get_hr_summary",
-      description: "Headcount and payroll cost summary. Returns active headcount by venue, total payroll (forecast + actual) by month, and labor cost % of revenue when sales data is available.",
+      description: "Headcount and payroll cost summary. Returns active headcount by venue, payroll forecast and payroll actual as SEPARATE totals (never add them), and labour cost % of revenue based on payroll actual only when both are available.",
       parameters: {
         type: "object",
         properties: {
@@ -263,7 +266,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_supplier_price_trends",
-      description: "Detects items where unit price changed materially across invoices. Returns items sorted by % price change with first/last price and dates. Use to spot supplier price hikes.",
+      description:
+        "Like-for-like unit price movement across invoices. Compares only within the same supplier, same item identity (product master link, else item code, else description) and the same unit + pack size — never across units or packs. Returns direction (increase/decrease), observation counts and source invoice ids/numbers/dates for the compared prices. Ambiguous or unlinked rows are skipped, reported as skipped_ambiguous.",
       parameters: {
         type: "object",
         properties: {
@@ -402,9 +406,16 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       const revenue = filterSales.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
       const spend = filterInv.reduce((a, r) => a + Number(r.total_amount || 0), 0);
       return {
+        metric: "invoice_spend_to_revenue_proxy",
+        caveat:
+          "Invoice-spend-to-revenue proxy: all invoice spend (including non-COGS purchases) over revenue. Not COGS, gross margin or net margin.",
+        range: { from: args.date_from ?? null, to: args.date_to ?? null },
+        venue: args.venue ?? "All",
         revenue: +revenue.toFixed(2),
         invoice_spend: +spend.toFixed(2),
-        cost_of_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+        invoice_spend_to_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+        sales_record_count: filterSales.length,
+        invoice_count: filterInv.length,
       };
     }
 
@@ -437,7 +448,13 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
         if (args.month) qq = qq.eq("month", args.month);
         return qq;
       });
-      return rows;
+      return {
+        caveat:
+          "Manually entered P&L lines only — not a complete or authoritative P&L. Do not derive profit, cash flow or savings from it.",
+        period: { year: args.year, month: args.month ?? null },
+        row_count: rows.length,
+        rows,
+      };
     }
 
     case "get_invoice_line_items": {
@@ -630,6 +647,7 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       const totalForecast = filterPay.reduce((a, p) => a + Number(p.forecast_total || 0), 0);
       const totalActual = filterPay.reduce((a, p) => a + Number(p.actual_total || 0), 0);
 
+      // Labour % is computed from payroll ACTUAL only. Forecast is never treated as actual.
       let laborCostPct: number | null = null;
       let revenue = 0;
       if (args.year && args.month) {
@@ -638,15 +656,18 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
           (s) => s.date.startsWith(ym) && (!args.venue || s.venue === args.venue),
         );
         revenue = filtSales.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
-        if (revenue > 0) laborCostPct = +(((totalActual || totalForecast) / revenue) * 100).toFixed(2);
+        if (revenue > 0 && totalActual > 0) laborCostPct = +((totalActual / revenue) * 100).toFixed(2);
       }
       return {
         active_headcount: active.length,
         headcount_by_venue: byVenue,
         payroll_forecast_total: +totalForecast.toFixed(2),
         payroll_actual_total: +totalActual.toFixed(2),
+        payroll_note: "Forecast and actual are separate. Never sum them and never report forecast as actual.",
         revenue: revenue ? +revenue.toFixed(2) : null,
         labor_cost_pct: laborCostPct,
+        labor_cost_pct_basis: laborCostPct !== null ? "payroll_actual" : null,
+        payroll_row_count: filterPay.length,
         period: args.year ? { year: args.year, month: args.month || null } : null,
       };
     }
@@ -801,66 +822,48 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
     }
 
     case "get_supplier_price_trends": {
-      const minPct = args.min_change_pct ?? 5;
       const [lineItems, invoices, suppliers] = await Promise.all([
-        fetchAll<any>("invoice_line_items", "invoice_id,description,item_code,quantity,unit_price"),
-        fetchAll<any>("invoices", "id,invoice_date,supplier_id"),
+        fetchAll<any>(
+          "invoice_line_items",
+          "invoice_id,description,item_code,pack_size,unit,quantity,unit_price,product_master_id",
+        ),
+        fetchAll<any>("invoices", "id,invoice_date,invoice_number,supplier_id"),
         fetchAll<any>("suppliers", "id,name"),
       ]);
       const supMap = new Map(suppliers.map((s) => [s.id, s.name]));
       const invMap = new Map(invoices.map((i) => [i.id, i]));
       const supplierNeedle = args.supplier_name?.toLowerCase();
 
-      const filtered = lineItems.filter((li) => {
+      const observations: PriceObservation[] = [];
+      for (const li of lineItems) {
         const inv = invMap.get(li.invoice_id);
-        if (!inv) return false;
-        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) return false;
-        if (supplierNeedle) {
-          const sn = (supMap.get(inv.supplier_id) || "").toLowerCase();
-          if (!sn.includes(supplierNeedle)) return false;
-        }
-        return Number(li.unit_price || 0) > 0;
-      });
-      const groups = new Map<string, any[]>();
-      for (const li of filtered) {
-        const inv = invMap.get(li.invoice_id);
-        const sup = supMap.get(inv?.supplier_id) || "Unknown";
-        const key = `${sup}||${(li.item_code || "").trim()}||${(li.description || "").trim().toLowerCase()}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push({
-          date: inv?.invoice_date,
-          price: Number(li.unit_price),
-          supplier: sup,
+        if (!inv) continue;
+        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) continue;
+        const supName = supMap.get(inv.supplier_id) || "Unknown";
+        if (supplierNeedle && !supName.toLowerCase().includes(supplierNeedle)) continue;
+        observations.push({
+          supplier_id: inv.supplier_id ?? null,
+          supplier: supName,
+          invoice_id: li.invoice_id,
+          invoice_number: inv.invoice_number ?? null,
+          date: inv.invoice_date,
           description: li.description,
-          item_code: li.item_code || "",
+          item_code: li.item_code,
+          product_master_id: li.product_master_id,
+          unit: li.unit,
+          pack_size: li.pack_size,
+          unit_price: Number(li.unit_price || 0),
         });
       }
-      const trends: any[] = [];
-      for (const arr of groups.values()) {
-        if (arr.length < 2) continue;
-        arr.sort((a, b) => a.date.localeCompare(b.date));
-        const first = arr[0];
-        const last = arr[arr.length - 1];
-        if (first.price === 0) continue;
-        const changePct = +(((last.price - first.price) / first.price) * 100).toFixed(2);
-        if (Math.abs(changePct) < minPct) continue;
-        trends.push({
-          supplier: first.supplier,
-          description: first.description,
-          item_code: first.item_code,
-          first_date: first.date,
-          first_price: +first.price.toFixed(4),
-          last_date: last.date,
-          last_price: +last.price.toFixed(4),
-          change_pct: changePct,
-          observation_count: arr.length,
-        });
-      }
-      trends.sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct));
+      const result = buildPriceTrends(observations, {
+        minChangePct: args.min_change_pct ?? 5,
+        limit: args.limit || 30,
+      });
       return {
-        threshold_pct: minPct,
-        items_changed: trends.length,
-        items: trends.slice(0, args.limit || 30),
+        ...result,
+        comparison_basis:
+          "Like-for-like only: same supplier id, same item identity, same unit and pack size. No cross-unit or cross-pack comparisons.",
+        range: { from: args.date_from ?? null, to: args.date_to ?? null },
       };
     }
 
@@ -885,7 +888,9 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
           revenue: +revenue.toFixed(2),
           total_sales: +(revenue - discount).toFixed(2),
           invoice_spend: +spend.toFixed(2),
-          cost_of_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+          invoice_spend_to_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+          sales_record_count: fs.length,
+          invoice_count: fi.length,
           guests,
           orders,
           avg_spend_per_guest: guests > 0 ? +(revenue / guests).toFixed(2) : null,
@@ -903,13 +908,15 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
         };
       };
       return {
+        caveat:
+          "invoice_spend_to_revenue_pct is an invoice-spend-to-revenue proxy, not COGS or margin. Periods of unequal length are not comparable — check the ranges before drawing conclusions.",
         period_a: { from: args.period_a_from, to: args.period_a_to, ...a },
         period_b: { from: args.period_b_from, to: args.period_b_to, ...b },
         deltas: {
           revenue: delta("revenue"),
           total_sales: delta("total_sales"),
           invoice_spend: delta("invoice_spend"),
-          cost_of_revenue_pct: delta("cost_of_revenue_pct"),
+          invoice_spend_to_revenue_pct: delta("invoice_spend_to_revenue_pct"),
           guests: delta("guests"),
           avg_spend_per_guest: delta("avg_spend_per_guest"),
         },
@@ -921,66 +928,21 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
   }
 }
 
-// ---------- system prompt ----------
-const SYSTEM_PROMPT = `You are KHAMBU's senior F&B data analyst — operator-friendly, terse, financially sharp. KHAMBU operates four venues: Assembly, Caliente, Hanabi, and Events.
-
-You have read-only access to the live database via tools. ALWAYS query real data — never invent numbers. Today's date: ${new Date().toISOString().slice(0, 10)}.
-
-## How you think
-1. **Go beyond the literal question.** If asked "revenue this month", also pull MoM trend, top/bottom venue, and one notable anomaly. If asked about cost, pull revenue too to show %. If asked about labor, pull guests/covers to show $/cover.
-2. **Chain tool calls.** A single question often needs 2–5 tools. Pull revenue + invoice spend + payroll → compute margin. Use \`compare_periods\` for trend, \`get_supplier_price_trends\` to spot price hikes, \`get_forecast_vs_actual\` to flag misses.
-3. **Anomaly hunt.** Flag any metric that looks materially off (>20% variance vs prior period, >5% supplier price hike, items >35% food cost). Surface under \`### Watch-outs\`.
-4. **Always recommend.** Every reply ends with 2–3 numbered, concrete actions tied to actual numbers from your answer (e.g. "Renegotiate Ming Kee chicken — 12% price hike on 8 invoices, ~HK$ 3,200/mo exposure").
-
-## Tools at a glance
-- Sales & revenue: \`get_sales_summary\`, \`get_venue_performance\`, \`compare_periods\`
-- Cost & margin: \`get_cost_of_revenue\`, \`get_top_suppliers\`, \`get_invoice_summary\`, \`get_invoice_line_items\`, \`get_supplier_price_trends\`
-- Forecasting: \`get_forecast_vs_actual\`
-- People cost: \`get_hr_summary\` (returns labor cost % when year+month given)
-- Operations: \`get_inventory_status\`, \`get_menu_costing\`, \`get_pl_period\`
-- Visualization: \`render_chart\` (line for trends, bar for comparisons, pie only for share-of-total ≤6 slices)
-- Meta: \`get_database_overview\`
-
-## Key formulas (server-enforced)
-- Total Revenue = subtotal + service_charge
-- Total Sales = Total Revenue − discount
-- Cost of Revenue % = invoice spend / total revenue × 100
-- Avg Spend per Guest = revenue / guests
-- Labor Cost % = payroll / revenue × 100
-
-## Unit price rules (strict — user has caught wrong prices before)
-- For a SPECIFIC item's price, ALWAYS call \`get_invoice_line_items\` with \`group_by="none"\` first. Show every line: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
-- Quote the FULL min–max range and list distinct \`unit_price_variants\`. Never quote only an average.
-- If user disputes a price, RE-QUERY with looser filters (drop supplier, try just brand/SKU) before disagreeing. The user is usually right.
-- Never claim a price is "not in the data" without first broadening the search.
-
-## Output structure (every answer)
-\`\`\`
-### Headline
-[one sentence with the key number(s)]
-
-[GitHub-flavored markdown table — required for any 2+ row data]
-
-### Context
-[1–2 lines: comparison vs prior period, target, or peer venue]
-
-### Watch-outs
-- [anomaly with the actual number — only if material]
-
-### Recommendations
-1. [Action with HK$ or % impact]
-2. [Action]
-\`\`\`
-
-## Formatting rules
-- Use markdown tables, never bullet lists, for tabular data. Right-align numerics: \`---:\` in separator row.
-- Currency: \`HK$ 1,234,567\` (with thousand separators).
-- State the date range and row count when reporting on a period (e.g. "Based on 142 invoices, 2025-04-01 → 2025-04-30").
-- \`### Heading\` for sections, \`**bold**\` for key numbers.
-- No filler. No "I hope this helps". No re-stating the question.
-- Render a chart whenever a trend, breakdown, or comparison would clarify — keep ≤12 data points per chart.
-
-Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools.`;
+// ---------- workspace context ----------
+async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: string | null; venues: string[] }> {
+  try {
+    const [{ data: tenant }, { data: venues }] = await Promise.all([
+      admin.from("tenants").select("name").eq("id", tenantId).maybeSingle(),
+      admin.from("venues").select("name").eq("tenant_id", tenantId).eq("is_active", true).limit(50),
+    ]);
+    return {
+      workspaceName: (tenant as any)?.name ?? null,
+      venues: ((venues ?? []) as any[]).map((v) => v.name).filter((n) => typeof n === "string" && n.trim()),
+    };
+  } catch {
+    return { workspaceName: null, venues: [] };
+  }
+}
 
 // ---------- main handler ----------
 Deno.serve(async (req) => {
@@ -992,16 +954,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { messages, tenant_id: requestedTenantId } = body ?? {};
-    if (!Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "messages must be an array" }), {
+    // Client input is untrusted data: only user/assistant roles, bounded lengths.
+    const validated = validateChatRequest(body);
+    if (!validated.ok) {
+      return new Response(JSON.stringify({ error: validated.error }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const messages = validated.messages;
 
     // Resolve tenant scope — every DB tool below is filtered by this tenant_id.
-    const resolved = await resolveTenant(admin, user!.id, requestedTenantId ?? null);
+    const resolved = await resolveTenant(admin, user!.id, validated.tenantId);
     if (!resolved) {
       return new Response(
         JSON.stringify({ error: "Forbidden: no tenant access" }),
@@ -1010,8 +974,13 @@ Deno.serve(async (req) => {
     }
     const tenantId = resolved.tenant_id;
 
-    const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    const workspace = await loadWorkspaceContext(tenantId);
+    const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
+
+    const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
     const chartSpecs: any[] = [];
+    // Memoize identical read-only tool calls within this request.
+    const toolCache = new Map<string, any>();
 
     // Models: try Pro first for better reasoning, fall back to Flash if Pro is rate-limited / out of credits / down
     const PRIMARY_MODEL = "google/gemini-2.5-pro";
@@ -1136,10 +1105,17 @@ Deno.serve(async (req) => {
           chartSpecs.push(args);
           result = { ok: true, rendered: args.title || "chart" };
         } else {
-          try {
-            result = await runTool(tc.function.name, args, tenantId);
-          } catch (e) {
-            result = { error: e instanceof Error ? e.message : String(e) };
+          const cacheKey = `${tc.function.name}:${JSON.stringify(args)}`;
+          if (toolCache.has(cacheKey)) {
+            result = toolCache.get(cacheKey);
+          } else {
+            try {
+              result = await runTool(tc.function.name, args, tenantId);
+              toolCache.set(cacheKey, result);
+            } catch (e) {
+              // Errors are surfaced, not cached — a retry may succeed.
+              result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
+            }
           }
         }
         conversation.push({
