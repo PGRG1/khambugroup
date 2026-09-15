@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { canonicalUom } from "@/utils/uomNormalization";
 
 export type UomType = "base" | "stock" | "purchase";
 
@@ -41,6 +42,15 @@ export function useUomOptions() {
     const code = input.code.trim();
     const label = input.label.trim();
     if (!code || !label) { toast.error("Code and label are required"); return null; }
+    // Block duplicate / free-text spellings of a unit that already has a canonical option.
+    const canonical = canonicalUom(code, input.uom_type);
+    if (canonical && canonical.toLowerCase() !== code.toLowerCase()) {
+      const existing = items.find(o => o.uom_type === input.uom_type && o.code.toLowerCase() === canonical.toLowerCase());
+      if (existing) {
+        toast.error(`"${code}" is another spelling of the existing unit "${existing.code}" — use that one instead.`);
+        return null;
+      }
+    }
     const { data, error } = await supabase
       .from("uom_options" as any)
       .insert({ code, label, uom_type: input.uom_type, sort_order: input.sort_order ?? 0, tenant_id: tenantId } as any)
@@ -53,7 +63,7 @@ export function useUomOptions() {
     }
     await fetchAll();
     return data as unknown as UomOption;
-  }, [fetchAll, tenantId]);
+  }, [fetchAll, tenantId, items]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Omit<UomOption, "id">>) => {
     if (!tenantId) return;

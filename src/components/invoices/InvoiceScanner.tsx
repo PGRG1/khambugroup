@@ -65,6 +65,9 @@ import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickC
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 /**
  * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
@@ -1334,21 +1337,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
               copy[currentIdx].supplier_name,
             ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
-      // Directly set all fields from the selected product — no re-resolution
+      // Atomic link replacement — every link field is written in one object so the
+      // extracted external name/SKU is never briefly blanked while changing match.
       lines[i] = {
         ...currentLine,
-        scanned_item_code: scannedCode,
-        scanned_description: scannedDesc,
-        // Items master is the source of truth once the line is linked.
-        description: product.supplier_product_name || product.internal_product_name || currentLine.description,
-        item_code: product.external_sku ?? currentLine.item_code,
-        matched_sku: product.internal_sku,
-        matched_internal_name: product.internal_product_name || "",
-        matched_stock_uom: product.stock_uom || "",
-        matched_purchase_uom: product.purchase_unit || "",
-        matched_stock_qty_ratio: product.stock_qty ?? 1,
-        unmatched: false,
-        sku_mismatch: false,
+        ...buildMatchLinkPatch(currentLine as unknown as MatchableLine, product as MatchTargetEntry),
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
         product_master_id: product.id,
@@ -1381,7 +1374,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     selectProduct(i, candidate.entry as ProductMasterEntry);
   };
 
-  const unlinkProduct = (i: number) => {
+  /** Open the existing product search on a line without touching any extracted field. */
+  const openProductSearch = (i: number) => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+        `[data-external-name-line="${i}"] textarea, [data-external-name-line="${i}"] input`
+      );
+      el?.focus();
+      el?.select?.();
+    });
+  };
+
+  /** Remove the Product Master link only — invoice evidence and records are preserved. */
+  const removeMatch = (i: number) => {
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1389,19 +1394,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (!line) return prev;
       const restored = {
         ...line,
-        item_code: line.scanned_item_code ?? line.item_code,
-        description: line.scanned_description ?? line.description,
-        matched_sku: "",
-        matched_internal_name: "",
-        matched_stock_uom: "",
-        matched_purchase_uom: "",
-        matched_stock_qty_ratio: 1,
-        product_master_id: null,
-        supplier_entry_id: null,
-        unmatched: true,
-        sku_mismatch: false,
-        auto_matched: false,
-        auto_match_score: undefined,
+        ...buildRemoveMatchPatch(line as unknown as MatchableLine),
       };
       const candidates = scoreCandidates(
         { itemCode: restored.scanned_item_code, description: restored.scanned_description },
@@ -2714,17 +2707,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           {line.matched_internal_name && (
                             <button
                               type="button"
-                              aria-label="Clear internal name match"
-                              title="Clear match"
+                              aria-label="Remove match"
+                              title="Remove match — keeps the scanned invoice details"
                               className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted"
                               onClick={() => {
-                                unlinkProduct(i);
-                                requestAnimationFrame(() => {
-                                  const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
-                                    `[data-external-name-line="${i}"] textarea, [data-external-name-line="${i}"] input`
-                                  );
-                                  el?.focus();
-                                });
+                                removeMatch(i);
+                                openProductSearch(i);
                               }}
                             >
                               <X className="h-3 w-3" />
@@ -2761,7 +2749,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           value={line.description}
                           onChange={(v) => {
                             if (v.trim() === "" && line.product_master_id) {
-                              unlinkProduct(i);
+                              removeMatch(i);
                             }
                             updateLine(i, "description", v);
                           }}
@@ -2802,6 +2790,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
+                            <span
+                              data-testid={`unmatched-state-${i}`}
+                              className="text-[10px] font-medium text-warning"
+                            >
+                              {UNMATCHED_STATE_LABEL}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[11px]"
+                              data-testid={`select-item-${i}`}
+                              onClick={() => openProductSearch(i)}
+                            >
+                              Select item
+                            </Button>
                             <ProductSuggestionChip
                               candidates={line.suggestions || []}
                               source={line.suggestion_source || "local"}
@@ -2809,6 +2813,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               onAskAi={() => askAiForLine(i)}
                               aiLoading={aiMatchingIdx === i || aiMatchingAll}
                             />
+
                             <QuickAddProductPopover
                               products={(productMaster || []) as any}
                               supplierName={current?.supplier_name}
@@ -3152,15 +3157,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       {/* Action */}
                       <td className="px-1 py-1 align-top">
                         {line.matched_sku ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-[11px] px-2"
-                            onClick={() => unlinkProduct(i)}
-                          >
-                            Unlink
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] px-2"
+                              data-testid={`change-match-${i}`}
+                              onClick={() => openProductSearch(i)}
+                            >
+                              Change match
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label="More line actions">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setDetailsLineIdx(i)}>Details</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  data-testid={`remove-match-${i}`}
+                                  onClick={() => { removeMatch(i); openProductSearch(i); }}
+                                >
+                                  Remove match
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         ) : line.review_status === "new_item" && line.suggested_new_item ? (
                           <Button
                             type="button"
