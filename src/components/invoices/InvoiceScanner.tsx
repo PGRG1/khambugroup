@@ -606,16 +606,37 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         };
       }
 
-      // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
-      // new/ambiguous/needs review, do not let the local fuzzy resolver silently
-      // re-match it and make the row look approved.
-      const reviewerRequiresManualAction =
-        workingLine.review_status === "needs_review" ||
-        workingLine.review_status === "possible_match" ||
-        workingLine.review_status === "new_item" ||
-        (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
+      // Agent 2 is the gatekeeper for scan-time matching, but a GENERIC
+      // "needs manual review" must not override deterministic, supplier-scoped
+      // evidence: a unique exact supplier-name match. Real contradictions
+      // (code registered elsewhere, size/qualifier/UOM conflict, ambiguity)
+      // always keep the line in manual review.
+      const reviewerHold = reconcileReviewerHold({
+        reviewStatus: workingLine.review_status,
+        reviewBlocking: workingLine.review_blocking,
+        reviewReason: workingLine.review_match_reason,
+        description: matchInput.description,
+        supplierScopedPm: pm,
+      });
 
-      if (reviewerRequiresManualAction) {
+      if (reviewerHold.deterministicEntry) {
+        const linked = linkEntryToLine(workingLine, reviewerHold.deterministicEntry as ProductMasterEntry);
+        const codeWarning = unknownSupplierCodeWarning(workingLine.scanned_item_code || workingLine.item_code, pm);
+        return {
+          ...linked,
+          review_status: "matched" as const,
+          review_match_reason: reviewerHold.reason,
+          // Missing supplier code evidence is a non-blocking note, not a gate.
+          review_warnings: codeWarning
+            ? Array.from(new Set([...(workingLine.review_warnings || []), codeWarning]))
+            : workingLine.review_warnings,
+          review_blocking: (workingLine.review_blocking || []).filter(
+            (msg) => !msg.toLowerCase().startsWith("matched_sku:"),
+          ),
+        };
+      }
+
+      if (reviewerHold.requiresManualAction) {
         // Never auto-link these, but still offer "did you mean?" candidates.
         const cands = scoreCandidates(
           matchInput,
@@ -623,6 +644,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           supplierName,
         );
         const cls = classifyCandidates(cands);
+        const codeWarning = unknownSupplierCodeWarning(workingLine.scanned_item_code || workingLine.item_code, pm);
         return {
           ...workingLine,
           matched_sku: "",
@@ -637,11 +659,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           suggestions: cls.suggestions,
           suggestion_source: "local",
           auto_matched: false,
-          match_hold_reason: cls.ambiguous
-            ? "Close alternatives"
-            : cls.top?.blockingReasons[0] || (cls.top ? "Name differs" : undefined),
+          match_hold_reason: describeMatchHoldReason({
+            description: matchInput.description,
+            ambiguous: cls.ambiguous,
+            top: cls.top,
+            reviewReason: reviewerHold.reason,
+            unknownSupplierCode: codeWarning ? (workingLine.scanned_item_code || workingLine.item_code) : null,
+          }),
         };
       }
+
+
 
       // Use shared resolver to find the best match
       const resolved = resolveExactMatch(
