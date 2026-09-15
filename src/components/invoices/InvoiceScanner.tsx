@@ -302,6 +302,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [savingAll, setSavingAll] = useState(false);
   const [detailsLineIdx, setDetailsLineIdx] = useState<number | null>(null);
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
+  const [showBlockingIssues, setShowBlockingIssues] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [highlightLineIdx, setHighlightLineIdx] = useState<number | null>(null);
@@ -1042,13 +1043,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
   };
 
-  const goToLine = (lineIdx: number) => {
+  const goToLine = useCallback((lineIdx: number) => {
     setHighlightLineIdx(lineIdx);
     requestAnimationFrame(() => {
-      document.getElementById(`inv-line-row-${lineIdx}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const container = document.querySelector<HTMLElement>("[data-testid=line-items-scroll]");
+      const row = document.getElementById(`inv-line-row-${lineIdx}`);
+      if (!container || !row) return;
+      const containerRect = container.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const centeredTop = container.scrollTop
+        + rowRect.top
+        - containerRect.top
+        - (container.clientHeight - rowRect.height) / 2;
+      container.scrollTo({ top: Math.max(0, centeredTop), behavior: "smooth" });
     });
     window.setTimeout(() => setHighlightLineIdx((cur) => (cur === lineIdx ? null : cur)), 2500);
-  };
+  }, []);
 
 
   const updateInvoiceStatus = (value: string) => {
@@ -2009,6 +2019,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   // One compact queue drives exception-first navigation without changing the save gate.
   const reviewIssueTargets = useMemo(() => buildReviewIssues(current as any), [current]);
+  const blockingIssues = useMemo(() => current ? collectBlockingIssues(current as any) : [], [current]);
 
   // Keep the position honest when findings are resolved or removed.
   useEffect(() => {
@@ -2022,13 +2033,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const target = reviewIssueTargets[safe];
     setNextIssueIndex(safe);
     activateEvidence(target.field);
-    if (target.scope === "line" && target.lineIdx !== undefined) goToLine(target.lineIdx);
+    if (target.scope === "line" && target.lineIdx !== undefined) {
+      goToLine(target.lineIdx);
+      return;
+    }
     requestAnimationFrame(() => {
       document
         .querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
-  }, [reviewIssueTargets, activateEvidence]);
+  }, [reviewIssueTargets, activateEvidence, goToLine]);
 
   const currentIssue = reviewIssueTargets[Math.min(nextIssueIndex, Math.max(reviewIssueTargets.length - 1, 0))] || null;
   const goToNextIssue = () => focusIssue(nextIssueIndex + 1);
@@ -2340,6 +2354,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 <span>{currentIssue.message}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
+                {currentIssue.scope === "line" && currentIssue.lineIdx !== undefined && (
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => goToLine(currentIssue.lineIdx as number)}>
+                    Go to line
+                  </Button>
+                )}
+                {blockingIssues.length > 0 && (
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowBlockingIssues(true)}>
+                    View all issues
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={goToPrevIssue} aria-label="Previous issue">
                   <ChevronLeft className="h-3 w-3" />
                 </Button>
@@ -2349,15 +2373,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </span>
             </div>
           )}
-
-          {/* Blocking issues — always visible, never hidden behind a dialog */}
-          <BlockingBanner
-            issues={collectBlockingIssues(current as any)}
-            onDismissHeader={dismissHeaderBlocking}
-            onDismissLine={dismissLineBlocking}
-            onGoToLine={goToLine}
-          />
-
 
           {/* Header fields */}
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-4 items-start">
@@ -2549,7 +2564,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
           {/* Line items: own bounded scroll viewport (both axes in one container) */}
-          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto">
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto lg:min-h-[240px]">
 
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead className="sticky top-0 z-20 bg-card">
@@ -3458,6 +3473,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             : undefined
         }
       />
+
+      {/* Full blocking details live outside the fixed review header. */}
+      <Dialog open={showBlockingIssues} onOpenChange={setShowBlockingIssues}>
+        <DialogContent data-testid="blocking-issues-dialog" className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Blocking issues</DialogTitle>
+            <DialogDescription>Review or acknowledge every issue holding approval.</DialogDescription>
+          </DialogHeader>
+          <BlockingBanner
+            issues={blockingIssues}
+            onDismissHeader={dismissHeaderBlocking}
+            onDismissLine={dismissLineBlocking}
+            onGoToLine={(lineIdx) => {
+              setShowBlockingIssues(false);
+              goToLine(lineIdx);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
 
       {/* Invoice header details */}
