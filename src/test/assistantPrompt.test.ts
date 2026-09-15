@@ -80,14 +80,14 @@ describe("chat message validation", () => {
   it("rejects an oversized single message with a clear error", () => {
     const res = validateChatMessages([{ role: "user", content: "x".repeat(8001) }]);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/character limit/);
+    expect(res.ok === false ? res.error : "").toMatch(/character limit/);
   });
 
   it("rejects an over-long history", () => {
     const many = Array.from({ length: 41 }, () => ({ role: "user" as const, content: "hi" }));
     const res = validateChatMessages(many);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/Too many messages/);
+    expect(res.ok === false ? res.error : "").toMatch(/Too many messages/);
   });
 
   it("requires the last message to come from the user", () => {
