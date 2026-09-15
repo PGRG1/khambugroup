@@ -1415,9 +1415,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         ...restored,
         suggestions: classified.suggestions,
         suggestion_source: "local",
-        match_hold_reason: classified.ambiguous
-          ? "Close alternatives"
-          : classified.top?.blockingReasons[0] || (classified.top ? "Name differs" : undefined),
+        match_hold_reason: describeMatchHoldReason({
+          description: restored.scanned_description,
+          ambiguous: classified.ambiguous,
+          top: classified.top,
+          reviewReason: (restored as ScannedLineItem).review_match_reason,
+          unknownSupplierCode: unknownSupplierCodeWarning(
+            restored.scanned_item_code,
+            scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
+          ) ? restored.scanned_item_code : null,
+        }),
+
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
