@@ -4,11 +4,18 @@ import readXlsxFile from "read-excel-file";
 import { SalesRecord } from "@/types/sales";
 import { parseExcelRow } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
+import {
+  SALES_UPLOAD_ACCEPT,
+  classifySalesFile,
+  parseDelimitedText,
+} from "@/utils/salesFileIntake";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface DataUploadProps {
   onUpload: (records: SalesRecord[]) => void;
+  /** PDF / image files are handed to the existing AI extraction + review flow. */
+  onScanFile?: (file: File) => void;
   onClose: () => void;
 }
 
