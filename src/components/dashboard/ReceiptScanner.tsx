@@ -170,7 +170,15 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [activeVenueNames]);
+
+  const autoStarted = useRef<File | null>(null);
+  useEffect(() => {
+    if (initialFile && autoStarted.current !== initialFile) {
+      autoStarted.current = initialFile;
+      processFile(initialFile);
+    }
+  }, [initialFile, processFile]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
