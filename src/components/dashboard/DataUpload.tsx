@@ -4,17 +4,24 @@ import readXlsxFile from "read-excel-file";
 import { SalesRecord } from "@/types/sales";
 import { parseExcelRow } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
+import {
+  SALES_UPLOAD_ACCEPT,
+  classifySalesFile,
+  parseDelimitedText,
+} from "@/utils/salesFileIntake";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface DataUploadProps {
   onUpload: (records: SalesRecord[]) => void;
+  /** PDF / image files are handed to the existing AI extraction + review flow. */
+  onScanFile?: (file: File) => void;
   onClose: () => void;
 }
 
 type Rejection = { row: number; reason: string; venue?: string; date?: string };
 
-const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
+const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
   const { venues } = useVenues();
   const activeVenueNames = venues.filter((v) => v.is_active).map((v) => v.name);
 
@@ -30,8 +37,24 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         setError("File exceeds 10MB limit.");
         return;
       }
+      const kind = classifySalesFile(file);
+      if (kind === "unsupported") {
+        setError("Unsupported file. Use Excel, CSV, PDF or a photo.");
+        return;
+      }
+      if (kind === "scan") {
+        if (!onScanFile) {
+          setError("PDF and photo extraction is not available here.");
+          return;
+        }
+        onScanFile(file);
+        return;
+      }
       try {
-        const rows = await readXlsxFile(file);
+        const rows: any[][] =
+          kind === "csv"
+            ? parseDelimitedText(await file.text())
+            : ((await readXlsxFile(file)) as any[][]);
         const dataRows = rows.slice(1);
         const records: SalesRecord[] = [];
         const rejections: Rejection[] = [];
@@ -52,7 +75,7 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         setError("Could not read file. Please check the format.");
       }
     },
-    [activeVenueNames],
+    [activeVenueNames, onScanFile],
   );
 
   const handleConfirm = () => {
@@ -98,7 +121,7 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
           onClick={() => {
             const input = document.createElement("input");
             input.type = "file";
-            input.accept = ".xlsx,.xls,.csv";
+            input.accept = SALES_UPLOAD_ACCEPT;
             input.onchange = (e: any) => {
               const file = e.target.files?.[0];
               if (file) processFile(file);
@@ -108,9 +131,15 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         >
           <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Drop your Excel file here or <span className="text-primary font-medium">click to browse</span>
+            Drop a POS export, Excel/CSV, PDF or photo here. Bani will extract and structure it automatically.{" "}
+            <span className="text-primary font-medium">Click to browse</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Supports .xlsx, .xls, .csv · Recognised venues: {activeVenueNames.join(", ") || "none configured"}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Supported: .xlsx, .xls, .csv, .pdf, .jpg, .jpeg, .png, .webp, .heic · max 10MB
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Recognised venues: {activeVenueNames.join(", ") || "none configured"}
+          </p>
         </div>
       )}
 

@@ -15,7 +15,10 @@ Deno.serve(async (req) => {
   if (auth.response) return auth.response;
 
   try {
-    const { imageBase64, mimeType } = await req.json();
+    const { imageBase64, mimeType, venues } = await req.json();
+    const venueList: string[] = Array.isArray(venues)
+      ? venues.map((v: unknown) => String(v ?? "").trim()).filter(Boolean).slice(0, 50)
+      : [];
 
     if (!imageBase64) {
       return new Response(
@@ -38,7 +41,7 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
 
 {
   "date": "YYYY-MM-DD format",
-  "venue": "Assembly or Caliente",
+  "venue": "string",
   "reportNumber": "string",
   "orders": number,
   "guests": number,
@@ -63,7 +66,11 @@ Rules:
 - If a field is not found in the receipt, use 0 for numbers and "" for strings
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
-- Venue should be exactly "Assembly", "Caliente", or "Hanabi" - infer from any branding/headers
+- Venue: infer from any branding/headers on the document. ${
+      venueList.length
+        ? `Choose exactly one of these known venue names if it matches: ${venueList.join(", ")}. If none match, return "".`
+        : `Return the venue name as printed, or "" if none is shown.`
+    }
 - IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation`;

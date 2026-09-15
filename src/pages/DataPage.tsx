@@ -47,6 +47,7 @@ const DataPage = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [scanFile, setScanFile] = useState<File | null>(null);
 
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
@@ -63,7 +64,7 @@ const DataPage = () => {
     return { totalSales, uniqueDays, needsReview, otherRevenue, otherDrafts };
   }, [data, mr.entries]);
 
-  const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); };
+  const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); setScanFile(null); };
 
   const actions = isAdmin ? (
     <div className="flex flex-wrap gap-2">
@@ -178,10 +179,18 @@ const DataPage = () => {
           </KpiGrid>
 
           {isAdmin && !hideUpload && showUpload && (
-            <DataUpload onUpload={async (records) => { await uploadRecords(records); }} onClose={() => setShowUpload(false)} />
+            <DataUpload
+              onUpload={async (records) => { await uploadRecords(records); }}
+              onScanFile={(file) => { setShowUpload(false); setScanFile(file); setShowScanner(true); setView("daily"); }}
+              onClose={() => setShowUpload(false)}
+            />
           )}
           {isAdmin && !hideScanReceipt && showScanner && (
-            <ReceiptScanner onSave={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowScanner(false)} />
+            <ReceiptScanner
+              initialFile={scanFile}
+              onSave={async (record, file) => { await addRecord(record, file); }}
+              onClose={() => { setShowScanner(false); setScanFile(null); }}
+            />
           )}
           {isAdmin && !hideManualEntry && showManual && (
             <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />

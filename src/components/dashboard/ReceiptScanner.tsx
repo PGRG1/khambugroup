@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 
@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
+import { classifySalesFile } from "@/utils/salesFileIntake";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface ReceiptScannerProps {
   onSave: (record: SalesRecord, file?: File | null) => Promise<void>;
   onClose: () => void;
+  /** When supplied (e.g. a PDF/photo dropped on Upload Sales) extraction starts immediately. */
+  initialFile?: File | null;
 }
 
 const numberFields = [
@@ -52,7 +55,7 @@ const emptyRecord: SalesRecord = {
   visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
 };
 
-const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
+const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
   const { venues } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
@@ -83,9 +86,8 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       return;
     }
 
-    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
-    if (!validTypes.includes(file.type)) {
-      toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG) or PDF.", variant: "destructive" });
+    if (classifySalesFile(file) !== "scan") {
+      toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG, WEBP, HEIC) or PDF.", variant: "destructive" });
       return;
     }
 
@@ -104,7 +106,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       const base64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: file.type },
+        body: { imageBase64: base64, mimeType: file.type, venues: activeVenueNames },
       });
 
       if (error) {
@@ -168,7 +170,15 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [activeVenueNames]);
+
+  const autoStarted = useRef<File | null>(null);
+  useEffect(() => {
+    if (initialFile && autoStarted.current !== initialFile) {
+      autoStarted.current = initialFile;
+      processFile(initialFile);
+    }
+  }, [initialFile, processFile]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
