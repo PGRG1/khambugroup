@@ -5,7 +5,7 @@ import { resolve } from "path";
 const src = readFileSync(resolve(__dirname, "../components/invoices/InvoiceScanner.tsx"), "utf8");
 
 function classesFor(testid: string): string {
-  const re = new RegExp(`data-testid="${testid}"[^>]*className=(?:"([^"]*)"|\\{cn\\(([^)]*)\\))`);
+  const re = new RegExp(`data-testid="${testid}"[^>]*className=(?:"([^"]*)"|\\{cn\\(([\\s\\S]*?)\\)\\})`);
   const m = src.match(re);
   expect(m, `element ${testid} not found`).toBeTruthy();
   return (m![1] || m![2] || "");
