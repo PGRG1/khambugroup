@@ -32,9 +32,33 @@ export const expectedLineTotal = (line: LineMathShape): number => {
   return gross - disc + num(line.tax_amount);
 };
 
+const parseFinite = (v: unknown): number | null => {
+  if (v == null || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Options for reconciliation. When `actualTotal` is explicitly provided (even
+ * undefined), it is treated as the ORIGINAL extracted total: a missing or
+ * non-numeric value means the math can NOT be confirmed reconciled, so flags
+ * are preserved rather than silently pruned.
+ */
+export type LineMathReconcileOptions = { actualTotal?: unknown };
+
 /** True when the recomputed total matches the extracted total within tolerance. */
-export const isLineMathReconciled = (line: LineMathShape): boolean =>
-  Math.abs(expectedLineTotal(line) - num(line.total)) <= LINE_MATH_TOLERANCE + 1e-9;
+export const isLineMathReconciled = (
+  line: LineMathShape,
+  opts?: LineMathReconcileOptions
+): boolean => {
+  const expected = expectedLineTotal(line);
+  if (opts && "actualTotal" in opts) {
+    const actual = parseFinite(opts.actualTotal);
+    if (actual === null) return false;
+    return Math.abs(expected - actual) <= LINE_MATH_TOLERANCE + 1e-9;
+  }
+  return Math.abs(expected - num(line.total)) <= LINE_MATH_TOLERANCE + 1e-9;
+};
 
 /** Detects reviewer findings that describe a line-total arithmetic mismatch. */
 export const isLineMathFlag = (msg: string): boolean => {
