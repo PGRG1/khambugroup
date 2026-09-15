@@ -68,21 +68,7 @@ import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
-/**
- * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
- * purchase UOM/cost, stock UOM/conversion) may only ever come from a product_suppliers
- * row whose normalized supplier name equals the selected invoice supplier.
- * No partial / contains matching — that leaks another supplier's wording onto a line.
- */
-const scopePMToSupplier = <T extends { supplier?: string | null }>(
-  pm: T[] | undefined,
-  supplierName?: string,
-): T[] => {
-  if (!pm) return [];
-  const norm = normalizeSupplierKey(supplierName || "");
-  if (!norm) return [];
-  return pm.filter((entry) => entry.supplier && normalizeSupplierKey(entry.supplier) === norm);
-};
+import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
 
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -874,12 +860,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const raw = rawInvoices[invIdx];
         const supplierName = raw?.supplier_name || "";
         const supplierId = matchSupplier(supplierName);
+        // Canonicalize to the selected supplier record's name once we know the id —
+        // raw OCR wording ("Ming Kee Seafood") must not drive strict supplier scoping.
+        const canonicalSupplierName = supplierId
+          ? (suppliers.find((s) => s.id === supplierId)?.name || supplierName)
+          : supplierName;
         const invoiceEvidence = normalizeInvoiceEvidence(raw?.evidence, preparedFiles.length > 0 ? preparedFiles.length : undefined);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
             const matchedSku = li?.matched_sku || "";
             const itemCode = li?.item_code || "";
-            const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
+            const pmData = resolvePMData(itemCode, matchedSku, productMaster, canonicalSupplierName);
             const supplierObj = suppliers.find((s) => s.id === supplierId) ?? { name: supplierName };
             const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
@@ -916,12 +907,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             };
           }),
           productMaster,
-          supplierName
+          canonicalSupplierName
         );
 
         const ir = invoiceReviewMap.get(invIdx);
         parsedInvoices.push({
-          supplier_name: supplierName,
+          supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
           venue: raw?.venue || "Hanabi",
           invoice_number: raw?.invoice_number || "",
@@ -1428,13 +1419,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const askAiToMatch = useCallback(async (indexes: number[]) => {
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
-    const supplierName = inv.supplier_name;
-    // Strict supplier scope — the AI may only ever pick this supplier's entries.
-    const scopedPM = scopePMToSupplier(productMaster, supplierName);
-    if (!scopedPM.length) {
+    // supplier_id is mandatory; scope by the canonical supplier record's name,
+    // never the raw OCR supplier_name.
+    const scope = resolveAiMatchScope(allSuppliers, inv, productMaster);
+    if (scope.status === "no_supplier") {
       toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
       return;
     }
+    if (scope.status === "no_products") {
+      toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
+      return;
+    }
+    const supplierName = scope.supplierName;
+    // Strict supplier scope — the AI may only ever pick this supplier's entries.
+    const scopedPM = scope.scopedPM;
 
     // Shortlist candidates per line, then merge into one candidate pool.
     const pool = new Map<string, ProductMasterEntry>();
@@ -1534,7 +1532,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
       else toast({ title: "AI error", description: msg, variant: "destructive" });
     }
-  }, [invoices, currentIdx, productMaster, tenantId]);
+  }, [invoices, currentIdx, productMaster, tenantId, allSuppliers]);
 
   const askAiForLine = async (i: number) => {
     setAiMatchingIdx(i);
