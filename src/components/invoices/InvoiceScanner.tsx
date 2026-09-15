@@ -2124,8 +2124,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   return (
-    <div data-testid="scanner-shell" className="card-glass flex max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-xl p-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
+    <div data-testid="scanner-shell" className="card-glass flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-lg p-3 animate-fade-in">
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
           <ScanLine className="h-5 w-5 text-primary" />
           Scan Invoice
@@ -2148,7 +2148,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       {/* STEP 1: Add Attachments */}
       {invoices.length === 0 && !scanning && !showCamera && (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -2233,17 +2233,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       {/* Review form */}
       {current && !scanning && (
-        <div className="flex min-h-0 flex-1 flex-col space-y-4">
-          <div className="grid min-h-0 min-w-0 flex-1 items-start gap-4 lg:grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)]">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="grid min-h-0 min-w-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)]">
 
             <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
-            <div data-testid="review-right-pane" className="flex min-w-0 min-h-0 flex-col gap-4 overflow-hidden lg:h-[calc(100dvh-10rem)]">
+            <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
           {/* Header / review fields: scroll independently above the line items */}
-          <div data-testid="review-fields-scroll" className="bani-visible-scrollbar min-h-0 shrink-0 space-y-4 overflow-y-auto pr-2 lg:max-h-[45%]">
+          <div data-testid="review-fields-scroll" className="min-h-0 shrink-0 space-y-2 lg:overflow-visible">
 
           {/* Navigation bar */}
           {totalInvoices > 1 && (
-            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
+            <div className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1">
               <Button variant="ghost" size="sm" disabled={currentIdx === 0} onClick={() => setCurrentIdx(currentIdx - 1)}>
                 <ChevronLeft className="h-4 w-4 mr-1" />Prev
               </Button>
@@ -2285,7 +2285,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   duplicate={!!current.is_duplicate}
                 />
 
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="hidden">
                   <CheckCard title="Header Check" status={stats.headerCheckStatus} message={stats.headerCheckMsg} />
                   <CheckCard title="Supplier Check" status={stats.supplierCheckStatus} message={stats.supplierCheckMsg} />
                   <CheckCard title="Math Check" status={stats.mathCheckStatus} message={stats.mathCheckMsg} />
@@ -2358,7 +2358,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
           {/* Header fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-4 items-start">
             <div data-evidence-field="supplier_name" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "supplier_name" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("supplier_name")}>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Supplier</Label>
@@ -2373,7 +2373,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
                 <SelectTrigger
                   aria-invalid={supplierError}
-                  className={cn("w-full min-w-0", supplierError && "border-destructive focus:ring-destructive")}
+                  className={cn("h-8 w-full min-w-0 text-xs", supplierError && "border-destructive focus:ring-destructive")}
                 >
                   <SelectValue placeholder="Select supplier" className="truncate" />
                 </SelectTrigger>
@@ -2420,7 +2420,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 />
               </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
-                <SelectTrigger className="w-full min-w-0"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full min-w-0 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Assembly">Assembly</SelectItem>
                   <SelectItem value="Caliente">Caliente</SelectItem>
@@ -2439,14 +2439,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   fieldAliases={["invoice_number"]}
                 />
               </div>
-              <Input className="w-full min-w-0" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
+              <Input className="h-8 w-full min-w-0 text-xs" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
             <div>
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Status</Label>
               </div>
               <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
-                <SelectTrigger className="w-full min-w-0">
+                <SelectTrigger className="h-8 w-full min-w-0 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2469,7 +2469,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
             <div data-evidence-field="invoice_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("invoice_date")}>
               <Label className="text-xs">Invoice Date</Label>
-              <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
+              <Input className="h-8 text-xs" type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
               <CorrectionChip
                 corrections={current.review_corrections}
                 warnings={current.review_warnings}
@@ -2479,7 +2479,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
             <div data-evidence-field="due_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "due_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("due_date")}>
               <Label className="text-xs">Due Date</Label>
-              <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
+              <Input className="h-8 text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
               <CorrectionChip
                 corrections={current.review_corrections}
                 warnings={current.review_warnings}
@@ -2487,17 +2487,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 fieldAliases={["due_date"]}
               />
             </div>
-            <div><Label className="text-xs">Notes</Label>
-              <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
+            <div className="col-span-2"><Label className="text-xs">Notes</Label>
+              <Textarea className="min-h-8 resize-none py-1.5 text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
-
+          </div>
 
           {/* Line Items table */}
-          <div className="flex items-center justify-between gap-2">
+          <div data-testid="line-items-toolbar" className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-border pb-1">
             <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={addLine}><Plus className="h-3 w-3" />Add Line</Button>
+              <button
+                type="button"
+                onClick={() => current?.line_items.forEach((line, i) => { if (!line.is_free_unit_line) updateLineAcceptedPrice(i, line.unit_price); })}
+                className="px-1 text-[11px] text-muted-foreground underline transition-colors hover:text-foreground"
+              >
+                Accept all invoice prices
+              </button>
             {hasUnmatchedItems && (
-              <div className="flex items-center gap-2">
+              <>
                 <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
                   {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5" />}
                   <span>Resolve {unmatchedItems.length} unmatched with AI</span>
@@ -2508,8 +2517,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     Quick add {unmatchedBulkLines.length} to master
                   </Button>
                 )}
-              </div>
+              </>
             )}
+            </div>
           </div>
 
           <QuickAddBulkDialog
@@ -2536,53 +2546,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               ))}
             </div>
           )}
-          </div>
-
           {/* Line items: own bounded scroll viewport (both axes in one container) */}
-          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto pb-2">
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto">
 
-
-            <div className="flex justify-end pb-1">
-              <button
-                type="button"
-                onClick={() => {
-                  current?.line_items.forEach((line, i) => {
-                    if (!line.is_free_unit_line) {
-                      updateLineAcceptedPrice(i, line.unit_price);
-                    }
-                  });
-                }}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
-              >
-                Accept all invoice prices
-              </button>
-            </div>
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
 
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+                  <th className="text-left px-1 py-1 text-muted-foreground font-medium w-7">#</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
 
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
-                  <th style={{ minWidth: 96 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. UOM</th>
-                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
-                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Qty</th>
-                  <th style={{ minWidth: 80 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Difference</th>
-                  <th style={{ minWidth: 160 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
-                  <th style={{ minWidth: 140 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Note</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Acc. price</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
-                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Invoiced Amount</th>
-                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Amount</th>
+                  <th className="text-left px-1 py-1 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
+                  <th style={{ minWidth: 96 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
+                  <th className="text-left px-1 py-1 text-muted-foreground font-medium min-w-[200px]">External Name</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Accepted Qty</th>
+                  <th style={{ minWidth: 80 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Difference</th>
+                  <th style={{ minWidth: 160 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
+                  <th style={{ minWidth: 140 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Note</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Acc. price</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
+                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Invoiced Amount</th>
+                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Accepted Amount</th>
 
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
+                  <th className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Status</th>
+                  <th className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -2680,7 +2672,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           setDragOverIdx(null);
                           setDragOverPos(null);
                         }}
-                        className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5 cursor-grab active:cursor-grabbing select-none group"
+                        className="px-1 py-1 text-muted-foreground font-medium align-top pt-2 cursor-grab active:cursor-grabbing select-none group"
                         title="Drag to reorder"
                       >
                         <span className="inline-flex items-center gap-0.5">
@@ -2689,19 +2681,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </span>
                       </td>
                       {/* Internal SKU - read-only */}
-                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         <Input
                           value={line.matched_sku}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default font-mono h-8"
+                          className="text-xs bg-muted/50 cursor-default font-mono h-7"
                           placeholder="—"
                         />
                       </td>
                       {/* Internal Product Name - read-only */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-0.5 align-top">
                         <div className="relative">
-                          <div className={`whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
+                          <div className={`whitespace-normal break-words text-xs min-h-7 px-2 py-1 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
                             {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
                           </div>
                           {line.matched_internal_name && (
@@ -2726,7 +2718,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5 ring-2 ring-primary/60") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
+                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5 ring-2 ring-primary/60") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
@@ -2735,7 +2727,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             products={supplierScopedPM}
                             searchField="code"
                             placeholder="Code"
-                            className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                            className={`text-xs h-7 ${line.sku_mismatch ? "border-amber-500" : ""}`}
                             currentSupplier={current?.supplier_name}
                           />
                           {line.sku_mismatch && (
@@ -2744,7 +2736,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
+                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
                           onChange={(v) => {
@@ -2864,61 +2856,61 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
                        {/* Purchase UOM - read-only from PM; the source evidence is the scanned unit. */}
-                       <td data-evidence-field={`line-${i}-unit`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit`)}>
+                       <td data-evidence-field={`line-${i}-unit`} style={{ minWidth: 68 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-unit` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit`)}>
                          <Input
                            value={line.matched_purchase_uom}
                            readOnly
                            tabIndex={-1}
-                           className="text-xs bg-muted/50 cursor-default h-8"
+                           className="text-xs bg-muted/50 cursor-default h-7"
                            placeholder="—"
                          />
                        </td>
                       {/* Purchase Qty - editable */}
-                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
+                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
 
                         <Input
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-8 w-full"
+                          className="text-xs h-7 w-full"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 68 }} className="px-1 py-0.5 align-top">
 
                         <Input
                           value={line.matched_stock_uom}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8"
+                          className="text-xs bg-muted/50 cursor-default h-7"
                           placeholder="—"
                         />
                       </td>
                       {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
-                      <td style={{ minWidth: 75 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 75 }} className="px-1 py-0.5 align-top">
                         <Input
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full"
+                          className="text-xs bg-muted/50 cursor-default h-7 font-mono w-full"
                           placeholder="—"
                         />
                       </td>
                       {/* Accepted Qty - editable, defaults to Purch. Qty */}
-                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         <Input
                           type="number"
                           min={0}
                           step="any"
                           value={acceptedQtyStr}
                           onChange={(e) => updateLineReceiving(i, "accepted_qty", e.target.value)}
-                          className="text-xs h-8 w-full font-mono"
+                          className="text-xs h-7 w-full font-mono"
                         />
                       </td>
                       {/* Difference - read-only */}
-                      <td style={{ minWidth: 80 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 80 }} className="px-1 py-0.5 align-top">
                         <div
-                          className={`text-xs h-8 px-2 flex items-center justify-end font-mono tabular-nums ${
+                          className={`text-xs h-7 px-2 flex items-center justify-end font-mono tabular-nums ${
                             qtyDiff === 0
                               ? "text-muted-foreground"
                               : qtyDiff < 0
@@ -2930,16 +2922,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Reason - locked Matched when diff=0, otherwise required dropdown */}
-                      <td style={{ minWidth: 160 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 160 }} className="px-1 py-0.5 align-top">
                         {qtyDiff === 0 ? (
-                          <div className="text-xs h-8 px-2 flex items-center text-muted-foreground bg-muted/40 rounded-md border border-input">
+                          <div className="text-xs h-7 px-2 flex items-center text-muted-foreground bg-muted/40 rounded-md border border-input">
                             Matched
                           </div>
                         ) : (
                           <select
                             value={effReason}
                             onChange={(e) => updateLineReceiving(i, "receiving_reason", e.target.value)}
-                            className={`text-xs h-8 w-full px-2 rounded-md border bg-background ${
+                            className={`text-xs h-7 w-full px-2 rounded-md border bg-background ${
                               reasonMissing ? "border-red-500" : "border-input"
                             }`}
                           >
@@ -2953,14 +2945,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* Note */}
-                      <td style={{ minWidth: 140 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 140 }} className="px-1 py-0.5 align-top">
                         <div className="relative">
                           <Input
                             value={line.receiving_note || ""}
                             onChange={(e) => updateLineReceiving(i, "receiving_note", e.target.value)}
                             placeholder="Add note…"
                             maxLength={500}
-                            className={`text-xs h-8 w-full ${noteRequired ? "border-red-500" : ""}`}
+                            className={`text-xs h-7 w-full ${noteRequired ? "border-red-500" : ""}`}
                           />
                           {noteRequired && (
                             <span
@@ -2971,14 +2963,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
+                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
 
                         <div className="relative">
                           <Input
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
+                            className={`text-xs h-7 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
                             readOnly={line.is_free_unit_line}
                           />
                           {line.is_free_unit_line && line.deal_id && (
@@ -3004,7 +2996,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Accepted Price */}
-                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         {line.is_free_unit_line ? (
                           (() => {
                             const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
@@ -3085,7 +3077,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                        {/* Discount (% or $) */}
-                       <td data-evidence-field={`line-${i}-discount`} style={{ minWidth: 130 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-discount` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-discount`)}>
+                       <td data-evidence-field={`line-${i}-discount`} style={{ minWidth: 130 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-discount` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-discount`)}>
                         {(() => {
                           const dMode = normalizeDiscountMode(line.discount_mode);
                           const q = parseFloat(line.quantity) || 0;
@@ -3124,7 +3116,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         })()}
                       </td>
                        {/* Invoiced Amount */}
-                       <td data-evidence-field={`line-${i}-total`} style={{ minWidth: 90 }} className={cn("px-1 py-1 align-top transition-colors", activeEvidenceField === `line-${i}-total` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-total`)}>
+                       <td data-evidence-field={`line-${i}-total`} style={{ minWidth: 90 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-total` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-total`)}>
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           return (
@@ -3135,7 +3127,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         })()}
                       </td>
                       {/* Accepted Amount */}
-                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                      <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           const acc = rowAmounts[i].accepted;
@@ -3148,14 +3140,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         })()}
                       </td>
                       {/* Status */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-0.5 align-top">
                         {(() => {
                           const s = getLineStatus(line);
                           return <LineStatusChip variant={s.variant} label={s.label} />;
                         })()}
                       </td>
                       {/* Action */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-0.5 align-top">
                         {line.matched_sku ? (
                           <div className="flex items-center gap-0.5">
                             <Button
@@ -3220,7 +3212,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* Delete */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-0.5 align-top">
                         {current.line_items.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removeLine(i)} className="h-8 w-8">
                             <Trash2 className="h-3 w-3" />
@@ -3236,12 +3228,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           </div>
 
           {/* Fixed footer region: totals + actions stay out of the line-item scroll */}
-          <div data-testid="scanner-footer" className="shrink-0 space-y-2 border-t border-border bg-card px-1 pt-2">
-          <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
-
-
+          <div data-testid="scanner-footer" className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-2 py-2">
           {/* Totals */}
-          <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
+          <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             {taxTotal > 0 && (
               <div>
                 <span className="text-muted-foreground">Tax: </span>
@@ -3360,7 +3349,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           </div>
 
           {/* Save actions — Save Draft + Approve & Save */}
-          <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-border flex-wrap">
+          <div className="contents">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <ChevronLeft className="h-4 w-4 mr-1" />Back
@@ -3371,12 +3360,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>
+              <Button variant="outline" size="sm" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>
                 Scan Another
               </Button>
 
               {totalInvoices > 1 && !allSaved && (
-                <Button variant="secondary" onClick={handleSaveAll} disabled={saving || savingAll}>
+                <Button variant="secondary" size="sm" onClick={handleSaveAll} disabled={saving || savingAll}>
                   {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
                   {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices}`}
                 </Button>
@@ -3385,6 +3374,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               {!current.saved && (
                 <>
                   <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => { updateField("invoice_status", "under_review"); handleSaveCurrent(); }}
                     disabled={saving || savingAll || !!current.is_duplicate}
@@ -3394,6 +3384,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </Button>
                   {hasBlockingIssues && !current.is_duplicate && !hasUnmatchedItems && (
                     <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => setShowOverrideDialog(true)}
                       disabled={saving || savingAll}
@@ -3404,6 +3395,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     </Button>
                   )}
                   <Button
+                    size="sm"
                     onClick={() => handleSaveCurrent()}
                     disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues || receivingBlocksApproval}
                     title={
