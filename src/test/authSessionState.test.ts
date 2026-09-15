@@ -4,13 +4,16 @@ import {
   initialAuthSessionState,
   isInvalidRefreshTokenError,
   reduceAuthSession,
+  type AuthSessionLike,
   type AuthSessionState,
 } from "@/utils/authSessionState";
 
 const s1 = { user: { id: "u1" } };
 const s2 = { user: { id: "u2" } };
 
-const run = (state: AuthSessionState, ...actions: Parameters<typeof reduceAuthSession>[1][]) => {
+type Action = Parameters<typeof reduceAuthSession<AuthSessionLike>>[1];
+
+const run = (state: AuthSessionState, ...actions: Action[]) => {
   let cur = state;
   let effects = { clearStoredTokens: false, callSignOut: false };
   for (const a of actions) {
@@ -123,20 +126,16 @@ describe("auth session state machine", () => {
   });
 
   it("clears only supabase auth token keys from storage", () => {
-    const store: Record<string, string> = {
+    const store: Record<string, unknown> = {
       "sb-abc-auth-token": "x",
       "khambu.enteredTenantId": "t",
       other: "y",
     };
-    const fake = {
-      get length() { return Object.keys(store).length; },
-      key: (i: number) => Object.keys(store)[i] ?? null,
-      getItem: (k: string) => store[k] ?? null,
-      setItem: (k: string, v: string) => { store[k] = v; },
-      removeItem: (k: string) => { delete store[k]; },
-      clear: () => { for (const k of Object.keys(store)) delete store[k]; },
-    } as unknown as Storage;
-    clearStoredAuthTokens(fake);
-    expect(Object.keys(store).sort()).toEqual(["khambu.enteredTenantId", "other"]);
+    store.removeItem = (k: string) => { delete store[k]; };
+    clearStoredAuthTokens(store as unknown as Storage);
+    expect(Object.keys(store).filter((k) => k !== "removeItem").sort()).toEqual([
+      "khambu.enteredTenantId",
+      "other",
+    ]);
   });
 });
