@@ -67,24 +67,32 @@ describe("findTrustedProductMatch — supplier-aware evidence order", () => {
     expect(result.reason.toLowerCase()).toContain("registered to a different");
   });
 
-  it("blocks an exact name with a conflicting pack size", () => {
+  it("blocks a registered code whose item has a conflicting pack size", () => {
     const result = findTrustedProductMatch(
-      line({ description: "Cloudy Bay Sauvignon Blanc 375ml" }),
+      line({ item_code: "JB-1001", description: "Cloudy Bay Sauvignon Blanc 375ml" }),
       "Jebsen Beverage - Wine",
-      [row({ supplier_product_name: "Cloudy Bay Sauvignon Blanc 375ml", internal_product_name: "Cloudy Bay Sauvignon Blanc 750ml", pack_size: "750ml", external_sku: "" })],
+      [row({})],
     );
     expect(result.hardConflict).toBe(true);
     expect(result.reason.toLowerCase()).toContain("pack size");
   });
 
-  it("blocks an exact name with a conflicting qualifier", () => {
+  it("blocks a registered code whose item has a conflicting qualifier", () => {
     const result = findTrustedProductMatch(
-      line({ description: "Empty keg return", unit: "Keg" }),
+      line({ item_code: "JB-2002", description: "Blue Girl Keg 30L empty return", unit: "Keg" }),
       "Jebsen Beverage - Beer",
-      [row({ supplier: "Jebsen Beverage - Beer", supplier_product_name: "Empty keg return", internal_product_name: "Blue Girl Keg 30L", purchase_unit: "Keg", external_sku: "" })],
+      [row({
+        internal_sku: "SKU-KEG",
+        supplier: "Jebsen Beverage - Beer",
+        external_sku: "JB-2002",
+        supplier_product_name: "Blue Girl Keg 30L",
+        internal_product_name: "Blue Girl Keg 30L",
+        purchase_unit: "Keg",
+      })],
     );
     expect(result.hardConflict).toBe(true);
   });
+
 
   it("blocks an exact name with a conflicting purchase UOM", () => {
     const result = findTrustedProductMatch(
