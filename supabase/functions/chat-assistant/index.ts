@@ -819,66 +819,44 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
     }
 
     case "get_supplier_price_trends": {
-      const minPct = args.min_change_pct ?? 5;
       const [lineItems, invoices, suppliers] = await Promise.all([
-        fetchAll<any>("invoice_line_items", "invoice_id,description,item_code,quantity,unit_price"),
-        fetchAll<any>("invoices", "id,invoice_date,supplier_id"),
+        fetchAll<any>(
+          "invoice_line_items",
+          "invoice_id,description,item_code,quantity,unit,pack_size,unit_price,product_master_id",
+        ),
+        fetchAll<any>("invoices", "id,invoice_date,invoice_number,supplier_id"),
         fetchAll<any>("suppliers", "id,name"),
       ]);
       const supMap = new Map(suppliers.map((s) => [s.id, s.name]));
       const invMap = new Map(invoices.map((i) => [i.id, i]));
       const supplierNeedle = args.supplier_name?.toLowerCase();
 
-      const filtered = lineItems.filter((li) => {
+      const lines: PriceLine[] = [];
+      for (const li of lineItems) {
         const inv = invMap.get(li.invoice_id);
-        if (!inv) return false;
-        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) return false;
-        if (supplierNeedle) {
-          const sn = (supMap.get(inv.supplier_id) || "").toLowerCase();
-          if (!sn.includes(supplierNeedle)) return false;
-        }
-        return Number(li.unit_price || 0) > 0;
-      });
-      const groups = new Map<string, any[]>();
-      for (const li of filtered) {
-        const inv = invMap.get(li.invoice_id);
-        const sup = supMap.get(inv?.supplier_id) || "Unknown";
-        const key = `${sup}||${(li.item_code || "").trim()}||${(li.description || "").trim().toLowerCase()}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push({
-          date: inv?.invoice_date,
-          price: Number(li.unit_price),
-          supplier: sup,
-          description: li.description,
-          item_code: li.item_code || "",
+        if (!inv) continue;
+        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) continue;
+        const supplierName = supMap.get(inv.supplier_id) || "Unknown";
+        if (supplierNeedle && !supplierName.toLowerCase().includes(supplierNeedle)) continue;
+        lines.push({
+          supplier_id: inv.supplier_id ?? null,
+          supplier: supplierName,
+          product_master_id: li.product_master_id ?? null,
+          item_code: li.item_code ?? null,
+          description: li.description ?? null,
+          unit: li.unit ?? null,
+          pack_size: li.pack_size ?? null,
+          unit_price: Number(li.unit_price || 0),
+          invoice_id: inv.id,
+          invoice_number: inv.invoice_number ?? null,
+          date: inv.invoice_date,
         });
       }
-      const trends: any[] = [];
-      for (const arr of groups.values()) {
-        if (arr.length < 2) continue;
-        arr.sort((a, b) => a.date.localeCompare(b.date));
-        const first = arr[0];
-        const last = arr[arr.length - 1];
-        if (first.price === 0) continue;
-        const changePct = +(((last.price - first.price) / first.price) * 100).toFixed(2);
-        if (Math.abs(changePct) < minPct) continue;
-        trends.push({
-          supplier: first.supplier,
-          description: first.description,
-          item_code: first.item_code,
-          first_date: first.date,
-          first_price: +first.price.toFixed(4),
-          last_date: last.date,
-          last_price: +last.price.toFixed(4),
-          change_pct: changePct,
-          observation_count: arr.length,
-        });
-      }
-      trends.sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct));
       return {
-        threshold_pct: minPct,
-        items_changed: trends.length,
-        items: trends.slice(0, args.limit || 30),
+        comparison_basis:
+          "Same supplier + same item identity + compatible unit/pack only. Lines without a usable unit or item identity are excluded, never merged. Negative change_pct means the price DECREASED.",
+        range: { from: args.date_from ?? null, to: args.date_to ?? null },
+        ...buildPriceTrends(lines, { min_change_pct: args.min_change_pct, limit: args.limit }),
       };
     }
 
@@ -939,66 +917,25 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
   }
 }
 
-// ---------- system prompt ----------
-const SYSTEM_PROMPT = `You are KHAMBU's senior F&B data analyst — operator-friendly, terse, financially sharp. KHAMBU operates four venues: Assembly, Caliente, Hanabi, and Events.
-
-You have read-only access to the live database via tools. ALWAYS query real data — never invent numbers. Today's date: ${new Date().toISOString().slice(0, 10)}.
-
-## How you think
-1. **Go beyond the literal question.** If asked "revenue this month", also pull MoM trend, top/bottom venue, and one notable anomaly. If asked about cost, pull revenue too to show %. If asked about labor, pull guests/covers to show $/cover.
-2. **Chain tool calls.** A single question often needs 2–5 tools. Pull revenue + invoice spend + payroll → compute margin. Use \`compare_periods\` for trend, \`get_supplier_price_trends\` to spot price hikes, \`get_forecast_vs_actual\` to flag misses.
-3. **Anomaly hunt.** Flag any metric that looks materially off (>20% variance vs prior period, >5% supplier price hike, items >35% food cost). Surface under \`### Watch-outs\`.
-4. **Always recommend.** Every reply ends with 2–3 numbered, concrete actions tied to actual numbers from your answer (e.g. "Renegotiate Ming Kee chicken — 12% price hike on 8 invoices, ~HK$ 3,200/mo exposure").
-
-## Tools at a glance
-- Sales & revenue: \`get_sales_summary\`, \`get_venue_performance\`, \`compare_periods\`
-- Cost & margin: \`get_cost_of_revenue\`, \`get_top_suppliers\`, \`get_invoice_summary\`, \`get_invoice_line_items\`, \`get_supplier_price_trends\`
-- Forecasting: \`get_forecast_vs_actual\`
-- People cost: \`get_hr_summary\` (returns labor cost % when year+month given)
-- Operations: \`get_inventory_status\`, \`get_menu_costing\`, \`get_pl_period\`
-- Visualization: \`render_chart\` (line for trends, bar for comparisons, pie only for share-of-total ≤6 slices)
-- Meta: \`get_database_overview\`
-
-## Key formulas (server-enforced)
-- Total Revenue = subtotal + service_charge
-- Total Sales = Total Revenue − discount
-- Cost of Revenue % = invoice spend / total revenue × 100
-- Avg Spend per Guest = revenue / guests
-- Labor Cost % = payroll / revenue × 100
-
-## Unit price rules (strict — user has caught wrong prices before)
-- For a SPECIFIC item's price, ALWAYS call \`get_invoice_line_items\` with \`group_by="none"\` first. Show every line: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
-- Quote the FULL min–max range and list distinct \`unit_price_variants\`. Never quote only an average.
-- If user disputes a price, RE-QUERY with looser filters (drop supplier, try just brand/SKU) before disagreeing. The user is usually right.
-- Never claim a price is "not in the data" without first broadening the search.
-
-## Output structure (every answer)
-\`\`\`
-### Headline
-[one sentence with the key number(s)]
-
-[GitHub-flavored markdown table — required for any 2+ row data]
-
-### Context
-[1–2 lines: comparison vs prior period, target, or peer venue]
-
-### Watch-outs
-- [anomaly with the actual number — only if material]
-
-### Recommendations
-1. [Action with HK$ or % impact]
-2. [Action]
-\`\`\`
-
-## Formatting rules
-- Use markdown tables, never bullet lists, for tabular data. Right-align numerics: \`---:\` in separator row.
-- Currency: \`HK$ 1,234,567\` (with thousand separators).
-- State the date range and row count when reporting on a period (e.g. "Based on 142 invoices, 2025-04-01 → 2025-04-30").
-- \`### Heading\` for sections, \`**bold**\` for key numbers.
-- No filler. No "I hope this helps". No re-stating the question.
-- Render a chart whenever a trend, breakdown, or comparison would clarify — keep ≤12 data points per chart.
-
-Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools.`;
+// ---------- workspace context ----------
+async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: string | null; venues: string[] }> {
+  let workspaceName: string | null = null;
+  const venues = new Set<string>();
+  try {
+    const { data } = await admin.from("tenants").select("name").eq("id", tenantId).maybeSingle();
+    workspaceName = (data as any)?.name ?? null;
+  } catch { /* non-fatal */ }
+  try {
+    // Bounded lookup: enough to learn the venue vocabulary, not a full scan.
+    const { data } = await admin
+      .from("sales_records")
+      .select("venue")
+      .eq("tenant_id", tenantId)
+      .limit(1000);
+    for (const r of (data ?? []) as any[]) if (r.venue) venues.add(String(r.venue));
+  } catch { /* non-fatal */ }
+  return { workspaceName, venues: Array.from(venues).sort() };
+}
 
 // ---------- main handler ----------
 Deno.serve(async (req) => {
