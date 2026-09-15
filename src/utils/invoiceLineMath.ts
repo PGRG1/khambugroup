@@ -79,9 +79,12 @@ export const isLineMathFlag = (msg: string): boolean => {
  * Drop reviewer flags on a line that describe an arithmetic mismatch which the
  * structured numbers no longer support. Unrelated findings are preserved.
  */
-export const pruneStaleLineMathFlags = <T extends LineMathShape>(line: T): T => {
+export const pruneStaleLineMathFlags = <T extends LineMathShape>(
+  line: T,
+  opts?: LineMathReconcileOptions
+): T => {
   if (!line) return line;
-  if (!isLineMathReconciled(line)) return line;
+  if (!isLineMathReconciled(line, opts)) return line;
   const warnings = line.review_warnings || [];
   const blocking = line.review_blocking || [];
   const nextWarnings = warnings.filter((m) => !isLineMathFlag(m));
