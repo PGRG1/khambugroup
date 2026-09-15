@@ -1,9 +1,4 @@
 import { requireAuth } from "../_shared/auth.ts";
-import {
-  findTrustedProductMatch,
-  reconcileMatchDecision,
-} from "../_shared/supplierMatch.ts";
-
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -526,17 +521,72 @@ ${pmLines}`;
       .trim();
     const normalizeSku = (value: any) => String(value || "").trim().toLowerCase();
     const normalizeDateValue = (value: any) => String(value || "").trim();
+    const supplierMatches = (a?: string, b?: string) => {
+      const na = normalizeText(a);
+      const nb = normalizeText(b);
+      return !!na && !!nb && (na === nb || na.includes(nb) || nb.includes(na));
+    };
+    const exactSkuSegments = (value: any) => normalizeSku(value)
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const meaningfulNameTokens = (value: any) => normalizeText(value)
+      .split(" ")
+      .filter((token: string) => token.length > 2 && !/^\d/.test(token) && !["the", "and", "with", "bottle", "pack", "case"].includes(token));
+    const namesAgree = (description: any, row: any) => {
+      const desc = normalizeText(description);
+      if (!desc) return true;
+      return [row?.supplier_product_name, row?.internal_product_name].some((candidate) => {
+        const name = normalizeText(candidate);
+        if (!name) return false;
+        if (name === desc || name.includes(desc) || desc.includes(name)) return true;
+        const left = new Set(meaningfulNameTokens(desc));
+        const right = new Set(meaningfulNameTokens(name));
+        if (!left.size || !right.size) return false;
+        let shared = 0;
+        left.forEach((token) => { if (right.has(token)) shared += 1; });
+        return shared / Math.min(left.size, right.size) >= 0.6;
+      });
+    };
     const pmRows = Array.isArray(productMaster) ? productMaster : [];
     const supplierNames = Array.from(new Set([
       ...(Array.isArray(suppliers) ? suppliers.map((s: any) => s?.name).filter(Boolean) : []),
       ...pmRows.map((p: any) => p?.supplier).filter(Boolean),
     ]));
     const knownVenues = ["Assembly", "Caliente", "Hanabi"];
-    // Deterministic supplier-scoped matching lives in _shared/supplierMatch.ts so
-    // the same rules can be unit tested.
-    const trustedMatch = (line: any, supplierName: string, requestedSku?: string) =>
-      findTrustedProductMatch(line, supplierName || "", pmRows, requestedSku);
+    const findTrustedProductMatch = (line: any, supplierName: string, requestedSku?: string) => {
+      const code = normalizeSku(line?.scanned_item_code || line?.item_code);
+      const rawDescription = line?.scanned_description || line?.description;
+      const desc = normalizeText(rawDescription);
+      const rows = requestedSku ? pmRows.filter((p: any) => p.internal_sku === requestedSku) : pmRows;
+      const supplierScoped = rows.filter((p: any) => supplierMatches(p.supplier, supplierName));
+      const searchRows = supplierScoped.length > 0 ? supplierScoped : rows;
 
+      if (code.replace(/[^a-z0-9]/g, "").length >= 4) {
+        const skuMatches = searchRows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+        if (skuMatches.length === 1 && namesAgree(rawDescription, skuMatches[0])) return { row: skuMatches[0], reason: "Exact supplier item code and name match" };
+        if (skuMatches.length > 1 && requestedSku) {
+          const requested = skuMatches.find((p: any) => p.internal_sku === requestedSku);
+          if (requested && namesAgree(rawDescription, requested)) return { row: requested, reason: "Exact item code and name match" };
+        }
+        if (supplierScoped.length === 0) {
+          const globalSkuMatches = rows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+          if (globalSkuMatches.length === 1 && namesAgree(rawDescription, globalSkuMatches[0])) return { row: globalSkuMatches[0], reason: "Unique exact item code and name match" };
+        }
+        return null;
+      }
+
+      if (desc) {
+        const nameMatches = searchRows.filter((p: any) => {
+          const supplierNameNorm = normalizeText(p.supplier_product_name);
+          const internalNameNorm = normalizeText(p.internal_product_name);
+          return (supplierNameNorm && supplierNameNorm === desc) || (internalNameNorm && internalNameNorm === desc);
+        });
+        if (nameMatches.length === 1) return { row: nameMatches[0], reason: "Exact supplier item name match" };
+      }
+
+      return null;
+    };
     const pushFlag = (list: any[], flag: any) => {
       if (!list.some((f) => f.invoice_index === flag.invoice_index && f.line_index === flag.line_index && f.field === flag.field && f.message === flag.message)) {
         list.push(flag);
@@ -853,41 +903,22 @@ Return ONLY by calling the report_review function.`;
             itemStatusByKey.set(key, item);
           }
 
-          // Evaluate ALL local supplier-scoped evidence (exact SKU, exact name,
-          // pack/size, qualifier, UOM, ambiguity) and then reconcile it with the
-          // reviewer's decision through one final policy.
-          const local = trustedMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
-          const decision = reconcileMatchDecision(item.status, item.reason, local);
-
-          for (const warning of decision.warnings) {
-            pushFlag(review.line_flags, { invoice_index, line_index, field: "item_code", severity: "warning", message: warning });
-          }
-
-          if (decision.status === "matched") {
-            item.status = "matched";
-            item.matched_sku = decision.internalSku;
-            item.confidence = Math.max(Number(item.confidence || 0), 0.9);
-            item.reason = decision.reason;
-            line.matched_sku = decision.internalSku;
-          } else if (item.status === "matched" || decision.blocking) {
-            // Only downgrade the reviewer when it claimed a match, or when local
-            // evidence is genuinely contradictory/ambiguous.
-            if (item.status === "matched" || local.hardConflict || local.status === "possible_match") {
-              item.status = decision.status === "unmatched" ? "new_item" : decision.status;
+          if (item.status === "matched") {
+            const trusted = findTrustedProductMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
+            if (!trusted || (item.matched_sku && trusted.row.internal_sku !== item.matched_sku)) {
+              item.status = "needs_review";
               item.matched_sku = "";
               item.confidence = Math.min(Number(item.confidence || 0), 0.49);
-              item.reason = decision.reason;
+              item.reason = "Match was not supported by an exact supplier item code/name match.";
               line.matched_sku = "";
-              pushFlag(review.line_flags, {
-                invoice_index,
-                line_index,
-                field: "matched_sku",
-                severity: "blocking",
-                message: decision.reason || "Items Master match needs manual review.",
-              });
+              pushFlag(review.line_flags, { invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match needs manual review." });
+            } else {
+              item.matched_sku = trusted.row.internal_sku;
+              item.confidence = Math.max(Number(item.confidence || 0), 0.9);
+              item.reason = item.reason || trusted.reason;
+              line.matched_sku = trusted.row.internal_sku;
             }
           }
-
         });
       });
     }
