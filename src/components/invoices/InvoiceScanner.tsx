@@ -1414,13 +1414,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const askAiToMatch = useCallback(async (indexes: number[]) => {
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
-    const supplierName = inv.supplier_name;
-    // Strict supplier scope — the AI may only ever pick this supplier's entries.
-    const scopedPM = scopePMToSupplier(productMaster, supplierName);
-    if (!scopedPM.length) {
+    // supplier_id is mandatory; scope by the canonical supplier record's name,
+    // never the raw OCR supplier_name.
+    const scope = resolveAiMatchScope(allSuppliers, inv, productMaster);
+    if (scope.status === "no_supplier") {
       toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
       return;
     }
+    if (scope.status === "no_products") {
+      toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
+      return;
+    }
+    const supplierName = scope.supplierName;
+    // Strict supplier scope — the AI may only ever pick this supplier's entries.
+    const scopedPM = scope.scopedPM;
 
     // Shortlist candidates per line, then merge into one candidate pool.
     const pool = new Map<string, ProductMasterEntry>();
