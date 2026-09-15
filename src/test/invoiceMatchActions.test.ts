@@ -52,7 +52,7 @@ describe("Change match", () => {
   });
 
   it("preserves the scanned invoice evidence when changing match", () => {
-    const merged = { ...line(), ...buildMatchLinkPatch(line(), target) };
+    const merged: MatchableLine = { ...line(), ...buildMatchLinkPatch(line(), target) };
     expect(merged.scanned_description).toBe("SAN MIGUEL 330ML");
     expect(merged.scanned_item_code).toBe("SUP-1");
     expect(merged.quantity).toBe("12");
@@ -70,7 +70,7 @@ describe("Change match", () => {
 
 describe("Remove match", () => {
   it("clears only the link and restores the scanned external fields", () => {
-    const merged = { ...line(), ...buildRemoveMatchPatch(line()) };
+    const merged: MatchableLine = { ...line(), ...buildRemoveMatchPatch(line()) };
     expect(merged.product_master_id).toBeNull();
     expect(merged.supplier_entry_id).toBeNull();
     expect(merged.matched_sku).toBe("");
@@ -83,7 +83,7 @@ describe("Remove match", () => {
 
   it("preserves external name/SKU, quantities, prices and units", () => {
     const overwritten = { ...line(), description: "San Miguel Light 330ml", item_code: "SUP-2" };
-    const merged = { ...overwritten, ...buildRemoveMatchPatch(overwritten) };
+    const merged: MatchableLine = { ...overwritten, ...buildRemoveMatchPatch(overwritten) };
     expect(merged.description).toBe("SAN MIGUEL 330ML");
     expect(merged.item_code).toBe("SUP-1");
     expect(merged.quantity).toBe("12");
