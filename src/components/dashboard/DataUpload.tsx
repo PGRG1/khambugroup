@@ -121,7 +121,7 @@ const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
           onClick={() => {
             const input = document.createElement("input");
             input.type = "file";
-            input.accept = ".xlsx,.xls,.csv";
+            input.accept = SALES_UPLOAD_ACCEPT;
             input.onchange = (e: any) => {
               const file = e.target.files?.[0];
               if (file) processFile(file);
@@ -131,9 +131,15 @@ const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
         >
           <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Drop your Excel file here or <span className="text-primary font-medium">click to browse</span>
+            Drop a POS export, Excel/CSV, PDF or photo here. Bani will extract and structure it automatically.{" "}
+            <span className="text-primary font-medium">Click to browse</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Supports .xlsx, .xls, .csv · Recognised venues: {activeVenueNames.join(", ") || "none configured"}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Supported: .xlsx, .xls, .csv, .pdf, .jpg, .jpeg, .png, .webp, .heic · max 10MB
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Recognised venues: {activeVenueNames.join(", ") || "none configured"}
+          </p>
         </div>
       )}
 
