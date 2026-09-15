@@ -34,6 +34,8 @@ import ProductSuggestionChip from "./ProductSuggestionChip";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
+import { pruneStaleLineMathFlags } from "@/utils/invoiceLineMath";
+
 import { useProductMaster } from "@/hooks/useProductMaster";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchActiveDealsForSupplier, findDealForProduct, isDealValidOn, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
