@@ -870,7 +870,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
             const matchedSku = li?.matched_sku || "";
             const itemCode = li?.item_code || "";
-            const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
+            const pmData = resolvePMData(itemCode, matchedSku, productMaster, canonicalSupplierName);
             const supplierObj = suppliers.find((s) => s.id === supplierId) ?? { name: supplierName };
             const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
@@ -907,12 +907,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             };
           }),
           productMaster,
-          supplierName
+          canonicalSupplierName
         );
 
         const ir = invoiceReviewMap.get(invIdx);
         parsedInvoices.push({
-          supplier_name: supplierName,
+          supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
           venue: raw?.venue || "Hanabi",
           invoice_number: raw?.invoice_number || "",
