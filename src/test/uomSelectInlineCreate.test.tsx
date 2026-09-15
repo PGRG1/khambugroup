@@ -26,10 +26,7 @@ function Harness({ allowCreate, type = "purchase" as const }: { allowCreate?: bo
 }
 
 async function openDropdown() {
-  fireEvent.pointerDown(
-    screen.getByRole("combobox"),
-    new (window as any).PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: false }),
-  );
+  fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
   await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument());
 }
 
