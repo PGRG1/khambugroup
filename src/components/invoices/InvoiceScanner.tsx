@@ -860,6 +860,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const raw = rawInvoices[invIdx];
         const supplierName = raw?.supplier_name || "";
         const supplierId = matchSupplier(supplierName);
+        // Canonicalize to the selected supplier record's name once we know the id —
+        // raw OCR wording ("Ming Kee Seafood") must not drive strict supplier scoping.
+        const canonicalSupplierName = supplierId
+          ? (suppliers.find((s) => s.id === supplierId)?.name || supplierName)
+          : supplierName;
         const invoiceEvidence = normalizeInvoiceEvidence(raw?.evidence, preparedFiles.length > 0 ? preparedFiles.length : undefined);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
@@ -1527,7 +1532,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
       else toast({ title: "AI error", description: msg, variant: "destructive" });
     }
-  }, [invoices, currentIdx, productMaster, tenantId]);
+  }, [invoices, currentIdx, productMaster, tenantId, allSuppliers]);
 
   const askAiForLine = async (i: number) => {
     setAiMatchingIdx(i);
