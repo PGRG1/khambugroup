@@ -584,8 +584,12 @@ The rule_pattern must be a generic trigger that would match similar future input
         inputSnapshot: body.input ?? {},
       });
 
+      const suggestion = workflow === "invoice_anomaly"
+        ? sanitizeAnomalyOutput(result.output_action, (body.input?.lines ?? []) as any[])
+        : result.output_action;
+
       return new Response(JSON.stringify({
-        suggestion: result.output_action,
+        suggestion,
         rule_pattern: result.rule_pattern ?? null,
         confidence: result.confidence ?? 0.7,
         rationale: result.rationale ?? "",
@@ -680,9 +684,13 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
           inputSnapshot: { batch_size: unmatched.length },
         });
         modelUsed = r.model_used;
-        const items = r.result?.output_action?.items ?? [];
-        for (const it of items) {
-          const idx = Number(it.line_index);
+        // The model may return { items: [...] }, a bare array, or a single flat
+        // per-line object. Align defensively — never misalign rows.
+        const aligned = alignBatchResults(
+          r.result?.output_action,
+          unmatched.map((u) => u.line_index),
+        );
+        for (const { line_index: idx, item: it } of aligned) {
           const orig = prepared.find((p) => p.line_index === idx);
           if (orig) {
             results[idx] = {
@@ -695,6 +703,22 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
               unit_norm: orig.unit_norm ?? null,
             };
           }
+        }
+      }
+
+      // Guarantee exactly one aligned result per input line.
+      for (let i = 0; i < results.length; i++) {
+        if (results[i] == null) {
+          const orig = prepared[i];
+          results[i] = {
+            line_index: i,
+            source: "none",
+            suggestion: null,
+            confidence: 0,
+            normalized_unit_cost: orig?.normalized_unit_cost ?? null,
+            pack_size_norm: orig?.pack_size_norm ?? null,
+            unit_norm: orig?.unit_norm ?? null,
+          };
         }
       }
 
