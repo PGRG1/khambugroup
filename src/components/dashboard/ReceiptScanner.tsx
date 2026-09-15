@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
+import { classifySalesFile } from "@/utils/salesFileIntake";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -85,9 +86,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       return;
     }
 
-    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
-    if (!validTypes.includes(file.type)) {
-      toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG) or PDF.", variant: "destructive" });
+    if (classifySalesFile(file) !== "scan") {
+      toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG, WEBP, HEIC) or PDF.", variant: "destructive" });
       return;
     }
 
