@@ -68,21 +68,7 @@ import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
-/**
- * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
- * purchase UOM/cost, stock UOM/conversion) may only ever come from a product_suppliers
- * row whose normalized supplier name equals the selected invoice supplier.
- * No partial / contains matching — that leaks another supplier's wording onto a line.
- */
-const scopePMToSupplier = <T extends { supplier?: string | null }>(
-  pm: T[] | undefined,
-  supplierName?: string,
-): T[] => {
-  if (!pm) return [];
-  const norm = normalizeSupplierKey(supplierName || "");
-  if (!norm) return [];
-  return pm.filter((entry) => entry.supplier && normalizeSupplierKey(entry.supplier) === norm);
-};
+import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
 
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
