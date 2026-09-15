@@ -1374,7 +1374,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     selectProduct(i, candidate.entry as ProductMasterEntry);
   };
 
-  const unlinkProduct = (i: number) => {
+  /** Open the existing product search on a line without touching any extracted field. */
+  const openProductSearch = (i: number) => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+        `[data-external-name-line="${i}"] textarea, [data-external-name-line="${i}"] input`
+      );
+      el?.focus();
+      el?.select?.();
+    });
+  };
+
+  /** Remove the Product Master link only — invoice evidence and records are preserved. */
+  const removeMatch = (i: number) => {
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1382,19 +1394,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (!line) return prev;
       const restored = {
         ...line,
-        item_code: line.scanned_item_code ?? line.item_code,
-        description: line.scanned_description ?? line.description,
-        matched_sku: "",
-        matched_internal_name: "",
-        matched_stock_uom: "",
-        matched_purchase_uom: "",
-        matched_stock_qty_ratio: 1,
-        product_master_id: null,
-        supplier_entry_id: null,
-        unmatched: true,
-        sku_mismatch: false,
-        auto_matched: false,
-        auto_match_score: undefined,
+        ...buildRemoveMatchPatch(line as unknown as MatchableLine),
       };
       const candidates = scoreCandidates(
         { itemCode: restored.scanned_item_code, description: restored.scanned_description },
