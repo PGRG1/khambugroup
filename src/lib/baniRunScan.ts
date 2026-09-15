@@ -20,6 +20,7 @@
  *   invoice_line_items.normalized_unit_cost / pack_size_norm / unit_norm
  */
 import { supabase } from "@/integrations/supabase/client";
+import { computeNormalizedUnitCost } from "@/utils/normalizedUnitCost";
 
 const DOMAIN = "procurement";
 
@@ -168,6 +169,36 @@ export async function runBaniScan(opts: BaniRunOptions): Promise<{ ok: boolean; 
       } catch (e) { console.warn("invoice_categorize failed", e); }
     }
 
+    // ---- Deterministic price normalization (independent of AI matching) ----
+    // normalized_unit_cost = NET purchase-unit cost / purchase-to-stock qty,
+    // taken from the matched Items Master conversion. Never from scanned pack_size.
+    const effectiveProductIds = (lines ?? []).map((l: any, idx: number) =>
+      l.product_master_id ?? productResults[idx]?.suggestion?.product_master_id ?? null,
+    );
+    const uniqueProductIds = Array.from(new Set(effectiveProductIds.filter(Boolean))) as string[];
+
+    const supplierConv = new Map<string, number>();
+    const masterConv = new Map<string, number>();
+    if (uniqueProductIds.length > 0) {
+      const [{ data: psRows }, { data: pmRows }] = await Promise.all([
+        (supabase as any)
+          .from("product_suppliers")
+          .select("product_master_id, supplier, stock_qty")
+          .in("product_master_id", uniqueProductIds),
+        (supabase as any)
+          .from("product_master")
+          .select("id, stock_qty")
+          .in("id", uniqueProductIds),
+      ]);
+      const supplierKey = (supplierName ?? "").trim().toLowerCase();
+      for (const r of psRows ?? []) {
+        const rowSupplier = String((r as any).supplier ?? "").trim().toLowerCase();
+        if (supplierKey && rowSupplier && rowSupplier !== supplierKey) continue;
+        supplierConv.set((r as any).product_master_id, Number((r as any).stock_qty));
+      }
+      for (const r of pmRows ?? []) masterConv.set((r as any).id, Number((r as any).stock_qty));
+    }
+
     // Merge product + categorize suggestions per line and persist.
     for (let i = 0; i < (lines ?? []).length; i++) {
       const line = lines![i];
@@ -184,13 +215,23 @@ export async function runBaniScan(opts: BaniRunOptions): Promise<{ ok: boolean; 
           prod?.suggestion?.needs_review_reason ?? null,
         sources: { product: prod?.source ?? null, category: cat?.source ?? null },
       };
+      const pmId = effectiveProductIds[i];
+      const deterministic = pmId
+        ? computeNormalizedUnitCost({
+            netUnitCost: (line as any).net_unit_cost,
+            unitPrice: (line as any).unit_price,
+            supplierStockQty: supplierConv.get(pmId),
+            productStockQty: masterConv.get(pmId),
+          })
+        : null;
       await supabase
         .from("invoice_line_items")
         .update({
           ai_suggestion: merged,
-          normalized_unit_cost: prod?.normalized_unit_cost ?? null,
-          pack_size_norm: prod?.pack_size_norm ?? null,
-          unit_norm: prod?.unit_norm ?? null,
+          // Never overwrite an existing valid normalized cost with null.
+          normalized_unit_cost: deterministic ?? (line as any).normalized_unit_cost ?? null,
+          pack_size_norm: prod?.pack_size_norm ?? (line as any).pack_size_norm ?? null,
+          unit_norm: prod?.unit_norm ?? (line as any).unit_norm ?? null,
         } as any)
         .eq("id", line.id);
     }
