@@ -47,6 +47,7 @@ const DataPage = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [scanFile, setScanFile] = useState<File | null>(null);
 
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
