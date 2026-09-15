@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, useState } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import React from "react";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 
 const products = Array.from({ length: 12 }).map((_, i) => ({
@@ -12,6 +13,20 @@ const products = Array.from({ length: 12 }).map((_, i) => ({
   purchase_unit_cost: 10 + i,
 }));
 
+function TestAutocomplete() {
+  const [value, setValue] = React.useState("");
+  return (
+    <ProductAutocomplete
+      value={value}
+      onChange={setValue}
+      onSelect={() => {}}
+      products={products}
+      searchField="name"
+      placeholder="Search product"
+    />
+  );
+}
+
 function renderInScrollable() {
   const parent = document.createElement("div");
   parent.style.overflow = "auto";
@@ -21,14 +36,7 @@ function renderInScrollable() {
 
   const { unmount, container } = render(
     <div data-testid="scrollable-parent" style={{ width: "800px", height: "800px" }}>
-      <ProductAutocomplete
-        value=""
-        onChange={() => {}}
-        onSelect={() => {}}
-        products={products}
-        searchField="name"
-        placeholder="Search product"
-      />
+      <TestAutocomplete />
     </div>,
     { container: parent }
   );
