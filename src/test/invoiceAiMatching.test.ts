@@ -65,8 +65,9 @@ describe("resolveAiMatchScope", () => {
 });
 
 describe("scopePMToSupplier", () => {
-  it("stays strict: no partial/contains matching against the OCR short name", () => {
-    expect(scopePMToSupplier(productMaster, "Ming Kee Seafood")).toEqual([]);
+  it("stays strict: no partial/contains matching; Ltd/Limited variants normalize equal", () => {
+    expect(scopePMToSupplier(productMaster, "Ming Kee")).toEqual([]);
+    expect(scopePMToSupplier(productMaster, "Ming Kee Seafood Co., Ltd.")).toHaveLength(1);
     expect(scopePMToSupplier(productMaster, "Ming Kee Seafood Company Limited")).toHaveLength(1);
   });
 });
