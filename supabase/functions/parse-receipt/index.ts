@@ -15,7 +15,10 @@ Deno.serve(async (req) => {
   if (auth.response) return auth.response;
 
   try {
-    const { imageBase64, mimeType } = await req.json();
+    const { imageBase64, mimeType, venues } = await req.json();
+    const venueList: string[] = Array.isArray(venues)
+      ? venues.map((v: unknown) => String(v ?? "").trim()).filter(Boolean).slice(0, 50)
+      : [];
 
     if (!imageBase64) {
       return new Response(
