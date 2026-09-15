@@ -408,9 +408,14 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       const revenue = filterSales.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
       const spend = filterInv.reduce((a, r) => a + Number(r.total_amount || 0), 0);
       return {
+        basis: "invoice-spend-to-revenue proxy (not COGS, not gross margin, not net margin)",
+        range: { from: args.date_from ?? null, to: args.date_to ?? null },
+        venue: args.venue ?? "All",
+        sales_records: filterSales.length,
+        invoices: filterInv.length,
         revenue: +revenue.toFixed(2),
         invoice_spend: +spend.toFixed(2),
-        cost_of_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+        invoice_spend_to_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
       };
     }
 
@@ -636,23 +641,30 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       const totalForecast = filterPay.reduce((a, p) => a + Number(p.forecast_total || 0), 0);
       const totalActual = filterPay.reduce((a, p) => a + Number(p.actual_total || 0), 0);
 
-      let laborCostPct: number | null = null;
       let revenue = 0;
+      let laborCostPctActual: number | null = null;
+      let laborCostPctForecast: number | null = null;
       if (args.year && args.month) {
         const ym = `${args.year}-${String(args.month).padStart(2, "0")}`;
         const filtSales = sales.filter(
           (s) => s.date.startsWith(ym) && (!args.venue || s.venue === args.venue),
         );
         revenue = filtSales.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
-        if (revenue > 0) laborCostPct = +(((totalActual || totalForecast) / revenue) * 100).toFixed(2);
+        if (revenue > 0) {
+          if (totalActual > 0) laborCostPctActual = +((totalActual / revenue) * 100).toFixed(2);
+          if (totalForecast > 0) laborCostPctForecast = +((totalForecast / revenue) * 100).toFixed(2);
+        }
       }
       return {
         active_headcount: active.length,
         headcount_by_venue: byVenue,
+        payroll_records: filterPay.length,
         payroll_forecast_total: +totalForecast.toFixed(2),
         payroll_actual_total: +totalActual.toFixed(2),
         revenue: revenue ? +revenue.toFixed(2) : null,
-        labor_cost_pct: laborCostPct,
+        labor_cost_pct_actual_basis: laborCostPctActual,
+        labor_cost_pct_forecast_basis: laborCostPctForecast,
+        note: "Actual and forecast payroll are separate bases. Never sum them; state which basis you used.",
         period: args.year ? { year: args.year, month: args.month || null } : null,
       };
     }
@@ -891,7 +903,7 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
           revenue: +revenue.toFixed(2),
           total_sales: +(revenue - discount).toFixed(2),
           invoice_spend: +spend.toFixed(2),
-          cost_of_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+          invoice_spend_to_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
           guests,
           orders,
           avg_spend_per_guest: guests > 0 ? +(revenue / guests).toFixed(2) : null,
@@ -915,7 +927,7 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
           revenue: delta("revenue"),
           total_sales: delta("total_sales"),
           invoice_spend: delta("invoice_spend"),
-          cost_of_revenue_pct: delta("cost_of_revenue_pct"),
+          invoice_spend_to_revenue_pct: delta("invoice_spend_to_revenue_pct"),
           guests: delta("guests"),
           avg_spend_per_guest: delta("avg_spend_per_guest"),
         },
