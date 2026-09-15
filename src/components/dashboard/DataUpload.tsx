@@ -21,7 +21,7 @@ interface DataUploadProps {
 
 type Rejection = { row: number; reason: string; venue?: string; date?: string };
 
-const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
+const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
   const { venues } = useVenues();
   const activeVenueNames = venues.filter((v) => v.is_active).map((v) => v.name);
 
@@ -37,8 +37,24 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         setError("File exceeds 10MB limit.");
         return;
       }
+      const kind = classifySalesFile(file);
+      if (kind === "unsupported") {
+        setError("Unsupported file. Use Excel, CSV, PDF or a photo.");
+        return;
+      }
+      if (kind === "scan") {
+        if (!onScanFile) {
+          setError("PDF and photo extraction is not available here.");
+          return;
+        }
+        onScanFile(file);
+        return;
+      }
       try {
-        const rows = await readXlsxFile(file);
+        const rows: any[][] =
+          kind === "csv"
+            ? parseDelimitedText(await file.text())
+            : ((await readXlsxFile(file)) as any[][]);
         const dataRows = rows.slice(1);
         const records: SalesRecord[] = [];
         const rejections: Rejection[] = [];
@@ -59,7 +75,7 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         setError("Could not read file. Please check the format.");
       }
     },
-    [activeVenueNames],
+    [activeVenueNames, onScanFile],
   );
 
   const handleConfirm = () => {
