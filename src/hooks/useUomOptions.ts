@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { canonicalUom } from "@/utils/uomNormalization";
 
 export type UomType = "base" | "stock" | "purchase";
 
@@ -62,7 +63,7 @@ export function useUomOptions() {
     }
     await fetchAll();
     return data as unknown as UomOption;
-  }, [fetchAll, tenantId]);
+  }, [fetchAll, tenantId, items]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Omit<UomOption, "id">>) => {
     if (!tenantId) return;
