@@ -65,6 +65,9 @@ import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickC
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 /**
  * Strict supplier scoping. Supplier-facing master data (External Name, External SKU,
@@ -1334,21 +1337,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
               copy[currentIdx].supplier_name,
             ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
-      // Directly set all fields from the selected product — no re-resolution
+      // Atomic link replacement — every link field is written in one object so the
+      // extracted external name/SKU is never briefly blanked while changing match.
       lines[i] = {
         ...currentLine,
-        scanned_item_code: scannedCode,
-        scanned_description: scannedDesc,
-        // Items master is the source of truth once the line is linked.
-        description: product.supplier_product_name || product.internal_product_name || currentLine.description,
-        item_code: product.external_sku ?? currentLine.item_code,
-        matched_sku: product.internal_sku,
-        matched_internal_name: product.internal_product_name || "",
-        matched_stock_uom: product.stock_uom || "",
-        matched_purchase_uom: product.purchase_unit || "",
-        matched_stock_qty_ratio: product.stock_qty ?? 1,
-        unmatched: false,
-        sku_mismatch: false,
+        ...buildMatchLinkPatch(currentLine as unknown as MatchableLine, product as MatchTargetEntry),
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
         product_master_id: product.id,
