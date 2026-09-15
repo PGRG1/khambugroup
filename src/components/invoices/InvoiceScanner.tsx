@@ -34,6 +34,8 @@ import ProductSuggestionChip from "./ProductSuggestionChip";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
+import { pruneStaleLineMathFlags } from "@/utils/invoiceLineMath";
+
 import { useProductMaster } from "@/hooks/useProductMaster";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchActiveDealsForSupplier, findDealForProduct, isDealValidOn, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
@@ -908,7 +910,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           }),
           productMaster,
           canonicalSupplierName
-        );
+          // Reviewer flags that the structured numbers contradict must never reach review state.
+        ).map((li: any) => pruneStaleLineMathFlags(li));
+
 
         const ir = invoiceReviewMap.get(invIdx);
         parsedInvoices.push({
@@ -1148,40 +1152,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   /**
    * Drop reviewer flags on a line that describe an arithmetic mismatch which no
-   * longer exists after the user's edit. Without this, fixing the numbers leaves
-   * a permanently unclearable "blocking" flag on the invoice.
+   * longer exists (either at ingestion or after the user's edit). Shared utility so
+   * initial and post-edit behaviour cannot diverge.
    */
-  const pruneStaleLineFlags = (line: any) => {
-    const qty = parseFloat(line.quantity) || 0;
-    const price = parseFloat(line.unit_price) || 0;
-    const tax = parseFloat(line.tax_amount) || 0;
-    const dMode = normalizeDiscountMode(line.discount_mode);
-    const dRate = parseFloat(line.discount_rate || "0") || 0;
-    const dFixed = parseFloat(line.discount || "0") || 0;
-    const gross = qty * price;
-    const disc = dMode === "percentage"
-      ? Math.max(0, (gross * Math.max(0, Math.min(100, dRate))) / 100)
-      : Math.max(0, dFixed);
-    const expected = gross - disc + tax;
-    const actual = parseFloat(line.total) || 0;
-    const reconciled = Math.abs(expected - actual) <= 0.05;
-    if (!reconciled) return line;
-    const isMathFlag = (msg: string) => {
-      const m = msg.toLowerCase();
-      return m.includes("total does not match")
-        || m.includes("line total")
-        || m.includes("does not equal")
-        || m.includes("qty × price")
-        || m.includes("quantity * price")
-        || m.startsWith("line_total")
-        || m.startsWith("total:");
-    };
-    return {
-      ...line,
-      review_blocking: (line.review_blocking || []).filter((m: string) => !isMathFlag(m)),
-      review_warnings: (line.review_warnings || []).filter((m: string) => !isMathFlag(m)),
-    };
-  };
+  const pruneStaleLineFlags = (line: any) => pruneStaleLineMathFlags(line);
+
 
   /** Acknowledge a line-level blocking finding (audit-noted, same as header). */
   const dismissLineBlocking = (lineIdx: number, msgIndex: number) => {
