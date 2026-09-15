@@ -868,6 +868,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           ? (suppliers.find((s) => s.id === supplierId)?.name || supplierName)
           : supplierName;
         const invoiceEvidence = normalizeInvoiceEvidence(raw?.evidence, preparedFiles.length > 0 ? preparedFiles.length : undefined);
+        // Original extracted line totals — the mapped line's `total` is recomputed
+        // from qty/price/discount/tax, so pruning must compare against these instead
+        // or every line trivially "reconciles" against itself.
+        const rawLineTotals: unknown[] = (raw?.line_items || []).map((li: any) => li?.total);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
             const matchedSku = li?.matched_sku || "";
@@ -911,7 +915,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           productMaster,
           canonicalSupplierName
           // Reviewer flags that the structured numbers contradict must never reach review state.
-        ).map((li: any) => pruneStaleLineMathFlags(li));
+        ).map((li: any, lineIdx: number) =>
+          pruneStaleLineMathFlags(li, { actualTotal: rawLineTotals[lineIdx] })
+        );
 
 
         const ir = invoiceReviewMap.get(invIdx);

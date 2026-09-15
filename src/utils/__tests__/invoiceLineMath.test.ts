@@ -83,3 +83,44 @@ describe("pruneStaleLineMathFlags", () => {
     expect(isLineMathReconciled({ ...line, total: "90" })).toBe(false);
   });
 });
+
+describe("pruneStaleLineMathFlags with explicit extracted-total override (ingestion pattern)", () => {
+  // Mirrors initial ingestion: the mapped line's `total` is recomputed from
+  // qty/price/discount/tax, so the prune MUST compare against the original
+  // extracted raw total passed via { actualTotal }, never line.total.
+  const mappedLine = {
+    quantity: "5.7",
+    unit_price: "110",
+    discount: "0",
+    tax_amount: "0",
+    total: "627.00", // recomputed display total
+    review_warnings: [MATH_FLAG],
+  };
+
+  it("prunes when the original extracted total matches (627.00 vs 627.00)", () => {
+    const out = pruneStaleLineMathFlags(mappedLine, { actualTotal: "627.00" });
+    expect(out.review_warnings).toEqual([]);
+  });
+
+  it("preserves a genuine finding when the original extracted total differs (627.00 vs 620.00)", () => {
+    const out = pruneStaleLineMathFlags(mappedLine, { actualTotal: "620.00" });
+    expect(out.review_warnings).toEqual([MATH_FLAG]);
+  });
+
+  it("preserves the finding when the original extracted total is missing", () => {
+    expect(pruneStaleLineMathFlags(mappedLine, { actualTotal: undefined }).review_warnings).toEqual([MATH_FLAG]);
+    expect(pruneStaleLineMathFlags(mappedLine, { actualTotal: null }).review_warnings).toEqual([MATH_FLAG]);
+    expect(pruneStaleLineMathFlags(mappedLine, { actualTotal: "" }).review_warnings).toEqual([MATH_FLAG]);
+  });
+
+  it("preserves the finding when the original extracted total is non-numeric", () => {
+    const out = pruneStaleLineMathFlags(mappedLine, { actualTotal: "abc" });
+    expect(out.review_warnings).toEqual([MATH_FLAG]);
+  });
+
+  it("ignores line.total entirely when an override is supplied", () => {
+    // line.total would reconcile, but the extracted total proves otherwise.
+    expect(isLineMathReconciled(mappedLine)).toBe(true);
+    expect(isLineMathReconciled(mappedLine, { actualTotal: "620.00" })).toBe(false);
+  });
+});
