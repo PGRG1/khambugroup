@@ -22,7 +22,7 @@ describe("validateChatRequest", () => {
     for (const role of ["system", "tool", "developer"]) {
       const r = validateChatRequest({ messages: [{ role, content: "x" }] });
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.error).toMatch(/user' or 'assistant/);
+      expect(r.ok === false ? r.error : "").toMatch(/user' or 'assistant/);
     }
   });
 
