@@ -198,6 +198,21 @@ export default function Home() {
   const [venue, setVenue] = useState<string>("All Venues");
   const navigate = useNavigate();
 
+  const profileName = useQuery({
+    queryKey: ["home", "profileName", user?.id],
+    enabled: !!user?.id,
+    staleTime: STALE,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.display_name ?? "").trim();
+    },
+  });
+
   const sales = useSales70();
   const unpaid = useUnpaidInvoices();
   const pendingBills = usePendingBills();
@@ -360,7 +375,11 @@ export default function Home() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight truncate">
             {greeting()}
-            {user?.email ? <span className="text-muted-foreground font-normal">, {user.email.split("@")[0]}</span> : null}
+            {user?.email ? (
+              <span className="text-muted-foreground font-normal">
+                , {profileName.data || user.email.split("@")[0]}
+              </span>
+            ) : null}
           </h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">{dayLabel()}</p>
         </div>
