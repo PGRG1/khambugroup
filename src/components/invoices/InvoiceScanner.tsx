@@ -2122,8 +2122,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   };
 
+  const isReview = current && !scanning;
+
   return (
-    <div data-testid="scanner-shell" className="card-glass flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-lg p-3 animate-fade-in">
+    <div
+      data-testid="scanner-shell"
+      className={cn(
+        "card-glass flex flex-col overflow-hidden rounded-lg p-3 animate-fade-in",
+        isReview ? "h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
+      )}
+    >
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
           <ScanLine className="h-5 w-5 text-primary" />

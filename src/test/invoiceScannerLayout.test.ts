@@ -5,18 +5,20 @@ import { resolve } from "path";
 const src = readFileSync(resolve(__dirname, "../components/invoices/InvoiceScanner.tsx"), "utf8");
 
 function classesFor(testid: string): string {
-  const re = new RegExp(`data-testid="${testid}"[^>]*className=(?:"([^"]*)"|\\{cn\\(([^)]*)\\))`);
+  const re = new RegExp(`data-testid="${testid}"[^>]*className=(?:"([^"]*)"|\\{cn\\(([\\s\\S]*?)\\)\\})`);
   const m = src.match(re);
   expect(m, `element ${testid} not found`).toBeTruthy();
   return (m![1] || m![2] || "");
 }
 
 describe("InvoiceScanner layout ownership", () => {
-  it("outer shell is a bounded viewport with overflow hidden", () => {
+  it("outer shell is bounded in review state and sizes naturally for upload", () => {
     const c = classesFor("scanner-shell");
     expect(c).toContain("overflow-hidden");
     expect(c).toContain("flex-col");
-    expect(c).toMatch(/max-h-\[/);
+    expect(c).toContain("max-h-[calc(100dvh-4rem)]");
+    // full viewport height must be gated by the review state only
+    expect(c).toMatch(/isReview\s*\?\s*"h-\[calc\(100dvh-4rem\)\] max-h-\[calc\(100dvh-4rem\)\]"\s*:\s*"max-h-\[calc\(100dvh-4rem\)\]"/);
   });
 
   it("right pane is a bounded flex column with min-h-0", () => {
