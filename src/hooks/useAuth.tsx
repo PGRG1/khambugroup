@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roleLoading, setRoleLoading] = useState(true);
   // Single authoritative auth-state machine shared by both producers
   // (initial getSession + onAuthStateChange), so neither can regress the other.
-  const authStateRef = useRef<AuthSessionState<Session>>(initialAuthSessionState as AuthSessionState<Session>);
+  const authStateRef = useRef<AuthSessionState<Session>>({ ...initialAuthSessionState, session: null as Session | null });
 
   useEffect(() => {
     let cancelled = false;
