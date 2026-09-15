@@ -54,7 +54,7 @@ const emptyRecord: SalesRecord = {
   visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
 };
 
-const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
+const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
   const { venues } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
@@ -106,7 +106,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       const base64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: file.type },
+        body: { imageBase64: base64, mimeType: file.type, venues: activeVenueNames },
       });
 
       if (error) {
