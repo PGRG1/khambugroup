@@ -42,7 +42,7 @@ const SUGGESTION_ICONS: Record<string, typeof TrendingDown> = {
   focus: Compass,
 };
 
-type Msg = AssistantMessage & { charts?: ChartSpec[] };
+type Msg = Omit<AssistantMessage, "charts"> & { charts?: ChartSpec[] };
 
 const makeId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
