@@ -198,6 +198,21 @@ export default function Home() {
   const [venue, setVenue] = useState<string>("All Venues");
   const navigate = useNavigate();
 
+  const profileName = useQuery({
+    queryKey: ["home", "profileName", user?.id],
+    enabled: !!user?.id,
+    staleTime: STALE,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.display_name ?? "").trim();
+    },
+  });
+
   const sales = useSales70();
   const unpaid = useUnpaidInvoices();
   const pendingBills = usePendingBills();
