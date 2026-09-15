@@ -947,13 +947,16 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { messages, tenant_id: requestedTenantId } = body ?? {};
-    if (!Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "messages must be an array" }), {
+    const { messages: rawMessages, tenant_id: requestedTenantId } = body ?? {};
+    // Client messages are untrusted data: only user/assistant roles, bounded sizes.
+    const validated = validateChatMessages(rawMessages);
+    if (!validated.ok) {
+      return new Response(JSON.stringify({ error: validated.error }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const messages = validated.messages;
 
     // Resolve tenant scope — every DB tool below is filtered by this tenant_id.
     const resolved = await resolveTenant(admin, user!.id, requestedTenantId ?? null);
@@ -965,8 +968,22 @@ Deno.serve(async (req) => {
     }
     const tenantId = resolved.tenant_id;
 
-    const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    const workspace = await loadWorkspaceContext(tenantId);
+    const dates = buildDateContext(new Date());
+    const systemPrompt = buildSystemPrompt(workspace, dates);
+
+    const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
     const chartSpecs: any[] = [];
+
+    // Memoize identical read-only tool calls for the lifetime of this request.
+    const toolCache = new Map<string, any>();
+    const runToolCached = async (name: string, args: any) => {
+      const key = `${name}:${JSON.stringify(args ?? {})}`;
+      if (toolCache.has(key)) return toolCache.get(key);
+      const result = await runTool(name, args, tenantId);
+      toolCache.set(key, result);
+      return result;
+    };
 
     // Models: try Pro first for better reasoning, fall back to Flash if Pro is rate-limited / out of credits / down
     const PRIMARY_MODEL = "google/gemini-2.5-pro";
@@ -1092,7 +1109,7 @@ Deno.serve(async (req) => {
           result = { ok: true, rendered: args.title || "chart" };
         } else {
           try {
-            result = await runTool(tc.function.name, args, tenantId);
+            result = await runToolCached(tc.function.name, args);
           } catch (e) {
             result = { error: e instanceof Error ? e.message : String(e) };
           }
