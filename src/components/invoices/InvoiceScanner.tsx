@@ -2707,17 +2707,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           {line.matched_internal_name && (
                             <button
                               type="button"
-                              aria-label="Clear internal name match"
-                              title="Clear match"
+                              aria-label="Remove match"
+                              title="Remove match — keeps the scanned invoice details"
                               className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted"
                               onClick={() => {
-                                unlinkProduct(i);
-                                requestAnimationFrame(() => {
-                                  const el = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
-                                    `[data-external-name-line="${i}"] textarea, [data-external-name-line="${i}"] input`
-                                  );
-                                  el?.focus();
-                                });
+                                removeMatch(i);
+                                openProductSearch(i);
                               }}
                             >
                               <X className="h-3 w-3" />
@@ -2754,7 +2749,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           value={line.description}
                           onChange={(v) => {
                             if (v.trim() === "" && line.product_master_id) {
-                              unlinkProduct(i);
+                              removeMatch(i);
                             }
                             updateLine(i, "description", v);
                           }}
@@ -3145,15 +3140,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       {/* Action */}
                       <td className="px-1 py-1 align-top">
                         {line.matched_sku ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-[11px] px-2"
-                            onClick={() => unlinkProduct(i)}
-                          >
-                            Unlink
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] px-2"
+                              data-testid={`change-match-${i}`}
+                              onClick={() => openProductSearch(i)}
+                            >
+                              Change match
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label="More line actions">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setDetailsLineIdx(i)}>Details</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  data-testid={`remove-match-${i}`}
+                                  onClick={() => { removeMatch(i); openProductSearch(i); }}
+                                >
+                                  Remove match
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         ) : line.review_status === "new_item" && line.suggested_new_item ? (
                           <Button
                             type="button"
