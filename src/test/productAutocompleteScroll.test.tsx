@@ -49,11 +49,14 @@ describe("ProductAutocomplete scroll isolation", () => {
   let scrollIntoViewSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => {};
+    }
     scrollIntoViewSpy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    scrollIntoViewSpy.mockRestore();
+    scrollIntoViewSpy?.mockRestore();
   });
 
   it("does not call scrollIntoView and preserves parent scroll position while navigating suggestions", () => {
