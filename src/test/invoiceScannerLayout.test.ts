@@ -43,8 +43,40 @@ describe("InvoiceScanner layout ownership", () => {
     expect(c).toContain("overflow-auto");
     expect(c).toContain("flex-1");
     expect(c).toContain("min-h-0");
+    expect(c).toContain("lg:min-h-[240px]");
     // one container => one horizontal scroll position
     expect(c).not.toContain("overflow-x-scroll");
+  });
+
+  it("keeps the expanded blocking list out of the fixed header", () => {
+    const headerIdx = src.indexOf('data-testid="review-fields-scroll"');
+    const linesIdx = src.indexOf('data-testid="line-items-scroll"');
+    const dialogIdx = src.indexOf('data-testid="blocking-issues-dialog"');
+    expect(headerIdx).toBeGreaterThan(-1);
+    expect(linesIdx).toBeGreaterThan(headerIdx);
+    expect(src.slice(headerIdx, linesIdx)).not.toContain("<BlockingBanner");
+    expect(src.slice(headerIdx, linesIdx)).toContain("View all issues");
+    expect(dialogIdx).toBeGreaterThan(linesIdx);
+    expect(src.slice(dialogIdx)).toContain("<BlockingBanner");
+  });
+
+  it("scrolls line issues inside the line-item viewport and keeps the row highlight", () => {
+    const start = src.indexOf("const goToLine = useCallback");
+    const end = src.indexOf("const updateInvoiceStatus", start);
+    const block = src.slice(start, end);
+    expect(block).toContain("line-items-scroll");
+    expect(block).toContain("container.scrollTo");
+    expect(block).toContain("container.clientHeight");
+    expect(block).not.toContain("scrollIntoView");
+    expect(block).toContain("setHighlightLineIdx(lineIdx)");
+  });
+
+  it("offers direct line navigation in the compact issue bar", () => {
+    const start = src.indexOf('data-testid="review-issue-bar"');
+    const end = src.indexOf("{/* Header fields */}", start);
+    const block = src.slice(start, end);
+    expect(block).toContain('currentIssue.scope === "line"');
+    expect(block).toContain("Go to line");
   });
 
   it("table header is sticky inside the line-item viewport", () => {
