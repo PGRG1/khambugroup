@@ -105,17 +105,27 @@ async function resolveCaller(req: Request, requestedTenantId: string | null): Pr
     .from("tenant_members")
     .select("tenant_id, role")
     .eq("user_id", userId);
-  if (!memberships || memberships.length === 0) return null;
+  // Platform admins may act on any tenant. The membership role is stored as
+  // "platform_admin" (legacy value: "super_admin"), so check both and also fall
+  // back to the canonical is_platform_admin() check.
+  const PLATFORM_ROLES = ["platform_admin", "super_admin"];
+  let isSuper = (memberships ?? []).some((m: any) => PLATFORM_ROLES.includes(m.role));
+  if (!isSuper) {
+    const { data: platformAdmin } = await admin.rpc("is_platform_admin", { _user_id: userId });
+    isSuper = platformAdmin === true;
+  }
+  if ((!memberships || memberships.length === 0) && !isSuper) return null;
 
-  const isSuper = memberships.some((m: any) => m.role === "super_admin");
   let tenantId = requestedTenantId;
   if (tenantId) {
-    const allowed = isSuper || memberships.some((m: any) => m.tenant_id === tenantId);
+    const allowed = isSuper || (memberships ?? []).some((m: any) => m.tenant_id === tenantId);
     if (!allowed) return null;
   } else {
-    tenantId = memberships[0].tenant_id;
+    tenantId = memberships?.[0]?.tenant_id ?? null;
+    if (!tenantId) return null;
   }
-  const role = memberships.find((m: any) => m.tenant_id === tenantId)?.role || (isSuper ? "super_admin" : "member");
+  const role = (memberships ?? []).find((m: any) => m.tenant_id === tenantId)?.role
+    || (isSuper ? "platform_admin" : "member");
   return { user_id: userId, tenant_id: tenantId!, role, isSuper };
 }
 
