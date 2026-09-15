@@ -55,9 +55,15 @@ const Auth = () => {
     e.preventDefault();
     setError(""); setMessage(""); setLoading(true);
     try { localStorage.removeItem("khambu.enteredTenantId"); } catch { /* no-op */ }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    else navigate("/");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
+    } else if (!data?.session) {
+      // No session means we are not signed in — never navigate to a protected route.
+      setError("Sign in did not complete. Please try again.");
+    }
+    // Navigation is driven solely by the session-driven effect above, so we never
+    // land on a protected route before AuthProvider exposes the new session.
     setLoading(false);
   };
 

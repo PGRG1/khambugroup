@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { resolveAuthRoute } from "@/utils/authRouting";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
@@ -153,12 +154,12 @@ const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; page
   const { canAccessPage, loading: permLoading } = useUserPermissions(effectiveUserId || undefined);
 
   if (loading || roleLoading || permLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
-  if (!session) return <Navigate to="/auth" replace />;
-
-  // Platform admin with no entered client → belongs on the platform plane.
-  if (isPlatformAdmin && typeof window !== "undefined" && !localStorage.getItem("khambu.enteredTenantId")) {
-    return <Navigate to="/platform/clients" replace />;
-  }
+  const decision = resolveAuthRoute({
+    session,
+    isPlatformAdmin,
+    enteredTenantId: typeof window !== "undefined" ? localStorage.getItem("khambu.enteredTenantId") : null,
+  });
+  if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
 
   // Check page access (admins bypass unless previewing)
   if (pageKey && !isAdmin && !canAccessPage(pageKey)) {
@@ -175,10 +176,12 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading, roleLoading, isAdmin } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
   if (loading || roleLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
-  if (!session) return <Navigate to="/auth" replace />;
-  if (isPlatformAdmin && typeof window !== "undefined" && !localStorage.getItem("khambu.enteredTenantId")) {
-    return <Navigate to="/platform/clients" replace />;
-  }
+  const decision = resolveAuthRoute({
+    session,
+    isPlatformAdmin,
+    enteredTenantId: typeof window !== "undefined" ? localStorage.getItem("khambu.enteredTenantId") : null,
+  });
+  if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return <AppLayout>{children}</AppLayout>;
 };
