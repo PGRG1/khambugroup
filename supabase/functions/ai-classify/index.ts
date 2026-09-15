@@ -12,6 +12,8 @@
 // Pro fallback is workflow-gated, capped at 1/invoice/workflow, and always logged.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { alignBatchResults } from "../_shared/aiBatchAlign.ts";
+import { sanitizeAnomalyOutput } from "../_shared/anomalyFlags.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
