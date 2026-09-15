@@ -853,22 +853,41 @@ Return ONLY by calling the report_review function.`;
             itemStatusByKey.set(key, item);
           }
 
-          if (item.status === "matched") {
-            const trusted = findTrustedProductMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
-            if (!trusted || (item.matched_sku && trusted.row.internal_sku !== item.matched_sku)) {
-              item.status = "needs_review";
+          // Evaluate ALL local supplier-scoped evidence (exact SKU, exact name,
+          // pack/size, qualifier, UOM, ambiguity) and then reconcile it with the
+          // reviewer's decision through one final policy.
+          const local = trustedMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
+          const decision = reconcileMatchDecision(item.status, item.reason, local);
+
+          for (const warning of decision.warnings) {
+            pushFlag(review.line_flags, { invoice_index, line_index, field: "item_code", severity: "warning", message: warning });
+          }
+
+          if (decision.status === "matched") {
+            item.status = "matched";
+            item.matched_sku = decision.internalSku;
+            item.confidence = Math.max(Number(item.confidence || 0), 0.9);
+            item.reason = decision.reason;
+            line.matched_sku = decision.internalSku;
+          } else if (item.status === "matched" || decision.blocking) {
+            // Only downgrade the reviewer when it claimed a match, or when local
+            // evidence is genuinely contradictory/ambiguous.
+            if (item.status === "matched" || local.hardConflict || local.status === "possible_match") {
+              item.status = decision.status === "unmatched" ? "new_item" : decision.status;
               item.matched_sku = "";
               item.confidence = Math.min(Number(item.confidence || 0), 0.49);
-              item.reason = "Match was not supported by an exact supplier item code/name match.";
+              item.reason = decision.reason;
               line.matched_sku = "";
-              pushFlag(review.line_flags, { invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match needs manual review." });
-            } else {
-              item.matched_sku = trusted.row.internal_sku;
-              item.confidence = Math.max(Number(item.confidence || 0), 0.9);
-              item.reason = item.reason || trusted.reason;
-              line.matched_sku = trusted.row.internal_sku;
+              pushFlag(review.line_flags, {
+                invoice_index,
+                line_index,
+                field: "matched_sku",
+                severity: "blocking",
+                message: decision.reason || "Items Master match needs manual review.",
+              });
             }
           }
+
         });
       });
     }
