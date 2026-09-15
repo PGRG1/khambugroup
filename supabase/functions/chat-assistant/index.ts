@@ -1,7 +1,9 @@
-// Data-aware AI analyst for KHAMBU dashboard.
+// Bani Analyst — read-only, tenant-scoped finance/ops analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
+import { buildDateContext, buildSystemPrompt, validateChatMessages } from "../_shared/assistantPrompt.ts";
+import { buildPriceTrends, type PriceLine } from "../_shared/priceTrends.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -59,7 +61,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          venue: { type: "string", enum: ["All", "Assembly", "Caliente", "Hanabi", "Events"] },
+          venue: { type: "string", description: "Venue name exactly as stored in this workspace's records, or 'All'." },
           date_from: { type: "string", description: "YYYY-MM-DD inclusive" },
           date_to: { type: "string", description: "YYYY-MM-DD inclusive" },
           group_by: { type: "string", enum: ["none", "venue", "month", "day"], default: "none" },
@@ -104,7 +106,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_cost_of_revenue",
-      description: "Compute cost-of-revenue % = (invoice spend / total revenue) * 100 for a date range, optionally per venue.",
+      description:
+        "INVOICE-SPEND-TO-REVENUE PROXY: total invoice spend booked in the period / total revenue * 100. This is NOT COGS, gross margin or net margin — never present it as such.",
       parameters: {
         type: "object",
         properties: {
@@ -133,7 +136,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_pl_period",
-      description: "Manual P&L line items by year (and optionally month).",
+      description:
+        "Manually entered P&L lines by year (and optionally month). NOT a complete or authoritative P&L — do not derive profit, cash flow or savings from it.",
       parameters: {
         type: "object",
         properties: {
@@ -203,7 +207,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_hr_summary",
-      description: "Headcount and payroll cost summary. Returns active headcount by venue, total payroll (forecast + actual) by month, and labor cost % of revenue when sales data is available.",
+      description:
+        "Headcount and payroll summary. Returns active headcount by venue and payroll ACTUAL and FORECAST totals separately (never summed), plus labour cost % of revenue on each basis when sales data exists.",
       parameters: {
         type: "object",
         properties: {
@@ -263,7 +268,8 @@ const tools = [
     type: "function",
     function: {
       name: "get_supplier_price_trends",
-      description: "Detects items where unit price changed materially across invoices. Returns items sorted by % price change with first/last price and dates. Use to spot supplier price hikes.",
+      description:
+        "Unit-price changes for the SAME supplier and SAME item on a COMPATIBLE unit/pack basis only. Returns first/last price, dates, direction (increase or decrease), observation count and the source invoice ids/numbers. Lines without a usable unit or item identity are excluded, never merged.",
       parameters: {
         type: "object",
         properties: {
