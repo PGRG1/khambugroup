@@ -1,4 +1,9 @@
 import { requireAuth } from "../_shared/auth.ts";
+import {
+  findTrustedProductMatch,
+  reconcileMatchDecision,
+} from "../_shared/supplierMatch.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
