@@ -716,9 +716,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           suggestions: cls.suggestions,
           suggestion_source: "local",
           auto_matched: false,
-          match_hold_reason: cls.ambiguous
-            ? "Close alternatives"
-            : cls.top?.blockingReasons[0] || (cls.top ? "Name differs" : undefined),
+          match_hold_reason: describeMatchHoldReason({
+            description: matchInput.description,
+            ambiguous: cls.ambiguous,
+            top: cls.top,
+            reviewReason: workingLine.review_match_reason,
+            unknownSupplierCode: unknownSupplierCodeWarning(workingLine.scanned_item_code || workingLine.item_code, pm)
+              ? (workingLine.scanned_item_code || workingLine.item_code)
+              : null,
+          }),
+
         };
       }
 
