@@ -12,6 +12,8 @@
 // Pro fallback is workflow-gated, capped at 1/invoice/workflow, and always logged.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { alignBatchResults } from "../_shared/aiBatchAlign.ts";
+import { sanitizeAnomalyOutput } from "../_shared/anomalyFlags.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -72,7 +74,7 @@ Use the supplied "categories", "coa_accounts" and "venues" arrays. Inventory_tre
 
   invoice_anomaly:
     `You detect anomalies on a procurement invoice. You receive {invoice, lines, history_window, duplicates_check}.
-Each line has normalized_unit_cost. history_window contains median_90d per (supplier_id, product_master_id).
+Lines MAY have normalized_unit_cost (cost per stock unit). history_window contains median_90d per (supplier_id, product_master_id).
 Return output_action:
 {
   "confidence": 0..1,
@@ -85,7 +87,13 @@ Return output_action:
     }
   ]
 }
-Use evidence with concrete numbers (current_norm_cost, median_90d, n_observations, etc.). Return empty flags array if nothing is wrong.`,
+Use evidence with concrete numbers (current_norm_cost, median_90d, n_observations, etc.). Return empty flags array if nothing is wrong.
+
+HARD RULES about normalized_unit_cost:
+- normalized_unit_cost is price-comparison metadata ONLY. It is NOT accounting coding and is NOT required.
+- If a line's normalized_unit_cost is null/missing, SKIP all price-history and price-spike/price-drop comparison for that line.
+- NEVER emit "missing_coding" (or any other flag) merely because normalized_unit_cost, pack size or price normalization is unavailable.
+- Do not surface any warning whose only cause is missing price normalization.`,
 };
 
 type Caller = { user_id: string; tenant_id: string; role: string; isSuper: boolean };
@@ -576,8 +584,12 @@ The rule_pattern must be a generic trigger that would match similar future input
         inputSnapshot: body.input ?? {},
       });
 
+      const suggestion = workflow === "invoice_anomaly"
+        ? sanitizeAnomalyOutput(result.output_action, (body.input?.lines ?? []) as any[])
+        : result.output_action;
+
       return new Response(JSON.stringify({
-        suggestion: result.output_action,
+        suggestion,
         rule_pattern: result.rule_pattern ?? null,
         confidence: result.confidence ?? 0.7,
         rationale: result.rationale ?? "",
@@ -672,9 +684,13 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
           inputSnapshot: { batch_size: unmatched.length },
         });
         modelUsed = r.model_used;
-        const items = r.result?.output_action?.items ?? [];
-        for (const it of items) {
-          const idx = Number(it.line_index);
+        // The model may return { items: [...] }, a bare array, or a single flat
+        // per-line object. Align defensively — never misalign rows.
+        const aligned = alignBatchResults(
+          r.result?.output_action,
+          unmatched.map((u) => u.line_index),
+        );
+        for (const { line_index: idx, item: it } of aligned) {
           const orig = prepared.find((p) => p.line_index === idx);
           if (orig) {
             results[idx] = {
@@ -687,6 +703,22 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
               unit_norm: orig.unit_norm ?? null,
             };
           }
+        }
+      }
+
+      // Guarantee exactly one aligned result per input line.
+      for (let i = 0; i < results.length; i++) {
+        if (results[i] == null) {
+          const orig = prepared[i];
+          results[i] = {
+            line_index: i,
+            source: "none",
+            suggestion: null,
+            confidence: 0,
+            normalized_unit_cost: orig?.normalized_unit_cost ?? null,
+            pack_size_norm: orig?.pack_size_norm ?? null,
+            unit_norm: orig?.unit_norm ?? null,
+          };
         }
       }
 
