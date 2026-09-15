@@ -375,7 +375,11 @@ export default function Home() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight truncate">
             {greeting()}
-            {user?.email ? <span className="text-muted-foreground font-normal">, {user.email.split("@")[0]}</span> : null}
+            {user?.email ? (
+              <span className="text-muted-foreground font-normal">
+                , {profileName.data || user.email.split("@")[0]}
+              </span>
+            ) : null}
           </h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">{dayLabel()}</p>
         </div>
