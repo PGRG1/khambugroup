@@ -2790,6 +2790,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
+                            <span
+                              data-testid={`unmatched-state-${i}`}
+                              className="text-[10px] font-medium text-warning"
+                            >
+                              {UNMATCHED_STATE_LABEL}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[11px]"
+                              data-testid={`select-item-${i}`}
+                              onClick={() => openProductSearch(i)}
+                            >
+                              Select item
+                            </Button>
                             <ProductSuggestionChip
                               candidates={line.suggestions || []}
                               source={line.suggestion_source || "local"}
@@ -2797,6 +2813,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               onAskAi={() => askAiForLine(i)}
                               aiLoading={aiMatchingIdx === i || aiMatchingAll}
                             />
+
                             <QuickAddProductPopover
                               products={(productMaster || []) as any}
                               supplierName={current?.supplier_name}
