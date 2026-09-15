@@ -30,6 +30,8 @@ import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
+import { describeMatchHoldReason, unknownSupplierCodeWarning, reconcileReviewerHold } from "@/utils/supplierMatchPolicy";
+
 import ProductSuggestionChip from "./ProductSuggestionChip";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
