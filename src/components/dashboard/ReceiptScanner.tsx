@@ -93,6 +93,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   };
 
   const processFile = useCallback(async (file: File) => {
+    if (venuesLoading) {
+      toast({ title: "Just a moment", description: "Loading your venue list — try again in a second." });
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum 10MB allowed.", variant: "destructive" });
       return;
