@@ -189,15 +189,26 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     } finally {
       setScanning(false);
     }
-  }, [activeVenueNames]);
+  }, [activeVenueNames, venuesLoading]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
-    if (initialFile && autoStarted.current !== initialFile) {
-      autoStarted.current = initialFile;
-      processFile(initialFile);
+    if (shouldAutoProcessInitialFile({ initialFile, venuesLoading, alreadyStarted: autoStarted.current })) {
+      autoStarted.current = initialFile!;
+      processFile(initialFile!);
     }
-  }, [initialFile, processFile]);
+  }, [initialFile, venuesLoading, processFile]);
+
+  // Safety net: if the venue master resolves after extraction, map the scanned
+  // value to its canonical master name. Never overwrite an existing selection.
+  useEffect(() => {
+    if (!scannedVenueRaw || !activeVenueNames.length) return;
+    setExtractedData((prev) => {
+      if (!prev || prev.venue) return prev;
+      const matched = matchVenueName(scannedVenueRaw, activeVenueNames);
+      return matched ? { ...prev, venue: matched } : prev;
+    });
+  }, [activeVenueNames, scannedVenueRaw]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
