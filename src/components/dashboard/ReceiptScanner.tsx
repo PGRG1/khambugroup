@@ -57,7 +57,7 @@ const emptyRecord: SalesRecord = {
 };
 
 const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
-  const { venues } = useVenues();
+  const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
 
