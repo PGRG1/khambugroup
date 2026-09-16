@@ -11,6 +11,7 @@ import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { classifySalesFile } from "@/utils/salesFileIntake";
+import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -56,7 +57,7 @@ const emptyRecord: SalesRecord = {
 };
 
 const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
-  const { venues } = useVenues();
+  const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
 
@@ -92,6 +93,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   };
 
   const processFile = useCallback(async (file: File) => {
+    if (venuesLoading) {
+      toast({ title: "Just a moment", description: "Loading your venue list — try again in a second." });
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum 10MB allowed.", variant: "destructive" });
       return;
@@ -151,14 +156,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       // Match scanned venue against master (case-insensitive). Never silently reassign.
       const rawVenue = String(raw.venue ?? "").trim();
       setScannedVenueRaw(rawVenue);
-      const matched = activeVenueNames.find(
-        (n) => n.toLowerCase() === rawVenue.toLowerCase(),
-      );
+      const matched = matchVenueName(rawVenue, activeVenueNames);
 
       const record: SalesRecord = {
         date: dateStr,
         day: dayStr,
-        venue: matched ?? "", // blank forces the user to pick if no match
+        venue: matched, // blank forces the user to pick if no match
         reportNumber: raw.reportNumber || "",
         orders: Number(raw.orders) || 0,
         guests: Number(raw.guests) || 0,
@@ -186,15 +189,26 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     } finally {
       setScanning(false);
     }
-  }, [activeVenueNames]);
+  }, [activeVenueNames, venuesLoading]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
-    if (initialFile && autoStarted.current !== initialFile) {
-      autoStarted.current = initialFile;
-      processFile(initialFile);
+    if (shouldAutoProcessInitialFile({ initialFile, venuesLoading, alreadyStarted: autoStarted.current })) {
+      autoStarted.current = initialFile!;
+      processFile(initialFile!);
     }
-  }, [initialFile, processFile]);
+  }, [initialFile, venuesLoading, processFile]);
+
+  // Safety net: if the venue master resolves after extraction, map the scanned
+  // value to its canonical master name. Never overwrite an existing selection.
+  useEffect(() => {
+    if (!scannedVenueRaw || !activeVenueNames.length) return;
+    setExtractedData((prev) => {
+      if (!prev || prev.venue) return prev;
+      const matched = matchVenueName(scannedVenueRaw, activeVenueNames);
+      return matched ? { ...prev, venue: matched } : prev;
+    });
+  }, [activeVenueNames, scannedVenueRaw]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
