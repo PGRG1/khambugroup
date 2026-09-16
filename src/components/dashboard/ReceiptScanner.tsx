@@ -69,16 +69,27 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [showCamera, setShowCamera] = useState(false);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
 
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1]); // strip data:...;base64, prefix
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
+  const fileToBase64 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(binary);
+  };
+
+  const guessMimeType = (file: File): string => {
+    if (file.type) return file.type;
+    const ext = file.name.toLowerCase().split(".").pop() || "";
+    if (ext === "pdf") return "application/pdf";
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    if (ext === "heic" || ext === "heif") return "image/heic";
+    return "image/jpeg";
+  };
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -104,9 +115,14 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
 
     try {
       const base64 = await fileToBase64(file);
+      if (!base64) {
+        toast({ title: "Could not read file", description: "The file appears to be empty. Please try again.", variant: "destructive" });
+        setScanning(false);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: file.type, venues: activeVenueNames },
+        body: { imageBase64: base64, mimeType: guessMimeType(file), venues: activeVenueNames },
       });
 
       if (error) {
