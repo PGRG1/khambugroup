@@ -11,6 +11,7 @@ import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { classifySalesFile } from "@/utils/salesFileIntake";
+import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
