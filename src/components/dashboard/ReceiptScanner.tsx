@@ -156,9 +156,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       // Match scanned venue against master (case-insensitive). Never silently reassign.
       const rawVenue = String(raw.venue ?? "").trim();
       setScannedVenueRaw(rawVenue);
-      const matched = activeVenueNames.find(
-        (n) => n.toLowerCase() === rawVenue.toLowerCase(),
-      );
+      const matched = matchVenueName(rawVenue, activeVenueNames);
 
       const record: SalesRecord = {
         date: dateStr,
