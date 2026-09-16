@@ -115,9 +115,14 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
 
     try {
       const base64 = await fileToBase64(file);
+      if (!base64) {
+        toast({ title: "Could not read file", description: "The file appears to be empty. Please try again.", variant: "destructive" });
+        setScanning(false);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: file.type, venues: activeVenueNames },
+        body: { imageBase64: base64, mimeType: guessMimeType(file), venues: activeVenueNames },
       });
 
       if (error) {
