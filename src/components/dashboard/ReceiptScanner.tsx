@@ -161,7 +161,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       const record: SalesRecord = {
         date: dateStr,
         day: dayStr,
-        venue: matched ?? "", // blank forces the user to pick if no match
+        venue: matched, // blank forces the user to pick if no match
         reportNumber: raw.reportNumber || "",
         orders: Number(raw.orders) || 0,
         guests: Number(raw.guests) || 0,
