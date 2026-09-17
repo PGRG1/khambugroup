@@ -20,11 +20,11 @@ describe("New Targets daily projections", () => {
     expect(rows[29].date).toBe("2026-09-30");
   });
 
-  it("exposes exactly the five columns with only Projected Sales editable", () => {
+  it("exposes exactly the five columns with only Forecast editable", () => {
     expect(NEW_TARGET_COLUMNS.map((c) => c.label)).toEqual([
-      "Date", "Day", "Projected Sales", "Actual Sales", "Variance",
+      "Date", "Day", "Forecast", "Actual Sales", "Variance",
     ]);
-    expect(NEW_TARGET_COLUMNS.filter((c) => c.editable).map((c) => c.key)).toEqual(["projectedSales"]);
+    expect(NEW_TARGET_COLUMNS.filter((c) => c.editable).map((c) => c.key)).toEqual(["forecast"]);
   });
 
   it("aggregates actual total sales per date from sales records", () => {
