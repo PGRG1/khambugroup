@@ -55,7 +55,7 @@ describe("New Targets daily projections", () => {
     );
     const d1 = rows.find((r) => r.date === "2026-09-01")!;
     expect(d1.actualSales).toBe(4000);
-    expect(d1.variance).toBe(4000);
+    expect(d1.variance).toBeNull();
     const d20 = rows.find((r) => r.date === "2026-09-20")!;
     expect(d20.projectedSales).toBe(5000);
     expect(d20.actualSales).toBeNull();
