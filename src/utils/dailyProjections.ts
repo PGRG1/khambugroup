@@ -138,7 +138,7 @@ export function parseProjectedInput(raw: string): { ok: boolean; value: number |
 export const NEW_TARGET_COLUMNS = [
   { key: "date", label: "Date", editable: false },
   { key: "day", label: "Day", editable: false },
-  { key: "projectedSales", label: "Projected Sales", editable: true },
+  { key: "forecast", label: "Forecast", editable: true },
   { key: "actualSales", label: "Actual Sales", editable: false },
   { key: "variance", label: "Variance", editable: false },
 ] as const;
