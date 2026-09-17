@@ -76,3 +76,69 @@ describe("New Targets daily projections", () => {
     expect(parseProjectedInput("abc").ok).toBe(false);
   });
 });
+
+/** Sales history helper: n weekly dates counting back from `lastDate`. */
+function weeklyHistory(lastDate: string, count: number, value: number | ((i: number) => number)) {
+  const m = new Map<string, number>();
+  const [y, mo, d] = lastDate.split("-").map(Number);
+  for (let i = 0; i < count; i++) {
+    const dt = new Date(Date.UTC(y, mo - 1, d - i * 7));
+    m.set(dt.toISOString().slice(0, 10), typeof value === "function" ? value(i) : value);
+  }
+  return m;
+}
+
+describe("automatic same-weekday forecast", () => {
+  it("requires exactly 8 matching observations", () => {
+    // 2026-09-15 is a Tuesday
+    const seven = weeklyHistory("2026-09-08", 7, 1000);
+    expect(computeAutoForecast("2026-09-15", seven)).toBeNull();
+    const eight = weeklyHistory("2026-09-08", 8, 1000);
+    expect(computeAutoForecast("2026-09-15", eight)).toBe(1000);
+  });
+
+  it("averages only the same weekday and ignores other days", () => {
+    const hist = weeklyHistory("2026-09-08", 8, (i) => (i === 0 ? 1800 : 1000));
+    // A Wednesday with plenty of Tuesday data has no forecast
+    hist.set("2026-09-09", 99999);
+    expect(computeAutoForecast("2026-09-15", hist)).toBe((1800 + 7 * 1000) / 8);
+    expect(computeAutoForecast("2026-09-16", hist)).toBeNull();
+  });
+
+  it("skips dates with no sales record and includes zero-valued records", () => {
+    const hist = weeklyHistory("2026-09-08", 9, 800);
+    hist.delete("2026-09-01"); // missing record is skipped, older one is used
+    hist.set("2026-09-08", 0); // zero is a valid observation
+    const avg = computeAutoForecast("2026-09-15", hist)!;
+    expect(avg).toBe((0 + 7 * 800) / 8);
+  });
+
+  it("never uses sales on or after the target date", () => {
+    const hist = weeklyHistory("2026-09-15", 8, 1000);
+    hist.set("2026-09-22", 50000);
+    // Only 7 dates strictly before 2026-09-15 remain
+    expect(computeAutoForecast("2026-09-15", hist)).toBeNull();
+  });
+
+  it("prefers a manager override, falls back to Auto when cleared", () => {
+    const hist = weeklyHistory("2026-09-08", 8, 1000);
+    const actuals = new Map([["2026-09-15", 1200]]);
+    const withOverride = buildProjectionRows(2026, 9, new Map([["2026-09-15", 2000]]), actuals, hist);
+    const r1 = withOverride.find((r) => r.date === "2026-09-15")!;
+    expect(r1.forecastSource).toBe("manager");
+    expect(r1.effectiveForecast).toBe(2000);
+    expect(r1.variance).toBe(-800);
+
+    const cleared = buildProjectionRows(2026, 9, new Map(), actuals, hist);
+    const r2 = cleared.find((r) => r.date === "2026-09-15")!;
+    expect(r2.forecastSource).toBe("auto");
+    expect(r2.autoForecast).toBe(1000);
+    expect(r2.effectiveForecast).toBe(1000);
+    expect(r2.variance).toBe(200);
+  });
+
+  it("marks rows without enough data as having no forecast", () => {
+    const rows = buildProjectionRows(2026, 9, new Map(), new Map(), new Map());
+    expect(rows.every((r) => r.forecastSource === "none" && r.effectiveForecast === null)).toBe(true);
+  });
+});
