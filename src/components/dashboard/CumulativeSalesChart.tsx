@@ -50,6 +50,46 @@ interface Props {
   data: SalesRecord[];
 }
 
+/** Tooltip body that applies the projection visibility rule (see helper above). */
+function CumulativeTooltip({
+  active,
+  payload,
+  label,
+  colorMap,
+  projectionStartDay,
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string | number; value?: number | string }>;
+  label?: string | number;
+  colorMap: Map<string, string>;
+  projectionStartDay: number;
+}) {
+  if (!active) return null;
+  const visible = filterProjectionTooltipEntries(payload, label ?? 0, projectionStartDay);
+  if (visible.length === 0) return null;
+  return (
+    <div className="px-3 py-2" style={chartTooltipContentStyle}>
+      <div className="mb-1 font-semibold">Day {label}</div>
+      {visible.map((item) => {
+        const key = String(item.dataKey ?? "");
+        const isProj = key.endsWith("_proj");
+        const mk = isProj ? key.replace("_proj", "") : key;
+        const seriesLabel = `${getMonthLabel(mk)}${isProj ? " + Proj." : ""}`;
+        return (
+          <div key={key} className="flex items-center gap-1.5 py-0.5">
+            <span
+              className="h-2 w-2 rounded-[2px] shrink-0"
+              style={{ background: colorMap.get(mk) ?? PRIMARY }}
+            />
+            <span>{seriesLabel}</span>
+            <span className="ml-3 font-medium">${formatCurrency(Number(item.value))}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function CumulativeSalesChart({ data }: Props) {
   const allMonths = useMemo(() => [...new Set(data.map((r) => getMonthKey(r.date)))].sort(), [data]);
   const [activeMonths, setActiveMonths] = useState<string[]>([]);
@@ -188,14 +228,13 @@ export default function CumulativeSalesChart({ data }: Props) {
               />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip
-                contentStyle={chartTooltipContentStyle}
-                formatter={(v: number, name: string) => {
-                  const isProj = name.endsWith("_proj");
-                  const monthKey = isProj ? name.replace("_proj", "") : name;
-                  const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
-                }}
-                labelFormatter={(l) => `Day ${l}`}
+                cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                content={
+                  <CumulativeTooltip
+                    colorMap={colorMap}
+                    projectionStartDay={cumulativeData.projectionStartDay}
+                  />
+                }
               />
               {cumulativeData.months.map((mk) => (
                 <Line
