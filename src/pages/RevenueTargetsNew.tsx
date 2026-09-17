@@ -36,15 +36,15 @@ export default function RevenueTargetsNew() {
   const [year, month] = ym.split("-").map(Number);
 
   const effectiveVenueId = venueId ?? activeVenues[0]?.id ?? null;
-  const { projections, actuals, loading, saveProjection } = useDailyProjections(
+  const { projections, actuals, history, loading, saveProjection } = useDailyProjections(
     effectiveVenueId,
     year,
     month,
   );
 
   const rows = useMemo(
-    () => buildProjectionRows(year, month, projections, actuals),
-    [year, month, projections, actuals],
+    () => buildProjectionRows(year, month, projections, actuals, history),
+    [year, month, projections, actuals, history],
   );
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -128,7 +128,7 @@ export default function RevenueTargetsNew() {
             <tr className="text-left text-muted-foreground">
               <th className="px-3 py-2 font-medium">Date</th>
               <th className="px-3 py-2 font-medium">Day</th>
-              <th className="px-3 py-2 text-right font-medium">Projected Sales</th>
+              <th className="px-3 py-2 text-right font-medium">Forecast</th>
               <th className="px-3 py-2 text-right font-medium">Actual Sales</th>
               <th className="px-3 py-2 text-right font-medium">Variance</th>
             </tr>
@@ -136,9 +136,12 @@ export default function RevenueTargetsNew() {
           <tbody>
             {rows.map((r) => {
               const draft = drafts[r.date];
+              const effective = r.effectiveForecast;
               const display = draft !== undefined
                 ? draft
-                : r.projectedSales === null ? "" : String(r.projectedSales);
+                : effective === null
+                  ? ""
+                  : String(Math.round(effective * 100) / 100);
               return (
                 <tr key={r.date} className="border-t border-border/60">
                   <td className="px-3 py-1.5 td-num">{r.date}</td>
@@ -151,9 +154,16 @@ export default function RevenueTargetsNew() {
                       {rowError[r.date] && (
                         <span className="text-[10px] text-destructive">{rowError[r.date]}</span>
                       )}
+                      {r.forecastSource === "none" ? (
+                        <span className="text-[10px] text-muted-foreground">Not enough data</span>
+                      ) : (
+                        <span className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground">
+                          {r.forecastSource === "manager" ? "Manager" : "Auto"}
+                        </span>
+                      )}
                       <Input
                         inputMode="decimal"
-                        aria-label={`Projected sales ${r.date}`}
+                        aria-label={`Forecast ${r.date}`}
                         className="h-7 w-28 text-right td-num"
                         value={display}
                         onChange={(e) => setDrafts((p) => ({ ...p, [r.date]: e.target.value }))}

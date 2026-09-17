@@ -13,6 +13,8 @@ export function useDailyProjections(venueId: string | null, year: number, month:
   const { user } = useAuth();
   const [projections, setProjections] = useState<Map<string, number>>(new Map());
   const [actuals, setActuals] = useState<Map<string, number>>(new Map());
+  /** All sales dates for this venue up to the end of the selected month. */
+  const [history, setHistory] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,30 +26,44 @@ export function useDailyProjections(venueId: string | null, year: number, month:
     if (!tenantId || !venueId) {
       setProjections(new Map());
       setActuals(new Map());
+      setHistory(new Map());
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    const [projRes, salesRes] = await Promise.all([
-      supabase
-        .from("revenue_daily_projections")
-        .select("target_date, projected_sales")
-        .eq("tenant_id", tenantId)
-        .eq("venue_id", venueId)
-        .gte("target_date", monthStart)
-        .lte("target_date", monthEnd),
-      supabase
+
+    // All sales for this venue up to the end of the selected month, paged to
+    // bypass the 1000-row cap. Needed so each day can look back 8 same-weekday
+    // observations before it.
+    const PAGE = 1000;
+    const salesRows: any[] = [];
+    let salesError: string | null = null;
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error: sErr } = await supabase
         .from("sales_records")
         .select("date, total_sales")
         .eq("tenant_id", tenantId)
         .eq("venue_id", venueId)
-        .gte("date", monthStart)
-        .lte("date", monthEnd),
-    ]);
+        .lte("date", monthEnd)
+        .order("date", { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      if (sErr) { salesError = sErr.message; break; }
+      if (!data || data.length === 0) break;
+      salesRows.push(...data);
+      if (data.length < PAGE) break;
+    }
 
-    if (projRes.error || salesRes.error) {
-      setError(projRes.error?.message ?? salesRes.error?.message ?? "Failed to load");
+    const projRes = await supabase
+      .from("revenue_daily_projections")
+      .select("target_date, projected_sales")
+      .eq("tenant_id", tenantId)
+      .eq("venue_id", venueId)
+      .gte("target_date", monthStart)
+      .lte("target_date", monthEnd);
+
+    if (projRes.error || salesError) {
+      setError(projRes.error?.message ?? salesError ?? "Failed to load");
       setLoading(false);
       return;
     }
@@ -56,7 +72,11 @@ export function useDailyProjections(venueId: string | null, year: number, month:
       p.set(String((r as any).target_date).slice(0, 10), Number((r as any).projected_sales ?? 0));
     }
     setProjections(p);
-    setActuals(aggregateActualsByDate((salesRes.data ?? []) as any[]));
+    const hist = aggregateActualsByDate(salesRows);
+    setHistory(hist);
+    const monthOnly = new Map<string, number>();
+    for (const [d, v] of hist) if (d >= monthStart && d <= monthEnd) monthOnly.set(d, v);
+    setActuals(monthOnly);
     setLoading(false);
   }, [tenantId, venueId, monthStart, monthEnd]);
 
@@ -99,5 +119,5 @@ export function useDailyProjections(venueId: string | null, year: number, month:
     [tenantId, venueId, user?.id],
   );
 
-  return { projections, actuals, loading, error, reload: load, saveProjection };
+  return { projections, actuals, history, loading, error, reload: load, saveProjection };
 }
