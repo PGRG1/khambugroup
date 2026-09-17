@@ -36,15 +36,15 @@ export default function RevenueTargetsNew() {
   const [year, month] = ym.split("-").map(Number);
 
   const effectiveVenueId = venueId ?? activeVenues[0]?.id ?? null;
-  const { projections, actuals, loading, saveProjection } = useDailyProjections(
+  const { projections, actuals, history, loading, saveProjection } = useDailyProjections(
     effectiveVenueId,
     year,
     month,
   );
 
   const rows = useMemo(
-    () => buildProjectionRows(year, month, projections, actuals),
-    [year, month, projections, actuals],
+    () => buildProjectionRows(year, month, projections, actuals, history),
+    [year, month, projections, actuals, history],
   );
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
