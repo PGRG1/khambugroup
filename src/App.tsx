@@ -29,6 +29,7 @@ import { useKpiCapability } from "@/hooks/useKpiCapability";
 
 import ForecastInput from "./pages/ForecastInput";
 import RevenueTargets from "./pages/RevenueTargets";
+import RevenueTargetsNew from "./pages/RevenueTargetsNew";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 
@@ -250,6 +251,7 @@ function App() {
                 <Route path="/revenue/other" element={<Navigate to="/sales-data?view=other" replace />} />
 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
+                <Route path="/revenue/targets-new" element={<ProtectedRoute pageKey="forecast"><RevenueTargetsNew /></ProtectedRoute>} />
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
 
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />

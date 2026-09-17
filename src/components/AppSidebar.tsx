@@ -42,6 +42,7 @@ const revenueItems: Item[] = [
   { title: "Overview", url: "/revenue", pageKey: "revenue", end: true },
   { title: "Analysis", url: "/revenue/analysis", pageKey: "revenue" },
   { title: "Targets", url: "/forecast/assembly", pageKey: "forecast" },
+  { title: "New Targets", url: "/revenue/targets-new", pageKey: "forecast" },
   { title: "Sales Records", url: "/sales-data", pageKey: "revenue" },
   { title: "Revenue Setup", url: "/revenue/setup", pageKey: "revenue" },
 ];
