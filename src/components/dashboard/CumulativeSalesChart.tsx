@@ -24,6 +24,28 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
+/**
+ * Tooltip visibility rule for the current-month projection series.
+ * The projection is anchored internally at projectionStartDay (so the solid
+ * actual line connects continuously to the dotted projection line), but the
+ * tooltip must show only the actual entry on the anchor day and the projected
+ * entry only on days after it — never both at once.
+ */
+export function filterProjectionTooltipEntries<T extends { dataKey?: string | number }>(
+  payload: readonly T[] | undefined,
+  label: string | number,
+  projectionStartDay: number
+): T[] {
+  if (!payload) return [];
+  const day = typeof label === "number" ? label : parseInt(String(label), 10);
+  if (!Number.isFinite(day)) return [...payload];
+  return payload.filter((entry) => {
+    const key = String(entry.dataKey ?? "");
+    if (!key.endsWith("_proj")) return true;
+    return day > projectionStartDay;
+  });
+}
+
 interface Props {
   data: SalesRecord[];
 }
@@ -93,7 +115,7 @@ export default function CumulativeSalesChart({ data }: Props) {
       const dayMap = monthGroups.get(mk)!;
       dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
     });
-    if (monthGroups.size === 0) return { rows: [], months: [], hasProjection: false };
+    if (monthGroups.size === 0) return { rows: [], months: [], hasProjection: false, projectionStartDay: 0 };
     const sortedMonths = [...monthGroups.keys()].sort();
 
     let projectionStartDay = 0;
@@ -141,7 +163,7 @@ export default function CumulativeSalesChart({ data }: Props) {
       }
       rows.push(row);
     }
-    return { rows, months: sortedMonths, hasProjection };
+    return { rows, months: sortedMonths, hasProjection, projectionStartDay };
   }, [data, currentMonthKey, dayOfWeekMedians]);
 
   if (allMonths.length === 0) return null;
