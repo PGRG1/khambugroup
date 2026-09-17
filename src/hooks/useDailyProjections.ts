@@ -119,5 +119,5 @@ export function useDailyProjections(venueId: string | null, year: number, month:
     [tenantId, venueId, user?.id],
   );
 
-  return { projections, actuals, loading, error, reload: load, saveProjection };
+  return { projections, actuals, history, loading, error, reload: load, saveProjection };
 }
