@@ -60,22 +60,52 @@ export function computeVariance(actual: number | null, projected: number | null)
   return actual - projected;
 }
 
+/**
+ * Simple average of the most recent `AUTO_FORECAST_LOOKBACK` available sales
+ * dates strictly BEFORE `targetDate` that share its weekday.
+ * Dates without a sales record are skipped; a record with 0 is a valid
+ * observation. Returns null when fewer than 8 observations exist.
+ */
+export function computeAutoForecast(
+  targetDate: string,
+  salesByDate: Map<string, number>,
+  lookback: number = AUTO_FORECAST_LOOKBACK,
+): number | null {
+  const targetDow = dayLabel(targetDate);
+  const candidates = Array.from(salesByDate.keys())
+    .filter((d) => d < targetDate && dayLabel(d) === targetDow)
+    .sort((a, b) => (a < b ? 1 : -1))
+    .slice(0, lookback);
+  if (candidates.length < lookback) return null;
+  const sum = candidates.reduce((acc, d) => acc + Number(salesByDate.get(d) ?? 0), 0);
+  return sum / lookback;
+}
+
 /** Build one row per calendar day of the selected month. */
 export function buildProjectionRows(
   year: number,
   month: number,
   projections: Map<string, number>,
   actuals: Map<string, number>,
+  history?: Map<string, number>,
 ): DailyProjectionRow[] {
+  const salesByDate = history ?? actuals;
   return monthDates(year, month).map((date) => {
     const projectedSales = projections.has(date) ? Number(projections.get(date)) : null;
     const actualSales = actuals.has(date) ? Number(actuals.get(date)) : null;
+    const autoForecast = computeAutoForecast(date, salesByDate);
+    const effectiveForecast = projectedSales !== null ? projectedSales : autoForecast;
+    const forecastSource: ForecastSource =
+      projectedSales !== null ? "manager" : autoForecast !== null ? "auto" : "none";
     return {
       date,
       day: dayLabel(date),
       projectedSales,
+      autoForecast,
+      effectiveForecast,
+      forecastSource,
       actualSales,
-      variance: computeVariance(actualSales, projectedSales),
+      variance: computeVariance(actualSales, effectiveForecast),
     };
   });
 }
