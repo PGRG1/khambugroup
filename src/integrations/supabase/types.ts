@@ -8504,6 +8504,47 @@ export type Database = {
           },
         ]
       }
+      revenue_daily_projections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          projected_sales: number
+          target_date: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          projected_sales?: number
+          target_date: string
+          tenant_id: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          projected_sales?: number
+          target_date?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_daily_projections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_manager_target_lines: {
         Row: {
           created_at: string
