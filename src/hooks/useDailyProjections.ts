@@ -13,6 +13,8 @@ export function useDailyProjections(venueId: string | null, year: number, month:
   const { user } = useAuth();
   const [projections, setProjections] = useState<Map<string, number>>(new Map());
   const [actuals, setActuals] = useState<Map<string, number>>(new Map());
+  /** All sales dates for this venue up to the end of the selected month. */
+  const [history, setHistory] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
