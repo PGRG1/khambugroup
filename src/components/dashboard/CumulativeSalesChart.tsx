@@ -24,8 +24,70 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
+/**
+ * Tooltip visibility rule for the current-month projection series.
+ * The projection is anchored internally at projectionStartDay (so the solid
+ * actual line connects continuously to the dotted projection line), but the
+ * tooltip must show only the actual entry on the anchor day and the projected
+ * entry only on days after it — never both at once.
+ */
+export function filterProjectionTooltipEntries<T extends { dataKey?: string | number }>(
+  payload: readonly T[] | undefined,
+  label: string | number,
+  projectionStartDay: number
+): T[] {
+  if (!payload) return [];
+  const day = typeof label === "number" ? label : parseInt(String(label), 10);
+  if (!Number.isFinite(day)) return [...payload];
+  return payload.filter((entry) => {
+    const key = String(entry.dataKey ?? "");
+    if (!key.endsWith("_proj")) return true;
+    return day > projectionStartDay;
+  });
+}
+
 interface Props {
   data: SalesRecord[];
+}
+
+/** Tooltip body that applies the projection visibility rule (see helper above). */
+function CumulativeTooltip({
+  active,
+  payload,
+  label,
+  colorMap,
+  projectionStartDay,
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string | number; value?: number | string }>;
+  label?: string | number;
+  colorMap: Map<string, string>;
+  projectionStartDay: number;
+}) {
+  if (!active) return null;
+  const visible = filterProjectionTooltipEntries(payload, label ?? 0, projectionStartDay);
+  if (visible.length === 0) return null;
+  return (
+    <div className="px-3 py-2" style={chartTooltipContentStyle}>
+      <div className="mb-1 font-semibold">Day {label}</div>
+      {visible.map((item) => {
+        const key = String(item.dataKey ?? "");
+        const isProj = key.endsWith("_proj");
+        const mk = isProj ? key.replace("_proj", "") : key;
+        const seriesLabel = `${getMonthLabel(mk)}${isProj ? " + Proj." : ""}`;
+        return (
+          <div key={key} className="flex items-center gap-1.5 py-0.5">
+            <span
+              className="h-2 w-2 rounded-[2px] shrink-0"
+              style={{ background: colorMap.get(mk) ?? PRIMARY }}
+            />
+            <span>{seriesLabel}</span>
+            <span className="ml-3 font-medium">${formatCurrency(Number(item.value))}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function CumulativeSalesChart({ data }: Props) {
@@ -93,7 +155,7 @@ export default function CumulativeSalesChart({ data }: Props) {
       const dayMap = monthGroups.get(mk)!;
       dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
     });
-    if (monthGroups.size === 0) return { rows: [], months: [], hasProjection: false };
+    if (monthGroups.size === 0) return { rows: [], months: [], hasProjection: false, projectionStartDay: 0 };
     const sortedMonths = [...monthGroups.keys()].sort();
 
     let projectionStartDay = 0;
@@ -141,7 +203,7 @@ export default function CumulativeSalesChart({ data }: Props) {
       }
       rows.push(row);
     }
-    return { rows, months: sortedMonths, hasProjection };
+    return { rows, months: sortedMonths, hasProjection, projectionStartDay };
   }, [data, currentMonthKey, dayOfWeekMedians]);
 
   if (allMonths.length === 0) return null;
@@ -166,14 +228,13 @@ export default function CumulativeSalesChart({ data }: Props) {
               />
               <YAxis {...chartAxis} tickFormatter={(v) => `$${compactHK(v as number)}`} width={48} />
               <Tooltip
-                contentStyle={chartTooltipContentStyle}
-                formatter={(v: number, name: string) => {
-                  const isProj = name.endsWith("_proj");
-                  const monthKey = isProj ? name.replace("_proj", "") : name;
-                  const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
-                }}
-                labelFormatter={(l) => `Day ${l}`}
+                cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                content={
+                  <CumulativeTooltip
+                    colorMap={colorMap}
+                    projectionStartDay={cumulativeData.projectionStartDay}
+                  />
+                }
               />
               {cumulativeData.months.map((mk) => (
                 <Line
