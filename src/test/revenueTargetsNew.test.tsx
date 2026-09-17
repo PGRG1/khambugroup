@@ -39,10 +39,12 @@ describe("New Targets daily projections", () => {
     expect(actuals.size).toBe(2);
   });
 
-  it("calculates variance as actual minus projected", () => {
+  it("calculates variance as actual minus projected, only when both exist", () => {
     expect(computeVariance(1200, 1000)).toBe(200);
     expect(computeVariance(800, 1000)).toBe(-200);
-    expect(computeVariance(500, null)).toBe(500);
+    expect(computeVariance(500, 0)).toBe(500);
+    expect(computeVariance(500, null)).toBeNull();
+    expect(computeVariance(null, 500)).toBeNull();
   });
 
   it("leaves actuals and variance blank for future or missing dates", () => {
