@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateActualsByDate,
   buildProjectionRows,
+  computeAutoForecast,
   computeVariance,
   formatHkd,
   monthDates,
