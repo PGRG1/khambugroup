@@ -3,16 +3,27 @@
  * Independent of the legacy revenue-targets logic.
  */
 
+export type ForecastSource = "manager" | "auto" | "none";
+
+/** Number of matching-weekday observations required for an automatic forecast. */
+export const AUTO_FORECAST_LOOKBACK = 8;
+
 export interface DailyProjectionRow {
   /** ISO date, YYYY-MM-DD */
   date: string;
   /** Short weekday label, e.g. "Mon" */
   day: string;
-  /** Manager-entered projected total sales; null when never entered */
+  /** Manager override from revenue_daily_projections; null when none */
   projectedSales: number | null;
+  /** Automatic same-weekday average; null when fewer than 8 observations */
+  autoForecast: number | null;
+  /** Manager override when present, otherwise the automatic forecast */
+  effectiveForecast: number | null;
+  /** Where effectiveForecast came from */
+  forecastSource: ForecastSource;
   /** Aggregated real sales; null when no sales record exists for that day */
   actualSales: number | null;
-  /** actualSales - projectedSales; null when actuals are missing */
+  /** actualSales - effectiveForecast; null when either is missing */
   variance: number | null;
 }
 
