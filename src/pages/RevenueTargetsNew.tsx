@@ -154,9 +154,16 @@ export default function RevenueTargetsNew() {
                       {rowError[r.date] && (
                         <span className="text-[10px] text-destructive">{rowError[r.date]}</span>
                       )}
+                      {r.forecastSource === "none" ? (
+                        <span className="text-[10px] text-muted-foreground">Not enough data</span>
+                      ) : (
+                        <span className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground">
+                          {r.forecastSource === "manager" ? "Manager" : "Auto"}
+                        </span>
+                      )}
                       <Input
                         inputMode="decimal"
-                        aria-label={`Projected sales ${r.date}`}
+                        aria-label={`Forecast ${r.date}`}
                         className="h-7 w-28 text-right td-num"
                         value={display}
                         onChange={(e) => setDrafts((p) => ({ ...p, [r.date]: e.target.value }))}
