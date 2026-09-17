@@ -45,7 +45,8 @@ export function aggregateActualsByDate(
 
 export function computeVariance(actual: number | null, projected: number | null): number | null {
   if (actual === null || actual === undefined) return null;
-  return actual - (projected ?? 0);
+  if (projected === null || projected === undefined) return null;
+  return actual - projected;
 }
 
 /** Build one row per calendar day of the selected month. */
