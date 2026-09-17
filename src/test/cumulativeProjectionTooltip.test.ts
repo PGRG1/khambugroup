@@ -16,8 +16,10 @@ describe("filterProjectionTooltipEntries (current-month projection tooltip rule)
   });
 
   it("shows the projection entry only after the anchor day", () => {
+    // After projectionStartDay the actual series has no data point, so the
+    // projected entry is the only current-month entry in the payload.
     const visible = filterProjectionTooltipEntries(
-      payload(["2026-09", "2026-09_proj"]),
+      payload(["2026-09_proj"]),
       17,
       projectionStartDay
     );
