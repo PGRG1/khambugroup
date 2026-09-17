@@ -128,7 +128,7 @@ export default function RevenueTargetsNew() {
             <tr className="text-left text-muted-foreground">
               <th className="px-3 py-2 font-medium">Date</th>
               <th className="px-3 py-2 font-medium">Day</th>
-              <th className="px-3 py-2 text-right font-medium">Projected Sales</th>
+              <th className="px-3 py-2 text-right font-medium">Forecast</th>
               <th className="px-3 py-2 text-right font-medium">Actual Sales</th>
               <th className="px-3 py-2 text-right font-medium">Variance</th>
             </tr>
