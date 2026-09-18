@@ -66,6 +66,7 @@ import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickC
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
+import { invoiceTotalMismatch } from "@/utils/invoiceTotalReconciliation";
 import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
@@ -94,6 +95,10 @@ interface ScannedLineItem {
   /** Immutable OCR evidence used for matching and unlinking. */
   scanned_item_code?: string;
   scanned_description?: string;
+  /** Amount printed in the AMOUNT / line-total column (immutable source truth). */
+  printed_amount?: string;
+  /** Printed Line No / item no exactly as shown ("" when the row has none). */
+  source_line_no?: string;
   pack_size: string;
   quantity: string;
   unit: string;
@@ -234,7 +239,7 @@ interface InvoiceScannerProps {
 
 const emptyLine: ScannedLineItem = {
   item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
-  scanned_item_code: "", scanned_description: "",
+  scanned_item_code: "", scanned_description: "", printed_amount: "", source_line_no: "",
   unit_price: "0", discount: "0", discount_mode: "fixed", discount_rate: "0",
   tax_amount: "0", total: "0", matched_sku: "",
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
@@ -496,18 +501,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const pmPrice = entry.purchase_unit_cost ?? 0;
     const masterPrice = pmPrice > 0 ? pmPrice : undefined;
     const existingAcc = parseFloat(line.accepted_price || "");
-    const acceptedPrice = Number.isFinite(existingAcc) && (line.accepted_price || "").trim() !== ""
-      ? line.accepted_price!
-      : (masterPrice != null ? String(masterPrice) : "");
-    const accNum = parseFloat(acceptedPrice);
     const isFreeUnit = scannedPrice === 0 && (parseFloat(line.quantity) || 0) > 0;
+    // Free goods must never acquire the master purchase cost.
+    const acceptedPrice = isFreeUnit
+      ? "0"
+      : (Number.isFinite(existingAcc) && (line.accepted_price || "").trim() !== ""
+        ? line.accepted_price!
+        : (masterPrice != null ? String(masterPrice) : ""));
+    const accNum = parseFloat(acceptedPrice);
+    const scannedCode = line.scanned_item_code ?? line.item_code;
+    const scannedDesc = line.scanned_description ?? line.description;
     return {
       ...line,
-      scanned_item_code: line.scanned_item_code ?? line.item_code,
-      scanned_description: line.scanned_description ?? line.description,
-      // Items master is the source of truth for the external identity of a linked line.
-      description: entry.supplier_product_name || entry.internal_product_name || line.description,
-      item_code: entry.external_sku ?? line.item_code,
+      scanned_item_code: scannedCode,
+      scanned_description: scannedDesc,
+      // Source truth: the printed external name/SKU are never replaced by master values.
+      description: scannedDesc,
+      item_code: scannedCode,
       matched_sku: entry.internal_sku,
       matched_internal_name: entry.internal_product_name || "",
       matched_stock_uom: entry.stock_uom || "",
@@ -701,17 +711,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       // Seed accepted_price from master if empty/not yet set
       const masterPrice = pmPrice > 0 ? pmPrice : undefined;
       const existingAcc = parseFloat(workingLine.accepted_price || "");
-      const acceptedPrice = Number.isFinite(existingAcc) && (workingLine.accepted_price || "").trim() !== ""
-        ? workingLine.accepted_price!
-        : (masterPrice != null ? String(masterPrice) : "");
-      const accNum = parseFloat(acceptedPrice);
       const isFreeUnit = scannedPrice === 0 && (parseFloat(workingLine.quantity) || 0) > 0;
+      // Free goods must never acquire the master purchase cost.
+      const acceptedPrice = isFreeUnit
+        ? "0"
+        : (Number.isFinite(existingAcc) && (workingLine.accepted_price || "").trim() !== ""
+          ? workingLine.accepted_price!
+          : (masterPrice != null ? String(masterPrice) : ""));
+      const accNum = parseFloat(acceptedPrice);
       const priceDisputed = !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100);
 
       return {
         ...workingLine,
-        description: resolved.supplier_product_name || resolved.internal_product_name || workingLine.description,
-        item_code: (resolved as any).external_sku ?? workingLine.item_code,
+        // Source truth: printed external name/SKU are preserved on match.
+        scanned_item_code: workingLine.scanned_item_code ?? workingLine.item_code,
+        scanned_description: workingLine.scanned_description ?? workingLine.description,
         matched_sku: resolved.internal_sku,
         sku_mismatch: skuMismatch,
         unmatched: false,
@@ -887,6 +901,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               description: li?.description || "",
               scanned_item_code: li?.scanned_item_code ?? itemCode,
               scanned_description: li?.scanned_description ?? li?.description ?? "",
+              printed_amount: li?.printed_amount != null && li?.printed_amount !== ""
+                ? String(li.printed_amount)
+                : (li?.total != null ? String(li.total) : ""),
+              source_line_no: typeof li?.source_line_no === "string" ? li.source_line_no : "",
               pack_size: li?.pack_size || "",
               quantity: String(li?.quantity ?? "1"),
               unit: li?.unit || "",
@@ -1767,11 +1785,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
         const recvNote = (l.receiving_note || "").trim() || null;
         const accPriceNum = parseFloat(l.accepted_price || "");
-        const acceptedPrice = Number.isFinite(accPriceNum) ? accPriceNum : null;
+        // Free goods stay zero cost downstream (GRN/stock valuation).
+        const acceptedPrice = l.is_free_unit_line ? 0 : (Number.isFinite(accPriceNum) ? accPriceNum : null);
         const priceDisputed = !l.is_free_unit_line && acceptedPrice != null && Math.round(acceptedPrice * 100) !== Math.round(price * 100);
         return {
           item_code: l.item_code || "",
           description: l.description,
+          scanned_item_code: l.scanned_item_code ?? l.item_code ?? "",
+          scanned_description: l.scanned_description ?? l.description ?? "",
+          printed_amount: l.printed_amount != null && l.printed_amount !== "" ? parseFloat(l.printed_amount) : null,
+          source_line_no: l.source_line_no ?? "",
           pack_size: l.pack_size || "",
           category_id: null as null,
           quantity: qty,
@@ -1849,7 +1872,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   }, []);
 
   const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
-    return (inv.review_blocking?.length || 0) + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
+    const reviewBlocking = (inv.review_blocking?.length || 0)
+      + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
+    // A printed/header total that does not reconcile with the calculated line total
+    // is a genuine blocker; the existing Blocking Override path still allows a
+    // documented supplier exception.
+    return reviewBlocking || invoiceTotalMismatch(inv as any);
   }, []);
 
   const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {

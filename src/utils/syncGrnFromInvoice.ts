@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resolveGrnAcceptedPrice, resolveGrnUnitCost } from "@/utils/grnLineCost";
 
 /**
  * Authoritative GRN re-sync from current invoice_line_items.
@@ -65,14 +66,8 @@ export async function syncGrnFromInvoice(
       }
     }
 
-    // 4. Cost fallback chain — same as autoCreateGrnFromInvoice
-    const resolveUnitCost = (line: any): number => {
-      const netCost = Number(line.net_unit_cost) || 0;
-      if (netCost > 0) return netCost;
-      const accPrice = Number(line.accepted_price) || 0;
-      if (accPrice > 0) return accPrice;
-      return Number(line.unit_price) || 0;
-    };
+    // 4. Cost fallback chain — shared with autoCreateGrnFromInvoice; free goods stay 0.
+    const resolveUnitCost = (line: any): number => resolveGrnUnitCost(line);
 
     // 5. Filter to stock-bearing lines
     const stockLines = invoiceLines.filter((l) => {
@@ -97,7 +92,7 @@ export async function syncGrnFromInvoice(
       const diff = qtyAcc - qtyInv;
       if (diff !== 0) disputed = true;
       const unitCost = resolveUnitCost(line);
-      const accPrice = Number(line.accepted_price) > 0 ? Number(line.accepted_price) : unitCost;
+      const accPrice = resolveGrnAcceptedPrice(line, unitCost);
       return {
         grn_id: grnId,
         invoice_line_item_id: line.id,

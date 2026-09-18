@@ -245,19 +245,20 @@ export function useInvoiceData() {
     if (!attachments || attachments.length === 0) {
       throw new Error("A scanned invoice requires at least one durable source attachment.");
     }
-    const matched = lineItems.length > 0
-      ? await matchLineItemsToProductMaster(lineItems.map((li) => ({ ...li })))
-      : [];
+    // No save-time rematch: the scanner persists exactly the product_master_id the
+    // reviewer accepted. A null link stays null rather than being silently attached
+    // to some other supplier's product by a global first-hit matcher.
+    const reviewedLines = lineItems.map((li) => ({ ...li }));
     const { data, error } = await (supabase as any).rpc("create_scanner_invoice_with_attachments", {
       p_tenant_id: tenantId,
       p_invoice: invoice,
-      p_line_items: matched,
+      p_line_items: reviewedLines,
       p_attachments: attachments,
     });
     if (error) throw new Error(error.message);
     await fetchAll();
     return data as string;
-  }, [fetchAll, matchLineItemsToProductMaster, tenantId]);
+  }, [fetchAll, tenantId]);
 
 
 

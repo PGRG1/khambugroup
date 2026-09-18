@@ -4900,11 +4900,15 @@ export type Database = {
           pack_size: string | null
           pack_size_norm: string | null
           price_disputed: boolean
+          printed_amount: number | null
           product_master_id: string | null
           qty_difference: number | null
           quantity: number
           receiving_note: string | null
           receiving_reason: string | null
+          scanned_description: string | null
+          scanned_item_code: string | null
+          source_line_no: string | null
           standard_product_id: string | null
           tax_amount: number
           tenant_id: string
@@ -4937,11 +4941,15 @@ export type Database = {
           pack_size?: string | null
           pack_size_norm?: string | null
           price_disputed?: boolean
+          printed_amount?: number | null
           product_master_id?: string | null
           qty_difference?: number | null
           quantity?: number
           receiving_note?: string | null
           receiving_reason?: string | null
+          scanned_description?: string | null
+          scanned_item_code?: string | null
+          source_line_no?: string | null
           standard_product_id?: string | null
           tax_amount?: number
           tenant_id?: string
@@ -4974,11 +4982,15 @@ export type Database = {
           pack_size?: string | null
           pack_size_norm?: string | null
           price_disputed?: boolean
+          printed_amount?: number | null
           product_master_id?: string | null
           qty_difference?: number | null
           quantity?: number
           receiving_note?: string | null
           receiving_reason?: string | null
+          scanned_description?: string | null
+          scanned_item_code?: string | null
+          source_line_no?: string | null
           standard_product_id?: string | null
           tax_amount?: number
           tenant_id?: string
