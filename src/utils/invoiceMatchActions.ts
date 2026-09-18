@@ -38,9 +38,10 @@ export interface MatchTargetEntry {
 }
 
 /**
- * Fields written when a match is set or changed. The scanned identity is captured first
- * (so the invoice evidence survives every later change) and the link fields are replaced
- * together in a single object — the external fields are never blanked in between.
+ * Fields written when a match is set or changed.
+ *
+ * Source truth is immutable: the printed/scanned external name and SKU are never
+ * replaced by Product Master values. Only the internal match fields are populated.
  */
 export function buildMatchLinkPatch<T extends MatchableLine>(line: T, entry: MatchTargetEntry) {
   const scannedCode = line.scanned_item_code ?? line.item_code;
@@ -48,8 +49,8 @@ export function buildMatchLinkPatch<T extends MatchableLine>(line: T, entry: Mat
   return {
     scanned_item_code: scannedCode,
     scanned_description: scannedDesc,
-    description: entry.supplier_product_name || entry.internal_product_name || line.description,
-    item_code: entry.external_sku ?? line.item_code,
+    description: scannedDesc,
+    item_code: scannedCode,
     matched_sku: entry.internal_sku,
     matched_internal_name: entry.internal_product_name || "",
     matched_stock_uom: entry.stock_uom || "",

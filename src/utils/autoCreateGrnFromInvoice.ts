@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resolveGrnAcceptedPrice, resolveGrnUnitCost } from "@/utils/grnLineCost";
 
 /**
  * Auto-create a Goods Received Note (and its line items) for a confirmed invoice.
@@ -51,7 +52,7 @@ export async function autoCreateGrnFromInvoice(
       .select(
         "id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, " +
         "product_master_id, accepted_qty, accepted_price, qty_difference, receiving_reason, receiving_note, " +
-        "net_unit_cost, line_discount_amount, header_discount_share"
+        "net_unit_cost, line_discount_amount, header_discount_share, is_free_unit_line"
       )
       .eq("invoice_id", invoiceId)
       .eq("tenant_id", tenantId);
@@ -119,24 +120,8 @@ export async function autoCreateGrnFromInvoice(
         const qtyInv = Number(l.quantity) || 0;
         const qtyAcc = l.accepted_qty != null ? Number(l.accepted_qty) : qtyInv;
         const diff = l.qty_difference != null ? Number(l.qty_difference) : qtyAcc - qtyInv;
-        // Prefer post-discount net_unit_cost (set by scanner/edit view).
-        // Fallback chain for legacy rows: unit_price → normalized_unit_cost → (total+discount)/qty
-        let unitCost = 0;
-        const nucNet = Number(l.net_unit_cost) || 0;
-        if (nucNet > 0) {
-          unitCost = nucNet;
-        } else {
-          unitCost = Number(l.unit_price) || 0;
-          if (unitCost === 0) {
-            const nuc = Number(l.normalized_unit_cost) || 0;
-            if (nuc > 0) unitCost = nuc;
-          }
-          if (unitCost === 0) {
-            const lineTotal = Number(l.total) || 0;
-            const lineDisc = Number(l.discount) || 0;
-            if (lineTotal > 0 && qtyInv > 0) unitCost = (lineTotal + lineDisc) / qtyInv;
-          }
-        }
+        // Free goods stay at zero cost; everything else uses the shared fallback chain.
+        const unitCost = resolveGrnUnitCost(l);
         return {
           grn_id: grnId,
           invoice_line_item_id: l.id,
@@ -147,7 +132,7 @@ export async function autoCreateGrnFromInvoice(
           unit: l.unit || "each",
           unit_cost: unitCost,
           accepted_qty: qtyAcc,
-          accepted_price: Number(l.accepted_price) > 0 ? Number(l.accepted_price) : unitCost,
+          accepted_price: resolveGrnAcceptedPrice(l, unitCost),
           qty_difference: diff,
           receiving_reason: l.receiving_reason ?? null,
           receiving_note: l.receiving_note ?? null,

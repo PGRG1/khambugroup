@@ -1,4 +1,5 @@
 import { requireAuth } from "../_shared/auth.ts";
+import { shouldApplyLineReplacement, validateInvoiceStructure } from "../_shared/invoiceRowStructure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -82,7 +83,7 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
           "invoice_number": "Invoice number/reference",
           "invoice_date": "YYYY-MM-DD format",
           "due_date": "YYYY-MM-DD format or empty string if not shown on invoice",
-           "venue": "Assembly or Caliente - infer from delivery address or customer name",
+           "venue": "The venue this invoice belongs to - see VENUE PRECEDENCE rules",
            "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
            "notes": "any special notes, payment terms, or remarks (in English)",
            "evidence": { "header": { "supplier_name": { "page": 1, "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.04 } }, "lines": [{ "description": { "page": 1, "x": 0.1, "y": 0.4, "width": 0.3, "height": 0.03 } }] },
@@ -96,7 +97,9 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
           "unit_price": number (price per unit — if priced per KG this is the price per KG),
           "discount": number (line-level discount amount in dollars if shown, otherwise 0),
-          "total": number (the total amount from the AMOUNT column for this line item — after discount)
+          "total": number (the total amount from the AMOUNT column for this line item — after discount),
+          "printed_amount": number (the SAME value you read from the printed AMOUNT / line-total column — never a calculated figure),
+          "source_line_no": "the printed Line No / item no for this row exactly as shown, or empty string if the row has none"
         }
       ]
     }
@@ -122,41 +125,44 @@ Additional rules for returned kegs:
 - unit MUST be "Keg" — NEVER "CTN"
 - Do NOT skip these items — they represent deposit refunds and are financially important
 
+CRITICAL — ROW SEGMENTATION (HIGHEST PRIORITY — OVERRIDES EVERYTHING ELSE BELOW):
+- Every visually distinct monetary row is its OWN line_item. A monetary row is any printed row that has its own QTY, UOM, Unit Price and/or Amount value.
+- A blank, repeated or shared "Line No" NEVER means two rows should be merged. Suppliers commonly print one Line No that visually groups several monetary rows.
+- Deposit, container, packaging, bottle-deposit or keg-deposit rows printed directly below a product row are SEPARATE line_items with their own quantity, unit, unit_price and amount. Never fold a deposit into the product row and never add its amount to the product amount.
+- NEVER concatenate the descriptions of two monetary rows into one description. Each line_item description is the text of exactly one printed row.
+- Rows with unit_price 0 and/or amount 0 (free goods) are REAL rows. Extract them; never drop them and never merge them into a priced row.
+- The same product may appear on several rows of one invoice (e.g. a charged row and a free row). Keep every occurrence as its own line_item, in printed order.
+- Record the printed grouping in "source_line_no" for each row (the printed Line No exactly as shown, or "" when the row has none). Rows sharing a printed Line No must share the same source_line_no value and still remain separate line_items.
+- Self-check before returning: the sum of every printed_amount must equal the invoice header TOTAL. If it does not, you have merged, skipped or duplicated a monetary row — re-read the table row by row and fix the segmentation.
+
+CRITICAL — INVOICE / DOCUMENT IDENTIFIER PRECEDENCE:
+- "invoice_number" MUST come from a label such as "Invoice No", "Invoice Number", "Document No", "Delivery Note No", "DN No", "Tax Invoice No".
+- The following are REFERENCES ONLY and MUST NEVER be used as invoice_number: "Sales Order No", "Order No", "D365 No", "PO No", "Purchase Order", "Customer PO", "Account No", "Customer No".
+- If both appear, always take the Invoice/Document/Delivery Note number. Put any reference numbers in "notes" if useful.
+
+CRITICAL — VENUE PRECEDENCE:
+- Venue must be one of: Assembly, Caliente, Hanabi.
+- FIRST: if an explicit venue / customer / trading-as name is printed anywhere (e.g. "T/A ASSEMBLY", "Assembly", "Caliente", "Hanabi" in the customer, bill-to, ship-to or delivery name), that explicit name WINS.
+- ONLY when no explicit venue name is printed anywhere, fall back to address heuristics (e.g. "Knutsford Terrace" suggests Caliente).
+- Never let an address heuristic override an explicitly printed venue name.
+
 Rules:
 - CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
 - CRITICAL: The "unit" field must NEVER contain Chinese characters. Always use English unit names.
 - CRITICAL: Read numbers precisely. Do not confuse columns. quantity is always a small count, unit_price is the per-unit cost, total/amount is the line total.
 - All number fields should be numeric (no currency symbols, no commas)
 - If a field is not found, use "" for strings, 0 for numbers, null for weight
-- For venue: look for "Assembly", "Caliente", or "Hanabi" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly, "Hanabi" = Hanabi
+- For venue: apply the VENUE PRECEDENCE rules above (explicit printed venue name first, address heuristics only as fallback)
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - IMPORTANT: Look for a DUE DATE, PAYMENT DUE, or similar field on the invoice. Extract it into "due_date" in YYYY-MM-DD format. If no due date is found, use an empty string.
 - Return ONLY the JSON object, no markdown, no explanation
 - Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
 
-    // Build product master context for matching
-    let productMasterContext = "";
-    if (productMaster && Array.isArray(productMaster) && productMaster.length > 0) {
-      const pmLines = productMaster.map((pm: any) =>
-        `SKU:${pm.internal_sku} | Name:${pm.internal_product_name} | SupplierName:${pm.supplier_product_name} | ExtSKU:${pm.external_sku}`
-      ).join("\n");
-      productMasterContext = `\n\nPRODUCT MASTER MATCHING — CRITICAL INSTRUCTIONS:
-Below is the Product Master list. For EACH line item you extract, you MUST try to match it to the closest Product Master entry.
-
-PRIORITY — MATCH BY ExtSKU FIRST:
-- If the invoice line item has an item_code/product code, ALWAYS try matching it against "ExtSKU" FIRST. An exact ExtSKU match takes absolute priority over any description matching.
-- Only if no ExtSKU match is found, fall back to comparing the extracted product description against "SupplierName" and "Name" fields.
-- If you find a match, add "matched_sku": "<internal_sku value>" to that line item
-- If NO match is found, set "matched_sku": ""
-- Be flexible with matching: ignore minor differences in spacing, capitalization, abbreviations (e.g. "J.W." vs "JW", "Whisky" vs "Whiskey", "75CL" vs "750ML")
-- The product description on the invoice may be slightly different from Product Master — use your best judgment
-
-PRODUCT MASTER LIST:
-${pmLines}`;
-    }
-
-    const fullSystemPrompt = systemPrompt + productMasterContext;
+    // Agent 1 does document reading/extraction ONLY. The Product Master is
+    // deliberately NOT given to the extraction pass — matching happens later,
+    // supplier-scoped and deterministic.
+    const fullSystemPrompt = systemPrompt;
 
     // Build user content with all file entries as separate images
     const userContent: any[] = fileEntries.map((entry) => ({
@@ -232,7 +238,8 @@ ${pmLines}`;
                         unit_price: { type: "number" },
                         discount: { type: "number" },
                         total: { type: "number" },
-                        matched_sku: { type: "string" },
+                        printed_amount: { type: "number" },
+                        source_line_no: { type: "string" },
                       },
                     },
                   },
@@ -485,6 +492,12 @@ ${pmLines}`;
           // review correction, or Product Master matching changes display fields.
           li.scanned_item_code ??= li.item_code || "";
           li.scanned_description ??= li.description || "";
+          // Printed source amount: read from the AMOUNT column. Preserved independently
+          // of any later calculated total so reconciliation always uses source truth.
+          if (li.printed_amount === undefined || li.printed_amount === null || li.printed_amount === "") {
+            li.printed_amount = Number(li.total) || 0;
+          }
+          li.source_line_no = typeof li.source_line_no === "string" ? li.source_line_no : "";
           if (li.unit) li.unit = translateChinese(li.unit);
           
           if (li.description) li.description = translateChinese(li.description);
@@ -503,6 +516,10 @@ ${pmLines}`;
                 // of what the AI read off the document.
                 li.unit_price = 50;
                 li.total = li.quantity * 50;
+                // Synthetic deposit-refund row: not printed in the AMOUNT column,
+                // so it is excluded from printed-total reconciliation.
+                li.printed_amount = li.quantity * 50;
+                li.counts_toward_total = false;
                 break;
               }
             }
@@ -615,18 +632,34 @@ HEADER FIELDS YOU ARE RESPONSIBLE FOR:
 - supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
 - For supplier_name, invoice_number, invoice_date, due_date, and venue: compare Agent 1's value to the actual source image.
 - If Agent 1 is wrong and the correct value is visible, return a header_correction. The correction will be applied to the invoice.
-- Venue must be one of: Assembly, Caliente, Hanabi. Use delivery address / customer name. Knutsford Terrace = Caliente.
+- Venue must be one of: Assembly, Caliente, Hanabi. An explicitly printed venue / trading-as / customer name (e.g. "T/A ASSEMBLY") ALWAYS wins. Address heuristics (e.g. Knutsford Terrace suggesting Caliente) are a fallback only when no explicit venue name is printed.
 - Dates must be corrected from the printed invoice date, not inferred from upload date or current date.
 
 YOU MAY SAFELY CORRECT (return in line_corrections / header_corrections):
 - supplier_name: if the printed supplier is clear, preserving exact printed spelling/Chinese characters when possible
 - venue: if delivery/customer text clearly indicates Assembly, Caliente, or Hanabi
-- invoice_number: if every character is visible or Agent 1 has an obvious OCR error
+- invoice_number: if every character is visible or Agent 1 has an obvious OCR error. invoice_number must come from "Invoice No" / "Document No" / "Delivery Note No" — never from "Sales Order No", "D365 No", "PO No" or "Customer PO".
 - invoice_date / due_date: normalize to YYYY-MM-DD from the printed date
 - currency: normalize codes (HKD, USD, etc.)
 - unit (UOM): normalize formatting (e.g. "btl" -> "Bottle", "pcs" -> "Piece")
 - description: clean obvious OCR noise without changing meaning
 - item_code / matched_sku: set only when there is a CLEAR Items Master match
+
+ROW SEGMENTATION (SAME STRICT RULE AS EXTRACTION):
+- Every visually distinct monetary row (its own QTY, UOM, Unit Price and/or Amount) is ONE line item.
+- A blank, repeated or shared printed "Line No" NEVER means rows should be merged.
+- Deposit / container / packaging rows printed below a product row are SEPARATE rows.
+- Zero-price / zero-amount (free goods) rows are REAL rows and must be present.
+- Descriptions of two monetary rows must never be concatenated.
+
+ROW STRUCTURE REPAIR (line_replacements) — USE ONLY WHEN AGENT 1's SEGMENTATION IS WRONG:
+- If, and ONLY if, Agent 1 merged two monetary rows, omitted a monetary row, or duplicated a row,
+  return a line_replacements entry for that invoice containing the COMPLETE corrected line_items
+  array for that invoice, in printed order, with printed_amount and source_line_no on every row.
+- Only return a replacement when you are highly confident (confidence >= 0.85) and the sum of
+  printed_amount in your replacement matches the printed invoice header TOTAL.
+- Never return a replacement just to tidy wording. If Agent 1's row structure is correct, return
+  no line_replacements at all.
 
 YOU MUST NEVER SILENTLY CHANGE (flag only):
 - quantity, unit_price, subtotal, tax, discount, total_amount, line total
@@ -739,6 +772,39 @@ Return ONLY by calling the report_review function.`;
                   line_corrections: { type: "array", items: correctionItem },
                   header_flags: { type: "array", items: flagItem },
                   line_flags: { type: "array", items: flagItem },
+                  line_replacements: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        invoice_index: { type: "integer" },
+                        reason: { type: "string" },
+                        confidence: { type: "number" },
+                        line_items: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              item_code: { type: "string" },
+                              description: { type: "string" },
+                              pack_size: { type: "string" },
+                              quantity: { type: "number" },
+                              unit: { type: "string" },
+                              unit_price: { type: "number" },
+                              discount: { type: "number" },
+                              total: { type: "number" },
+                              printed_amount: { type: "number" },
+                              source_line_no: { type: "string" },
+                            },
+                            required: ["description", "quantity", "unit_price", "total", "printed_amount"],
+                            additionalProperties: false,
+                          },
+                        },
+                      },
+                      required: ["invoice_index", "reason", "confidence", "line_items"],
+                      additionalProperties: false,
+                    },
+                  },
                   item_master: {
                     type: "array",
                     items: {
@@ -825,6 +891,7 @@ Return ONLY by calling the report_review function.`;
         header_flags: [],
         line_flags: [],
         item_master: [],
+        line_replacements: [],
       };
       invoicesArray.forEach((inv: any, invoice_index: number) => {
         review.header_flags.push({ invoice_index, field: "invoice_date", severity: "blocking", message: "Agent 2 review was unavailable, so the invoice date was not verified from the image." });
@@ -846,6 +913,62 @@ Return ONLY by calling the report_review function.`;
       review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
       review.line_flags = Array.isArray(review.line_flags) ? review.line_flags : [];
       review.item_master = Array.isArray(review.item_master) ? review.item_master : [];
+      review.line_replacements = Array.isArray(review.line_replacements) ? review.line_replacements : [];
+
+      // --- Row-structure repair (Agent 2 replacements) ---
+      // Applied only at high confidence AND only when deterministic reconciliation
+      // against the printed header total improves. Never replaces a good structure.
+      const replacedInvoices = new Set<number>();
+      for (const rep of review.line_replacements) {
+        const invoice_index = Number(rep?.invoice_index);
+        const inv = invoicesArray[invoice_index];
+        if (!inv || !Array.isArray(rep?.line_items)) continue;
+        const decision = shouldApplyLineReplacement({
+          confidence: Number(rep.confidence || 0),
+          headerTotal: inv.total_amount === undefined || inv.total_amount === null ? null : Number(inv.total_amount),
+          currentLines: inv.line_items || [],
+          replacementLines: rep.line_items,
+        });
+        console.log(`Agent 2 line replacement for invoice ${invoice_index}: ${decision.apply ? "applied" : "skipped"} (${decision.reason})`);
+        if (!decision.apply) continue;
+        inv.line_items = rep.line_items.map((li: any) => {
+          const printed = li.printed_amount === undefined || li.printed_amount === null || li.printed_amount === ""
+            ? Number(li.total) || 0
+            : Number(li.printed_amount) || 0;
+          return {
+            ...li,
+            printed_amount: printed,
+            source_line_no: typeof li.source_line_no === "string" ? li.source_line_no : "",
+            scanned_item_code: li.item_code || "",
+            scanned_description: li.description || "",
+          };
+        });
+        replacedInvoices.add(invoice_index);
+      }
+      if (replacedInvoices.size > 0) {
+        // Index-keyed feedback from Agent 2 no longer lines up with the repaired rows.
+        review.line_corrections = review.line_corrections.filter((c: any) => !replacedInvoices.has(Number(c?.invoice_index)));
+        review.line_flags = review.line_flags.filter((f: any) => !replacedInvoices.has(Number(f?.invoice_index)));
+        review.item_master = review.item_master.filter((i: any) => !replacedInvoices.has(Number(i?.invoice_index)));
+        for (const invoice_index of replacedInvoices) {
+          const inv = invoicesArray[invoice_index];
+          (inv.line_items || []).forEach((_li: any, line_index: number) => {
+            review.item_master.push({ invoice_index, line_index, status: "needs_review", matched_sku: "", candidates: [], reason: "Row structure was repaired; match not yet verified.", confidence: 0 });
+          });
+        }
+      }
+
+      // --- Deterministic structure / printed-total validation ---
+      invoicesArray.forEach((inv: any, invoice_index: number) => {
+        const structure = validateInvoiceStructure(
+          inv.line_items || [],
+          inv.total_amount === undefined || inv.total_amount === null ? null : Number(inv.total_amount),
+        );
+        inv.structure_validation = structure;
+        if (structure.blocking && structure.message) {
+          pushFlag(review.header_flags, { invoice_index, field: "total_amount", severity: "blocking", message: structure.message });
+        }
+      });
 
       for (const c of review.header_corrections || []) {
         const inv = invoicesArray[c.invoice_index];
