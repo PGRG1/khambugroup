@@ -2039,9 +2039,41 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
+  // A total that does not reconcile blocks the save, so it must also be visible in the
+  // on-screen issue lists instead of only appearing as a toast.
+  const totalMismatchBlocking = current ? hasTotalMismatchForSave(current) : false;
+  const totalMismatchMessage = current
+    ? `Total amount: printed total ${(current.ai_total ?? 0).toFixed(2)} does not match the calculated line total ${displayTotal.toFixed(2)}.`
+    : "";
+
   // One compact queue drives exception-first navigation without changing the save gate.
-  const reviewIssueTargets = useMemo(() => buildReviewIssues(current as any), [current]);
-  const blockingIssues = useMemo(() => current ? collectBlockingIssues(current as any) : [], [current]);
+  const reviewIssueTargets = useMemo(() => {
+    const issues = buildReviewIssues(current as any);
+    if (totalMismatchBlocking) {
+      issues.unshift({
+        id: "header-total-mismatch",
+        severity: "blocking",
+        scope: "header",
+        message: totalMismatchMessage,
+        label: "Header",
+        field: "total_amount",
+      });
+    }
+    return issues;
+  }, [current, totalMismatchBlocking, totalMismatchMessage]);
+  const blockingIssues = useMemo(() => {
+    const issues = current ? collectBlockingIssues(current as any) : [];
+    if (totalMismatchBlocking) {
+      issues.unshift({
+        scope: "header",
+        index: -1,
+        field: "total_amount",
+        message: totalMismatchMessage,
+        raw: totalMismatchMessage,
+      });
+    }
+    return issues;
+  }, [current, totalMismatchBlocking, totalMismatchMessage]);
 
   // Keep the position honest when findings are resolved or removed.
   useEffect(() => {
