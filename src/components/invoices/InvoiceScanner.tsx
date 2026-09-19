@@ -2035,16 +2035,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }));
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
-  const blockingCount = (current?.review_blocking?.length || 0)
-    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
-  const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
-
   // A total that does not reconcile blocks the save, so it must also be visible in the
   // on-screen issue lists instead of only appearing as a toast.
   const totalMismatchBlocking = current ? hasTotalMismatchForSave(current) : false;
   const totalMismatchMessage = current
     ? `Total amount: printed total ${(current.ai_total ?? 0).toFixed(2)} does not match the calculated line total ${displayTotal.toFixed(2)}.`
     : "";
+  const blockingCount = (current?.review_blocking?.length || 0)
+    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0)
+    + (totalMismatchBlocking ? 1 : 0);
+  const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   // One compact queue drives exception-first navigation without changing the save gate.
   const reviewIssueTargets = useMemo(() => {
