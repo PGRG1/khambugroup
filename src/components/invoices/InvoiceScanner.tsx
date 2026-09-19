@@ -1874,14 +1874,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     return inv.line_items.some(l => l.description.trim() && l.unmatched);
   }, []);
 
+  /** Supplier rounding mode for an invoice, so the gate uses the same math as the UI. */
+  const modeForInvoice = useCallback((inv: ScannedInvoice): RoundingMode => {
+    const supplierObj = allSuppliers.find((s) => s.id === inv.supplier_id);
+    const name = supplierObj?.name || inv.supplier_name || "";
+    return getRoundingMode(supplierObj ?? { name }, name);
+  }, [allSuppliers]);
+
+  /** Printed vs calculated total mismatch, rounding-aware and ignoring synthetic rows. */
+  const hasTotalMismatchForSave = useCallback((inv: ScannedInvoice) => {
+    return invoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) });
+  }, [modeForInvoice]);
+
   const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
     const reviewBlocking = (inv.review_blocking?.length || 0)
       + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
     // A printed/header total that does not reconcile with the calculated line total
     // is a genuine blocker; the existing Blocking Override path still allows a
     // documented supplier exception.
-    return reviewBlocking || invoiceTotalMismatch(inv as any);
-  }, []);
+    return reviewBlocking || hasTotalMismatchForSave(inv);
+  }, [hasTotalMismatchForSave]);
 
   const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
