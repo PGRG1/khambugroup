@@ -99,6 +99,8 @@ interface ScannedLineItem {
   printed_amount?: string;
   /** Printed Line No / item no exactly as shown ("" when the row has none). */
   source_line_no?: string;
+  /** False for synthetic rows (returned-keg refunds) excluded from printed-total reconciliation. */
+  counts_toward_total?: boolean;
   pack_size: string;
   quantity: string;
   unit: string;
@@ -905,6 +907,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 ? String(li.printed_amount)
                 : (li?.total != null ? String(li.total) : ""),
               source_line_no: typeof li?.source_line_no === "string" ? li.source_line_no : "",
+              counts_toward_total: li?.counts_toward_total !== false,
               pack_size: li?.pack_size || "",
               quantity: String(li?.quantity ?? "1"),
               unit: li?.unit || "",
