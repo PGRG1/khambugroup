@@ -5,6 +5,8 @@
  * decides what the user sees and what blocks a save.
  */
 
+import { aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+
 export const TOTAL_TOLERANCE = 0.5; // HK$
 
 export interface ReconcilableLine {
@@ -15,6 +17,8 @@ export interface ReconcilableLine {
   total?: string | number | null;
   total_override?: boolean;
   printed_amount?: string | number | null;
+  /** False for synthetic rows (e.g. returned-keg refunds) that are not printed in the AMOUNT column. */
+  counts_toward_total?: boolean;
 }
 
 const num = (v: unknown): number => {
@@ -24,19 +28,30 @@ const num = (v: unknown): number => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Rows that participate in printed-total reconciliation. */
+export function countedLines(lines: ReconcilableLine[]): ReconcilableLine[] {
+  return (lines || []).filter((l) => l.counts_toward_total !== false);
+}
+
 /** Working value of a line: a manual total override wins, else qty × price − discount + tax. */
 export function lineWorkingValue(line: ReconcilableLine): number {
   if (line.total_override) return num(line.total);
   return num(line.quantity) * num(line.unit_price) - num(line.discount) + num(line.tax_amount);
 }
 
-/** Calculated invoice total from the working line values, less any header discount. */
+/**
+ * Calculated invoice total from the working line values, less any header discount.
+ * When a supplier rounding mode is supplied, the same aggregation the UI displays is used.
+ */
 export function calculatedInvoiceTotal(
   lines: ReconcilableLine[],
   invoiceDiscount: string | number | null | undefined = 0,
+  mode?: RoundingMode,
 ): number {
-  const sum = (lines || []).reduce((s, l) => s + lineWorkingValue(l), 0);
-  return round2(sum - num(invoiceDiscount));
+  const values = countedLines(lines).map(lineWorkingValue);
+  const sum = mode ? aggregateTotal(values, mode) : values.reduce((s, v) => s + v, 0);
+  const total = sum - num(invoiceDiscount);
+  return mode === "integer" ? Math.round(total) : round2(total);
 }
 
 /**
@@ -56,7 +71,7 @@ export function hasPrintedTotalMismatch(args: {
 /** Sum of the amounts printed in the AMOUNT column (source truth, never recalculated). */
 export function sumPrintedLineAmounts(lines: ReconcilableLine[]): number {
   return round2(
-    (lines || []).reduce((s, l) => {
+    countedLines(lines).reduce((s, l) => {
       const printed = l.printed_amount === null || l.printed_amount === undefined || l.printed_amount === ""
         ? num(l.total)
         : num(l.printed_amount);
@@ -70,10 +85,10 @@ export function invoiceTotalMismatch(inv: {
   ai_total?: number | null;
   invoice_discount?: string | number | null;
   line_items: ReconcilableLine[];
-}, tolerance = TOTAL_TOLERANCE): boolean {
+}, opts: { tolerance?: number; mode?: RoundingMode } = {}): boolean {
   return hasPrintedTotalMismatch({
     printedTotal: inv.ai_total ?? null,
-    calculatedTotal: calculatedInvoiceTotal(inv.line_items || [], inv.invoice_discount ?? 0),
-    tolerance,
+    calculatedTotal: calculatedInvoiceTotal(inv.line_items || [], inv.invoice_discount ?? 0, opts.mode),
+    tolerance: opts.tolerance ?? TOTAL_TOLERANCE,
   });
 }
