@@ -99,6 +99,8 @@ interface ScannedLineItem {
   printed_amount?: string;
   /** Printed Line No / item no exactly as shown ("" when the row has none). */
   source_line_no?: string;
+  /** False for synthetic rows (returned-keg refunds) excluded from printed-total reconciliation. */
+  counts_toward_total?: boolean;
   pack_size: string;
   quantity: string;
   unit: string;
@@ -905,6 +907,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 ? String(li.printed_amount)
                 : (li?.total != null ? String(li.total) : ""),
               source_line_no: typeof li?.source_line_no === "string" ? li.source_line_no : "",
+              counts_toward_total: li?.counts_toward_total !== false,
               pack_size: li?.pack_size || "",
               quantity: String(li?.quantity ?? "1"),
               unit: li?.unit || "",
@@ -1871,14 +1874,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     return inv.line_items.some(l => l.description.trim() && l.unmatched);
   }, []);
 
+  /** Supplier rounding mode for an invoice, so the gate uses the same math as the UI. */
+  const modeForInvoice = useCallback((inv: ScannedInvoice): RoundingMode => {
+    const supplierObj = allSuppliers.find((s) => s.id === inv.supplier_id);
+    const name = supplierObj?.name || inv.supplier_name || "";
+    return getRoundingMode(supplierObj ?? { name }, name);
+  }, [allSuppliers]);
+
+  /** Printed vs calculated total mismatch, rounding-aware and ignoring synthetic rows. */
+  const hasTotalMismatchForSave = useCallback((inv: ScannedInvoice) => {
+    return invoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) });
+  }, [modeForInvoice]);
+
   const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
     const reviewBlocking = (inv.review_blocking?.length || 0)
       + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
     // A printed/header total that does not reconcile with the calculated line total
     // is a genuine blocker; the existing Blocking Override path still allows a
     // documented supplier exception.
-    return reviewBlocking || invoiceTotalMismatch(inv as any);
-  }, []);
+    return reviewBlocking || hasTotalMismatchForSave(inv);
+  }, [hasTotalMismatchForSave]);
 
   const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
@@ -2020,13 +2035,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }));
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
+  // A total that does not reconcile blocks the save, so it must also be visible in the
+  // on-screen issue lists instead of only appearing as a toast.
+  const totalMismatchBlocking = current ? hasTotalMismatchForSave(current) : false;
+  const totalMismatchMessage = current
+    ? `Total amount: printed total ${(current.ai_total ?? 0).toFixed(2)} does not match the calculated line total ${displayTotal.toFixed(2)}.`
+    : "";
   const blockingCount = (current?.review_blocking?.length || 0)
-    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
+    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0)
+    + (totalMismatchBlocking ? 1 : 0);
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   // One compact queue drives exception-first navigation without changing the save gate.
-  const reviewIssueTargets = useMemo(() => buildReviewIssues(current as any), [current]);
-  const blockingIssues = useMemo(() => current ? collectBlockingIssues(current as any) : [], [current]);
+  const reviewIssueTargets = useMemo(() => {
+    const issues = buildReviewIssues(current as any);
+    if (totalMismatchBlocking) {
+      issues.unshift({
+        id: "header-total-mismatch",
+        severity: "blocking",
+        scope: "header",
+        message: totalMismatchMessage,
+        label: "Header",
+        field: "total_amount",
+      });
+    }
+    return issues;
+  }, [current, totalMismatchBlocking, totalMismatchMessage]);
+  const blockingIssues = useMemo(() => {
+    const issues = current ? collectBlockingIssues(current as any) : [];
+    if (totalMismatchBlocking) {
+      issues.unshift({
+        scope: "header",
+        index: -1,
+        field: "total_amount",
+        message: totalMismatchMessage,
+        raw: totalMismatchMessage,
+      });
+    }
+    return issues;
+  }, [current, totalMismatchBlocking, totalMismatchMessage]);
 
   // Keep the position honest when findings are resolved or removed.
   useEffect(() => {

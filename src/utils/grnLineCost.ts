@@ -24,7 +24,16 @@ const num = (v: unknown): number => {
 
 export function isFreeGoodsLine(line: GrnCostLine): boolean {
   if (line.is_free_unit_line === true) return true;
-  return num(line.unit_price) === 0 && num(line.quantity) > 0;
+  if (!(num(line.unit_price) === 0 && num(line.quantity) > 0)) return false;
+  // A blank/zero unit price alone is not free goods: legacy or partially filled
+  // lines can still carry a real cost elsewhere. Only treat the line as free when
+  // no other cost signal exists.
+  const hasOtherCost =
+    num(line.net_unit_cost) > 0 ||
+    num(line.normalized_unit_cost) > 0 ||
+    num(line.accepted_price) > 0 ||
+    num(line.total) > 0;
+  return !hasOtherCost;
 }
 
 /** Unit cost for a GRN item: 0 for free goods, else the existing fallback chain. */

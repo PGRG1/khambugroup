@@ -86,6 +86,11 @@ describe("scanner persists scanned source evidence", () => {
   });
 
   it("uses the shared total-mismatch gate for saving", () => {
-    expect(src).toContain("invoiceTotalMismatch(inv as any)");
+    expect(src).toContain("invoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) })");
+  });
+
+  it("shows the total mismatch in the on-screen blocking lists", () => {
+    expect(src).toContain("header-total-mismatch");
+    expect(src).toContain("totalMismatchBlocking");
   });
 });
