@@ -4,6 +4,7 @@ import {
   buildProjectionRows,
   computeAutoForecast,
   computeVariance,
+  formatForecastNumber,
   formatHkd,
   monthDates,
   NEW_TARGET_COLUMNS,
@@ -69,9 +70,16 @@ describe("New Targets daily projections", () => {
     expect(formatHkd(null)).toBe("—");
   });
 
+  it("formats editable forecasts with commas and exactly two decimals", () => {
+    expect(formatForecastNumber(11423.25)).toBe("11,423.25");
+    expect(formatForecastNumber(16722.5)).toBe("16,722.50");
+    expect(formatForecastNumber(18067)).toBe("18,067.00");
+  });
+
   it("accepts zero and decimals but rejects negatives", () => {
     expect(parseProjectedInput("0")).toEqual({ ok: true, value: 0 });
     expect(parseProjectedInput("1234.56")).toEqual({ ok: true, value: 1234.56 });
+    expect(parseProjectedInput("11,423.25")).toEqual({ ok: true, value: 11423.25 });
     expect(parseProjectedInput("")).toEqual({ ok: true, value: null });
     expect(parseProjectedInput("-5").ok).toBe(false);
     expect(parseProjectedInput("abc").ok).toBe(false);

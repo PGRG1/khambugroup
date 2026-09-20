@@ -3,6 +3,7 @@ import { useVenues } from "@/hooks/useVenues";
 import { useDailyProjections } from "@/hooks/useDailyProjections";
 import {
   buildProjectionRows,
+  formatForecastNumber,
   formatHkd,
   parseProjectedInput,
 } from "@/utils/dailyProjections";
@@ -95,7 +96,7 @@ export default function RevenueTargetsNew() {
           onValueChange={(v) => setVenueId(v)}
           disabled={venuesLoading || activeVenues.length === 0}
         >
-          <SelectTrigger className="h-8 w-[180px] text-xs">
+          <SelectTrigger className="h-8 w-[180px] text-[13px] leading-5">
             <SelectValue placeholder="Venue" />
           </SelectTrigger>
           <SelectContent>
@@ -106,7 +107,7 @@ export default function RevenueTargetsNew() {
         </Select>
 
         <Select value={ym} onValueChange={setYm}>
-          <SelectTrigger className="h-8 w-[160px] text-xs">
+          <SelectTrigger className="h-8 w-[160px] text-[13px] leading-5">
             <SelectValue placeholder="Month" />
           </SelectTrigger>
           <SelectContent>
@@ -119,13 +120,20 @@ export default function RevenueTargetsNew() {
           </SelectContent>
         </Select>
 
-        {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
+        {loading && <span className="text-[13px] leading-5 text-muted-foreground">Loading…</span>}
       </div>
 
       <div className="-mt-3 overflow-x-auto rounded-b-lg border border-t-0 border-border">
-        <table className="w-full text-xs" data-testid="new-targets-table">
+        <table className="w-full min-w-[820px] table-fixed" data-testid="new-targets-table">
+          <colgroup>
+            <col className="w-[130px]" />
+            <col className="w-[90px]" />
+            <col className="w-[260px]" />
+            <col className="w-[170px]" />
+            <col className="w-[170px]" />
+          </colgroup>
           <thead className="bg-muted/40">
-            <tr className="text-left text-muted-foreground">
+            <tr className="h-9 text-left text-xs leading-4 text-muted-foreground">
               <th className="px-3 py-2 font-medium">Date</th>
               <th className="px-3 py-2 font-medium">Day</th>
               <th className="px-3 py-2 text-right font-medium">Forecast</th>
@@ -141,30 +149,32 @@ export default function RevenueTargetsNew() {
                 ? draft
                 : effective === null
                   ? ""
-                  : String(Math.round(effective * 100) / 100);
+                  : formatForecastNumber(effective);
               return (
-                <tr key={r.date} className="border-t border-border/60">
-                  <td className="px-3 py-1.5 td-num">{r.date}</td>
-                  <td className="px-3 py-1.5">{r.day}</td>
-                  <td className="px-3 py-1.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {savingDate === r.date && (
-                        <span className="text-[10px] text-muted-foreground">Saving…</span>
-                      )}
-                      {rowError[r.date] && (
-                        <span className="text-[10px] text-destructive">{rowError[r.date]}</span>
-                      )}
+                <tr key={r.date} className="h-[42px] border-t border-border/60 text-[13px] font-normal leading-5">
+                  <td className="whitespace-nowrap px-3 py-1 td-num tabular-nums">{r.date}</td>
+                  <td className="whitespace-nowrap px-3 py-1">{r.day}</td>
+                  <td className="px-3 py-1 text-right tabular-nums">
+                    <div className="flex h-8 items-center justify-end gap-2">
+                      <span
+                        className={`w-[62px] truncate text-right text-[10px] leading-4 ${rowError[r.date] ? "text-destructive" : "text-muted-foreground"}`}
+                        title={rowError[r.date]}
+                      >
+                        {rowError[r.date] ?? (savingDate === r.date ? "Saving…" : "")}
+                      </span>
                       {r.forecastSource === "none" ? (
-                        <span className="text-[10px] text-muted-foreground">Not enough data</span>
+                        <span className="flex h-5 min-w-[54px] items-center justify-end whitespace-nowrap text-[10px] leading-4 text-muted-foreground">
+                          Not enough data
+                        </span>
                       ) : (
-                        <span className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground">
+                        <span className="flex h-5 min-w-[54px] items-center justify-center rounded border border-border/60 px-1.5 text-[10px] font-normal leading-4 text-muted-foreground">
                           {r.forecastSource === "manager" ? "Manager" : "Auto"}
                         </span>
                       )}
                       <Input
                         inputMode="decimal"
                         aria-label={`Forecast ${r.date}`}
-                        className="h-7 w-28 text-right td-num"
+                        className="h-8 w-[132px] shrink-0 px-2 text-right text-[13px] font-normal leading-5 td-num tabular-nums md:text-[13px]"
                         value={display}
                         onChange={(e) => setDrafts((p) => ({ ...p, [r.date]: e.target.value }))}
                         onBlur={() => commit(r.date)}
@@ -177,11 +187,11 @@ export default function RevenueTargetsNew() {
                       />
                     </div>
                   </td>
-                  <td className="px-3 py-1.5 text-right td-num">
+                  <td className="whitespace-nowrap px-3 py-1 text-right font-normal td-num tabular-nums">
                     {r.actualSales === null ? "—" : formatHkd(r.actualSales)}
                   </td>
                   <td
-                    className={`px-3 py-1.5 text-right td-num ${
+                    className={`whitespace-nowrap px-3 py-1 text-right font-normal td-num tabular-nums ${
                       r.variance === null ? "" : r.variance < 0 ? "text-destructive" : "text-primary"
                     }`}
                   >
