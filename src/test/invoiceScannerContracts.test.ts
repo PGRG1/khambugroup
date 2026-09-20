@@ -93,4 +93,10 @@ describe("scanner persists scanned source evidence", () => {
     expect(src).toContain("header-total-mismatch");
     expect(src).toContain("totalMismatchBlocking");
   });
+
+  it("excludes synthetic rows from the on-screen totals, matching the save gate", () => {
+    expect(src).toContain("l.counts_toward_total !== false");
+    expect(src).toContain("countedLineItems.map(lineRawValue)");
+    expect(src).not.toContain("current?.line_items.map(lineRawValue)");
+  });
 });
