@@ -22,7 +22,7 @@ interface Props {
 }
 
 export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
-  const showForecast = view === "daily" && forecastDaily.length > 0;
+  const showForecast = view === "daily" && forecastDaily.some((day) => day.forecast !== null);
   const chartData = useMemo(() => {
     if (view === "daily") {
       const daily = toDaily(data);

@@ -18,4 +18,4 @@
 
 - [x] Extend the existing forecast overview model with complete per-day portfolio values
 - [x] Overlay the shared daily forecast on Revenue Trend without another query
-- [ ] Run focused and full tests, type check, and production build
+- [x] Run focused and full tests, type check, and production build
