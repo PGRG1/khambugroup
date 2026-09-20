@@ -183,17 +183,11 @@ const Index = () => {
             cur={cur}
             prev={prev}
             sparkline90={sparkline90}
-            target={targetForMonth}
-            monthProrated={monthMeta.monthProrated}
-            monthActualMTD={monthMeta.monthActualMTD}
-            daysInMonth={monthMeta.daysInMonth}
-            monthLabel={monthMeta.monthLabel}
-            elapsedDays={monthMeta.monthElapsedDays}
           />
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
 
-          <RevenueTrend data={filtered} view={view} targetPerDay={monthMeta.targetPerDay} />
+          <RevenueTrend data={filtered} view={view} />
 
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
             <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
