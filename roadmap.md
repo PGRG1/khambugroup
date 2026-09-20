@@ -13,3 +13,9 @@
 - [x] 9. Printed vs calculated total mismatch blocks save (override retained)
 - [x] 10. Free goods stay zero cost through GRN create/resync
 - [x] 11. Jebsen regression tests; 373 tests, typecheck, build pass
+
+## Revenue Trend forecast overlay
+
+- [x] Extend the existing forecast overview model with complete per-day portfolio values
+- [x] Overlay the shared daily forecast on Revenue Trend without another query
+- [ ] Run focused and full tests, type check, and production build
