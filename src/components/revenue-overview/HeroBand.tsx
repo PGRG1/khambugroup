@@ -38,7 +38,7 @@ function ForecastBlock({ forecast }: { forecast?: ForecastOverviewSummary }) {
         <>
           <div className="mt-1 text-[24px] leading-none font-semibold tabular-nums text-muted-foreground">—</div>
           <div className="mt-2 text-[12px] text-muted-foreground">
-            Forecast incomplete · {forecast.forecastedVenueDays}/{forecast.scopedVenueDays} days
+            Forecast incomplete · {forecast.forecastedVenueDays}/{forecast.scopedVenueDays} venue-days
           </div>
         </>
       ) : (

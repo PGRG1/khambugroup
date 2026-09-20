@@ -137,4 +137,75 @@ describe("computeForecastOverview", () => {
     expect(s.actualComparable).toBe(0);
     expect(s.variance).toBe(-1000);
   });
+
+  it("All Venues ignores an active venue with no history and no projections", () => {
+    const a = weeklyHistory("2026-09-01", 1000);
+    const empty = new Map<string, number>();
+    const s = computeForecastOverview({
+      venues: [
+        venue("v1", "Assembly", a),
+        venue("v2", "Caliente", weeklyHistory("2026-09-01", 400)),
+        venue("v3", "Arca", empty),
+      ],
+      from: D("2026-09-01"),
+      to: D("2026-09-01"),
+      today: D("2026-09-01"),
+      excludeEmptyVenues: true,
+    });
+    expect(s.status).toBe("ok");
+    expect(s.scopedVenueDays).toBe(2);
+    expect(s.forecastTotal).toBe(1400);
+  });
+
+  it("All Venues keeps a venue that has projections but no sales history", () => {
+    const s = computeForecastOverview({
+      venues: [venue("v3", "Arca", new Map(), new Map([["2026-09-01", 500]]))],
+      from: D("2026-09-01"),
+      to: D("2026-09-01"),
+      today: D("2026-09-01"),
+      excludeEmptyVenues: true,
+    });
+    expect(s.status).toBe("ok");
+    expect(s.forecastTotal).toBe(500);
+  });
+
+  it("All Venues with only empty venues is unavailable", () => {
+    const s = computeForecastOverview({
+      venues: [venue("v3", "Arca", new Map())],
+      from: D("2026-09-01"),
+      to: D("2026-09-01"),
+      today: D("2026-09-01"),
+      excludeEmptyVenues: true,
+    });
+    expect(s.status).toBe("unavailable");
+    expect(s.reason).toBe("no-venues");
+  });
+
+  it("a specifically selected empty venue is not ignored and shows incomplete", () => {
+    const s = computeForecastOverview({
+      venues: [venue("v3", "Arca", new Map())],
+      from: D("2026-09-01"),
+      to: D("2026-09-01"),
+      today: D("2026-09-01"),
+      excludeEmptyVenues: false,
+    });
+    expect(s.status).toBe("incomplete");
+    expect(s.scopedVenueDays).toBe(1);
+    expect(s.forecastedVenueDays).toBe(0);
+  });
+
+  it("a relevant venue with history but insufficient forecast still marks incomplete", () => {
+    const a = weeklyHistory("2026-09-01", 1000);
+    const b = weeklyHistory("2026-09-01", 400, 3); // history exists, but too few for a forecast
+    const s = computeForecastOverview({
+      venues: [venue("v1", "Assembly", a), venue("v2", "Caliente", b)],
+      from: D("2026-09-01"),
+      to: D("2026-09-01"),
+      today: D("2026-09-01"),
+      excludeEmptyVenues: true,
+    });
+    expect(s.status).toBe("incomplete");
+    expect(s.forecastedVenueDays).toBe(1);
+    expect(s.scopedVenueDays).toBe(2);
+  });
 });

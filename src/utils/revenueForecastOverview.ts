@@ -102,17 +102,28 @@ export function computeForecastOverview(args: {
   from: Date | undefined;
   to: Date | undefined;
   today: Date;
+  /**
+   * When true (the "All Venues" aggregate), venues with neither any sales
+   * history nor any manager projections are excluded from scope — an active
+   * but unused venue must not blank the whole summary. When false (a venue
+   * was explicitly selected), empty venues stay in scope and surface as
+   * incomplete instead of being silently ignored.
+   */
+  excludeEmptyVenues?: boolean;
 }): ForecastOverviewSummary {
   const win = resolveComparisonWindow(args.from, args.to, args.today);
   if (!win.ok) return emptySummary("unavailable", win.reason);
-  if (args.venues.length === 0) return emptySummary("unavailable", "no-venues");
+  const venues = args.excludeEmptyVenues
+    ? args.venues.filter((v) => v.salesByDate.size > 0 || v.projections.size > 0)
+    : args.venues;
+  if (venues.length === 0) return emptySummary("unavailable", "no-venues");
 
   let forecastTotal = 0;
   let actualComparable = 0;
   let scopedVenueDays = 0;
   let forecastedVenueDays = 0;
 
-  for (const v of args.venues) {
+  for (const v of venues) {
     const monthActuals = new Map<string, number>();
     const monthStart = `${win.year}-${String(win.month).padStart(2, "0")}-01`;
     for (const [d, amount] of v.salesByDate) {

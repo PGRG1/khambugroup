@@ -104,8 +104,14 @@ export function useRevenueForecastOverview(args: {
       salesByDate: salesByVenueName.get(v.name) ?? new Map(),
       projections: projectionsByVenue.get(v.id) ?? new Map(),
     }));
-    return computeForecastOverview({ venues: inputs, from, to, today });
-  }, [win.ok, win.reason, scopedVenues, salesByVenueName, projectionsByVenue, from, to, today]);
+    return computeForecastOverview({
+      venues: inputs,
+      from,
+      to,
+      today,
+      excludeEmptyVenues: selectedVenue === "All Venues",
+    });
+  }, [win.ok, win.reason, scopedVenues, salesByVenueName, projectionsByVenue, from, to, today, selectedVenue]);
 
   return { summary, loading };
 }
