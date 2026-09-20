@@ -119,6 +119,15 @@ export function formatHkd(value: number | null | undefined): string {
   })}`;
 }
 
+/** Editable forecast display with comma separators and exactly 2 decimals. */
+export function formatForecastNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "";
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /**
  * Validate a projected-sales input string.
  * Allows zero and decimals; rejects negatives and non-numeric text.
@@ -127,8 +136,12 @@ export function formatHkd(value: number | null | undefined): string {
 export function parseProjectedInput(raw: string): { ok: boolean; value: number | null; error?: string } {
   const s = raw.trim();
   if (s === "") return { ok: true, value: null };
-  if (!/^\d*\.?\d*$/.test(s)) return { ok: false, value: null, error: "Enter a number of 0 or more" };
-  const n = Number(s);
+  const validPlainNumber = /^\d+(?:\.\d*)?$/.test(s);
+  const validThousandsNumber = /^\d{1,3}(?:,\d{3})+(?:\.\d*)?$/.test(s);
+  if (!validPlainNumber && !validThousandsNumber) {
+    return { ok: false, value: null, error: "Enter a number of 0 or more" };
+  }
+  const n = Number(s.replace(/,/g, ""));
   if (!Number.isFinite(n)) return { ok: false, value: null, error: "Enter a number of 0 or more" };
   if (n < 0) return { ok: false, value: null, error: "Negative values are not allowed" };
   return { ok: true, value: n };
