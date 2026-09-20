@@ -1716,11 +1716,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   const calcLineTotal = (l: ScannedLineItem) => roundLineTotal(lineRawValue(l), currentMode);
 
-  const rawLineValues = current?.line_items.map(lineRawValue) || [];
+  // Synthetic rows (e.g. returned-keg refunds, counts_toward_total === false) are not
+  // printed in the AMOUNT column, so they must be excluded from the on-screen totals too —
+  // otherwise the displayed total diverges from the save gate's reconciliation total.
+  const countedLineItems = current?.line_items.filter((l) => l.counts_toward_total !== false) || [];
+  const rawLineValues = countedLineItems.map(lineRawValue);
   const lineItemsTotal = aggregateTotal(rawLineValues, currentMode);
-  const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
+  const taxTotal = countedLineItems.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0);
   const invoiceDiscount = parseFloat(current?.invoice_discount || "0") || 0;
-  const subtotal = aggregateTotal(rawLineValues.map((v, i) => v - (parseFloat(current?.line_items[i]?.tax_amount || "0") || 0)), currentMode);
+  const subtotal = aggregateTotal(rawLineValues.map((v, i) => v - (parseFloat(countedLineItems[i]?.tax_amount || "0") || 0)), currentMode);
   const calculatedTotal = lineItemsTotal - invoiceDiscount;
   const displayTotal = currentMode === "integer" ? Math.round(calculatedTotal) : round2(calculatedTotal);
 
