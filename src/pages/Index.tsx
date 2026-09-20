@@ -5,6 +5,7 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useVenues } from "@/hooks/useVenues";
+import { useRevenueForecastOverview } from "@/hooks/useRevenueForecastOverview";
 import DateFilter from "@/components/dashboard/DateFilter";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
@@ -77,6 +78,15 @@ const Index = () => {
   const cur = useMemo(() => aggregate(filtered), [filtered]);
   const prev = useMemo(() => (priorFiltered.length ? aggregate(priorFiltered) : null), [priorFiltered]);
   const dailyCurrent = useMemo(() => toDaily(filtered), [filtered]);
+
+  // New Targets daily forecast summary (manager overrides + auto forecast)
+  const { summary: forecastSummary } = useRevenueForecastOverview({
+    sales: data,
+    venues: dbVenues,
+    selectedVenue: venue,
+    from,
+    to,
+  });
 
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
@@ -183,6 +193,7 @@ const Index = () => {
             cur={cur}
             prev={prev}
             sparkline90={sparkline90}
+            forecast={forecastSummary}
           />
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
