@@ -20,6 +20,16 @@ export interface ForecastVenueInput {
 
 export type ForecastOverviewStatus = "ok" | "incomplete" | "unavailable";
 
+export interface ForecastOverviewDay {
+  date: string;
+  actual: number;
+  forecast: number | null;
+  variance: number | null;
+  variancePct: number | null;
+  scopedVenueCount: number;
+  forecastedVenueCount: number;
+}
+
 export interface ForecastOverviewSummary {
   status: ForecastOverviewStatus;
   /** Short machine reason for non-ok states. */
@@ -33,6 +43,8 @@ export interface ForecastOverviewSummary {
   /** Inclusive comparison window, ISO dates. */
   comparisonFrom: string | null;
   comparisonTo: string | null;
+  /** Daily values produced from the same per-venue projection rows as the totals. */
+  daily: ForecastOverviewDay[];
 }
 
 export function toIsoDate(d: Date): string {
@@ -94,6 +106,7 @@ export function emptySummary(
     forecastedVenueDays: 0,
     comparisonFrom: null,
     comparisonTo: null,
+    daily: [],
   };
 }
 
@@ -122,6 +135,12 @@ export function computeForecastOverview(args: {
   let actualComparable = 0;
   let scopedVenueDays = 0;
   let forecastedVenueDays = 0;
+  const dailyByDate = new Map<string, {
+    actual: number;
+    knownForecast: number;
+    scopedVenueCount: number;
+    forecastedVenueCount: number;
+  }>();
 
   for (const v of venues) {
     const monthActuals = new Map<string, number>();
@@ -132,14 +151,45 @@ export function computeForecastOverview(args: {
     const rows = buildProjectionRows(win.year, win.month, v.projections, monthActuals, v.salesByDate);
     for (const row of rows) {
       if (row.date < win.from || row.date > win.to) continue;
+      const day = dailyByDate.get(row.date) ?? {
+        actual: 0,
+        knownForecast: 0,
+        scopedVenueCount: 0,
+        forecastedVenueCount: 0,
+      };
       scopedVenueDays += 1;
+      day.scopedVenueCount += 1;
       if (row.effectiveForecast !== null) {
         forecastedVenueDays += 1;
         forecastTotal += row.effectiveForecast;
+        day.forecastedVenueCount += 1;
+        day.knownForecast += row.effectiveForecast;
       }
-      actualComparable += row.actualSales ?? 0;
+      const actual = row.actualSales ?? 0;
+      actualComparable += actual;
+      day.actual += actual;
+      dailyByDate.set(row.date, day);
     }
   }
+
+  const daily: ForecastOverviewDay[] = [...dailyByDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, day]) => {
+      const forecast =
+        day.scopedVenueCount > 0 && day.forecastedVenueCount === day.scopedVenueCount
+          ? day.knownForecast
+          : null;
+      const variance = forecast === null ? null : day.actual - forecast;
+      return {
+        date,
+        actual: day.actual,
+        forecast,
+        variance,
+        variancePct: forecast !== null && forecast !== 0 ? (variance / forecast) * 100 : null,
+        scopedVenueCount: day.scopedVenueCount,
+        forecastedVenueCount: day.forecastedVenueCount,
+      };
+    });
 
   const complete = scopedVenueDays > 0 && forecastedVenueDays === scopedVenueDays;
   if (!complete) {
@@ -154,6 +204,7 @@ export function computeForecastOverview(args: {
       forecastedVenueDays,
       comparisonFrom: win.from,
       comparisonTo: win.to,
+      daily,
     };
   }
 
@@ -168,5 +219,6 @@ export function computeForecastOverview(args: {
     forecastedVenueDays,
     comparisonFrom: win.from,
     comparisonTo: win.to,
+    daily,
   };
 }
