@@ -4,7 +4,6 @@ import {
   BarChart,
   CartesianGrid,
   ComposedChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,11 +16,10 @@ import { getMonthKey as gm } from "@/utils/salesUtils";
 interface Props {
   data: SalesRecord[];
   view: "daily" | "monthly";
-  targetPerDay: number | null;
 }
 
 
-export function RevenueTrend({ data, view, targetPerDay }: Props) {
+export function RevenueTrend({ data, view }: Props) {
   const chartData = useMemo(() => {
     if (view === "daily") {
       const daily = toDaily(data);
@@ -103,20 +101,6 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
               }}
             />
             <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40} />
-            {targetPerDay && view === "daily" && (
-              <ReferenceLine
-                y={targetPerDay}
-                stroke="hsl(var(--muted-foreground))"
-                strokeDasharray="4 4"
-                strokeOpacity={0.6}
-                label={{
-                  value: `Target ${fmtHKD(targetPerDay, true)}/day`,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 10,
-                  position: "insideTopRight",
-                }}
-              />
-            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
