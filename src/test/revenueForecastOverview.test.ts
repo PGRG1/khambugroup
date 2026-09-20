@@ -62,6 +62,7 @@ describe("computeForecastOverview", () => {
     });
     expect(s.status).toBe("unavailable");
     expect(s.forecastTotal).toBeNull();
+    expect(s.daily).toEqual([]);
   });
 
   it("uses the manager override over the auto forecast", () => {
@@ -78,6 +79,15 @@ describe("computeForecastOverview", () => {
     expect(s.actualComparable).toBe(900);
     expect(s.variance).toBe(-600);
     expect(s.variancePct).toBeCloseTo(-40, 5);
+    expect(s.daily[0]).toMatchObject({
+      date: "2026-09-01",
+      actual: 900,
+      forecast: 1500,
+      variance: -600,
+      scopedVenueCount: 1,
+      forecastedVenueCount: 1,
+    });
+    expect(s.daily[0].variancePct).toBeCloseTo(-40, 5);
   });
 
   it("computes forecast/actual/variance with complete coverage", () => {
@@ -108,6 +118,7 @@ describe("computeForecastOverview", () => {
     expect(s.forecastTotal).toBe(1400);
     expect(s.scopedVenueDays).toBe(2);
     expect(s.forecastedVenueDays).toBe(2);
+    expect(s.daily[0]).toMatchObject({ forecast: 1400, scopedVenueCount: 2, forecastedVenueCount: 2 });
   });
 
   it("marks the summary incomplete when any scoped venue-day has no forecast", () => {
@@ -124,6 +135,13 @@ describe("computeForecastOverview", () => {
     expect(s.variancePct).toBeNull();
     expect(s.forecastedVenueDays).toBe(1);
     expect(s.scopedVenueDays).toBe(2);
+    expect(s.daily[0]).toMatchObject({
+      forecast: null,
+      variance: null,
+      variancePct: null,
+      scopedVenueCount: 2,
+      forecastedVenueCount: 1,
+    });
   });
 
   it("treats an elapsed date with no sales row as zero actual", () => {
@@ -155,6 +173,7 @@ describe("computeForecastOverview", () => {
     expect(s.status).toBe("ok");
     expect(s.scopedVenueDays).toBe(2);
     expect(s.forecastTotal).toBe(1400);
+    expect(s.daily[0].scopedVenueCount).toBe(2);
   });
 
   it("All Venues keeps a venue that has projections but no sales history", () => {

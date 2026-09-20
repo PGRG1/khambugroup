@@ -198,7 +198,7 @@ const Index = () => {
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
 
-          <RevenueTrend data={filtered} view={view} />
+          <RevenueTrend data={filtered} view={view} forecastDaily={forecastSummary.daily} />
 
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
             <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
