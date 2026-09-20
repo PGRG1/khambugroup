@@ -5,7 +5,6 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useVenues } from "@/hooks/useVenues";
-import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import DateFilter from "@/components/dashboard/DateFilter";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
@@ -22,7 +21,6 @@ import { aggregate, priorRange, toDaily, mtdRange, isMtdRange, priorCalendarMont
 const Index = () => {
   const { data, loading } = useSalesData();
   const { venues: dbVenues } = useVenues();
-  const { targets } = useRevenueTargets();
   const venues: VenueFilter[] = ["All Venues" as VenueFilter, ...dbVenues.filter((v) => v.is_active).map((v) => v.name as VenueFilter)];
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
@@ -76,43 +74,9 @@ const Index = () => {
     return toDaily(scoped);
   }, [data, venue]);
 
-  // Month target (if from/to inside a single month)
-  const monthContext = useMemo(() => {
-    if (!from) return null;
-    const y = from.getFullYear();
-    const m = from.getMonth() + 1;
-    if (to) {
-      if (to.getFullYear() !== y || to.getMonth() + 1 !== m) return null;
-    }
-    return { y, m };
-  }, [from, to]);
-
-  const targetForMonth = useMemo(() => {
-    if (!monthContext) return null;
-    const t = targets.find((t) => t.year === monthContext.y && t.month === monthContext.m);
-    if (!t) return null;
-    // If venues array set on target, ensure current venue is in scope; else applies to all
-    if (venue !== "All Venues" && t.venues.length && !t.venues.includes(venue)) return null;
-    return t.targetAmount;
-  }, [targets, monthContext, venue]);
-
   const cur = useMemo(() => aggregate(filtered), [filtered]);
   const prev = useMemo(() => (priorFiltered.length ? aggregate(priorFiltered) : null), [priorFiltered]);
   const dailyCurrent = useMemo(() => toDaily(filtered), [filtered]);
-
-  const monthMeta = useMemo(() => {
-    if (!monthContext) return { daysInMonth: null as number | null, monthLabel: null as string | null, monthProrated: null as number | null, monthActualMTD: null as number | null, targetPerDay: null as number | null, monthElapsedDays: null as number | null };
-    const daysInMonth = new Date(monthContext.y, monthContext.m, 0).getDate();
-    const monthLabel = getMonthLabel(`${monthContext.y}-${String(monthContext.m).padStart(2, "0")}`);
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === monthContext.y && today.getMonth() + 1 === monthContext.m;
-    const dayOfMonth = isCurrentMonth ? today.getDate() : daysInMonth;
-    const targetPerDay = targetForMonth ? targetForMonth / daysInMonth : null;
-    const monthProrated = targetPerDay ? targetPerDay * dayOfMonth : null;
-    const monthActualMTD = cur.revenue;
-    const monthElapsedDays = dayOfMonth;
-    return { daysInMonth, monthLabel, monthProrated, monthActualMTD, targetPerDay, monthElapsedDays };
-  }, [monthContext, targetForMonth, cur.revenue]);
 
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
@@ -219,17 +183,11 @@ const Index = () => {
             cur={cur}
             prev={prev}
             sparkline90={sparkline90}
-            target={targetForMonth}
-            monthProrated={monthMeta.monthProrated}
-            monthActualMTD={monthMeta.monthActualMTD}
-            daysInMonth={monthMeta.daysInMonth}
-            monthLabel={monthMeta.monthLabel}
-            elapsedDays={monthMeta.monthElapsedDays}
           />
 
           <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
 
-          <RevenueTrend data={filtered} view={view} targetPerDay={monthMeta.targetPerDay} />
+          <RevenueTrend data={filtered} view={view} />
 
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
             <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
