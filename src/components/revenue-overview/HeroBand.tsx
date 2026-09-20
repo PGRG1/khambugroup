@@ -89,6 +89,9 @@ export function HeroBand({ cur, prev, sparkline90, forecast }: Props) {
           </div>
         </div>
 
+        {/* Middle: New Targets forecast */}
+        <ForecastBlock forecast={forecast} />
+
         {/* Right: 90-day sparkline */}
         <div className="lg:pl-6 lg:border-l lg:border-border/50">
           <div className="flex items-center justify-between">
