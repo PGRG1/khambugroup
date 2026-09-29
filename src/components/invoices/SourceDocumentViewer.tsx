@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { getEvidenceLabel, resolveEvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 import PdfPageCanvas from "./PdfPageCanvas";
-import { clampPdfPage, evidencePdfPage, resolveNavigation } from "@/utils/pdfViewerState";
+import { clampPdfPage, resolveNavigation } from "@/utils/pdfViewerState";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -22,13 +21,11 @@ import {
 
 interface SourceDocumentViewerProps {
   files: File[];
-  activeEvidenceField?: string | null;
-  evidence?: InvoiceEvidenceMap | null;
 }
 
 const EMPTY_SIZE: Size = { width: 0, height: 0 };
 
-export default function SourceDocumentViewer({ files, activeEvidenceField, evidence }: SourceDocumentViewerProps) {
+export default function SourceDocumentViewer({ files }: SourceDocumentViewerProps) {
   const [pageIndex, setPageIndex] = useState(0);
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfPageCount, setPdfPageCount] = useState(1);
@@ -39,17 +36,13 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
   const [viewport, setViewport] = useState<Size>(EMPTY_SIZE);
   const [open, setOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const activeFile = files[pageIndex] ?? null;
   const fileUrls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
-  const activeBox = resolveEvidenceBox(evidence, activeEvidenceField);
-  const hasEvidence = Boolean(evidence && (Object.keys(evidence.header).length > 0 || evidence.lines.some((line) => Object.keys(line).length > 0)));
   const isPdf = activeFile?.type === "application/pdf" || activeFile?.name.toLowerCase().endsWith(".pdf");
   const activeUrl = fileUrls[pageIndex];
 
   const nav = resolveNavigation(files.length, Boolean(isPdf), pdfPageCount, pageIndex, pdfPage);
-  const displayPage = nav.mode === "pdf" ? pdfPage : pageIndex + 1;
 
   const zoom = resolveFitScale(fitMode, natural, viewport, rotation, manualZoom);
   const stage = stageSize(natural, viewport, rotation, zoom);
@@ -62,17 +55,6 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
   useEffect(() => {
     return () => fileUrls.forEach((url) => URL.revokeObjectURL(url));
   }, [fileUrls]);
-
-  // Evidence page routing: single PDF → internal page, otherwise file selection
-  useEffect(() => {
-    if (!activeBox) return;
-    if (nav.mode === "pdf") {
-      const next = evidencePdfPage(activeBox.page, pdfPageCount, pdfPage);
-      if (next !== pdfPage) setPdfPage(next);
-    } else if (activeBox.page !== pageIndex + 1) {
-      setPageIndex(Math.max(0, Math.min(files.length - 1, activeBox.page - 1)));
-    }
-  }, [activeBox, files.length, pageIndex, nav.mode, pdfPage, pdfPageCount]);
 
   // File change resets PDF page, orientation + fit
   useEffect(() => {
@@ -107,14 +89,6 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
     el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
     el.scrollTop = Math.max(0, (el.scrollHeight - el.clientHeight) / 2);
   }, [zoom, rotation, pageIndex, pdfPage]);
-
-  useEffect(() => {
-    if (!activeBox || activeBox.page !== displayPage || !overlayRef.current) return;
-    const frame = requestAnimationFrame(() => {
-      overlayRef.current?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [activeBox, displayPage, open, zoom, rotation]);
 
   const applyManualZoom = useCallback((next: number) => {
     setManualZoom(clampZoom(next));
@@ -151,30 +125,16 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
 
   const rotateBy = (delta: number) => setRotation((value) => normalizeRotation(value + delta));
 
-  const showLegacyFallback = Boolean(activeEvidenceField && !activeBox) || (!hasEvidence && Boolean(activeFile));
-
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <section className="overflow-hidden rounded-lg border border-border bg-muted/20 lg:sticky lg:top-3">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <div className="min-w-0">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 px-0 text-xs font-medium hover:bg-transparent">
-                <FileText className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                <span>{open ? "Source document" : "View source document"}</span>
-              </Button>
-            </CollapsibleTrigger>
-            {activeEvidenceField && (
-              <div className="pl-5 text-[10px]">
-                <p className="truncate text-primary">Reviewing: {getEvidenceLabel(activeEvidenceField)}</p>
-                {showLegacyFallback ? (
-                  <p className="text-muted-foreground">Location unavailable — rescan to enable source highlighting.</p>
-                ) : activeBox ? (
-                  <p className="text-muted-foreground">Page {activeBox.page} · highlighted source evidence</p>
-                ) : null}
-              </div>
-            )}
-          </div>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 px-0 text-xs font-medium hover:bg-transparent">
+              <FileText className="mr-1.5 h-3.5 w-3.5 text-primary" />
+              <span>{open ? "Source document" : "View source document"}</span>
+            </Button>
+          </CollapsibleTrigger>
           {activeFile && activeUrl && (
             <Button
               variant="ghost"
@@ -288,16 +248,6 @@ export default function SourceDocumentViewer({ files, activeEvidenceField, evide
                             setNatural({ width: img.naturalWidth, height: img.naturalHeight });
                           }}
                         />
-                      )}
-                      {activeBox && activeBox.page === displayPage && (
-                        <div
-                          ref={overlayRef}
-                          aria-label={`${getEvidenceLabel(activeEvidenceField)} source evidence`}
-                          className="pointer-events-none absolute animate-pulse rounded-sm border-2 border-primary bg-primary/20 shadow-[0_0_0_3px_hsl(var(--primary)/0.14)]"
-                          style={{ left: `${activeBox.x * 100}%`, top: `${activeBox.y * 100}%`, width: `${activeBox.width * 100}%`, height: `${activeBox.height * 100}%` }}
-                        >
-                          <span className="absolute bottom-full left-0 mb-1 whitespace-nowrap rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm">{getEvidenceLabel(activeEvidenceField)}</span>
-                        </div>
                       )}
                     </div>
                   </div>

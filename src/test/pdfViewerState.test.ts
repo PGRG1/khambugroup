@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MAX_CANVAS_DPR, canvasBackingSize, clampPdfPage, evidencePdfPage, resetForFileChange, resolveNavigation } from "@/utils/pdfViewerState";
+import { MAX_CANVAS_DPR, canvasBackingSize, clampPdfPage, resetForFileChange, resolveNavigation } from "@/utils/pdfViewerState";
 
 describe("clampPdfPage", () => {
   it("clamps into range", () => {
@@ -36,14 +36,6 @@ describe("resolveNavigation", () => {
   });
 });
 
-describe("evidencePdfPage", () => {
-  it("selects the evidence page for a single PDF", () => {
-    expect(evidencePdfPage(4, 6, 1)).toBe(4);
-    expect(evidencePdfPage(99, 6, 1)).toBe(6);
-    expect(evidencePdfPage(undefined, 6, 2)).toBe(2);
-  });
-});
-
 describe("resetForFileChange", () => {
   it("resets page, rotation and fit", () => {
     expect(resetForFileChange()).toEqual({ pdfPage: 1, rotation: 0, fitMode: "page" });
@@ -59,15 +51,17 @@ describe("SourceDocumentViewer wiring", () => {
     expect(source).not.toContain("PDF location preview requires");
   });
 
-  it("keeps the honest legacy fallback message", () => {
-    expect(source).toContain("Location unavailable — rescan to enable source highlighting.");
+  it("contains no source-location highlighting UI", () => {
+    expect(source).not.toContain("activeEvidenceField");
+    expect(source).not.toContain("highlighted source evidence");
+    expect(source).not.toContain("Location unavailable");
+    expect(source).not.toContain("activeBox");
   });
 
   it("renders PDFs inside the shared transform stage", () => {
     const stage = source.indexOf("translate(-50%, -50%) rotate(");
     expect(stage).toBeGreaterThan(-1);
     expect(source.indexOf("<PdfPageCanvas")).toBeGreaterThan(stage);
-    expect(source.indexOf("activeBox && activeBox.page === displayPage")).toBeGreaterThan(source.indexOf("<PdfPageCanvas"));
   });
 
   it("cancels render tasks and destroys documents on cleanup", () => {
