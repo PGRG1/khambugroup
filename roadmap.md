@@ -22,8 +22,8 @@
 
 ## Remove invoice source-location highlighting
 
-- [ ] Remove evidence-box requests and normalization from `parse-invoice`
-- [ ] Remove source-location overlay and field-driven highlighting from invoice review
-- [ ] Preserve next/previous issue navigation for rows and header fields
-- [ ] Update focused tests and run full validation
-- [ ] Redeploy `parse-invoice`
+- [x] Remove evidence-box requests and normalization from `parse-invoice`
+- [x] Remove source-location overlay and field-driven highlighting from invoice review
+- [x] Preserve next/previous issue navigation for rows and header fields
+- [x] Update focused tests and run full validation
+- [x] Redeploy `parse-invoice`
