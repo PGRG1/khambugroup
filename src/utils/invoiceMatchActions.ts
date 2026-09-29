@@ -89,9 +89,16 @@ export function canonicalizeMatchedLinesForSupplier<T extends MatchableLine>(
   entries: MatchTargetEntry[],
   supplierName: string,
 ): MatchedLineSaveResult<T> {
-  const supplierKey = supplierName.trim().toLocaleLowerCase();
+  const normalizeSupplier = (value: string) => value
+    .toLocaleLowerCase()
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+    .replace(/\b(limited|ltd|co|company)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const supplierKey = normalizeSupplier(supplierName);
   const scopedEntries = entries.filter((entry) => (
-    Boolean(supplierKey) && (entry.supplier || "").trim().toLocaleLowerCase() === supplierKey
+    Boolean(supplierKey) && normalizeSupplier(entry.supplier || "") === supplierKey
   ));
   const missingSupplierEntryIndexes: number[] = [];
 

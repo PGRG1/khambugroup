@@ -318,6 +318,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
   const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
+  const linkedEntryOverridesRef = useRef<Map<string, ProductMasterEntry>>(new Map());
 
   // Batched availability and cheaper counts for the single Price insights action on each linked line.
   const currentInsightLines = useMemo(() => {
@@ -1290,6 +1291,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
       return;
     }
+    if (product.supplier_entry_id) linkedEntryOverridesRef.current.set(product.supplier_entry_id, product);
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1704,7 +1706,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const supplierNameForLink = supplierObjForLink?.name || inv.supplier_name || "";
     const canonical = canonicalizeMatchedLinesForSupplier(
       inv.line_items as unknown as MatchableLine[],
-      (productMaster || []) as MatchTargetEntry[],
+      [...linkedEntryOverridesRef.current.values(), ...(productMaster || [])] as MatchTargetEntry[],
       supplierNameForLink,
     );
     if (canonical.missingSupplierEntryIndexes.length > 0) {
@@ -1965,6 +1967,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           internal_sku: product.internal_sku,
           internal_product_name: product.internal_product_name,
         };
+        linkedEntryOverridesRef.current.set(entry.supplier_entry_id || supplierEntry.id, entry);
         setInvoices(prev => {
           const copy = [...prev];
           const li = linkEntryToLine(copy[currentIdx].line_items[lineIdx], entry);
@@ -3704,8 +3707,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               const lines = [...invoice.line_items];
               const line = lines[idx];
               if (!line) return prev;
-              lines[idx] = supplier ? {
-                ...linkEntryToLine(line, {
+              if (supplier) {
+                const refreshedEntry: ProductMasterEntry = {
                   id: product.id,
                   supplier_entry_id: supplier.id,
                   internal_sku: product.internal_sku,
@@ -3717,15 +3720,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   stock_uom: supplier.stock_uom || product.stock_uom || product.unit || "",
                   stock_qty: supplier.stock_qty,
                   purchase_unit_cost: supplier.purchase_unit_cost,
-                }),
-                master_price: supplier?.purchase_unit_cost ?? line.master_price,
-                pm_unit_price: supplier?.purchase_unit_cost ?? line.pm_unit_price,
-              } : {
-                ...line,
-                ...buildRemoveMatchPatch(line as unknown as MatchableLine),
-                review_status: "needs_review",
-                match_hold_reason: "Needs a product for this supplier",
-              };
+                };
+                linkedEntryOverridesRef.current.set(supplier.id, refreshedEntry);
+                lines[idx] = {
+                  ...linkEntryToLine(line, refreshedEntry),
+                  master_price: supplier.purchase_unit_cost ?? line.master_price,
+                  pm_unit_price: supplier.purchase_unit_cost ?? line.pm_unit_price,
+                };
+              } else {
+                lines[idx] = {
+                  ...line,
+                  ...buildRemoveMatchPatch(line as unknown as MatchableLine),
+                  review_status: "needs_review",
+                  match_hold_reason: "Needs a product for this supplier",
+                };
+              }
               copy[currentIdx] = { ...invoice, line_items: lines };
               return copy;
             });
