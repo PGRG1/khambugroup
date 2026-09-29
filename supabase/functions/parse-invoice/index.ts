@@ -65,7 +65,7 @@ CRITICAL — NUMBER ACCURACY RULES:
  - "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
  - "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly. This is critical for validation.
  - VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
- - EVIDENCE: For every extracted header field and every extracted line field, optionally return an evidence box using normalized coordinates (0 to 1) for the exact printed source. Use 1-based page numbers and {page,x,y,width,height}; never invent a box when the source is not visible. Header keys: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount. Line keys: item_code, description, quantity, unit, unit_price, discount, total.
+ - EVIDENCE: For every extracted header field, and for line items only for the "description" and "total" fields, optionally return an evidence box using normalized coordinates (0 to 1) for the exact printed source. Use 1-based page numbers and {page,x,y,width,height}; never invent a box when the source is not visible. Header keys: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount. Line keys: description, total.
 - Watch for multi-page invoices: the same invoice number on consecutive pages means those pages belong together. Merge all line items and use the grand total from the last page.
 - Be careful with columns — some invoices have a DISCOUNT column between UNIT PRICE and AMOUNT. Don't confuse discount with amount.
 
@@ -216,7 +216,7 @@ Rules:
                          type: "array",
                          items: {
                            type: "object",
-                           properties: Object.fromEntries(["item_code", "description", "quantity", "unit", "unit_price", "discount", "total"].map((field) => [field, { type: "object", properties: { page: { type: "integer" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number" }, height: { type: "number" } }, required: ["page", "x", "y", "width", "height"], additionalProperties: false }])),
+                           properties: Object.fromEntries(["description", "total"].map((field) => [field, { type: "object", properties: { page: { type: "integer" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number" }, height: { type: "number" } }, required: ["page", "x", "y", "width", "height"], additionalProperties: false }])),
                            additionalProperties: false,
                          },
                        },
@@ -408,7 +408,7 @@ Rules:
      // (the client saw a non-2xx FunctionsHttpError). Agent 2 below does
      // image-based verification AND correction in a single tool-call pass.
      const evidenceHeaders = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "total_amount"]);
-     const evidenceLines = new Set(["item_code", "description", "quantity", "unit", "unit_price", "discount", "total"]);
+     const evidenceLines = new Set(["description", "total"]);
      const normalizeEvidence = (value: any) => {
        const normalizeBox = (box: any) => {
          if (!box || typeof box !== "object") return null;
@@ -615,8 +615,20 @@ Rules:
     // assigns one Items Master status per line.
     let review: any = null;
     try {
-      const pmSummary = (productMaster && Array.isArray(productMaster) && productMaster.length > 0)
-        ? productMaster.slice(0, 800).map((pm: any) =>
+      const pmAll = productMaster && Array.isArray(productMaster) ? productMaster : [];
+      const extractedSupplierNames = Array.from(new Set(
+        invoicesArray
+          .map((inv: any) => (typeof inv?.supplier_name === "string" ? inv.supplier_name : ""))
+          .filter((n: string) => n.trim().length > 0),
+      ));
+      // Scope the Items Master summary to suppliers Agent 1 extracted; fall back
+      // to the first 800 rows across all suppliers so matching never loses candidates.
+      let pmScoped = pmAll.filter((pm: any) =>
+        extractedSupplierNames.some((name: string) => supplierMatches(pm?.supplier, name)),
+      );
+      if (pmScoped.length === 0) pmScoped = pmAll;
+      const pmSummary = pmAll.length > 0
+        ? pmScoped.slice(0, 800).map((pm: any) =>
             `SKU:${pm.internal_sku} | Name:${pm.internal_product_name} | SupplierName:${pm.supplier_product_name || ""} | ExtSKU:${pm.external_sku || ""} | Supplier:${pm.supplier || ""} | PurchUOM:${pm.purchase_unit || ""} | StockUOM:${pm.stock_uom || ""} | Cost:${pm.purchase_unit_cost ?? ""}`
           ).join("\n")
         : "(empty)";
@@ -701,7 +713,7 @@ Known suppliers: ${supplierListText || "(none)"}
 
 Return ONLY by calling the report_review function.`;
 
-      const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray }, null, 2)}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
+      const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray })}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
       const reviewerUserContent: any[] = fileEntries.map((entry) => ({
         type: "image_url",
         image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
