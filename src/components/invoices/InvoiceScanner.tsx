@@ -1711,6 +1711,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const subtotal = aggregateTotal(rawLineValues.map((v, i) => v - (parseFloat(countedLineItems[i]?.tax_amount || "0") || 0)), currentMode);
   const calculatedTotal = lineItemsTotal - invoiceDiscount;
   const displayTotal = currentMode === "integer" ? Math.round(calculatedTotal) : round2(calculatedTotal);
+  const aiTotal = current?.ai_total;
 
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
     const supplierObjForLink = allSuppliers.find((supplier) => supplier.id === inv.supplier_id);
