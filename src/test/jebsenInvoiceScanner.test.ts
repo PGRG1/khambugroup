@@ -158,10 +158,10 @@ describe("matching preserves scanned source truth", () => {
     external_sku: "MASTER-SKU-999",
   };
 
-  it("keeps external name and SKU exactly as printed when a match is applied", () => {
+  it("uses Items Master name/SKU when linked and keeps printed wording as evidence", () => {
     const patch = buildMatchLinkPatch(line as any, entry as any);
-    expect(patch.description).toBe("DEPOSIT - HOEGAARDEN - 20L KEG");
-    expect(patch.item_code).toBe("B095|HOE501-D");
+    expect(patch.description).toBe("KEG DEPOSIT (MASTER WORDING)");
+    expect(patch.item_code).toBe("MASTER-SKU-999");
     expect(patch.scanned_description).toBe("DEPOSIT - HOEGAARDEN - 20L KEG");
     expect(patch.scanned_item_code).toBe("B095|HOE501-D");
     expect(patch.matched_sku).toBe("HOE-DEP-20");
