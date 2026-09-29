@@ -19,3 +19,11 @@
 - [x] Extend the existing forecast overview model with complete per-day portfolio values
 - [x] Overlay the shared daily forecast on Revenue Trend without another query
 - [x] Run focused and full tests, type check, and production build
+
+## Remove invoice source-location highlighting
+
+- [ ] Remove evidence-box requests and normalization from `parse-invoice`
+- [ ] Remove source-location overlay and field-driven highlighting from invoice review
+- [ ] Preserve next/previous issue navigation for rows and header fields
+- [ ] Update focused tests and run full validation
+- [ ] Redeploy `parse-invoice`
