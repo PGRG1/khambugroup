@@ -35,12 +35,6 @@ export function resolveNavigation(fileCount: number, isPdf: boolean, pdfPageCoun
   return { mode: "file" as const, current: Math.min(fileCount, Math.max(1, fileIndex + 1)), total: Math.max(1, fileCount) };
 }
 
-/** Which PDF page should be shown for an evidence box on a single-file PDF. */
-export function evidencePdfPage(evidencePage: number | undefined, pageCount: number, currentPage: number): number {
-  if (!evidencePage || !Number.isFinite(evidencePage)) return currentPage;
-  return clampPdfPage(evidencePage, Math.max(1, pageCount));
-}
-
 /** State reset applied whenever the active source file changes. */
 export function resetForFileChange() {
   return { pdfPage: 1, rotation: 0, fitMode: "page" as const };

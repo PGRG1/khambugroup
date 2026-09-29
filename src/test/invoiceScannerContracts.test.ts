@@ -57,6 +57,13 @@ describe("parse-invoice extraction contract", () => {
     const calls = src.match(/ai\.gateway\.lovable\.dev\/v1\/chat\/completions/g) || [];
     expect(calls.length).toBe(2);
   });
+
+  it("does not request or normalize source-location evidence", () => {
+    expect(src).not.toContain("EVIDENCE:");
+    expect(src).not.toContain("normalizeEvidence");
+    expect(src).not.toMatch(/\bevidence\s*:/);
+    expect(src).toContain("JSON.stringify({ success: true, data: { invoices: invoicesArray, review } })");
+  });
 });
 
 describe("scanner save path", () => {
