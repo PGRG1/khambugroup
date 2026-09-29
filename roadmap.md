@@ -27,3 +27,10 @@
 - [x] Preserve next/previous issue navigation for rows and header fields
 - [x] Update focused tests and run full validation
 - [x] Redeploy `parse-invoice`
+
+## Invoice scanner supplier naming consistency
+
+- [ ] Route every scanner link and refresh path through the shared link patch
+- [ ] Enforce supplier-specific Items Master names and SKUs at save time
+- [ ] Block linked products without an entry for the invoice supplier
+- [ ] Add focused regression tests and run full validation
