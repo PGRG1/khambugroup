@@ -66,7 +66,7 @@ import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickC
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
 import { invoiceTotalMismatch } from "@/utils/invoiceTotalReconciliation";
-import { buildMatchLinkPatch, buildRemoveMatchPatch, masterExternalFields, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
+import { buildMatchLinkPatch, buildRemoveMatchPatch, canonicalizeMatchedLinesForSupplier, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
@@ -86,6 +86,7 @@ interface ProductMasterEntry {
   purchase_unit?: string;
   stock_uom?: string;
   stock_qty?: number;
+  supplier_entry_id?: string;
 }
 
 interface ScannedLineItem {
@@ -317,6 +318,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [historyLineIdx, setHistoryLineIdx] = useState<number | null>(null);
   const [editingMasterLineIdx, setEditingMasterLineIdx] = useState<number | null>(null);
+  const linkedEntryOverridesRef = useRef<Map<string, ProductMasterEntry>>(new Map());
 
   // Batched availability and cheaper counts for the single Price insights action on each linked line.
   const currentInsightLines = useMemo(() => {
@@ -504,21 +506,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const scannedDesc = line.scanned_description ?? line.description;
     return {
       ...line,
-      scanned_item_code: scannedCode,
-      scanned_description: scannedDesc,
-      // Linked lines display/save the Items Master name/SKU; printed wording stays in scanned_*.
-      ...masterExternalFields(entry, scannedDesc),
-      matched_sku: entry.internal_sku,
-      matched_internal_name: entry.internal_product_name || "",
-      matched_stock_uom: entry.stock_uom || "",
-      matched_purchase_uom: entry.purchase_unit || "",
-      matched_stock_qty_ratio: entry.stock_qty ?? 1,
-      unmatched: false,
-      sku_mismatch: false,
+      ...buildMatchLinkPatch(line as unknown as MatchableLine, entry as MatchTargetEntry),
       price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
       pm_unit_price: masterPrice,
-      product_master_id: entry.id,
-      supplier_entry_id: (entry as any).supplier_entry_id ?? line.supplier_entry_id ?? null,
       master_price: masterPrice,
       accepted_price: acceptedPrice,
       price_disputed: !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100),
@@ -641,7 +631,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       );
 
       if (resolved) {
-        workingLine.matched_sku = resolved.internal_sku;
         // Product Master is the source of truth for External SKU.
         // When the matched supplier-scoped PM entry has empty external_sku,
         // force the line's item_code to empty (e.g. Ming Kee has no SKUs).
@@ -712,22 +701,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       const priceDisputed = !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100);
 
       return {
-        ...workingLine,
-        // Printed wording kept as evidence; displayed name/SKU come from the Items Master.
-        scanned_item_code: workingLine.scanned_item_code ?? workingLine.item_code,
-        scanned_description: workingLine.scanned_description ?? workingLine.description,
-        ...masterExternalFields(resolved as any, workingLine.scanned_description ?? workingLine.description),
-        matched_sku: resolved.internal_sku,
+        ...linkEntryToLine(workingLine, resolved as ProductMasterEntry),
         sku_mismatch: skuMismatch,
-        unmatched: false,
         price_changed: priceChanged,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
-        matched_internal_name: resolved.internal_product_name || "",
-        matched_stock_uom: resolved.stock_uom || "",
-        matched_purchase_uom: resolved.purchase_unit || "",
-        matched_stock_qty_ratio: resolved.stock_qty ?? 1,
-        product_master_id: (resolved as any).id ?? workingLine.product_master_id ?? null,
-        supplier_entry_id: (resolved as any).supplier_entry_id ?? workingLine.supplier_entry_id ?? null,
         master_price: masterPrice,
         accepted_price: acceptedPrice,
         price_disputed: priceDisputed,
@@ -1105,7 +1082,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const stillValid = withTotal.supplier_entry_id
           ? scopedEntryIds.has(withTotal.supplier_entry_id)
           : scoped.some((entry) => entry.id === withTotal.product_master_id);
-        if (stillValid) return withTotal;
+        if (stillValid) {
+          const entry = withTotal.supplier_entry_id
+            ? scoped.find((candidate) => candidate.supplier_entry_id === withTotal.supplier_entry_id)
+            : scoped.find((candidate) => candidate.id === withTotal.product_master_id);
+          return entry ? linkEntryToLine(withTotal, entry as ProductMasterEntry) : withTotal;
+        }
         // The link belonged to a different supplier — unlink but keep the immutable scan.
         return {
           ...withTotal,
@@ -1309,6 +1291,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
       return;
     }
+    if (product.supplier_entry_id) linkedEntryOverridesRef.current.set(product.supplier_entry_id, product);
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1719,6 +1702,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
 
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
+    const supplierObjForLink = allSuppliers.find((supplier) => supplier.id === inv.supplier_id);
+    const supplierNameForLink = supplierObjForLink?.name || inv.supplier_name || "";
+    const canonical = canonicalizeMatchedLinesForSupplier(
+      inv.line_items as unknown as MatchableLine[],
+      [...linkedEntryOverridesRef.current.values(), ...(productMaster || [])] as MatchTargetEntry[],
+      supplierNameForLink,
+    );
+    if (canonical.missingSupplierEntryIndexes.length > 0) {
+      const nextInvoice = { ...inv, line_items: canonical.lines as unknown as ScannedLineItem[] };
+      setInvoices((previous) => previous.map((candidate, invoiceIndex) => invoiceIndex === idx ? nextInvoice : candidate));
+      toast({
+        title: "Needs a product for this supplier",
+        description: "One or more matched items have no Items Master entry for this invoice supplier.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    inv = { ...inv, line_items: canonical.lines as unknown as ScannedLineItem[] };
+
     if (!skipDuplicateCheck) {
       const { data: existingInvoices } = await supabase
         .from("invoices")
@@ -1765,14 +1767,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           ? roundLineTotal(parseFloat(l.total) || 0, mode)
           : roundLineTotal((qty * price) - out.line_discount_amount - out.header_discount_share + tax, mode);
         let pmId: string | null = l.product_master_id ?? null;
-        if (!pmId && productMaster) {
-          const resolved = resolveExactMatch(
-            { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
-            scopePMToSupplier(productMaster, supplierName),
-            supplierName,
-          );
-          if (resolved) pmId = resolved.id;
-        }
         const acceptedQtyVal = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
         const acceptedQty = Number.isFinite(acceptedQtyVal) ? acceptedQtyVal : qty;
         const qtyDiff = acceptedQty - qty;
@@ -1854,8 +1848,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       toast({ title: `Invoice ${inv.invoice_number} saved!` });
       const nextUnsaved = invoices.findIndex((inv2, i2) => i2 > idx && !inv2.saved);
       if (nextUnsaved >= 0) setCurrentIdx(nextUnsaved);
+      return true;
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1947,14 +1943,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       } as any);
       if (ok) {
         await fetchProducts();
-        // Optimistically mark this line matched
+        const productResult = await supabase
+          .from("product_master" as any)
+          .select("id, internal_sku, internal_product_name")
+          .eq("tenant_id", tenantId)
+          .eq("internal_sku", internal_sku)
+          .single();
+        const product = productResult.data as unknown as { id: string; internal_sku: string; internal_product_name: string } | null;
+        const supplierResult = product ? await supabase
+          .from("product_suppliers" as any)
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .eq("product_master_id", product.id)
+          .limit(100) : { data: null };
+        const supplierEntry = Array.isArray(supplierResult.data)
+          ? supplierResult.data.find((candidate: any) => normalizeSupplierKey(candidate.supplier || "") === normalizeSupplierKey(inv.supplier_name))
+          : null;
+        if (!product || !supplierEntry) throw new Error("Needs a product for this supplier");
+        const entry: ProductMasterEntry = {
+          ...supplierEntry,
+          id: product.id,
+          supplier_entry_id: supplierEntry.id,
+          internal_sku: product.internal_sku,
+          internal_product_name: product.internal_product_name,
+        };
+        linkedEntryOverridesRef.current.set(entry.supplier_entry_id || supplierEntry.id, entry);
         setInvoices(prev => {
           const copy = [...prev];
-          const li = { ...copy[currentIdx].line_items[lineIdx] };
-          li.matched_sku = internal_sku;
-          li.matched_internal_name = s.internal_product_name || line.description || "";
-          li.unmatched = false;
-          li.review_status = "matched";
+          const li = linkEntryToLine(copy[currentIdx].line_items[lineIdx], entry);
           copy[currentIdx] = { ...copy[currentIdx], line_items: copy[currentIdx].line_items.map((l, idx) => idx === lineIdx ? li : l) };
           return copy;
         });
@@ -1965,7 +1981,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     } finally {
       setCreatingLineIdx(null);
     }
-  }, [invoices, currentIdx, createProduct, fetchProducts]);
+  }, [invoices, currentIdx, createProduct, fetchProducts, tenantId, linkEntryToLine]);
 
   const handleSaveAll = async () => {
     const noSupplier = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && !inv.supplier_id);
@@ -1993,8 +2009,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (invoices[i].saved) { saved++; continue; }
       if (invoices[i].is_duplicate) { skippedDuplicates++; continue; }
       try {
-        await doSaveCurrent(invoices[i], i, false);
-        saved++;
+        const didSave = await doSaveCurrent(invoices[i], i, false);
+        if (didSave) saved++;
       } catch {
         toast({ title: `Failed to save invoice #${invoices[i].invoice_number}`, variant: "destructive" });
       }
@@ -3691,16 +3707,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               const lines = [...invoice.line_items];
               const line = lines[idx];
               if (!line) return prev;
-              lines[idx] = {
-                ...line,
-                matched_sku: product.internal_sku,
-                matched_internal_name: product.internal_product_name,
-                matched_stock_uom: supplier?.stock_uom || product.stock_uom || product.unit || "",
-                matched_purchase_uom: supplier?.purchase_unit || line.matched_purchase_uom,
-                matched_stock_qty_ratio: supplier?.stock_qty ?? line.matched_stock_qty_ratio,
-                master_price: supplier?.purchase_unit_cost ?? line.master_price,
-                pm_unit_price: supplier?.purchase_unit_cost ?? line.pm_unit_price,
-              };
+              if (supplier) {
+                const refreshedEntry: ProductMasterEntry = {
+                  id: product.id,
+                  supplier_entry_id: supplier.id,
+                  internal_sku: product.internal_sku,
+                  internal_product_name: product.internal_product_name,
+                  supplier_product_name: supplier.supplier_product_name,
+                  external_sku: supplier.external_sku,
+                  supplier: supplier.supplier,
+                  purchase_unit: supplier.purchase_unit,
+                  stock_uom: supplier.stock_uom || product.stock_uom || product.unit || "",
+                  stock_qty: supplier.stock_qty,
+                  purchase_unit_cost: supplier.purchase_unit_cost,
+                };
+                linkedEntryOverridesRef.current.set(supplier.id, refreshedEntry);
+                lines[idx] = {
+                  ...linkEntryToLine(line, refreshedEntry),
+                  master_price: supplier.purchase_unit_cost ?? line.master_price,
+                  pm_unit_price: supplier.purchase_unit_cost ?? line.pm_unit_price,
+                };
+              } else {
+                lines[idx] = {
+                  ...line,
+                  ...buildRemoveMatchPatch(line as unknown as MatchableLine),
+                  review_status: "needs_review",
+                  match_hold_reason: "Needs a product for this supplier",
+                };
+              }
               copy[currentIdx] = { ...invoice, line_items: lines };
               return copy;
             });

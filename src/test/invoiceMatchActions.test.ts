@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMatchLinkPatch,
   buildRemoveMatchPatch,
+  canonicalizeMatchedLinesForSupplier,
   UNMATCHED_STATE_LABEL,
   type MatchableLine,
   type MatchTargetEntry,
@@ -79,6 +80,70 @@ describe("Link uses Items Master values", () => {
   it("falls back to internal name when supplier name is blank", () => {
     const patch = buildMatchLinkPatch(line(), { ...target, supplier_product_name: "", internal_product_name: "San Miguel Can" });
     expect(patch.description).toBe("San Miguel Can");
+  });
+
+  it("applies the same supplier name and SKU for a newly created quick-add entry", () => {
+    const quickAddEntry = {
+      ...target,
+      supplier: "ONGO Food Ltd",
+      supplier_product_name: "Face Towel - 96",
+      external_sku: "ONGO-FT96",
+    };
+    const linked = { ...line(), ...buildMatchLinkPatch(line(), quickAddEntry) };
+    expect(linked.product_master_id).toBe("pm-2");
+    expect(linked.supplier_entry_id).toBe("se-2");
+    expect(linked.description).toBe("Face Towel - 96");
+    expect(linked.item_code).toBe("ONGO-FT96");
+    expect(linked.scanned_description).toBe("SAN MIGUEL 330ML");
+  });
+
+  it("refreshes a suggested-item link through its supplier entry", () => {
+    const suggestedLine = {
+      ...line(),
+      product_master_id: null,
+      supplier_entry_id: null,
+      unmatched: true,
+    };
+    const linked = { ...suggestedLine, ...buildMatchLinkPatch(suggestedLine, {
+      ...target,
+      supplier: "ONGO Food Ltd",
+      supplier_product_name: "Face Towel - 96",
+      external_sku: "ONGO-FT96",
+    }) };
+    expect(linked.product_master_id).toBe("pm-2");
+    expect(linked.supplier_entry_id).toBe("se-2");
+    expect(linked.description).toBe("Face Towel - 96");
+    expect(linked.item_code).toBe("ONGO-FT96");
+    expect(linked.unmatched).toBe(false);
+  });
+
+  it("re-derives linked names at save and rejects products without this supplier entry", () => {
+    const staleLinked = {
+      ...line(),
+      description: "96 Good Smile Face Towel - 96/Piece",
+      item_code: "OCR-96",
+      product_master_id: "pm-2",
+      supplier_entry_id: "se-old",
+    };
+    const valid = canonicalizeMatchedLinesForSupplier([staleLinked], [{
+      ...target,
+      supplier: "ONGO Food Ltd",
+      supplier_product_name: "Face Towel - 96",
+      external_sku: "ONGO-FT96",
+    }], "ONGO Food Ltd");
+    expect(valid.missingSupplierEntryIndexes).toEqual([]);
+    expect(valid.lines[0].description).toBe("Face Towel - 96");
+    expect(valid.lines[0].item_code).toBe("ONGO-FT96");
+    expect(valid.lines[0].scanned_description).toBe("SAN MIGUEL 330ML");
+
+    const invalid = canonicalizeMatchedLinesForSupplier([staleLinked], [{
+      ...target,
+      supplier: "Another Supplier",
+    }], "ONGO Food Ltd");
+    expect(invalid.missingSupplierEntryIndexes).toEqual([0]);
+    expect(invalid.lines[0].unmatched).toBe(true);
+    expect(invalid.lines[0].product_master_id).toBeNull();
+    expect((invalid.lines[0] as MatchableLine & { match_hold_reason?: string }).match_hold_reason).toBe("Needs a product for this supplier");
   });
 });
 

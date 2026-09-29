@@ -35,6 +35,12 @@ export interface MatchTargetEntry {
   purchase_unit?: string;
   stock_uom?: string;
   stock_qty?: number;
+  supplier?: string;
+}
+
+export interface MatchedLineSaveResult<T extends MatchableLine> {
+  lines: T[];
+  missingSupplierEntryIndexes: number[];
 }
 
 /**
@@ -71,6 +77,52 @@ export function buildMatchLinkPatch<T extends MatchableLine>(line: T, entry: Mat
     unmatched: false,
     sku_mismatch: false,
   };
+}
+
+/**
+ * Final save guard for scanner lines. Every linked product is refreshed from the
+ * supplier-specific Items Master row; a product without that supplier row is
+ * converted to the existing unmatched state so it cannot be saved accidentally.
+ */
+export function canonicalizeMatchedLinesForSupplier<T extends MatchableLine>(
+  lines: T[],
+  entries: MatchTargetEntry[],
+  supplierName: string,
+): MatchedLineSaveResult<T> {
+  const normalizeSupplier = (value: string) => value
+    .toLocaleLowerCase()
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+    .replace(/\b(limited|ltd|co|company)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const supplierKey = normalizeSupplier(supplierName);
+  const scopedEntries = entries.filter((entry) => (
+    Boolean(supplierKey) && normalizeSupplier(entry.supplier || "") === supplierKey
+  ));
+  const missingSupplierEntryIndexes: number[] = [];
+
+  const nextLines = lines.map((line, index) => {
+    if (!line.product_master_id) return line;
+    const entry = scopedEntries.find((candidate) => (
+      candidate.id === line.product_master_id
+      && (!line.supplier_entry_id || candidate.supplier_entry_id === line.supplier_entry_id)
+    )) || scopedEntries.find((candidate) => candidate.id === line.product_master_id);
+
+    if (!entry?.supplier_entry_id) {
+      missingSupplierEntryIndexes.push(index);
+      return {
+        ...line,
+        ...buildRemoveMatchPatch(line),
+        review_status: "needs_review",
+        match_hold_reason: "Needs a product for this supplier",
+      } as T;
+    }
+
+    return { ...line, ...buildMatchLinkPatch(line, entry) } as T;
+  });
+
+  return { lines: nextLines, missingSupplierEntryIndexes };
 }
 
 /**
