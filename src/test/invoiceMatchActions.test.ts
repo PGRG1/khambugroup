@@ -143,7 +143,7 @@ describe("Link uses Items Master values", () => {
     expect(invalid.missingSupplierEntryIndexes).toEqual([0]);
     expect(invalid.lines[0].unmatched).toBe(true);
     expect(invalid.lines[0].product_master_id).toBeNull();
-    expect(invalid.lines[0].match_hold_reason).toBe("Needs a product for this supplier");
+    expect((invalid.lines[0] as MatchableLine & { match_hold_reason?: string }).match_hold_reason).toBe("Needs a product for this supplier");
   });
 });
 

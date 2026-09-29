@@ -1953,10 +1953,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           .select("*")
           .eq("tenant_id", tenantId)
           .eq("product_master_id", product.id)
-          .ilike("supplier", inv.supplier_name)
-          .limit(1)
-          .maybeSingle() : { data: null };
-        const supplierEntry = supplierResult.data as any;
+          .limit(100) : { data: null };
+        const supplierEntry = Array.isArray(supplierResult.data)
+          ? supplierResult.data.find((candidate: any) => normalizeSupplierKey(candidate.supplier || "") === normalizeSupplierKey(inv.supplier_name))
+          : null;
         if (!product || !supplierEntry) throw new Error("Needs a product for this supplier");
         const entry: ProductMasterEntry = {
           ...supplierEntry,
