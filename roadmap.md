@@ -44,8 +44,8 @@
 
 ## Invoice total-mismatch dismissal
 
-- [ ] Store and audit the acknowledged printed/calculated pair
-- [ ] Re-block when calculated amounts change
-- [ ] Suppress keg-only pickup-note mismatches
-- [ ] Show acknowledgement feedback only for real dismissals
-- [ ] Keep save and override gates aligned and run full validation
+- [x] Store and audit the acknowledged printed/calculated pair
+- [x] Re-block when calculated amounts change
+- [x] Suppress keg-only pickup-note mismatches
+- [x] Show acknowledgement feedback only for real dismissals
+- [x] Keep save and override gates aligned and run full validation

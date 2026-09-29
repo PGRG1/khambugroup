@@ -1712,9 +1712,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const calculatedTotal = lineItemsTotal - invoiceDiscount;
   const displayTotal = currentMode === "integer" ? Math.round(calculatedTotal) : round2(calculatedTotal);
 
-  const aiTotal = current?.ai_total;
-  const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
-
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
     const supplierObjForLink = allSuppliers.find((supplier) => supplier.id === inv.supplier_id);
     const supplierNameForLink = supplierObjForLink?.name || inv.supplier_name || "";
@@ -2370,7 +2367,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
           {/* ───── Review header: workflow strip + check cards + KPI strip ───── */}
           {(() => {
-            const stats = computeReviewStats(current, { totalMismatch });
+            const stats = computeReviewStats(current, { totalMismatch: totalMismatchBlocking });
             return (
               <div className="space-y-1.5">
                 <div className="grid gap-1.5 xl:grid-cols-[minmax(0,1fr)_auto]">
