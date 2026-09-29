@@ -505,7 +505,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const scannedDesc = line.scanned_description ?? line.description;
     return {
       ...line,
-      ...buildMatchLinkPatch(line as MatchableLine, entry as MatchTargetEntry),
+      ...buildMatchLinkPatch(line as unknown as MatchableLine, entry as MatchTargetEntry),
       price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON,
       pm_unit_price: masterPrice,
       master_price: masterPrice,
@@ -1708,7 +1708,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       supplierNameForLink,
     );
     if (canonical.missingSupplierEntryIndexes.length > 0) {
-      const nextInvoice = { ...inv, line_items: canonical.lines as ScannedLineItem[] };
+      const nextInvoice = { ...inv, line_items: canonical.lines as unknown as ScannedLineItem[] };
       setInvoices((previous) => previous.map((candidate, invoiceIndex) => invoiceIndex === idx ? nextInvoice : candidate));
       toast({
         title: "Needs a product for this supplier",
@@ -1717,7 +1717,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
       return false;
     }
-    inv = { ...inv, line_items: canonical.lines as ScannedLineItem[] };
+    inv = { ...inv, line_items: canonical.lines as unknown as ScannedLineItem[] };
 
     if (!skipDuplicateCheck) {
       const { data: existingInvoices } = await supabase
@@ -1947,7 +1947,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           .eq("tenant_id", tenantId)
           .eq("internal_sku", internal_sku)
           .single();
-        const product = productResult.data as { id: string; internal_sku: string; internal_product_name: string } | null;
+        const product = productResult.data as unknown as { id: string; internal_sku: string; internal_product_name: string } | null;
         const supplierResult = product ? await supabase
           .from("product_suppliers" as any)
           .select("*")
@@ -3722,7 +3722,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 pm_unit_price: supplier?.purchase_unit_cost ?? line.pm_unit_price,
               } : {
                 ...line,
-                ...buildRemoveMatchPatch(line),
+                ...buildRemoveMatchPatch(line as unknown as MatchableLine),
                 review_status: "needs_review",
                 match_hold_reason: "Needs a product for this supplier",
               };
