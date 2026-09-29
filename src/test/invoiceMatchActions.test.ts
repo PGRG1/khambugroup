@@ -68,6 +68,20 @@ describe("Change match", () => {
   });
 });
 
+describe("Link uses Items Master values", () => {
+  it("sets master name/SKU while preserving scanned wording", () => {
+    const patch = buildMatchLinkPatch(line(), { ...target, supplier_product_name: "San Miguel Pale Pilsen 330ml", external_sku: "SM-330" });
+    expect(patch.description).toBe("San Miguel Pale Pilsen 330ml");
+    expect(patch.item_code).toBe("SM-330");
+    expect(patch.scanned_description).toBe("SAN MIGUEL 330ML");
+    expect(patch.scanned_item_code).toBe("SUP-1");
+  });
+  it("falls back to internal name when supplier name is blank", () => {
+    const patch = buildMatchLinkPatch(line(), { ...target, supplier_product_name: "", internal_product_name: "San Miguel Can" });
+    expect(patch.description).toBe("San Miguel Can");
+  });
+});
+
 describe("Remove match", () => {
   it("clears only the link and restores the scanned external fields", () => {
     const merged: MatchableLine = { ...line(), ...buildRemoveMatchPatch(line()) };

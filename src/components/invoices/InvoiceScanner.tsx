@@ -67,7 +67,7 @@ import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
 import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 import { invoiceTotalMismatch } from "@/utils/invoiceTotalReconciliation";
-import { buildMatchLinkPatch, buildRemoveMatchPatch, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
+import { buildMatchLinkPatch, buildRemoveMatchPatch, masterExternalFields, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
@@ -517,9 +517,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       ...line,
       scanned_item_code: scannedCode,
       scanned_description: scannedDesc,
-      // Source truth: the printed external name/SKU are never replaced by master values.
-      description: scannedDesc,
-      item_code: scannedCode,
+      // Linked lines display/save the Items Master name/SKU; printed wording stays in scanned_*.
+      ...masterExternalFields(entry, scannedDesc),
       matched_sku: entry.internal_sku,
       matched_internal_name: entry.internal_product_name || "",
       matched_stock_uom: entry.stock_uom || "",
@@ -725,9 +724,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       return {
         ...workingLine,
-        // Source truth: printed external name/SKU are preserved on match.
+        // Printed wording kept as evidence; displayed name/SKU come from the Items Master.
         scanned_item_code: workingLine.scanned_item_code ?? workingLine.item_code,
         scanned_description: workingLine.scanned_description ?? workingLine.description,
+        ...masterExternalFields(resolved as any, workingLine.scanned_description ?? workingLine.description),
         matched_sku: resolved.internal_sku,
         sku_mismatch: skuMismatch,
         unmatched: false,

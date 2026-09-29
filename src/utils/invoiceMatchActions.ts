@@ -38,10 +38,21 @@ export interface MatchTargetEntry {
 }
 
 /**
- * Fields written when a match is set or changed.
- *
- * Source truth is immutable: the printed/scanned external name and SKU are never
- * replaced by Product Master values. Only the internal match fields are populated.
+ * Display/save values for a linked line: the Items Master supplier product name
+ * (falling back to the internal name) and external SKU. The printed wording stays
+ * in scanned_description / scanned_item_code as evidence.
+ */
+export function masterExternalFields(
+  entry: { supplier_product_name?: string | null; internal_product_name?: string | null; external_sku?: string | null },
+  fallbackDescription = "",
+) {
+  const name = (entry.supplier_product_name || "").trim() || (entry.internal_product_name || "").trim() || fallbackDescription;
+  return { description: name, item_code: (entry.external_sku || "").trim() };
+}
+
+/**
+ * Fields written when a match is set or changed. The visible external name/SKU come
+ * from the Items Master; the scanned wording is preserved in scanned_* fields.
  */
 export function buildMatchLinkPatch<T extends MatchableLine>(line: T, entry: MatchTargetEntry) {
   const scannedCode = line.scanned_item_code ?? line.item_code;
@@ -49,8 +60,7 @@ export function buildMatchLinkPatch<T extends MatchableLine>(line: T, entry: Mat
   return {
     scanned_item_code: scannedCode,
     scanned_description: scannedDesc,
-    description: scannedDesc,
-    item_code: scannedCode,
+    ...masterExternalFields(entry, scannedDesc),
     matched_sku: entry.internal_sku,
     matched_internal_name: entry.internal_product_name || "",
     matched_stock_uom: entry.stock_uom || "",
