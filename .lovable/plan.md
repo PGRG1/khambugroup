@@ -1,18 +1,19 @@
-# Fix scanner Items Master price updates
+# Invoice total-mismatch dismissal fix
 
 ## Scope
-Update only the invoice scanner’s “Update Items Master price” flow and focused tests. Matching, naming, parsing, pricing rules elsewhere, and the database schema remain unchanged.
+Fix only the scanner’s live total-mismatch blocker, acknowledgement behavior, keg-only exception, and related tests. Matching, naming, pricing, extraction, and database persistence remain unchanged.
 
 ## Implementation
-- Add a focused helper for the supplier-price write so outcomes are testable.
-- Require the line’s `supplier_entry_id` and linked product ID; otherwise stop with “This item has no Items Master entry for this supplier”.
-- Load that exact supplier entry and linked item, confirming tenant and product ownership.
-- Update the supplier entry’s purchase cost with `.select()` and reject errors or zero returned rows.
-- Recalculate the linked item’s `cost_per_stock_unit` and `cost_per_base_unit` using supplier conversion quantities first and item quantities as fallback, safely returning zero for invalid or zero divisors.
-- Update the item’s `purchase_unit_cost` and both calculated cost fields, also confirming the update returned a row.
-- After both writes succeed, refresh the parent Items Master data and update every matching scanner line in the active batch so the new price persists during the session.
-- Show success only after verified writes; otherwise show a clear error.
+- Add a small pure reconciliation helper/type for a total-mismatch acknowledgement containing the printed and calculated totals.
+- Extend the scanner’s in-memory invoice shape with that acknowledgement pair; it remains scanner state while the required audit record persists through invoice notes.
+- Make the total-mismatch check use the same supplier-aware calculated total as today, but suppress it only when the current printed/calculated pair matches the acknowledged pair. Any later amount change produces a different calculated value and restores the blocker.
+- Treat a missing or zero printed total as non-blocking when every counted line is a returned-keg line, using the existing `isReturnedKegLine` rule. Keep genuine relevant-line mismatches unchanged.
+- Route the synthetic header issue (`index: -1`) to a dedicated acknowledgement path. Append exactly `[Total mismatch acknowledged @ <timestamp>] printed <X>, calculated <Y>` to notes and store the pair on the invoice.
+- Make header and line dismissal handlers return/show success feedback only when the referenced finding actually existed and was removed. Invalid or stale indexes produce no success toast.
+- Keep Save, Save All, blocking counts, the blocking dialog, and Override & Approve driven by the same acknowledgement-aware predicate; include the live mismatch in the override issue list when present.
 
-## Validation
-- Add focused tests for synchronized supplier/item updates, missing supplier entry, zero-row updates, conversion math, and parent refresh.
-- Run focused tests, the full test suite, TypeScript checking, and confirm the live preview build is healthy.
+## Tests
+- Add focused pure tests showing acknowledgement clears the exact mismatch and an amount change restores it.
+- Add a keg-only pickup-note test for missing and zero printed totals.
+- Add scanner contract/handler tests covering the audit note and ensuring no success toast occurs for a no-op header or line dismissal.
+- Run focused tests, the full Vitest suite, TypeScript checking, and confirm the preview build is healthy.
