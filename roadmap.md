@@ -30,7 +30,7 @@
 
 ## Invoice scanner supplier naming consistency
 
-- [ ] Route every scanner link and refresh path through the shared link patch
-- [ ] Enforce supplier-specific Items Master names and SKUs at save time
-- [ ] Block linked products without an entry for the invoice supplier
-- [ ] Add focused regression tests and run full validation
+- [x] Route every scanner link and refresh path through the shared link patch
+- [x] Enforce supplier-specific Items Master names and SKUs at save time
+- [x] Block linked products without an entry for the invoice supplier
+- [x] Add focused regression tests and run full validation
