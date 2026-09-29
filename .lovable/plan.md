@@ -1,37 +1,18 @@
-# Remove invoice source-location highlighting
+# Fix scanner Items Master price updates
 
 ## Scope
+Update only the invoice scanner’s “Update Items Master price” flow and focused tests. Matching, naming, parsing, pricing rules elsewhere, and the database schema remain unchanged.
 
-Remove inaccurate source-location evidence from invoice extraction and scanner review while preserving the document viewer and issue navigation.
+## Implementation
+- Add a focused helper for the supplier-price write so outcomes are testable.
+- Require the line’s `supplier_entry_id` and linked product ID; otherwise stop with “This item has no Items Master entry for this supplier”.
+- Load that exact supplier entry and linked item, confirming tenant and product ownership.
+- Update the supplier entry’s purchase cost with `.select()` and reject errors or zero returned rows.
+- Recalculate the linked item’s `cost_per_stock_unit` and `cost_per_base_unit` using supplier conversion quantities first and item quantities as fallback, safely returning zero for invalid or zero divisors.
+- Update the item’s `purchase_unit_cost` and both calculated cost fields, also confirming the update returned a row.
+- After both writes succeed, refresh the parent Items Master data and update every matching scanner line in the active batch so the new price persists during the session.
+- Show success only after verified writes; otherwise show a clear error.
 
-## Changes
-
-1. **Invoice extraction function**
-   - Remove the Agent 1 evidence instruction and evidence example.
-   - Remove `evidence` from the extraction tool schema.
-   - Remove evidence normalization and attachment to returned invoices.
-   - Leave Agent 2, matching, flags, corrections, retries, models, and the response envelope unchanged.
-
-2. **Source document viewer**
-   - Reduce the viewer API to `files` only.
-   - Remove evidence imports, overlay state/rendering, evidence-driven page switching, box scrolling, labels, and fallback messaging.
-   - Preserve image/PDF rendering, manual page/file navigation, zoom controls, fit modes, rotation, double-click zoom, and opening the original.
-
-3. **Invoice scanner**
-   - Stop normalizing, storing, and passing evidence.
-   - Remove field click/focus handlers and evidence-driven field styling.
-   - Keep issue navigation: line issues still center and highlight their row; header issues still scroll the matching field into view using neutral review-field anchors.
-
-4. **Tests and cleanup**
-   - Remove dedicated evidence-box tests and unused evidence-only helpers if no callers remain.
-   - Update viewer and scanner contract tests to assert that source-location UI/wiring is absent while core viewer controls and issue navigation remain.
-   - Add/adjust the parser contract test to confirm Agent 1 no longer requests or normalizes evidence and the response remains `{ success, data: { invoices, review } }`.
-
-5. **Validation and release**
-   - Run focused scanner/viewer tests, then the full test suite and TypeScript check.
-   - Confirm the preview build is clean.
-   - Redeploy and test the `parse-invoice` function without changing its request or response contract.
-
-## Not changed
-
-Supplier matching, item matching/naming, pricing, totals, save behavior, database schema/data, New Targets, or any other invoice workflow.
+## Validation
+- Add focused tests for synchronized supplier/item updates, missing supplier entry, zero-row updates, conversion math, and parent refresh.
+- Run focused tests, the full test suite, TypeScript checking, and confirm the live preview build is healthy.
