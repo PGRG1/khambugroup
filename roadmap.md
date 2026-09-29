@@ -41,3 +41,11 @@
 - [x] Update supplier price and linked item cost fields together
 - [x] Refresh parent data and all matching lines in the active batch
 - [x] Add focused tests and run full validation
+
+## Invoice total-mismatch dismissal
+
+- [ ] Store and audit the acknowledged printed/calculated pair
+- [ ] Re-block when calculated amounts change
+- [ ] Suppress keg-only pickup-note mismatches
+- [ ] Show acknowledgement feedback only for real dismissals
+- [ ] Keep save and override gates aligned and run full validation
