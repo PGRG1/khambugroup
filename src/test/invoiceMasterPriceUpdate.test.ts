@@ -60,6 +60,19 @@ describe("scanner Items Master price update", () => {
     expect(refreshParent).not.toHaveBeenCalled();
   });
 
+  it("returns an error and does not refresh when zero item rows update", async () => {
+    const refreshParent = vi.fn();
+    const result = await updateSupplierItemPrice({
+      updateSupplier: vi.fn().mockResolvedValue({ id: "supplier-entry-1", product_master_id: "product-1", stock_qty: 10, base_unit_qty: 1000 }),
+      readProduct: vi.fn().mockResolvedValue({ id: "product-1", stock_qty: 10, base_unit_qty: 1000 }),
+      updateProduct: vi.fn().mockResolvedValue(false),
+      refreshParent,
+    }, { supplierEntryId: "supplier-entry-1", productMasterId: "product-1", newPrice: 110 });
+
+    expect(result).toEqual({ ok: false, message: "No Items Master item row was updated." });
+    expect(refreshParent).not.toHaveBeenCalled();
+  });
+
   it("falls back to item quantities and guards zero divisors", () => {
     expect(calculateSupplierItemCosts(
       110,

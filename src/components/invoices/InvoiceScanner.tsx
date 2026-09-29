@@ -1638,7 +1638,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         newPrice,
       });
       if (!result.ok) {
-        toast({ title: "Failed to update Items Master", description: writeError || result.message, variant: "destructive" });
+        const failureMessage = "message" in result ? result.message : "The price could not be updated.";
+        toast({ title: "Failed to update Items Master", description: writeError || failureMessage, variant: "destructive" });
         return;
       }
       setInvoices((prev) => {
