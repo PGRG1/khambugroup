@@ -34,3 +34,10 @@
 - [x] Enforce supplier-specific Items Master names and SKUs at save time
 - [x] Block linked products without an entry for the invoice supplier
 - [x] Add focused regression tests and run full validation
+
+## Scanner Items Master supplier-price synchronization
+
+- [x] Require and verify the current supplier entry
+- [x] Update supplier price and linked item cost fields together
+- [x] Refresh parent data and all matching lines in the active batch
+- [x] Add focused tests and run full validation
