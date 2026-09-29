@@ -65,7 +65,8 @@ import { TrendingDown } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
-import { invoiceTotalMismatch } from "@/utils/invoiceTotalReconciliation";
+import { blockingInvoiceTotalMismatch, calculatedInvoiceTotal, type TotalMismatchAcknowledgement } from "@/utils/invoiceTotalReconciliation";
+import { acknowledgeTotalMismatch, dismissHeaderFinding, dismissLineFinding } from "@/utils/invoiceBlockingDismissal";
 import { buildMatchLinkPatch, buildRemoveMatchPatch, canonicalizeMatchedLinesForSupplier, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
@@ -192,6 +193,7 @@ interface ScannedInvoice {
   review_warnings?: string[];
   review_blocking?: string[];
   review_corrections?: ReviewCorrection[];
+  total_mismatch_acknowledgement?: TotalMismatchAcknowledgement;
 }
 
 interface InvoiceScannerProps {
@@ -1011,22 +1013,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
    */
   const dismissHeaderBlocking = (msgIndex: number) => {
     const targetIdx = currentIdx;
-    setInvoices((prev) => {
-      const copy = [...prev];
-      const inv = copy[targetIdx];
-      if (!inv) return prev;
-      const list = inv.review_blocking || [];
-      const msg = list[msgIndex];
-      if (msg === undefined) return prev;
-      const stamp = new Date().toLocaleString();
-      const note = `[Flag acknowledged @ ${stamp}] ${msg}`;
-      copy[targetIdx] = {
-        ...inv,
-        review_blocking: list.filter((_, i) => i !== msgIndex),
-        notes: inv.notes ? `${inv.notes}\n${note}` : note,
-      };
-      return copy;
-    });
+    const inv = invoices[targetIdx];
+    if (!inv) return;
+    const next = msgIndex === -1
+      ? acknowledgeTotalMismatch(inv, {
+          printedTotal: inv.ai_total ?? 0,
+          calculatedTotal: calculatedInvoiceTotal(inv.line_items, inv.invoice_discount, modeForInvoice(inv)),
+        }, new Date().toISOString())
+      : dismissHeaderFinding(inv, msgIndex, new Date().toISOString());
+    if (!next) return;
+    setInvoices((prev) => prev.map((candidate, index) => index === targetIdx ? next : candidate));
     toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
   };
 
@@ -1158,21 +1154,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   /** Acknowledge a line-level blocking finding (audit-noted, same as header). */
   const dismissLineBlocking = (lineIdx: number, msgIndex: number) => {
     const targetIdx = currentIdx;
-    setInvoices((prev) => {
-      const copy = [...prev];
-      const inv = copy[targetIdx];
-      if (!inv) return prev;
-      const lines = [...inv.line_items];
-      const line = lines[lineIdx];
-      if (!line) return prev;
-      const list = line.review_blocking || [];
-      const msg = list[msgIndex];
-      if (msg === undefined) return prev;
-      lines[lineIdx] = { ...line, review_blocking: list.filter((_, i) => i !== msgIndex) };
-      const note = `[Line ${lineIdx + 1} flag acknowledged @ ${new Date().toLocaleString()}] ${msg}`;
-      copy[targetIdx] = { ...inv, line_items: lines, notes: inv.notes ? `${inv.notes}\n${note}` : note };
-      return copy;
-    });
+    const inv = invoices[targetIdx];
+    if (!inv) return;
+    const next = dismissLineFinding(inv, lineIdx, msgIndex, new Date().toISOString());
+    if (!next) return;
+    setInvoices((prev) => prev.map((candidate, index) => index === targetIdx ? next : candidate));
     toast({ title: "Finding acknowledged", description: "Recorded in the invoice notes for audit." });
   };
 
@@ -1898,7 +1884,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   /** Printed vs calculated total mismatch, rounding-aware and ignoring synthetic rows. */
   const hasTotalMismatchForSave = useCallback((inv: ScannedInvoice) => {
-    return invoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) });
+    return blockingInvoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) });
   }, [modeForInvoice]);
 
   const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
@@ -3659,6 +3645,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       <li key={`l-${li}-${mi}`}>Line {li + 1}: {m}</li>
                     ))
                   )}
+                  {totalMismatchBlocking && <li>{totalMismatchMessage}</li>}
                 </ul>
               </div>
               <div className="space-y-1.5">

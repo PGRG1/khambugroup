@@ -6,6 +6,7 @@
  */
 
 import { aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { isReturnedKegLine } from "@/utils/returnedKegs";
 
 export const TOTAL_TOLERANCE = 0.5; // HK$
 
@@ -19,6 +20,11 @@ export interface ReconcilableLine {
   printed_amount?: string | number | null;
   /** False for synthetic rows (e.g. returned-keg refunds) that are not printed in the AMOUNT column. */
   counts_toward_total?: boolean;
+}
+
+export interface TotalMismatchAcknowledgement {
+  printedTotal: number;
+  calculatedTotal: number;
 }
 
 const num = (v: unknown): number => {
@@ -91,4 +97,34 @@ export function invoiceTotalMismatch(inv: {
     calculatedTotal: calculatedInvoiceTotal(inv.line_items || [], inv.invoice_discount ?? 0, opts.mode),
     tolerance: opts.tolerance ?? TOTAL_TOLERANCE,
   });
+}
+
+/**
+ * Scanner save-gate mismatch state. An acknowledgement applies only to the exact
+ * printed/calculated pair; changing an amount naturally restores the blocker.
+ */
+export function blockingInvoiceTotalMismatch(inv: {
+  ai_total?: number | null;
+  invoice_discount?: string | number | null;
+  line_items: ReconcilableLine[];
+  total_mismatch_acknowledgement?: TotalMismatchAcknowledgement | null;
+}, opts: { tolerance?: number; mode?: RoundingMode } = {}): boolean {
+  const lines = countedLines(inv.line_items || []);
+  const printedTotal = inv.ai_total ?? null;
+  const kegOnlyPickup = (printedTotal === null || printedTotal === 0)
+    && lines.length > 0
+    && lines.every(isReturnedKegLine);
+  if (kegOnlyPickup) return false;
+
+  const calculatedTotal = calculatedInvoiceTotal(lines, inv.invoice_discount ?? 0, opts.mode);
+  if (!hasPrintedTotalMismatch({
+    printedTotal,
+    calculatedTotal,
+    tolerance: opts.tolerance ?? TOTAL_TOLERANCE,
+  })) return false;
+
+  const acknowledged = inv.total_mismatch_acknowledgement;
+  return !acknowledged
+    || acknowledged.printedTotal !== printedTotal
+    || acknowledged.calculatedTotal !== calculatedTotal;
 }

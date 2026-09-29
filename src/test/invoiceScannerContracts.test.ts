@@ -93,7 +93,13 @@ describe("scanner persists scanned source evidence", () => {
   });
 
   it("uses the shared total-mismatch gate for saving", () => {
-    expect(src).toContain("invoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) })");
+    expect(src).toContain("blockingInvoiceTotalMismatch(inv as any, { mode: modeForInvoice(inv) })");
+  });
+
+  it("routes the synthetic mismatch through acknowledgement and guards no-op toasts", () => {
+    expect(src).toContain("msgIndex === -1");
+    expect(src).toContain("acknowledgeTotalMismatch(inv");
+    expect(src.match(/if \(!next\) return;/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the total mismatch in the on-screen blocking lists", () => {
