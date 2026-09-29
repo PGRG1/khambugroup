@@ -65,7 +65,6 @@ import { TrendingDown } from "lucide-react";
 import SupplierQuickCreateSheet, { normalizeSupplierKey } from "./SupplierQuickCreateSheet";
 import SourceDocumentViewer from "./SourceDocumentViewer";
 import MasterItemEditSheet from "./MasterItemEditSheet";
-import { normalizeInvoiceEvidence, getEvidenceFieldHandlers, type EvidenceBox, type InvoiceEvidenceMap } from "@/utils/invoiceEvidence";
 import { invoiceTotalMismatch } from "@/utils/invoiceTotalReconciliation";
 import { buildMatchLinkPatch, buildRemoveMatchPatch, masterExternalFields, UNMATCHED_STATE_LABEL, type MatchableLine, type MatchTargetEntry } from "@/utils/invoiceMatchActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -158,7 +157,6 @@ interface ScannedLineItem {
     purchase_unit_cost?: number;
     level1_category?: string;
   };
-  evidence?: Partial<Record<string, EvidenceBox>>;
 }
 
 interface ReviewCorrection {
@@ -184,7 +182,6 @@ interface ScannedInvoice {
   invoice_discount_mode?: DiscountMode;
   invoice_discount_rate?: string;
   line_items: ScannedLineItem[];
-  evidence?: InvoiceEvidenceMap;
   saved?: boolean;
   sourceFiles?: File[];
   ai_total?: number;
@@ -301,7 +298,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [highlightLineIdx, setHighlightLineIdx] = useState<number | null>(null);
-  const [activeEvidenceField, setActiveEvidenceField] = useState<string | null>(null);
   const [nextIssueIndex, setNextIssueIndex] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
@@ -314,13 +310,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
-  const activateEvidence = useCallback((field: string) => {
-    if (field) setActiveEvidenceField(field);
-  }, []);
-  const evidenceFieldHandlers = useCallback(
-    (field: string) => getEvidenceFieldHandlers(field, activateEvidence),
-    [activateEvidence],
-  );
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [supplierError, setSupplierError] = useState(false);
@@ -883,7 +872,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const canonicalSupplierName = supplierId
           ? (suppliers.find((s) => s.id === supplierId)?.name || supplierName)
           : supplierName;
-        const invoiceEvidence = normalizeInvoiceEvidence(raw?.evidence, preparedFiles.length > 0 ? preparedFiles.length : undefined);
         // Original extracted line totals — the mapped line's `total` is recomputed
         // from qty/price/discount/tax, so pruning must compare against these instead
         // or every line trivially "reconciles" against itself.
@@ -956,7 +944,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           invoice_discount_mode: "fixed",
           invoice_discount_rate: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
-          evidence: invoiceEvidence,
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
           review_warnings: ir?.warnings,
@@ -2090,17 +2077,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const safe = ((index % total) + total) % total;
     const target = reviewIssueTargets[safe];
     setNextIssueIndex(safe);
-    activateEvidence(target.field);
     if (target.scope === "line" && target.lineIdx !== undefined) {
       goToLine(target.lineIdx);
       return;
     }
     requestAnimationFrame(() => {
       document
-        .querySelector<HTMLElement>(`[data-evidence-field="${target.field}"]`)
+        .querySelector<HTMLElement>(`[data-review-field="${target.field}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
-  }, [reviewIssueTargets, activateEvidence, goToLine]);
+  }, [reviewIssueTargets, goToLine]);
 
   const currentIssue = reviewIssueTargets[Math.min(nextIssueIndex, Math.max(reviewIssueTargets.length - 1, 0))] || null;
   const goToNextIssue = () => focusIssue(nextIssueIndex + 1);
@@ -2315,7 +2301,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="grid min-h-0 min-w-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)]">
 
-            <SourceDocumentViewer files={current.sourceFiles || []} activeEvidenceField={activeEvidenceField} evidence={current.evidence} />
+            <SourceDocumentViewer files={current.sourceFiles || []} />
             <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
           {/* Content-sized review header above the independently scrolling line items */}
           <div data-testid="review-fields-scroll" className="min-h-0 shrink-0 space-y-2 lg:overflow-visible">
@@ -2434,7 +2420,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
           {/* Header fields */}
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-4 items-start">
-            <div data-evidence-field="supplier_name" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "supplier_name" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("supplier_name")}>
+            <div data-review-field="supplier_name" tabIndex={-1} className="min-w-0">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Supplier</Label>
                 <CorrectionChip
@@ -2483,7 +2469,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 onCreated={handleSupplierCreated}
               />
             </div>
-            <div data-evidence-field="venue" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "venue" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("venue")}>
+            <div data-review-field="venue" tabIndex={-1} className="min-w-0">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Venue</Label>
                 <CorrectionChip
@@ -2503,7 +2489,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 </SelectContent>
               </Select>
             </div>
-            <div data-evidence-field="invoice_number" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_number" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("invoice_number")}>
+            <div data-review-field="invoice_number" tabIndex={-1} className="min-w-0">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-xs">Invoice #</Label>
                 <CorrectionChip
@@ -2542,7 +2528,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 </div>
               )}
             </div>
-            <div data-evidence-field="invoice_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "invoice_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("invoice_date")}>
+            <div data-review-field="invoice_date" tabIndex={-1} className="min-w-0">
               <Label className="text-xs">Invoice Date</Label>
               <Input className="h-8 text-xs" type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
               <CorrectionChip
@@ -2552,7 +2538,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 fieldAliases={["invoice_date"]}
               />
             </div>
-            <div data-evidence-field="due_date" tabIndex={-1} className={cn("min-w-0 rounded-md transition-colors", activeEvidenceField === "due_date" && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers("due_date")}>
+            <div data-review-field="due_date" tabIndex={-1} className="min-w-0">
               <Label className="text-xs">Due Date</Label>
               <Input className="h-8 text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
               <CorrectionChip
@@ -2779,7 +2765,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-item_code`} style={{ minWidth: 96 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-item_code` && "bg-primary/5 ring-2 ring-primary/60") } {...evidenceFieldHandlers(`line-${i}-item_code`)}>
+                      <td style={{ minWidth: 96 }} className="px-1 py-0.5 align-top">
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
@@ -2797,7 +2783,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* External Name - editable with autocomplete */}
-                      <td data-evidence-field={`line-${i}-description`} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-description` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-description`)} data-external-name-line={i}>
+                      <td className="px-1 py-0.5 align-top" data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
                           onChange={(v) => {
@@ -2917,7 +2903,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
 
                        {/* Purchase UOM - read-only from PM; the source evidence is the scanned unit. */}
-                       <td data-evidence-field={`line-${i}-unit`} style={{ minWidth: 68 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-unit` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit`)}>
+                       <td style={{ minWidth: 68 }} className="px-1 py-0.5 align-top">
                          <Input
                            value={line.matched_purchase_uom}
                            readOnly
@@ -2927,7 +2913,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                          />
                        </td>
                       {/* Purchase Qty - editable */}
-                      <td data-evidence-field={`line-${i}-quantity`} style={{ minWidth: 75 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-quantity` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-quantity`)}>
+                      <td style={{ minWidth: 75 }} className="px-1 py-0.5 align-top">
 
                         <Input
                           type="number"
@@ -3024,7 +3010,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         </div>
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td data-evidence-field={`line-${i}-unit_price`} style={{ minWidth: 68 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-unit_price` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-unit_price`)}>
+                       <td style={{ minWidth: 68 }} className="px-1 py-0.5 align-top">
 
                         <div className="relative">
                           <Input
@@ -3138,7 +3124,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
                       </td>
                        {/* Discount (% or $) */}
-                       <td data-evidence-field={`line-${i}-discount`} style={{ minWidth: 130 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-discount` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-discount`)}>
+                       <td style={{ minWidth: 130 }} className="px-1 py-0.5 align-top">
                         {(() => {
                           const dMode = normalizeDiscountMode(line.discount_mode);
                           const q = parseFloat(line.quantity) || 0;
@@ -3177,7 +3163,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         })()}
                       </td>
                        {/* Invoiced Amount */}
-                       <td data-evidence-field={`line-${i}-total`} style={{ minWidth: 90 }} className={cn("px-1 py-0.5 align-top transition-colors", activeEvidenceField === `line-${i}-total` && "bg-primary/5 ring-2 ring-primary/60")} {...evidenceFieldHandlers(`line-${i}-total`)}>
+                       <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           return (
@@ -3401,7 +3387,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               );
             })()}
             {aiTotal !== undefined && (
-              <div data-evidence-field="total_amount" tabIndex={-1} {...evidenceFieldHandlers("total_amount")} className={cn("rounded-md px-1 transition-colors", activeEvidenceField === "total_amount" && "bg-primary/5 ring-2 ring-primary/60")}>
+              <div data-review-field="total_amount" tabIndex={-1} className="rounded-md px-1">
                 <span className="text-xs text-muted-foreground">
                   Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
