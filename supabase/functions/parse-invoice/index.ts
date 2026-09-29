@@ -65,7 +65,7 @@ CRITICAL — NUMBER ACCURACY RULES:
  - "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
  - "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly. This is critical for validation.
  - VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
- - EVIDENCE: For every extracted header field, and for line items only for `description` and `total`, optionally return an evidence box using normalized coordinates (0 to 1) for the exact printed source. Use 1-based page numbers and {page,x,y,width,height}; never invent a box when the source is not visible. Header keys: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount. Line keys: description, total.
+ - EVIDENCE: For every extracted header field, and for line items only for the "description" and "total" fields, optionally return an evidence box using normalized coordinates (0 to 1) for the exact printed source. Use 1-based page numbers and {page,x,y,width,height}; never invent a box when the source is not visible. Header keys: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount. Line keys: description, total.
 - Watch for multi-page invoices: the same invoice number on consecutive pages means those pages belong together. Merge all line items and use the grand total from the last page.
 - Be careful with columns — some invoices have a DISCOUNT column between UNIT PRICE and AMOUNT. Don't confuse discount with amount.
 
