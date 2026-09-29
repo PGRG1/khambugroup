@@ -37,7 +37,7 @@
 
 ## Scanner Items Master supplier-price synchronization
 
-- [ ] Require and verify the current supplier entry
-- [ ] Update supplier price and linked item cost fields together
-- [ ] Refresh parent data and all matching lines in the active batch
-- [ ] Add focused tests and run full validation
+- [x] Require and verify the current supplier entry
+- [x] Update supplier price and linked item cost fields together
+- [x] Refresh parent data and all matching lines in the active batch
+- [x] Add focused tests and run full validation
