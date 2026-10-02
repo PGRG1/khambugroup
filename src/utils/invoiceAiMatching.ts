@@ -6,14 +6,22 @@ import { normalizeSupplierKey } from "@/components/invoices/SupplierQuickCreateS
  * row whose normalized supplier name equals the selected invoice supplier.
  * No partial / contains matching — that leaks another supplier's wording onto a line.
  */
-export const scopePMToSupplier = <T extends { supplier?: string | null }>(
+export const scopePMToSupplier = <T extends { supplier?: string | null; supplier_entry_id?: string | null }>(
   pm: T[] | undefined,
   supplierName?: string,
 ): T[] => {
   if (!pm) return [];
   const norm = normalizeSupplierKey(supplierName || "");
   if (!norm) return [];
-  return pm.filter((entry) => entry.supplier && normalizeSupplierKey(entry.supplier) === norm);
+  // Only real supplier-specific rows (product_suppliers) are matchable. Master
+  // fallback entries without a supplier_entry_id can never pass the save guard,
+  // so they must not be offered as match targets.
+  return pm.filter(
+    (entry) =>
+      Boolean(entry.supplier_entry_id) &&
+      entry.supplier &&
+      normalizeSupplierKey(entry.supplier) === norm,
+  );
 };
 
 export interface AiMatchInvoiceLike {

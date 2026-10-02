@@ -7,8 +7,8 @@ const suppliers = [
 ];
 
 const productMaster = [
-  { id: "pm-1", internal_sku: "MK-GROUPER", supplier: "Ming Kee Seafood Company Limited", supplier_product_name: "Fresh Grouper" },
-  { id: "pm-2", internal_sku: "PF-SALMON", supplier: "Pacific Foods Ltd", supplier_product_name: "Salmon Fillet" },
+  { id: "pm-1", supplier_entry_id: "se-1", internal_sku: "MK-GROUPER", supplier: "Ming Kee Seafood Company Limited", supplier_product_name: "Fresh Grouper" },
+  { id: "pm-2", supplier_entry_id: "se-2", internal_sku: "PF-SALMON", supplier: "Pacific Foods Ltd", supplier_product_name: "Salmon Fillet" },
 ];
 
 describe("resolveAiMatchScope", () => {
@@ -69,5 +69,14 @@ describe("scopePMToSupplier", () => {
     expect(scopePMToSupplier(productMaster, "Ming Kee")).toEqual([]);
     expect(scopePMToSupplier(productMaster, "Ming Kee Seafood Co., Ltd.")).toHaveLength(1);
     expect(scopePMToSupplier(productMaster, "Ming Kee Seafood Company Limited")).toHaveLength(1);
+  });
+
+  it("excludes master fallback rows that have no supplier-specific entry", () => {
+    const withFallback = [
+      ...productMaster,
+      { id: "pm-3", internal_sku: "MK-COD", supplier: "Ming Kee Seafood Company Limited", supplier_product_name: "Cod" },
+    ];
+    const scoped = scopePMToSupplier(withFallback, "Ming Kee Seafood Company Limited");
+    expect(scoped.map((p) => p.internal_sku)).toEqual(["MK-GROUPER"]);
   });
 });
