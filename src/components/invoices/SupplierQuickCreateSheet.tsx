@@ -205,12 +205,12 @@ export default function SupplierQuickCreateSheet({
     options: React.ComponentProps<typeof Input> = {},
   ) => (
     <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-[11px] font-medium text-muted-foreground">{label}</Label>
       <Input
         {...options}
         value={form[key]}
         onChange={(event) => update(key, event.target.value)}
-        className={cn("h-9 text-sm", options.className)}
+        className={cn("h-8 px-2.5 text-xs md:text-xs", options.className)}
       />
     </div>
   );
@@ -241,7 +241,7 @@ export default function SupplierQuickCreateSheet({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
-                <Label className="text-xs">Supplier code</Label>
+                 <Label className="text-[11px] font-medium text-muted-foreground">Supplier code</Label>
                 {!codeTouched.current && form.code && (
                   <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Suggested</span>
                 )}
@@ -250,7 +250,7 @@ export default function SupplierQuickCreateSheet({
                 <Input
                   value={form.code}
                   onChange={(event) => update("code", event.target.value)}
-                  className="h-9 pr-8 font-mono text-sm"
+                   className="h-8 px-2.5 pr-8 font-mono text-xs md:text-xs"
                   placeholder="e.g. SUP-001"
                 />
                 <button
@@ -269,9 +269,9 @@ export default function SupplierQuickCreateSheet({
             {field("Phone", "phone")}
             {field("Email", "email", { type: "email" })}
             <div className="space-y-1.5">
-              <Label className="text-xs">Payment terms</Label>
+               <Label className="text-[11px] font-medium text-muted-foreground">Payment terms</Label>
               <Select value={form.payment_terms} onValueChange={(value) => update("payment_terms", value)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select terms" /></SelectTrigger>
+                 <SelectTrigger className="h-8 px-2.5 text-xs"><SelectValue placeholder="Select terms" /></SelectTrigger>
                 <SelectContent>
                   {PAYMENT_TERMS.map((term) => <SelectItem key={term} value={term}>{term}</SelectItem>)}
                 </SelectContent>
@@ -279,12 +279,12 @@ export default function SupplierQuickCreateSheet({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Address</Label>
-            <Textarea value={form.address} onChange={(event) => update("address", event.target.value)} className="min-h-[64px] text-sm" />
+             <Label className="text-[11px] font-medium text-muted-foreground">Address</Label>
+             <Textarea value={form.address} onChange={(event) => update("address", event.target.value)} className="min-h-[64px] px-2.5 text-xs md:text-xs" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Notes</Label>
-            <Textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} className="min-h-[64px] text-sm" />
+             <Label className="text-[11px] font-medium text-muted-foreground">Notes</Label>
+             <Textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} className="min-h-[64px] px-2.5 text-xs md:text-xs" />
           </div>
           {errorText && (
             <Alert className="border-destructive/40 bg-destructive/10 py-2">

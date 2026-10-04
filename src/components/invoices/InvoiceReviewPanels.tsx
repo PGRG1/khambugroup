@@ -229,9 +229,9 @@ export function getLineStatus(line: LineForReview): {
   label: string;
   variant: "matched" | "auto" | "warn" | "block" | "new" | "review" | "deal" | "dispute" | "qtyprice";
 } {
-  if ((line.review_blocking?.length || 0) > 0) return { label: "Blocking Issue", variant: "block" };
+  if ((line.review_blocking?.length || 0) > 0) return { label: "Blocking issue", variant: "block" };
   if (line.is_free_unit_line && line.deal_id) return { label: "Deal — free unit", variant: "deal" };
-  if (line.review_status === "new_item") return { label: "New Item", variant: "new" };
+  if (line.review_status === "new_item") return { label: "New item", variant: "new" };
 
   // Qty + price dispute combo
   const qtyNum = parseFloat(line.quantity || "0") || 0;
@@ -246,9 +246,9 @@ export function getLineStatus(line: LineForReview): {
     return { label: "Warning", variant: "warn" };
   if ((line.review_corrections?.length || 0) > 0)
     return { label: "Auto-corrected", variant: "auto" };
-  if (line.review_status === "possible_match") return { label: "Possible Match", variant: "warn" };
+  if (line.review_status === "possible_match") return { label: "Possible match", variant: "warn" };
   if (line.review_status === "needs_review" || line.unmatched)
-    return { label: "Needs Review", variant: "review" };
+    return { label: "Needs review", variant: "review" };
   if (line.review_status === "matched" || line.matched_sku)
     return { label: "Matched", variant: "matched" };
   return { label: "—", variant: "review" };
@@ -367,7 +367,7 @@ export function BlockingBanner({
 
 
 const chipBase =
-  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium border";
+  "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-4";
 
 const chipVariants: Record<string, string> = {
   matched: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
@@ -599,7 +599,7 @@ export function KpiStrip({ stats, compact = false }: { stats: ReviewStats; compa
       <Item label="Auto-corrected" value={stats.autoCorrections} tone="info" />
       <Item label="Warnings" value={stats.warnings} tone="warn" />
       <Item label="Blocking" value={stats.blocking} tone="bad" />
-      <Item label="New Items" value={stats.newItems} tone="info" />
+      <Item label="New items" value={stats.newItems} tone="info" />
     </div>
   );
 }

@@ -33,7 +33,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-[10px] font-medium leading-4 text-muted-foreground hover:text-foreground"
           title="Pick a different product from the other candidates"
         >
           <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -46,7 +46,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
                 key={idx}
                 size="sm"
                 variant="outline"
-                className="h-6 px-2 text-[11px]"
+                className="h-6 px-1.5 py-0.5 text-[10px] font-medium leading-4"
                 title={c.reasons.join(", ")}
                 onClick={() => onApply(c)}
               >
@@ -66,7 +66,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
         type="button"
         onClick={onAskAi}
         disabled={aiLoading}
-        className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-60"
+        className="mt-1 inline-flex h-6 items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-primary hover:underline disabled:opacity-60"
       >
         {aiLoading ? <BaniProcessingMark size={14} /> : <span className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center"><Sparkles className="h-3 w-3" /></span>}
         Ask AI to match
@@ -83,19 +83,19 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
 
   return (
     <div className="mt-1 space-y-1">
-      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+      <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium leading-4">
         <span className="text-muted-foreground">Did you mean</span>
         <button
           type="button"
           onClick={() => onApply(top)}
           title={`Link and use the master name "${label(top)}" — ${top.reasons.join(", ")}`}
-          className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary hover:bg-primary/20"
+          className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-medium text-primary hover:bg-primary/20"
         >
           <Check className="h-3 w-3" />
           {label(top)}
           <span className="font-mono opacity-70">{Math.round(confidence(top) * 100)}%</span>
         </button>
-        <span className="text-muted-foreground">use master name</span>
+        <span className="text-muted-foreground">use Items Master name</span>
         {rest.length > 0 && (
           <button
             type="button"
@@ -116,7 +116,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
             className="inline-flex items-center gap-1 text-primary hover:underline disabled:opacity-60"
           >
             {aiLoading ? <BaniProcessingMark size={14} /> : <span className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center"><Sparkles className="h-3 w-3" /></span>}
-            Ask AI
+            Ask AI to match
           </button>
         )}
       </div>
@@ -128,7 +128,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
               key={idx}
               size="sm"
               variant="outline"
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-1.5 py-0.5 text-[10px] font-medium leading-4"
               title={c.reasons.join(", ")}
               onClick={() => onApply(c)}
             >
