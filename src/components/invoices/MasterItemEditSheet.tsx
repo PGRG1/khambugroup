@@ -46,8 +46,8 @@ const emptyForm: ProductMasterEditorForm = {
 
 const field = (label: string, value: string, onChange: (value: string) => void, props: React.ComponentProps<typeof Input> = {}) => (
   <div className="space-y-1.5">
-    <Label className="text-xs">{label}</Label>
-    <Input {...props} value={value} onChange={(event) => onChange(event.target.value)} className={`h-9 text-sm ${props.className || ""}`} />
+    <Label className="text-[11px] font-medium text-muted-foreground">{label}</Label>
+    <Input {...props} value={value} onChange={(event) => onChange(event.target.value)} className={`h-8 px-2.5 text-xs md:text-xs ${props.className || ""}`} />
   </div>
 );
 
@@ -221,8 +221,8 @@ export default function MasterItemEditSheet({ open, onOpenChange, productId, sup
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="w-full max-w-2xl p-0 flex flex-col">
           <SheetHeader className="border-b border-border px-5 py-4 text-left">
-            <SheetTitle>Edit master item</SheetTitle>
-            <SheetDescription>Internal item fields apply to every supplier. Supplier entry fields apply only to {supplierLabel}.</SheetDescription>
+             <SheetTitle>Edit Items Master entry</SheetTitle>
+             <SheetDescription>Items Master fields apply to every supplier. Supplier entry fields apply only to {supplierLabel}.</SheetDescription>
           </SheetHeader>
           <div className="bani-visible-scrollbar flex-1 overflow-y-auto px-5 py-4 space-y-5">
             {loading ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : product ? <>
@@ -230,7 +230,7 @@ export default function MasterItemEditSheet({ open, onOpenChange, productId, sup
                 <h3 className="text-sm font-semibold">Internal item</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {field("Internal SKU *", form.internal_sku, (v) => set("internal_sku", v), { className: "font-mono" })}
-                  {field("Internal product name *", form.internal_product_name, (v) => set("internal_product_name", v))}
+                   {field("Internal name *", form.internal_product_name, (v) => set("internal_product_name", v))}
                   {field("Internal cost", form.unit_cost, (v) => set("unit_cost", v), { type: "number", min: 0, step: "0.01", className: "font-mono" })}
                 </div>
                 <CategoryCascadeSelect level1={form.level1_category} level2={form.level2_category} level3={form.level3_category} onChange={(next) => setForm((current) => ({ ...current, level1_category: next.level1, level2_category: next.level2, level3_category: next.level3 }))} />

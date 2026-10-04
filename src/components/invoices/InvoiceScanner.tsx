@@ -2456,8 +2456,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
                 <SelectTrigger
                   aria-invalid={supplierError}
-                  title={current.supplier_name || undefined}
-                  className={cn("h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50", supplierError && "border-destructive focus:ring-destructive")}
+                  title={currentSupplierName || undefined}
+                  className={cn("h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50", supplierError && "border-destructive focus:ring-destructive")}
                 >
                   <SelectValue placeholder="Select supplier" className="min-w-0 flex-1 truncate text-left" />
                 </SelectTrigger>
@@ -2478,7 +2478,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["venue"]} />
               </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
-                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue className="min-w-0 flex-1 truncate text-left" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="Assembly">Assembly</SelectItem><SelectItem value="Caliente">Caliente</SelectItem><SelectItem value="Hanabi">Hanabi</SelectItem></SelectContent>
               </Select>
             </div>
@@ -2492,7 +2492,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             <div className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>
               <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
-                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue className="min-w-0 flex-1 truncate text-left" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="outstanding">Outstanding</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="under_review">Under review</SelectItem><SelectItem value="disputed">Disputed</SelectItem></SelectContent>
               </Select>
               {disputeStats.hasDispute && <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-700 dark:text-amber-400"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /><span>{isSavingAsDisputed ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving." : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}</span></div>}
