@@ -42,7 +42,7 @@ describe("product master editor ownership", () => {
   });
   it("keeps the price-only action distinct from full editing", () => {
     const source = readFileSync("src/components/invoices/InvoiceScanner.tsx", "utf8");
-    expect(source).toContain("Update master price");
-    expect(source).toContain("Edit master item");
+    expect(source).toContain("Update Items Master price");
+    expect(source).toContain("Edit Items Master entry");
   });
 });

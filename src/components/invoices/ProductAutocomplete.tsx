@@ -170,7 +170,7 @@ const ProductAutocomplete = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={cn(
-            "flex w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 whitespace-normal break-words resize-none overflow-hidden",
+            "flex h-7 w-full resize-none overflow-hidden whitespace-normal break-words rounded-md border border-input bg-background px-2 py-1 text-xs leading-4 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
             className
           )}
           autoComplete="off"
@@ -206,7 +206,7 @@ const ProductAutocomplete = ({
               onClick={() => handleSelect(p)}
               onMouseEnter={() => setHighlightIdx(idx)}
               className={cn(
-                "w-full text-left px-2 py-1.5 text-xs cursor-pointer transition-colors whitespace-normal break-words",
+                "w-full cursor-pointer whitespace-normal break-words px-2 py-1.5 text-left text-xs leading-4 transition-colors",
                 idx === highlightIdx
                   ? "bg-accent text-accent-foreground"
                   : "hover:bg-muted"

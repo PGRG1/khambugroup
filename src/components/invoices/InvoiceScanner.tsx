@@ -1208,7 +1208,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (field === "total") {
         line.total_override = true;
       }
-      // Keep Accepted Qty in lock-step with Purch. Qty until the user overrides it.
+      // Keep Accepted qty in lock-step with Purchase qty until the user overrides it.
       if (field === "quantity" && !line.accepted_qty_touched) {
         line.accepted_qty = value;
       }
@@ -1421,7 +1421,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       unit_norm: p.stock_uom,
     }));
     if (candidates.length === 0) {
-      toast({ title: "No candidates", description: "Nothing similar exists in the Product Master yet.", variant: "destructive" });
+      toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
       return;
     }
 
@@ -1906,7 +1906,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
     if (!opts.forceOverride && hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
-    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
+    if (hasUnmatchedForSave(current)) { toast({ title: "All lines must be matched to the Items Master", description: "Match every External SKU / External name before saving.", variant: "destructive" }); return; }
     let toSave = current;
     if (opts.forceOverride && opts.overrideReason) {
       const stamp = new Date().toISOString();
@@ -2006,7 +2006,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
     if (unmatchedInvoices.length > 0) {
-      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
+      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all lines to the Items Master first.`, variant: "destructive" });
       return;
     }
     const blockingInvoices = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && hasBlockingForSave(inv));
@@ -2447,146 +2447,76 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           )}
 
           {/* Header fields */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-4 items-start">
-            <div data-review-field="supplier_name" tabIndex={-1} className="min-w-0">
+          <div className="grid grid-cols-2 items-start gap-x-2 gap-y-2 sm:grid-cols-[1.5fr_1fr_1fr_1fr]">
+            <div data-review-field="supplier_name" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
-                <Label className="text-xs">Supplier</Label>
-                <CorrectionChip
-                  className=""
-                  corrections={current.review_corrections}
-                  warnings={current.review_warnings}
-                  blocking={current.review_blocking}
-                  fieldAliases={["supplier_name", "supplier"]}
-                />
+                <Label className="text-[11px] font-medium text-muted-foreground">Supplier</Label>
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["supplier_name", "supplier"]} />
               </div>
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
                 <SelectTrigger
                   aria-invalid={supplierError}
-                  className={cn("h-8 w-full min-w-0 text-xs", supplierError && "border-destructive focus:ring-destructive")}
+                  title={currentSupplierName || undefined}
+                  className={cn("h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50", supplierError && "border-destructive focus:ring-destructive")}
                 >
-                  <SelectValue placeholder="Select supplier" className="truncate" />
+                  <SelectValue placeholder="Select supplier" className="min-w-0 flex-1 truncate text-left" />
                 </SelectTrigger>
                 <SelectContent>
-                  {supplierOptions.map((supplier) => (
-                    <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>
-                  ))}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="relative flex w-full cursor-pointer select-none items-center rounded-sm border-t border-border py-1.5 pl-8 pr-2 text-sm text-primary outline-none hover:bg-accent focus:bg-accent"
-                    onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }}
-                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSupplierSheetOpen(true); } }}
-                  >
-                    {/* Plus sits in the Radix checkmark gutter so the label starts at the same x as every option. */}
-                    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                      <Plus className="h-3.5 w-3.5" />
-                    </span>
+                  {supplierOptions.map((supplier) => <SelectItem key={supplier.value} value={supplier.value}>{supplier.label}</SelectItem>)}
+                  <div role="button" tabIndex={0} className="relative flex w-full cursor-pointer select-none items-center rounded-sm border-t border-border py-1.5 pl-8 pr-2 text-sm text-primary outline-none hover:bg-accent focus:bg-accent" onMouseDown={(event) => { event.preventDefault(); setSupplierSheetOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSupplierSheetOpen(true); } }}>
+                    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center"><Plus className="h-3.5 w-3.5" /></span>
                     <span>Add new supplier</span>
                   </div>
                 </SelectContent>
               </Select>
-              {supplierError && (
-                <p className="text-xs text-destructive mt-1">Supplier is required</p>
-              )}
-
-              <SupplierQuickCreateSheet
-                open={supplierSheetOpen}
-                onOpenChange={setSupplierSheetOpen}
-                existingSuppliers={allSuppliers}
-                defaultName={current.supplier_id ? "" : current.supplier_name}
-                onCreated={handleSupplierCreated}
-              />
+              {supplierError && <p className="mt-1 text-[10px] text-destructive">Supplier is required</p>}
+              <SupplierQuickCreateSheet open={supplierSheetOpen} onOpenChange={setSupplierSheetOpen} existingSuppliers={allSuppliers} defaultName={current.supplier_id ? "" : current.supplier_name} onCreated={handleSupplierCreated} />
             </div>
-            <div data-review-field="venue" tabIndex={-1} className="min-w-0">
+            <div data-review-field="venue" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
-                <Label className="text-xs">Venue</Label>
-                <CorrectionChip
-                  className=""
-                  corrections={current.review_corrections}
-                  warnings={current.review_warnings}
-                  blocking={current.review_blocking}
-                  fieldAliases={["venue"]}
-                />
+                <Label className="text-[11px] font-medium text-muted-foreground">Venue</Label>
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["venue"]} />
               </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
-                <SelectTrigger className="h-8 w-full min-w-0 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Assembly">Assembly</SelectItem>
-                  <SelectItem value="Caliente">Caliente</SelectItem>
-                  <SelectItem value="Hanabi">Hanabi</SelectItem>
-                </SelectContent>
+                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="Assembly">Assembly</SelectItem><SelectItem value="Caliente">Caliente</SelectItem><SelectItem value="Hanabi">Hanabi</SelectItem></SelectContent>
               </Select>
             </div>
-            <div data-review-field="invoice_number" tabIndex={-1} className="min-w-0">
+            <div data-review-field="invoice_number" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
-                <Label className="text-xs">Invoice #</Label>
-                <CorrectionChip
-                  className=""
-                  corrections={current.review_corrections}
-                  warnings={current.review_warnings}
-                  blocking={current.review_blocking}
-                  fieldAliases={["invoice_number"]}
-                />
+                <Label className="text-[11px] font-medium text-muted-foreground">Invoice #</Label>
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_number"]} />
               </div>
-              <Input className="h-8 w-full min-w-0 text-xs" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
+              <Input className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
-            <div>
-              <div className="flex h-5 items-center gap-1.5">
-                <Label className="text-xs">Status</Label>
-              </div>
+            <div className="min-w-0 space-y-1">
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>
               <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
-                <SelectTrigger className="h-8 w-full min-w-0 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="outstanding">Outstanding</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="disputed">Disputed</SelectItem>
-                </SelectContent>
+                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="outstanding">Outstanding</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="under_review">Under review</SelectItem><SelectItem value="disputed">Disputed</SelectItem></SelectContent>
               </Select>
-              {disputeStats.hasDispute && (
-                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>
-                    {isSavingAsDisputed
-                      ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving."
-                      : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}
-                  </span>
-                </div>
-              )}
+              {disputeStats.hasDispute && <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-700 dark:text-amber-400"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /><span>{isSavingAsDisputed ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving." : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}</span></div>}
             </div>
-            <div data-review-field="invoice_date" tabIndex={-1} className="min-w-0">
-              <Label className="text-xs">Invoice Date</Label>
-              <Input className="h-8 text-xs" type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
-              <CorrectionChip
-                corrections={current.review_corrections}
-                warnings={current.review_warnings}
-                blocking={current.review_blocking}
-                fieldAliases={["invoice_date"]}
-              />
+            <div data-review-field="invoice_date" tabIndex={-1} className="min-w-0 space-y-1">
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Invoice date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_date"]} /></div>
+              <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
             </div>
-            <div data-review-field="due_date" tabIndex={-1} className="min-w-0">
-              <Label className="text-xs">Due Date</Label>
-              <Input className="h-8 text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
-              <CorrectionChip
-                corrections={current.review_corrections}
-                warnings={current.review_warnings}
-                blocking={current.review_blocking}
-                fieldAliases={["due_date"]}
-              />
+            <div data-review-field="due_date" tabIndex={-1} className="min-w-0 space-y-1">
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Due date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["due_date"]} /></div>
+              <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
-            <div className="col-span-2"><Label className="text-xs">Notes</Label>
-              <Textarea className="min-h-8 resize-none py-1.5 text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
+            <div className="col-span-2 min-w-0 space-y-1">
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Notes</Label></div>
+              <Textarea className="min-h-8 px-2.5 py-[7px] font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
           </div>
 
           {/* Line Items table */}
           <div data-testid="line-items-toolbar" className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-border pb-1">
-            <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+            <h4 className="text-sm font-semibold">Line items ({current.line_items.length})</h4>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={addLine}><Plus className="h-3 w-3" />Add Line</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={addLine}><Plus className="h-3 w-3" />Add line</Button>
               <button
                 type="button"
                 onClick={() => current?.line_items.forEach((line, i) => { if (!line.is_free_unit_line) updateLineAcceptedPrice(i, line.unit_price); })}
@@ -2603,7 +2533,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 {unmatchedBulkLines.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => setBulkQuickAddOpen(true)}>
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    Quick add {unmatchedBulkLines.length} to master
+                    Quick add {unmatchedBulkLines.length} to Items Master
                   </Button>
                 )}
               </>
@@ -2642,28 +2572,28 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
 
-                  <th className="text-left px-1 py-1 text-muted-foreground font-medium w-7">#</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+                  <th className="w-7 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">#</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Internal SKU</th>
 
-                  <th className="text-left px-1 py-1 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
-                  <th style={{ minWidth: 96 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
-                  <th className="text-left px-1 py-1 text-muted-foreground font-medium min-w-[200px]">External Name</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. UOM</th>
-                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
-                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Accepted Qty</th>
-                  <th style={{ minWidth: 80 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Difference</th>
-                  <th style={{ minWidth: 160 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
-                  <th style={{ minWidth: 140 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Note</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
-                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Acc. price</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
-                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Invoiced Amount</th>
-                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Accepted Amount</th>
+                  <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground min-w-[180px]">Internal name</th>
+                  <th style={{ minWidth: 96 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">External SKU</th>
+                  <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground min-w-[200px]">External name</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase UOM</th>
+                  <th style={{ minWidth: 75 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase qty</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Stock UOM</th>
+                  <th style={{ minWidth: 75 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Stock qty</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Accepted qty</th>
+                  <th style={{ minWidth: 80 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Difference</th>
+                  <th style={{ minWidth: 160 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Reason</th>
+                  <th style={{ minWidth: 140 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Note</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase cost</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Accepted price</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Discount</th>
+                  <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground whitespace-nowrap">Invoiced amount</th>
+                  <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground whitespace-nowrap">Accepted amount</th>
 
-                  <th className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Status</th>
-                  <th className="text-left px-1 py-1 text-muted-foreground font-medium whitespace-nowrap">Action</th>
+                  <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                  <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -2775,14 +2705,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           value={line.matched_sku}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default font-mono h-7"
+                          className="h-7 px-2 font-mono text-xs leading-4 tabular-nums md:text-xs bg-muted/50 cursor-default"
                           placeholder="—"
                         />
                       </td>
                       {/* Internal Product Name - read-only */}
                       <td className="px-1 py-0.5 align-top">
                         <div className="relative">
-                          <div className={`whitespace-normal break-words text-xs min-h-7 px-2 py-1 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
+                          <div className={`min-h-7 whitespace-normal break-words px-2 py-1 text-xs leading-4 bg-muted/50 rounded-md border border-input text-foreground ${line.matched_internal_name ? "pr-6" : ""}`}>
                             {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
                           </div>
                         </div>
@@ -2802,7 +2732,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             products={supplierScopedPM}
                             searchField="code"
                             placeholder="Code"
-                            className={`text-xs h-7 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                            className={`h-7 px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`}
                             currentSupplier={current?.supplier_name}
                           />
                           {line.sku_mismatch && (
@@ -2810,7 +2740,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           )}
                         </div>
                       </td>
-                      {/* External Name - editable with autocomplete */}
+                      {/* External name - editable with autocomplete */}
                       <td className="px-1 py-0.5 align-top" data-external-name-line={i}>
                         <ProductAutocomplete
                           value={line.description}
@@ -2823,8 +2753,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           onSelect={(p) => selectProduct(i, p)}
                           products={supplierScopedPM}
                           searchField="name"
-                          placeholder="Item name"
-                          className="text-xs"
+                          placeholder="External name"
+                          className="h-7 px-2 text-xs leading-4 md:text-xs"
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
@@ -2841,7 +2771,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         {line.product_master_id && (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => setEditingMasterLineIdx(i)}>
-                              <Pencil className="mr-1 h-3 w-3" />Edit master item
+                              <Pencil className="mr-1 h-3 w-3" />Edit Items Master entry
                             </Button>
                           </div>
                         )}
@@ -2867,7 +2797,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="h-6 px-2 text-[11px]"
+                              className="h-6 px-2 text-[10px] font-medium"
                               data-testid={`select-item-${i}`}
                               onClick={() => openProductSearch(i)}
                             >
@@ -2922,7 +2852,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                         )}
 
                         {line.auto_matched && (
-                          <div className="mt-1 text-[11px] text-muted-foreground">
+                          <div className="mt-1 text-[10px] text-muted-foreground">
                             Auto-matched{line.auto_match_score != null ? ` (${Math.round(line.auto_match_score * 100)}%)` : ""} — change above if wrong
                           </div>
                         )}
@@ -2936,7 +2866,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                            value={line.matched_purchase_uom}
                            readOnly
                            tabIndex={-1}
-                           className="text-xs bg-muted/50 cursor-default h-7"
+                           className="h-7 px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs bg-muted/50 cursor-default"
                            placeholder="—"
                          />
                        </td>
@@ -2947,7 +2877,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-7 w-full"
+                          className="h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
@@ -2957,21 +2887,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           value={line.matched_stock_uom}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-7"
+                          className="h-7 px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs bg-muted/50 cursor-default"
                           placeholder="—"
                         />
                       </td>
-                      {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
+                      {/* Stock qty - auto-calculated: Purchase Qty × PM stock_qty */}
                       <td style={{ minWidth: 75 }} className="px-1 py-0.5 align-top">
                         <Input
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-7 font-mono w-full"
+                          className="h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs bg-muted/50 cursor-default"
                           placeholder="—"
                         />
                       </td>
-                      {/* Accepted Qty - editable, defaults to Purch. Qty */}
+                      {/* Accepted qty - editable, defaults to Purchase qty */}
                       <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         <Input
                           type="number"
@@ -2979,7 +2909,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           step="any"
                           value={acceptedQtyStr}
                           onChange={(e) => updateLineReceiving(i, "accepted_qty", e.target.value)}
-                          className="text-xs h-7 w-full font-mono"
+                          className="h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs"
                         />
                       </td>
                       {/* Difference - read-only */}
@@ -3006,7 +2936,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           <select
                             value={effReason}
                             onChange={(e) => updateLineReceiving(i, "receiving_reason", e.target.value)}
-                            className={`text-xs h-7 w-full px-2 rounded-md border bg-background ${
+                            className={`h-7 w-full rounded-md border bg-background px-2 text-xs leading-4 ${
                               reasonMissing ? "border-red-500" : "border-input"
                             }`}
                           >
@@ -3027,7 +2957,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             onChange={(e) => updateLineReceiving(i, "receiving_note", e.target.value)}
                             placeholder="Add note…"
                             maxLength={500}
-                            className={`text-xs h-7 w-full ${noteRequired ? "border-red-500" : ""}`}
+                            className={`h-7 w-full px-2 text-xs leading-4 md:text-xs ${noteRequired ? "border-red-500" : ""}`}
                           />
                           {noteRequired && (
                             <span
@@ -3045,14 +2975,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-7 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
+                            className={`h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line && line.deal_id ? "border-blue-500 text-blue-600" : ""}`}
                             readOnly={line.is_free_unit_line}
                           />
                           {line.is_free_unit_line && line.deal_id && (
-                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                            <span className="absolute -right-1 -top-1 inline-flex items-center rounded-md border border-blue-500/30 bg-blue-500/10 px-1 py-0 text-[10px] font-medium text-blue-700 dark:text-blue-300">Deal</span>
                           )}
                           {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
-                            <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
+                            <span className="block text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
@@ -3077,7 +3007,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
                             const supName = current?.supplier_name || "";
                             return (
-                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price"}>
+                              <div className="h-7 flex items-center justify-end px-2 font-mono text-xs leading-4 tabular-nums rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price"}>
                                 {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "0.00"}
                               </div>
                             );
@@ -3104,7 +3034,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                     step="0.01"
                                     value={line.accepted_price || ""}
                                     onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
-                                    className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                    className={`h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
                                     placeholder="—"
                                   />
                                   {!matchesInvoice && (
@@ -3124,11 +3054,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                   )}
                                   {line.master_price != null && (
                                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                      Master: ${(line.master_price as number).toFixed(2)}
+                                      Items Master: ${(line.master_price as number).toFixed(2)}
                                     </span>
                                   )}
                                   {line.master_price == null && !matchesInvoice && (
-                                    <span className="text-[10px] text-muted-foreground">No master price</span>
+                                    <span className="text-[10px] text-muted-foreground">No Items Master price</span>
                                   )}
                                   {differsFromMaster && line.product_master_id && (
                                     <button
@@ -3137,12 +3067,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                       onClick={() => handleUpdateMaster(i)}
                                       className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
                                     >
-                                      {updatingMasterIdx === i ? "Updating…" : "Update master price"}
+                                      {updatingMasterIdx === i ? "Updating…" : "Update Items Master price"}
                                     </button>
                                   )}
                                 </div>
                                 {effective !== null && (
-                                  <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                  <span className="text-[10px] text-blue-600 dark:text-blue-400 whitespace-nowrap">
                                     Eff: ${effective.toFixed(2)}
                                   </span>
                                 )}
@@ -3179,36 +3109,36 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                   type="number"
                                   value={dMode === "percentage" ? (line.discount_rate || "0") : (line.discount || "0")}
                                   onChange={(e) => updateLine(i, dMode === "percentage" ? "discount_rate" : "discount", e.target.value)}
-                                  className="text-xs h-7 w-full"
+                                  className="h-7 w-full px-2 text-right font-mono text-xs leading-4 tabular-nums md:text-xs"
                                   placeholder="0"
                                 />
                               </div>
                               {calc > 0 && (
-                                <span className="text-[9px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                                <span className="text-right font-mono text-xs leading-4 tabular-nums text-muted-foreground">−${calc.toFixed(2)}</span>
                               )}
                             </div>
                           );
                         })()}
                       </td>
-                       {/* Invoiced Amount */}
+                       {/* Invoiced amount */}
                        <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           return (
-                            <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground">
+                            <div className="h-7 flex items-center justify-end px-2 font-mono text-xs font-medium leading-4 tabular-nums text-muted-foreground">
                               {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           );
                         })()}
                       </td>
-                      {/* Accepted Amount */}
+                      {/* Accepted amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
                         {(() => {
                           const inv = rowAmounts[i].invoiced;
                           const acc = rowAmounts[i].accepted;
                           const cls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
                           return (
-                            <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium ${cls}`}>
+                            <div className={`h-7 flex items-center justify-end px-2 font-mono text-xs font-medium leading-4 tabular-nums ${cls}`}>
                               {acc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           );
@@ -3229,7 +3159,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-7 text-[11px] px-2"
+                              className="h-7 px-2 text-xs font-medium"
                               data-testid={`change-match-${i}`}
                               onClick={() => openProductSearch(i)}
                             >
@@ -3257,19 +3187,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-7 text-[11px] px-2"
+                            className="h-7 px-2 text-xs font-medium"
                             disabled={creatingLineIdx === i}
                             onClick={() => handleAddSuggestedItem(i)}
                           >
                             {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-                            Add Item
+                             Add item
                           </Button>
                         ) : (line.review_blocking && line.review_blocking.length > 0) ? (
                           <Button
                             type="button"
                             size="sm"
                             variant="destructive"
-                            className="h-7 text-[11px] px-2"
+                            className="h-7 px-2 text-xs font-medium"
                             onClick={() => setDetailsLineIdx(i)}
                           >
                             Resolve
@@ -3279,7 +3209,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             type="button"
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-[11px] px-2"
+                            className="h-7 px-2 text-xs font-medium"
                             onClick={() => setDetailsLineIdx(i)}
                           >
                             Details
@@ -3423,7 +3353,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             )}
           </div>
 
-          {/* Save actions — Save Draft + Approve & Save */}
+          {/* Save actions — Save draft + Approve & save */}
           <div className="contents">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>
@@ -3436,13 +3366,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
             <div className="flex items-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>
-                Scan Another
+                Scan another
               </Button>
 
               {totalInvoices > 1 && !allSaved && (
                 <Button variant="secondary" size="sm" onClick={handleSaveAll} disabled={saving || savingAll}>
                   {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                  {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices}`}
+                  {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save all ${totalInvoices}`}
                 </Button>
               )}
 
@@ -3455,7 +3385,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     disabled={saving || savingAll || !!current.is_duplicate}
                     title="Save as draft (allows blocking issues)"
                   >
-                    <FileSignature className="h-4 w-4 mr-1" />Save Draft
+                    <FileSignature className="h-4 w-4 mr-1" />Save draft
                   </Button>
                   {hasBlockingIssues && !current.is_duplicate && !hasUnmatchedItems && (
                     <Button
@@ -3466,7 +3396,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                       title="Override blocking issues and approve anyway"
                     >
-                      <ShieldAlert className="h-4 w-4 mr-1" />Override & Approve
+                      <ShieldAlert className="h-4 w-4 mr-1" />Override & approve
                     </Button>
                   )}
                   <Button
@@ -3496,7 +3426,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       ? `Resolve ${blockingCount} Blocking`
                       : isSavingAsDisputed && disputeStats.hasDispute
                       ? `Save with ${disputeStats.disputedLines} Disputed`
-                      : "Approve & Save"}
+                      : "Approve & save"}
                   </Button>
                 </>
               )}
