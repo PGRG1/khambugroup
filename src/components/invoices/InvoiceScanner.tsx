@@ -1421,7 +1421,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       unit_norm: p.stock_uom,
     }));
     if (candidates.length === 0) {
-      toast({ title: "No candidates", description: "Nothing similar exists in the Product Master yet.", variant: "destructive" });
+      toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
       return;
     }
 
