@@ -333,7 +333,7 @@ export function BlockingBanner({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 px-2 text-[11px] shrink-0"
+                className="h-6 shrink-0 px-2 text-xs font-medium"
                 onClick={() => onGoToLine?.(iss.index)}
               >
                 Go to line
@@ -342,7 +342,7 @@ export function BlockingBanner({
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[11px] shrink-0"
+              className="h-6 shrink-0 px-2 text-xs font-medium"
               onClick={() =>
                 iss.scope === "header"
                   ? onDismissHeader?.(iss.index)
@@ -356,7 +356,7 @@ export function BlockingBanner({
         ))}
 
       </ul>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Dismissing a header finding acknowledges it — the message is recorded in the invoice notes for audit.
       </p>
     </div>

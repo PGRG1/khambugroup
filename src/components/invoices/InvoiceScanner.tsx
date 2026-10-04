@@ -2572,23 +2572,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
 
-                  <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground w-7">#</th>
-                  <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Internal SKU</th>
+                  <th className="w-7 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">#</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Internal SKU</th>
 
                   <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground min-w-[180px]">Internal name</th>
-                  <th style={{ minWidth: 96 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">External SKU</th>
+                  <th style={{ minWidth: 96 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">External SKU</th>
                   <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground min-w-[200px]">External name</th>
-                  <th style={{ minWidth: 68 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Purchase UOM</th>
-                  <th style={{ minWidth: 75 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Purchase qty</th>
-                  <th style={{ minWidth: 68 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Stock UOM</th>
-                  <th style={{ minWidth: 75 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Stock qty</th>
-                  <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Accepted qty</th>
-                  <th style={{ minWidth: 80 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Difference</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase UOM</th>
+                  <th style={{ minWidth: 75 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase qty</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Stock UOM</th>
+                  <th style={{ minWidth: 75 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Stock qty</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Accepted qty</th>
+                  <th style={{ minWidth: 80 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Difference</th>
                   <th style={{ minWidth: 160 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Reason</th>
                   <th style={{ minWidth: 140 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Note</th>
-                  <th style={{ minWidth: 68 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Purchase cost</th>
-                  <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Accepted price</th>
-                  <th style={{ minWidth: 68 }} className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground whitespace-nowrap">Discount</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Purchase cost</th>
+                  <th style={{ minWidth: 90 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Accepted price</th>
+                  <th style={{ minWidth: 68 }} className="whitespace-nowrap px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">Discount</th>
                   <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground whitespace-nowrap">Invoiced amount</th>
                   <th style={{ minWidth: 90 }} className="px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground whitespace-nowrap">Accepted amount</th>
 
@@ -2979,7 +2979,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             readOnly={line.is_free_unit_line}
                           />
                           {line.is_free_unit_line && line.deal_id && (
-                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                            <span className="absolute -right-1 -top-1 inline-flex items-center rounded-md border border-blue-500/30 bg-blue-500/10 px-1 py-0 text-[10px] font-medium text-blue-700 dark:text-blue-300">Deal</span>
                           )}
                           {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
                             <span className="block text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
@@ -3114,7 +3114,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                 />
                               </div>
                               {calc > 0 && (
-                                <span className="text-[10px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                                <span className="text-right font-mono text-xs leading-4 tabular-nums text-muted-foreground">−${calc.toFixed(2)}</span>
                               )}
                             </div>
                           );
@@ -3192,7 +3192,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             onClick={() => handleAddSuggestedItem(i)}
                           >
                             {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-                            Add Item
+                             Add item
                           </Button>
                         ) : (line.review_blocking && line.review_blocking.length > 0) ? (
                           <Button
