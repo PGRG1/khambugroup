@@ -83,15 +83,15 @@ describe("InvoiceScanner layout ownership", () => {
     expect(src).toMatch(/<thead className="sticky top-0[^"]*"/);
   });
 
-  it("keeps compact line controls and Add Line outside the scroll body", () => {
+  it("keeps compact line controls and Add line outside the scroll body", () => {
     const toolbarIdx = src.indexOf('data-testid="line-items-toolbar"');
     const scrollIdx = src.indexOf('data-testid="line-items-scroll"');
     const footerIdx = src.indexOf('data-testid="scanner-footer"');
     expect(toolbarIdx).toBeGreaterThan(-1);
     expect(toolbarIdx).toBeLessThan(scrollIdx);
-    expect(src.slice(toolbarIdx, scrollIdx)).toContain("Add Line");
-    expect(src.slice(scrollIdx, footerIdx)).not.toContain("Add Line");
-    expect(src.slice(scrollIdx, footerIdx)).toContain('className="text-xs bg-muted/50 cursor-default font-mono h-7"');
+    expect(src.slice(toolbarIdx, scrollIdx)).toContain("Add line");
+    expect(src.slice(scrollIdx, footerIdx)).not.toContain("Add line");
+    expect(src.slice(scrollIdx, footerIdx)).toContain('font-mono text-xs leading-4 tabular-nums md:text-xs bg-muted/50 cursor-default');
   });
 
   it("footer with totals and actions sits outside the line-item scroll", () => {
@@ -107,8 +107,8 @@ describe("InvoiceScanner layout ownership", () => {
     expect(footerIdx).toBeGreaterThan(scrollIdx);
     // action buttons live in the footer region
     const footerBlock = src.slice(footerIdx);
-    expect(footerBlock.indexOf("Approve & Save")).toBeGreaterThan(-1);
-    expect(footerBlock.indexOf("Scan Another")).toBeGreaterThan(-1);
-    expect(footerBlock.indexOf("Save Draft")).toBeGreaterThan(-1);
+    expect(footerBlock.indexOf("Approve & save")).toBeGreaterThan(-1);
+    expect(footerBlock.indexOf("Scan another")).toBeGreaterThan(-1);
+    expect(footerBlock.indexOf("Save draft")).toBeGreaterThan(-1);
   });
 });

@@ -462,34 +462,34 @@ function InvoiceDrillIn({
       </button>
 
       {loading || !data?.invoice ? (
-        <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 py-10 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading invoice…
         </div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-3 text-xs">
             <div>
-              <div className="text-xs text-muted-foreground">Supplier</div>
+              <div className="text-[10px] text-muted-foreground">Supplier</div>
               <div>{data.supplierName}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Invoice</div>
+              <div className="text-[10px] text-muted-foreground">Invoice</div>
               <div className="font-mono">{data.invoice.invoice_number || "—"}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Date</div>
+              <div className="text-[10px] text-muted-foreground">Date</div>
               <div className="font-mono">{shortDate(data.invoice.invoice_date)}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Venue</div>
+              <div className="text-[10px] text-muted-foreground">Venue</div>
               <div>{data.invoice.venue || "—"}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Status</div>
+              <div className="text-[10px] text-muted-foreground">Status</div>
               <div className="capitalize">{data.invoice.status || "—"}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Doc total</div>
+              <div className="text-[10px] text-muted-foreground">Doc total</div>
               <div className="font-mono">{money(Number(data.invoice.total_amount ?? 0))}</div>
             </div>
           </div>
@@ -497,7 +497,7 @@ function InvoiceDrillIn({
           <div className="max-h-[300px] overflow-y-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-xs text-muted-foreground">
+                <tr className="text-[10px] text-muted-foreground">
                   <th className="text-left font-normal py-1.5 border-b border-border/60">Item</th>
                   <th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th>
                   <th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th>
@@ -538,7 +538,7 @@ function InvoiceDrillIn({
               {docOpen && (
                 <div className="mt-2 space-y-3 max-h-[420px] overflow-y-auto">
                   {docFiles.length === 0 ? (
-                    <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Loading document…
                     </div>
                   ) : (
@@ -653,7 +653,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
 
   const stat = (label: string, value: string, warn = false) => (
     <div className="flex-1 rounded-lg bg-muted/40 px-3 py-2.5">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className={`text-[15px] font-medium font-mono ${warn ? "text-warning" : "text-foreground"}`}>{value}</div>
     </div>
   );
@@ -708,20 +708,20 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
           ) : tab === "suppliers" ? (
             <div className="pt-4" role="tabpanel" aria-label="Other suppliers">
               {supplierInsights.loading ? (
-                <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading supplier prices…</div>
+                <div className="flex items-center gap-2 py-10 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading supplier prices…</div>
               ) : supplierInsights.error ? (
-                <div className="py-8 text-sm text-destructive">{supplierInsights.error}</div>
+                <div className="py-8 text-xs text-destructive">{supplierInsights.error}</div>
               ) : !insight || insight.rows.length === 0 ? (
-                <div className="py-10 text-center text-sm text-muted-foreground">No other supplier entries for this product.</div>
+                <div className="py-10 text-center text-xs text-muted-foreground">No other supplier entries for this product.</div>
               ) : (
                 <>
-                  <div className="mb-3 text-xs text-muted-foreground">
+                  <div className="mb-3 text-[10px] text-muted-foreground">
                     Current invoice: <span className="font-medium text-foreground">{money(currentUnitCost)} / {currentPurchaseUnit || "—"}</span>
                     {insight.currentNormalizedCost == null && <span className="ml-2 text-warning">Not comparable — conversion missing</span>}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[680px] text-xs">
-                      <thead><tr className="border-b border-border/60 text-muted-foreground">
+                      <thead><tr className="border-b border-border/60 text-[10px] text-muted-foreground">
                         <th className="py-2 text-left font-normal">Supplier</th><th className="py-2 text-right font-normal">Purchase</th><th className="py-2 text-right font-normal">Per {currentStockUom || "stock UOM"}</th><th className="py-2 text-right font-normal">vs current</th><th className="py-2 text-right font-normal">Latest</th><th className="py-2 text-left font-normal">Source</th>
                       </tr></thead>
                       <tbody>
@@ -738,20 +738,20 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
                       </tbody>
                     </table>
                   </div>
-                  {insight.rows.some((row) => !row.comparable) && <div className="mt-3 text-xs text-warning">Some suppliers cannot be compared — conversion missing.</div>}
-                  <div className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">Compared only when UOM conversion is available.</div>
+                  {insight.rows.some((row) => !row.comparable) && <div className="mt-3 text-[10px] text-warning">Some suppliers cannot be compared — conversion missing.</div>}
+                  <div className="mt-4 border-t border-border/60 pt-3 text-[10px] text-muted-foreground">Compared only when UOM conversion is available.</div>
                 </>
               )}
             </div>
           ) : loading ? (
-            <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading price history…</div>
+            <div className="flex items-center gap-2 py-10 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading price history…</div>
           ) : (
             <div role="tabpanel" aria-label="Price history">
               <div className="flex gap-2 pt-4">
                 {stat("Items Master price", masterNum != null ? money(masterNum) : "—")}{stat("This invoice", money(currentUnitCost), variesFromMaster)}{stat("6-mo average", avg6 != null ? money(avg6) : "—")}{stat("Change vs last", changeVsLast == null ? "—" : `${changeVsLast > 0 ? "+" : ""}${changeVsLast.toFixed(1)}%`, changeVaries)}
               </div>
               <div className="mt-3"><TrendChart points={chartPoints} masterPrice={masterNum} /></div>
-              <table className="w-full mt-2 text-xs"><thead><tr className="text-xs text-muted-foreground"><th className="text-left font-normal py-1.5 border-b border-border/60 w-[88px]">Date</th><th className="text-left font-normal py-1.5 border-b border-border/60">Invoice</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[52px]">Qty</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[66px]">Unit</th><th className="text-right font-normal py-1.5 border-b border-border/60 w-[62px]">Δ</th></tr></thead><tbody>{tableRows.map((r, i) => { const older = tableRows[i + 1]; const delta = older && older.unitCost > 0 ? ((r.unitCost - older.unitCost) / older.unitCost) * 100 : null; const deltaWarn = delta != null && delta > 0 && older ? pctVaries(older.unitCost, r.unitCost) : false; const showDelta = delta != null && older != null && Math.abs(r.unitCost - older.unitCost) > PRICE_VARIANCE_EPSILON; return <tr key={r.lineId} className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}><td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td><td className="py-2.5">{r.isCurrent ? <span className="text-warning font-mono">{r.invoiceNumber}<span className="text-[10px] font-sans"> · current</span></span> : <button type="button" onClick={() => openDrill(r.invoiceId)} className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono">{r.invoiceNumber}<ChevronRight className="h-[13px] w-[13px]" /></button>}</td><td className="py-2.5 text-right font-mono">{r.qty}</td><td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td><td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>{showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}</td></tr>; })}</tbody></table>
+              <table className="mt-2 w-full text-xs"><thead><tr className="text-[10px] text-muted-foreground"><th className="w-[88px] border-b border-border/60 py-1.5 text-left font-normal">Date</th><th className="border-b border-border/60 py-1.5 text-left font-normal">Invoice</th><th className="w-[52px] border-b border-border/60 py-1.5 text-right font-normal">Qty</th><th className="w-[66px] border-b border-border/60 py-1.5 text-right font-normal">Unit</th><th className="w-[62px] border-b border-border/60 py-1.5 text-right font-normal">Δ</th></tr></thead><tbody>{tableRows.map((r, i) => { const older = tableRows[i + 1]; const delta = older && older.unitCost > 0 ? ((r.unitCost - older.unitCost) / older.unitCost) * 100 : null; const deltaWarn = delta != null && delta > 0 && older ? pctVaries(older.unitCost, r.unitCost) : false; const showDelta = delta != null && older != null && Math.abs(r.unitCost - older.unitCost) > PRICE_VARIANCE_EPSILON; return <tr key={r.lineId} className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}><td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td><td className="py-2.5">{r.isCurrent ? <span className="text-warning font-mono">{r.invoiceNumber}<span className="text-[10px] font-sans"> · current</span></span> : <button type="button" onClick={() => openDrill(r.invoiceId)} className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono">{r.invoiceNumber}<ChevronRight className="h-[13px] w-[13px]" /></button>}</td><td className="py-2.5 text-right font-mono">{r.qty}</td><td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td><td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>{showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}</td></tr>; })}</tbody></table>
               {variesFromMaster && <div className="flex gap-2 border-t border-border/60 mt-3 pt-3"><Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>Keep Items Master at {money(masterNum)}</Button><Button variant="secondary" className="flex-1" onClick={() => { onUpdateMaster(); onOpenChange(false); }}>Update Items Master to {money(currentUnitCost)}</Button></div>}
             </div>
           )}
