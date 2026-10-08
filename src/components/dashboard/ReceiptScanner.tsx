@@ -62,7 +62,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
 
   const [dragging, setDragging] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(!!initialFile);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
   const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
@@ -71,16 +72,16 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [originalFile, setOriginalFile] = useState<File | null>(null);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
-  const fileToBase64 = async (file: File): Promise<string> => {
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-    }
-    return btoa(binary);
-  };
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.onabort = () => reject(new Error("File reading was cancelled"));
+    reader.readAsDataURL(file);
+  });
 
   const guessMimeType = (file: File): string => {
     if (file.type) return file.type;
@@ -93,17 +94,22 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   };
 
   const processFile = useCallback(async (file: File) => {
+    setScanning(true);
     if (venuesLoading) {
-      toast({ title: "Just a moment", description: "Loading your venue list — try again in a second." });
+      setPendingFile(file);
       return;
     }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
     if (file.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum 10MB allowed.", variant: "destructive" });
+      setScanning(false);
       return;
     }
 
     if (classifySalesFile(file) !== "scan") {
       toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG, WEBP, HEIC) or PDF.", variant: "destructive" });
+      setScanning(false);
       return;
     }
 
@@ -114,7 +120,6 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       setPreviewUrl(null);
     }
 
-    setScanning(true);
     setExtractedData(null);
     setOriginalFile(file);
 
@@ -193,11 +198,13 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
-    if (shouldAutoProcessInitialFile({ initialFile, venuesLoading, alreadyStarted: autoStarted.current })) {
-      autoStarted.current = initialFile!;
-      processFile(initialFile!);
+    const file = pendingFile ?? initialFile;
+    if (file && shouldAutoProcessInitialFile({ initialFile: file, venuesLoading, alreadyStarted: pendingFile ? null : autoStarted.current })) {
+      autoStarted.current = initialFile ?? null;
+      setPendingFile(null);
+      processFile(file);
     }
-  }, [initialFile, venuesLoading, processFile]);
+  }, [initialFile, pendingFile, venuesLoading, processFile]);
 
   // Safety net: if the venue master resolves after extraction, map the scanned
   // value to its canonical master name. Never overwrite an existing selection.
@@ -363,8 +370,9 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
 
       {/* Scanning state */}
       {scanning && (
-        <div className="flex min-h-[260px] flex-col items-center justify-center pb-8">
-          <BaniProcessingMark size={24} />
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-2">
+          <BaniProcessingMark size={32} />
+          <p className="text-xs text-muted-foreground">Reading your receipt…</p>
         </div>
       )}
 
