@@ -45,44 +45,46 @@ export async function compressImageFile(file: File): Promise<File> {
   // Only compress image types
   if (!file.type.startsWith("image/")) return file;
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      if (!shouldRecompress({ type: file.type, size: file.size, width: img.width, height: img.height })) {
-        resolve(file);
-        return;
-      }
+  let bitmap: ImageBitmap | undefined;
+  try {
+    bitmap = await createImageBitmap(file);
+    if (!shouldRecompress({ type: file.type, size: file.size, width: bitmap.width, height: bitmap.height })) {
+      return file;
+    }
 
-      const { width, height } = targetDimensions(img.width, img.height);
+    const { width, height } = targetDimensions(bitmap.width, bitmap.height);
+    let blob: Blob | null = null;
 
+    if (typeof OffscreenCanvas !== "undefined") {
+      try {
+        const canvas = new OffscreenCanvas(width, height);
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0, width, height);
+          blob = await canvas.convertToBlob({ type: "image/jpeg", quality: JPEG_QUALITY });
+        }
+      } catch { /* Fall back to a regular canvas if offscreen encoding is unavailable. */ }
+    }
+
+    if (!blob) {
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, width, height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return file;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY);
+      });
+    }
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file); // fallback to original
-            return;
-          }
-          // Replace extension with .jpg
-          const name = file.name.replace(/\.[^.]+$/, ".jpg");
-          const compressed = new File([blob], name, { type: "image/jpeg" });
-
-          // Only use compressed if it's actually smaller
-          if (compressed.size < file.size) {
-            resolve(compressed);
-          } else {
-            resolve(file);
-          }
-        },
-        "image/jpeg",
-        JPEG_QUALITY
-      );
-    };
-    img.onerror = () => resolve(file); // fallback
-    img.src = URL.createObjectURL(file);
-  });
+    if (!blob) return file;
+    const name = file.name.replace(/\.[^.]+$/, ".jpg");
+    const compressed = new File([blob], name, { type: "image/jpeg" });
+    return compressed.size < file.size ? compressed : file;
+  } catch {
+    return file; // Preserve the original if decoding or encoding fails.
+  } finally {
+    bitmap?.close();
+  }
 }

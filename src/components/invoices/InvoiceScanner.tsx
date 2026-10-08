@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import { flushSync } from "react-dom";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight, Pencil } from "lucide-react";
 import {
@@ -753,6 +754,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     setScanProgress({ current: 0, total: files.length });
 
     try {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const preparedFiles: { base64: string; mimeType: string; compressedFile: File }[] = [];
 
       for (let i = 0; i < files.length; i++) {
@@ -935,7 +937,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
+      setPendingFiles([]);
     } catch (err: any) {
+      setInvoices([]);
       console.error("Invoice scan error:", err);
       let description = err?.message || "Could not scan invoice files.";
       // supabase-js wraps non-2xx Edge Function responses in FunctionsHttpError
@@ -2286,7 +2290,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 className="w-full"
                 onClick={() => {
                   const files = [...pendingFiles];
-                  setPendingFiles([]);
+                   flushSync(() => {
+                     setScanProgress({ current: 0, total: files.length });
+                     setScanning(true);
+                   });
                   processMultipleFiles(files);
                 }}
               >
@@ -2312,14 +2319,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
       {/* Scanning */}
       {scanning && (
-        <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 pb-8">
-          <BaniProcessingMark size={24} />
-          {scanProgress.total > 1 && (
-            <>
-              <p className="text-sm text-muted-foreground">{scanProgress.current} of {scanProgress.total}</p>
-              <Progress value={(scanProgress.current / scanProgress.total) * 100} className="h-2 w-48" />
-            </>
-          )}
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-2">
+          <BaniProcessingMark size={32} />
+          <p className="text-xs leading-4 text-muted-foreground">
+            {scanProgress.total > 1 ? `Reading ${scanProgress.total} invoices…` : "Reading your invoice…"}
+          </p>
         </div>
       )}
 
