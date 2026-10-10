@@ -49,3 +49,10 @@
 - [x] Suppress keg-only pickup-note mismatches
 - [x] Show acknowledgement feedback only for real dismissals
 - [x] Keep save and override gates aligned and run full validation
+
+## Your Finance Team v1
+
+- [x] Locked review snapshots, accepted actions with history, schedule preferences (venue-scoped access)
+- [x] Fact-based Revenue / Procurement / Accounting & cash reports + checked AI Finance Director briefing
+- [x] Briefing, Team reports, Actions, Past reviews, Ask your team, automatic preparation settings
+- [x] Hourly server-side scheduler with once-per-period protection
