@@ -11392,6 +11392,13 @@ export type Database = {
         }
       }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
+      ft_assignable_members: {
+        Args: { _tenant_id: string; _venue_id: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       ft_can_access_scope: {
         Args: { _tenant_id: string; _user_id: string; _venue_id: string }
         Returns: boolean
