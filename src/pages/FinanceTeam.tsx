@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { PageHeader } from "@/components/expenses/shared";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { businessReview, isBusinessFinding } from "@/utils/financeBusinessReview";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,12 +35,6 @@ interface Member { user_id: string; display_name: string }
 const db = supabase as any;
 const fmtTs = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
 
-const AI_LABEL: Record<string, { text: string; chip: string }> = {
-  ai: { text: "AI interpretation of calculated figures", chip: "chip-info" },
-  deterministic_no_key: { text: "Rule-based review — AI is not configured", chip: "chip-neutral" },
-  deterministic_ai_failed: { text: "Rule-based review — AI was unavailable", chip: "chip-warn" },
-  deterministic_ai_rejected: { text: "Rule-based review — AI output failed validation", chip: "chip-warn" },
-};
 const SEV: Record<string, string> = { action: "chip-danger", watch: "chip-warn", info: "chip-neutral" };
 const SEV_LABEL: Record<string, string> = { action: "Needs action", watch: "Watch", info: "Info" };
 
@@ -50,14 +44,13 @@ export default function FinanceTeam() {
   const { venues } = useVenues();
   const [scope, setScope] = useState<string>("");
   const [canAll, setCanAll] = useState(false);
-  const [reviewType, setReviewType] = useState<ReviewType>("daily");
+  const [reviewType, setReviewType] = useState<ReviewType>("weekly");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
-  const [tab, setTab] = useState("briefing");
 
   const venueId = scope === ALL ? null : scope || null;
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
@@ -107,14 +100,12 @@ export default function FinanceTeam() {
     if (msg) { setRunError(msg); await load(); return; }
     toast({ title: "Review ready", description: (data as any).ai_status === "ai" ? "Briefing prepared." : "Rule-based briefing prepared — see the note on AI status." });
     setSelectedId((data as any).review_id);
-    setTab("briefing");
     await load();
   };
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Finance review" title="Your Finance Team"
-        description="Revenue Manager, Procurement Manager and Financial Controller review your saved data; the Finance Director summarises what needs attention."
+      <PageHeader eyebrow="Finance review" title="Weekly Business Review"
         actions={<>
           <Select value={scope} onValueChange={(v) => { setScope(v); setSelectedId(null); }}>
             <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue placeholder="Venue" /></SelectTrigger>
@@ -123,7 +114,7 @@ export default function FinanceTeam() {
               {activeVenues.filter((v) => v.id).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={reviewType} onValueChange={(v) => setReviewType(v as ReviewType)}>
+          <Select value={reviewType} onValueChange={(v) => { setReviewType(v as ReviewType); setSelectedId(reviews.find((r) => r.status === "completed" && r.review_type === v)?.id ?? null); }}>
             <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="daily">Daily review</SelectItem><SelectItem value="weekly">Weekly review</SelectItem></SelectContent>
           </Select>
@@ -135,51 +126,50 @@ export default function FinanceTeam() {
 
       {runError && <div className="card-glass rounded-lg border border-destructive/40 p-3 text-sm text-destructive">Review could not be prepared: {runError}</div>}
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="briefing">Briefing</TabsTrigger>
-          <TabsTrigger value="reports">Team reports</TabsTrigger>
-          <TabsTrigger value="actions">Actions</TabsTrigger>
-          <TabsTrigger value="past">Past reviews</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="briefing" className="space-y-4">
-          {!selected ? <Empty text={`No saved ${reviewType} review for this scope yet. Run a review to prepare one.`} /> : <>
-            <ReviewMeta review={selected} />
-            <Briefing review={selected} actions={actions} members={members} tenantId={tenantId!} userId={user?.id} onChanged={load} />
-            <AskTeam review={selected} tenantId={tenantId!} />
-          </>}
-          <ScheduleCard tenantId={tenantId} venueId={venueId} scope={scope} userId={user?.id} />
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          {!selected ? <Empty text="No saved review selected." /> : <>
-            <ReviewMeta review={selected} />
-            <TeamReports review={selected} actions={actions} members={members} tenantId={tenantId!} userId={user?.id} onChanged={load} />
-          </>}
-        </TabsContent>
-
-        <TabsContent value="actions"><ActionsList actions={actions} members={members} reviews={reviews} onChanged={load} onOpen={(id) => { setSelectedId(id); setTab("briefing"); }} /></TabsContent>
-
-        <TabsContent value="past"><PastReviews reviews={reviews} actions={actions} onOpen={(id) => { setSelectedId(id); setTab("briefing"); }} /></TabsContent>
-      </Tabs>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={selectedId ?? "__none__"} onValueChange={(id) => setSelectedId(id === "__none__" ? null : id)}>
+          <SelectTrigger aria-label="Saved review" className="h-8 w-full sm:w-[340px] text-xs"><SelectValue placeholder="Saved reviews" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Select a saved review</SelectItem>
+            {reviews.filter((r) => r.status === "completed").map((r) => <SelectItem key={r.id} value={r.id}>{r.review_type === "weekly" ? "Weekly" : "Daily"} · {fmtRange(r.period_start, r.period_end)} · saved {fmtTs(r.generated_at)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {selected && <ReviewMeta review={selected} />}
+      </div>
+      {!selected || !tenantId ? <Empty text="No saved review selected for this venue. Choose a saved review or run one when ready." /> : <>
+        <Briefing review={selected} actions={actions} members={members} tenantId={tenantId} userId={user?.id} onChanged={load} />
+        <details className="border-t border-border/50 py-3">
+          <summary className="cursor-pointer text-sm font-medium">Specialist details</summary>
+          <div className="pt-3"><TeamReports review={selected} actions={actions} members={members} tenantId={tenantId} userId={user?.id} onChanged={load} /></div>
+        </details>
+        <details className="border-t border-border/50 py-3">
+          <summary className="cursor-pointer text-sm font-medium">Ask your team</summary>
+          <AskTeam review={selected} tenantId={tenantId} />
+        </details>
+      </>}
+      {actions.length > 0 && <details className="border-t border-border/50 py-3">
+        <summary className="cursor-pointer text-sm font-medium">Accepted priorities · {actions.filter((a) => a.status === "completed").length}/{actions.length} completed</summary>
+        <div className="pt-3"><ActionsList actions={actions} members={members} reviews={reviews} onChanged={load} onOpen={setSelectedId} /></div>
+      </details>}
+      <details className="border-t border-border/50 py-3">
+        <summary className="cursor-pointer text-sm font-medium">Schedule settings</summary>
+        <ScheduleCard tenantId={tenantId} venueId={venueId} scope={scope} userId={user?.id} />
+      </details>
     </div>
   );
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="card-glass rounded-xl p-8 text-center text-sm text-muted-foreground">{text}</div>;
+  return <div className="py-8 text-sm text-muted-foreground">{text}</div>;
 }
 
 function ReviewMeta({ review }: { review: Review }) {
-  const ai = AI_LABEL[review.ai_status ?? ""];
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
       <span className="text-foreground font-medium">{review.venue_label}</span>
       <span>· {review.review_type === "daily" ? "Daily" : "Weekly"} review · {fmtRange(review.period_start, review.period_end)}</span>
-      {review.comparison_start && <span>· compared with {fmtRange(review.comparison_start, review.comparison_end!)}</span>}
+      {review.comparison_start && review.comparison_end && <span>· compared with {fmtRange(review.comparison_start, review.comparison_end)}</span>}
       <span>· saved {fmtTs(review.generated_at)} ({review.trigger_source})</span>
-      {ai && <span className={`chip ${ai.chip}`} title={review.context?.ai?.error ?? ""}>{ai.text}</span>}
     </div>
   );
 }
@@ -194,80 +184,56 @@ function EvidenceLinks({ links }: { links: { label: string; route: string }[] })
 interface ActionCtx { review: Review; actions: Action[]; members: Member[]; tenantId: string; userId?: string; onChanged: () => void }
 
 function Briefing({ review, ...ctx }: ActionCtx) {
-  const s = review.synthesis;
-  const findings = review.specialists.flatMap((sp) => sp.findings.map((f) => ({ ...f, specialist: sp.role })));
-  const prior = review.prior_actions ?? [];
-  return (
-    <div className="space-y-4">
-      {prior.length > 0 && (
-        <div className="card-glass rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-semibold">Follow-up on accepted actions</h3>
-          {prior.map((p: any) => (
-            <div key={p.id} className="text-xs flex flex-col gap-0.5 border-b border-border/40 pb-2 last:border-0">
-              <div className="flex items-center gap-2"><span className={`chip ${p.status === "completed" ? "chip-success" : p.overdue ? "chip-danger" : "chip-warn"}`}>{p.status === "completed" ? "Completed" : p.overdue ? "Overdue" : "Open"}</span><span className="font-medium text-foreground">{p.title}</span>{p.due_date && <span className="text-muted-foreground">due {fmtDate(p.due_date)}</span>}</div>
-              <span className="text-muted-foreground">{p.evaluation}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="card-glass rounded-xl p-5 space-y-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1">Finance Director</div>
-          <h2 className="text-lg font-display font-semibold">{s.headline}</h2>
-        </div>
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-1">What changed</h3>
-          <ul className="list-disc pl-5 text-sm space-y-1">{s.what_changed.map((w, i) => <li key={i}>{w}</li>)}</ul>
-        </div>
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-1">Profit and cash</h3>
-          <p className="text-sm">{s.profit_cash_implication}</p>
-        </div>
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-2">Top priorities</h3>
-          {s.priorities.length === 0 ? <p className="text-sm text-muted-foreground">No recommendations in this review.</p> :
-            <div className="space-y-3">{s.priorities.map((p) => {
-              const f = findings.find((x) => x.key === p.finding_key);
-              return (
-                <div key={p.finding_key} className="rounded-lg border border-border/50 p-3 space-y-1.5">
-                  <div className="text-sm font-medium">{p.title}</div>
-                  <p className="text-xs text-muted-foreground">{p.why}</p>
-                  {p.recommendation && <p className="text-sm">Recommendation: {p.recommendation}</p>}
-                  {f && <div className="flex flex-wrap items-center justify-between gap-2"><EvidenceLinks links={f.evidence} /><AcceptButton finding={f} specialist={f.specialist} review={review} {...ctx} /></div>}
-                </div>
-              );
-            })}</div>}
-        </div>
-      </div>
-    </div>
-  );
+  const model = businessReview(review.specialists);
+  const prior = (review.prior_actions ?? []).filter((p) => isBusinessFinding(p.finding_key)).slice(0, 3);
+  return <div className="space-y-5 py-2">
+    {prior.length > 0 && <section className="border-b border-border/50 pb-3 space-y-2">
+      <h3 className="text-xs font-medium text-muted-foreground">Previous priorities</h3>
+      {prior.map((p) => {
+        const finding = model.relevant.find((f) => f.key === p.finding_key);
+        return <div key={p.id} className="text-xs space-y-1">
+          <p><span className="font-medium">{p.title}</span> · {p.status === "completed" ? "Completed" : "Open"}{p.due_date ? ` · due ${fmtDate(p.due_date)}` : ""}</p>
+          <p className="text-muted-foreground">{finding ? `${finding.concise} An outcome cannot be attributed to this action from these figures alone.` : "No assessable business evidence in this review to evaluate the result."}</p>
+        </div>;
+      })}
+    </section>}
+    {!model.relevant.length ? <Empty text="No assessable business findings in this saved review. Available records do not support a business comparison." /> : <>
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">What changed</h2>
+        <ul className="space-y-2 text-sm">{model.changed.map((f) => <li key={f.key}>{f.concise}</li>)}</ul>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">What it means</h2>
+        <p className="text-sm">{model.implication}</p>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">What to focus on</h2>
+        {!model.priorities.length ? <p className="text-sm text-muted-foreground">No business priority is flagged by the saved evidence.</p> : model.priorities.map((f) => <div key={f.key} className="space-y-1.5 border-l-2 border-primary/40 pl-3">
+          <p className="text-sm font-medium">{f.title}</p>
+          <p className="text-sm">{f.recommendation}</p>
+          <div className="flex flex-wrap items-center gap-3"><EvidenceLinks links={f.evidence} /><AcceptButton finding={f} specialist={f.specialist} review={review} {...ctx} /></div>
+        </div>)}
+      </section>
+      {model.limitation && <p className="text-xs text-muted-foreground">{model.limitation}</p>}
+    </>}
+  </div>;
 }
 
 function TeamReports({ review, ...ctx }: ActionCtx) {
-  const [role, setRole] = useState<string>("revenue");
-  const sp = review.specialists.find((s) => s.role === role);
-  const labels: Record<string, string> = { revenue: "Revenue", procurement: "Procurement", accounting: "Accounting & cash" };
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-1.5">{review.specialists.map((s) => (
-        <Button key={s.role} size="sm" variant={role === s.role ? "default" : "outline"} onClick={() => setRole(s.role)}>{labels[s.role]}</Button>
-      ))}</div>
-      {sp && (
-        <div className="card-glass rounded-xl p-5 space-y-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1">{sp.name}</div>
-            <p className="text-sm">{sp.summary}</p>
-          </div>
-          {sp.findings.map((f) => <FindingCard key={f.key} f={f} specialist={sp.role} review={review} {...ctx} />)}
-          <div className="rounded-lg bg-muted/30 p-3 text-xs space-y-1">
-            <div><span className="text-muted-foreground">Data freshness:</span> {sp.data_quality.freshness}</div>
-            <div><span className="text-muted-foreground">Completeness:</span> {sp.data_quality.completeness} · Sources: {sp.data_quality.sources.join(", ")}</div>
-            {sp.data_quality.limitations.map((l, i) => <div key={i} className="text-muted-foreground">• {l}</div>)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const relevant = businessReview(review.specialists).relevant;
+  return <div className="space-y-3">{review.specialists.map((sp) => {
+    const findings = relevant.filter((f) => f.specialist === sp.role);
+    return <details key={sp.role} className="border-b border-border/40 pb-3">
+      <summary className="cursor-pointer text-sm font-medium">{sp.name}</summary>
+      <div className="space-y-3 pt-3">
+        {findings.length ? findings.map((f) => <FindingCard key={f.key} f={f} specialist={sp.role} review={review} {...ctx} />) : <p className="text-xs text-muted-foreground">No relevant assessable business findings.</p>}
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Data quality</summary>
+          <div className="space-y-1 pt-2"><p>{sp.data_quality.freshness}</p><p>Completeness: {sp.data_quality.completeness} · {sp.data_quality.sources.join(", ")}</p>{sp.data_quality.limitations.map((l, i) => <p key={i}>{l}</p>)}</div>
+        </details>
+      </div>
+    </details>;
+  })}</div>;
 }
 
 function FindingCard({ f, specialist, review, ...ctx }: { f: Finding; specialist: string } & ActionCtx) {
@@ -353,7 +319,7 @@ function ActionsList({ actions, members, reviews, onChanged, onOpen }: { actions
       {actions.map((a) => {
         const r = reviews.find((x) => x.id === a.review_id);
         return (
-          <div key={a.id} className="card-glass rounded-xl p-4 space-y-2">
+          <div key={a.id} className="border-b border-border/40 py-3 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`chip ${a.status === "completed" ? "chip-success" : a.due_date && a.due_date < today ? "chip-danger" : "chip-warn"}`}>{a.status === "completed" ? "Completed" : a.due_date && a.due_date < today ? "Overdue" : "Open"}</span>
               <span className="text-sm font-medium">{a.title}</span>
@@ -383,31 +349,6 @@ function ActionsList({ actions, members, reviews, onChanged, onOpen }: { actions
   );
 }
 
-function PastReviews({ reviews, actions, onOpen }: { reviews: Review[]; actions: Action[]; onOpen: (id: string) => void }) {
-  if (!reviews.length) return <Empty text="No reviews saved for this scope yet." />;
-  return (
-    <div className="card-glass rounded-xl overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead><tr className="text-muted-foreground border-b border-border/50"><th className="text-left font-medium px-3 py-2">Period</th><th className="text-left font-medium">Type</th><th className="text-left font-medium">Status</th><th className="text-left font-medium">Saved</th><th className="text-left font-medium">Source</th><th className="text-right font-medium px-3">Actions completed</th><th /></tr></thead>
-        <tbody>{reviews.map((r) => {
-          const acts = actions.filter((a) => a.review_id === r.id);
-          return (
-            <tr key={r.id} className="border-b border-border/30">
-              <td className="px-3 py-2">{fmtRange(r.period_start, r.period_end)}</td>
-              <td>{r.review_type === "daily" ? "Daily" : "Weekly"}</td>
-              <td><span className={`chip ${r.status === "completed" ? "chip-success" : r.status === "failed" ? "chip-danger" : "chip-info"}`}>{r.status}</span>{r.error && <span className="ml-2 text-destructive">{r.error}</span>}</td>
-              <td>{fmtTs(r.generated_at ?? r.started_at)}</td>
-              <td>{r.trigger_source}{r.ai_status ? ` · ${r.ai_status === "ai" ? "AI" : "rule-based"}` : ""}</td>
-              <td className="text-right td-num px-3">{acts.filter((a) => a.status === "completed").length} / {acts.length}</td>
-              <td className="px-3">{r.status === "completed" && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onOpen(r.id)}>Open</Button>}</td>
-            </tr>
-          );
-        })}</tbody>
-      </table>
-    </div>
-  );
-}
-
 function AskTeam({ review, tenantId }: { review: Review; tenantId: string }) {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -423,7 +364,7 @@ function AskTeam({ review, tenantId }: { review: Review; tenantId: string }) {
     setBusy(false);
   };
   return (
-    <div className="card-glass rounded-xl p-4 space-y-3">
+    <div className="py-3 space-y-3">
       <h3 className="text-sm font-semibold">Ask your team about this review</h3>
       {turns.map((t, i) => (
         <div key={i} className="space-y-1 text-sm">
@@ -437,7 +378,7 @@ function AskTeam({ review, tenantId }: { review: Review; tenantId: string }) {
         </div>
       ))}
       <div className="flex gap-2">
-        <Input className="h-8 text-xs md:text-xs" placeholder="e.g. Which payables are overdue?" value={q} maxLength={500} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) ask(); }} />
+        <Input className="h-8 text-xs md:text-xs" placeholder="e.g. How did revenue change?" value={q} maxLength={500} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) ask(); }} />
         <Button size="sm" onClick={ask} disabled={busy || !q.trim()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Ask</Button>
       </div>
     </div>
@@ -477,7 +418,7 @@ function ScheduleCard({ tenantId, venueId, scope, userId }: { tenantId: string |
   const nextWeekly = pref.weekly_enabled ? nextScheduledRun(now, tz, pref.weekly_hour, pref.weekly_day) : null;
   const local = localParts(now, tz);
   return (
-    <div className="card-glass rounded-xl p-4 space-y-3">
+    <div className="py-3 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold">Automatic preparation</h3>
         {enabled === false && <span className="chip chip-warn">Scheduler not enabled — manual reviews only</span>}
