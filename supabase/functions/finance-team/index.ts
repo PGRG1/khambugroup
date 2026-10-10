@@ -16,7 +16,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const MODEL = "openai/gpt-6-astra";
-const ZERO = "00000000-0000-0000-0000-000000000000";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -290,6 +289,8 @@ Deno.serve(async (req) => {
   if (!isUuid(body?.tenant_id)) return json({ error: "tenant_id is required" }, 400);
   const tenant = await resolveTenant(admin, userId, body.tenant_id);
   if (!tenant) return json({ error: "You do not have access to this organization." }, 403);
+  const { data: tenantRow } = await admin.from("tenants").select("id").eq("id", tenant.tenant_id).maybeSingle();
+  if (!tenantRow) return json({ error: "Organization not found." }, 404);
 
   if (body.mode === "run") {
     const venueId = body.venue_id ?? null;
