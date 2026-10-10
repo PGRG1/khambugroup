@@ -16,6 +16,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
 import Assistant from "./pages/Assistant";
+import FinanceTeam from "./pages/FinanceTeam";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
 
@@ -383,6 +384,7 @@ function App() {
                 <Route path="/expenses/finance/vendors/:vendorId" element={<AdminRoute><ExpenseVendorAccountPage /></AdminRoute>} />
                 <Route path="/expenses/finance/payables" element={<AdminRoute><ExpenseOpenPayablesPage /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
+                <Route path="/finance-team" element={<ProtectedRoute pageKey="finance"><FinanceTeam /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
                 <Route path="/kpis" element={<Navigate to="/kpis/my-cards" replace />} />
                 <Route path="/kpis/my-cards" element={<KpiRoute><KpiHome /></KpiRoute>} />

@@ -2827,6 +2827,300 @@ export type Database = {
           },
         ]
       }
+      finance_team_action_events: {
+        Row: {
+          action_id: string
+          actor_id: string | null
+          created_at: string
+          details: Json
+          event: string
+          id: string
+          tenant_id: string
+          venue_id: string | null
+        }
+        Insert: {
+          action_id: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          event: string
+          id?: string
+          tenant_id: string
+          venue_id?: string | null
+        }
+        Update: {
+          action_id?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          event?: string
+          id?: string
+          tenant_id?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_team_action_events_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "finance_team_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_team_actions: {
+        Row: {
+          accepted_at: string
+          accepted_by: string
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          due_date: string | null
+          evidence: Json
+          finding_key: string
+          id: string
+          recommendation: string
+          review_id: string
+          specialist: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_by: string
+          assignee_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          due_date?: string | null
+          evidence?: Json
+          finding_key: string
+          id?: string
+          recommendation: string
+          review_id: string
+          specialist: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          accepted_by?: string
+          assignee_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          due_date?: string | null
+          evidence?: Json
+          finding_key?: string
+          id?: string
+          recommendation?: string
+          review_id?: string
+          specialist?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_team_actions_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "finance_team_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_team_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_team_actions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_team_reviews: {
+        Row: {
+          ai_model: string | null
+          ai_status: string | null
+          comparison_end: string | null
+          comparison_start: string | null
+          context: Json
+          error: string | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          period_end: string
+          period_start: string
+          prior_actions: Json
+          review_type: string
+          specialists: Json
+          started_at: string
+          status: string
+          synthesis: Json
+          tenant_id: string
+          trigger_source: string
+          venue_id: string | null
+          venue_label: string
+        }
+        Insert: {
+          ai_model?: string | null
+          ai_status?: string | null
+          comparison_end?: string | null
+          comparison_start?: string | null
+          context?: Json
+          error?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          prior_actions?: Json
+          review_type: string
+          specialists?: Json
+          started_at?: string
+          status?: string
+          synthesis?: Json
+          tenant_id: string
+          trigger_source: string
+          venue_id?: string | null
+          venue_label: string
+        }
+        Update: {
+          ai_model?: string | null
+          ai_status?: string | null
+          comparison_end?: string | null
+          comparison_start?: string | null
+          context?: Json
+          error?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          prior_actions?: Json
+          review_type?: string
+          specialists?: Json
+          started_at?: string
+          status?: string
+          synthesis?: Json
+          tenant_id?: string
+          trigger_source?: string
+          venue_id?: string | null
+          venue_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_team_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_team_reviews_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_team_scheduler_tokens: {
+        Row: {
+          created_at: string
+          id: number
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          token: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          token?: string
+        }
+        Relationships: []
+      }
+      finance_team_schedules: {
+        Row: {
+          daily_enabled: boolean
+          daily_hour: number
+          id: string
+          last_daily_run_at: string | null
+          last_error: string | null
+          last_weekly_run_at: string | null
+          tenant_id: string
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string | null
+          weekly_day: number
+          weekly_enabled: boolean
+          weekly_hour: number
+        }
+        Insert: {
+          daily_enabled?: boolean
+          daily_hour?: number
+          id?: string
+          last_daily_run_at?: string | null
+          last_error?: string | null
+          last_weekly_run_at?: string | null
+          tenant_id: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+          weekly_day?: number
+          weekly_enabled?: boolean
+          weekly_hour?: number
+        }
+        Update: {
+          daily_enabled?: boolean
+          daily_hour?: number
+          id?: string
+          last_daily_run_at?: string | null
+          last_error?: string | null
+          last_weekly_run_at?: string | null
+          tenant_id?: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+          weekly_day?: number
+          weekly_enabled?: boolean
+          weekly_hour?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_team_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_team_schedules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixed_asset_depreciation_schedule: {
         Row: {
           asset_id: string
@@ -11096,6 +11390,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      finance_team_scheduler_enabled: { Args: never; Returns: boolean }
+      ft_assignable_members: {
+        Args: { _tenant_id: string; _venue_id: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
+      ft_can_access_scope: {
+        Args: { _tenant_id: string; _user_id: string; _venue_id: string }
+        Returns: boolean
       }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
