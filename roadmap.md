@@ -2,8 +2,8 @@
 
 ## Compact finance business review
 
-- [ ] Curate saved business facts into a single weekly-default page; preserve collapsed actions, details, questions and schedules
-- [ ] Run focused offline checks without paid reviews/questions or publishing
+- [x] Curate saved business facts into a single weekly-default page; preserve collapsed actions, details, questions and schedules
+- [x] Run 12 focused tests and open real saved reviews on desktop/mobile with AI requests blocked; preview build clean, no publishing
 
 ## Invoice scanner reliability fix (complete)
 
