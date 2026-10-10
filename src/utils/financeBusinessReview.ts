@@ -7,7 +7,7 @@ export const isBusinessFinding = (key: string) => BUSINESS_KEYS.includes(key);
 export function businessReview(specialists: SpecialistReport[]) {
   const findings = specialists.flatMap((s) => s.findings.map((f) => ({ ...f, specialist: s.role })))
     .filter((f) => isBusinessFinding(f.key) && f.assessable);
-  const hasExposure = (f: Finding) => f.figures.some((x) => x.value != null && x.value > 0);
+  const hasExposure = (f: Finding) => f.figures.some((x) => (f.key !== "accounting.overdue_payables" || x.unit === "HKD") && x.value != null && x.value > 0);
   const relevant = findings.filter((f) => !["procurement.disputes", "accounting.overdue_payables"].includes(f.key) || hasExposure(f));
   const ranked = BUSINESS_KEYS.flatMap((key) => relevant.filter((f) => f.key === key));
   const text = (f: Finding) => {
@@ -23,7 +23,7 @@ export function businessReview(specialists: SpecialistReport[]) {
   const change = sales?.figures[0]?.comparison;
   if (change?.change_pct != null) implications.unshift(`Revenue is ${change.change_pct < 0 ? "lower" : change.change_pct > 0 ? "higher" : "unchanged"} against the saved comparison (${change.change_display}).`);
   const partial = specialists.filter((s) => s.role !== "accounting" && s.data_quality.completeness !== "complete").length > 0;
-  return { relevant: ranked, changed, priorities,
-    implication: implications.slice(0, 2).join(" ") || "These recorded figures do not establish a change in profitability or available cash.",
+  return { relevant: ranked.map((f) => ({ ...f, concise: text(f) })), changed, priorities,
+    implication: implications.slice(0, 2).join(" ") || "The saved figures do not establish a comparable business change or its cause.",
     limitation: ranked.length ? `${partial ? "Recorded sales or purchases may be incomplete. " : ""}Purchases are not cost of goods sold; profit cannot be assessed and cash is not verified in this review.` : null };
 }

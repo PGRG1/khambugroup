@@ -193,7 +193,7 @@ function Briefing({ review, ...ctx }: ActionCtx) {
         const finding = model.relevant.find((f) => f.key === p.finding_key);
         return <div key={p.id} className="text-xs space-y-1">
           <p><span className="font-medium">{p.title}</span> · {p.status === "completed" ? "Completed" : "Open"}{p.due_date ? ` · due ${fmtDate(p.due_date)}` : ""}</p>
-          <p className="text-muted-foreground">{finding ? finding.key === "revenue.sales" ? finding.statement : model.changed.find((f) => f.key === finding.key)?.concise ?? "Current financial exposure is available in the specialist details; an outcome cannot be attributed to this action." : "No assessable business evidence in this review to evaluate the result."}</p>
+          <p className="text-muted-foreground">{finding ? `${finding.concise} An outcome cannot be attributed to this action from these figures alone.` : "No assessable business evidence in this review to evaluate the result."}</p>
         </div>;
       })}
     </section>}
