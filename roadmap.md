@@ -1,5 +1,10 @@
 # Roadmap
 
+## Compact finance business review
+
+- [ ] Curate saved business facts into a single weekly-default page; preserve collapsed actions, details, questions and schedules
+- [ ] Run focused offline checks without paid reviews/questions or publishing
+
 ## Invoice scanner reliability fix (complete)
 
 - [x] 1. imageCompression preserves originals <=3200px & <=4MB; else resize 3200 @ q0.90
