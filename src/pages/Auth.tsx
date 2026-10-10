@@ -113,7 +113,6 @@ const Auth = () => {
             <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap lg:text-[clamp(2.6rem,3.7vw,4rem)]">
               Your restaurant&rsquo;s
               <span className="block">finance team.</span>
-              <span className="block text-sage/85 lg:whitespace-nowrap">Without the headcount.</span>
             </h1>
           </section>
 
