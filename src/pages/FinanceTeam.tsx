@@ -87,7 +87,7 @@ export default function FinanceTeam() {
     setReviews(list);
     setActions((a.data ?? []) as Action[]);
     setMembers((m.data ?? []) as Member[]);
-    setSelectedId((cur) => (cur && list.some((x) => x.id === cur) ? cur : list.find((x) => x.status === "completed" && x.review_type === reviewType)?.id ?? list.find((x) => x.status === "completed")?.id ?? null));
+    setSelectedId((cur) => (cur && list.some((x) => x.id === cur && x.review_type === reviewType) ? cur : list.find((x) => x.status === "completed" && x.review_type === reviewType)?.id ?? null));
   }, [tenantId, scope, venueId, reviewType]);
   useEffect(() => { load(); }, [load]);
 
@@ -123,7 +123,7 @@ export default function FinanceTeam() {
               {activeVenues.filter((v) => v.id).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={reviewType} onValueChange={(v) => setReviewType(v as ReviewType)}>
+          <Select value={reviewType} onValueChange={(v) => { setReviewType(v as ReviewType); setSelectedId(null); }}>
             <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="daily">Daily review</SelectItem><SelectItem value="weekly">Weekly review</SelectItem></SelectContent>
           </Select>
