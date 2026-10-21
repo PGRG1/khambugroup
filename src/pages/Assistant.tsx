@@ -310,7 +310,7 @@ export default function Assistant() {
         <div className="flex items-center gap-2.5">
           <BaniLoginMark className="h-5 w-[11px] shrink-0 text-foreground" />
           <span className="font-display text-sm tracking-tight">BANI</span>
-          <span className="text-xs text-muted-foreground">AI Analyst</span>
+          <span className="text-xs text-muted-foreground">AI</span>
         </div>
         <Button variant="ghost" size="sm" className="gap-1.5" onClick={startNewConversation} aria-label="Start a new conversation">
           <Plus className="h-3.5 w-3.5" />
@@ -329,7 +329,7 @@ export default function Assistant() {
           <div className="mx-auto w-full max-w-[820px]">
             <div className="mb-6 flex items-center gap-2 text-sage">
               <Sparkles className="h-4 w-4" />
-              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Bani Analyst</span>
+              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">BANI AI</span>
             </div>
             <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
               What would you like to understand?
