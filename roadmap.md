@@ -1,5 +1,11 @@
 # Roadmap
 
+## Revenue navigation consolidation
+
+- [x] Single permission-aware Revenue sidebar destination and shared route-driven bar
+- [x] Preserve daily forecasts, detailed targets, legacy routes and current-page queries
+- [x] Five focused tests and preview build passed; baseline diff scoped to navigation and documentation; authenticated visual inspection unavailable (preview signed out)
+
 ## Invoice scanner reliability fix (complete)
 
 - [x] 1. imageCompression preserves originals <=3200px & <=4MB; else resize 3200 @ q0.90
