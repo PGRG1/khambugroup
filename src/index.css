@@ -412,3 +412,65 @@ body,
 .bani-visible-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Local colour trial: only Bani AI in dark appearance. */
+.dark .bani-ai-screen {
+  --background: 169.411765 34.693878% 9.607843%;
+  --foreground: 48 31.25% 93.72549%;
+  --card: 165.517241 34.117647% 16.666667%;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: 156 18.987342% 53.529412%;
+  --primary-foreground: var(--background);
+  --sage: var(--primary);
+  --secondary: var(--card);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--card);
+  --muted-foreground: 153.333333 11.688312% 69.803922%;
+  --accent: var(--primary);
+  --accent-foreground: var(--background);
+  --border: 158 20.833333% 28.235294%;
+  --input: var(--border);
+  --ring: var(--border);
+  --surface-panel: var(--card);
+  --surface-muted: var(--card);
+  --ai-evergreen-wash: 167.027027 43.529412% 16.666667%;
+  --ai-highlight: 152.307692 27.083333% 81.176471%;
+  --gradient-card: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+  --shadow-card: none;
+  --shadow-glow: none;
+  color: hsl(var(--foreground));
+  background: linear-gradient(135deg, hsl(var(--ai-evergreen-wash)), hsl(var(--background)) 48%);
+}
+
+.dark .bani-ai-screen .bani-ai-composer {
+  background: hsl(var(--card));
+}
+
+.dark .bani-ai-screen textarea {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+.dark .bani-ai-screen textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+  opacity: 1;
+}
+
+.dark .bani-ai-screen .prose {
+  --tw-prose-invert-body: hsl(var(--foreground));
+  --tw-prose-invert-headings: hsl(var(--foreground));
+  --tw-prose-invert-links: hsl(var(--ai-highlight));
+  --tw-prose-invert-bold: hsl(var(--foreground));
+  --tw-prose-invert-code: hsl(var(--foreground));
+  --tw-prose-invert-quotes: hsl(var(--muted-foreground));
+  --tw-prose-invert-counters: hsl(var(--muted-foreground));
+  --tw-prose-invert-bullets: hsl(var(--primary));
+  --tw-prose-invert-hr: hsl(var(--border));
+  --tw-prose-invert-quote-borders: hsl(var(--border));
+}
+
+.dark .bani-ai-screen .text-sage > .lucide-sparkles {
+  color: hsl(var(--ai-highlight));
+}
