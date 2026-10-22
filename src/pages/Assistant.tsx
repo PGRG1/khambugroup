@@ -304,7 +304,7 @@ export default function Assistant() {
   );
 
   return (
-    <div className="flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
+    <div className="bani-ai-evergreen flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2.5">
