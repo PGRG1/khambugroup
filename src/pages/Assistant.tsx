@@ -265,7 +265,7 @@ export default function Assistant() {
 
   const Composer = (
     <div className="w-full">
-      <div className="bani-ai-composer flex items-end gap-2 rounded-2xl border border-border bg-card/70 p-2">
+      <div className="flex items-end gap-2 rounded-2xl border border-border bg-card/70 p-2">
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -304,7 +304,7 @@ export default function Assistant() {
   );
 
   return (
-    <div className="bani-ai-screen flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
+    <div className="flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2.5">
