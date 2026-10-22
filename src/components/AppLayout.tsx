@@ -4,8 +4,12 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { UserMenu } from "@/components/UserMenu";
+import { useLocation } from "react-router-dom";
+import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
+import { isRevenueRoute } from "@/utils/revenueNavigation";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
   const { isPreviewActive } = usePreviewMode();
   const topPad = isPreviewActive ? "pt-10" : "";
 
@@ -19,6 +23,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <UserMenu />
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
+            {isRevenueRoute(pathname) && <RevenueNavigation />}
             {children}
           </div>
         </main>

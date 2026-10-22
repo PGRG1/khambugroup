@@ -29,6 +29,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { Link, useLocation } from "react-router-dom";
+import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
+import { isRevenueRoute, revenueLanding } from "@/utils/revenueNavigation";
 
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
@@ -37,15 +40,6 @@ const navItems: (Item & { icon: any })[] = [
   { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Your Finance Team", url: "/finance-team", icon: Users, pageKey: "finance" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
-];
-
-const revenueItems: Item[] = [
-  { title: "Overview", url: "/revenue", pageKey: "revenue", end: true },
-  { title: "Analysis", url: "/revenue/analysis", pageKey: "revenue" },
-  { title: "Targets", url: "/forecast/assembly", pageKey: "forecast" },
-  { title: "New Targets", url: "/revenue/targets-new", pageKey: "forecast" },
-  { title: "Sales Records", url: "/sales-data", pageKey: "revenue" },
-  { title: "Revenue Setup", url: "/revenue/setup", pageKey: "revenue" },
 ];
 
 const financeItems: Item[] = [
@@ -318,6 +312,10 @@ function CollapsibleNavGroup({
 }
 
 export function AppSidebar() {
+  const { pathname, search } = useLocation();
+  const revenueAccess = useRevenueNavigationAccess();
+  const revenueDestination = revenueLanding(revenueAccess.sidebarRevenue, revenueAccess.sidebarForecast);
+  const revenueActive = isRevenueRoute(pathname);
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const { isPlatformAdmin } = usePlatformAdmin();
@@ -352,11 +350,6 @@ export function AppSidebar() {
 
   const visibleItems = navItems.filter(item => {
     if (item.pageKey === "home") return true;
-    if (isAdmin && !isPreviewActive) return true;
-    return showInSidebar(item.pageKey!);
-  });
-
-  const visibleRevenueItems = revenueItems.filter(item => {
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey!);
   });
@@ -426,17 +419,20 @@ export function AppSidebar() {
 
         <div className="mx-3 h-px bg-sidebar-border/60" />
 
-        {visibleRevenueItems.length > 0 && (
-          <CollapsibleNavGroup
-            label="Revenue"
-            icon={TrendingUp}
-            defaultOpen={groupState.revenue}
-            onOpenChange={(o) => setGroup("revenue", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              {visibleRevenueItems.map((it) => <ChildLink key={it.url} item={it} />)}
+        {revenueDestination && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to={revenueDestination === pathname ? pathname + search : revenueDestination} aria-current={revenueActive ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", revenueActive && "glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100")}>
+                    <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
-          </CollapsibleNavGroup>
+          </SidebarGroup>
         )}
 
         <CollapsibleNavGroup
