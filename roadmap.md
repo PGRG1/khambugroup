@@ -4,7 +4,7 @@
 
 - [x] Single permission-aware Revenue sidebar destination and shared route-driven bar
 - [x] Preserve daily forecasts, detailed targets, legacy routes and current-page queries
-- [ ] Validate focused tests, preview availability and baseline diff
+- [x] Five focused tests and preview build passed; baseline diff scoped to navigation and documentation; authenticated visual inspection unavailable (preview signed out)
 
 ## Invoice scanner reliability fix (complete)
 
