@@ -412,31 +412,3 @@ body,
 .bani-visible-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
-
-/* Bani AI dark colour trial — Evergreen / Eucalyptus / Ivory (scoped to /assistant) */
-.dark .bani-ai-evergreen {
-  --background: 171 35% 10%;        /* #10211E */
-  --foreground: 48 33% 94%;         /* #F4F2EA */
-  --card: 165 34% 17%;              /* #1C3932 */
-  --card-foreground: 48 33% 94%;
-  --popover: 165 34% 17%;
-  --popover-foreground: 48 33% 94%;
-  --primary: 156 19% 54%;           /* #729F8D */
-  --primary-foreground: 171 35% 10%;
-  --secondary: 165 30% 20%;
-  --secondary-foreground: 48 33% 94%;
-  --muted: 165 30% 20%;
-  --muted-foreground: 153 12% 70%;  /* #A9BBB3 */
-  --accent: 156 19% 54%;
-  --accent-foreground: 171 35% 10%;
-  --sage: 156 19% 54%;
-  --border: 158 21% 28%;            /* #39574C */
-  --input: 158 21% 28%;
-  --ring: 151 32% 81%;              /* #C2DCCF */
-  background:
-    radial-gradient(70% 55% at 0% 0%, hsl(167 44% 17% / 0.85), transparent 70%),
-    hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-.dark .bani-ai-evergreen textarea { background: transparent; }
-.dark .bani-ai-evergreen textarea::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
