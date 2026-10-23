@@ -488,6 +488,12 @@ html:not(.dark) .app-atmosphere h1 {
 html:not(.dark) .app-atmosphere h1 ~ p {
   color: hsl(var(--bone) / 0.82);
 }
+html:not(.dark) .app-atmosphere p.text-muted-foreground {
+  color: hsl(var(--bone) / 0.9);
+}
+html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card, table, form) p.text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
 html:not(.dark) .app-atmosphere .home-greeting h1 span {
   color: hsl(var(--bone) / 0.85);
 }
