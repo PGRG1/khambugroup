@@ -353,7 +353,7 @@ export function AppSidebar() {
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
   return (
-    <Sidebar className="border-r border-sidebar-border">
+    <Sidebar variant="floating">
       {/* Workspace identity */}
       <div className={cn("px-4 py-3.5 border-b border-sidebar-border", isPreviewActive && "mt-10")}>
         <div className="flex items-center gap-2.5">

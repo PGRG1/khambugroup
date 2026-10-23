@@ -1,6 +1,6 @@
 # Project Architecture Rules
 
-- ThemeProvider enforces fixed light resolution without profile or OS hydration; AppLayout isolates a pointer-inert viewport-fixed atmosphere behind tenant content, with tenant-scoped surface/sidebar tokens (including mobile portals), preserving platform styles and overlay stacking.
+- ThemeProvider enforces fixed light resolution without profile or OS hydration; AppLayout mounts one pointer-inert viewport-fixed atmosphere as the first tenant wrapper child behind the floating sidebar and main content, with tenant-scoped glass tokens (including mobile portals), preserving platform styles and overlay stacking.
 
 - All invoice-scanner product links must use `buildMatchLinkPatch`; this keeps supplier-specific Items Master display/save fields atomic while preserving scanned matching evidence.
 - Scanner price updates must write the linked supplier entry first and synchronize canonical item cost fields from that supplier conversion; prices are supplier-specific.- "Your Finance Team" figures come only from `supabase/functions/_shared/financeTeamReview.ts`; the `finance-team` function may use AI to word those facts but must reject output with unknown numbers or finding keys, so reviews stay grounded.
