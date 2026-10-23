@@ -3,24 +3,12 @@ import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  Send,
-  Sparkles,
-  User,
-  Square,
-  Plus,
-  TrendingDown,
-  Truck,
-  Users,
-  Target,
-  MessageSquare,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { ArrowUp, Mic, Square, Plus, History } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { AssistantChart, type ChartSpec } from "@/components/assistant/AssistantChart";
 import {
   assistantScopeKey,
@@ -38,14 +26,14 @@ import {
 type Msg = AssistantMessage<ChartSpec>;
 type Conversation = AssistantConversation<ChartSpec>;
 
-const SUGGESTIONS: { text: string; Icon: typeof TrendingDown }[] = [
-  { text: "Where am I losing margin this month?", Icon: TrendingDown },
-  { text: "Which suppliers raised prices in the last 90 days?", Icon: Truck },
-  { text: "Compare labour cost against revenue", Icon: Users },
-  { text: "What should I focus on this week?", Icon: Target },
+const SUGGESTIONS: { text: string; label: string }[] = [
+  { text: "Where am I losing margin this month?", label: "Margin leaks" },
+  { text: "Which suppliers raised prices in the last 90 days?", label: "Supplier prices" },
+  { text: "Compare labour cost against revenue", label: "Labour vs revenue" },
+  { text: "What should I focus on this week?", label: "Focus this week" },
 ];
 
-const DISCLAIMER = "Bani can make mistakes. Verify before taking action.";
+const DISCLAIMER = "Bani can make mistakes. Verify before acting.";
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `c-${Date.now()}-${Math.random()}`;
@@ -256,149 +244,196 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      speech.stop();
       send(input);
     }
   };
 
+  // Voice input (browser only, never auto-sends).
+  const voiceBaseRef = useRef("");
+  const speech = useSpeechInput({
+    onTranscript: (t) => {
+      const base = voiceBaseRef.current;
+      setInput(base ? `${base} ${t}` : t);
+    },
+    onError: () =>
+      toast({ title: "Microphone unavailable. Check your browser permissions.", variant: "destructive" }),
+  });
+  const speechStopRef = useRef(speech.stop);
+  speechStopRef.current = speech.stop;
+  useEffect(() => { speechStopRef.current(); }, [scopeKey]);
+
+  const [focused, setFocused] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [input]);
+
   const history = visibleConversations(conversations, activeId);
   const placement = composerPlacement(messages.length);
+  const hasText = !!input.trim();
+
+  const actionButton = () => {
+    if (loading)
+      return { icon: <Square className="h-3.5 w-3.5 fill-current" />, label: "Stop generating", onClick: stop, disabled: false };
+    if (speech.listening)
+      return { icon: <Square className="h-3.5 w-3.5 fill-current" />, label: "Stop voice input", onClick: speech.stop, disabled: false };
+    if (!hasText && speech.supported)
+      return {
+        icon: <Mic className="h-4 w-4" />,
+        label: "Start voice input",
+        onClick: () => { voiceBaseRef.current = input.trim(); speech.start(); },
+        disabled: !scopeReady,
+      };
+    return {
+      icon: <ArrowUp className="h-4 w-4" />,
+      label: "Send question",
+      onClick: () => send(input),
+      disabled: !canSendFn({ text: input, loading, scopeReady }),
+    };
+  };
+  const btn = actionButton();
 
   const Composer = (
-    <div className="w-full">
-      <div className="flex items-end gap-2 rounded-2xl border border-border bg-card/70 p-2">
-        <Textarea
+    <div className="relative w-full">
+      <div className="bani-glass flex items-end gap-2 rounded-[24px] py-2 pl-[18px] pr-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white/70">
+        <textarea
+          ref={taRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
           onKeyDown={onKeyDown}
-          placeholder="Ask about revenue, margins, suppliers, labour, or cash flow…"
-          aria-label="Ask Bani Analyst a question"
+          placeholder={speech.listening ? "Listening…" : "Ask Bani…"}
+          aria-label="Ask Bani a question"
           rows={1}
-          className="min-h-[44px] max-h-[180px] resize-none border-0 bg-transparent text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="bani-input min-h-[36px] flex-1 resize-none self-center border-0 bg-transparent py-[7px] text-[15px] leading-[22px] outline-none"
         />
-        {loading ? (
-          <Button onClick={stop} variant="secondary" className="h-10 shrink-0 gap-1.5 rounded-xl" aria-label="Stop generating">
-            <Square className="h-3.5 w-3.5" />
-            Stop
-          </Button>
-        ) : (
-          <Button
-            onClick={() => send(input)}
-            disabled={!canSendFn({ text: input, loading, scopeReady })}
-            className="h-10 shrink-0 gap-1.5 rounded-xl"
-            aria-label="Send question"
-          >
-            <Send className="h-3.5 w-3.5" />
-            Ask
-          </Button>
-        )}
+        <button
+          type="button"
+          onClick={btn.onClick}
+          disabled={btn.disabled}
+          aria-label={btn.label}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40"
+          style={{ background: "#1F3A37" }}
+        >
+          {speech.listening && <span className="bani-mic-pulse pointer-events-none absolute inset-0 rounded-full" />}
+          {btn.icon}
+        </button>
       </div>
       {!scopeReady && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-center text-xs text-white/80">
           {tenantLoading ? "Loading your workspace…" : "Select a workspace to ask questions."}
         </p>
       )}
-      <p className="mt-2 text-center text-[11px] text-muted-foreground">{DISCLAIMER}</p>
     </div>
   );
 
   return (
-    <div className="flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
-      {/* Header */}
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <BaniLoginMark className="h-5 w-[11px] shrink-0 text-foreground" />
-          <span className="font-display text-sm tracking-tight">BANI</span>
-          <span className="text-xs text-muted-foreground">AI</span>
-        </div>
-        <Button variant="ghost" size="sm" className="gap-1.5" onClick={startNewConversation} aria-label="Start a new conversation">
-          <Plus className="h-3.5 w-3.5" />
-          New
-        </Button>
-      </header>
+    <div className="relative flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
+      <style>{`
+        .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
+        .bani-input{color:#14302D}.bani-input::placeholder{color:#7A8C88}
+        @keyframes bani-pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,0.55)}100%{box-shadow:0 0 0 9px rgba(255,255,255,0)}}
+        .bani-mic-pulse{animation:bani-pulse 1.4s ease-out infinite}
+        @keyframes bani-fade{from{opacity:0}to{opacity:1}}
+        .bani-fade{animation:bani-fade 150ms ease-out}
+        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade{animation:none}}
+      `}</style>
 
-      {/* Scrollable body */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        data-testid="assistant-scroll"
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6"
-      >
-        {placement === "welcome" ? (
-          <div className="mx-auto w-full max-w-[820px]">
-            <div className="mb-6 flex items-center gap-2 text-sage">
-              <Sparkles className="h-4 w-4" />
-              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">BANI AI</span>
-            </div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-              What would you like to understand?
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Ask about revenue, margins, suppliers, labour, or cash flow.
-            </p>
-
-            <div className="mt-7">{Composer}</div>
-
-            <div className="mt-7 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {SUGGESTIONS.map(({ text, Icon }) => (
-                <button
-                  key={text}
-                  type="button"
-                  onClick={() => send(text)}
-                  disabled={!scopeReady || loading}
-                  className={cn(
-                    "flex items-start gap-2.5 rounded-xl border border-border bg-card/60 px-4 py-3 text-left text-sm transition-colors",
-                    "hover:border-sage/40 hover:bg-card disabled:opacity-50",
-                  )}
-                >
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-sage" />
-                  <span>{text}</span>
+      {/* Top-right controls */}
+      <div className="absolute right-2 top-2 z-20 flex gap-2 sm:right-4 sm:top-3">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" aria-label="Recent chats" className="flex h-8 w-8 items-center justify-center rounded-full text-white/90" style={{ background: "rgba(255,255,255,0.16)" }}>
+              <History className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 bg-white p-1.5">
+            {history.length === 0 ? (
+              <p className="px-2 py-2 text-sm text-muted-foreground">No recent chats</p>
+            ) : (
+              history.map((c) => (
+                <button key={c.id} type="button" onClick={() => setActiveId(c.id)} className="block w-full truncate rounded-md px-2 py-2 text-left text-sm hover:bg-muted">
+                  {c.title}
                 </button>
-              ))}
-            </div>
+              ))
+            )}
+          </PopoverContent>
+        </Popover>
+        <button
+          type="button"
+          aria-label="New chat"
+          onClick={() => { speech.stop(); startNewConversation(); }}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white/90"
+          style={{ background: "rgba(255,255,255,0.16)" }}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
 
-            {history.length > 0 && (
-              <div className="mt-9">
-                <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Recent conversations · This session
-                </p>
-                <div className="flex flex-col gap-1">
-                  {history.map((c) => (
+      {placement === "welcome" ? (
+        <div className="flex min-h-0 flex-1 flex-col px-4">
+          <div style={{ flex: 42 }} />
+          <div className="mx-auto w-full max-w-[640px]">
+            {Composer}
+            <div className="mt-3 min-h-[30px]">
+              {focused && !input && !speech.listening && (
+                <div className="bani-fade flex flex-wrap justify-center gap-2">
+                  {SUGGESTIONS.map(({ text, label }) => (
                     <button
-                      key={c.id}
+                      key={text}
                       type="button"
-                      onClick={() => setActiveId(c.id)}
-                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => send(text)}
+                      disabled={!scopeReady || loading}
+                      className="rounded-full px-3 py-1.5 text-xs text-white disabled:opacity-50"
+                      style={{ background: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.55)" }}
                     >
-                      <MessageSquare className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{c.title}</span>
+                      {label}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="mx-auto w-full max-w-[820px] space-y-6">
-            {messages.map((m, i) => (
-              <MessageBlock key={i} msg={m} />
-            ))}
-            {loading && messages[messages.length - 1]?.role === "user" && (
-              <div className="flex gap-3">
-                <BaniLoginMark className="mt-1 h-4 w-[9px] shrink-0 text-sage" />
-                <BaniProcessingMark size={22} />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Docked composer during an active chat */}
-      {placement === "docked" && (
-        <div className="shrink-0 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-6">
-          <div className="mx-auto w-full max-w-[820px]">{Composer}</div>
+          <div style={{ flex: 58 }} />
         </div>
+      ) : (
+        <>
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            data-testid="assistant-scroll"
+            className="min-h-0 flex-1 overflow-y-auto px-4 pt-14"
+            style={{ paddingBottom: "calc(150px + env(safe-area-inset-bottom))" }}
+          >
+            <div className="mx-auto w-full max-w-[720px] space-y-5">
+              {messages.map((m, i) => (
+                <MessageBlock key={i} msg={m} />
+              ))}
+              {loading && messages[messages.length - 1]?.role === "user" && (
+                <div className="bani-glass inline-flex rounded-[18px] px-[18px] py-4">
+                  <BaniProcessingMark size={22} />
+                </div>
+              )}
+            </div>
+          </div>
+          <div
+            className="pointer-events-none absolute inset-x-0 px-4"
+            style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
+          >
+            <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
+              {Composer}
+              <p className="mt-2 text-center text-[10px]" style={{ color: "rgba(20,45,43,0.5)" }}>{DISCLAIMER}</p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -407,22 +442,25 @@ export default function Assistant() {
 function MessageBlock({ msg }: { msg: Msg }) {
   if (msg.role === "user") {
     return (
-      <div className="flex justify-end gap-3">
-        <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-secondary px-4 py-2.5 text-sm text-secondary-foreground">
+      <div className="flex justify-end">
+        <div
+          className="max-w-[80%] px-4 py-2.5 text-sm text-white"
+          style={{ background: "rgba(255,255,255,0.28)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "18px 18px 4px 18px" }}
+        >
           <p className="whitespace-pre-wrap">{msg.content}</p>
-        </div>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
-          <User className="h-4 w-4 text-muted-foreground" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-3">
-      <BaniLoginMark className="mt-1.5 h-4 w-[9px] shrink-0 text-sage" />
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="prose prose-sm dark:prose-invert max-w-none
+    <div className="bani-glass rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <BaniLoginMark className="h-3.5 w-[7px] shrink-0 text-sage" />
+        <span>Bani</span>
+      </div>
+      <div className="min-w-0 space-y-3">
+        <div className="prose prose-sm max-w-none text-inherit
           prose-p:my-2 prose-p:leading-relaxed
           prose-headings:font-display prose-headings:mt-4 prose-headings:mb-2
           prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
@@ -435,18 +473,18 @@ function MessageBlock({ msg }: { msg: Msg }) {
             remarkPlugins={[remarkGfm]}
             components={{
               table: ({ node, ...props }) => (
-                <div className="my-3 overflow-x-auto rounded-lg border border-border">
+                <div className="my-3 overflow-x-auto">
                   <table className="w-full border-collapse text-sm" {...props} />
                 </div>
               ),
-              thead: ({ node, ...props }) => <thead className="bg-muted/60" {...props} />,
+              thead: ({ node, ...props }) => <thead {...props} />,
               th: ({ node, ...props }) => (
-                <th className="border-b border-border px-3 py-2 text-left font-semibold text-foreground" {...props} />
+                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground" style={{ borderBottom: "1px solid rgba(20,45,43,0.08)" }} {...props} />
               ),
               td: ({ node, ...props }) => (
-                <td className="border-b border-border/50 px-3 py-2 last:border-0" {...props} />
+                <td className="px-3 py-2" style={{ borderBottom: "1px solid rgba(20,45,43,0.08)" }} {...props} />
               ),
-              tr: ({ node, ...props }) => <tr className="even:bg-muted/20" {...props} />,
+              tr: ({ node, ...props }) => <tr {...props} />,
             }}
           >
             {msg.content || "…"}
