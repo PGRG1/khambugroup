@@ -94,7 +94,7 @@ export default function MyKpiView() {
 
   return (
     <div className="space-y-5">
-      <p className="text-[13px] text-muted-foreground">
+      <p className="on-band text-[13px] text-muted-foreground">
         You are responsible for {snapshots.length} KPI {snapshots.length === 1 ? "card" : "cards"}.
       </p>
 
