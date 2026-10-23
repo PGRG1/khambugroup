@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   assistantScopeKey,
   canSend,
+  checkedCategories,
   composerPlacement,
   conversationTitle,
   createConversation,
@@ -71,5 +72,27 @@ describe("session conversations", () => {
       { role: "user", content: "hi" },
       { role: "assistant", content: "there" },
     ]);
+  });
+});
+
+describe("live steps", () => {
+  it("toRequestMessages never sends steps or duration", () => {
+    const out = toRequestMessages([
+      { role: "assistant", content: "a", steps: [{ label: "Pulling sales", kind: "sales" }], durationMs: 900 },
+    ]);
+    expect(out).toEqual([{ role: "assistant", content: "a" }]);
+  });
+  it("joins distinct data categories naturally and skips chart", () => {
+    expect(
+      checkedCategories([
+        { label: "x", kind: "sales" },
+        { label: "y", kind: "invoices" },
+        { label: "z", kind: "sales" },
+        { label: "c", kind: "chart" },
+        { label: "p", kind: "prices" },
+      ]),
+    ).toBe("sales, invoices and prices");
+    expect(checkedCategories([{ label: "Reading your question" }, { label: "c", kind: "chart" }])).toBeNull();
+    expect(checkedCategories([{ label: "pl", kind: "pl" }])).toBe("P&L");
   });
 });
