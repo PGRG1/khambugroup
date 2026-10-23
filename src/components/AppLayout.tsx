@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { useLocation } from "react-router-dom";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
+import { KpiNavigation } from "@/components/kpi/KpiNavigation";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -24,6 +25,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
             {isRevenueRoute(pathname) && <RevenueNavigation />}
+            {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
             {children}
           </div>
         </main>
