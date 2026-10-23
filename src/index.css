@@ -417,16 +417,67 @@ body,
 /* =========================================================
    TENANT ATMOSPHERE — fixed viewport-sized blend across the full
    tenant main shell, independent of content width or page length.
-   Colour stays visible below the fold; cream softens the blend.
+   A noninteractive fixed layer keeps colour visible below the fold.
    No decorative shapes. PlatformLayout remains unaffected.
    ========================================================= */
+.tenant-portal {
+  --background: 150 12% 98%;
+  --card: 150 14% 99%;
+  --muted: 150 12% 94%;
+  --secondary: 150 12% 94%;
+  --border: 158 15% 82%;
+  --input: 158 15% 82%;
+  --shadow-card: 0 4px 24px -8px hsl(174 44% 17% / 0.18);
+  --tenant-atmosphere: linear-gradient(145deg, #2f5e5a 0%, #4f7a73 45%, #8faf9d 76%, #dce8da 100%);
+  --tenant-frost: 150 16% 98%;
+}
+
+.tenant-portal,
+body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
+  --sidebar-background: 174 44% 17%;
+  --sidebar-foreground: 140 22% 94%;
+  --sidebar-accent: 164 26% 26%;
+  --sidebar-accent-foreground: 140 22% 94%;
+  --sidebar-border: 168 22% 30%;
+  --tenant-sidebar-depth: linear-gradient(165deg, #183d3b, #234c47);
+}
+
+.tenant-portal [data-sidebar="sidebar"],
+body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
+  background: var(--tenant-sidebar-depth);
+}
+
+.tenant-portal [data-sidebar="sidebar"] .glass-active,
+body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] .glass-active {
+  background: hsl(140 22% 86% / 0.12);
+  border-color: hsl(140 22% 86% / 0.18);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.tenant-portal [data-sidebar="sidebar"] .text-muted-foreground,
+body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] .text-muted-foreground {
+  color: hsl(var(--sidebar-foreground) / 0.65);
+}
+
 html:not(.dark) .app-atmosphere {
-  background:
-    linear-gradient(180deg, rgba(245, 244, 240, 0) 0%, rgba(245, 244, 240, 0.28) 100%),
-    linear-gradient(125deg, #2f5e5a 0%, #4f7a73 32%, #8faf9d 62%, #dce8da 84%, #f5f4f0 100%);
-  background-attachment: fixed;
-  background-size: 100% 100vh;
-  background-repeat: no-repeat;
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+  background: transparent;
+}
+
+html:not(.dark) .app-atmosphere::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--tenant-atmosphere);
+}
+
+.tenant-portal .tenant-topbar {
+  background: hsl(var(--tenant-frost) / 0.94);
 }
 
 /* Top-of-page titles sit on the dark band — lighten them. Titles and
@@ -436,6 +487,12 @@ html:not(.dark) .app-atmosphere h1 {
 }
 html:not(.dark) .app-atmosphere h1 ~ p {
   color: hsl(var(--bone) / 0.82);
+}
+html:not(.dark) .app-atmosphere p.text-muted-foreground {
+  color: hsl(var(--bone) / 0.9);
+}
+html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card, table, form) p.text-muted-foreground {
+  color: hsl(var(--muted-foreground));
 }
 html:not(.dark) .app-atmosphere .home-greeting h1 span {
   color: hsl(var(--bone) / 0.85);
@@ -490,7 +547,9 @@ html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).bg-muted {
    inside cards. Light theme only. */
 html:not(.dark) .app-atmosphere .glass-surface,
 html:not(.dark) .app-atmosphere .card-glass {
-  background: hsl(var(--card) / 0.92);
+  background: hsl(var(--card) / 0.97);
+  border-color: hsl(var(--border));
+  box-shadow: var(--shadow-card);
 }
 
 /* Band text helpers — muted text sitting directly on the dark upper
