@@ -170,15 +170,6 @@ const pettyCashMaster: Item[] = [
   { title: "Classifications", url: "/petty-cash/classifications" },
 ];
 
-const hrItems: Item[] = [
-  { title: "Dashboard", url: "/hr", end: true },
-  { title: "Employee Directory", url: "/hr/employees" },
-  { title: "Schedule", url: "/hr/schedule" },
-  { title: "Leave Management", url: "/hr/leave" },
-  { title: "Payroll", url: "/hr/payroll" },
-  { title: "Payroll Payables", url: "/hr/payroll/payables" },
-  
-];
 
 
 
@@ -560,16 +551,19 @@ export function AppSidebar() {
 
 
         {showHR && (
-          <CollapsibleNavGroup
-            label="People"
-            icon={Users}
-            defaultOpen={groupState.hr}
-            onOpenChange={(o) => setGroup("hr", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              {hrItems.map((it) => <ChildLink key={it.url} item={it} />)}
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100")}>
+                    <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
-          </CollapsibleNavGroup>
+          </SidebarGroup>
         )}
 
         {showAdmin && (
