@@ -415,21 +415,18 @@ body,
 
 
 /* =========================================================
-   TENANT ATMOSPHERE — light-theme-only atmospheric gradient on
-   the shared tenant shell (AppLayout content column), so every
-   tenant page gets the approved band: petrol green upper left,
-   muted teal upper middle, sage mint upper right, fading into
-   warm cream below. No decorative shapes.
-   Dark mode is untouched: every visual rule is gated by
-   html:not(.dark). The platform control plane (PlatformLayout)
-   is unaffected.
+   TENANT ATMOSPHERE — fixed viewport-sized blend across the full
+   tenant main shell, independent of content width or page length.
+   Colour stays visible below the fold; cream softens the blend.
+   No decorative shapes. PlatformLayout remains unaffected.
    ========================================================= */
 html:not(.dark) .app-atmosphere {
   background:
-    radial-gradient(72% 300px at 100% 0%, rgba(220, 232, 218, 0.95) 0%, rgba(143, 175, 157, 0.5) 48%, rgba(143, 175, 157, 0) 76%),
-    radial-gradient(70% 320px at 8% 0%, rgba(47, 94, 90, 0.92) 0%, rgba(47, 94, 90, 0) 70%),
-    radial-gradient(70% 300px at 45% 0%, rgba(79, 122, 115, 0.75) 0%, rgba(79, 122, 115, 0) 72%),
-    linear-gradient(180deg, #46756d 0px, #93ae9f 200px, #f5f4f0 430px);
+    linear-gradient(180deg, rgba(245, 244, 240, 0) 0%, rgba(245, 244, 240, 0.28) 100%),
+    linear-gradient(125deg, #2f5e5a 0%, #4f7a73 32%, #8faf9d 62%, #dce8da 84%, #f5f4f0 100%);
+  background-attachment: fixed;
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
 }
 
 /* Top-of-page titles sit on the dark band — lighten them. Titles and
