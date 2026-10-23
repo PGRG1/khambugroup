@@ -371,7 +371,7 @@ export default function Home() {
   return (
     <div className="w-full mx-auto space-y-6">
       {/* Greeting */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="home-greeting flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight truncate">
             {greeting()}
@@ -383,7 +383,7 @@ export default function Home() {
           </h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">{dayLabel()}</p>
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="home-venue-filters flex items-center gap-1 flex-wrap">
           {["All Venues", ...activeVenues].map((v) => (
             <button
               key={v}

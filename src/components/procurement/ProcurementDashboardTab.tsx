@@ -770,7 +770,7 @@ export default function ProcurementDashboardTab() {
           )}
         </div>
       </div>
-      <div className="text-[11px] text-muted-foreground tabular-nums -mt-2">{scopeLine}</div>
+      <div className="on-band text-[11px] text-muted-foreground tabular-nums -mt-2">{scopeLine}</div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">

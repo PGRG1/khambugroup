@@ -174,7 +174,7 @@ function Empty({ text }: { text: string }) {
 function ReviewMeta({ review }: { review: Review }) {
   const ai = AI_LABEL[review.ai_status ?? ""];
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+    <div className="on-band flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
       <span className="text-foreground font-medium">{review.venue_label}</span>
       <span>· {review.review_type === "daily" ? "Daily" : "Weekly"} review · {fmtRange(review.period_start, review.period_end)}</span>
       {review.comparison_start && <span>· compared with {fmtRange(review.comparison_start, review.comparison_end!)}</span>}

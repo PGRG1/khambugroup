@@ -412,3 +412,111 @@ body,
 .bani-visible-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+
+/* =========================================================
+   TENANT ATMOSPHERE — light-theme-only atmospheric gradient on
+   the shared tenant shell (AppLayout content column), so every
+   tenant page gets the approved band: petrol green upper left,
+   muted teal upper middle, sage mint upper right, fading into
+   warm cream below. No decorative shapes.
+   Dark mode is untouched: every visual rule is gated by
+   html:not(.dark). The platform control plane (PlatformLayout)
+   is unaffected.
+   ========================================================= */
+html:not(.dark) .app-atmosphere {
+  background:
+    radial-gradient(72% 300px at 100% 0%, rgba(220, 232, 218, 0.95) 0%, rgba(143, 175, 157, 0.5) 48%, rgba(143, 175, 157, 0) 76%),
+    radial-gradient(70% 320px at 8% 0%, rgba(47, 94, 90, 0.92) 0%, rgba(47, 94, 90, 0) 70%),
+    radial-gradient(70% 300px at 45% 0%, rgba(79, 122, 115, 0.75) 0%, rgba(79, 122, 115, 0) 72%),
+    linear-gradient(180deg, #46756d 0px, #93ae9f 200px, #f5f4f0 430px);
+}
+
+/* Top-of-page titles sit on the dark band — lighten them. Titles and
+   sibling paragraphs inside cards are reset to normal card colours. */
+html:not(.dark) .app-atmosphere h1 {
+  color: hsl(var(--bone));
+}
+html:not(.dark) .app-atmosphere h1 ~ p {
+  color: hsl(var(--bone) / 0.82);
+}
+html:not(.dark) .app-atmosphere .home-greeting h1 span {
+  color: hsl(var(--bone) / 0.85);
+}
+html:not(.dark) .app-atmosphere .card-glass h1,
+html:not(.dark) .app-atmosphere .glass-surface h1,
+html:not(.dark) .app-atmosphere .bg-card h1 {
+  color: hsl(var(--card-foreground));
+}
+html:not(.dark) .app-atmosphere .card-glass h1 ~ p,
+html:not(.dark) .app-atmosphere .glass-surface h1 ~ p,
+html:not(.dark) .app-atmosphere .bg-card h1 ~ p {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Frosted venue filter pills (Home greeting row) */
+html:not(.dark) .app-atmosphere .home-venue-filters button {
+  background: hsl(var(--card) / 0.6);
+  border-color: hsl(var(--card) / 0.55);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+html:not(.dark) .app-atmosphere .home-venue-filters button.border-primary {
+  background: hsl(var(--card) / 0.88);
+  border-color: hsl(var(--primary));
+  color: hsl(var(--accent));
+}
+
+/* Frosted module tab bars (Revenue / KPI / People navigation).
+   Links and buttons both: the navs render asChild anchors. */
+html:not(.dark) .app-atmosphere nav[aria-label="Revenue"] :is(a, button),
+html:not(.dark) .app-atmosphere nav[aria-label="KPI"] :is(a, button),
+html:not(.dark) .app-atmosphere nav[aria-label="People"] :is(a, button) {
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--card) / 0.5);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).text-primary {
+  background: hsl(var(--card) / 0.9);
+  border-color: hsl(var(--primary) / 0.6);
+  color: hsl(var(--accent));
+}
+html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).bg-muted {
+  background: hsl(var(--muted) / 0.9);
+  color: hsl(var(--foreground));
+}
+
+/* Near-opaque soft white cards — flat frosted surfaces, no gradients
+   inside cards. Light theme only. */
+html:not(.dark) .app-atmosphere .glass-surface,
+html:not(.dark) .app-atmosphere .card-glass {
+  background: hsl(var(--card) / 0.92);
+}
+
+/* Band text helpers — muted text sitting directly on the dark upper
+   band (page-title subtitles, eyebrows, header meta lines). Elements
+   inside cards/tables opt out via the reset rules below. */
+html:not(.dark) .on-band {
+  color: hsl(var(--bone) / 0.8);
+}
+html:not(.dark) .app-atmosphere h1 .text-muted-foreground {
+  color: hsl(var(--bone) / 0.8);
+}
+html:not(.dark) .app-atmosphere h1 .text-gradient-gold {
+  background: none;
+  -webkit-text-fill-color: hsl(var(--bone));
+}
+html:not(.dark) .app-atmosphere .uppercase.text-muted-foreground {
+  color: hsl(var(--bone) / 0.75);
+}
+/* Reset inside card/table surfaces so dense tables and card labels
+   keep their normal muted colour. */
+html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card, .glass-active, .pl-table, table) .uppercase.text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card) h1 .text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
