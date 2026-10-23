@@ -412,3 +412,87 @@ body,
 .bani-visible-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+
+/* =========================================================
+   HOME ATMOSPHERE — top-heavy petrol→mint→cream gradient for
+   the Home page (route /) in LIGHT theme only. Dark mode is
+   untouched: every visual rule is gated by html:not(.dark).
+   ========================================================= */
+.home-atmosphere {
+  /* Bleed into AppLayout's content padding so the gradient reaches the
+     edges, then restore the original inner spacing (mirrors the
+     px-3/py-4 · sm:5 · md:6 · lg:8 · 2xl:12 scale). Bottom stays flush:
+     the gradient ends on --background bone, so it blends seamlessly. */
+  margin: -1rem -0.75rem 0;
+  padding: 1rem 0.75rem 0;
+}
+@media (min-width: 640px) {
+  .home-atmosphere {
+    margin: -1.25rem -1.25rem 0;
+    padding: 1.25rem 1.25rem 0;
+  }
+}
+@media (min-width: 768px) {
+  .home-atmosphere {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .home-atmosphere {
+    margin: -2rem -2rem 0;
+    padding: 2rem 2rem 0;
+  }
+}
+@media (min-width: 1536px) {
+  .home-atmosphere {
+    margin-left: -3rem;
+    margin-right: -3rem;
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+html:not(.dark) .home-atmosphere {
+  background:
+    radial-gradient(72% 300px at 100% 0%, rgba(220, 232, 218, 0.95) 0%, rgba(143, 175, 157, 0.5) 48%, rgba(143, 175, 157, 0) 76%),
+    radial-gradient(70% 320px at 8% 0%, rgba(47, 94, 90, 0.92) 0%, rgba(47, 94, 90, 0) 70%),
+    radial-gradient(70% 300px at 45% 0%, rgba(79, 122, 115, 0.75) 0%, rgba(79, 122, 115, 0) 72%),
+    linear-gradient(180deg, #46756d 0px, #93ae9f 200px, #f5f4f0 430px);
+}
+
+/* Legibility for text sitting directly on the dark upper band */
+html:not(.dark) .home-atmosphere .home-greeting h1 {
+  color: hsl(var(--bone));
+}
+html:not(.dark) .home-atmosphere .home-greeting h1 span {
+  color: hsl(var(--bone) / 0.85);
+}
+html:not(.dark) .home-atmosphere .home-greeting p {
+  color: hsl(var(--bone) / 0.78);
+}
+
+/* Venue chips: frosted pills that stay readable on both the dark band
+   and the pale mint upper-right. */
+html:not(.dark) .home-atmosphere .home-venue-filters button {
+  background: hsl(var(--card) / 0.6);
+  border-color: hsl(var(--card) / 0.55);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+html:not(.dark) .home-atmosphere .home-venue-filters button.border-primary {
+  background: hsl(var(--card) / 0.88);
+  border-color: hsl(var(--primary));
+  color: hsl(var(--accent));
+}
+
+/* Near-opaque soft white cards — flat surfaces, no gradients inside
+   cards. Light theme only. */
+html:not(.dark) .home-atmosphere .glass-surface,
+html:not(.dark) .home-atmosphere .card-glass {
+  background: hsl(var(--card) / 0.92);
+}
