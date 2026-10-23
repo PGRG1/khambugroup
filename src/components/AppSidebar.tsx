@@ -8,7 +8,6 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
-import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -181,15 +180,6 @@ const hrItems: Item[] = [
   
 ];
 
-const kpiItems: Item[] = [
-  { title: "My KPIs", url: "/kpis/my-cards", pageKey: "kpis" },
-];
-const kpiPlannerItems: Item[] = [
-  { title: "Planner", url: "/kpis/planner" },
-];
-const kpiAdminItems: Item[] = [
-  { title: "KPI Setup", url: "/kpis/setup" },
-];
 
 
 const STORAGE_KEY = "khambu.sidebar.groups";
@@ -323,8 +313,9 @@ export function AppSidebar() {
   const [clientName, setClientName] = useState("");
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
-  const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
-  const kpiCapability = useKpiCapability();
+  const { showInSidebar, canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveUserId || undefined);
+  const showKpi = !permissionsLoading && ((isAdmin && !isPreviewActive) || (showInSidebar("kpis") && canAccessPage("kpis")));
+  const kpiActive = pathname === "/kpis" || pathname.startsWith("/kpis/");
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
@@ -435,18 +426,21 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <CollapsibleNavGroup
-          label="KPIs"
-          icon={Target}
-          defaultOpen={groupState.kpi}
-          onOpenChange={(o) => setGroup("kpi", o)}
-        >
-          <SidebarMenu className="gap-1 pt-1">
-            {kpiItems.map((it) => <ChildLink key={it.url} item={it} />)}
-            {kpiCapability.canPlan && kpiPlannerItems.map((it) => <ChildLink key={it.url} item={it} />)}
-            {kpiCapability.canConfigure && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
-          </SidebarMenu>
-        </CollapsibleNavGroup>
+        {showKpi && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to={pathname === "/kpis/my-cards" ? pathname + search : "/kpis/my-cards"} aria-current={kpiActive ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", kpiActive && "glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100")}>
+                    <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+                    <Target className="h-4 w-4 shrink-0" /><span>KPI</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
 
 
         {showFinance && (
