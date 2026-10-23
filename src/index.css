@@ -415,21 +415,18 @@ body,
 
 
 /* =========================================================
-   TENANT ATMOSPHERE — fixed viewport-sized blend across the full
-   tenant main shell, independent of content width or page length.
-   A noninteractive fixed layer keeps colour visible below the fold.
+   TENANT COLOUR — scrolling header band above a calm cool canvas.
    No decorative shapes. PlatformLayout remains unaffected.
    ========================================================= */
 .tenant-portal {
-  --background: 150 12% 98%;
-  --card: 150 14% 99%;
-  --muted: 150 12% 94%;
-  --secondary: 150 12% 94%;
-  --border: 158 15% 82%;
-  --input: 158 15% 82%;
-  --shadow-card: 0 4px 24px -8px hsl(174 44% 17% / 0.18);
-  --tenant-atmosphere: linear-gradient(145deg, #2f5e5a 0%, #4f7a73 45%, #8faf9d 76%, #dce8da 100%);
-  --tenant-frost: 150 16% 98%;
+  --background: 150 13% 94%;
+  --card: 0 0% 100%;
+  --muted: 150 12% 95%;
+  --secondary: 150 12% 95%;
+  --border: 153 15% 88%;
+  --input: 153 15% 88%;
+  --shadow-card: 0 1px 2px hsl(174 40% 14% / 0.06), 0 4px 16px -8px hsl(174 40% 14% / 0.10);
+  --tenant-tab-accent: #b8975a;
 }
 
 .tenant-portal,
@@ -439,12 +436,13 @@ body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
   --sidebar-accent: 164 26% 26%;
   --sidebar-accent-foreground: 140 22% 94%;
   --sidebar-border: 168 22% 30%;
-  --tenant-sidebar-depth: linear-gradient(165deg, #183d3b, #234c47);
+  --tenant-sidebar-depth: linear-gradient(180deg, #163634, #1b3f3c);
 }
 
 .tenant-portal [data-sidebar="sidebar"],
 body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
   background: var(--tenant-sidebar-depth);
+  border-right: 1px solid hsl(0 0% 100% / 0.06);
 }
 
 .tenant-portal [data-sidebar="sidebar"] .glass-active,
@@ -464,20 +462,28 @@ html:not(.dark) .app-atmosphere {
   position: relative;
   isolation: isolate;
   z-index: 0;
-  background: transparent;
+  background: hsl(var(--background));
 }
 
 html:not(.dark) .app-atmosphere::before {
   content: "";
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 220px;
   z-index: -1;
   pointer-events: none;
-  background: var(--tenant-atmosphere);
+  background: linear-gradient(100deg, #2f5e5a 0%, #4f7a73 60%, #6f9488 100%);
 }
 
 .tenant-portal .tenant-topbar {
-  background: hsl(var(--tenant-frost) / 0.94);
+  background: transparent;
+  border-bottom: 1px solid hsl(0 0% 100% / 0.10);
+}
+.tenant-portal .tenant-topbar [data-sidebar="trigger"],
+.tenant-portal .tenant-topbar [aria-label="User menu"] svg {
+  color: hsl(150 20% 96%);
 }
 
 /* Top-of-page titles sit on the dark band — lighten them. Titles and
@@ -487,12 +493,6 @@ html:not(.dark) .app-atmosphere h1 {
 }
 html:not(.dark) .app-atmosphere h1 ~ p {
   color: hsl(var(--bone) / 0.82);
-}
-html:not(.dark) .app-atmosphere p.text-muted-foreground {
-  color: hsl(var(--bone) / 0.9);
-}
-html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card, table, form) p.text-muted-foreground {
-  color: hsl(var(--muted-foreground));
 }
 html:not(.dark) .app-atmosphere .home-greeting h1 span {
   color: hsl(var(--bone) / 0.85);
@@ -534,8 +534,8 @@ html:not(.dark) .app-atmosphere nav[aria-label="People"] :is(a, button) {
   -webkit-backdrop-filter: blur(8px);
 }
 html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).text-primary {
-  background: hsl(var(--card) / 0.9);
-  border-color: hsl(var(--primary) / 0.6);
+  background: hsl(var(--card));
+  border-color: var(--tenant-tab-accent);
   color: hsl(var(--accent));
 }
 html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).bg-muted {
@@ -543,13 +543,15 @@ html:not(.dark) .app-atmosphere nav[aria-label] :is(a, button).bg-muted {
   color: hsl(var(--foreground));
 }
 
-/* Near-opaque soft white cards — flat frosted surfaces, no gradients
+/* Crisp white cards — solid surfaces, no gradients
    inside cards. Light theme only. */
 html:not(.dark) .app-atmosphere .glass-surface,
 html:not(.dark) .app-atmosphere .card-glass {
-  background: hsl(var(--card) / 0.97);
-  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Band text helpers — muted text sitting directly on the dark upper
@@ -564,14 +566,6 @@ html:not(.dark) .app-atmosphere h1 .text-muted-foreground {
 html:not(.dark) .app-atmosphere h1 .text-gradient-gold {
   background: none;
   -webkit-text-fill-color: hsl(var(--bone));
-}
-html:not(.dark) .app-atmosphere .uppercase.text-muted-foreground {
-  color: hsl(var(--bone) / 0.75);
-}
-/* Reset inside card/table surfaces so dense tables and card labels
-   keep their normal muted colour. */
-html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card, .glass-active, .pl-table, table) .uppercase.text-muted-foreground {
-  color: hsl(var(--muted-foreground));
 }
 html:not(.dark) .app-atmosphere :is(.card-glass, .glass-surface, .bg-card) h1 .text-muted-foreground {
   color: hsl(var(--muted-foreground));
