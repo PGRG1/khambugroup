@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
+import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, Mic, Square, Plus, History } from "lucide-react";
+import { ArrowUp, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +13,7 @@ import { AssistantChart, type ChartSpec } from "@/components/assistant/Assistant
 import {
   assistantScopeKey,
   canSend as canSendFn,
+  checkedCategories,
   composerPlacement,
   conversationTitle,
   createConversation,
@@ -22,6 +22,7 @@ import {
   visibleConversations,
   type AssistantConversation,
   type AssistantMessage,
+  type AssistantStep,
 } from "@/utils/assistantSession";
 
 type Msg = AssistantMessage<ChartSpec>;
@@ -149,13 +150,23 @@ export default function Assistant() {
 
     let assistantSoFar = "";
     const collectedCharts: ChartSpec[] = [];
+    const collectedSteps: AssistantStep[] = [];
+    const startedAt = Date.now();
+    let durationMs: number | undefined;
     const stale = () => requestScopeRef.current !== sentScope || controller.signal.aborted;
-    const upsert = (chunk: string, chart?: ChartSpec) => {
+    const upsert = (chunk: string, chart?: ChartSpec, step?: AssistantStep) => {
       if (stale()) return;
       if (chunk) assistantSoFar += chunk;
       if (chart) collectedCharts.push(chart);
+      if (step) collectedSteps.push(step);
       patchActive(convId, (c) => {
-        const payload: Msg = { role: "assistant", content: assistantSoFar, charts: [...collectedCharts] };
+        const payload: Msg = {
+          role: "assistant",
+          content: assistantSoFar,
+          charts: [...collectedCharts],
+          steps: [...collectedSteps],
+          ...(durationMs !== undefined ? { durationMs } : {}),
+        };
         const last = c.messages[c.messages.length - 1];
         const msgs =
           last?.role === "assistant"
@@ -212,11 +223,29 @@ export default function Assistant() {
           const json = line.slice(6).trim();
           if (json === "[DONE]") {
             done = true;
+            if (assistantSoFar) {
+              durationMs = Date.now() - startedAt;
+              upsert("");
+            }
             break;
           }
           try {
             const parsed = JSON.parse(json);
-            if (parsed.chart) {
+            if (parsed.error) {
+              done = true;
+              const msg = String(parsed.error);
+              const title = /rate limit/i.test(msg) ? "Rate limited" : /credits/i.test(msg) ? "Credits exhausted" : "Assistant error";
+              toast({ title, description: msg, variant: "destructive" });
+              if (!assistantSoFar && !stale()) {
+                patchActive(convId, (c) => {
+                  const last = c.messages[c.messages.length - 1];
+                  return last?.role === "assistant" && !last.content ? { ...c, messages: c.messages.slice(0, -1) } : c;
+                });
+              }
+              break;
+            } else if (parsed.status && typeof parsed.status.label === "string") {
+              upsert("", undefined, { label: parsed.status.label, kind: parsed.status.kind });
+            } else if (parsed.chart) {
               upsert("", parsed.chart as ChartSpec);
             } else {
               const delta = parsed.choices?.[0]?.delta?.content;
@@ -252,8 +281,13 @@ export default function Assistant() {
 
   // Voice input (browser only, never auto-sends).
   const voiceBaseRef = useRef("");
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
+  const voiceModeRef = useRef(false);
+  voiceModeRef.current = voiceMode;
   const speech = useSpeechInput({
     onTranscript: (t) => {
+      if (voiceModeRef.current) { setVoiceText(t); return; }
       const base = voiceBaseRef.current;
       setInput(base ? `${base} ${t}` : t);
     },
@@ -262,7 +296,23 @@ export default function Assistant() {
   });
   const speechStopRef = useRef(speech.stop);
   speechStopRef.current = speech.stop;
-  useEffect(() => { speechStopRef.current(); }, [scopeKey]);
+  useEffect(() => { speechStopRef.current(); setVoiceMode(false); setVoiceText(""); }, [scopeKey]);
+
+  const enterVoice = () => { setVoiceText(""); setVoiceMode(true); speech.start(); };
+  const cancelVoice = () => { speech.stop(); setVoiceMode(false); setVoiceText(""); };
+  const sendVoice = () => {
+    const t = voiceText.trim();
+    speech.stop();
+    setVoiceMode(false);
+    setVoiceText("");
+    if (t) send(t);
+  };
+  useEffect(() => {
+    if (!voiceMode) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelVoice(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const [focused, setFocused] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -301,7 +351,7 @@ export default function Assistant() {
         {speech.supported && (
           <button
             type="button"
-            onClick={speech.listening ? speech.stop : () => { voiceBaseRef.current = input.trim(); speech.start(); }}
+            onClick={speech.listening ? speech.stop : enterVoice}
             disabled={!speech.listening && (!scopeReady || loading)}
             aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
             className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
@@ -353,7 +403,7 @@ export default function Assistant() {
       <button
         type="button"
         aria-label="New chat"
-        onClick={() => { speech.stop(); startNewConversation(); }}
+        onClick={() => { cancelVoice(); startNewConversation(); }}
         className="flex h-8 w-8 items-center justify-center rounded-full text-white"
         style={{ background: "rgba(255,255,255,0.16)" }}
       >
@@ -375,14 +425,18 @@ export default function Assistant() {
         @keyframes bani-pulse{0%{box-shadow:0 0 0 0 rgba(31,58,55,0.35)}100%{box-shadow:0 0 0 7px rgba(31,58,55,0)}}
         .bani-mic-pulse{animation:bani-pulse 1.4s ease-out infinite}
         @keyframes bani-fade{from{opacity:0}to{opacity:1}}
-        .bani-fade{animation:bani-fade 150ms ease-out}
-        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade{animation:none}}
+        .bani-fade{animation:bani-fade 200ms ease-out}
+        @keyframes bani-dots{0%,100%{opacity:.25}50%{opacity:1}}
+        .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
+        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}}
       `}</style>
 
       {topbarTarget && createPortal(topbarActions, topbarTarget)}
 
 
-      {placement === "welcome" ? (
+      {voiceMode ? (
+        <VoicePanel listening={speech.listening} transcript={voiceText} onCancel={cancelVoice} onSend={sendVoice} />
+      ) : placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
           <div style={{ flex: 42 }} />
           <div className="mx-auto w-full max-w-[640px]">
@@ -419,14 +473,12 @@ export default function Assistant() {
             style={{ paddingBottom: "calc(150px + env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto w-full max-w-[720px] space-y-5">
-              {messages.map((m, i) => (
-                <MessageBlock key={i} msg={m} />
-              ))}
-              {loading && messages[messages.length - 1]?.role === "user" && (
-                <div className="bani-glass inline-flex rounded-[18px] px-[18px] py-4">
-                  <BaniProcessingMark size={22} />
-                </div>
-              )}
+              {messages.map((m, i) => {
+                const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
+                if (inFlight) return <ThinkingLine key={i} label={m.steps?.[m.steps.length - 1]?.label} />;
+                return <MessageBlock key={i} msg={m} />;
+              })}
+              {loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
             </div>
           </div>
           <div
@@ -459,11 +511,8 @@ function MessageBlock({ msg }: { msg: Msg }) {
   }
 
   return (
-    <div className="bani-glass rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <BaniLoginMark className="h-3.5 w-[7px] shrink-0 text-sage" />
-        <span>Bani</span>
-      </div>
+    <div className="bani-glass bani-fade rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
+      <CheckedLine steps={msg.steps} durationMs={msg.durationMs} />
       <div className="min-w-0 space-y-3">
         <div className="prose prose-sm max-w-none text-inherit
           prose-p:my-2 prose-p:leading-relaxed
@@ -498,6 +547,83 @@ function MessageBlock({ msg }: { msg: Msg }) {
         {msg.charts?.map((c, ci) => (
           <AssistantChart key={ci} spec={c} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingLine({ label }: { label?: string }) {
+  const target = label || "Reading your question";
+  const [shown, setShown] = useState(target);
+  const [fading, setFading] = useState(false);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (target === shown) return;
+    setFading(true);
+    const t = setTimeout(() => { setShown(target); setFading(false); }, 300);
+    return () => clearTimeout(t);
+  }, [target, shown]);
+  useEffect(() => {
+    setSlow(false);
+    const t = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(t);
+  }, [shown]);
+  return (
+    <div className="bani-fade flex items-center gap-[10px]" role="status" aria-live="polite">
+      <BaniOrb size={22} mode="thinking" />
+      <span
+        className="text-[13px] transition-all duration-300"
+        style={{ color: "rgba(255,255,255,0.92)", opacity: fading ? 0 : 1, transform: fading ? "translateY(-4px)" : "none" }}
+      >
+        {shown}
+        {slow && <span className="bani-dots">…</span>}
+      </span>
+    </div>
+  );
+}
+
+function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationMs?: number }) {
+  const [open, setOpen] = useState(false);
+  const cats = checkedCategories(steps);
+  if (!cats || !steps) return null;
+  const items = steps.filter((s) => s.kind && s.kind !== "chart");
+  const secs = durationMs !== undefined ? ` · ${Math.max(1, Math.round(durationMs / 1000))}s` : "";
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex items-center gap-1 text-[11px]" style={{ color: "#7A8C88" }}>
+        <ChevronRight className="h-3 w-3 transition-transform" style={{ transform: open ? "rotate(90deg)" : "none" }} />
+        <span>Checked {cats}{secs}</span>
+      </button>
+      {open && (
+        <ul className="mt-1.5 space-y-1 pl-4">
+          {items.map((s, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+              <Check className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{s.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function VoicePanel({ listening, transcript, onCancel, onSend }: { listening: boolean; transcript: string; onCancel: () => void; onSend: () => void }) {
+  const has = !!transcript.trim();
+  return (
+    <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <BaniOrb size={110} mode={listening ? "listening" : "idle"} />
+        <p className="text-[14px] text-white">{listening ? "Listening…" : has ? "Ready to send" : "Listening…"}</p>
+        <p className="line-clamp-3 max-w-[480px] text-center text-[13px]" style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}>{transcript}</p>
+      </div>
+      <div className="flex items-center gap-6">
+        <button type="button" aria-label="Cancel voice input" onClick={onCancel} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "rgba(255,255,255,0.3)" }}>
+          <X className="h-5 w-5" />
+        </button>
+        <button type="button" aria-label="Send" onClick={onSend} disabled={!has} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: has ? 1 : 0.45 }}>
+          <ArrowUp className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );
