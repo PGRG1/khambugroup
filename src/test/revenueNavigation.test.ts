@@ -5,7 +5,9 @@ describe("Revenue navigation", () => {
   it("selects Overview only on the exact overview route", () => {
     expect(revenueSection("/revenue")).toBe("overview");
     expect(revenueSection("/revenue/analysis")).toBe("analysis");
-    expect(revenueSection("/revenue/reconciliation")).toBeNull();
+    expect(revenueSection("/revenue/reconciliation")).toBe("reconciliation");
+    expect(revenueSection("/revenue/setup")).toBe("setup");
+    expect(revenueSection("/revenue/reconciliation-other")).toBeNull();
   });
   it("covers sales detail and both forecast routes without prefix false positives", () => {
     expect(revenueSection("/sales-data/123")).toBe("sales");

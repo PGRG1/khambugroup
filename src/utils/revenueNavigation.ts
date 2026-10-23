@@ -1,4 +1,4 @@
-export type RevenueSection = "overview" | "analysis" | "targets" | "sales" | "setup";
+export type RevenueSection = "overview" | "analysis" | "targets" | "sales" | "reconciliation" | "setup";
 
 const within = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
@@ -10,6 +10,7 @@ export function revenueSection(path: string): RevenueSection | null {
   if (path === "/revenue") return "overview";
   if (within(path, "/revenue/analysis")) return "analysis";
   if (within(path, "/sales-data")) return "sales";
+  if (within(path, "/revenue/reconciliation")) return "reconciliation";
   if (path === "/revenue/targets-new" || within(path, "/forecast") || within(path, "/forecast-legacy")) return "targets";
   if (within(path, "/revenue/setup")) return "setup";
   return null;
