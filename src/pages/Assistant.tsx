@@ -276,30 +276,11 @@ export default function Assistant() {
   const placement = composerPlacement(messages.length);
   const hasText = !!input.trim();
 
-  const actionButton = () => {
-    if (loading)
-      return { icon: <Square className="h-3.5 w-3.5 fill-current" />, label: "Stop generating", onClick: stop, disabled: false };
-    if (speech.listening)
-      return { icon: <Square className="h-3.5 w-3.5 fill-current" />, label: "Stop voice input", onClick: speech.stop, disabled: false };
-    if (!hasText && speech.supported)
-      return {
-        icon: <Mic className="h-4 w-4" />,
-        label: "Start voice input",
-        onClick: () => { voiceBaseRef.current = input.trim(); speech.start(); },
-        disabled: !scopeReady,
-      };
-    return {
-      icon: <ArrowUp className="h-4 w-4" />,
-      label: "Send question",
-      onClick: () => send(input),
-      disabled: !canSendFn({ text: input, loading, scopeReady }),
-    };
-  };
-  const btn = actionButton();
+  const canSendNow = canSendFn({ text: input, loading, scopeReady });
 
   const Composer = (
     <div className="relative w-full">
-      <div className="bani-glass flex items-end gap-2 rounded-[24px] py-2 pl-[18px] pr-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white/70">
+      <div className="bani-glass bani-composer flex items-end gap-1 rounded-[24px] py-2 pl-[18px] pr-2">
         <textarea
           ref={taRef}
           value={input}
@@ -312,18 +293,30 @@ export default function Assistant() {
           placeholder={speech.listening ? "Listening…" : "Ask Bani…"}
           aria-label="Ask Bani a question"
           rows={1}
-          className="bani-input min-h-[36px] flex-1 resize-none self-center border-0 bg-transparent py-[7px] text-[15px] leading-[22px] outline-none"
+          className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
+        {speech.supported && (
+          <button
+            type="button"
+            onClick={speech.listening ? speech.stop : () => { voiceBaseRef.current = input.trim(); speech.start(); }}
+            disabled={!speech.listening && (!scopeReady || loading)}
+            aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
+            className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+            style={{ color: speech.listening ? "#1F3A37" : "#5B706B" }}
+          >
+            {speech.listening && <span className="bani-mic-pulse pointer-events-none absolute inset-0 rounded-full" />}
+            {speech.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
-          onClick={btn.onClick}
-          disabled={btn.disabled}
-          aria-label={btn.label}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40"
-          style={{ background: "#1F3A37" }}
+          onClick={loading ? stop : () => send(input)}
+          disabled={!loading && !canSendNow}
+          aria-label={loading ? "Stop generating" : "Send question"}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
+          style={{ background: "#1F3A37", opacity: loading || canSendNow ? 1 : 0.45, pointerEvents: loading || canSendNow ? "auto" : "none" }}
         >
-          {speech.listening && <span className="bani-mic-pulse pointer-events-none absolute inset-0 rounded-full" />}
-          {btn.icon}
+          {loading ? <Square className="h-3.5 w-3.5 fill-current" /> : <ArrowUp className="h-4 w-4" />}
         </button>
       </div>
       {!scopeReady && (
@@ -334,48 +327,57 @@ export default function Assistant() {
     </div>
   );
 
+  const topbarActions = (
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button type="button" aria-label="Recent chats" className="flex h-8 w-8 items-center justify-center rounded-full text-white" style={{ background: "rgba(255,255,255,0.16)" }}>
+            <History className="h-4 w-4" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-64 bg-white p-1.5">
+          {history.length === 0 ? (
+            <p className="px-2 py-2 text-sm text-muted-foreground">No recent chats</p>
+          ) : (
+            history.map((c) => (
+              <button key={c.id} type="button" onClick={() => setActiveId(c.id)} className="block w-full truncate rounded-md px-2 py-2 text-left text-sm hover:bg-muted">
+                {c.title}
+              </button>
+            ))
+          )}
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        aria-label="New chat"
+        onClick={() => { speech.stop(); startNewConversation(); }}
+        className="flex h-8 w-8 items-center justify-center rounded-full text-white"
+        style={{ background: "rgba(255,255,255,0.16)" }}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </>
+  );
+
   return (
     <div className="relative flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
+        .bani-composer{transition:border-color 150ms,box-shadow 150ms}
+        .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
+        html .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
+        textarea.bani-ask-input:focus,textarea.bani-ask-input:focus-visible{outline:none !important;box-shadow:none !important;border:0 !important}
+        .bani-mic{background:transparent}.bani-mic:hover:not(:disabled){background:rgba(20,45,43,0.06)}
         .bani-input{color:#14302D}.bani-input::placeholder{color:#7A8C88}
-        @keyframes bani-pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,0.55)}100%{box-shadow:0 0 0 9px rgba(255,255,255,0)}}
+        @keyframes bani-pulse{0%{box-shadow:0 0 0 0 rgba(31,58,55,0.35)}100%{box-shadow:0 0 0 7px rgba(31,58,55,0)}}
         .bani-mic-pulse{animation:bani-pulse 1.4s ease-out infinite}
         @keyframes bani-fade{from{opacity:0}to{opacity:1}}
         .bani-fade{animation:bani-fade 150ms ease-out}
         @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade{animation:none}}
       `}</style>
 
-      {/* Top-right controls */}
-      <div className="absolute right-2 top-2 z-20 flex gap-2 sm:right-4 sm:top-3">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" aria-label="Recent chats" className="flex h-8 w-8 items-center justify-center rounded-full text-white/90" style={{ background: "rgba(255,255,255,0.16)" }}>
-              <History className="h-4 w-4" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-64 bg-white p-1.5">
-            {history.length === 0 ? (
-              <p className="px-2 py-2 text-sm text-muted-foreground">No recent chats</p>
-            ) : (
-              history.map((c) => (
-                <button key={c.id} type="button" onClick={() => setActiveId(c.id)} className="block w-full truncate rounded-md px-2 py-2 text-left text-sm hover:bg-muted">
-                  {c.title}
-                </button>
-              ))
-            )}
-          </PopoverContent>
-        </Popover>
-        <button
-          type="button"
-          aria-label="New chat"
-          onClick={() => { speech.stop(); startNewConversation(); }}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-white/90"
-          style={{ background: "rgba(255,255,255,0.16)" }}
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+      {topbarTarget && createPortal(topbarActions, topbarTarget)}
+
 
       {placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
