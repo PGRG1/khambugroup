@@ -62,3 +62,6 @@
 - [x] Fact-based Revenue / Procurement / Accounting & cash reports + checked AI Finance Director briefing
 - [x] Briefing, Team reports, Actions, Past reviews, Ask your team, automatic preparation settings
 - [x] Hourly server-side scheduler with once-per-period protection
+
+## In progress (2026-10-23)
+- [ ] Extend light-mode atmospheric gradient (petrol #2F5E5A / teal #4F7A73 / sage #8FAF9D → cream #F5F4F0) from Home-only to ALL tenant pages via shared AppLayout shell; frosted white cards; dark mode and platform shell untouched; remove Home-only double-stack.
