@@ -17,6 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider className="tenant-portal">
+      <div className="tenant-atmosphere" aria-hidden="true" />
       <div className={`min-h-screen flex w-full overflow-x-hidden ${topPad}`}>
         <AppSidebar />
         <main className="app-shell app-atmosphere flex-1 min-w-0 max-w-full flex flex-col">
