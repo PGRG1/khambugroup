@@ -415,48 +415,16 @@ body,
 
 
 /* =========================================================
-   HOME ATMOSPHERE — top-heavy petrol→mint→cream gradient for
-   the Home page (route /) in LIGHT theme only. Dark mode is
-   untouched: every visual rule is gated by html:not(.dark).
+   TENANT ATMOSPHERE — light-theme-only atmospheric gradient on
+   the shared tenant shell (AppLayout content column), so every
+   tenant page gets the approved band: petrol green upper left,
+   muted teal upper middle, sage mint upper right, fading into
+   warm cream below. No decorative shapes.
+   Dark mode is untouched: every visual rule is gated by
+   html:not(.dark). The platform control plane (PlatformLayout)
+   is unaffected.
    ========================================================= */
-.home-atmosphere {
-  /* Bleed into AppLayout's content padding so the gradient reaches the
-     edges, then restore the original inner spacing (mirrors the
-     px-3/py-4 · sm:5 · md:6 · lg:8 · 2xl:12 scale). Bottom stays flush:
-     the gradient ends on --background bone, so it blends seamlessly. */
-  margin: -1rem -0.75rem 0;
-  padding: 1rem 0.75rem 0;
-}
-@media (min-width: 640px) {
-  .home-atmosphere {
-    margin: -1.25rem -1.25rem 0;
-    padding: 1.25rem 1.25rem 0;
-  }
-}
-@media (min-width: 768px) {
-  .home-atmosphere {
-    margin-left: -1.5rem;
-    margin-right: -1.5rem;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-}
-@media (min-width: 1024px) {
-  .home-atmosphere {
-    margin: -2rem -2rem 0;
-    padding: 2rem 2rem 0;
-  }
-}
-@media (min-width: 1536px) {
-  .home-atmosphere {
-    margin-left: -3rem;
-    margin-right: -3rem;
-    padding-left: 3rem;
-    padding-right: 3rem;
-  }
-}
-
-html:not(.dark) .home-atmosphere {
+html:not(.dark) .app-atmosphere {
   background:
     radial-gradient(72% 300px at 100% 0%, rgba(220, 232, 218, 0.95) 0%, rgba(143, 175, 157, 0.5) 48%, rgba(143, 175, 157, 0) 76%),
     radial-gradient(70% 320px at 8% 0%, rgba(47, 94, 90, 0.92) 0%, rgba(47, 94, 90, 0) 70%),
@@ -464,35 +432,65 @@ html:not(.dark) .home-atmosphere {
     linear-gradient(180deg, #46756d 0px, #93ae9f 200px, #f5f4f0 430px);
 }
 
-/* Legibility for text sitting directly on the dark upper band */
-html:not(.dark) .home-atmosphere .home-greeting h1 {
+/* Top-of-page titles sit on the dark band — lighten them. Titles and
+   sibling paragraphs inside cards are reset to normal card colours. */
+html:not(.dark) .app-atmosphere h1 {
   color: hsl(var(--bone));
 }
-html:not(.dark) .home-atmosphere .home-greeting h1 span {
+html:not(.dark) .app-atmosphere h1 ~ p {
+  color: hsl(var(--bone) / 0.82);
+}
+html:not(.dark) .app-atmosphere .home-greeting h1 span {
   color: hsl(var(--bone) / 0.85);
 }
-html:not(.dark) .home-atmosphere .home-greeting p {
-  color: hsl(var(--bone) / 0.78);
+html:not(.dark) .app-atmosphere .card-glass h1,
+html:not(.dark) .app-atmosphere .glass-surface h1,
+html:not(.dark) .app-atmosphere .bg-card h1 {
+  color: hsl(var(--card-foreground));
+}
+html:not(.dark) .app-atmosphere .card-glass h1 ~ p,
+html:not(.dark) .app-atmosphere .glass-surface h1 ~ p,
+html:not(.dark) .app-atmosphere .bg-card h1 ~ p {
+  color: hsl(var(--muted-foreground));
 }
 
-/* Venue chips: frosted pills that stay readable on both the dark band
-   and the pale mint upper-right. */
-html:not(.dark) .home-atmosphere .home-venue-filters button {
+/* Frosted venue filter pills (Home greeting row) */
+html:not(.dark) .app-atmosphere .home-venue-filters button {
   background: hsl(var(--card) / 0.6);
   border-color: hsl(var(--card) / 0.55);
   color: hsl(var(--foreground));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
-html:not(.dark) .home-atmosphere .home-venue-filters button.border-primary {
+html:not(.dark) .app-atmosphere .home-venue-filters button.border-primary {
   background: hsl(var(--card) / 0.88);
   border-color: hsl(var(--primary));
   color: hsl(var(--accent));
 }
 
-/* Near-opaque soft white cards — flat surfaces, no gradients inside
-   cards. Light theme only. */
-html:not(.dark) .home-atmosphere .glass-surface,
-html:not(.dark) .home-atmosphere .card-glass {
+/* Frosted module tab bars (Revenue / KPI / People navigation) */
+html:not(.dark) .app-atmosphere nav[aria-label="Revenue"] button,
+html:not(.dark) .app-atmosphere nav[aria-label="KPI"] button,
+html:not(.dark) .app-atmosphere nav[aria-label="People"] button {
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--card) / 0.5);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+html:not(.dark) .app-atmosphere nav[aria-label] button.text-primary {
+  background: hsl(var(--card) / 0.9);
+  border-color: hsl(var(--primary) / 0.6);
+  color: hsl(var(--accent));
+}
+html:not(.dark) .app-atmosphere nav[aria-label] button.bg-muted {
+  background: hsl(var(--muted) / 0.9);
+  color: hsl(var(--foreground));
+}
+
+/* Near-opaque soft white cards — flat frosted surfaces, no gradients
+   inside cards. Light theme only. */
+html:not(.dark) .app-atmosphere .glass-surface,
+html:not(.dark) .app-atmosphere .card-glass {
   background: hsl(var(--card) / 0.92);
 }
