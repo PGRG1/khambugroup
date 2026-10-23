@@ -442,22 +442,25 @@ export default function Assistant() {
 function MessageBlock({ msg }: { msg: Msg }) {
   if (msg.role === "user") {
     return (
-      <div className="flex justify-end gap-3">
-        <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-secondary px-4 py-2.5 text-sm text-secondary-foreground">
+      <div className="flex justify-end">
+        <div
+          className="max-w-[80%] px-4 py-2.5 text-sm text-white"
+          style={{ background: "rgba(255,255,255,0.28)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "18px 18px 4px 18px" }}
+        >
           <p className="whitespace-pre-wrap">{msg.content}</p>
-        </div>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
-          <User className="h-4 w-4 text-muted-foreground" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-3">
-      <BaniLoginMark className="mt-1.5 h-4 w-[9px] shrink-0 text-sage" />
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="prose prose-sm dark:prose-invert max-w-none
+    <div className="bani-glass rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <BaniLoginMark className="h-3.5 w-[7px] shrink-0 text-sage" />
+        <span>Bani</span>
+      </div>
+      <div className="min-w-0 space-y-3">
+        <div className="prose prose-sm max-w-none text-inherit
           prose-p:my-2 prose-p:leading-relaxed
           prose-headings:font-display prose-headings:mt-4 prose-headings:mb-2
           prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
@@ -470,18 +473,18 @@ function MessageBlock({ msg }: { msg: Msg }) {
             remarkPlugins={[remarkGfm]}
             components={{
               table: ({ node, ...props }) => (
-                <div className="my-3 overflow-x-auto rounded-lg border border-border">
+                <div className="my-3 overflow-x-auto">
                   <table className="w-full border-collapse text-sm" {...props} />
                 </div>
               ),
-              thead: ({ node, ...props }) => <thead className="bg-muted/60" {...props} />,
+              thead: ({ node, ...props }) => <thead {...props} />,
               th: ({ node, ...props }) => (
-                <th className="border-b border-border px-3 py-2 text-left font-semibold text-foreground" {...props} />
+                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground" style={{ borderBottom: "1px solid rgba(20,45,43,0.08)" }} {...props} />
               ),
               td: ({ node, ...props }) => (
-                <td className="border-b border-border/50 px-3 py-2 last:border-0" {...props} />
+                <td className="px-3 py-2" style={{ borderBottom: "1px solid rgba(20,45,43,0.08)" }} {...props} />
               ),
-              tr: ({ node, ...props }) => <tr className="even:bg-muted/20" {...props} />,
+              tr: ({ node, ...props }) => <tr {...props} />,
             }}
           >
             {msg.content || "…"}
