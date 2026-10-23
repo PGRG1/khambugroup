@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
+import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 
 const corsHeaders = {
@@ -974,170 +975,183 @@ Deno.serve(async (req) => {
     }
     const tenantId = resolved.tenant_id;
 
-    const workspace = await loadWorkspaceContext(tenantId);
-    const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
-
-    const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
-    const chartSpecs: any[] = [];
-    // Memoize identical read-only tool calls within this request.
-    const toolCache = new Map<string, any>();
-
-    // Models: try Pro first for better reasoning, fall back to Flash if Pro is rate-limited / out of credits / down
-    const PRIMARY_MODEL = "google/gemini-2.5-pro";
-    const FALLBACK_MODEL = "google/gemini-2.5-flash";
-    let currentModel = PRIMARY_MODEL;
-
-    // Tool-calling loop (up to 10 iterations so the model can chain queries).
-    // On the last iteration we drop the tools so the model MUST produce a final answer.
-    const MAX_ITERS = 10;
-    for (let iter = 0; iter < MAX_ITERS; iter++) {
-      const forceFinal = iter === MAX_ITERS - 1;
-      if (forceFinal) {
-        conversation.push({
-          role: "system",
-          content:
-            "You have reached the maximum number of data lookups. Do not request any more tools. Answer now using the data already gathered, and state clearly if anything is incomplete.",
-        });
+    const encoder = new TextEncoder();
+    let closed = false;
+    let ctrl: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const emit = (obj: unknown) => {
+      if (closed || !ctrl) return;
+      try {
+        ctrl.enqueue(encoder.encode(`data: ${typeof obj === "string" ? obj : JSON.stringify(obj)}\n\n`));
+      } catch {
+        closed = true;
       }
-      // Retry transient gateway failures (502/503/504) up to 3 times with backoff
-      let resp: Response | null = null;
-      let lastStatus = 0;
-      let lastText = "";
-      for (let attempt = 0; attempt < 3; attempt++) {
-        resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: currentModel,
-            messages: conversation,
-            ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
-          }),
-        });
+    };
+    const finish = () => {
+      if (closed) return;
+      emit("[DONE]");
+      closed = true;
+      try { ctrl?.close(); } catch { /* already closed */ }
+    };
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-        if (resp.ok) break;
-        lastStatus = resp.status;
-        lastText = await resp.text();
-        // If Pro fails with rate-limit / credits / server error, fall back to Flash and retry once
-        if (
-          currentModel === PRIMARY_MODEL &&
-          (lastStatus === 429 || lastStatus === 402 || (lastStatus >= 500 && lastStatus <= 504))
-        ) {
-          console.warn(`Pro model failed (${lastStatus}), falling back to Flash`);
-          currentModel = FALLBACK_MODEL;
-          continue;
+    const run = async () => {
+      emit({ status: { label: "Reading your question" } });
+      const workspace = await loadWorkspaceContext(tenantId);
+      const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
+
+      const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      const chartSpecs: any[] = [];
+      // Memoize identical read-only tool calls within this request.
+      const toolCache = new Map<string, any>();
+
+      // Models: try Pro first for better reasoning, fall back to Flash if Pro is rate-limited / out of credits / down
+      const PRIMARY_MODEL = "google/gemini-2.5-pro";
+      const FALLBACK_MODEL = "google/gemini-2.5-flash";
+      let currentModel = PRIMARY_MODEL;
+
+      const streamContent = async (content: string) => {
+        emit({ status: { label: "Writing up the answer" } });
+        for (const spec of chartSpecs) emit({ chart: spec });
+        const chunkSize = 12;
+        for (let i = 0; i < content.length && !closed; i += chunkSize) {
+          emit({ choices: [{ delta: { content: content.slice(i, i + chunkSize) } }] });
+          await sleep(12);
         }
-        if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
-        console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
-        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-      }
+        finish();
+      };
 
-      if (!resp || !resp.ok) {
-        const status = lastStatus || 500;
-        console.error("Gateway error", status, lastText);
-        const msg =
-          status === 429
-            ? "Rate limit hit — please wait a moment and try again."
-            : status === 402
-              ? "AI credits exhausted. Please add funds in Settings → Workspace → Usage."
-              : status >= 502 && status <= 504
-                ? "AI service is temporarily unavailable. Please try again in a moment."
-                : "AI gateway error.";
-        return new Response(JSON.stringify({ error: msg }), {
-          status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      // Tool-calling loop (up to 10 iterations so the model can chain queries).
+      // On the last iteration we drop the tools so the model MUST produce a final answer.
+      const MAX_ITERS = 10;
+      for (let iter = 0; iter < MAX_ITERS; iter++) {
+        if (closed) return;
+        const forceFinal = iter === MAX_ITERS - 1;
+        if (forceFinal) {
+          conversation.push({
+            role: "system",
+            content:
+              "You have reached the maximum number of data lookups. Do not request any more tools. Answer now using the data already gathered, and state clearly if anything is incomplete.",
+          });
+        }
+        // Retry transient gateway failures (502/503/504) up to 3 times with backoff
+        let resp: Response | null = null;
+        let lastStatus = 0;
+        let lastText = "";
+        for (let attempt = 0; attempt < 3; attempt++) {
+          resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: currentModel,
+              messages: conversation,
+              ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
+            }),
+          });
 
-      const data = await resp.json();
-      const choice = data.choices?.[0]?.message;
-      if (!choice) break;
-
-      const toolCalls = choice.tool_calls;
-      if (forceFinal || !toolCalls || toolCalls.length === 0) {
-        const content =
-          choice.content ||
-          "I couldn't complete that analysis — the request needed too many data lookups. Try narrowing it to a single venue, metric, or period.";
-
-        const stream = new ReadableStream({
-          start(controller) {
-            const encoder = new TextEncoder();
-            for (const spec of chartSpecs) {
-              const evt = JSON.stringify({ chart: spec });
-              controller.enqueue(encoder.encode(`data: ${evt}\n\n`));
-            }
-            const chunkSize = 12;
-            let i = 0;
-            const tick = () => {
-              if (i >= content.length) {
-                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-                controller.close();
-                return;
-              }
-              const piece = content.slice(i, i + chunkSize);
-              i += chunkSize;
-              const payload = JSON.stringify({ choices: [{ delta: { content: piece } }] });
-              controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-              setTimeout(tick, 12);
-            };
-            tick();
-          },
-        });
-        return new Response(stream, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-      }
-
-      // Run tools
-      conversation.push(choice);
-      for (const tc of toolCalls) {
-        const args = (() => {
-          try {
-            return JSON.parse(tc.function.arguments || "{}");
-          } catch {
-            return {};
+          if (resp.ok) break;
+          lastStatus = resp.status;
+          lastText = await resp.text();
+          // If Pro fails with rate-limit / credits / server error, fall back to Flash and retry once
+          if (
+            currentModel === PRIMARY_MODEL &&
+            (lastStatus === 429 || lastStatus === 402 || (lastStatus >= 500 && lastStatus <= 504))
+          ) {
+            console.warn(`Pro model failed (${lastStatus}), falling back to Flash`);
+            currentModel = FALLBACK_MODEL;
+            continue;
           }
-        })();
-        let result: any;
-        if (tc.function.name === "render_chart") {
-          chartSpecs.push(args);
-          result = { ok: true, rendered: args.title || "chart" };
-        } else {
-          const cacheKey = `${tc.function.name}:${JSON.stringify(args)}`;
-          if (toolCache.has(cacheKey)) {
-            result = toolCache.get(cacheKey);
-          } else {
+          if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
+          console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
+          await sleep(600 * (attempt + 1));
+        }
+
+        if (!resp || !resp.ok) {
+          const status = lastStatus || 500;
+          console.error("Gateway error", status, lastText);
+          const msg =
+            status === 429
+              ? "Rate limit hit — please wait a moment and try again."
+              : status === 402
+                ? "AI credits exhausted. Please add funds in Settings → Workspace → Usage."
+                : status >= 502 && status <= 504
+                  ? "AI service is temporarily unavailable. Please try again in a moment."
+                  : "AI gateway error.";
+          emit({ error: msg });
+          finish();
+          return;
+        }
+
+        const data = await resp.json();
+        const choice = data.choices?.[0]?.message;
+        if (!choice) break;
+
+        const toolCalls = choice.tool_calls;
+        if (forceFinal || !toolCalls || toolCalls.length === 0) {
+          const content =
+            choice.content ||
+            "I couldn't complete that analysis — the request needed too many data lookups. Try narrowing it to a single venue, metric, or period.";
+          await streamContent(content);
+          return;
+        }
+
+        // Run tools
+        conversation.push(choice);
+        for (const tc of toolCalls) {
+          const args = (() => {
             try {
-              result = await runTool(tc.function.name, args, tenantId);
-              toolCache.set(cacheKey, result);
-            } catch (e) {
-              // Errors are surfaced, not cached — a retry may succeed.
-              result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
+              return JSON.parse(tc.function.arguments || "{}");
+            } catch {
+              return {};
+            }
+          })();
+          let result: any;
+          if (tc.function.name === "render_chart") {
+            emit({ status: toolStepLabel(tc.function.name, args) });
+            chartSpecs.push(args);
+            result = { ok: true, rendered: args.title || "chart" };
+          } else {
+            const cacheKey = `${tc.function.name}:${JSON.stringify(args)}`;
+            if (toolCache.has(cacheKey)) {
+              result = toolCache.get(cacheKey);
+            } else {
+              emit({ status: toolStepLabel(tc.function.name, args) });
+              try {
+                result = await runTool(tc.function.name, args, tenantId);
+                toolCache.set(cacheKey, result);
+              } catch (e) {
+                // Errors are surfaced, not cached — a retry may succeed.
+                result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
+              }
             }
           }
+          conversation.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(result),
+          });
         }
-        conversation.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: JSON.stringify(result),
-        });
       }
-    }
 
-    // Unreachable in practice (the last iteration always answers), but degrade gracefully
-    // as a streamed message instead of a 500 blank screen.
-    const fallback =
-      "I wasn't able to finish that analysis. Please try a narrower question (one venue, metric, or period).";
-    const stream = new ReadableStream({
+      // Unreachable in practice (the last iteration always answers), but degrade gracefully.
+      await streamContent(
+        "I wasn't able to finish that analysis. Please try a narrower question (one venue, metric, or period).",
+      );
+    };
+
+    const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        const encoder = new TextEncoder();
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: fallback } }] })}\n\n`),
-        );
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
+        ctrl = controller;
+        run().catch((e) => {
+          console.error("chat-assistant stream error:", e);
+          emit({ error: e instanceof Error ? e.message : "Unknown error" });
+          finish();
+        });
+      },
+      cancel() {
+        closed = true;
       },
     });
     return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
