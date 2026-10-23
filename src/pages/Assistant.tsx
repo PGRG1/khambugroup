@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import ReactMarkdown from "react-markdown";
@@ -273,6 +274,8 @@ export default function Assistant() {
   }, [input]);
 
   const history = visibleConversations(conversations, activeId);
+  const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => { setTopbarTarget(document.getElementById("assistant-topbar-actions")); }, []);
   const placement = composerPlacement(messages.length);
   const hasText = !!input.trim();
 
