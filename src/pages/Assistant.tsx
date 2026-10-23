@@ -365,7 +365,7 @@ export default function Assistant() {
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
         .bani-composer{transition:border-color 150ms,box-shadow 150ms}
         .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
-        html .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
+        html:not(.dark) .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
         textarea.bani-ask-input:focus,textarea.bani-ask-input:focus-visible{outline:none !important;box-shadow:none !important;border:0 !important}
         .bani-mic{background:transparent}.bani-mic:hover:not(:disabled){background:rgba(20,45,43,0.06)}
         .bani-input{color:#14302D}.bani-input::placeholder{color:#7A8C88}
@@ -394,8 +394,8 @@ export default function Assistant() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => send(text)}
                       disabled={!scopeReady || loading}
-                      className="rounded-full px-3 py-1.5 text-xs text-white disabled:opacity-50"
-                      style={{ background: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.55)" }}
+                      className="rounded-full px-3 py-1.5 text-xs disabled:opacity-50"
+                      style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.7)", color: "#1F3A37" }}
                     >
                       {label}
                     </button>
