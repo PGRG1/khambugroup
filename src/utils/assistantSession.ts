@@ -8,7 +8,30 @@ export type AssistantMessage<C = unknown> = {
   role: AssistantRole;
   content: string;
   charts?: C[];
+  /** Live progress steps reported by the server for this turn (client-only). */
+  steps?: AssistantStep[];
+  /** Time from send to [DONE], in ms (client-only). */
+  durationMs?: number;
 };
+
+export type AssistantStep = { label: string; kind?: string };
+
+const KIND_WORDS: Record<string, string> = {
+  sales: "sales", invoices: "invoices", prices: "prices", costs: "costs", menu: "menu costs",
+  stock: "stock", payroll: "payroll", forecast: "forecast", pl: "P&L", overview: "your workspace",
+};
+
+/** "sales, invoices and prices" from distinct data step kinds in order; null when none. */
+export function checkedCategories(steps: AssistantStep[] = []): string | null {
+  const words: string[] = [];
+  for (const s of steps) {
+    const w = s.kind ? KIND_WORDS[s.kind] : undefined;
+    if (w && !words.includes(w)) words.push(w);
+  }
+  if (words.length === 0) return null;
+  if (words.length === 1) return words[0];
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
 
 export type AssistantConversation<C = unknown> = {
   id: string;
