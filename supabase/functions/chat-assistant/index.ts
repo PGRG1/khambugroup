@@ -1159,7 +1159,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, openScannerTool] : tools, tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1237,6 +1237,9 @@ Deno.serve(async (req) => {
               try {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
+                if (tc.function.name === "open_invoice_scanner" && result?.ok) {
+                  emit({ action: { type: "open_invoice_scanner", venue: result.venue ?? null, files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
+                }
               } catch (e) {
                 // Errors are surfaced, not cached — a retry may succeed.
                 result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
