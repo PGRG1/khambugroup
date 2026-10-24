@@ -344,6 +344,17 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       const chunks: Uint8Array[] = [];
       let total = 0;
       let completed = false;
+      const pendingAudio: Uint8Array[] = [];
+      let pendingBytes = 0;
+      const flushAudio = () => {
+        if (!onPcm || !pendingBytes) return;
+        const pcm = new Uint8Array(pendingBytes - pendingBytes % 2);
+        let offset = 0;
+        for (const bytes of pendingAudio) { pcm.set(bytes.subarray(0, pcm.length - offset), offset); offset += bytes.length; }
+        pendingAudio.length = 0;
+        pendingBytes = 0;
+        if (pcm.length) onPcm(pcm);
+      };
       const parser = (data: string) => {
         const ev = JSON.parse(data);
         if (ev.type === "error" || ev.error) throw new Error("speech stream error");
@@ -352,7 +363,12 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         const bytes = Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0));
         chunks.push(bytes);
         total += bytes.length;
-        if (onPcm && bytes.length % 2 === 0) onPcm(bytes);
+        if (onPcm) {
+          pendingAudio.push(bytes);
+          pendingBytes += bytes.length;
+          // Provider deltas can be 40ms. Batch two seconds to avoid media-element gaps.
+          if (pendingBytes >= 96000 && pendingBytes % 2 === 0) flushAudio();
+        }
       };
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
@@ -373,6 +389,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       }
       if (!current()) return null;
       if (!completed || !total) throw new Error("Speech audio was incomplete");
+      flushAudio();
       const pcm = new Uint8Array(total - (total % 2));
       let off = 0;
       for (const c of chunks) { pcm.set(c.subarray(0, Math.min(c.length, pcm.length - off)), off); off += c.length; }
