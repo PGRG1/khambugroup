@@ -181,6 +181,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const ackClipsRef = useRef<Map<string, Uint8Array<ArrayBuffer>>>(new Map());
   const warmAbortRef = useRef<AbortController | null>(null);
   const playbackDoneRef = useRef<(() => void) | null>(null);
+  const pendingSpeechRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const ackLangsDoneRef = useRef<Set<string>>(new Set());
 
   const setLevelThrottled = (v: number) => {
@@ -239,6 +240,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     clearTimers();
     stopPlayback();
     stopRecorder(true);
+    pendingSpeechRef.current = null;
     stopLiveWords();
     abortRef.current?.abort();
     abortRef.current = null;
@@ -418,7 +420,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       playbackDoneRef.current = done;
       el.onended = done;
       el.onerror = () => { paramsRef.current.onError("Audio could not play. Tap the orb to try again."); setNeedsTap(true); done(); };
-      el.play().catch(() => { paramsRef.current.onError("Tap the orb to enable Bani’s audio."); setNeedsTap(true); done(); });
+      el.play().catch(() => { pendingSpeechRef.current = pcm; paramsRef.current.onError("Tap the orb to enable Bani’s audio."); setNeedsTap(true); done(); });
     });
   };
 
@@ -507,7 +509,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       index === 0 ? (pcm) => {
         earlyChunks++;
         earlyPlayback = earlyPlayback.then(async () => {
-          if (gen !== generationRef.current || turn !== turnRef.current) return;
+          if (gen !== generationRef.current || turn !== turnRef.current || pendingSpeechRef.current) return;
           startBargeMonitor(gen, turn);
           await playPcm(pcm, gen);
         });
@@ -516,7 +518,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     let played = 0;
     for (let i = 0; i < jobs.length; i++) {
       const pcm = await jobs[i];
-      if (gen !== generationRef.current || turn !== turnRef.current) return;
+      if (gen !== generationRef.current || turn !== turnRef.current || pendingSpeechRef.current) return;
       if (i === 0 && earlyChunks) {
         await earlyPlayback;
         played++;
@@ -663,6 +665,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           setStepLabel("");
           void speakSummary(s.text, gen, turn).then(() => {
             if (gen !== generationRef.current || !activeRef.current) return;
+            if (pendingSpeechRef.current) { setVoiceState("idle"); return; }
             setReveal(null);
             listen();
           });
@@ -888,6 +891,15 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Tap the orb: interrupt thinking/speaking back to listening; resume from idle. */
   const interrupt = useCallback(() => {
+    const pending = pendingSpeechRef.current;
+    if (pending) {
+      pendingSpeechRef.current = null;
+      setNeedsTap(false);
+      setVoiceState("speaking");
+      const gen = generationRef.current;
+      void playPcm(pending, gen).then(() => { if (gen === generationRef.current && !pendingSpeechRef.current) listen(); });
+      return;
+    }
     const s = stateRef.current;
     if (s === "thinking" || s === "speaking" || s === "transcribing") {
       generationRef.current++; // cancels in-flight send continuations
@@ -932,6 +944,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     stopLiveWords();
     stopPlayback();
     clearTimers();
+    pendingSpeechRef.current = null;
     setNotice("");
     setNeedsTap(false);
     setLevel(0);
