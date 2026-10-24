@@ -212,7 +212,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
 
   const sphereStyle = drag ? { left: drag.x, top: drag.y } : sphere ? { left: sphere.x, top: sphere.y } : undefined;
-  const panelStyle = isMobile ? { top: vv.top, height: vv.h } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined;
+  const panelStyle = isMobile ? { maxHeight: vv.h - 16, bottom: `max(.75rem, calc(${Math.max(0, window.innerHeight - vv.h - vv.top)}px + .5rem))` } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined;
   const restore = <button type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></button>;
   const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 

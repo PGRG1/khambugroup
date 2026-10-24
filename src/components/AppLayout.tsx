@@ -28,6 +28,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="h-10 w-10 sm:h-9 sm:w-9" />
             <div className="flex items-center gap-2">
               {pathname === "/assistant" && <div id="assistant-topbar-actions" className="flex items-center gap-2" />}
+              <div id="floating-bani-restore" className="flex items-center" />
               <UserMenu />
             </div>
           </header>
