@@ -7,7 +7,6 @@ import { voiceDeadline, micLevelFromRms } from "@/hooks/useVoiceConversation";
 export type DictationState = "idle" | "starting" | "recording" | "transcribing";
 type Params = {
   getAuth: () => { token: string | null; tenantId: string | null };
-  onText: (text: string) => void;
   onError: (message: string) => void;
 };
 
@@ -23,12 +22,12 @@ export function joinDraft(draft: string, dictated: string): string {
   return a ? `${a} ${b}` : b;
 }
 
-export function useDictation({ getAuth, onText, onError }: Params) {
+export function useDictation({ getAuth, onError }: Params) {
   const [state, setState] = useState<DictationState>("idle");
   const stateRef = useRef<DictationState>("idle");
   const set = (s: DictationState) => { stateRef.current = s; setState(s); };
-  const paramsRef = useRef({ getAuth, onText, onError });
-  paramsRef.current = { getAuth, onText, onError };
+  const paramsRef = useRef({ getAuth, onError });
+  paramsRef.current = { getAuth, onError };
   const supported = typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined";
 
   const streamRef = useRef<MediaStream | null>(null);
@@ -103,7 +102,7 @@ export function useDictation({ getAuth, onText, onError }: Params) {
         recRef.current = rec;
         rec.start();
         set("recording");
-        maxTimerRef.current = setTimeout(() => { void confirmRef.current(); }, MAX_MS);
+        maxTimerRef.current = setTimeout(() => { void confirmRef.current().then((t) => { if (t) onMaxRef.current?.(t); }); }, MAX_MS);
       })
       .catch((e: unknown) => {
         if (session !== sessionRef.current) return;
@@ -116,9 +115,9 @@ export function useDictation({ getAuth, onText, onError }: Params) {
       });
   }, [supported, cancel]);
 
-  /** Stop recording, flush final audio, transcribe, return text for editing. */
-  const confirm = useCallback(async () => {
-    if (stateRef.current !== "recording") { if (stateRef.current === "starting") cancel(); return; }
+  /** Stop recording, flush final audio, transcribe. Resolves the text once (null if cancelled/failed). */
+  const confirm = useCallback(async (): Promise<string | null> => {
+    if (stateRef.current !== "recording") { if (stateRef.current === "starting") cancel(); return null; }
     const session = sessionRef.current;
     const rec = recRef.current;
     if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
@@ -134,7 +133,7 @@ export function useDictation({ getAuth, onText, onError }: Params) {
       }), STOP_FLUSH_MS, controller.signal, "Recording did not finish. Try again.");
       recRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop()); // mic released before upload
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current) return null;
       if (!blob.size) throw new Error("Didn't catch that — try again");
       const { token, tenantId } = paramsRef.current.getAuth();
       if (!token || !tenantId) throw new Error("Dictation needs an active workspace.");
@@ -152,21 +151,25 @@ export function useDictation({ getAuth, onText, onError }: Params) {
         if (!resp.ok) throw new Error(body.error || "Transcription failed. Try again.");
         return body as { text?: string };
       })(), STT_MS, controller.signal, "Transcription timed out. Try again.", () => controller.abort());
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current) return null;
       const text = (data.text ?? "").trim();
       if (!text) throw new Error("Didn't catch that — try again");
-      paramsRef.current.onText(text);
+      return text;
     } catch (e) {
-      if (session !== sessionRef.current || (e as { name?: string })?.name === "AbortError") return;
+      if (session !== sessionRef.current || (e as { name?: string })?.name === "AbortError") return null;
       paramsRef.current.onError(e instanceof Error ? e.message : "Dictation failed. Try again.");
+      return null;
     } finally {
       if (session === sessionRef.current) { abortRef.current = null; release(); set("idle"); }
     }
   }, [cancel]);
   const confirmRef = useRef(confirm);
+  const onMaxRef = useRef<((t: string) => void) | null>(null);
   confirmRef.current = confirm;
 
   useEffect(() => () => { sessionRef.current++; abortRef.current?.abort(); release(); }, []);
 
-  return { supported, state, active: state !== "idle", start, cancel, confirm, getLevel };
+  /** Where text goes when the 60s limit auto-finishes a recording. */
+  const setOnAutoFinish = useCallback((fn: (t: string) => void) => { onMaxRef.current = fn; }, []);
+  return { supported, state, active: state !== "idle", start, cancel, confirm, getLevel, setOnAutoFinish };
 }
