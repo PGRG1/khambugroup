@@ -3,8 +3,9 @@ import { createPortal } from "react-dom";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -311,6 +312,20 @@ export default function Assistant() {
   // questions go through the normal send() path with voice flags, so the chat
   // history is identical to text mode.
   const [voiceMode, setVoiceMode] = useState(false);
+  // Dictation (small mic): browser speech recognition fills the text box only.
+  const dictationBaseRef = useRef("");
+  const dictation = useSpeechInput({
+    onTranscript: (t) => setInput(dictationBaseRef.current ? `${dictationBaseRef.current} ${t}` : t),
+    onError: () => toast({ title: "Microphone unavailable. Check your browser permissions.", variant: "destructive" }),
+  });
+  const toggleDictation = () => {
+    if (dictation.listening) { dictation.stop(); return; }
+    dictationBaseRef.current = input.trim();
+    dictation.start();
+  };
+  const dictationStopRef = useRef(dictation.stop);
+  dictationStopRef.current = dictation.stop;
+  useEffect(() => { dictationStopRef.current(); }, [scopeKey, activeId]);
   const voice = useVoiceConversation({
     active: voiceMode,
     getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
@@ -322,7 +337,8 @@ export default function Assistant() {
   voiceEndRef.current = voice.end;
   useEffect(() => { voiceEndRef.current(); setVoiceMode(false); }, [scopeKey]);
 
-  const enterVoice = () => { setVoiceMode(true); voice.start(); };
+  // Must run inside the tap: start() marks voice active and requests the mic synchronously.
+  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceMode(true); };
   const cancelVoice = () => { voice.end(); setVoiceMode(false); };
   useEffect(() => {
     if (!voiceMode) return;
@@ -365,25 +381,29 @@ export default function Assistant() {
           rows={1}
           className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
+        {dictation.supported && (
+          <button
+            type="button"
+            onClick={toggleDictation}
+            disabled={!scopeReady || loading}
+            aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
+            className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
+            style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
+          >
+            {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
-          onClick={enterVoice}
-          disabled={!scopeReady || loading}
-          aria-label="Start voice input"
-          className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
-          style={{ color: "#5B706B" }}
-        >
-          <Mic className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={loading ? stop : () => send(input)}
-          disabled={!loading && !canSendNow}
-          aria-label={loading ? "Stop generating" : "Send question"}
+          onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
+          disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
+          aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
-          style={{ background: "#1F3A37", opacity: loading || canSendNow ? 1 : 0.45, pointerEvents: loading || canSendNow ? "auto" : "none" }}
+          style={{ background: "#1F3A37", opacity: loading || !hasText || canSendNow ? 1 : 0.45 }}
         >
-          {loading ? <Square className="h-3.5 w-3.5 fill-current" /> : <ArrowUp className="h-4 w-4" />}
+          <span className="bani-ico" style={{ opacity: loading ? 1 : 0 }}><Square className="h-3.5 w-3.5 fill-current" /></span>
+          <span className="bani-ico" style={{ opacity: !loading && hasText ? 1 : 0 }}><ArrowUp className="h-4 w-4" /></span>
+          <span className="bani-ico" style={{ opacity: !loading && !hasText ? 1 : 0 }}><AudioLines className="h-4 w-4" /></span>
         </button>
       </div>
       {!scopeReady && (
@@ -434,6 +454,7 @@ export default function Assistant() {
         .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
         html:not(.dark) .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
         textarea.bani-ask-input:focus,textarea.bani-ask-input:focus-visible{outline:none !important;box-shadow:none !important;border:0 !important}
+        .bani-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity 150ms ease}
         .bani-mic{background:transparent}.bani-mic:hover:not(:disabled){background:rgba(20,45,43,0.06)}
         .bani-input{color:#14302D}.bani-input::placeholder{color:#7A8C88}
         @keyframes bani-pulse{0%{box-shadow:0 0 0 0 rgba(31,58,55,0.35)}100%{box-shadow:0 0 0 7px rgba(31,58,55,0)}}
