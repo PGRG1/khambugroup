@@ -553,14 +553,14 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   };
 
   /** Transcribe the recorded blob (or use the English fast path), then send. */
-  const transcribeAndSend = async (blob: Blob | null, gen: number) => {
+  const transcribeAndSend = async (blob: Blob | null, gen: number, typed?: string) => {
     const { token, tenantId } = paramsRef.current.getAuth();
     if (!token || gen !== generationRef.current) return;
     const turn = ++turnRef.current;
     const wasBarge = bargePendingRef.current;
     bargePendingRef.current = false;
     ttsCountRef.current = 0;
-    setVoiceState("transcribing");
+    setVoiceState(typed ? "thinking" : "transcribing");
     setStepLabel("");
     const noteEmpty = () => {
       if (wasBarge) {
@@ -571,11 +571,13 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     };
     try {
       // Fast path: a final Web Speech transcript in an English browser skips bani-stt.
-      const liveFinal = finalTranscriptRef.current.trim();
+      const liveFinal = typed ? "" : finalTranscriptRef.current.trim();
       const browserEn = (navigator.language || "en").toLowerCase().startsWith("en");
       let text = "";
       let lang = languageRef.current || "en";
-      if (liveFinal.length > 2 && browserEn) {
+      if (typed) {
+        text = typed; // typed in voice mode: same turn path, spoken reply
+      } else if (liveFinal.length > 2 && browserEn) {
         text = liveFinal;
         lang = "en";
       } else {
@@ -862,9 +864,35 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     abortRef.current = controller;
   }, []);
 
+  /**
+   * Typed question during voice mode. Discards any pending mic capture, stops
+   * Bani's playback, then runs the normal voice turn (spoken reply, then listens
+   * again). Refuses while a turn is still transcribing/thinking (no overlap).
+   */
+  const sendTyped = useCallback((raw: string): boolean => {
+    const text = raw.trim();
+    if (!activeRef.current || !text) return false;
+    const s = stateRef.current;
+    if (s === "transcribing" || s === "thinking") return false;
+    generationRef.current++;
+    cancelAnimationFrame(rafRef.current);
+    cancelAnimationFrame(bargeRafRef.current);
+    stopRecorder(true);
+    stopLiveWords();
+    stopPlayback();
+    clearTimers();
+    setNotice("");
+    setNeedsTap(false);
+    setLevel(0);
+    setReveal(null);
+    void transcribeAndSend(null, generationRef.current, text);
+    return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return {
     state, level, needsTap, muted, language,
     userWords, userWordsLive, stepLabel, reveal, notice,
-    start, end, interrupt, sendNow, toggleMute, trackRequest,
+    start, end, interrupt, sendNow, toggleMute, trackRequest, sendTyped,
   };
 }

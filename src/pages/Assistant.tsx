@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useVoiceConversation, type Reveal, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
@@ -303,7 +303,8 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      send(input);
+      if (voiceMode) sendVoiceTyped();
+      else send(input);
     }
   };
 
@@ -338,20 +339,30 @@ export default function Assistant() {
   useEffect(() => { voiceEndRef.current(); setVoiceMode(false); }, [scopeKey]);
 
   // Must run inside the tap: start() marks voice active and requests the mic synchronously.
-  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceMode(true); };
+  // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
+  const [voiceExpanded, setVoiceExpanded] = useState(true);
+  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
   const cancelVoice = () => { voice.end(); setVoiceMode(false); };
+  // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
-    if (!voiceMode) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelVoice(); };
+    if (!voiceMode || !voiceExpanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setVoiceExpanded(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [voiceMode, voiceExpanded]);
 
-  // Voice mode is a calm full screen: hide the sidebar trigger and top-bar icons.
+  // Expanded voice is a calm full screen: hide the sidebar trigger and top-bar icons.
   useEffect(() => {
-    document.body.classList.toggle("bani-voice-mode", voiceMode);
+    document.body.classList.toggle("bani-voice-mode", voiceMode && voiceExpanded);
     return () => document.body.classList.remove("bani-voice-mode");
-  }, [voiceMode]);
+  }, [voiceMode, voiceExpanded]);
+
+  // Typed question during voice: goes through the voice turn (spoken reply).
+  const voiceBusy = loading || voice.state === "thinking" || voice.state === "transcribing";
+  const sendVoiceTyped = () => {
+    if (voiceBusy || !scopeReady || !input.trim()) return;
+    if (voice.sendTyped(input)) setInput("");
+  };
 
   const [focused, setFocused] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -387,36 +398,63 @@ export default function Assistant() {
           rows={1}
           className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
-        {dictation.supported && (
-          <button
-            type="button"
-            onClick={toggleDictation}
-            disabled={!scopeReady || loading}
-            aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
-            className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
-            style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
-          >
-            {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
-          </button>
+        {voiceMode ? (
+          hasText && (
+            <button
+              type="button"
+              onClick={sendVoiceTyped}
+              disabled={voiceBusy || !scopeReady}
+              aria-label="Send question"
+              className="bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45"
+              style={{ background: "#1F3A37" }}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+          )
+        ) : (
+          <>
+            {dictation.supported && (
+              <button
+                type="button"
+                onClick={toggleDictation}
+                disabled={!scopeReady || loading}
+                aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
+                className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
+                style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
+              >
+                {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
+              disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
+              aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
+              style={{ background: "#1F3A37", opacity: loading || !hasText || canSendNow ? 1 : 0.45 }}
+            >
+              <span className="bani-ico" style={{ opacity: loading ? 1 : 0 }}><Square className="h-3.5 w-3.5 fill-current" /></span>
+              <span className="bani-ico" style={{ opacity: !loading && hasText ? 1 : 0 }}><ArrowUp className="h-4 w-4" /></span>
+              <span className="bani-ico" style={{ opacity: !loading && !hasText ? 1 : 0 }}><AudioLines className="h-4 w-4" /></span>
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
-          disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
-          aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
-          style={{ background: "#1F3A37", opacity: loading || !hasText || canSendNow ? 1 : 0.45 }}
-        >
-          <span className="bani-ico" style={{ opacity: loading ? 1 : 0 }}><Square className="h-3.5 w-3.5 fill-current" /></span>
-          <span className="bani-ico" style={{ opacity: !loading && hasText ? 1 : 0 }}><ArrowUp className="h-4 w-4" /></span>
-          <span className="bani-ico" style={{ opacity: !loading && !hasText ? 1 : 0 }}><AudioLines className="h-4 w-4" /></span>
-        </button>
       </div>
       {!scopeReady && (
         <p className="mt-2 text-center text-xs text-white/80">
           {tenantLoading ? "Loading your workspace…" : "Select a workspace to ask questions."}
         </p>
       )}
+    </div>
+  );
+
+  // Voice mode bottom row: pill composer + mute + end (same in both views).
+  const VoiceComposerRow = (
+    <div className="flex items-end gap-2">
+      <div className="min-w-0 flex-1">{Composer}</div>
+      <div className="flex items-center gap-2 pb-[3px]">
+        <VoiceControls muted={voice.muted} onToggleMute={voice.toggleMute} onEnd={cancelVoice} />
+      </div>
     </div>
   );
 
@@ -477,8 +515,7 @@ export default function Assistant() {
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
 
-
-      {voiceMode ? (
+      {voiceMode && voiceExpanded ? (
         <VoicePanel
           state={voice.state}
           level={voice.level}
@@ -486,14 +523,13 @@ export default function Assistant() {
           needsTap={voice.needsTap}
           userWords={voice.userWords}
           userWordsLive={voice.userWordsLive}
-          stepLabel={voice.stepLabel}
           reveal={voice.reveal}
           notice={voice.notice}
-          onToggleMute={voice.toggleMute}
-          onEnd={cancelVoice}
           onOrbTap={voice.interrupt}
+          onCollapse={() => setVoiceExpanded(false)}
+          footer={VoiceComposerRow}
         />
-      ) : placement === "welcome" ? (
+      ) : !voiceMode && placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
           <div style={{ flex: 42 }} />
           <div className="mx-auto w-full max-w-[640px]">
@@ -527,12 +563,12 @@ export default function Assistant() {
             onScroll={onScroll}
             data-testid="assistant-scroll"
             className="min-h-0 flex-1 overflow-y-auto px-4 pt-14"
-            style={{ paddingBottom: "calc(150px + env(safe-area-inset-bottom))" }}
+            style={{ paddingBottom: voiceMode ? "calc(210px + env(safe-area-inset-bottom))" : "calc(150px + env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto w-full max-w-[720px] space-y-5">
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                if (inFlight) return <ThinkingLine key={i} label={m.steps?.[m.steps.length - 1]?.label} />;
+                if (inFlight) return <ThinkingLine key={i} />;
                 return <MessageBlock key={i} msg={m} />;
               })}
               {loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
@@ -543,8 +579,29 @@ export default function Assistant() {
             style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
           >
             <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
-              {Composer}
-              <p className="mt-2 text-center text-[10px]" style={{ color: "rgba(20,45,43,0.5)" }}>{DISCLAIMER}</p>
+              {voiceMode ? (
+                <>
+                  <div className="mb-2 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVoiceExpanded(true)}
+                      aria-label="Expand voice view"
+                      className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] text-white"
+                      style={{ background: "rgba(255,255,255,0.16)" }}
+                    >
+                      <BaniOrb size={28} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
+                      <span role="status" aria-live="polite">{voice.notice || (voice.needsTap ? "Tap the orb to talk" : voiceStatusWord(voice.state, voice.muted))}</span>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {VoiceComposerRow}
+                </>
+              ) : (
+                <>
+                  {Composer}
+                  <p className="mt-2 text-center text-[10px]" style={{ color: "rgba(20,45,43,0.5)" }}>{DISCLAIMER}</p>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -609,8 +666,9 @@ function MessageBlock({ msg }: { msg: Msg }) {
   );
 }
 
-function ThinkingLine({ label }: { label?: string }) {
-  const target = label || "Reading your question";
+function ThinkingLine() {
+  // Tool steps stay in the answer's "Checked …" detail; the live line is calm.
+  const target = "Thinking";
   const [shown, setShown] = useState(target);
   const [fading, setFading] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -679,19 +737,53 @@ function RevealWords({ text, durationMs }: { text: string; durationMs: number })
   return <span>{words.slice(0, count).join(" ")}</span>;
 }
 
-function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, stepLabel, reveal, notice, onToggleMute, onEnd, onOrbTap }: {
+/** Simple status word for voice mode (no raw tool progress). */
+export function voiceStatusWord(state: VoiceState, muted: boolean): string {
+  if (state === "listening") return muted ? "Muted" : "Listening";
+  if (state === "speaking") return "Speaking";
+  if (state === "idle") return "Paused";
+  return "Thinking";
+}
+
+/** Mute + end controls shared by expanded and collapsed voice views. */
+function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggleMute: () => void; onEnd: () => void }) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+        aria-pressed={muted}
+        onClick={onToggleMute}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ background: muted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.22)" }}
+      >
+        {muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}
+      </button>
+      <button
+        type="button"
+        aria-label="End voice conversation"
+        onClick={onEnd}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ background: "rgba(220,80,80,0.85)" }}
+      >
+        <X className="h-[18px] w-[18px]" />
+      </button>
+    </>
+  );
+}
+
+function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, reveal, notice, onOrbTap, onCollapse, footer }: {
   state: VoiceState;
   level: number;
   muted: boolean;
   needsTap: boolean;
   userWords: string;
   userWordsLive: boolean;
-  stepLabel: string;
   reveal: Reveal;
   notice: string;
-  onToggleMute: () => void;
-  onEnd: () => void;
   onOrbTap: () => void;
+  onCollapse: () => void;
+  footer: React.ReactNode;
 }) {
   const listening = state === "listening";
   const speaking = state === "speaking";
@@ -703,9 +795,58 @@ function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, s
       : state === "idle" ? "Tap the orb to talk"
       : "Listening";
   const isPhone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
+  // Drag-down to collapse: only the handle captures the pointer, so the rest
+  // of the screen (and the transcript later) scrolls normally.
+  const [dy, setDy] = useState(0);
+  const dragRef = useRef<{ y: number; id: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    dragRef.current = { y: e.clientY, id: e.pointerId };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current || dragRef.current.id !== e.pointerId) return;
+    setDy(Math.max(0, e.clientY - dragRef.current.y));
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current) return;
+    const moved = Math.max(0, e.clientY - dragRef.current.y);
+    dragRef.current = null;
+    setDy(0);
+    if (moved > 70) onCollapse();
+  };
   return (
-    <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(28px + env(safe-area-inset-bottom))" }}>
-      <div className="flex flex-1 flex-col items-center justify-center gap-5">
+    <div
+      className="bani-fade flex min-h-0 flex-1 flex-col items-center px-4"
+      style={{
+        paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+        transform: dy ? `translateY(${dy}px)` : undefined,
+        opacity: dy ? Math.max(0.4, 1 - dy / 400) : 1,
+        transition: dy ? "none" : "transform 200ms ease, opacity 200ms ease",
+      }}
+    >
+      <button
+        type="button"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { dragRef.current = null; setDy(0); }}
+        onClick={(e) => { if (e.detail === 0) onCollapse(); }}
+        aria-label="Show chat (voice stays on)"
+        title="Drag down or click to show chat"
+        className="flex w-full max-w-[240px] flex-col items-center gap-1 pb-2 pt-1 text-white"
+        style={{ touchAction: "none", cursor: "grab" }}
+      >
+        <span className="block h-1.5 w-11 rounded-full" style={{ background: "rgba(255,255,255,0.55)" }} />
+      </button>
+      <button
+        type="button"
+        onClick={onCollapse}
+        className="flex items-center gap-1 rounded-full px-3 py-1 text-[12px] text-white"
+        style={{ background: "rgba(255,255,255,0.14)" }}
+      >
+        <ChevronDown className="h-3.5 w-3.5" /> Show chat
+      </button>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
         <button
           type="button"
           onClick={onOrbTap}
@@ -715,46 +856,27 @@ function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, s
         >
           <BaniOrb size={isPhone ? 120 : 140} mode={orbMode} />
         </button>
-        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 96 }}>
+        <p className="text-[13px] font-medium tracking-wide text-white" style={{ opacity: 0.75 }} role="status" aria-live="polite">
+          {voiceStatusWord(state, muted)}
+        </p>
+        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 84 }}>
           {speaking && reveal ? (
             <p className="line-clamp-4 text-[17px] leading-[1.5] text-white">
               {reveal.prior ? <span>{reveal.prior} </span> : null}
               <RevealWords key={reveal.id} text={reveal.text} durationMs={reveal.durationMs} />
             </p>
+          ) : notice ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>{notice}</p>
+          ) : needsTap ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>Tap the orb to talk</p>
           ) : userWords ? (
             <p className="line-clamp-4 text-[17px] leading-[1.5] text-white" style={{ opacity: userWordsLive ? 0.7 : 0.85 }}>
               {userWords}
             </p>
-          ) : notice ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>{notice}</p>
-          ) : needsTap ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>Tap the orb to talk</p>
-          ) : null}
-          {thinking && stepLabel ? (
-            <p className="bani-fade mt-2 text-[13px] text-white" style={{ opacity: 0.6 }}>{stepLabel}</p>
           ) : null}
         </div>
       </div>
-      <div className="flex items-center gap-8">
-        <button
-          type="button"
-          aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-          onClick={onToggleMute}
-          className="flex h-14 w-14 items-center justify-center rounded-full text-white transition-opacity"
-          style={{ background: "rgba(255,255,255,0.22)", opacity: muted ? 1 : 0.9 }}
-        >
-          {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-        </button>
-        <button
-          type="button"
-          aria-label="End voice conversation"
-          onClick={onEnd}
-          className="flex h-14 w-14 items-center justify-center rounded-full text-white"
-          style={{ background: "rgba(220,80,80,0.85)" }}
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+      <div className="w-full max-w-[640px]">{footer}</div>
     </div>
   );
 }
