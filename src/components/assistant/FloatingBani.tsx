@@ -98,7 +98,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>
           {message.proposal && <div className="mt-3 rounded-lg border border-border bg-background p-3">
             <p className="text-xs font-medium">{review?.header.invoice_number || "Invoice review"} · selected line</p>
-            <p className="mt-1 break-words text-sm">{message.proposal.field.replaceAll("_", " ")}: {review?.before(message.proposal) || "—"} → {message.proposal.value}</p>
+            <p className="mt-1 break-words text-sm">{message.proposal.field.replace(/_/g, " ")}: {review?.before(message.proposal) || "—"} → {message.proposal.value}</p>
             <p className="mt-1 text-xs text-muted-foreground">{message.proposal.reason}</p>
             {message.outcome ? <p className="mt-2 text-xs" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
               <Button size="sm" disabled={!review?.editable || message.proposal.binding !== binding} onClick={() => {

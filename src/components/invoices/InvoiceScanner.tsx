@@ -76,7 +76,7 @@ import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatchin
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
-import { canApplyProposal, validateProposal, correctDraftLine, type DraftProposal } from "@/utils/floatingDraft";
+import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -350,7 +350,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const baniEditable = !baniPreview && !baniRoleLoading && !baniPermissionLoading && !!baniUser && baniUser.id === userId && baniCanAccess("procurement") && (baniAdmin || ["edit", "admin"].includes(baniAuthority("procurement"))) && !saving && !savingAll && !scanning && !current?.saved;
   const baniScope = `${baniUser?.id}:${tenantId}:${current?._baniDraftId || "upload"}`;
   // Entire batch order and revisions bind the proposal, not just an array index.
-  const baniBinding = `${baniScope}:${invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|")}`;
+  const baniBinding = `${baniScope}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
   const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
   useEffect(() => {

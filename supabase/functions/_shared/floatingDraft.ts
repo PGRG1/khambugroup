@@ -17,6 +17,11 @@ export function validCorrection(field: string, value: unknown, line: Record<stri
   return true;
 }
 export function sameSupplier(a: string, b: string) { return a.trim().toLowerCase() === b.trim().toLowerCase(); }
+export function revisionFingerprint(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(36);
+}
 export function validateProposal(raw: unknown, binding: string, lineId: string, line: Record<string, unknown>, candidateIds: string[]): DraftProposal | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Record<string, unknown>;

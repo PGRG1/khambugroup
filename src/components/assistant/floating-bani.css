@@ -1,6 +1,6 @@
 .floating-bani { position: fixed; inset: auto 1rem 1rem auto; z-index: 40; color: hsl(var(--foreground)); }
 .floating-bani-launcher { width: 48px; height: 48px; border-radius: 50%; }
-.floating-bani-panel { display: flex; flex-direction: column; width: min(390px, calc(100vw - 2rem)); height: min(620px, calc(100dvh - 6rem)); border: 1px solid var(--tenant-glass-border); border-radius: 8px; background: var(--tenant-card-bg, hsl(var(--background) / .94)); backdrop-filter: blur(20px); box-shadow: var(--tenant-card-shadow); overflow: hidden; }
+.floating-bani-panel { display: flex; flex-direction: column; width: min(390px, calc(100vw - 2rem)); height: min(620px, calc(100dvh - 6rem)); border: 1px solid var(--tenant-glass-border); border-radius: 8px; background: hsl(var(--background) / .94); backdrop-filter: blur(20px); box-shadow: var(--shadow-card); overflow: hidden; }
 .floating-bani-transcript { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .floating-bani-prose { overflow-wrap: anywhere; }
 .floating-bani-prose p + p { margin-top: .5rem; }
