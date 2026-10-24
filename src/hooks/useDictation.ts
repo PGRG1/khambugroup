@@ -128,7 +128,8 @@ export function useDictation({ getAuth, onError }: Params) {
       const blob = await voiceDeadline(new Promise<Blob>((resolve) => {
         if (!rec || rec.state === "inactive") return resolve(new Blob(chunksRef.current));
         rec.onstop = () => resolve(new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" }));
-        try { rec.requestData?.(); } catch { /* ignore */ }
+        // stop() alone flushes the final data; an extra requestData() here produced
+        // a file the transcription provider rejected as corrupted.
         rec.stop();
       }), STOP_FLUSH_MS, controller.signal, "Recording did not finish. Try again.");
       recRef.current = null;
