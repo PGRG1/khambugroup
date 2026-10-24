@@ -26,6 +26,21 @@ describe("validateChatRequest", () => {
     }
   });
 
+  it("accepts voice flags only when well-formed, defaults to off", () => {
+    const base = { messages: [{ role: "user", content: "hi" }] };
+    const off = validateChatRequest(base);
+    expect(off.ok && off.voice).toBe(false);
+    expect(off.ok && off.voiceLanguage).toBe(null);
+    const on = validateChatRequest({ ...base, voice: true, voice_language: "yue" });
+    expect(on.ok && on.voice).toBe(true);
+    expect(on.ok && on.voiceLanguage).toBe("yue");
+    // Junk language values are dropped, not trusted.
+    const junk = validateChatRequest({ ...base, voice: true, voice_language: "en\"; DROP TABLE" });
+    expect(junk.ok && junk.voiceLanguage).toBe(null);
+    const num = validateChatRequest({ ...base, voice: true, voice_language: 42 });
+    expect(num.ok && num.voiceLanguage).toBe(null);
+  });
+
   it("rejects non-array, empty, over-long history and over-long message", () => {
     expect(validateChatRequest({ messages: "nope" }).ok).toBe(false);
     expect(validateChatRequest({ messages: [] }).ok).toBe(false);
