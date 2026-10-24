@@ -12,7 +12,23 @@ const corsHeaders = {
 const MAX_CHARS = 600;
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/audio/speech";
 const MODEL = "google/gemini-3.1-flash-tts-preview";
-const VOICE = "Kore";
+const VOICE = "Aoede";
+
+/** Rewrite written text into speakable text so the voice sounds natural. */
+export function normalizeForSpeech(input: string): string {
+  return input
+    .replace(/\bBani\b/gi, "Bah-nee")
+    .replace(/HK\$\s?(-?[\d,]+(?:\.\d+)?)(\s?[kKmM]\b)?/g, (_m, n: string, s?: string) => {
+      const suffix = s ? (s.trim().toLowerCase() === "k" ? " thousand" : " million") : "";
+      return `${n.replace(/\.00$/, "")}${suffix} Hong Kong dollars`;
+    })
+    .replace(/(\d)\s?%/g, "$1 percent")
+    .replace(/\s+[–—-]\s+/g, ", ")
+    .replace(/[*_#`|[\]()]/g, " ")
+    .replace(/\s*:\s+/g, ", ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -42,7 +58,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        contents: [{ role: "user", parts: [{ text }] }],
+        contents: [{ role: "user", parts: [{ text: `Say in a warm, natural, conversational tone, like a friendly colleague: ${normalizeForSpeech(text)}` }] }],
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
