@@ -535,7 +535,7 @@ export default function Assistant() {
     <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: voiceMode ? "calc(100dvh - 1rem)" : "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
-        .bani-composer{transition:border-color 150ms,box-shadow 150ms}@keyframes bani-dock{from{opacity:.6;transform:translateY(-24px)}to{opacity:1;transform:none}}.bani-dock{animation:bani-dock 220ms ease-out}.bani-suggest{scrollbar-width:none;overscroll-behavior-x:contain}.bani-suggest::-webkit-scrollbar{display:none}.bani-recorder{min-height:54px;animation:bani-fade 180ms ease-out}
+        .bani-composer{transition:border-color 150ms,box-shadow 150ms}@keyframes bani-dock{from{opacity:.6;transform:translateY(-24px)}to{opacity:1;transform:none}}.bani-dock{animation:bani-dock 220ms ease-out}.bani-suggest{scrollbar-width:none;overscroll-behavior-x:contain}.bani-suggest::-webkit-scrollbar{display:none}.bani-answer .bani-table,.bani-voice-answer .bani-table{background:rgba(250,252,251,0.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:12px;color:#10302C}.bani-table th{color:#3F5652!important;font-weight:600}.bani-table td,.bani-table td strong{color:#10302C!important}.bani-table tr:last-child td{border-bottom:0!important}.bani-recorder{min-height:54px;animation:bani-fade 180ms ease-out}
         .bani-answer{color:#10302C;max-width:68ch;font-size:15.5px;line-height:1.6}.bani-answer .prose{font-size:15.5px;line-height:1.6;color:inherit}.bani-answer .prose p{margin:0 0 .75em}
         .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
         html:not(.dark) .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
@@ -689,7 +689,7 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
             remarkPlugins={[remarkGfm]}
             components={{
               table: ({ node, ...props }) => (
-                <div className="my-3 overflow-x-auto">
+                <div className="bani-table my-3 overflow-x-auto">
                   <table className="w-full border-collapse text-sm" {...props} />
                 </div>
               ),
