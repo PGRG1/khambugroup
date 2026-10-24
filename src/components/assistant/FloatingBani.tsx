@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, X, Plus, FileText } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
@@ -13,6 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
+import { requestScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -66,6 +67,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
   const [draft, setDraft] = store?.draft ?? ["", () => {}];
   const [files, setFiles] = store?.files ?? [[], () => {}];
+  const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
   const [hidden, setHidden] = store?.hidden ?? [false, () => {}];
   const [sphere, setSphere] = store?.sphere ?? [null, () => {}];
