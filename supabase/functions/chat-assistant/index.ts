@@ -1077,6 +1077,8 @@ Deno.serve(async (req) => {
       );
     }
     const tenantId = resolved.tenant_id;
+    const voiceMode = validated.voice;
+    const voiceLang = validated.voiceLanguage || "en";
 
     const encoder = new TextEncoder();
     let closed = false;
@@ -1098,6 +1100,19 @@ Deno.serve(async (req) => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     const run = async () => {
+      // Voice mode: one filler with the first tool status, one "still going" after 8s.
+      let fillerSent = false;
+      let turnDone = false;
+      let stillTimer: ReturnType<typeof setTimeout> | null = null;
+      const speakFiller = (kind?: string) => {
+        if (!voiceMode || fillerSent || closed) return;
+        fillerSent = true;
+        emit({ speak: { kind: "filler", text: fillerText(kind, voiceLang) } });
+        stillTimer = setTimeout(() => {
+          if (!turnDone && !closed) emit({ speak: { kind: "filler", text: fillerText("more", voiceLang) } });
+        }, 8000);
+      };
+
       emit({ status: { label: "Reading your question" } });
       const workspace = await loadWorkspaceContext(tenantId);
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
@@ -1113,6 +1128,12 @@ Deno.serve(async (req) => {
       let currentModel = PRIMARY_MODEL;
 
       const streamContent = async (content: string) => {
+        turnDone = true;
+        if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
+        if (voiceMode && !closed) {
+          const summary = await spokenSummary(content, voiceLang);
+          if (summary) emit({ speak: { kind: "summary", text: summary } });
+        }
         emit({ status: { label: "Writing up the answer" } });
         for (const spec of chartSpecs) emit({ chart: spec });
         const chunkSize = 12;
