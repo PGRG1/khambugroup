@@ -8,6 +8,7 @@ import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 import { draftReview } from "./draftReview.ts";
+import { analyzeFiles, validateFiles } from "./floatingFiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -1015,6 +1016,13 @@ Deno.serve(async (req) => {
         admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user.id).eq("page_key", "assistant").maybeSingle(),
       ]);
       if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (body.attachments !== undefined) {
+      if (body.floating !== true && body.draft_review === undefined) return new Response(JSON.stringify({ error: "Attachments are only supported in floating Bani." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const files = validateFiles(body.attachments);
+      if (!files.ok) return new Response(JSON.stringify({ error: files.error }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (body.draft_review !== undefined && JSON.stringify(body.draft_review).length > 18000) return new Response(JSON.stringify({ error: "Review context is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return await analyzeFiles(req, files.files, messages, body.draft_review ? { header: body.draft_review.header, line: body.draft_review.line } : null, LOVABLE_API_KEY, corsHeaders);
     }
     if (body.draft_review !== undefined) {
       if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });

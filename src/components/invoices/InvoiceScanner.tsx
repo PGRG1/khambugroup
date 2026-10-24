@@ -2273,7 +2273,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     scope: baniScope, binding: baniBinding, draftId: current._baniDraftId, lineId: baniSelectedLine?._baniLineId || "", supplierId: current.supplier_id,
     header: { invoice_number: current.invoice_number, supplier_name: current.supplier_name, venue: current.venue, invoice_date: current.invoice_date, due_date: current.due_date, notes: current.notes, invoice_discount: current.invoice_discount, calculated_total: displayTotal, printed_total: current.ai_total ?? null },
     line: baniScalarLine, issues: blockingIssues.filter(issue => issue.scope === "header" || issue.index === baniSelectedIndex).map(issue => issue.message).slice(0, 20), candidateIds: baniCandidateIds,
-    label: `Invoice review${current.venue ? ` · ${current.venue}` : ""}${baniSelectedIndex >= 0 ? ` · Line ${baniSelectedIndex + 1}` : ""}`, editable: baniEditable,
+    label: [current.invoice_number ? `Invoice ${current.invoice_number}` : "Invoice review", current.supplier_name, current.venue, baniSelectedIndex >= 0 ? `Line ${baniSelectedIndex + 1}${baniSelectedLine?.description ? ` ${String(baniSelectedLine.description).slice(0, 40)}` : ""}` : ""].filter(Boolean).join(" · "), editable: baniEditable,
     before: p => p.field === "match" ? baniSelectedLine?.matched_internal_name || "Unmatched" : String(baniSelectedLine?.[p.field as keyof ScannedLineItem] ?? "—"),
     apply: (proposal: DraftProposal) => {
       if (!baniSelectedLine || !canApplyProposal(proposal, baniLive.current.binding, baniSelectedLine._baniLineId || "", baniLive.current.editable, baniApplied.current)) return false;
