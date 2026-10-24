@@ -9,6 +9,9 @@ import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
 import { KpiNavigation } from "@/components/kpi/KpiNavigation";
 import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
+import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
+import { FloatingBani } from "@/components/assistant/FloatingBani";
+import "@/components/assistant/floating-bani.css";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -16,7 +19,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const topPad = isPreviewActive ? "pt-10" : "";
 
   return (
-    <SidebarProvider className="tenant-portal">
+    <FloatingBaniProvider><SidebarProvider className="tenant-portal">
       <div className="tenant-atmosphere" aria-hidden="true" />
       <div className={`min-h-screen flex w-full overflow-x-hidden ${topPad}`}>
         <AppSidebar />
@@ -36,6 +39,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-    </SidebarProvider>
+      <FloatingBani />
+    </SidebarProvider></FloatingBaniProvider>
   );
 }
