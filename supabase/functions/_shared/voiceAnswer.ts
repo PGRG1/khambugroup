@@ -4,7 +4,7 @@ export function groundedVoiceAnswer(answer: string): string {
     const s = line.trim();
     return s && !s.startsWith("#") && !s.includes("|") && !s.startsWith("```");
   }).map((line) => line.replace(/^\s*[-*]\s+/, "").replace(/\*\*|`/g, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")).join(" ");
-  const sentences = prose.match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g) ?? [];
+  const sentences = prose.split(/(?<=[.!?])\s+/).filter(Boolean);
   let result = "";
   for (const sentence of sentences.slice(0, 3)) {
     const next = `${result} ${sentence.trim()}`.trim();
