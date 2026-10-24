@@ -20,7 +20,8 @@ describe("voice speech detector", () => {
     expect(out).not.toContain("end");
   });
 
-  it("ends the turn after ~700ms of quiet once speech started", () => {
+  it("ends the turn after 1.8s of quiet once speech started", () => {
+    expect(SILENCE_MS).toBe(1800);
     const d = createSpeechDetector();
     d.push(0.2, 0); d.push(0.2, 300);
     expect(d.push(0.001, 300 + SILENCE_MS - 50)).toBe("none");

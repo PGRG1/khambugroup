@@ -35,12 +35,13 @@ type Params = {
   onError: (message: string) => void;
 };
 
-export const SILENCE_MS = 700;
+export const SILENCE_MS = 1800;
 export const SPEECH_START_MS = 250;
 const MAX_TURN_MS = 30000;
 const NO_SPEECH_MS = 8000;
 const NOTICE_MS = 2000;
 const FILLER_DELAY_MS = 2500;
+const ACKS_ENABLED = false;
 const BARGE_MS = 350;
 const BARGE_GUARD_MS = 400;
 const BARGE_MISS_LIMIT = 2;
@@ -419,6 +420,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Pre-generate the short acknowledgements for one language (background). */
   const pregenAcks = async (lang: string, gen: number) => {
+    if (!ACKS_ENABLED) return;
     const key = ackKey(lang);
     if (ackLangsDoneRef.current.has(key)) return;
     ackLangsDoneRef.current.add(key);
@@ -438,6 +440,8 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Play a cached acknowledgement instantly. Returns false if none ready. */
   const playAck = (): boolean => {
+    // Canned "Okay." acknowledgements disabled: they sounded repetitive.
+    if (!ACKS_ENABLED) return false;
     const urls = ackUrlsRef.current.get(ackKey(languageRef.current)) || ackUrlsRef.current.get("en");
     if (!urls?.length) return false;
     const el = ensureAudioEl();
