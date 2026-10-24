@@ -343,7 +343,7 @@ export default function Assistant() {
   // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
   const [voiceExpanded, setVoiceExpanded] = useState(true);
   const enterVoice = () => { dictation.stop(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
-  const cancelVoice = () => { voice.end(); setVoiceMode(false); };
+  const cancelVoice = () => { voice.end(); stop(); setVoiceMode(false); };
   // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
     if (!voiceMode || !voiceExpanded) return;
