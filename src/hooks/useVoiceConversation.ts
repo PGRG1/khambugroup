@@ -319,13 +319,14 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
    * are pre-generated with counted=false.
    */
   const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer> | null> => {
-    if (!text.trim() || gen !== generationRef.current) return null;
+    const current = () => signal ? !signal.aborted && activeRef.current : gen === generationRef.current;
+    if (!text.trim() || !current()) return null;
     if (counted) {
       if (ttsCountRef.current >= 3) return null;
       ttsCountRef.current++;
     }
     try {
-      if (!playAbortRef.current) playAbortRef.current = new AbortController();
+      if (!signal && !playAbortRef.current) playAbortRef.current = new AbortController();
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bani-tts`, {
         method: "POST",
         headers: {
@@ -334,7 +335,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ text: text.slice(0, 600) }),
-        signal: signal ?? playAbortRef.current.signal,
+        signal: signal ?? playAbortRef.current?.signal,
       });
       if (!resp.ok || !resp.body) {
         const body = await resp.json().catch(() => ({}));
@@ -357,7 +358,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (gen !== generationRef.current) { reader.cancel(); return null; }
+        if (!current()) { void reader.cancel(); return null; }
         buf += value;
         let nl: number;
         while ((nl = buf.indexOf("\n")) !== -1) {
@@ -369,7 +370,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           }
         }
       }
-      if (gen !== generationRef.current) return null;
+      if (!current()) return null;
       if (!completed || !total) throw new Error("Speech audio was incomplete");
       const pcm = new Uint8Array(total - (total % 2));
       let off = 0;
@@ -416,7 +417,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         utter.lang = tag;
         const match = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith(tag.slice(0, 2)));
         if (match) utter.voice = match;
-        utter.onend = () => resolve();
+        utter.onend = () => { playbackDoneRef.current = null; resolve(); };
         utter.onerror = (event) => { if (event.error !== "canceled" && event.error !== "interrupted") paramsRef.current.onError("Browser speech could not play. The answer remains in chat."); resolve(); };
         playbackDoneRef.current = resolve;
         synth.speak(utter);
