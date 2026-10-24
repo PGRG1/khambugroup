@@ -5,7 +5,9 @@
 //
 // Phone-safety rules:
 // - start() must be called directly from a tap. It marks voice active, unlocks
-//   both AudioContexts and calls getUserMedia synchronously (no await first).
+//   the playback <audio> element (silent clip) and calls getUserMedia
+//   synchronously (no await first). Playback uses an <audio> element, not an
+//   AudioContext, because the iPhone silent switch mutes WebAudio output.
 // - One mic stream per voice session; only the MediaRecorder starts/stops per
 //   turn. The track is disabled while Bani speaks and released only in end().
 // - stateRef is written synchronously via setVoiceState so async callbacks never
@@ -540,7 +542,12 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     stopPlayback();
     summaryTurnRef.current = -1;
     try {
-      ensurePlayCtx().resume().catch(() => {});
+      // Unlock the session <audio> element inside the tap: play a silent clip so
+      // iOS allows later play() calls, and so output uses the media channel
+      // (audible even when the phone's silent switch is on).
+      const el = ensureAudioEl();
+      el.src = SILENT_WAV;
+      el.play().then(() => { try { el.pause(); } catch { /* ignore */ } }).catch(() => {});
       if (!micCtxRef.current) micCtxRef.current = new AudioContext();
       micCtxRef.current.resume().catch(() => {});
     } catch { /* audio unlock best-effort */ }
@@ -571,7 +578,6 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       abortRef.current?.abort();
       listen();
     } else if (s === "idle") {
-      playCtxRef.current?.resume().catch(() => {});
       listen();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
