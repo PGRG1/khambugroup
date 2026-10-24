@@ -16,7 +16,7 @@
 // - stateRef is written synchronously via setVoiceState so async callbacks never
 //   read a stale state.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { decideFiller, fillerStillWanted } from "./voiceFiller";
+import { fillerStillWanted } from "./voiceFiller";
 
 export type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
 export type SpeakEvent = { kind: "filler" | "summary"; text: string; stage?: "first" | "more" };
@@ -638,22 +638,8 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
             setReveal(null);
             listen();
           });
-        } else {
-          return; // Local bounded acknowledgement/update owns voice progress; no duplicate server filler.
-          const used = fillerUsedRef.current.turn === turn
-            ? fillerUsedRef.current : (fillerUsedRef.current = { turn, first: false, more: false });
-          const stage = s.stage ?? "first";
-          const d = decideFiller({
-            stage, state: stateRef.current, summaryArrived: summaryTurnRef.current === turn,
-            firstUsed: used.first, moreUsed: used.more, fillerPlaying: fillerPlayingRef.current,
-            sinceTurnEndMs: performance.now() - turnEndedAtRef.current,
-          });
-          if (!d.play) return;
-          if (stage === "first") used.first = true; else used.more = true;
-          // Timers are cleared on answer, interrupt, typed turn, end and tenant switch.
-          if (d.delayMs > 0) timersRef.current.push(setTimeout(() => void speakFiller(s.text, gen, turn), d.delayMs));
-          else void speakFiller(s.text, gen, turn);
         }
+
       };
       const onStatus = (label: string) => {
         if (gen !== generationRef.current || turn !== turnRef.current) return;

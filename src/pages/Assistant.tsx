@@ -736,20 +736,6 @@ function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationM
   );
 }
 
-/** Reveals Bani's words one by one, roughly in sync with the audio clip. */
-function RevealWords({ text, durationMs }: { text: string; durationMs: number }) {
-  const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    setCount(0);
-    if (!words.length) return;
-    const per = Math.max(70, durationMs / words.length);
-    const iv = setInterval(() => setCount((c) => Math.min(words.length, c + 1)), per);
-    return () => clearInterval(iv);
-  }, [text, durationMs, words.length]);
-  return <span>{words.slice(0, count).join(" ")}</span>;
-}
-
 /** Simple status word for voice mode (no raw tool progress). */
 export function voiceStatusWord(state: VoiceState, muted: boolean): string {
   if (state === "listening") return muted ? "Muted" : "Listening";
@@ -783,111 +769,34 @@ function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggl
   );
 }
 
-function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, reveal, notice, onOrbTap, onCollapse, footer }: {
-  state: VoiceState;
-  level: number;
-  muted: boolean;
-  needsTap: boolean;
-  userWords: string;
-  userWordsLive: boolean;
-  reveal: Reveal;
-  notice: string;
-  onOrbTap: () => void;
-  onCollapse: () => void;
-  footer: React.ReactNode;
+function VoicePanel({ state, level, needsTap, notice, onOrbTap, onCollapse, footer }: {
+  state: VoiceState; level: number; muted: boolean; needsTap: boolean;
+  userWords: string; userWordsLive: boolean; reveal: Reveal; notice: string;
+  onOrbTap: () => void; onCollapse: () => void; footer: React.ReactNode;
 }) {
-  const listening = state === "listening";
-  const speaking = state === "speaking";
   const thinking = state === "thinking" || state === "transcribing";
-  const orbMode = thinking ? "thinking" : listening || speaking ? "listening" : "idle";
-  const scale = listening ? 1 + Math.min(1, Math.max(0, level)) * 0.15 : 1;
-  const orbLabel =
-    thinking || speaking ? "Interrupt and talk"
-      : state === "idle" ? "Tap the orb to talk"
-      : "Listening";
-  const isPhone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
-  // Drag-down to collapse: only the handle captures the pointer, so the rest
-  // of the screen (and the transcript later) scrolls normally.
-  const [dy, setDy] = useState(0);
+  const orbMode = thinking ? "thinking" : state === "idle" ? "idle" : "listening";
   const dragRef = useRef<{ y: number; id: number } | null>(null);
-  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    dragRef.current = { y: e.clientY, id: e.pointerId };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current || dragRef.current.id !== e.pointerId) return;
-    setDy(Math.max(0, e.clientY - dragRef.current.y));
-  };
-  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current) return;
-    const moved = Math.max(0, e.clientY - dragRef.current.y);
-    dragRef.current = null;
-    setDy(0);
-    if (moved > 70) onCollapse();
-  };
   return (
-    <div
-      className="bani-fade flex min-h-0 flex-1 flex-col items-center px-4"
-      style={{
-        paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
-        transform: dy ? `translateY(${dy}px)` : undefined,
-        opacity: dy ? Math.max(0.4, 1 - dy / 400) : 1,
-        transition: dy ? "none" : "transform 200ms ease, opacity 200ms ease",
-      }}
-    >
-      <button
-        type="button"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={() => { dragRef.current = null; setDy(0); }}
-        onClick={(e) => { if (e.detail === 0) onCollapse(); }}
-        aria-label="Show chat (voice stays on)"
-        title="Drag down or click to show chat"
-        className="flex w-full max-w-[240px] flex-col items-center gap-1 pb-2 pt-1 text-white"
-        style={{ touchAction: "none", cursor: "grab" }}
+    <div className="bani-fade flex min-h-0 flex-1 flex-col px-4 pb-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+      <div className="bani-voice-title pt-2">Bani</div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center"
+        style={{ touchAction: "none" }}
+        onPointerDown={(e) => { dragRef.current = { y: e.clientY, id: e.pointerId }; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerUp={(e) => { const start = dragRef.current; dragRef.current = null; if (start && e.clientY - start.y > 70) onCollapse(); }}
+        onPointerCancel={() => { dragRef.current = null; }}
       >
-        <span className="block h-1.5 w-11 rounded-full" style={{ background: "rgba(255,255,255,0.55)" }} />
-      </button>
-      <button
-        type="button"
-        onClick={onCollapse}
-        className="flex items-center gap-1 rounded-full px-3 py-1 text-[12px] text-white"
-        style={{ background: "rgba(255,255,255,0.14)" }}
-      >
-        <ChevronDown className="h-3.5 w-3.5" /> Show chat
-      </button>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={onOrbTap}
-          aria-label={orbLabel}
-          className={`bani-orb-level rounded-full transition-transform duration-200 ${speaking ? "bani-orb-speaking" : ""}`}
-          style={speaking ? undefined : { transform: `scale(${scale})` }}
-        >
-          <BaniOrb size={isPhone ? 120 : 140} mode={orbMode} />
-        </button>
-        <p className="text-[13px] font-medium tracking-wide text-white" style={{ opacity: 0.75 }} role="status" aria-live="polite">
-          {voiceStatusWord(state, muted)}
-        </p>
-        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 84 }}>
-          {speaking && reveal ? (
-            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white">
-              {reveal.prior ? <span>{reveal.prior} </span> : null}
-              <RevealWords key={reveal.id} text={reveal.text} durationMs={reveal.durationMs} />
-            </p>
-          ) : notice ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>{notice}</p>
-          ) : needsTap ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>Tap the orb to talk</p>
-          ) : userWords ? (
-            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white" style={{ opacity: userWordsLive ? 0.7 : 0.85 }}>
-              {userWords}
-            </p>
-          ) : null}
-        </div>
+        <Button type="button" variant="ghost" onClick={onOrbTap}
+          aria-label={needsTap ? "Resume voice audio" : "Interrupt and talk"}
+          className="bani-voice-orb h-auto rounded-full">
+          <BaniOrb size={176} mode={orbMode} />
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCollapse} aria-label="Collapse voice view"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4"> <span className="sr-only">Collapse voice view</span> </Button>
       </div>
-      <div className="w-full max-w-[640px]">{footer}</div>
+      {needsTap && <p className="mb-3 text-center text-sm" role="status">Tap the orb to resume audio.</p>}
+      {notice && notice !== "Tap the orb to talk" && <p className="mb-3 text-center text-sm" role="alert">{notice}</p>}
+      <div className="mx-auto w-full max-w-[640px]">{footer}</div>
     </div>
   );
 }
