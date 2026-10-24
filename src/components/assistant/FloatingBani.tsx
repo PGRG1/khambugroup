@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
-import { supabase } from "@/integrations/supabase/client";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { useFloatingBaniHost } from "./FloatingBaniContext";
 
@@ -24,7 +23,7 @@ export type FloatingReview = {
   before: (proposal: DraftProposal) => string;
   apply: (proposal: DraftProposal) => boolean;
 };
-type Message = { role: "user" | "assistant"; content: string; proposal?: DraftProposal; outcome?: string };
+type Message = { role: "user" | "assistant"; content: string; proposal?: DraftProposal; outcome?: string; before?: string; target?: string };
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const { user, session, isAdmin, loading: authLoading, roleLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
@@ -82,7 +81,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       }
       if (!controller.signal.aborted && liveScope.current === requestScope) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
-        setMessages(prev => [...prev, { role: "assistant", content, proposal }]);
+        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? `${review.header.invoice_number || "Invoice review"} · ${review.label}` : undefined }]);
       }
     } catch (e) { if (!controller.signal.aborted && liveScope.current === requestScope) setError(e instanceof Error ? e.message : "Bani could not reply."); }
     finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
@@ -98,8 +97,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         {messages.map((message, index) => <div key={index} className={`mb-4 min-w-0 text-sm ${message.role === "user" ? "ml-6 rounded-lg bg-muted/60 p-2" : ""}`}>
           <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>
           {message.proposal && <div className="mt-3 rounded-lg border border-border bg-background p-3">
-            <p className="text-xs font-medium">{review?.header.invoice_number || "Invoice review"} · selected line</p>
-            <p className="mt-1 break-words text-sm">{message.proposal.field.replace(/_/g, " ")}: {review?.before(message.proposal) || "—"} → {message.proposal.value}</p>
+            <p className="text-xs font-medium">{message.target}</p>
+            <p className="mt-1 break-words text-sm">{message.proposal.field.replace(/_/g, " ")}: {message.before || "—"} → {message.proposal.value}</p>
             <p className="mt-1 text-xs text-muted-foreground">{message.proposal.reason}</p>
             {message.outcome ? <p className="mt-2 text-xs" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
               <Button size="sm" disabled={!review?.editable || message.proposal.binding !== binding} onClick={() => {

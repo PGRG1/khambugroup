@@ -105,6 +105,10 @@ interface ScannedLineItem {
   /** Immutable OCR evidence used for matching and unlinking. */
   scanned_item_code?: string;
   scanned_description?: string;
+  scanned_quantity?: string;
+  scanned_unit_price?: string;
+  scanned_pack_size?: string;
+  scanned_unit?: string;
   /** Amount printed in the AMOUNT / line-total column (immutable source truth). */
   printed_amount?: string;
   /** Printed Line No / item no exactly as shown ("" when the row has none). */
@@ -312,7 +316,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const old = previous.find(p => p._baniDraftId && p._baniDraftId === invoice._baniDraftId);
         if (invoice === old) return invoice;
         return { ...invoice, _baniDraftId: invoice._baniDraftId || crypto.randomUUID(), _baniRevision: (old?._baniRevision || 0) + 1,
-          line_items: invoice.line_items.map(line => line._baniLineId ? line : { ...line, _baniLineId: crypto.randomUUID() }) };
+          line_items: invoice.line_items.map(line => line._baniLineId ? line : { ...line, _baniLineId: crypto.randomUUID(), scanned_quantity: line.quantity, scanned_unit_price: line.unit_price, scanned_pack_size: line.pack_size, scanned_unit: line.unit }) };
       });
     });
   }, []);
@@ -348,9 +352,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [baniOpenSignal, setBaniOpenSignal] = useState(0);
   const baniApplied = useRef(new Set<string>());
   const baniEditable = !baniPreview && !baniRoleLoading && !baniPermissionLoading && !!baniUser && baniUser.id === userId && baniCanAccess("procurement") && (baniAdmin || ["edit", "admin"].includes(baniAuthority("procurement"))) && !saving && !savingAll && !scanning && !current?.saved;
-  const baniScope = `${baniUser?.id}:${tenantId}:${current?._baniDraftId || "upload"}`;
+  const baniScope = `${baniUser?.id}:${tenantId}:${current?._baniDraftId || "upload"}:${current?.supplier_id || ""}`;
   // Entire batch order and revisions bind the proposal, not just an array index.
-  const baniBinding = `${baniScope}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
+  const baniBinding = `${revisionFingerprint(baniScope)}:${baniLineId || "none"}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
   const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
   useEffect(() => {
