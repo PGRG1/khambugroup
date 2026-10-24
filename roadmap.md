@@ -4,6 +4,7 @@
 - [x] Tenant launcher and modal-safe contextual panel
 - [x] Guarded unsaved scanner proposals with server and host validation
 - [x] 46 focused tests and real-model desktop/mobile local-draft verification; no publication
+- [ ] Scanner handoff: open_invoice_scanner action, in-memory file handoff, unsaved-review protection — verify before done
 
 ## Android voice capture stall
 - [x] Bound capture, transcription, chat and playback; preserve recorded quiet speech and explicit orb send
