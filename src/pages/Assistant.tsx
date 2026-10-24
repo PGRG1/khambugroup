@@ -53,6 +53,7 @@ export default function Assistant() {
   const [loading, setLoading] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const trackRequestRef = useRef<((c: AbortController | null) => void) | null>(null);
   const requestScopeRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -301,39 +302,28 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      speech.stop();
       send(input);
     }
   };
 
-  // Voice input (browser only, never auto-sends).
-  const voiceBaseRef = useRef("");
+  // Two-way voice conversation: MediaRecorder + bani-stt/bani-tts edge functions.
+  // The loop (listening → thinking → speaking → listening) lives in the hook;
+  // questions go through the normal send() path with voice flags, so the chat
+  // history is identical to text mode.
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceText, setVoiceText] = useState("");
-  const voiceModeRef = useRef(false);
-  voiceModeRef.current = voiceMode;
-  const speech = useSpeechInput({
-    onTranscript: (t) => {
-      if (voiceModeRef.current) { setVoiceText(t); return; }
-      const base = voiceBaseRef.current;
-      setInput(base ? `${base} ${t}` : t);
-    },
-    onError: () =>
-      toast({ title: "Microphone unavailable. Check your browser permissions.", variant: "destructive" }),
+  const voice = useVoiceConversation({
+    active: voiceMode,
+    getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
+    sendQuestion: (text, opts) => send(text, opts),
+    onError: (msg) => toast({ title: msg, variant: "destructive" }),
   });
-  const speechStopRef = useRef(speech.stop);
-  speechStopRef.current = speech.stop;
-  useEffect(() => { speechStopRef.current(); setVoiceMode(false); setVoiceText(""); }, [scopeKey]);
+  trackRequestRef.current = voice.trackRequest;
+  const voiceEndRef = useRef(voice.end);
+  voiceEndRef.current = voice.end;
+  useEffect(() => { voiceEndRef.current(); setVoiceMode(false); }, [scopeKey]);
 
-  const enterVoice = () => { setVoiceText(""); setVoiceMode(true); speech.start(); };
-  const cancelVoice = () => { speech.stop(); setVoiceMode(false); setVoiceText(""); };
-  const sendVoice = () => {
-    const t = voiceText.trim();
-    speech.stop();
-    setVoiceMode(false);
-    setVoiceText("");
-    if (t) send(t);
-  };
+  const enterVoice = () => { setVoiceMode(true); voice.start(); };
+  const cancelVoice = () => { voice.end(); setVoiceMode(false); };
   useEffect(() => {
     if (!voiceMode) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelVoice(); };
