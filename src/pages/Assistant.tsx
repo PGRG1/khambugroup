@@ -303,12 +303,10 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (voiceModeRef.current) sendVoiceTypedRef.current();
+      if (voiceMode) sendVoiceTyped();
       else send(input);
     }
   };
-  const voiceModeRef = useRef(false);
-  const sendVoiceTypedRef = useRef<() => void>(() => {});
 
   // Two-way voice conversation: MediaRecorder + bani-stt/bani-tts edge functions.
   // The loop (listening → thinking → speaking → listening) lives in the hook;
