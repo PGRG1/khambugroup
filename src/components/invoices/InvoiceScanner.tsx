@@ -74,6 +74,12 @@ import { MoreHorizontal } from "lucide-react";
 
 import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
+import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
+import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
+import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
+import { useAuth } from "@/hooks/useAuth";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -93,11 +99,16 @@ interface ProductMasterEntry {
 }
 
 interface ScannedLineItem {
+  _baniLineId?: string;
   item_code: string;
   description: string;
   /** Immutable OCR evidence used for matching and unlinking. */
   scanned_item_code?: string;
   scanned_description?: string;
+  scanned_quantity?: string;
+  scanned_unit_price?: string;
+  scanned_pack_size?: string;
+  scanned_unit?: string;
   /** Amount printed in the AMOUNT / line-total column (immutable source truth). */
   printed_amount?: string;
   /** Printed Line No / item no exactly as shown ("" when the row has none). */
@@ -172,6 +183,8 @@ interface ReviewCorrection {
 }
 
 interface ScannedInvoice {
+  _baniDraftId?: string;
+  _baniRevision?: number;
   supplier_name: string;
   supplier_id: string;
   venue: string;
@@ -293,7 +306,20 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
 const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
+  const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
+  // Assign identity once; every local mutation advances revision, including edit-and-revert.
+  const setInvoices = useCallback((action: React.SetStateAction<ScannedInvoice[]>) => {
+    setRawInvoices(previous => {
+      const next = typeof action === "function" ? action(previous) : action;
+      if (next === previous) return previous;
+      return next.map(invoice => {
+        const old = previous.find(p => p._baniDraftId && p._baniDraftId === invoice._baniDraftId);
+        if (invoice === old) return invoice;
+        return { ...invoice, _baniDraftId: invoice._baniDraftId || crypto.randomUUID(), _baniRevision: (old?._baniRevision || 0) + 1,
+          line_items: invoice.line_items.map(line => line._baniLineId ? line : { ...line, _baniLineId: crypto.randomUUID(), scanned_quantity: line.quantity, scanned_unit_price: line.unit_price, scanned_pack_size: line.pack_size, scanned_unit: line.unit }) };
+      });
+    });
+  }, []);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
@@ -316,6 +342,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   const current = invoices[currentIdx] || null;
   const { tenantId } = useActiveTenant();
+  const { user: baniUser, isAdmin: baniAdmin, roleLoading: baniRoleLoading } = useAuth();
+  const { isPreviewActive: baniPreview } = usePreviewMode();
+  const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
+  const { setHost: setBaniHost } = useFloatingBaniHost();
+  const [baniHostNode, setBaniHostNode] = useState<HTMLDivElement | null>(null);
+  const baniHostToken = useRef(crypto.randomUUID());
+  const [baniLineId, setBaniLineId] = useState<string | null>(null);
+  const [baniOpenSignal, setBaniOpenSignal] = useState(0);
+  const baniApplied = useRef(new Set<string>());
+  const baniEditable = !baniPreview && !baniRoleLoading && !baniPermissionLoading && !!baniUser && baniUser.id === userId && baniCanAccess("procurement") && (baniAdmin || ["edit", "admin"].includes(baniAuthority("procurement"))) && !saving && !savingAll && !scanning && !current?.saved;
+  const baniScope = `${baniUser?.id}:${tenantId}:${current?._baniDraftId || "upload"}:${current?.supplier_id || ""}`;
+  // Entire batch order and revisions bind the proposal, not just an array index.
+  const baniBinding = `${revisionFingerprint(baniScope)}:${baniLineId || "none"}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
+  const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
+  baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
+  useEffect(() => {
+    if (!baniHostNode) return;
+    setBaniHost({ token: baniHostToken.current, node: baniHostNode });
+    return () => { setBaniHost(null); baniLive.current = { binding: "closed", scope: "closed", editable: false }; };
+  }, [baniHostNode, setBaniHost]);
+  useEffect(() => { setBaniLineId(null); baniApplied.current.clear(); }, [baniScope]);
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
   const [supplierError, setSupplierError] = useState(false);
 
@@ -2213,10 +2260,53 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   const isReview = current && !scanning;
+  const baniSelectedLine = current?.line_items.find(line => line._baniLineId === baniLineId) || null;
+  const baniSelectedIndex = current?.line_items.findIndex(line => line === baniSelectedLine) ?? -1;
+  const baniCandidates = scopePMToSupplier(productMaster, current?.supplier_name).filter(entry => Boolean(entry.supplier_entry_id));
+  const baniCandidateIds = Array.from(new Set([
+    baniSelectedLine?.supplier_entry_id,
+    ...(baniSelectedLine?.suggestions || []).map(c => (c.entry as ProductMasterEntry).supplier_entry_id),
+    ...baniCandidates.slice(0, 8).map(e => e.supplier_entry_id),
+  ].filter((id): id is string => Boolean(id)))).slice(0, 12);
+  const baniScalarLine = baniSelectedLine ? Object.fromEntries(Object.entries(baniSelectedLine).filter(([key, value]) => !key.startsWith("_") && (value === null || ["string", "number", "boolean"].includes(typeof value) || (Array.isArray(value) && value.every(v => typeof v === "string"))))) : null;
+  const baniReview: FloatingReview | undefined = current?.supplier_id && current._baniDraftId ? {
+    scope: baniScope, binding: baniBinding, draftId: current._baniDraftId, lineId: baniSelectedLine?._baniLineId || "", supplierId: current.supplier_id,
+    header: { invoice_number: current.invoice_number, supplier_name: current.supplier_name, venue: current.venue, invoice_date: current.invoice_date, due_date: current.due_date, notes: current.notes, invoice_discount: current.invoice_discount, calculated_total: displayTotal, printed_total: current.ai_total ?? null },
+    line: baniScalarLine, issues: blockingIssues.filter(issue => issue.scope === "header" || issue.index === baniSelectedIndex).map(issue => issue.message).slice(0, 20), candidateIds: baniCandidateIds,
+    label: `Invoice review${current.venue ? ` · ${current.venue}` : ""}${baniSelectedIndex >= 0 ? ` · Line ${baniSelectedIndex + 1}` : ""}`, editable: baniEditable,
+    before: p => p.field === "match" ? baniSelectedLine?.matched_internal_name || "Unmatched" : String(baniSelectedLine?.[p.field as keyof ScannedLineItem] ?? "—"),
+    apply: (proposal: DraftProposal) => {
+      if (!baniSelectedLine || !canApplyProposal(proposal, baniLive.current.binding, baniSelectedLine._baniLineId || "", baniLive.current.editable, baniApplied.current)) return false;
+      const valid = validateProposal(proposal, baniBinding, baniSelectedLine._baniLineId || "", baniScalarLine || {}, baniCandidateIds);
+      if (!valid) return false;
+      const entry = proposal.field === "match" ? baniCandidates.find(e => e.supplier_entry_id === proposal.value) : undefined;
+      if (proposal.field === "match" && (!entry || !isEntryForActiveSupplier(entry))) return false;
+      let changed = false;
+      flushSync(() => setInvoices(previous => {
+        if (!canApplyProposal(proposal, baniLive.current.binding, baniSelectedLine._baniLineId || "", baniLive.current.editable, baniApplied.current)) return previous;
+        const draftIndex = previous.findIndex(inv => inv._baniDraftId === current._baniDraftId);
+        const invoice = previous[draftIndex];
+        if (!invoice || invoice.saved || invoice._baniRevision !== current._baniRevision || invoice.supplier_id !== current.supplier_id) return previous;
+        const lineIndex = invoice.line_items.findIndex(line => line._baniLineId === proposal.lineId);
+        const line = invoice.line_items[lineIndex];
+        if (!line) return previous;
+        let corrected = entry ? linkEntryToLine(line, entry) : correctDraftLine(line as unknown as Record<string, unknown>, proposal, currentMode) as unknown as ScannedLineItem;
+        // Matching must not dismiss independent reviewer blockers.
+        if (entry) corrected = { ...corrected, review_blocking: line.review_blocking, auto_matched: false };
+        if (corrected.is_free_unit_line && corrected.product_master_id) corrected.deal_id = findDealForProduct(activeDeals, corrected.product_master_id, invoice.invoice_date)?.id ?? null;
+        const lines = [...invoice.line_items]; lines[lineIndex] = corrected;
+        const copy = [...previous]; copy[draftIndex] = { ...invoice, line_items: lines };
+        changed = true; return copy;
+      }));
+      if (changed) baniApplied.current.add(proposal.id);
+      return changed;
+    },
+  } : undefined;
 
   return (
     <div
       data-testid="scanner-shell"
+      ref={setBaniHostNode}
       className={cn(
         "card-glass flex flex-col overflow-hidden rounded-lg p-3 animate-fade-in",
         isReview ? "h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
@@ -2702,6 +2792,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                           <GripVertical className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
                           {i + 1}
                         </span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title={`Ask Bani about line ${i + 1}`} aria-label={`Ask Bani about line ${i + 1}`} onClick={() => { setBaniLineId(line._baniLineId || null); setBaniOpenSignal(n => n + 1); }}><BaniProcessingMark size={14} /></Button>
                       </td>
                       {/* Internal SKU - read-only */}
                       <td style={{ minWidth: 90 }} className="px-1 py-0.5 align-top">
@@ -3467,6 +3558,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       )}
 
       {/* Line-level Agent 2 details — side drawer */}
+      <FloatingBani hosted review={baniReview} openSignal={baniOpenSignal} />
       <ReviewDrawer
         open={detailsLineIdx !== null}
         onClose={() => setDetailsLineIdx(null)}

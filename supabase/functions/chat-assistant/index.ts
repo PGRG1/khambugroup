@@ -7,6 +7,7 @@ import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
+import { draftReview } from "./draftReview.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -1007,6 +1008,18 @@ Deno.serve(async (req) => {
       );
     }
     const tenantId = resolved.tenant_id;
+    if (body.floating === true || body.draft_review !== undefined) {
+      if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      const [{ data: access, error: accessError }, { data: permission, error: permissionError }] = await Promise.all([
+        admin.from("user_access_control").select("status").eq("tenant_id", tenantId).eq("user_id", user.id).maybeSingle(),
+        admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user.id).eq("page_key", "assistant").maybeSingle(),
+      ]);
+      if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (body.draft_review !== undefined) {
+      if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      return await draftReview(req, body.draft_review, messages, admin, tenantId, user.id, resolved.isSuper, LOVABLE_API_KEY, corsHeaders);
+    }
     const voiceMode = validated.voice;
     const voiceLang = validated.voiceLanguage || "en";
 
@@ -1048,6 +1061,7 @@ Deno.serve(async (req) => {
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      if (body.floating === true) conversation.splice(1, 0, { role: "system", content: "This floating panel is read-only. Do not claim to edit, post, save, pay, approve, send, teach or remember anything. Explain unsupported writes honestly and direct the user to the existing page workflow. Unsaved invoice corrections are available only when the Scan Invoice review context is explicitly supplied. Keep answers concise and use business language, not internal function names." });
       if (voiceMode) conversation.splice(1, 0, { role: "system", content:
         "Conversational voice: understand the complete current utterance in the full preceding conversation before choosing direct response, clarification or tools. Reply directly to social/non-data conversation without data lookups. If a user disputes an answer without identifying what is wrong, first ask which figure, scope or assumption they mean, referencing the preceding answer. Do not automatically requery, apologize, concede an error or invent an explanation. For any ambiguous correction or business ask, ask a concise clarifying question rather than guessing the intended metric, venue or dates. Resolve short followups and corrections from prior turns when unambiguous, carrying unchanged scope forward and changing only the corrected part. Only call tools when the understood request needs records. Lead the final answer with 1–3 short natural spoken prose sentences, preserving exact figures, scope and important uncertainty; then keep the full accurate evidence-rich answer. No theatrical sounds or repeated Okay. Do not describe a lookup you have not requested." });
       const chartSpecs: any[] = [];
