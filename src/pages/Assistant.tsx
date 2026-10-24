@@ -360,24 +360,21 @@ export default function Assistant() {
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
           onKeyDown={onKeyDown}
-          placeholder={speech.listening ? "Listening…" : "Ask Bani…"}
+          placeholder="Ask Bani…"
           aria-label="Ask Bani a question"
           rows={1}
           className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
-        {speech.supported && (
-          <button
-            type="button"
-            onClick={speech.listening ? speech.stop : enterVoice}
-            disabled={!speech.listening && (!scopeReady || loading)}
-            aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
-            className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
-            style={{ color: speech.listening ? "#1F3A37" : "#5B706B" }}
-          >
-            {speech.listening && <span className="bani-mic-pulse pointer-events-none absolute inset-0 rounded-full" />}
-            {speech.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={enterVoice}
+          disabled={!scopeReady || loading}
+          aria-label="Start voice input"
+          className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+          style={{ color: "#5B706B" }}
+        >
+          <Mic className="h-4 w-4" />
+        </button>
         <button
           type="button"
           onClick={loading ? stop : () => send(input)}
@@ -452,14 +449,22 @@ export default function Assistant() {
 
 
       {voiceMode ? (
-        <VoicePanel listening={speech.listening} transcript={voiceText} onCancel={cancelVoice} onSend={sendVoice} />
+        <VoicePanel
+          state={voice.state}
+          caption={voice.caption}
+          level={voice.level}
+          onCancel={cancelVoice}
+          onSend={voice.sendNow}
+          onOrbTap={voice.interrupt}
+          onShowChat={cancelVoice}
+        />
       ) : placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
           <div style={{ flex: 42 }} />
           <div className="mx-auto w-full max-w-[640px]">
             {Composer}
             <div className="mt-3 min-h-[30px]">
-              {focused && !input && !speech.listening && (
+              {focused && !input && (
                 <div className="bani-fade flex flex-wrap justify-center gap-2">
                   {SUGGESTIONS.map(({ text, label }) => (
                     <button
