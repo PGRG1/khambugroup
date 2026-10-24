@@ -1854,6 +1854,25 @@ export default function ProcurementInvoicesTab() {
         />
       )}
 
+      <AlertDialog open={handoffConflict} onOpenChange={setHandoffConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace the unsaved review?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bani handed new invoice files to Scan Invoice, but this review has unsaved work. Replacing it discards the current draft; keeping it ignores the new files.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { if (pendingHandoff) consumeScannerHandoff(pendingHandoff.id); }}>
+              Keep current review
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => setScannerKey((k) => k + 1)}>
+              Replace with new files
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <InvoiceTableSection
         filtered={filtered}
         invoices={invoices}
