@@ -322,10 +322,20 @@ export default function Assistant() {
   // Dictation (small mic): one recorder + live waveform; transcript lands in the box for editing.
   const dictation = useDictation({
     getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
-    onText: (t) => setInput((prev) => joinDraft(prev, t)),
     onError: (msg) => toast({ title: msg, variant: "destructive" }),
   });
   const toggleDictation = () => { if (dictation.active) dictation.cancel(); else dictation.start(); };
+  dictation.setOnAutoFinish((t) => setInput((prev) => joinDraft(prev, t)));
+  /** Stop: transcript goes into the editable draft. */
+  const finishDictation = async () => { const t = await dictation.confirm(); if (t) setInput((prev) => joinDraft(prev, t)); };
+  /** Send: transcribe, then submit once through the normal chat path. */
+  const sendDictation = async () => {
+    const t = await dictation.confirm();
+    if (!t) return;
+    const text = joinDraft(input, t);
+    setInput(text);
+    if (canSendFn({ text, loading, scopeReady })) send(text);
+  };
   const dictationStopRef = useRef(dictation.cancel);
   dictationStopRef.current = dictation.cancel;
   useEffect(() => { dictationStopRef.current(); }, [scopeKey, activeId]);
@@ -386,24 +396,29 @@ export default function Assistant() {
   const Composer = (
     <div className="relative w-full">
       {!voiceMode && dictation.active ? (
-      <div className="bani-glass bani-composer flex items-center gap-2 rounded-[24px] p-2">
+      <div className="bani-glass bani-composer bani-recorder flex items-center gap-1 rounded-[24px] px-1 py-1">
         <button type="button" onClick={dictation.cancel} aria-label="Cancel dictation"
-          className="bani-mic flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ color: "#5B706B" }}>
-          <X className="h-4 w-4" />
+          className="bani-mic flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ color: "#3F5652" }}>
+          <X className="h-[18px] w-[18px]" />
         </button>
-        <div className="flex h-9 min-w-0 flex-1 items-center justify-center">
+        <div className="flex h-11 min-w-0 flex-1 items-center justify-center px-1">
           {dictation.state === "transcribing"
             ? <BaniProcessingMark size={20} label="Transcribing" />
-            : <LiveWaveform getLevel={dictation.getLevel} className="h-7 w-full" />}
+            : <LiveWaveform getLevel={dictation.getLevel} className="h-8 w-full" />}
         </div>
-        <button type="button" onClick={() => void dictation.confirm()} disabled={dictation.state !== "recording"}
-          aria-label="Finish dictation"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45" style={{ background: "#1F3A37" }}>
-          <Check className="h-4 w-4" />
+        <button type="button" onClick={() => void finishDictation()} disabled={dictation.state !== "recording"}
+          aria-label="Stop and edit"
+          className="bani-mic flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-40" style={{ color: "#1F3A37" }}>
+          <Square className="h-3.5 w-3.5 fill-current" />
+        </button>
+        <button type="button" onClick={() => void sendDictation()} disabled={dictation.state !== "recording" || loading || !scopeReady}
+          aria-label="Send dictation"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: "#1F3A37" }}>
+          <ArrowUp className="h-[18px] w-[18px]" />
         </button>
       </div>
       ) : (
-      <div className="bani-glass bani-composer flex items-end gap-1 rounded-[24px] py-2 pl-[18px] pr-2">
+      <div className="bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pl-[18px] pr-2">
         <textarea
           ref={taRef}
           value={input}
@@ -514,7 +529,8 @@ export default function Assistant() {
     <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: voiceMode ? "calc(100dvh - 1rem)" : "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
-        .bani-composer{transition:border-color 150ms,box-shadow 150ms}
+        .bani-composer{transition:border-color 150ms,box-shadow 150ms}.bani-recorder{min-height:54px;animation:bani-fade 180ms ease-out}
+        .bani-answer{color:#10302C;max-width:68ch;font-size:15.5px;line-height:1.6}.bani-answer .prose{font-size:15.5px;line-height:1.6;color:inherit}.bani-answer .prose p{margin:0 0 .75em}
         .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
         html:not(.dark) .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
         textarea.bani-ask-input:focus,textarea.bani-ask-input:focus-visible{outline:none !important;box-shadow:none !important;border:0 !important}
@@ -649,8 +665,8 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
     return (
       <div className="flex justify-end">
         <div
-          className="bani-user-message max-w-[80%] px-4 py-2.5 text-sm text-white"
-          style={{ background: "rgba(255,255,255,0.28)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "18px 18px 4px 18px" }}
+          className="bani-user-message max-w-[75%] px-3.5 py-2 text-[14.5px] leading-[1.45]"
+          style={{ background: "rgba(255,255,255,0.42)", color: "#10302C", borderRadius: "18px 18px 4px 18px" }}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
         </div>
@@ -659,7 +675,7 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
   }
 
   return (
-    <div className={voiceMode ? "bani-voice-answer bani-fade" : "bani-glass bani-fade rounded-[18px] px-[18px] py-4"}>
+    <div className={voiceMode ? "bani-voice-answer bani-fade" : "bani-answer bani-fade"}>
       <CheckedLine steps={msg.steps} durationMs={msg.durationMs} />
       <div className="min-w-0 space-y-3">
         <div className="prose prose-sm max-w-none text-inherit
