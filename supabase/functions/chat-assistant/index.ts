@@ -8,6 +8,7 @@ import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 import { draftReview } from "./draftReview.ts";
+import { analyzeFiles, validateFiles } from "./floatingFiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
