@@ -38,9 +38,10 @@ describe("dictation recorder", () => {
     const { result, onText } = mount();
     await act(async () => result.current.start());
     expect(result.current.state).toBe("recording");
-    await act(async () => result.current.confirm());
+    let text: string | null = null;
+    await act(async () => { text = await result.current.confirm(); });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(onText).toHaveBeenCalledWith("how were sales");
+    expect(text).toBe("how were sales");
     expect(track.stop).toHaveBeenCalled();
     expect(result.current.state).toBe("idle");
     expect(recognition).not.toHaveBeenCalled(); // no competing recognizer
