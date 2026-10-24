@@ -1,7 +1,9 @@
 # Roadmap
 
 ## Bani two-way voice conversation
-- Cancelled by the owner before implementation. No application code, connections, secrets, or deployments changed.
+- [x] Built and deployed (bani-stt, bani-tts, chat-assistant voice events, useVoiceConversation hook, voice panel)
+- [x] Fixed silent playback: HTMLAudioElement + WAV blob instead of WebAudio (iPhone silent switch mutes WebAudio); verified 3 full loops in browser test
+- [ ] Real iPhone microphone/earpiece behaviour — cannot be tested headless
 
 ## Revenue navigation consolidation
 
