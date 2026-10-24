@@ -364,6 +364,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const baniBinding = `${revisionFingerprint(baniScope)}:${baniLineId || "none"}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
   const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
+  const handoffDone = useRef<string | null>(null);
+  const handoffVenueRef = useRef<string | null>(null);
+  const reviewDirty = invoices.length > 0;
+  useEffect(() => { onDirtyChange?.(reviewDirty); }, [reviewDirty, onDirtyChange]);
   useEffect(() => {
     if (!baniHostNode) return;
     setBaniHost({ token: baniHostToken.current, node: baniHostNode });
@@ -1020,6 +1024,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setScanProgress({ current: 0, total: 0 });
     }
   }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
+
+  // Floating-Bani handoff: scan the handed-off original files exactly once.
+  // A failed scan re-arms the same request so the user can retry; a consumed
+  // id is never scanned again on remount or re-render.
+  useEffect(() => {
+    if (!handoff || handoffDone.current === handoff.id) return;
+    handoffDone.current = handoff.id;
+    if (!handoff.files.length) { consumeScannerHandoff(handoff.id); return; }
+    handoffVenueRef.current = handoff.venue;
+    void processMultipleFiles(handoff.files).then((ok) => {
+      handoffVenueRef.current = null;
+      if (ok) consumeScannerHandoff(handoff.id);
+      else handoffDone.current = null;
+    });
+  }, [handoff, processMultipleFiles]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
