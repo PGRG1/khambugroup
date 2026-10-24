@@ -7,6 +7,7 @@ import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
+import { draftReview } from "./draftReview.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -1007,6 +1008,10 @@ Deno.serve(async (req) => {
       );
     }
     const tenantId = resolved.tenant_id;
+    if (body.draft_review !== undefined) {
+      if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      return await draftReview(req, body.draft_review, messages, admin, tenantId, user.id, resolved.isSuper, LOVABLE_API_KEY, corsHeaders);
+    }
     const voiceMode = validated.voice;
     const voiceLang = validated.voiceLanguage || "en";
 
