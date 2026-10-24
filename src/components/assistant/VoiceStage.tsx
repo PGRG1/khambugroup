@@ -25,7 +25,8 @@ export function releaseTarget(p: number, velocityPerSec: number) {
   return p > 0.5 ? 1 : 0;
 }
 
-export function VoiceStage({ expanded, onExpandedChange, orb, transcript, bottom, onOrbTap }: {
+export function VoiceStage({ expanded, onExpandedChange, orb, orbLabel, transcript, bottom, onOrbTap }: {
+  orbLabel: string;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   orb: React.ReactNode;
@@ -111,7 +112,7 @@ export function VoiceStage({ expanded, onExpandedChange, orb, transcript, bottom
       d.moved = true;
       layerRef.current?.setPointerCapture(e.pointerId);
     }
-    const dist = Math.max(1, geo.current.cy - geo.current.ex * 0 - geo.current.ey);
+    const dist = Math.max(1, geo.current.cy - geo.current.ey);
     const p = Math.max(0, Math.min(1, d.p0 + dy / dist));
     const dtMs = Math.max(1, e.timeStamp - d.lastT);
     d.vel = 0.7 * d.vel + 0.3 * (((e.clientY - d.lastY) / dist) * 1000 / dtMs);
@@ -154,7 +155,7 @@ export function VoiceStage({ expanded, onExpandedChange, orb, transcript, bottom
         onPointerDown={onPointerDown} onPointerMove={onPointerMove}
         onPointerUp={(e) => endDrag(e)} onPointerCancel={(e) => endDrag(e, true)}>
         <button type="button" onClick={onOrbClick} className="bani-voice-orb block rounded-full"
-          aria-label={expanded ? "Bani voice orb" : "Expand voice view"}>
+          aria-label={expanded ? orbLabel : "Expand voice view"}>
           {orb}
         </button>
       </div>
