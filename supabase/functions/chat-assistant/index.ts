@@ -971,60 +971,10 @@ function voiceLangKey(lang: string): string {
   return "en";
 }
 
-const VOICE_LANG_NAMES: Record<string, string> = {
-  en: "English", zh: "Cantonese", ne: "Nepali", hi: "Hindi", tl: "Tagalog", id: "Indonesian",
-};
-
 function fillerText(stage: "first" | "more", lang: string): string {
   const set = VOICE_FILLERS[voiceLangKey(lang)] ?? VOICE_FILLERS.en;
   const list = set[stage];
   return list[Math.floor(Math.random() * list.length)];
-}
-
-/** Strip markdown so a fallback spoken line reads cleanly. */
-function plainText(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/\|/g, " ")
-    .replace(/[#*>`_-]+/g, " ")
-    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** First 1–2 plain sentences of the answer, capped for TTS. */
-function fallbackSummary(answer: string): string {
-  const plain = plainText(answer);
-  const sentences = plain.match(/[^.!?]+[.!?]+/g) ?? [plain];
-  return sentences.slice(0, 2).join(" ").trim().slice(0, 600);
-}
-
-/** One short call that rewrites the final answer as a spoken summary. */
-async function spokenSummary(answer: string, lang: string): Promise<string> {
-  const langName = VOICE_LANG_NAMES[voiceLangKey(lang)] ?? "English";
-  try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-lite",
-        messages: [
-          {
-            role: "system",
-            content: `Turn this answer into what a sharp finance manager would SAY out loud in 1–3 short sentences, in ${langName}. Lead with the key number and what it means. Round numbers naturally (e.g. "about 64 percent", "up roughly 3 points", "HK$12,400"). Sound like a calm colleague talking, not a report: plain words, natural rhythm, contractions. You may occasionally open with a light word like "Okay," or "So," but not every time. If the answer clearly invites a next step, end with one short follow-up question. No tables, lists, markdown, caveats, sources, sound effects or stage directions. Don't add anything not in the answer.`,
-          },
-          { role: "user", content: answer },
-        ],
-      }),
-    });
-    if (!resp.ok) return fallbackSummary(answer);
-    const json = await resp.json();
-    const text = (json.choices?.[0]?.message?.content ?? "").trim();
-    if (!text) return fallbackSummary(answer);
-    return text.slice(0, 600);
-  } catch {
-    return fallbackSummary(answer);
-  }
 }
 
 // ---------- main handler ----------
@@ -1093,6 +1043,7 @@ Deno.serve(async (req) => {
       };
 
       emit({ status: { label: "Reading your question" } });
+      speakFiller();
       const workspace = await loadWorkspaceContext(tenantId);
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
