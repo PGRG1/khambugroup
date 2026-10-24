@@ -347,6 +347,12 @@ export default function Assistant() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // Voice mode is a calm full screen: hide the sidebar trigger and top-bar icons.
+  useEffect(() => {
+    document.body.classList.toggle("bani-voice-mode", voiceMode);
+    return () => document.body.classList.remove("bani-voice-mode");
+  }, [voiceMode]);
+
   const [focused, setFocused] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -466,7 +472,7 @@ export default function Assistant() {
         @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
-      {topbarTarget && createPortal(topbarActions, topbarTarget)}
+      {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
 
 
       {voiceMode ? (
