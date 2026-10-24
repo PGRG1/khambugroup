@@ -77,6 +77,7 @@ import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invo
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
+import { consumeScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -252,6 +253,12 @@ interface InvoiceScannerProps {
   
   onClose: () => void;
   userId: string;
+  /** Floating-Bani handoff: original files to scan once on mount, with an
+   *  optional server-validated venue override. Consumed by id — never rescans
+   *  on remount, and is re-armed only after a real scan failure. */
+  handoff?: { id: string; files: File[]; venue: string | null } | null;
+  /** Reports whether an unsaved review exists so automatic navigation never destroys it. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const emptyLine: ScannedLineItem = {
@@ -303,7 +310,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
