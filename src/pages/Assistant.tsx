@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BaniOrb } from "@/components/assistant/BaniOrb";
+import { BaniOrb, type BaniOrbMode } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useSpeechInput } from "@/hooks/useSpeechInput";
+import { useDictation, joinDraft } from "@/hooks/useDictation";
+import { LiveWaveform } from "@/components/assistant/LiveWaveform";
+import BaniProcessingMark from "@/components/brand/BaniProcessingMark";
 import { useVoiceConversation, type Reveal, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -317,19 +319,15 @@ export default function Assistant() {
   // questions go through the normal send() path with voice flags, so the chat
   // history is identical to text mode.
   const [voiceMode, setVoiceMode] = useState(false);
-  // Dictation (small mic): browser speech recognition fills the text box only.
-  const dictationBaseRef = useRef("");
-  const dictation = useSpeechInput({
-    onTranscript: (t) => setInput(dictationBaseRef.current ? `${dictationBaseRef.current} ${t}` : t),
-    onError: () => toast({ title: "Microphone unavailable. Check your browser permissions.", variant: "destructive" }),
+  // Dictation (small mic): one recorder + live waveform; transcript lands in the box for editing.
+  const dictation = useDictation({
+    getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
+    onText: (t) => setInput((prev) => joinDraft(prev, t)),
+    onError: (msg) => toast({ title: msg, variant: "destructive" }),
   });
-  const toggleDictation = () => {
-    if (dictation.listening) { dictation.stop(); return; }
-    dictationBaseRef.current = input.trim();
-    dictation.start();
-  };
-  const dictationStopRef = useRef(dictation.stop);
-  dictationStopRef.current = dictation.stop;
+  const toggleDictation = () => { if (dictation.active) dictation.cancel(); else dictation.start(); };
+  const dictationStopRef = useRef(dictation.cancel);
+  dictationStopRef.current = dictation.cancel;
   useEffect(() => { dictationStopRef.current(); }, [scopeKey, activeId]);
   const voice = useVoiceConversation({
     active: voiceMode,
@@ -345,7 +343,7 @@ export default function Assistant() {
   // Must run inside the tap: start() marks voice active and requests the mic synchronously.
   // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
   const [voiceExpanded, setVoiceExpanded] = useState(true);
-  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
+  const enterVoice = () => { dictation.cancel(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
   const cancelVoice = () => { voice.end(); stop(); setVoiceMode(false); };
   // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
@@ -387,6 +385,24 @@ export default function Assistant() {
 
   const Composer = (
     <div className="relative w-full">
+      {!voiceMode && dictation.active ? (
+      <div className="bani-glass bani-composer flex items-center gap-2 rounded-[24px] p-2">
+        <button type="button" onClick={dictation.cancel} aria-label="Cancel dictation"
+          className="bani-mic flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ color: "#5B706B" }}>
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex h-9 min-w-0 flex-1 items-center justify-center">
+          {dictation.state === "transcribing"
+            ? <BaniProcessingMark size={20} label="Transcribing" />
+            : <LiveWaveform getLevel={dictation.getLevel} className="h-7 w-full" />}
+        </div>
+        <button type="button" onClick={() => void dictation.confirm()} disabled={dictation.state !== "recording"}
+          aria-label="Finish dictation"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45" style={{ background: "#1F3A37" }}>
+          <Check className="h-4 w-4" />
+        </button>
+      </div>
+      ) : (
       <div className="bani-glass bani-composer flex items-end gap-1 rounded-[24px] py-2 pl-[18px] pr-2">
         <textarea
           ref={taRef}
@@ -421,16 +437,16 @@ export default function Assistant() {
                 type="button"
                 onClick={toggleDictation}
                 disabled={!scopeReady || loading}
-                aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
-                className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
-                style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
+                aria-label="Start dictation"
+                className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+                style={{ color: "#5B706B" }}
               >
-                {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+                <Mic className="h-4 w-4" />
               </button>
             )}
             <button
               type="button"
-              onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
+              onClick={loading ? stop : hasText ? () => send(input) : enterVoice}
               disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
               aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
               className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
@@ -443,6 +459,7 @@ export default function Assistant() {
           </>
         )}
       </div>
+      )}
       {!scopeReady && (
         <p className="mt-2 text-center text-xs text-white/80">
           {tenantLoading ? "Loading your workspace…" : "Select a workspace to ask questions."}
@@ -534,6 +551,7 @@ export default function Assistant() {
       {voiceMode && voiceExpanded ? (
         <VoicePanel
           state={voice.state}
+          getLevel={voice.getLevel}
           level={voice.level}
           muted={voice.muted}
           needsTap={voice.needsTap}
@@ -605,7 +623,7 @@ export default function Assistant() {
                       aria-label="Expand voice view"
                       className="bani-voice-orb h-auto rounded-full"
                     >
-                      <BaniOrb size={96} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
+                      <BaniOrb size={96} mode={orbModeFor(voice.state)} getLevel={voice.getLevel} />
                     </Button>
                   </div>
                   {voice.needsTap && <p className="mb-2 text-center text-sm" role="status">Tap the orb to resume audio.</p>}
@@ -772,13 +790,21 @@ function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggl
   );
 }
 
-function VoicePanel({ state, level, needsTap, notice, onOrbTap, onCollapse, footer }: {
+/** Orb mode from voice state: listening and speaking stay distinct. */
+export function orbModeFor(state: VoiceState): BaniOrbMode {
+  if (state === "thinking" || state === "transcribing") return "thinking";
+  if (state === "speaking") return "speaking";
+  if (state === "listening") return "listening";
+  return "idle";
+}
+
+function VoicePanel({ state, needsTap, notice, onOrbTap, onCollapse, footer, getLevel }: {
+  getLevel: () => number;
   state: VoiceState; level: number; muted: boolean; needsTap: boolean;
   userWords: string; userWordsLive: boolean; reveal: Reveal; notice: string;
   onOrbTap: () => void; onCollapse: () => void; footer: React.ReactNode;
 }) {
-  const thinking = state === "thinking" || state === "transcribing";
-  const orbMode = thinking ? "thinking" : state === "idle" ? "idle" : "listening";
+  const orbMode = orbModeFor(state);
   const dragRef = useRef<{ y: number; id: number } | null>(null);
   return (
     <div className="bani-fade flex min-h-0 flex-1 flex-col px-4 pb-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
@@ -792,7 +818,7 @@ function VoicePanel({ state, level, needsTap, notice, onOrbTap, onCollapse, foot
         <Button type="button" variant="ghost" onClick={onOrbTap}
           aria-label={needsTap ? "Resume voice" : state === "listening" ? "Send voice recording" : "Interrupt and talk"}
           className="bani-voice-orb h-auto rounded-full">
-          <BaniOrb size={176} mode={orbMode} />
+          <BaniOrb size={176} mode={orbMode} getLevel={getLevel} />
         </Button>
         <Button type="button" variant="ghost" onClick={onCollapse} aria-label="Collapse voice view"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4"> <span className="sr-only">Collapse voice view</span> </Button>

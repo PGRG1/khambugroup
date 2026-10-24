@@ -90,6 +90,31 @@ function pcmToWav(pcm: Uint8Array<ArrayBuffer>): Blob {
   return new Blob([header, pcm], { type: "audio/wav" });
 }
 
+export const ENVELOPE_STEP_S = 0.02;
+/** RMS envelope (0..1) of 24 kHz s16le PCM, one value per 20ms window. */
+export function pcmEnvelope(pcm: Uint8Array): Float32Array {
+  const samples = Math.floor(pcm.length / 2);
+  const win = Math.round(24000 * ENVELOPE_STEP_S);
+  const out = new Float32Array(Math.ceil(samples / win));
+  const view = new DataView(pcm.buffer, pcm.byteOffset, samples * 2);
+  for (let w = 0; w < out.length; w++) {
+    let sum = 0; let n = 0;
+    for (let i = w * win; i < Math.min(samples, (w + 1) * win); i++) { const v = view.getInt16(i * 2, true) / 32768; sum += v * v; n++; }
+    out[w] = Math.min(1, Math.sqrt(sum / Math.max(1, n)) * 4);
+  }
+  return out;
+}
+/** Envelope value at a playback time; 0 past the end. */
+export function envelopeAt(env: Float32Array, t: number): number {
+  const i = Math.floor(t / ENVELOPE_STEP_S);
+  return i >= 0 && i < env.length ? env[i] : 0;
+}
+/** Map mic RMS to 0..1 above the noise floor; silence stays 0. */
+export function micLevelFromRms(rms: number, floor = 0.003): number {
+  const over = rms - Math.max(0.002, floor * 1.5);
+  return over <= 0 ? 0 : Math.min(1, over * 9);
+}
+
 /** 24 kHz mono WAV with a single silent sample — used to unlock the <audio> element on the entry tap. */
 const SILENT_WAV =
   "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAA";
@@ -198,6 +223,8 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const playbackDoneRef = useRef<(() => void) | null>(null);
   const pendingSpeechRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const ackLangsDoneRef = useRef<Set<string>>(new Set());
+  // Real playback envelope for the orb: RMS per 20ms window of the PCM now on the <audio> element.
+  const envelopeRef = useRef<Float32Array | null>(null);
 
   const setLevelThrottled = (v: number) => {
     const now = performance.now();
@@ -221,6 +248,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     playAbortRef.current?.abort();
     playAbortRef.current = null;
     cancelAnimationFrame(bargeRafRef.current);
+    envelopeRef.current = null;
     const el = audioElRef.current;
     if (el) { try { el.pause(); } catch { /* ignore */ } }
     if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
@@ -435,6 +463,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     const url = URL.createObjectURL(pcmToWav(pcm));
     audioUrlRef.current = url;
     const el = ensureAudioEl();
+    envelopeRef.current = pcmEnvelope(pcm);
     el.src = url;
     playbackStartedAtRef.current = performance.now();
     await new Promise<void>((resolve) => {
@@ -443,6 +472,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         clearTimeout(timer);
         playbackDoneRef.current = null;
         el.onended = null; el.onerror = null;
+        envelopeRef.current = null;
         if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
         resolve();
       };
@@ -1017,7 +1047,26 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Real signal for the orb (0..1): mic RMS while listening, playback envelope while speaking. */
+  const getLevel = useCallback((): number => {
+    const s = stateRef.current;
+    if (s === "listening") {
+      const an = micAnalyserRef.current;
+      if (!an || mutedRef.current) return 0;
+      return micLevelFromRms(readLevel(an), noiseFloorRef.current);
+    }
+    if (s === "speaking") {
+      const el = audioElRef.current;
+      const env = envelopeRef.current;
+      if (!el || !env || el.paused || el.ended) return 0;
+      return envelopeAt(env, el.currentTime);
+    }
+    return 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return {
+    getLevel,
     state, level, needsTap, muted, language,
     userWords, userWordsLive, stepLabel, reveal, notice,
     start, end, interrupt, sendNow, toggleMute, trackRequest, sendTyped,
