@@ -44,6 +44,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { isPreviewActive, previewUserId } = usePreviewMode();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const effectiveId = isAdmin && isPreviewActive ? previewUserId : user?.id;
   const { canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveId || undefined);
@@ -81,12 +82,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const liveIdentity = useRef(identity); liveIdentity.current = identity;
   const binding = review?.binding;
   const filesRef = useRef(files); filesRef.current = files;
+  const lastFilesRef = useRef(lastFiles); lastFilesRef.current = lastFiles;
 
   useEffect(() => {
     if (!store || scope === identity) return;
-    abort.current?.abort(); revoke(filesRef.current);
-    setMessages([]); setDraft(""); setFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, setMessages, setDraft, setFiles, setOpen, setHidden, setScope]);
+    abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current);
+    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
   useEffect(() => () => { abort.current?.abort(); if (gesture.current) clearTimeout(gesture.current.timer); }, []);
   useEffect(() => { if (openSignal) { setHidden(false); setOpen(true); } }, [openSignal, setHidden, setOpen]);
