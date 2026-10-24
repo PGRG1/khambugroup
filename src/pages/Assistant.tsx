@@ -303,9 +303,12 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      send(input);
+      if (voiceModeRef.current) sendVoiceTypedRef.current();
+      else send(input);
     }
   };
+  const voiceModeRef = useRef(false);
+  const sendVoiceTypedRef = useRef<() => void>(() => {});
 
   // Two-way voice conversation: MediaRecorder + bani-stt/bani-tts edge functions.
   // The loop (listening → thinking → speaking → listening) lives in the hook;
@@ -338,20 +341,30 @@ export default function Assistant() {
   useEffect(() => { voiceEndRef.current(); setVoiceMode(false); }, [scopeKey]);
 
   // Must run inside the tap: start() marks voice active and requests the mic synchronously.
-  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceMode(true); };
+  // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
+  const [voiceExpanded, setVoiceExpanded] = useState(true);
+  const enterVoice = () => { dictation.stop(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
   const cancelVoice = () => { voice.end(); setVoiceMode(false); };
+  // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
-    if (!voiceMode) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelVoice(); };
+    if (!voiceMode || !voiceExpanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setVoiceExpanded(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [voiceMode, voiceExpanded]);
 
-  // Voice mode is a calm full screen: hide the sidebar trigger and top-bar icons.
+  // Expanded voice is a calm full screen: hide the sidebar trigger and top-bar icons.
   useEffect(() => {
-    document.body.classList.toggle("bani-voice-mode", voiceMode);
+    document.body.classList.toggle("bani-voice-mode", voiceMode && voiceExpanded);
     return () => document.body.classList.remove("bani-voice-mode");
-  }, [voiceMode]);
+  }, [voiceMode, voiceExpanded]);
+
+  // Typed question during voice: goes through the voice turn (spoken reply).
+  const voiceBusy = loading || voice.state === "thinking" || voice.state === "transcribing";
+  const sendVoiceTyped = () => {
+    if (voiceBusy || !scopeReady || !input.trim()) return;
+    if (voice.sendTyped(input)) setInput("");
+  };
 
   const [focused, setFocused] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
