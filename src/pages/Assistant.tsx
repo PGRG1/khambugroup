@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useVoiceConversation, type Reveal, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
@@ -491,7 +492,7 @@ export default function Assistant() {
   );
 
   return (
-    <div className="relative flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
+    <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
         .bani-composer{transition:border-color 150ms,box-shadow 150ms}
@@ -510,10 +511,22 @@ export default function Assistant() {
         @keyframes bani-speak-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
         .bani-orb-speaking{animation:bani-speak-pulse 1.6s ease-in-out infinite}
         body.bani-voice-mode [data-sidebar="trigger"]{display:none}
+        .bani-voice-surface{color:hsl(var(--bani-voice-ink))}
+        .bani-voice-surface:before{content:"";position:fixed;inset:0;background:var(--bani-voice-atmosphere);z-index:-1;pointer-events:none}
+        .bani-voice-surface .bani-composer{background:hsl(var(--bani-voice-paper)/.88);border:0;box-shadow:none;border-radius:32px;padding:6px 10px 6px 18px}
+        .bani-voice-surface .bani-composer:focus-within{box-shadow:0 0 0 3px hsl(var(--bani-voice-paper)/.2)}
+        .bani-voice-title{color:hsl(var(--bani-voice-paper));font-size:22px;font-weight:500}
+        .bani-voice-mic{background:hsl(var(--bani-voice-paper)/.94);color:hsl(var(--bani-voice-ink));width:48px;height:48px}
+        .bani-voice-end{background:hsl(var(--bani-voice-forest));color:hsl(var(--bani-voice-paper));width:48px;height:48px}
+        .bani-voice-orb{background:transparent!important;box-shadow:none;padding:0;flex-shrink:0}
+        .bani-voice-surface .bani-user-message{background:hsl(var(--bani-voice-paper)/.65)!important;color:hsl(var(--bani-voice-ink));border:0!important;border-radius:18px!important}
+        .bani-voice-answer{color:hsl(var(--bani-voice-ink));font-size:17px;padding:0;background:none;border:0;box-shadow:none}
+        .bani-voice-answer .prose{font-size:17px;color:inherit}
         @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots,.bani-orb-speaking{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
+      {voiceMode && !voiceExpanded && <div className="bani-voice-title absolute left-4 top-2">Bani</div>}
 
       {voiceMode && voiceExpanded ? (
         <VoicePanel
@@ -568,10 +581,10 @@ export default function Assistant() {
             <div className="mx-auto w-full max-w-[720px] space-y-5">
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                if (inFlight) return <ThinkingLine key={i} />;
-                return <MessageBlock key={i} msg={m} />;
+                if (inFlight) return voiceMode ? null : <ThinkingLine key={i} />;
+                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} />;
               })}
-              {loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
+              {!voiceMode && loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
             </div>
           </div>
           <div
@@ -581,19 +594,19 @@ export default function Assistant() {
             <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
               {voiceMode ? (
                 <>
-                  <div className="mb-2 flex justify-center">
-                    <button
+                  <div className="mb-6 flex justify-center">
+                    <Button
                       type="button"
-                      onClick={() => setVoiceExpanded(true)}
+                      variant="ghost"
+                      onClick={() => { setVoiceExpanded(true); if (voice.needsTap) voice.interrupt(); }}
                       aria-label="Expand voice view"
-                      className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] text-white"
-                      style={{ background: "rgba(255,255,255,0.16)" }}
+                      className="bani-voice-orb h-auto rounded-full"
                     >
-                      <BaniOrb size={28} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
-                      <span role="status" aria-live="polite">{voice.notice || (voice.needsTap ? "Tap the orb to talk" : voiceStatusWord(voice.state, voice.muted))}</span>
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </button>
+                      <BaniOrb size={96} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
+                    </Button>
                   </div>
+                  {voice.needsTap && <p className="mb-2 text-center text-sm" role="status">Tap the orb to resume audio.</p>}
+                  {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="mb-2 text-center text-sm" role="alert">{voice.notice}</p>}
                   {VoiceComposerRow}
                 </>
               ) : (
@@ -610,12 +623,12 @@ export default function Assistant() {
   );
 }
 
-function MessageBlock({ msg }: { msg: Msg }) {
+function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolean }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
         <div
-          className="max-w-[80%] px-4 py-2.5 text-sm text-white"
+          className="bani-user-message max-w-[80%] px-4 py-2.5 text-sm text-white"
           style={{ background: "rgba(255,255,255,0.28)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "18px 18px 4px 18px" }}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -625,7 +638,7 @@ function MessageBlock({ msg }: { msg: Msg }) {
   }
 
   return (
-    <div className="bani-glass bani-fade rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
+    <div className={voiceMode ? "bani-voice-answer bani-fade" : "bani-glass bani-fade rounded-[18px] px-[18px] py-4"}>
       <CheckedLine steps={msg.steps} durationMs={msg.durationMs} />
       <div className="min-w-0 space-y-3">
         <div className="prose prose-sm max-w-none text-inherit
@@ -749,25 +762,23 @@ export function voiceStatusWord(state: VoiceState, muted: boolean): string {
 function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggleMute: () => void; onEnd: () => void }) {
   return (
     <>
-      <button
+      <Button variant="ghost"
         type="button"
         aria-label={muted ? "Unmute microphone" : "Mute microphone"}
         aria-pressed={muted}
         onClick={onToggleMute}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
-        style={{ background: muted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.22)" }}
+        className="bani-voice-mic shrink-0 rounded-full p-0"
       >
         {muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}
-      </button>
-      <button
+      </Button>
+      <Button variant="ghost"
         type="button"
         aria-label="End voice conversation"
         onClick={onEnd}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
-        style={{ background: "rgba(220,80,80,0.85)" }}
+        className="bani-voice-end shrink-0 rounded-full p-0"
       >
         <X className="h-[18px] w-[18px]" />
-      </button>
+      </Button>
     </>
   );
 }
