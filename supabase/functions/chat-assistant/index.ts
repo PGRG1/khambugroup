@@ -6,6 +6,7 @@ import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shar
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 import { groundedVoiceAnswer } from "../_shared/voiceAnswer.ts";
+import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -1033,21 +1034,22 @@ Deno.serve(async (req) => {
       let fillerSent = false;
       let turnDone = false;
       let stillTimer: ReturnType<typeof setTimeout> | null = null;
-      const speakFiller = (_kind?: string) => {
+      const speakFiller = (tool: string) => {
         if (!voiceMode || fillerSent || closed || turnDone) return;
         fillerSent = true;
-        emit({ speak: { kind: "filler", stage: "first", text: fillerText("first", voiceLang) } });
+        emit({ speak: { kind: "filler", stage: "first", text: confirmedWorkSpeech(tool) } });
         stillTimer = setTimeout(() => {
           if (!turnDone && !closed) emit({ speak: { kind: "filler", stage: "more", text: fillerText("more", voiceLang) } });
         }, 8000);
       };
 
       emit({ status: { label: "Reading your question" } });
-      speakFiller();
       const workspace = await loadWorkspaceContext(tenantId);
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      if (voiceMode) conversation.splice(1, 0, { role: "system", content:
+        "Conversational voice: understand the complete current utterance in the full preceding conversation before choosing direct response, clarification or tools. Reply directly to social/non-data conversation without data lookups. For an ambiguous correction or business ask, ask a concise clarifying question rather than guessing the intended metric, venue or dates. Resolve short followups and corrections from prior turns when unambiguous, carrying unchanged scope forward and changing only the corrected part. Only call tools when the understood request needs records. Lead the final answer with 1–3 short natural spoken prose sentences, preserving exact figures, scope and important uncertainty; then keep the full accurate evidence-rich answer. No theatrical sounds or repeated Okay. Do not describe a lookup you have not requested." });
       const chartSpecs: any[] = [];
       // Memoize identical read-only tool calls within this request.
       const toolCache = new Map<string, any>();
@@ -1165,7 +1167,6 @@ Deno.serve(async (req) => {
           let result: any;
           if (tc.function.name === "render_chart") {
             emit({ status: toolStepLabel(tc.function.name, args) });
-            speakFiller("default");
             chartSpecs.push(args);
             result = { ok: true, rendered: args.title || "chart" };
           } else {
@@ -1175,13 +1176,15 @@ Deno.serve(async (req) => {
             } else {
               const step = toolStepLabel(tc.function.name, args);
               emit({ status: step });
-              speakFiller(step.kind);
+              speakFiller(tc.function.name);
               try {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
               } catch (e) {
                 // Errors are surfaced, not cached — a retry may succeed.
                 result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
+              } finally {
+                if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
               }
             }
           }
