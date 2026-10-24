@@ -648,7 +648,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         bargeMissesRef.current++;
         if (bargeMissesRef.current >= BARGE_MISS_LIMIT) bargeDisabledRef.current = true;
       }
-      listen(EMPTY_NOTICE);
+      recover(EMPTY_NOTICE + ". Tap the orb to retry.");
     };
     try {
       // Fast path: a final Web Speech transcript in an English browser skips bani-stt.
