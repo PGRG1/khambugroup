@@ -94,6 +94,53 @@ describe("voice capture recovery", () => {
     expect(Recorder.instances).toHaveLength(0);
     unmount();
   });
+  it("times out a hung chat and aborts its tracked request", async () => {
+    send.mockImplementation(() => new Promise(() => {}));
+    const { result, unmount } = mount();
+    const request = new AbortController();
+    await act(async () => result.current.start());
+    act(() => result.current.trackRequest(request));
+    await act(async () => result.current.sendNow());
+    await act(async () => vi.advanceTimersByTimeAsync(60100));
+    expect(request.signal.aborted).toBe(true);
+    expect(result.current.state).toBe("idle");
+    expect(result.current.notice).toContain("reply timed out");
+    unmount();
+  });
+  it("shows recovery when recorder never flushes its stop event", async () => {
+    const { result, unmount } = mount();
+    await act(async () => result.current.start());
+    Recorder.instances[0].onstop = null;
+    await act(async () => result.current.sendNow());
+    await act(async () => vi.advanceTimersByTimeAsync(2600));
+    expect(result.current.notice).toContain("Recording did not finish");
+    expect(send).not.toHaveBeenCalled();
+    unmount();
+  });
+  it("empty transcription pauses for retry instead of endless recording uploads", async () => {
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ text: "" }) }));
+    const { result, unmount } = mount();
+    await act(async () => result.current.start());
+    await act(async () => result.current.sendNow());
+    const calls = fetchMock.mock.calls.length;
+    await act(async () => vi.advanceTimersByTimeAsync(20000));
+    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(result.current.state).toBe("idle");
+    expect(result.current.notice).toContain("Didn't catch");
+    unmount();
+  });
+  it("mute keeps capture paused; typed replacement discards it and preserves mute", async () => {
+    const { result, unmount } = mount();
+    await act(async () => result.current.start());
+    act(() => result.current.toggleMute());
+    await act(async () => vi.advanceTimersByTimeAsync(9000));
+    expect(send).not.toHaveBeenCalled();
+    await act(async () => result.current.sendTyped("How were sales?"));
+    expect(send).toHaveBeenCalledWith("How were sales?", expect.objectContaining({ voice: true }));
+    expect(result.current.muted).toBe(true);
+    expect(fetchMock.mock.calls.filter(([url]) => url.includes("bani-stt"))).toHaveLength(0);
+    unmount();
+  });
   it("cancels pending stage immediately on abort", async () => {
     const controller = new AbortController();
     const pending = voiceDeadline(new Promise(() => {}), 1000, controller.signal, "timeout");
