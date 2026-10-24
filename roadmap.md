@@ -1,5 +1,10 @@
 # Roadmap
 
+## Approved Bani voice screens and audible latency pass
+- [ ] Match expanded/collapsed reference on /assistant only; preserve typing, mute, transcript and session
+- [ ] Measure authenticated before/after acknowledgement, answer and playback timings; remove actual bottlenecks
+- [ ] Verify cancellation, pending audio, typed turns, gestures and mobile appearance; no publication
+
 ## Bani two-way voice conversation
 - [x] Built and deployed (bani-stt, bani-tts, chat-assistant voice events, useVoiceConversation hook, voice panel)
 - [x] Fixed silent playback: HTMLAudioElement + WAV blob instead of WebAudio (iPhone silent switch mutes WebAudio); verified 3 full loops in browser test
