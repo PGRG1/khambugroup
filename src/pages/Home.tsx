@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useFloatingBaniPage } from "@/components/assistant/FloatingBaniContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -196,6 +197,8 @@ export default function Home() {
   const { venues } = useVenues();
   const activeVenues = venues.filter((v) => v.is_active).map((v) => v.name);
   const [venue, setVenue] = useState<string>("All Venues");
+  const setBaniPage = useFloatingBaniPage();
+  useEffect(() => { setBaniPage({ path: "/", detail: venue === "All Venues" ? "All venues" : venue }); return () => setBaniPage(null); }, [venue, setBaniPage]);
   const navigate = useNavigate();
 
   const profileName = useQuery({
