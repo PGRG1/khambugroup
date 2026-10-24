@@ -477,8 +477,7 @@ export default function Assistant() {
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
 
-
-      {voiceMode ? (
+      {voiceMode && voiceExpanded ? (
         <VoicePanel
           state={voice.state}
           level={voice.level}
@@ -486,14 +485,13 @@ export default function Assistant() {
           needsTap={voice.needsTap}
           userWords={voice.userWords}
           userWordsLive={voice.userWordsLive}
-          stepLabel={voice.stepLabel}
           reveal={voice.reveal}
           notice={voice.notice}
-          onToggleMute={voice.toggleMute}
-          onEnd={cancelVoice}
           onOrbTap={voice.interrupt}
+          onCollapse={() => setVoiceExpanded(false)}
+          footer={VoiceComposerRow}
         />
-      ) : placement === "welcome" ? (
+      ) : !voiceMode && placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
           <div style={{ flex: 42 }} />
           <div className="mx-auto w-full max-w-[640px]">
@@ -527,12 +525,12 @@ export default function Assistant() {
             onScroll={onScroll}
             data-testid="assistant-scroll"
             className="min-h-0 flex-1 overflow-y-auto px-4 pt-14"
-            style={{ paddingBottom: "calc(150px + env(safe-area-inset-bottom))" }}
+            style={{ paddingBottom: voiceMode ? "calc(210px + env(safe-area-inset-bottom))" : "calc(150px + env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto w-full max-w-[720px] space-y-5">
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                if (inFlight) return <ThinkingLine key={i} label={m.steps?.[m.steps.length - 1]?.label} />;
+                if (inFlight) return <ThinkingLine key={i} />;
                 return <MessageBlock key={i} msg={m} />;
               })}
               {loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
@@ -543,8 +541,29 @@ export default function Assistant() {
             style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
           >
             <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
-              {Composer}
-              <p className="mt-2 text-center text-[10px]" style={{ color: "rgba(20,45,43,0.5)" }}>{DISCLAIMER}</p>
+              {voiceMode ? (
+                <>
+                  <div className="mb-2 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVoiceExpanded(true)}
+                      aria-label="Expand voice view"
+                      className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] text-white"
+                      style={{ background: "rgba(255,255,255,0.16)" }}
+                    >
+                      <BaniOrb size={28} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
+                      <span role="status" aria-live="polite">{voice.notice || (voice.needsTap ? "Tap the orb to talk" : voiceStatusWord(voice.state, voice.muted))}</span>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {VoiceComposerRow}
+                </>
+              ) : (
+                <>
+                  {Composer}
+                  <p className="mt-2 text-center text-[10px]" style={{ color: "rgba(20,45,43,0.5)" }}>{DISCLAIMER}</p>
+                </>
+              )}
             </div>
           </div>
         </>
