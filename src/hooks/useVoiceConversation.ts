@@ -59,6 +59,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   stateRef.current = state;
   const activeRef = useRef(active);
   activeRef.current = active;
+  // Always call the latest render's callbacks (send closes over live chat state).
+  const paramsRef = useRef({ getAuth, sendQuestion, onError });
+  paramsRef.current = { getAuth, sendQuestion, onError };
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -160,7 +163,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Play text through bani-tts (PCM SSE) with a browser-speech fallback. */
   const speak = async (text: string, gen: number): Promise<void> => {
-    const { token } = getAuth();
+    const { token } = paramsRef.current.getAuth();
     if (!token || !text.trim() || gen !== generationRef.current) return;
     if (ttsCountRef.current >= 3) return; // cost cap per turn
     ttsCountRef.current++;
@@ -264,7 +267,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Transcribe the recorded blob, then send it through the normal chat path. */
   const transcribeAndSend = async (blob: Blob, gen: number) => {
-    const { token, tenantId } = getAuth();
+    const { token, tenantId } = paramsRef.current.getAuth();
     if (!token || gen !== generationRef.current) return;
     setState("transcribing");
     setCaption("Transcribing…");
@@ -315,7 +318,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         if (stateRef.current === "thinking") setCaption(label);
       };
 
-      await sendQuestion(text, {
+      await paramsRef.current.sendQuestion(text, {
         voice: true,
         voiceLanguage: data.language || language || "en",
         onSpeak,
@@ -327,7 +330,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       }
     } catch (e) {
       if (gen !== generationRef.current) return;
-      onError(e instanceof Error ? e.message : "Voice error");
+      paramsRef.current.onError(e instanceof Error ? e.message : "Voice error");
       startListening();
     }
   };
@@ -346,7 +349,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         streamRef.current = stream;
       }
     } catch {
-      onError("Microphone unavailable. Check your browser permissions.");
+      paramsRef.current.onError("Microphone unavailable. Check your browser permissions.");
       end();
       return;
     }
