@@ -849,7 +849,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       }
 
       const detector = createSpeechDetector();
-      let startedAt = performance.now(); // never depend on a browser delivering onstart
+      let startedAt = Date.now(); // never depend on a browser delivering onstart
       recorder.onstart = () => {
         startLiveWords(gen);
       };
@@ -880,11 +880,11 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       const tick = () => {
         if (gen !== generationRef.current || recorderRef.current !== recorder) return; // superseded on purpose
         try {
-          const now = performance.now();
+          const now = Date.now();
           const an = micAnalyserRef.current;
           const rms = an && micCtxRef.current?.state === "running" ? readLevel(an) : 0;
           setLevelThrottled(Math.min(1, rms * 6));
-          if (startedAt) {
+          {
             if (mutedRef.current) { startedAt = now; return; }
             const res = detector.push(rms, now);
             noiseFloorRef.current = detector.floor;

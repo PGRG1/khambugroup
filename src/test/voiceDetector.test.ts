@@ -29,10 +29,16 @@ describe("voice speech detector", () => {
   });
 
   it("noise floor adapts from quiet frames", () => {
-    const d = createSpeechDetector();
+    const d = createSpeechDetector(0.005);
     const before = d.threshold;
     for (let i = 0; i < 200; i++) d.push(0.01, i * 16);
     expect(d.threshold).toBeGreaterThan(before);
+  });
+  it("detects quiet speech below the former 0.012 RMS minimum", () => {
+    const d = createSpeechDetector();
+    expect(d.push(0.006, 0)).toBe("none");
+    expect(d.push(0.006, 250)).toBe("speech");
+    expect(d.push(0, 2100)).toBe("end");
   });
 });
 

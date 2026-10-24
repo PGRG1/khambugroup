@@ -85,7 +85,7 @@ describe("voice capture recovery", () => {
   });
   it("stops late permission streams after end instead of attaching them", async () => {
     let resolveStream: ((s: typeof stream) => void) | undefined;
-    navigator.mediaDevices.getUserMedia = vi.fn(() => new Promise((resolve) => { resolveStream = resolve as typeof resolveStream; }));
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn(() => new Promise<typeof stream>((resolve) => { resolveStream = resolve; })) } });
     const { result, unmount } = mount();
     await act(async () => result.current.start());
     act(() => result.current.end());
