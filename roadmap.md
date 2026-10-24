@@ -68,3 +68,5 @@
 
 ## In progress (2026-10-23)
 - [x] Extend light-mode atmospheric gradient (petrol #2F5E5A / teal #4F7A73 / sage #8FAF9D → cream #F5F4F0) from Home-only to ALL tenant pages via shared AppLayout shell; frosted white cards; dark mode and platform shell untouched; remove Home-only double-stack.
+
+- [blocked] Switch Bani AI to gemini-4-argon + gpt-6-astra: GPT-6 Astra rejects lookups on the current connection; awaiting owner decision.
