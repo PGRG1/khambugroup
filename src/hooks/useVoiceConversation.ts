@@ -122,13 +122,14 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const recorderRef = useRef<MediaRecorder | null>(null);
   const micCtxRef = useRef<AudioContext | null>(null);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
-  const playCtxRef = useRef<AudioContext | null>(null);
-  const playGainRef = useRef<GainNode | null>(null);
+  // Playback uses an <audio> element (WAV blob), not WebAudio: on iPhone the
+  // hardware silent switch mutes AudioContext output but not media elements.
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const rafRef = useRef<number>(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const playAbortRef = useRef<AbortController | null>(null);
-  const playSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const lastLevelSetRef = useRef(0);
   const ttsCountRef = useRef(0);
   const turnRef = useRef(0); // id of the current question turn
@@ -154,8 +155,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const stopPlayback = () => {
     playAbortRef.current?.abort();
     playAbortRef.current = null;
-    for (const s of playSourcesRef.current) { try { s.stop(); } catch { /* done */ } }
-    playSourcesRef.current.clear();
+    const el = audioElRef.current;
+    if (el) { try { el.pause(); } catch { /* ignore */ } }
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
   };
 
