@@ -398,36 +398,63 @@ export default function Assistant() {
           rows={1}
           className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
-        {dictation.supported && (
-          <button
-            type="button"
-            onClick={toggleDictation}
-            disabled={!scopeReady || loading}
-            aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
-            className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
-            style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
-          >
-            {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
-          </button>
+        {voiceMode ? (
+          hasText && (
+            <button
+              type="button"
+              onClick={sendVoiceTyped}
+              disabled={voiceBusy || !scopeReady}
+              aria-label="Send question"
+              className="bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45"
+              style={{ background: "#1F3A37" }}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+          )
+        ) : (
+          <>
+            {dictation.supported && (
+              <button
+                type="button"
+                onClick={toggleDictation}
+                disabled={!scopeReady || loading}
+                aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
+                className={`bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${dictation.listening ? "bani-mic-pulse" : ""}`}
+                style={{ color: dictation.listening ? "#1F3A37" : "#5B706B" }}
+              >
+                {dictation.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
+              disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
+              aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
+              style={{ background: "#1F3A37", opacity: loading || !hasText || canSendNow ? 1 : 0.45 }}
+            >
+              <span className="bani-ico" style={{ opacity: loading ? 1 : 0 }}><Square className="h-3.5 w-3.5 fill-current" /></span>
+              <span className="bani-ico" style={{ opacity: !loading && hasText ? 1 : 0 }}><ArrowUp className="h-4 w-4" /></span>
+              <span className="bani-ico" style={{ opacity: !loading && !hasText ? 1 : 0 }}><AudioLines className="h-4 w-4" /></span>
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          onClick={loading ? stop : hasText ? () => { dictation.stop(); send(input); } : enterVoice}
-          disabled={loading ? false : hasText ? !canSendNow : !scopeReady}
-          aria-label={loading ? "Stop generating" : hasText ? "Send question" : "Start voice conversation"}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity"
-          style={{ background: "#1F3A37", opacity: loading || !hasText || canSendNow ? 1 : 0.45 }}
-        >
-          <span className="bani-ico" style={{ opacity: loading ? 1 : 0 }}><Square className="h-3.5 w-3.5 fill-current" /></span>
-          <span className="bani-ico" style={{ opacity: !loading && hasText ? 1 : 0 }}><ArrowUp className="h-4 w-4" /></span>
-          <span className="bani-ico" style={{ opacity: !loading && !hasText ? 1 : 0 }}><AudioLines className="h-4 w-4" /></span>
-        </button>
       </div>
       {!scopeReady && (
         <p className="mt-2 text-center text-xs text-white/80">
           {tenantLoading ? "Loading your workspace…" : "Select a workspace to ask questions."}
         </p>
       )}
+    </div>
+  );
+
+  // Voice mode bottom row: pill composer + mute + end (same in both views).
+  const VoiceComposerRow = (
+    <div className="flex items-end gap-2">
+      <div className="min-w-0 flex-1">{Composer}</div>
+      <div className="flex items-center gap-2 pb-[3px]">
+        <VoiceControls muted={voice.muted} onToggleMute={voice.toggleMute} onEnd={cancelVoice} />
+      </div>
     </div>
   );
 
