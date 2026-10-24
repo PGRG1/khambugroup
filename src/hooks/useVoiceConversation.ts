@@ -659,6 +659,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         if (s.kind === "summary") {
           // A summary replaces any still-queued/playing filler.
           clearTimers();
+          pendingSpeechRef.current = null;
           stopPlayback();
           summaryTurnRef.current = turn;
           setVoiceState("speaking");
