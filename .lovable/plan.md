@@ -1,23 +1,43 @@
-# Bani AI two-way voice conversation
+# Bani AI voice using only Lovable's built-in AI: research findings (no build)
 
-## Experience
-- Keep the current text chat and tenant data access unchanged; voice turns use the same send path and appear in session history.
-- Extend the existing gradient voice panel with listening, thinking, speaking, interruption, Show chat, and automatic return to listening.
-- Stop recognition during speech, suspend voice when hidden, and clean up on exit, new chat, workspace changes, and navigation.
-- Stop silent listening after eight seconds; send speech after recognition ends or about 1.2 seconds without new words.
+Research only. No code, secrets or settings change. The authenticated model list (checked 24 Oct 2026) confirmed everything below unless it is marked **inferred**.
 
-## Spoken output
-- Emit one category-specific filler at the first tool step and at most one follow-up after eight seconds.
-- Emit a short grounded spoken summary before answer content, without changing existing analysis models, tools, or prompts.
-- Add authenticated ElevenLabs audio streaming with a 600-character limit; use George as the default premade voice. Queue speech in order, replace queued fillers with the summary, and fall back to browser speech when ElevenLabs is unavailable.
-- Limit speech requests to three per turn and unlock the shared audio player from the mic tap.
+## 1. Speech to text: available
+- Dedicated transcription models (`/v1/audio/transcriptions`, multipart file upload, streaming text):
+  - `openai/gpt-transcribe`: current, zero data retention. Recommended.
+  - `google/gemini-3.5-transcribe`: current, zero retention.
+  - `openai/gpt-4o-transcribe` and `gpt-4o-mini-transcribe`: deprecated.
+- General Gemini chat models also accept audio input (for example `gemini-3.8-flash` and `gemini-4-argon`). This would allow one step that both understands and answers spoken questions.
+- Formats: the endpoint limit is 25 MB per file. Gemini transcription is capped at 14 MB and needs browser recordings labelled `audio/webm`. Exact formats per model come from the provider, not the gateway (**inferred**: webm/opus, mp3 and wav are all standard). A 10-second clip is well under these limits.
+- Latency was not measured. **Inferred**: about 1–2 seconds for a short clip.
 
-## Decisions needed
-- The authenticated catalog still lists the requested Gemini 2.5 Flash, but marks it deprecated with a retirement date of **20 October 2026** (already past today). Its availability is therefore inconsistent and cannot be relied on for a new call. Choose a current replacement for the new summary call only; Gemini 3.8 Flash is the proposed alternative, subject to an authenticated availability check. Existing chat model routing stays untouched.
-- ElevenLabs API key is not currently set. Check an accessible ElevenLabs connection first; if none exists, the owner can add their own key securely in Project Settings → Secrets. Browser speech remains available without it.
+## 2. Languages (inferred, not tested)
+- Language is auto-detected; Gemini transcription accepts a list of expected languages.
+- English, Hindi and Indonesian: strong. Tagalog: good. Nepali: fair. Cantonese: usable, but may come out as Mandarin-style written Chinese.
+- Mixed speech (Taglish, Hinglish) with English item names: generally fine. Short or noisy clips and unusual item names need a vocabulary hint. A real test with staff voices is needed before relying on it.
 
-## Technical details
-- Add `useVoiceConversation` to own speech state, timers, audio queue, analyser, cancellation, and lifecycle cleanup; reuse `useSpeechInput` without changing its behavior.
-- Extend only the voice request/event contract in `chat-assistant`; add `bani-tts` using shared authentication, POST validation, SDK CORS, and server-only credentials.
-- Add focused tests for auto-send timing, silence timeout, queue replacement, limits, cleanup, and voice-only events.
-- Deploy changed functions, check the automatic preview build, and verify a signed-in full loop plus desktop/phone presentation where possible. Report unverified microphone/iOS behavior honestly. Do not publish.
+## 3. Text to speech: available
+- `/v1/audio/speech` with streaming audio:
+  - `google/gemini-3.1-flash-tts-preview`: the workspace default, current, zero retention.
+  - `google/gemini-2.5-flash-tts` and `gemini-2.5-pro-tts`: current.
+  - `openai/gpt-4o-mini-tts`: deprecated.
+- Voices: Gemini named voices (for example Kore); tone is steered by the text itself. The OpenAI voices start from `alloy`.
+- Language coverage (**inferred** from provider documentation, not tested): English, Hindi and Indonesian are covered. Tagalog, Nepali and Cantonese are uncertain or weaker.
+- `openai/gpt-live-1` does real-time two-way voice. It requires migrating this project to TanStack Start, so it is not usable here as-is.
+
+## 4. Pricing (taken from the listing; amounts are Lovable credits, not dollars)
+- `gpt-transcribe`: 0.0003 credits per second, so a 10-second question costs about **0.003 credits**.
+- `gemini-3.1-flash-tts-preview` speaking a 2-sentence reply of about 6 seconds: about **0.01–0.015 credits**. The rate is 0.00008 per audio output token. **Inferred**: about 25 tokens per second of audio.
+- Plain text costs, such as a short summary call, come on top but are smaller.
+- **Inferred** total per voice turn, excluding the existing chat answer: about 0.015–0.02 credits.
+
+## 5. Current chat models
+- `google/gemini-2.5-pro` and `google/gemini-2.5-flash` are both marked **deprecated** with an expiry of **20 Oct 2026**, which has already passed. They are still listed, but they should not be relied on.
+- Current replacements from the listing:
+  - Pro role: `google/gemini-4-argon` (zero retention) or `google/gemini-3.1-pro-preview`.
+  - Flash role: `google/gemini-3.8-flash`.
+  - The workspace default for new chat calls is `openai/gpt-6-astra`.
+- Retention note: `gemini-3.8-flash` and `gemini-3.1-pro-preview` keep data at the provider. Only Anthropic models are allowed under this workspace's retention policy, so these two would be blocked unless an admin enables extended retention. Use `gemini-4-argon` or `gpt-6-astra` instead.
+
+## Not done
+No live audio calls, no latency or language tests, no changes. If the owner wants to go ahead, the next step is a separate plan for a small, measured trial.
