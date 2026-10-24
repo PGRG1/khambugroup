@@ -46,17 +46,24 @@ function speechLangTag(lang: string): string {
   return "en";
 }
 
-/** Decode 24 kHz signed 16-bit LE PCM base64 chunks, carrying odd trailing bytes. */
-function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
-  const bytes = new Uint8Array(pending.length + incoming.length);
-  bytes.set(pending);
-  bytes.set(incoming, pending.length);
-  const usable = bytes.length - (bytes.length % 2);
-  const view = new DataView(bytes.buffer);
-  const samples = new Float32Array(usable / 2);
-  for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true) / 32768;
-  return { samples, pending: bytes.slice(usable) };
+/** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
+function pcmToWav(pcm: Uint8Array): Blob {
+  const sr = 24000;
+  const header = new ArrayBuffer(44);
+  const v = new DataView(header);
+  const wstr = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  wstr(0, "RIFF"); v.setUint32(4, 36 + pcm.length, true);
+  wstr(8, "WAVE"); wstr(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  wstr(36, "data"); v.setUint32(40, pcm.length, true);
+  return new Blob([header, pcm], { type: "audio/wav" });
 }
+
+/** 24 kHz mono WAV with a single silent sample — used to unlock the <audio> element on the entry tap. */
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAA";
 
 /**
  * Adaptive speech detector (pure, unit-tested). Feed RMS frames with timestamps.
