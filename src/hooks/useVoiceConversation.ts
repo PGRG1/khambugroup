@@ -1,7 +1,9 @@
 // Two-way voice conversation loop for Bani AI.
 // listening → transcribing → thinking (spoken filler) → speaking (spoken summary) → listening.
-// Uses getUserMedia + MediaRecorder (never the Web Speech API), the bani-stt and
-// bani-tts edge functions, and the normal chat send() path with voice flags.
+// Uses getUserMedia + MediaRecorder, the bani-stt and bani-tts edge functions, and
+// the normal chat send() path with voice flags. The browser Web Speech API runs in
+// parallel ONLY to show live words (and as an English fast path) — it never replaces
+// the recorder, and recording must never break because of it.
 //
 // Phone-safety rules:
 // - start() must be called directly from a tap. It marks voice active, unlocks
@@ -9,13 +11,15 @@
 //   synchronously (no await first). Playback uses an <audio> element, not an
 //   AudioContext, because the iPhone silent switch mutes WebAudio output.
 // - One mic stream per voice session; only the MediaRecorder starts/stops per
-//   turn. The track is disabled while Bani speaks and released only in end().
+//   turn. The track stays ENABLED while Bani speaks (echo cancellation on) so
+//   the user can interrupt by talking; tracks are released only in end().
 // - stateRef is written synchronously via setVoiceState so async callbacks never
 //   read a stale state.
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
 export type SpeakEvent = { kind: "filler" | "summary"; text: string };
+export type Reveal = { prior: string; text: string; durationMs: number; id: number } | null;
 
 type SendOpts = {
   voice: boolean;
@@ -31,11 +35,15 @@ type Params = {
   onError: (message: string) => void;
 };
 
-export const SILENCE_MS = 1200;
+export const SILENCE_MS = 700;
 export const SPEECH_START_MS = 250;
 const MAX_TURN_MS = 30000;
 const NO_SPEECH_MS = 8000;
 const NOTICE_MS = 2000;
+const FILLER_DELAY_MS = 2500;
+const BARGE_MS = 350;
+const BARGE_GUARD_MS = 400;
+const BARGE_MISS_LIMIT = 2;
 export const EMPTY_NOTICE = "Didn't catch that — try again";
 
 const LANG_TAGS: Record<string, string> = {
@@ -47,6 +55,22 @@ function speechLangTag(lang: string): string {
   for (const k of Object.keys(LANG_TAGS)) if (l.startsWith(k)) return LANG_TAGS[k];
   return "en";
 }
+
+// Short spoken acknowledgements, pre-generated once per session so they play
+// with zero network delay the moment a turn ends.
+const ACKS: Record<string, string[]> = {
+  en: ["Okay.", "Sure, one sec.", "Let me check."],
+  zh: ["好，等我查下。", "好，一阵。"],
+  ne: ["हुँछ, एक क्षण।", "म हेर्छु।"],
+  hi: ["ठीक है, एक पल।", "मैं देखता हूँ।"],
+  tl: ["Sige, sandali lang.", "Titingnan ko."],
+  id: ["Baik, sebentar.", "Saya cek dulu."],
+};
+const ackKey = (lang: string): string => {
+  const l = (lang || "en").toLowerCase();
+  for (const k of Object.keys(ACKS)) if (l.startsWith(k)) return k;
+  return "en";
+};
 
 /** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
 function pcmToWav(pcm: Uint8Array<ArrayBuffer>): Blob {
@@ -81,6 +105,7 @@ export function createSpeechDetector(initialFloor = 0.005) {
   return {
     get speechStarted() { return speechStarted; },
     get threshold() { return threshold(); },
+    get floor() { return floor; },
     /** Returns "end" when the turn should finish. */
     push(rms: number, now: number): "none" | "speech" | "end" {
       const loud = rms > threshold();
@@ -101,12 +126,24 @@ export function createSpeechDetector(initialFloor = 0.005) {
   };
 }
 
+/** Split a spoken summary into up to 3 sentences (tail merged into the last). */
+export function splitSentences(text: string): string[] {
+  const parts = text.split(/(?<=[.!?।])\s+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 3) return parts.length ? parts : [text.trim()].filter(Boolean);
+  return [...parts.slice(0, 2), parts.slice(2).join(" ")];
+}
+
 export function useVoiceConversation({ active, getAuth, sendQuestion, onError }: Params) {
   const [state, setState] = useState<VoiceState>("idle");
-  const [caption, setCaption] = useState("");
   const [language, setLanguage] = useState("en");
   const [needsTap, setNeedsTap] = useState(false);
   const [level, setLevel] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [userWords, setUserWords] = useState("");
+  const [userWordsLive, setUserWordsLive] = useState(false);
+  const [stepLabel, setStepLabel] = useState("");
+  const [reveal, setReveal] = useState<Reveal>(null);
+  const [notice, setNotice] = useState("");
 
   const stateRef = useRef<VoiceState>("idle");
   const setVoiceState = (s: VoiceState) => {
@@ -115,6 +152,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   };
   const activeRef = useRef(false);
   const languageRef = useRef("en");
+  const mutedRef = useRef(false);
   // Always call the latest render's callbacks (send closes over live chat state).
   const paramsRef = useRef({ getAuth, sendQuestion, onError });
   paramsRef.current = { getAuth, sendQuestion, onError };
@@ -129,6 +167,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const rafRef = useRef<number>(0);
+  const bargeRafRef = useRef<number>(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const playAbortRef = useRef<AbortController | null>(null);
@@ -137,6 +176,17 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const turnRef = useRef(0); // id of the current question turn
   const summaryTurnRef = useRef(-1); // turn whose summary has arrived
   const generationRef = useRef(0); // invalidates stale async continuations
+  const turnEndedAtRef = useRef(0);
+  const playbackStartedAtRef = useRef(0);
+  const noiseFloorRef = useRef(0.005);
+  const bargeDisabledRef = useRef(false);
+  const bargeMissesRef = useRef(0);
+  const bargePendingRef = useRef(false);
+  const revealIdRef = useRef(0);
+  const recogRef = useRef<any>(null);
+  const finalTranscriptRef = useRef("");
+  const ackUrlsRef = useRef<Map<string, string[]>>(new Map());
+  const ackLangsDoneRef = useRef<Set<string>>(new Set());
 
   const setLevelThrottled = (v: number) => {
     const now = performance.now();
@@ -157,6 +207,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const stopPlayback = () => {
     playAbortRef.current?.abort();
     playAbortRef.current = null;
+    cancelAnimationFrame(bargeRafRef.current);
     const el = audioElRef.current;
     if (el) { try { el.pause(); } catch { /* ignore */ } }
     if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
@@ -174,6 +225,16 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     }
   };
 
+  /** Stop the live-words recognizer (never affects recording). */
+  const stopLiveWords = () => {
+    const rec = recogRef.current;
+    recogRef.current = null;
+    if (rec) {
+      rec.onresult = rec.onerror = rec.onend = null;
+      try { rec.stop(); } catch { /* noop */ }
+    }
+  };
+
   /** Full cleanup — voice mode ends. Only place the mic tracks are released. */
   const end = useCallback(() => {
     activeRef.current = false;
@@ -181,6 +242,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     clearTimers();
     stopPlayback();
     stopRecorder(true);
+    stopLiveWords();
     abortRef.current?.abort();
     abortRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -190,11 +252,23 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     micCtxRef.current?.close().catch(() => {});
     micCtxRef.current = null;
     audioElRef.current = null;
+    ackUrlsRef.current.forEach((urls) => urls.forEach((u) => URL.revokeObjectURL(u)));
+    ackUrlsRef.current.clear();
+    ackLangsDoneRef.current.clear();
+    bargeDisabledRef.current = false;
+    bargeMissesRef.current = 0;
+    bargePendingRef.current = false;
+    mutedRef.current = false;
     stateRef.current = "idle";
     setState("idle");
-    setCaption("");
     setLevel(0);
     setNeedsTap(false);
+    setMuted(false);
+    setUserWords("");
+    setUserWordsLive(false);
+    setStepLabel("");
+    setReveal(null);
+    setNotice("");
   }, []);
 
   // End everything when voice mode is turned off or the page unmounts.
@@ -211,10 +285,11 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       stopPlayback();
       if (stateRef.current === "listening") {
         stopRecorder(true);
+        stopLiveWords();
         setTrackEnabled(false);
         setVoiceState("idle");
         setNeedsTap(true);
-        setCaption("Tap the orb to talk");
+        setNotice("Tap the orb to talk");
         setLevel(0);
       }
     };
@@ -238,16 +313,19 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     return audioElRef.current;
   };
 
-  /** Play text through bani-tts (PCM SSE → WAV blob in an <audio> element). */
-  const speak = async (text: string, gen: number): Promise<void> => {
-    const { token } = paramsRef.current.getAuth();
-    if (!token || !text.trim() || gen !== generationRef.current) return;
-    if (ttsCountRef.current >= 3) return; // cost cap per turn
-    ttsCountRef.current++;
-
-    const controller = new AbortController();
-    playAbortRef.current = controller;
+  /**
+   * Fetch one TTS clip from bani-tts and return raw 24 kHz PCM bytes.
+   * counted=true charges the per-turn cap (max 3); cached acknowledgements
+   * are pre-generated with counted=false.
+   */
+  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true): Promise<Uint8Array | null> => {
+    if (!text.trim() || gen !== generationRef.current) return null;
+    if (counted) {
+      if (ttsCountRef.current >= 3) return null;
+      ttsCountRef.current++;
+    }
     try {
+      if (!playAbortRef.current) playAbortRef.current = new AbortController();
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bani-tts`, {
         method: "POST",
         headers: {
@@ -256,12 +334,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ text: text.slice(0, 600) }),
-        signal: controller.signal,
+        signal: playAbortRef.current.signal,
       });
-      if (!resp.ok || !resp.body) throw new Error(`tts ${resp.status}`);
-
-      // Collect the whole PCM stream, then play it as one WAV clip. Clips are
-      // 1–3 sentences, so buffering adds ~1s but plays reliably on phones.
+      if (!resp.ok || !resp.body) return null;
       const chunks: Uint8Array[] = [];
       let total = 0;
       let completed = false;
@@ -274,13 +349,12 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         chunks.push(bytes);
         total += bytes.length;
       };
-
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (gen !== generationRef.current) { reader.cancel(); return; }
+        if (gen !== generationRef.current) { reader.cancel(); return null; }
         buf += value;
         let nl: number;
         while ((nl = buf.indexOf("\n")) !== -1) {
@@ -292,81 +366,241 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           }
         }
       }
-      if (!completed || !total) throw new Error("incomplete speech");
-      if (gen !== generationRef.current) return;
-
+      if (!completed || !total || gen !== generationRef.current) return null;
       const pcm = new Uint8Array(total - (total % 2));
       let off = 0;
       for (const c of chunks) { pcm.set(c.subarray(0, Math.min(c.length, pcm.length - off)), off); off += c.length; }
-      const url = URL.createObjectURL(pcmToWav(pcm));
-      audioUrlRef.current = url;
-      const el = ensureAudioEl();
-      el.src = url;
-      await new Promise<void>((resolve) => {
-        const done = () => {
-          el.onended = null; el.onerror = null;
-          if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
-          resolve();
-        };
-        el.onended = done;
-        el.onerror = done;
-        el.play().then(() => {}).catch(done);
-      });
-    } catch (e) {
-      if ((e as Error)?.name === "AbortError" || gen !== generationRef.current) return;
-      // Fallback: browser speech synthesis with a matching-language voice.
-      await new Promise<void>((resolve) => {
-        try {
-          const synth = window.speechSynthesis;
-          if (!synth) return resolve();
-          const tag = speechLangTag(languageRef.current);
-          const utter = new SpeechSynthesisUtterance(text.slice(0, 600));
-          utter.lang = tag;
-          const match = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith(tag.slice(0, 2)));
-          if (match) utter.voice = match;
-          utter.onend = () => resolve();
-          utter.onerror = () => resolve();
-          synth.speak(utter);
-          // Caption-only fallback: if nothing starts, don't hang the loop.
-          timersRef.current.push(setTimeout(() => resolve(), 12000));
-        } catch {
-          resolve();
-        }
-      });
+      return pcm;
+    } catch {
+      return null;
     }
   };
 
-  /** Transcribe the recorded blob, then send it through the normal chat path. */
-  const transcribeAndSend = async (blob: Blob, gen: number) => {
+  /** Play one PCM clip on the session <audio> element. */
+  const playPcm = async (pcm: Uint8Array, gen: number): Promise<void> => {
+    if (gen !== generationRef.current) return;
+    const url = URL.createObjectURL(pcmToWav(pcm));
+    audioUrlRef.current = url;
+    const el = ensureAudioEl();
+    el.src = url;
+    playbackStartedAtRef.current = performance.now();
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        el.onended = null; el.onerror = null;
+        if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
+        resolve();
+      };
+      el.onended = done;
+      el.onerror = done;
+      el.play().then(() => {}).catch(done);
+    });
+  };
+
+  /** Browser speech-synthesis fallback when TTS is unavailable. */
+  const speakFallback = async (text: string): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      try {
+        const synth = window.speechSynthesis;
+        if (!synth) return resolve();
+        const tag = speechLangTag(languageRef.current);
+        const utter = new SpeechSynthesisUtterance(text.slice(0, 600));
+        utter.lang = tag;
+        const match = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith(tag.slice(0, 2)));
+        if (match) utter.voice = match;
+        utter.onend = () => resolve();
+        utter.onerror = () => resolve();
+        synth.speak(utter);
+        timersRef.current.push(setTimeout(() => resolve(), 12000));
+      } catch {
+        resolve();
+      }
+    });
+  };
+
+  /** Pre-generate the short acknowledgements for one language (background). */
+  const pregenAcks = async (lang: string, gen: number) => {
+    const key = ackKey(lang);
+    if (ackLangsDoneRef.current.has(key)) return;
+    ackLangsDoneRef.current.add(key);
+    const { token } = paramsRef.current.getAuth();
+    if (!token) return;
+    for (const text of ACKS[key]) {
+      const pcm = await fetchTtsPcm(text, token, gen, false);
+      if (gen !== generationRef.current) return;
+      if (pcm) {
+        const url = URL.createObjectURL(pcmToWav(pcm));
+        const arr = ackUrlsRef.current.get(key) || [];
+        arr.push(url);
+        ackUrlsRef.current.set(key, arr);
+      }
+    }
+  };
+
+  /** Play a cached acknowledgement instantly. Returns false if none ready. */
+  const playAck = (): boolean => {
+    const urls = ackUrlsRef.current.get(ackKey(languageRef.current)) || ackUrlsRef.current.get("en");
+    if (!urls?.length) return false;
+    const el = ensureAudioEl();
+    el.src = urls[Math.floor(Math.random() * urls.length)];
+    playbackStartedAtRef.current = performance.now();
+    el.play().catch(() => {});
+    return true;
+  };
+
+  /** Barge-in: stop Bani and start a new listening turn from this moment. */
+  const bargeIn = () => {
+    bargePendingRef.current = true;
+    generationRef.current++; // cancels in-flight send/summary continuations
+    stopPlayback();
+    abortRef.current?.abort();
+    listen();
+  };
+
+  /** While Bani speaks, watch the mic for sustained loud speech (= interrupt). */
+  const startBargeMonitor = (gen: number, turn: number) => {
+    cancelAnimationFrame(bargeRafRef.current);
+    let aboveSince: number | null = null;
+    const tickBarge = () => {
+      if (gen !== generationRef.current || turn !== turnRef.current || stateRef.current !== "speaking") return;
+      const an = micAnalyserRef.current;
+      if (an && !bargeDisabledRef.current && !mutedRef.current) {
+        const rms = readLevel(an);
+        const now = performance.now();
+        // Stricter than the normal speech threshold: ~2x over the noise floor.
+        const thr = Math.max(0.03, noiseFloorRef.current * 5);
+        if (now - playbackStartedAtRef.current > BARGE_GUARD_MS && rms > thr) {
+          if (aboveSince === null) aboveSince = now;
+          else if (now - aboveSince >= BARGE_MS) { bargeIn(); return; }
+        } else {
+          aboveSince = null;
+        }
+      }
+      bargeRafRef.current = requestAnimationFrame(tickBarge);
+    };
+    bargeRafRef.current = requestAnimationFrame(tickBarge);
+  };
+
+  /** Speak the 1–3 sentence summary: sentence 1 plays as soon as it's ready
+   *  while the rest synthesise in parallel; all queue on the same <audio>. */
+  const speakSummary = async (text: string, gen: number, turn: number): Promise<void> => {
+    const { token } = paramsRef.current.getAuth();
+    const sentences = splitSentences(text).slice(0, 3);
+    if (!token || !sentences.length) return;
+    playAbortRef.current = new AbortController();
+    const jobs = sentences.map((s) => fetchTtsPcm(s, token, gen));
+    let prior = "";
+    let played = 0;
+    for (let i = 0; i < jobs.length; i++) {
+      const pcm = await jobs[i];
+      if (gen !== generationRef.current || turn !== turnRef.current) return;
+      if (!pcm || !pcm.length) continue;
+      const durationMs = (pcm.length / 2 / 24000) * 1000;
+      setReveal({ prior, text: sentences[i], durationMs, id: ++revealIdRef.current });
+      startBargeMonitor(gen, turn);
+      await playPcm(pcm, gen);
+      played++;
+      prior = prior ? `${prior} ${sentences[i]}` : sentences[i];
+    }
+    if (!played && gen === generationRef.current && turn === turnRef.current) {
+      setReveal({ prior: "", text, durationMs: Math.min(12000, text.length * 70), id: ++revealIdRef.current });
+      await speakFallback(text);
+    }
+  };
+
+  /** Speak a short server filler (single clip, counts toward the cap). */
+  const speakFiller = async (text: string, gen: number, turn: number): Promise<void> => {
+    const { token } = paramsRef.current.getAuth();
+    if (!token) return;
+    playAbortRef.current = new AbortController();
+    const pcm = await fetchTtsPcm(text, token, gen);
+    if (!pcm || gen !== generationRef.current || turn !== turnRef.current) return;
+    if (summaryTurnRef.current === turn) return; // summary already arrived
+    await playPcm(pcm, gen);
+  };
+
+  /** Live words: Web Speech API in parallel with the recorder, display only. */
+  const startLiveWords = (gen: number) => {
+    try {
+      const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!Ctor) return;
+      const rec = new Ctor();
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.lang = navigator.language || "en-GB";
+      rec.onresult = (e: any) => {
+        if (gen !== generationRef.current) return;
+        let interim = "";
+        for (let i = 0; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            finalTranscriptRef.current = (finalTranscriptRef.current + " " + t).trim();
+          } else {
+            interim += t;
+          }
+        }
+        const shown = (finalTranscriptRef.current + " " + interim).trim();
+        if (shown) { setUserWords(shown); setUserWordsLive(true); }
+      };
+      rec.onerror = () => { recogRef.current = null; }; // never break recording
+      rec.onend = () => { if (recogRef.current === rec) recogRef.current = null; };
+      rec.start();
+      recogRef.current = rec;
+    } catch { /* live words optional — recording continues */ }
+  };
+
+  /** Transcribe the recorded blob (or use the English fast path), then send. */
+  const transcribeAndSend = async (blob: Blob | null, gen: number) => {
     const { token, tenantId } = paramsRef.current.getAuth();
     if (!token || gen !== generationRef.current) return;
     const turn = ++turnRef.current;
+    const wasBarge = bargePendingRef.current;
+    bargePendingRef.current = false;
     ttsCountRef.current = 0;
     setVoiceState("transcribing");
-    setCaption("Transcribing…");
-    setTrackEnabled(false);
-    try {
-      const form = new FormData();
-      form.append("file", new File([blob], "question.webm", { type: blob.type || "audio/webm" }));
-      if (tenantId) form.append("tenant_id", tenantId);
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bani-stt`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: form,
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.error || "Transcription failed");
-      const text = String(data.text || "").trim();
-      if (data.language) { setLanguage(data.language); languageRef.current = data.language; }
-      if (gen !== generationRef.current) return;
-      if (!text) {
-        listen(EMPTY_NOTICE);
-        return;
+    setStepLabel("");
+    const noteEmpty = () => {
+      if (wasBarge) {
+        bargeMissesRef.current++;
+        if (bargeMissesRef.current >= BARGE_MISS_LIMIT) bargeDisabledRef.current = true;
       }
-      setCaption(text);
+      listen(EMPTY_NOTICE);
+    };
+    try {
+      // Fast path: a final Web Speech transcript in an English browser skips bani-stt.
+      const liveFinal = finalTranscriptRef.current.trim();
+      const browserEn = (navigator.language || "en").toLowerCase().startsWith("en");
+      let text = "";
+      let lang = languageRef.current || "en";
+      if (liveFinal.length > 2 && browserEn) {
+        text = liveFinal;
+        lang = "en";
+      } else {
+        if (!blob) return noteEmpty();
+        const form = new FormData();
+        form.append("file", new File([blob], "question.webm", { type: blob.type || "audio/webm" }));
+        if (tenantId) form.append("tenant_id", tenantId);
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bani-stt`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: form,
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || "Transcription failed");
+        text = String(data.text || "").trim();
+        if (data.language) {
+          lang = data.language;
+          setLanguage(data.language);
+          languageRef.current = data.language;
+          void pregenAcks(data.language, gen); // cached acks for next turn
+        }
+      }
+      if (gen !== generationRef.current) return;
+      if (!text) return noteEmpty();
+      setUserWords(text); // server transcript replaces live words
+      setUserWordsLive(false);
       setVoiceState("thinking");
 
       const onSpeak = (s: SpeakEvent) => {
@@ -376,24 +610,28 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           stopPlayback();
           summaryTurnRef.current = turn;
           setVoiceState("speaking");
-          setCaption(s.text);
-          void speak(s.text, gen).then(() => {
+          setStepLabel("");
+          void speakSummary(s.text, gen, turn).then(() => {
             if (gen !== generationRef.current || !activeRef.current) return;
+            setReveal(null);
             listen();
           });
         } else if (summaryTurnRef.current !== turn) {
-          void speak(s.text, gen);
+          // The cached acknowledgement covers the first ~2.5s; the server
+          // filler only speaks if the lookup is still running after that.
+          if (performance.now() - turnEndedAtRef.current < FILLER_DELAY_MS) return;
+          void speakFiller(s.text, gen, turn);
         }
       };
       const onStatus = (label: string) => {
         if (gen !== generationRef.current || turn !== turnRef.current) return;
-        if (summaryTurnRef.current === turn) return; // summary caption wins
-        if (stateRef.current === "thinking") setCaption(label);
+        if (summaryTurnRef.current === turn) return; // summary wins
+        if (stateRef.current === "thinking") setStepLabel(label);
       };
 
       await paramsRef.current.sendQuestion(text, {
         voice: true,
-        voiceLanguage: data.language || languageRef.current || "en",
+        voiceLanguage: lang,
         onSpeak,
         onStatus,
       });
@@ -428,7 +666,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const getStream = (): Promise<MediaStream> => {
     if (streamRef.current) return Promise.resolve(streamRef.current);
     if (!streamPromiseRef.current) {
-      streamPromiseRef.current = navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => {
+      streamPromiseRef.current = navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      }).then((s) => {
         streamRef.current = s;
         attachAnalyser(s);
         return s;
@@ -438,17 +678,23 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   };
 
   /** Begin one listening turn: start a recorder on the session stream + silence detection. */
-  const listen = (notice?: string) => {
+  const listen = (noticeText?: string) => {
     if (!activeRef.current) return;
     const gen = generationRef.current;
     stopPlayback();
     stopRecorder(true);
+    stopLiveWords();
     clearTimers();
     setLevel(0);
+    setReveal(null);
+    setStepLabel("");
+    setUserWords("");
+    setUserWordsLive(false);
+    finalTranscriptRef.current = "";
 
     getStream().then((stream) => {
       if (gen !== generationRef.current || !activeRef.current) return;
-      setTrackEnabled(true);
+      setTrackEnabled(!mutedRef.current);
       if (micCtxRef.current?.state === "suspended") micCtxRef.current.resume().catch(() => {});
 
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -470,23 +716,29 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
       setVoiceState("listening");
       setNeedsTap(false);
-      if (notice) {
-        setCaption(notice);
+      if (noticeText) {
+        setNotice(noticeText);
         timersRef.current.push(setTimeout(() => {
-          if (gen === generationRef.current && stateRef.current === "listening") setCaption("Listening…");
+          if (gen === generationRef.current && stateRef.current === "listening") setNotice("");
         }, NOTICE_MS));
       } else {
-        setCaption("Listening…");
+        setNotice("");
       }
 
       const detector = createSpeechDetector();
       let startedAt = 0; // set when the recorder has actually started
-      recorder.onstart = () => { startedAt = performance.now(); };
+      recorder.onstart = () => {
+        startedAt = performance.now();
+        startLiveWords(gen);
+      };
       recorder.start(250);
 
       const finishTurn = () => {
         cancelAnimationFrame(rafRef.current);
         setLevel(0);
+        stopLiveWords();
+        turnEndedAtRef.current = performance.now();
+        playAck(); // instant acknowledgement, zero network delay
         const rec = recorderRef.current;
         recorderRef.current = null;
         if (rec && rec.state !== "inactive") {
@@ -504,13 +756,16 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           const rms = an ? readLevel(an) : 0;
           setLevelThrottled(Math.min(1, rms * 6));
           if (startedAt) {
-            if (detector.push(rms, now) === "end") return finishTurn();
+            const res = detector.push(rms, now);
+            noiseFloorRef.current = detector.floor;
+            if (res === "end") return finishTurn();
             if (!detector.speechStarted && now - startedAt > NO_SPEECH_MS) {
               stopRecorder(true);
+              stopLiveWords();
               setTrackEnabled(false);
               setVoiceState("idle");
               setNeedsTap(true);
-              setCaption("Tap the orb to talk");
+              setNotice("Tap the orb to talk");
               setLevel(0);
               return;
             }
@@ -541,6 +796,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     clearTimers();
     stopPlayback();
     summaryTurnRef.current = -1;
+    const gen = generationRef.current;
     try {
       // Unlock the session <audio> element inside the tap: play a silent clip so
       // iOS allows later play() calls, and so output uses the media channel
@@ -555,6 +811,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       getStream().catch(() => {}); // getUserMedia inside the tap's call stack
     } catch { /* handled in listen */ }
     listen();
+    // Pre-generate acknowledgements in the background so the first turn end
+    // already has a zero-delay "Okay." ready.
+    void pregenAcks(languageRef.current, gen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -562,6 +821,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const sendNow = useCallback(() => {
     if (stateRef.current !== "listening") return;
     cancelAnimationFrame(rafRef.current);
+    stopLiveWords();
+    turnEndedAtRef.current = performance.now();
+    playAck();
     const rec = recorderRef.current;
     recorderRef.current = null;
     if (rec && rec.state !== "inactive") {
@@ -583,10 +845,22 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Mute toggle: disables the mic track (and barge-in) until unmuted. */
+  const toggleMute = useCallback(() => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    if (streamRef.current && stateRef.current !== "idle") setTrackEnabled(!next);
+  }, []);
+
   /** Register the in-flight chat request so interrupt can abort it. */
   const trackRequest = useCallback((controller: AbortController | null) => {
     abortRef.current = controller;
   }, []);
 
-  return { state, caption, level, needsTap, language, start, end, interrupt, sendNow, trackRequest, setCaption };
+  return {
+    state, level, needsTap, muted, language,
+    userWords, userWordsLive, stepLabel, reveal, notice,
+    start, end, interrupt, sendNow, toggleMute, trackRequest,
+  };
 }
