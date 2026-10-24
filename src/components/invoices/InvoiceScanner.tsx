@@ -77,6 +77,7 @@ import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invo
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
+import { consumeScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -252,6 +253,12 @@ interface InvoiceScannerProps {
   
   onClose: () => void;
   userId: string;
+  /** Floating-Bani handoff: original files to scan once on mount, with an
+   *  optional server-validated venue override. Consumed by id — never rescans
+   *  on remount, and is re-armed only after a real scan failure. */
+  handoff?: { id: string; files: File[]; venue: string | null } | null;
+  /** Reports whether an unsaved review exists so automatic navigation never destroys it. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const emptyLine: ScannedLineItem = {
@@ -303,7 +310,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
@@ -357,6 +364,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const baniBinding = `${revisionFingerprint(baniScope)}:${baniLineId || "none"}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
   const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
+  const handoffDone = useRef<string | null>(null);
+  const handoffVenueRef = useRef<string | null>(null);
+  const reviewDirty = invoices.length > 0;
+  useEffect(() => { onDirtyChange?.(reviewDirty); }, [reviewDirty, onDirtyChange]);
   useEffect(() => {
     if (!baniHostNode) return;
     setBaniHost({ token: baniHostToken.current, node: baniHostNode });
@@ -790,8 +801,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   }, []);
 
-  const processMultipleFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return;
+  const processMultipleFiles = useCallback(async (files: File[]): Promise<boolean> => {
+    if (files.length === 0) return false;
 
     setScanning(true);
     setInvoices([]);
@@ -812,7 +823,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         }
       }
 
-      if (preparedFiles.length === 0) return;
+      if (preparedFiles.length === 0) return false;
 
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
         body: {
@@ -962,7 +973,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         parsedInvoices.push({
           supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
-          venue: raw?.venue || "Hanabi",
+          venue: handoffVenueRef.current || raw?.venue || "Hanabi",
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
@@ -985,6 +996,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
+      return true;
     } catch (err: any) {
       setInvoices([]);
       console.error("Invoice scan error:", err);
@@ -1006,11 +1018,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         description,
         variant: "destructive",
       });
+      return false;
     } finally {
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
   }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
+
+  // Floating-Bani handoff: scan the handed-off original files exactly once.
+  // A failed scan re-arms the same request so the user can retry; a consumed
+  // id is never scanned again on remount or re-render.
+  useEffect(() => {
+    if (!handoff || handoffDone.current === handoff.id) return;
+    // Never scan over an unsaved review: the parent asks replace/keep first,
+    // and a "replace" choice remounts this scanner fresh.
+    if (reviewDirty) return;
+    handoffDone.current = handoff.id;
+    if (!handoff.files.length) { consumeScannerHandoff(handoff.id); return; }
+    handoffVenueRef.current = handoff.venue;
+    void processMultipleFiles(handoff.files).then((ok) => {
+      handoffVenueRef.current = null;
+      if (ok) consumeScannerHandoff(handoff.id);
+      else handoffDone.current = null;
+    });
+  }, [handoff, processMultipleFiles, reviewDirty]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {

@@ -35,6 +35,9 @@ import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, t
 import { uploadInvoiceSources, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
 import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
+import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -199,6 +202,26 @@ export default function ProcurementInvoicesTab() {
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerDirty, setScannerDirty] = useState(false);
+  const [scannerKey, setScannerKey] = useState(0);
+  const [handoffConflict, setHandoffConflict] = useState(false);
+  const [handoffTick, setHandoffTick] = useState(0);
+  // Floating-Bani scanner handoff: open the scanner for a pending request, but
+  // never destroy an unsaved review — ask first.
+  useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
+  const pendingHandoff = peekScannerHandoff();
+  const baniStore = useFloatingBaniStore();
+  useEffect(() => {
+    if (!pendingHandoff) return;
+    if (scannerOpen && scannerDirty) {
+      // The decision dialog must be clickable: the hosted Bani panel stacks
+      // above it, so tuck the panel away (conversation state is preserved).
+      baniStore?.open[1](false);
+      setHandoffConflict(true);
+    }
+    else if (!scannerOpen) setScannerOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffTick]);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useEffect(() => {
@@ -1720,7 +1743,10 @@ export default function ProcurementInvoicesTab() {
     <div className="space-y-4">
       {scannerOpen && (
         <InvoiceScanner
+          key={scannerKey}
           suppliers={suppliers}
+          handoff={pendingHandoff ? { ...pendingHandoff, venue: pendingHandoff.venue && activeVenueNames.includes(pendingHandoff.venue) ? pendingHandoff.venue : null } : null}
+          onDirtyChange={setScannerDirty}
           productMaster={productMaster}
           onProductMasterChanged={loadProductMaster}
           onSuppliersChanged={fetchAll}
@@ -1834,6 +1860,25 @@ export default function ProcurementInvoicesTab() {
           userId={user?.id || ""}
         />
       )}
+
+      <AlertDialog open={handoffConflict} onOpenChange={setHandoffConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace the unsaved review?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bani handed new invoice files to Scan Invoice, but this review has unsaved work. Replacing it discards the current draft; keeping it ignores the new files.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { if (pendingHandoff) consumeScannerHandoff(pendingHandoff.id); }}>
+              Keep current review
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => setScannerKey((k) => k + 1)}>
+              Replace with new files
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <InvoiceTableSection
         filtered={filtered}

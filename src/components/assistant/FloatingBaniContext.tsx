@@ -11,6 +11,9 @@ type S<T> = [T, Dispatch<SetStateAction<T>>];
 type Store = {
   host: Host | null; setHost: (host: Host | null) => void;
   scope: S<string>; messages: S<BaniMessage[]>; draft: S<string>; files: S<BaniAttachment[]>;
+  /** Original attachments from the last turn that had files, so a follow-up
+   *  "add it in procurement" can hand them to the scanner after the composer cleared. */
+  lastFiles: S<BaniAttachment[]>;
   open: S<boolean>; hidden: S<boolean>; sphere: S<Point | null>; panel: S<Point | null>; page: S<PageContext>;
 };
 const Context = createContext<Store | null>(null);
@@ -21,6 +24,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
   const store: Store = {
     host, setHost,
     scope: useState(""), messages: useState<BaniMessage[]>([]), draft: useState(""), files: useState<BaniAttachment[]>([]),
+    lastFiles: useState<BaniAttachment[]>([]),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;

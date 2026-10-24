@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, X, Plus, FileText } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
@@ -13,6 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
+import { requestScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -43,6 +44,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { isPreviewActive, previewUserId } = usePreviewMode();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const effectiveId = isAdmin && isPreviewActive ? previewUserId : user?.id;
   const { canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveId || undefined);
@@ -66,6 +68,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
   const [draft, setDraft] = store?.draft ?? ["", () => {}];
   const [files, setFiles] = store?.files ?? [[], () => {}];
+  const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
   const [hidden, setHidden] = store?.hidden ?? [false, () => {}];
   const [sphere, setSphere] = store?.sphere ?? [null, () => {}];
@@ -79,12 +82,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const liveIdentity = useRef(identity); liveIdentity.current = identity;
   const binding = review?.binding;
   const filesRef = useRef(files); filesRef.current = files;
+  const lastFilesRef = useRef(lastFiles); lastFilesRef.current = lastFiles;
 
   useEffect(() => {
     if (!store || scope === identity) return;
-    abort.current?.abort(); revoke(filesRef.current);
-    setMessages([]); setDraft(""); setFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, setMessages, setDraft, setFiles, setOpen, setHidden, setScope]);
+    abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current);
+    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
   useEffect(() => () => { abort.current?.abort(); if (gesture.current) clearTimeout(gesture.current.timer); }, []);
   useEffect(() => { if (openSignal) { setHidden(false); setOpen(true); } }, [openSignal, setHidden, setOpen]);
@@ -118,6 +122,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
+  // Server-approved navigation handoff: open the real scanner with the original files.
+  const runScannerAction = (action: { venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
+    if (!canAccessPage("invoices")) {
+      setMessages(prev => [...prev, { role: "assistant", content: "You don't have access to Procurement, so I can't open Scan Invoice. Ask an admin to grant you access." }]);
+      return;
+    }
+    const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
+    const wanted = action.files.length ? pool.filter(f => action.files.some(n => n === f.name)) : pool;
+    const handoffFiles = (wanted.length ? wanted : pool).map(f => f.file);
+    requestScannerHandoff({ id: crypto.randomUUID(), files: handoffFiles, venue: action.venue });
+    navigate("/procurement/invoices");
+  };
+
   const send = async () => {
     const typed = draft.trim();
     const attached = filesRef.current;
@@ -125,8 +142,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const text = typed || FILES_ONLY_PROMPT;
     const requestIdentity = identity;
     const controller = new AbortController(); abort.current = controller;
-    const history = [...messages.map(({ role, content }) => ({ role, content })), { role: "user" as const, content: text }].slice(-12);
+    // File names stay in the conversational context so a follow-up ("add it in
+    // procurement") can refer to an earlier turn's attachments.
+    const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
+      ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
+    const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
     setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    if (attached.length) setLastFiles(attached);
     setDraft(""); setFiles([]); setBusy(true); setError("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
@@ -144,6 +166,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
+      let action: { venue: string | null; files: string[] } | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -154,12 +177,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
+          if (event.action?.type === "open_invoice_scanner") action = { venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
       }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
         setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined }]);
+        if (action) runScannerAction(action, attached);
       }
     } catch (e) {
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) { restore(); setError(e instanceof Error ? e.message : "Bani could not reply."); }
