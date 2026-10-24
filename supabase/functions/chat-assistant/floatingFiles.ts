@@ -95,14 +95,17 @@ export async function analyzeFiles(
   if (toolCall) {
     let args: any = {};
     try { args = JSON.parse(toolCall.function.arguments || "{}"); } catch { /* default */ }
+    const mode = args.mode === "scan" ? "scan" : "open";
     const v = await validateVenue(args.venue);
     if (v.ok) {
       const names = files.map((f) => f.name).join(", ");
-      const ack = v.venue
-        ? `Opening Scan Invoice with ${names} for ${v.venue} — the scan will start there. Review the extracted invoice and save it as usual; nothing is saved yet.`
-        : `Opening Scan Invoice with ${names} — the scan will start there. Review the extracted invoice and save it as usual; nothing is saved yet.`;
+      const ack = mode === "open"
+        ? "Opening Scan Invoice — nothing is scanned or saved until you choose files there."
+        : v.venue
+          ? `Opening Scan Invoice with ${names} for ${v.venue} — the scan will start there. Review the extracted invoice and save it as usual; nothing is saved yet.`
+          : `Opening Scan Invoice with ${names} — the scan will start there. Review the extracted invoice and save it as usual; nothing is saved yet.`;
       return sseResponse([
-        { action: { type: "open_invoice_scanner", venue: v.venue, files: files.map((f) => f.name) } },
+        { action: { type: "open_invoice_scanner", mode, venue: v.venue, files: mode === "scan" ? files.map((f) => f.name) : [] } },
         { choices: [{ delta: { content: ack } }] },
       ], cors);
     }
