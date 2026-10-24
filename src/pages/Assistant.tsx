@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useVoiceConversation, type Reveal, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
@@ -342,7 +343,7 @@ export default function Assistant() {
   // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
   const [voiceExpanded, setVoiceExpanded] = useState(true);
   const enterVoice = () => { dictation.stop(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
-  const cancelVoice = () => { voice.end(); setVoiceMode(false); };
+  const cancelVoice = () => { voice.end(); stop(); setVoiceMode(false); };
   // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
     if (!voiceMode || !voiceExpanded) return;
@@ -353,7 +354,7 @@ export default function Assistant() {
 
   // Expanded voice is a calm full screen: hide the sidebar trigger and top-bar icons.
   useEffect(() => {
-    document.body.classList.toggle("bani-voice-mode", voiceMode && voiceExpanded);
+    document.body.classList.toggle("bani-voice-mode", voiceMode);
     return () => document.body.classList.remove("bani-voice-mode");
   }, [voiceMode, voiceExpanded]);
 
@@ -400,16 +401,15 @@ export default function Assistant() {
         />
         {voiceMode ? (
           hasText && (
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={sendVoiceTyped}
               disabled={voiceBusy || !scopeReady}
               aria-label="Send question"
-              className="bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45"
-              style={{ background: "#1F3A37" }}
+              className="bani-voice-end bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 disabled:opacity-45"
             >
               <ArrowUp className="h-4 w-4" />
-            </button>
+            </Button>
           )
         ) : (
           <>
@@ -491,7 +491,7 @@ export default function Assistant() {
   );
 
   return (
-    <div className="relative flex min-h-0 w-full flex-col" style={{ height: "calc(100dvh - 4rem)" }}>
+    <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: voiceMode ? "calc(100dvh - 1rem)" : "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
         .bani-composer{transition:border-color 150ms,box-shadow 150ms}
@@ -509,11 +509,24 @@ export default function Assistant() {
         .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
         @keyframes bani-speak-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
         .bani-orb-speaking{animation:bani-speak-pulse 1.6s ease-in-out infinite}
+        body.bani-voice-mode .tenant-topbar{display:none}
         body.bani-voice-mode [data-sidebar="trigger"]{display:none}
+        .bani-voice-surface{color:hsl(var(--bani-voice-ink))}
+        .bani-voice-surface:before{content:"";position:fixed;inset:0;background:var(--bani-voice-atmosphere);z-index:-1;pointer-events:none}
+        .bani-voice-surface .bani-composer{background:hsl(var(--bani-voice-paper)/.88);border:0;box-shadow:none;border-radius:32px;padding:6px 10px 6px 18px}
+        .bani-voice-surface .bani-composer:focus-within{box-shadow:0 0 0 3px hsl(var(--bani-voice-paper)/.2)}
+        .bani-voice-title{color:hsl(var(--bani-voice-paper));font-size:22px;font-weight:500}
+        .bani-voice-mic{background:hsl(var(--bani-voice-paper)/.94);color:hsl(var(--bani-voice-ink));width:48px;height:48px}
+        .bani-voice-end{background:hsl(var(--bani-voice-forest));color:hsl(var(--bani-voice-paper));width:48px;height:48px}
+        .bani-voice-orb{background:transparent!important;box-shadow:none;padding:0;flex-shrink:0}
+        .bani-voice-surface .bani-user-message{background:hsl(var(--bani-voice-paper)/.65)!important;color:hsl(var(--bani-voice-ink));border:0!important;border-radius:18px!important}
+        .bani-voice-answer{color:hsl(var(--bani-voice-ink));font-size:17px;padding:0;background:none;border:0;box-shadow:none}
+        .bani-voice-answer .prose{font-size:17px;color:inherit}
         @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots,.bani-orb-speaking{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
+      {voiceMode && !voiceExpanded && <div className="bani-voice-title absolute left-4 top-2">Bani</div>}
 
       {voiceMode && voiceExpanded ? (
         <VoicePanel
@@ -568,10 +581,10 @@ export default function Assistant() {
             <div className="mx-auto w-full max-w-[720px] space-y-5">
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                if (inFlight) return <ThinkingLine key={i} />;
-                return <MessageBlock key={i} msg={m} />;
+                if (inFlight) return voiceMode ? null : <ThinkingLine key={i} />;
+                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} />;
               })}
-              {loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
+              {!voiceMode && loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
             </div>
           </div>
           <div
@@ -581,19 +594,19 @@ export default function Assistant() {
             <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
               {voiceMode ? (
                 <>
-                  <div className="mb-2 flex justify-center">
-                    <button
+                  <div className="mb-6 flex justify-center">
+                    <Button
                       type="button"
-                      onClick={() => setVoiceExpanded(true)}
+                      variant="ghost"
+                      onClick={() => { setVoiceExpanded(true); if (voice.needsTap) voice.interrupt(); }}
                       aria-label="Expand voice view"
-                      className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] text-white"
-                      style={{ background: "rgba(255,255,255,0.16)" }}
+                      className="bani-voice-orb h-auto rounded-full"
                     >
-                      <BaniOrb size={28} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
-                      <span role="status" aria-live="polite">{voice.notice || (voice.needsTap ? "Tap the orb to talk" : voiceStatusWord(voice.state, voice.muted))}</span>
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </button>
+                      <BaniOrb size={96} mode={voice.state === "thinking" || voice.state === "transcribing" ? "thinking" : voice.state === "idle" ? "idle" : "listening"} />
+                    </Button>
                   </div>
+                  {voice.needsTap && <p className="mb-2 text-center text-sm" role="status">Tap the orb to resume audio.</p>}
+                  {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="mb-2 text-center text-sm" role="alert">{voice.notice}</p>}
                   {VoiceComposerRow}
                 </>
               ) : (
@@ -610,12 +623,12 @@ export default function Assistant() {
   );
 }
 
-function MessageBlock({ msg }: { msg: Msg }) {
+function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolean }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
         <div
-          className="max-w-[80%] px-4 py-2.5 text-sm text-white"
+          className="bani-user-message max-w-[80%] px-4 py-2.5 text-sm text-white"
           style={{ background: "rgba(255,255,255,0.28)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "18px 18px 4px 18px" }}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -625,7 +638,7 @@ function MessageBlock({ msg }: { msg: Msg }) {
   }
 
   return (
-    <div className="bani-glass bani-fade rounded-[18px] px-[18px] py-4" style={{ color: "#14302D" }}>
+    <div className={voiceMode ? "bani-voice-answer bani-fade" : "bani-glass bani-fade rounded-[18px] px-[18px] py-4"}>
       <CheckedLine steps={msg.steps} durationMs={msg.durationMs} />
       <div className="min-w-0 space-y-3">
         <div className="prose prose-sm max-w-none text-inherit
@@ -723,20 +736,6 @@ function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationM
   );
 }
 
-/** Reveals Bani's words one by one, roughly in sync with the audio clip. */
-function RevealWords({ text, durationMs }: { text: string; durationMs: number }) {
-  const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    setCount(0);
-    if (!words.length) return;
-    const per = Math.max(70, durationMs / words.length);
-    const iv = setInterval(() => setCount((c) => Math.min(words.length, c + 1)), per);
-    return () => clearInterval(iv);
-  }, [text, durationMs, words.length]);
-  return <span>{words.slice(0, count).join(" ")}</span>;
-}
-
 /** Simple status word for voice mode (no raw tool progress). */
 export function voiceStatusWord(state: VoiceState, muted: boolean): string {
   if (state === "listening") return muted ? "Muted" : "Listening";
@@ -749,134 +748,55 @@ export function voiceStatusWord(state: VoiceState, muted: boolean): string {
 function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggleMute: () => void; onEnd: () => void }) {
   return (
     <>
-      <button
+      <Button variant="ghost"
         type="button"
         aria-label={muted ? "Unmute microphone" : "Mute microphone"}
         aria-pressed={muted}
         onClick={onToggleMute}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
-        style={{ background: muted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.22)" }}
+        className="bani-voice-mic shrink-0 rounded-full p-0"
       >
         {muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}
-      </button>
-      <button
+      </Button>
+      <Button variant="ghost"
         type="button"
         aria-label="End voice conversation"
         onClick={onEnd}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
-        style={{ background: "rgba(220,80,80,0.85)" }}
+        className="bani-voice-end shrink-0 rounded-full p-0"
       >
         <X className="h-[18px] w-[18px]" />
-      </button>
+      </Button>
     </>
   );
 }
 
-function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, reveal, notice, onOrbTap, onCollapse, footer }: {
-  state: VoiceState;
-  level: number;
-  muted: boolean;
-  needsTap: boolean;
-  userWords: string;
-  userWordsLive: boolean;
-  reveal: Reveal;
-  notice: string;
-  onOrbTap: () => void;
-  onCollapse: () => void;
-  footer: React.ReactNode;
+function VoicePanel({ state, level, needsTap, notice, onOrbTap, onCollapse, footer }: {
+  state: VoiceState; level: number; muted: boolean; needsTap: boolean;
+  userWords: string; userWordsLive: boolean; reveal: Reveal; notice: string;
+  onOrbTap: () => void; onCollapse: () => void; footer: React.ReactNode;
 }) {
-  const listening = state === "listening";
-  const speaking = state === "speaking";
   const thinking = state === "thinking" || state === "transcribing";
-  const orbMode = thinking ? "thinking" : listening || speaking ? "listening" : "idle";
-  const scale = listening ? 1 + Math.min(1, Math.max(0, level)) * 0.15 : 1;
-  const orbLabel =
-    thinking || speaking ? "Interrupt and talk"
-      : state === "idle" ? "Tap the orb to talk"
-      : "Listening";
-  const isPhone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
-  // Drag-down to collapse: only the handle captures the pointer, so the rest
-  // of the screen (and the transcript later) scrolls normally.
-  const [dy, setDy] = useState(0);
+  const orbMode = thinking ? "thinking" : state === "idle" ? "idle" : "listening";
   const dragRef = useRef<{ y: number; id: number } | null>(null);
-  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    dragRef.current = { y: e.clientY, id: e.pointerId };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current || dragRef.current.id !== e.pointerId) return;
-    setDy(Math.max(0, e.clientY - dragRef.current.y));
-  };
-  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!dragRef.current) return;
-    const moved = Math.max(0, e.clientY - dragRef.current.y);
-    dragRef.current = null;
-    setDy(0);
-    if (moved > 70) onCollapse();
-  };
   return (
-    <div
-      className="bani-fade flex min-h-0 flex-1 flex-col items-center px-4"
-      style={{
-        paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
-        transform: dy ? `translateY(${dy}px)` : undefined,
-        opacity: dy ? Math.max(0.4, 1 - dy / 400) : 1,
-        transition: dy ? "none" : "transform 200ms ease, opacity 200ms ease",
-      }}
-    >
-      <button
-        type="button"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={() => { dragRef.current = null; setDy(0); }}
-        onClick={(e) => { if (e.detail === 0) onCollapse(); }}
-        aria-label="Show chat (voice stays on)"
-        title="Drag down or click to show chat"
-        className="flex w-full max-w-[240px] flex-col items-center gap-1 pb-2 pt-1 text-white"
-        style={{ touchAction: "none", cursor: "grab" }}
+    <div className="bani-fade flex min-h-0 flex-1 flex-col px-4 pb-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+      <div className="bani-voice-title pt-2">Bani</div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center"
+        style={{ touchAction: "none" }}
+        onPointerDown={(e) => { dragRef.current = { y: e.clientY, id: e.pointerId }; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerUp={(e) => { const start = dragRef.current; dragRef.current = null; if (start && e.clientY - start.y > 70) onCollapse(); }}
+        onPointerCancel={() => { dragRef.current = null; }}
       >
-        <span className="block h-1.5 w-11 rounded-full" style={{ background: "rgba(255,255,255,0.55)" }} />
-      </button>
-      <button
-        type="button"
-        onClick={onCollapse}
-        className="flex items-center gap-1 rounded-full px-3 py-1 text-[12px] text-white"
-        style={{ background: "rgba(255,255,255,0.14)" }}
-      >
-        <ChevronDown className="h-3.5 w-3.5" /> Show chat
-      </button>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={onOrbTap}
-          aria-label={orbLabel}
-          className={`bani-orb-level rounded-full transition-transform duration-200 ${speaking ? "bani-orb-speaking" : ""}`}
-          style={speaking ? undefined : { transform: `scale(${scale})` }}
-        >
-          <BaniOrb size={isPhone ? 120 : 140} mode={orbMode} />
-        </button>
-        <p className="text-[13px] font-medium tracking-wide text-white" style={{ opacity: 0.75 }} role="status" aria-live="polite">
-          {voiceStatusWord(state, muted)}
-        </p>
-        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 84 }}>
-          {speaking && reveal ? (
-            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white">
-              {reveal.prior ? <span>{reveal.prior} </span> : null}
-              <RevealWords key={reveal.id} text={reveal.text} durationMs={reveal.durationMs} />
-            </p>
-          ) : notice ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>{notice}</p>
-          ) : needsTap ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>Tap the orb to talk</p>
-          ) : userWords ? (
-            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white" style={{ opacity: userWordsLive ? 0.7 : 0.85 }}>
-              {userWords}
-            </p>
-          ) : null}
-        </div>
+        <Button type="button" variant="ghost" onClick={onOrbTap}
+          aria-label={needsTap ? "Resume voice audio" : "Interrupt and talk"}
+          className="bani-voice-orb h-auto rounded-full">
+          <BaniOrb size={176} mode={orbMode} />
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCollapse} aria-label="Collapse voice view"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4"> <span className="sr-only">Collapse voice view</span> </Button>
       </div>
-      <div className="w-full max-w-[640px]">{footer}</div>
+      {needsTap && <p className="mb-3 text-center text-sm" role="status">Tap the orb to resume audio.</p>}
+      {notice && notice !== "Tap the orb to talk" && <p className="mb-3 text-center text-sm" role="alert">{notice}</p>}
+      <div className="mx-auto w-full max-w-[640px]">{footer}</div>
     </div>
   );
 }

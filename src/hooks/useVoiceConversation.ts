@@ -16,7 +16,7 @@
 // - stateRef is written synchronously via setVoiceState so async callbacks never
 //   read a stale state.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { decideFiller, fillerStillWanted } from "./voiceFiller";
+import { fillerStillWanted } from "./voiceFiller";
 
 export type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
 export type SpeakEvent = { kind: "filler" | "summary"; text: string; stage?: "first" | "more" };
@@ -41,7 +41,7 @@ export const SPEECH_START_MS = 250;
 const MAX_TURN_MS = 30000;
 const NO_SPEECH_MS = 8000;
 const NOTICE_MS = 2000;
-const ACKS_ENABLED = false;
+const ACKS_ENABLED = true;
 const BARGE_MS = 350;
 const BARGE_GUARD_MS = 400;
 const BARGE_MISS_LIMIT = 2;
@@ -60,17 +60,7 @@ function speechLangTag(lang: string): string {
 // Short spoken acknowledgements, pre-generated once per session so they play
 // with zero network delay the moment a turn ends.
 const ACKS: Record<string, string[]> = {
-  en: ["Okay.", "Sure, one sec.", "Let me check."],
-  zh: ["好，等我查下。", "好，一阵。"],
-  ne: ["हुँछ, एक क्षण।", "म हेर्छु।"],
-  hi: ["ठीक है, एक पल।", "मैं देखता हूँ।"],
-  tl: ["Sige, sandali lang.", "Titingnan ko."],
-  id: ["Baik, sebentar.", "Saya cek dulu."],
-};
-const ackKey = (lang: string): string => {
-  const l = (lang || "en").toLowerCase();
-  for (const k of Object.keys(ACKS)) if (l.startsWith(k)) return k;
-  return "en";
+  en: ["I'm looking at your revenue figures now.", "I'm checking those supplier prices now.", "I'm comparing the revenue figures for those periods now."],
 };
 
 /** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
@@ -188,7 +178,10 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const revealIdRef = useRef(0);
   const recogRef = useRef<any>(null);
   const finalTranscriptRef = useRef("");
-  const ackUrlsRef = useRef<Map<string, string[]>>(new Map());
+  const ackClipsRef = useRef<Map<string, Uint8Array<ArrayBuffer>>>(new Map());
+  const warmAbortRef = useRef<AbortController | null>(null);
+  const playbackDoneRef = useRef<(() => void) | null>(null);
+  const pendingSpeechRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const ackLangsDoneRef = useRef<Set<string>>(new Set());
 
   const setLevelThrottled = (v: number) => {
@@ -208,6 +201,8 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   };
 
   const stopPlayback = () => {
+    playbackDoneRef.current?.();
+    playbackDoneRef.current = null;
     playAbortRef.current?.abort();
     playAbortRef.current = null;
     cancelAnimationFrame(bargeRafRef.current);
@@ -245,6 +240,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     clearTimers();
     stopPlayback();
     stopRecorder(true);
+    pendingSpeechRef.current = null;
     stopLiveWords();
     abortRef.current?.abort();
     abortRef.current = null;
@@ -255,8 +251,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     micCtxRef.current?.close().catch(() => {});
     micCtxRef.current = null;
     audioElRef.current = null;
-    ackUrlsRef.current.forEach((urls) => urls.forEach((u) => URL.revokeObjectURL(u)));
-    ackUrlsRef.current.clear();
+    warmAbortRef.current?.abort();
+    warmAbortRef.current = null;
+    ackClipsRef.current.clear();
     ackLangsDoneRef.current.clear();
     bargeDisabledRef.current = false;
     bargeMissesRef.current = 0;
@@ -321,14 +318,15 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
    * counted=true charges the per-turn cap (max 3); cached acknowledgements
    * are pre-generated with counted=false.
    */
-  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true): Promise<Uint8Array<ArrayBuffer> | null> => {
-    if (!text.trim() || gen !== generationRef.current) return null;
+  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true, signal?: AbortSignal, onPcm?: (pcm: Uint8Array<ArrayBuffer>) => void): Promise<Uint8Array<ArrayBuffer> | null> => {
+    const current = () => signal ? !signal.aborted && activeRef.current : gen === generationRef.current;
+    if (!text.trim() || !current()) return null;
     if (counted) {
       if (ttsCountRef.current >= 3) return null;
       ttsCountRef.current++;
     }
     try {
-      if (!playAbortRef.current) playAbortRef.current = new AbortController();
+      if (!signal && !playAbortRef.current) playAbortRef.current = new AbortController();
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bani-tts`, {
         method: "POST",
         headers: {
@@ -337,12 +335,26 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ text: text.slice(0, 600) }),
-        signal: playAbortRef.current.signal,
+        signal: signal ?? playAbortRef.current?.signal,
       });
-      if (!resp.ok || !resp.body) return null;
+      if (!resp.ok || !resp.body) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.error || `Speech unavailable (${resp.status})`);
+      }
       const chunks: Uint8Array[] = [];
       let total = 0;
       let completed = false;
+      const pendingAudio: Uint8Array[] = [];
+      let pendingBytes = 0;
+      const flushAudio = () => {
+        if (!onPcm || !pendingBytes) return;
+        const pcm = new Uint8Array(pendingBytes - pendingBytes % 2);
+        let offset = 0;
+        for (const bytes of pendingAudio) { pcm.set(bytes.subarray(0, pcm.length - offset), offset); offset += bytes.length; }
+        pendingAudio.length = 0;
+        pendingBytes = 0;
+        if (pcm.length) onPcm(pcm);
+      };
       const parser = (data: string) => {
         const ev = JSON.parse(data);
         if (ev.type === "error" || ev.error) throw new Error("speech stream error");
@@ -351,13 +363,19 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         const bytes = Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0));
         chunks.push(bytes);
         total += bytes.length;
+        if (onPcm) {
+          pendingAudio.push(bytes);
+          pendingBytes += bytes.length;
+          // Provider deltas can be 40ms. Batch two seconds to avoid media-element gaps.
+          if (pendingBytes >= 96000 && pendingBytes % 2 === 0) flushAudio();
+        }
       };
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (gen !== generationRef.current) { reader.cancel(); return null; }
+        if (!current()) { void reader.cancel(); return null; }
         buf += value;
         let nl: number;
         while ((nl = buf.indexOf("\n")) !== -1) {
@@ -369,12 +387,17 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           }
         }
       }
-      if (!completed || !total || gen !== generationRef.current) return null;
+      if (!current()) return null;
+      if (!completed || !total) throw new Error("Speech audio was incomplete");
+      flushAudio();
       const pcm = new Uint8Array(total - (total % 2));
       let off = 0;
       for (const c of chunks) { pcm.set(c.subarray(0, Math.min(c.length, pcm.length - off)), off); off += c.length; }
       return pcm;
-    } catch {
+    } catch (error) {
+      if (gen === generationRef.current && !signal?.aborted && !playAbortRef.current?.signal.aborted && counted) {
+        paramsRef.current.onError("Bani’s voice is unavailable. Using the browser voice instead.");
+      }
       return null;
     }
   };
@@ -389,13 +412,15 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     playbackStartedAtRef.current = performance.now();
     await new Promise<void>((resolve) => {
       const done = () => {
+        playbackDoneRef.current = null;
         el.onended = null; el.onerror = null;
         if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
         resolve();
       };
+      playbackDoneRef.current = done;
       el.onended = done;
-      el.onerror = done;
-      el.play().then(() => {}).catch(done);
+      el.onerror = () => { paramsRef.current.onError("Audio could not play. Tap the orb to try again."); setNeedsTap(true); done(); };
+      el.play().catch(() => { pendingSpeechRef.current = pcm; paramsRef.current.onError("Tap the orb to enable Bani’s audio."); setNeedsTap(true); done(); });
     });
   };
 
@@ -404,53 +429,38 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     await new Promise<void>((resolve) => {
       try {
         const synth = window.speechSynthesis;
-        if (!synth) return resolve();
+        if (!synth) { paramsRef.current.onError("Speech is unavailable on this browser. The answer remains in chat."); return resolve(); }
         const tag = speechLangTag(languageRef.current);
         const utter = new SpeechSynthesisUtterance(text.slice(0, 600));
         utter.lang = tag;
         const match = synth.getVoices().find((v) => v.lang?.toLowerCase().startsWith(tag.slice(0, 2)));
         if (match) utter.voice = match;
-        utter.onend = () => resolve();
-        utter.onerror = () => resolve();
+        utter.onend = () => { playbackDoneRef.current = null; resolve(); };
+        utter.onerror = (event) => { if (event.error !== "canceled" && event.error !== "interrupted") paramsRef.current.onError("Browser speech could not play. The answer remains in chat."); resolve(); };
+        playbackDoneRef.current = resolve;
         synth.speak(utter);
-        timersRef.current.push(setTimeout(() => resolve(), 12000));
+
       } catch {
+        paramsRef.current.onError("Browser speech is unavailable. The answer remains in chat.");
         resolve();
       }
     });
   };
 
-  /** Pre-generate the short acknowledgements for one language (background). */
-  const pregenAcks = async (lang: string, gen: number) => {
-    if (!ACKS_ENABLED) return;
-    const key = ackKey(lang);
-    if (ackLangsDoneRef.current.has(key)) return;
-    ackLangsDoneRef.current.add(key);
+  /** Exactly three non-confidential clips per session; independent of turn cancellation. */
+  const pregenAcks = async (_lang: string, _gen: number) => {
+    if (!ACKS_ENABLED || ackLangsDoneRef.current.has("en")) return;
+    ackLangsDoneRef.current.add("en");
     const { token } = paramsRef.current.getAuth();
     if (!token) return;
-    for (const text of ACKS[key]) {
-      const pcm = await fetchTtsPcm(text, token, gen, false);
-      if (gen !== generationRef.current) return;
-      if (pcm) {
-        const url = URL.createObjectURL(pcmToWav(pcm));
-        const arr = ackUrlsRef.current.get(key) || [];
-        arr.push(url);
-        ackUrlsRef.current.set(key, arr);
-      }
+    const controller = new AbortController();
+    warmAbortRef.current = controller;
+    for (const text of ACKS.en) {
+      if (controller.signal.aborted || !activeRef.current) return;
+      const pcm = await fetchTtsPcm(text, token, generationRef.current, false, controller.signal);
+      if (controller.signal.aborted || !activeRef.current) return;
+      if (pcm) ackClipsRef.current.set(text, pcm);
     }
-  };
-
-  /** Play a cached acknowledgement instantly. Returns false if none ready. */
-  const playAck = (): boolean => {
-    // Canned "Okay." acknowledgements disabled: they sounded repetitive.
-    if (!ACKS_ENABLED) return false;
-    const urls = ackUrlsRef.current.get(ackKey(languageRef.current)) || ackUrlsRef.current.get("en");
-    if (!urls?.length) return false;
-    const el = ensureAudioEl();
-    el.src = urls[Math.floor(Math.random() * urls.length)];
-    playbackStartedAtRef.current = performance.now();
-    el.play().catch(() => {});
-    return true;
   };
 
   /** Barge-in: stop Bani and start a new listening turn from this moment. */
@@ -493,13 +503,34 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     const sentences = splitSentences(text).slice(0, 3);
     if (!token || !sentences.length) return;
     playAbortRef.current = new AbortController();
-    const jobs = sentences.map((s) => fetchTtsPcm(s, token, gen));
+    let earlyPlayback = Promise.resolve();
+    let earlyChunks = 0;
+    const jobs = sentences.map((s, index) => fetchTtsPcm(s, token, gen, true, undefined,
+      index === 0 ? (pcm) => {
+        earlyChunks++;
+        earlyPlayback = earlyPlayback.then(async () => {
+          if (gen !== generationRef.current || turn !== turnRef.current || pendingSpeechRef.current) return;
+          startBargeMonitor(gen, turn);
+          await playPcm(pcm, gen);
+        });
+      } : undefined));
     let prior = "";
     let played = 0;
     for (let i = 0; i < jobs.length; i++) {
       const pcm = await jobs[i];
-      if (gen !== generationRef.current || turn !== turnRef.current) return;
-      if (!pcm || !pcm.length) continue;
+      if (gen !== generationRef.current || turn !== turnRef.current || pendingSpeechRef.current) return;
+      if (i === 0 && earlyChunks) {
+        await earlyPlayback;
+        played++;
+        if (!pcm && gen === generationRef.current) paramsRef.current.onError("The spoken answer was interrupted. The complete answer is in chat.");
+        if (gen !== generationRef.current || turn !== turnRef.current) return;
+        continue;
+      }
+      if (!pcm || !pcm.length) {
+        if (gen === generationRef.current) await speakFallback(sentences[i]);
+        played++;
+        continue;
+      }
       const durationMs = (pcm.length / 2 / 24000) * 1000;
       setReveal({ prior, text: sentences[i], durationMs, id: ++revealIdRef.current });
       startBargeMonitor(gen, turn);
@@ -524,9 +555,10 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     playAbortRef.current = new AbortController();
     fillerPlayingRef.current = true;
     try {
-      const pcm = await fetchTtsPcm(text, token, gen, false);
-      if (!pcm || !live()) return;
-      await playPcm(pcm, gen);
+      const pcm = ackClipsRef.current.get(text);
+      if (!live()) return;
+      if (pcm) await playPcm(pcm, gen);
+      else await speakFallback(text);
     } finally {
       fillerPlayingRef.current = false;
     }
@@ -567,6 +599,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     const { token, tenantId } = paramsRef.current.getAuth();
     if (!token || gen !== generationRef.current) return;
     const turn = ++turnRef.current;
+    turnEndedAtRef.current = performance.now();
     const wasBarge = bargePendingRef.current;
     bargePendingRef.current = false;
     ttsCountRef.current = 0;
@@ -610,7 +643,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           lang = data.language;
           setLanguage(data.language);
           languageRef.current = data.language;
-          void pregenAcks(data.language, gen); // cached acks for next turn
+          // Acknowledgement cache is bounded to the entry language for this session.
         }
       }
       if (gen !== generationRef.current) return;
@@ -619,33 +652,34 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       setUserWordsLive(false);
       setVoiceState("thinking");
 
+      fillerUsedRef.current = { turn, first: false, more: false };
+
       const onSpeak = (s: SpeakEvent) => {
         if (gen !== generationRef.current || turn !== turnRef.current) return;
         if (s.kind === "summary") {
           // A summary replaces any still-queued/playing filler.
+          clearTimers();
+          pendingSpeechRef.current = null;
           stopPlayback();
           summaryTurnRef.current = turn;
           setVoiceState("speaking");
           setStepLabel("");
           void speakSummary(s.text, gen, turn).then(() => {
             if (gen !== generationRef.current || !activeRef.current) return;
+            if (pendingSpeechRef.current) { setVoiceState("idle"); return; }
             setReveal(null);
             listen();
           });
         } else {
-          const used = fillerUsedRef.current.turn === turn
-            ? fillerUsedRef.current : (fillerUsedRef.current = { turn, first: false, more: false });
-          const stage = s.stage ?? "first";
-          const d = decideFiller({
-            stage, state: stateRef.current, summaryArrived: summaryTurnRef.current === turn,
-            firstUsed: used.first, moreUsed: used.more, fillerPlaying: fillerPlayingRef.current,
-            sinceTurnEndMs: performance.now() - turnEndedAtRef.current,
-          });
-          if (!d.play) return;
-          if (stage === "first") used.first = true; else used.more = true;
-          // Timers are cleared on answer, interrupt, typed turn, end and tenant switch.
-          if (d.delayMs > 0) timersRef.current.push(setTimeout(() => void speakFiller(s.text, gen, turn), d.delayMs));
-          else void speakFiller(s.text, gen, turn);
+          const used = fillerUsedRef.current;
+          if (s.stage === "more") {
+            if (used.more || fillerPlayingRef.current) return;
+            used.more = true;
+          } else {
+            if (used.first) return;
+            used.first = true;
+          }
+          void speakFiller(s.text, gen, turn);
         }
       };
       const onStatus = (label: string) => {
@@ -763,7 +797,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         setLevel(0);
         stopLiveWords();
         turnEndedAtRef.current = performance.now();
-        playAck(); // instant acknowledgement, zero network delay
+
         const rec = recorderRef.current;
         recorderRef.current = null;
         if (rec && rec.state !== "inactive") {
@@ -848,7 +882,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     cancelAnimationFrame(rafRef.current);
     stopLiveWords();
     turnEndedAtRef.current = performance.now();
-    playAck();
+
     const rec = recorderRef.current;
     recorderRef.current = null;
     if (rec && rec.state !== "inactive") {
@@ -858,6 +892,15 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
 
   /** Tap the orb: interrupt thinking/speaking back to listening; resume from idle. */
   const interrupt = useCallback(() => {
+    const pending = pendingSpeechRef.current;
+    if (pending) {
+      pendingSpeechRef.current = null;
+      setNeedsTap(false);
+      setVoiceState("speaking");
+      const gen = generationRef.current;
+      void playPcm(pending, gen).then(() => { if (gen === generationRef.current && !pendingSpeechRef.current) listen(); });
+      return;
+    }
     const s = stateRef.current;
     if (s === "thinking" || s === "speaking" || s === "transcribing") {
       generationRef.current++; // cancels in-flight send continuations
@@ -894,12 +937,15 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     const s = stateRef.current;
     if (s === "transcribing" || s === "thinking") return false;
     generationRef.current++;
+    abortRef.current?.abort();
+    turnEndedAtRef.current = performance.now();
     cancelAnimationFrame(rafRef.current);
     cancelAnimationFrame(bargeRafRef.current);
     stopRecorder(true);
     stopLiveWords();
     stopPlayback();
     clearTimers();
+    pendingSpeechRef.current = null;
     setNotice("");
     setNeedsTap(false);
     setLevel(0);

@@ -8,3 +8,4 @@
 - Revenue navigation is mounted once inside AppLayout, with route selection and effective-user page access shared by its sidebar destination and local bar; existing page guards and datasets remain independent.
 - KPI navigation is mounted once inside AppLayout; its direct sidebar link uses effective-user page visibility/access and its local tabs use existing KPI capabilities, keeping route guards and secondary page controls independent.
 - People navigation is mounted once inside AppLayout on HR routes, with most-specific-path tab selection; its direct sidebar link preserves existing visibility and all HR AdminRoute guards remain independent.
+- Voice routing uses the existing reasoning turn and full conversation, and acknowledgements originate only from confirmed tool work; bounded non-confidential session clips share one cancellable media element. Final speech extracts complete prose without a second model request, keeping text independent of audio.

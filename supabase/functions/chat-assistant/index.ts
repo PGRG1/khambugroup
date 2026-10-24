@@ -5,6 +5,8 @@ import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
+import { groundedVoiceAnswer } from "../_shared/voiceAnswer.ts";
+import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -950,8 +952,8 @@ async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: 
 // "first" plays only when a real lookup is under way; "more" only if it is slow.
 const VOICE_FILLERS: Record<string, { first: string[]; more: string[] }> = {
   en: {
-    first: ["Hmm, let me check.", "Okay, let me take a look.", "Let me pull that up.", "One sec, checking that now."],
-    more: ["Give me a moment, I'm still checking.", "Still checking, nearly there."],
+    first: ["Let me look into that for you.", "Let me take a look at that for you."],
+    more: ["Give me a moment, I'm still working on your answer."],
   },
   zh: { first: ["嗯,等我睇下。", "好,我查下先。"], more: ["等我多一陣,仲查緊。"] },
   ne: { first: ["हम्म, म हेर्छु।", "ठीक छ, एकछिन हेर्छु।"], more: ["एकछिन, म अझै हेर्दैछु।"] },
@@ -970,60 +972,10 @@ function voiceLangKey(lang: string): string {
   return "en";
 }
 
-const VOICE_LANG_NAMES: Record<string, string> = {
-  en: "English", zh: "Cantonese", ne: "Nepali", hi: "Hindi", tl: "Tagalog", id: "Indonesian",
-};
-
 function fillerText(stage: "first" | "more", lang: string): string {
   const set = VOICE_FILLERS[voiceLangKey(lang)] ?? VOICE_FILLERS.en;
   const list = set[stage];
   return list[Math.floor(Math.random() * list.length)];
-}
-
-/** Strip markdown so a fallback spoken line reads cleanly. */
-function plainText(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/\|/g, " ")
-    .replace(/[#*>`_-]+/g, " ")
-    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** First 1–2 plain sentences of the answer, capped for TTS. */
-function fallbackSummary(answer: string): string {
-  const plain = plainText(answer);
-  const sentences = plain.match(/[^.!?]+[.!?]+/g) ?? [plain];
-  return sentences.slice(0, 2).join(" ").trim().slice(0, 600);
-}
-
-/** One short call that rewrites the final answer as a spoken summary. */
-async function spokenSummary(answer: string, lang: string): Promise<string> {
-  const langName = VOICE_LANG_NAMES[voiceLangKey(lang)] ?? "English";
-  try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-lite",
-        messages: [
-          {
-            role: "system",
-            content: `Turn this answer into what a sharp finance manager would SAY out loud in 1–3 short sentences, in ${langName}. Lead with the key number and what it means. Round numbers naturally (e.g. "about 64 percent", "up roughly 3 points", "HK$12,400"). Sound like a calm colleague talking, not a report: plain words, natural rhythm, contractions. You may occasionally open with a light word like "Okay," or "So," but not every time. If the answer clearly invites a next step, end with one short follow-up question. No tables, lists, markdown, caveats, sources, sound effects or stage directions. Don't add anything not in the answer.`,
-          },
-          { role: "user", content: answer },
-        ],
-      }),
-    });
-    if (!resp.ok) return fallbackSummary(answer);
-    const json = await resp.json();
-    const text = (json.choices?.[0]?.message?.content ?? "").trim();
-    if (!text) return fallbackSummary(answer);
-    return text.slice(0, 600);
-  } catch {
-    return fallbackSummary(answer);
-  }
 }
 
 // ---------- main handler ----------
@@ -1082,10 +1034,10 @@ Deno.serve(async (req) => {
       let fillerSent = false;
       let turnDone = false;
       let stillTimer: ReturnType<typeof setTimeout> | null = null;
-      const speakFiller = (_kind?: string) => {
+      const speakFiller = (tool: string) => {
         if (!voiceMode || fillerSent || closed || turnDone) return;
         fillerSent = true;
-        emit({ speak: { kind: "filler", stage: "first", text: fillerText("first", voiceLang) } });
+        emit({ speak: { kind: "filler", stage: "first", text: confirmedWorkSpeech(tool) } });
         stillTimer = setTimeout(() => {
           if (!turnDone && !closed) emit({ speak: { kind: "filler", stage: "more", text: fillerText("more", voiceLang) } });
         }, 8000);
@@ -1096,6 +1048,8 @@ Deno.serve(async (req) => {
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      if (voiceMode) conversation.splice(1, 0, { role: "system", content:
+        "Conversational voice: understand the complete current utterance in the full preceding conversation before choosing direct response, clarification or tools. Reply directly to social/non-data conversation without data lookups. If a user disputes an answer without identifying what is wrong, first ask which figure, scope or assumption they mean, referencing the preceding answer. Do not automatically requery, apologize, concede an error or invent an explanation. For any ambiguous correction or business ask, ask a concise clarifying question rather than guessing the intended metric, venue or dates. Resolve short followups and corrections from prior turns when unambiguous, carrying unchanged scope forward and changing only the corrected part. Only call tools when the understood request needs records. Lead the final answer with 1–3 short natural spoken prose sentences, preserving exact figures, scope and important uncertainty; then keep the full accurate evidence-rich answer. No theatrical sounds or repeated Okay. Do not describe a lookup you have not requested." });
       const chartSpecs: any[] = [];
       // Memoize identical read-only tool calls within this request.
       const toolCache = new Map<string, any>();
@@ -1109,15 +1063,14 @@ Deno.serve(async (req) => {
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
-          const summary = await spokenSummary(content, voiceLang);
+          const summary = groundedVoiceAnswer(content);
           if (summary) emit({ speak: { kind: "summary", text: summary } });
         }
         emit({ status: { label: "Writing up the answer" } });
         for (const spec of chartSpecs) emit({ chart: spec });
-        const chunkSize = 12;
+        const chunkSize = 2048;
         for (let i = 0; i < content.length && !closed; i += chunkSize) {
           emit({ choices: [{ delta: { content: content.slice(i, i + chunkSize) } }] });
-          await sleep(12);
         }
         finish();
       };
@@ -1214,7 +1167,6 @@ Deno.serve(async (req) => {
           let result: any;
           if (tc.function.name === "render_chart") {
             emit({ status: toolStepLabel(tc.function.name, args) });
-            speakFiller("default");
             chartSpecs.push(args);
             result = { ok: true, rendered: args.title || "chart" };
           } else {
@@ -1224,13 +1176,15 @@ Deno.serve(async (req) => {
             } else {
               const step = toolStepLabel(tc.function.name, args);
               emit({ status: step });
-              speakFiller(step.kind);
+              speakFiller(tc.function.name);
               try {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
               } catch (e) {
                 // Errors are surfaced, not cached — a retry may succeed.
                 result = { error: e instanceof Error ? e.message : String(e), note: "Lookup failed — do not treat this as 'no data'." };
+              } finally {
+                if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
               }
             }
           }
