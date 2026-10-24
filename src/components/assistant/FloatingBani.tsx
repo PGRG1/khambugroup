@@ -41,7 +41,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const allowed = Boolean(user && tenantId && !authLoading && !roleLoading && !tenantLoading && !permissionsLoading && canAccessPage("assistant") && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
-  const scope = `${user?.id}:${tenantId}:${pathname}:${isPreviewActive}:${review?.scope || "general"}`;
+  const scope = `${user?.id}:${tenantId}:${pathname}:${isPreviewActive}:${host?.token || "portal"}:${review?.scope || "general"}`;
   const liveScope = useRef(scope); liveScope.current = scope;
   const binding = review?.binding;
   useEffect(() => { abort.current?.abort(); setMessages([]); setDraft(""); setError(""); setBusy(false); setOpen(false); return () => abort.current?.abort(); }, [scope]);

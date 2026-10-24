@@ -77,7 +77,8 @@ export async function draftReview(req: Request, raw: unknown, messages: { role: 
         proposal = validateProposal({ ...output.proposal, id: crypto.randomUUID(), binding: ctx.binding, lineId: ctx.lineId }, ctx.binding, ctx.lineId, ctx.line, candidates.map(e => e.id));
         if (!proposal) throw new Error("That correction is not safe to apply. Please clarify the intended value.");
       }
-      emit({ review: { answer: output.answer, proposal } });
+      // Structured proposals never masquerade as already-completed work.
+      emit({ review: { answer: proposal ? "Suggested correction below. Nothing has been applied or saved; review it before choosing Apply." : output.answer, proposal } });
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
     } catch (e) { emit({ error: e instanceof Error ? e.message : "Review failed." }); }
     finally { controller.close(); }

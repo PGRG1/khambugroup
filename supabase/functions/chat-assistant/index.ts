@@ -1010,11 +1010,11 @@ Deno.serve(async (req) => {
     const tenantId = resolved.tenant_id;
     if (body.floating === true || body.draft_review !== undefined) {
       if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
-      const [{ data: access }, { data: permission }] = await Promise.all([
+      const [{ data: access, error: accessError }, { data: permission, error: permissionError }] = await Promise.all([
         admin.from("user_access_control").select("status").eq("tenant_id", tenantId).eq("user_id", user.id).maybeSingle(),
         admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user.id).eq("page_key", "assistant").maybeSingle(),
       ]);
-      if (access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (body.draft_review !== undefined) {
       if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
