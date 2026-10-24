@@ -354,7 +354,7 @@ export default function Assistant() {
 
   // Expanded voice is a calm full screen: hide the sidebar trigger and top-bar icons.
   useEffect(() => {
-    document.body.classList.toggle("bani-voice-mode", voiceMode && voiceExpanded);
+    document.body.classList.toggle("bani-voice-mode", voiceMode);
     return () => document.body.classList.remove("bani-voice-mode");
   }, [voiceMode, voiceExpanded]);
 
@@ -492,7 +492,7 @@ export default function Assistant() {
   );
 
   return (
-    <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: "calc(100dvh - 4rem)" }}>
+    <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: voiceMode ? "calc(100dvh - 1rem)" : "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
         .bani-composer{transition:border-color 150ms,box-shadow 150ms}
@@ -510,6 +510,7 @@ export default function Assistant() {
         .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
         @keyframes bani-speak-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
         .bani-orb-speaking{animation:bani-speak-pulse 1.6s ease-in-out infinite}
+        body.bani-voice-mode .tenant-topbar{display:none}
         body.bani-voice-mode [data-sidebar="trigger"]{display:none}
         .bani-voice-surface{color:hsl(var(--bani-voice-ink))}
         .bani-voice-surface:before{content:"";position:fixed;inset:0;background:var(--bani-voice-atmosphere);z-index:-1;pointer-events:none}

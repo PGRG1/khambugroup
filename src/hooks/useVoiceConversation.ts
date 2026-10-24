@@ -318,7 +318,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
    * counted=true charges the per-turn cap (max 3); cached acknowledgements
    * are pre-generated with counted=false.
    */
-  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer> | null> => {
+  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true, signal?: AbortSignal, onPcm?: (pcm: Uint8Array<ArrayBuffer>) => void): Promise<Uint8Array<ArrayBuffer> | null> => {
     const current = () => signal ? !signal.aborted && activeRef.current : gen === generationRef.current;
     if (!text.trim() || !current()) return null;
     if (counted) {
@@ -352,6 +352,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         const bytes = Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0));
         chunks.push(bytes);
         total += bytes.length;
+        if (onPcm && bytes.length % 2 === 0) onPcm(bytes);
       };
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
@@ -421,8 +422,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
         utter.onerror = (event) => { if (event.error !== "canceled" && event.error !== "interrupted") paramsRef.current.onError("Browser speech could not play. The answer remains in chat."); resolve(); };
         playbackDoneRef.current = resolve;
         synth.speak(utter);
-        timersRef.current.push(setTimeout(() => resolve(), 12000));
+
       } catch {
+        paramsRef.current.onError("Browser speech is unavailable. The answer remains in chat.");
         resolve();
       }
     });
@@ -484,12 +486,29 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     const sentences = splitSentences(text).slice(0, 3);
     if (!token || !sentences.length) return;
     playAbortRef.current = new AbortController();
-    const jobs = sentences.map((s) => fetchTtsPcm(s, token, gen));
+    let earlyPlayback = Promise.resolve();
+    let earlyChunks = 0;
+    const jobs = sentences.map((s, index) => fetchTtsPcm(s, token, gen, true, undefined,
+      index === 0 ? (pcm) => {
+        earlyChunks++;
+        earlyPlayback = earlyPlayback.then(async () => {
+          if (gen !== generationRef.current || turn !== turnRef.current) return;
+          startBargeMonitor(gen, turn);
+          await playPcm(pcm, gen);
+        });
+      } : undefined));
     let prior = "";
     let played = 0;
     for (let i = 0; i < jobs.length; i++) {
       const pcm = await jobs[i];
       if (gen !== generationRef.current || turn !== turnRef.current) return;
+      if (i === 0 && earlyChunks) {
+        await earlyPlayback;
+        played++;
+        if (!pcm && gen === generationRef.current) paramsRef.current.onError("The spoken answer was interrupted. The complete answer is in chat.");
+        if (gen !== generationRef.current || turn !== turnRef.current) return;
+        continue;
+      }
       if (!pcm || !pcm.length) {
         if (gen === generationRef.current) await speakFallback(sentences[i]);
         played++;
