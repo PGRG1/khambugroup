@@ -305,6 +305,24 @@ const tools = [
   },
 ];
 
+// Floating-panel only: hand off to the existing Scan Invoice screen.
+// Never a DB write — the client navigates and starts the normal scan flow.
+const openScannerTool = {
+  type: "function",
+  function: {
+    name: "open_invoice_scanner",
+    description:
+      "Open the existing procurement Scan Invoice screen and hand it the invoice file(s) the user attached in this conversation, so the normal extraction/review workflow starts. Use ONLY when the user explicitly asks to add, scan or process an invoice into procurement (e.g. 'add this invoice to procurement', 'scan this for Assembly', 'take me to the scanner'). NEVER for read-only questions like 'what is on this invoice?'. If the request is ambiguous, ask ONE specific clarifying question instead of calling this. Works without files too (just opens the scanner).",
+    parameters: {
+      type: "object",
+      properties: {
+        venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one." },
+        file_names: { type: "array", items: { type: "string" }, description: "Names of the attached files to scan, from the conversation. Omit to use all recently attached files." },
+      },
+    },
+  },
+};
+
 // ---------- tool handlers ----------
 async function runTool(name: string, args: any, tenantId: string): Promise<any> {
   // Tenant-scoped fetchAll shortcut so we don't have to thread tenantId through every call site.
