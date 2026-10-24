@@ -797,8 +797,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   }, []);
 
-  const processMultipleFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return;
+  const processMultipleFiles = useCallback(async (files: File[]): Promise<boolean> => {
+    if (files.length === 0) return false;
 
     setScanning(true);
     setInvoices([]);
@@ -819,7 +819,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         }
       }
 
-      if (preparedFiles.length === 0) return;
+      if (preparedFiles.length === 0) return false;
 
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
         body: {
@@ -969,7 +969,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         parsedInvoices.push({
           supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
-          venue: raw?.venue || "Hanabi",
+          venue: handoffVenueRef.current || raw?.venue || "Hanabi",
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
@@ -992,6 +992,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
+      return true;
     } catch (err: any) {
       setInvoices([]);
       console.error("Invoice scan error:", err);
@@ -1013,6 +1014,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         description,
         variant: "destructive",
       });
+      return false;
     } finally {
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
