@@ -49,11 +49,12 @@ Deno.serve(async (req) => {
         },
         stream_format: "sse",
       }),
+      signal: req.signal,
     });
 
     if (!upstream.ok || !upstream.body) {
       const t = await upstream.text().catch(() => "");
-      return json({ error: `Speech failed (${upstream.status}). ${t.slice(0, 200)}` }, 502);
+      return json({ error: `Speech failed (${upstream.status}). ${t.slice(0, 200)}` }, upstream.status);
     }
 
     return new Response(upstream.body, {
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (e) {
+    if (req.signal.aborted) return json({ error: "Speech stopped" }, 499);
     return json({ error: e instanceof Error ? e.message : "Speech failed" }, 500);
   }
 });
