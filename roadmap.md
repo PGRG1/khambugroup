@@ -1,9 +1,7 @@
 # Roadmap
 
 ## Bani two-way voice conversation
-- [ ] Voice loop, interruption, spoken captions, and lifecycle cleanup
-- [ ] Voice-only filler/summary stream events and authenticated ElevenLabs speech
-- [ ] Focused tests, deployment, and signed-in desktop/phone verification
+- Cancelled by the owner before implementation. No application code, connections, secrets, or deployments changed.
 
 ## Revenue navigation consolidation
 
