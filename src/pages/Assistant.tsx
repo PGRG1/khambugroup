@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useSpeechInput } from "@/hooks/useSpeechInput";
+import { useVoiceConversation, type SpeakEvent } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
@@ -141,7 +141,12 @@ export default function Assistant() {
     if (active) dropEmptyTail(active.id);
   };
 
-  const send = async (text: string) => {
+  const send = async (text: string, opts?: {
+    voice?: boolean;
+    voiceLanguage?: string;
+    onSpeak?: (s: SpeakEvent) => void;
+    onStatus?: (label: string) => void;
+  }) => {
     const trimmed = text.trim();
     if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) return;
 
@@ -162,6 +167,7 @@ export default function Assistant() {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    trackRequestRef.current?.(controller);
 
     let assistantSoFar = "";
     const collectedCharts: ChartSpec[] = [];
@@ -203,6 +209,7 @@ export default function Assistant() {
         body: JSON.stringify({
           messages: toRequestMessages(nextMessages),
           tenant_id: tenantId,
+          ...(opts?.voice ? { voice: true, voice_language: opts.voiceLanguage || "en" } : {}),
         }),
         signal: controller.signal,
       });
@@ -260,6 +267,9 @@ export default function Assistant() {
               break;
             } else if (parsed.status && typeof parsed.status.label === "string") {
               upsert("", undefined, { label: parsed.status.label, kind: parsed.status.kind });
+              opts?.onStatus?.(parsed.status.label);
+            } else if (parsed.speak && typeof parsed.speak.text === "string") {
+              opts?.onSpeak?.(parsed.speak as SpeakEvent);
             } else if (parsed.chart) {
               upsert("", parsed.chart as ChartSpec);
             } else {
