@@ -231,7 +231,7 @@ Rules:
     };
 
     const extractionBody = JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-4-argon",
       max_tokens: 32000,
       messages: [
         { role: "system", content: fullSystemPrompt },
@@ -707,7 +707,7 @@ Return ONLY by calling the report_review function.`;
       };
 
       const reviewerBody = {
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-4-argon",
         max_tokens: 16000,
         messages: [
           { role: "system", content: reviewerSystem },
