@@ -1005,8 +1005,8 @@ Deno.serve(async (req) => {
       const toolCache = new Map<string, any>();
 
       // Models: try the primary first for better reasoning, fall back if it is rate-limited / out of credits / down
-      const PRIMARY_MODEL = "google/gemini-4-argon";
-      const FALLBACK_MODEL = "openai/gpt-5.6-sol";
+      const PRIMARY_MODEL = "google/gemini-3.1-flash-lite";
+      const FALLBACK_MODEL = "openai/gpt-6-luna";
       let currentModel = PRIMARY_MODEL;
 
       const streamContent = async (content: string) => {
