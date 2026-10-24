@@ -11003,9 +11003,18 @@ export type Database = {
           memo: string | null
           net_cash: number | null
           source_type: string | null
+          tenant_id: string | null
           venue: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_employee_venue_allocation: {
         Row: {
