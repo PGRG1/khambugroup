@@ -187,9 +187,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     micAnalyserRef.current = null;
     micCtxRef.current?.close().catch(() => {});
     micCtxRef.current = null;
-    playCtxRef.current?.close().catch(() => {});
-    playCtxRef.current = null;
-    playGainRef.current = null;
+    audioElRef.current = null;
     stateRef.current = "idle";
     setState("idle");
     setCaption("");
@@ -232,19 +230,13 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     return Math.sqrt(sum / buf.length);
   };
 
-  const ensurePlayCtx = () => {
-    if (!playCtxRef.current) {
-      const ctx = new AudioContext(); // no fixed sampleRate — buffers are 24 kHz and get resampled
-      const gain = ctx.createGain();
-      gain.gain.value = 1.0;
-      gain.connect(ctx.destination);
-      playCtxRef.current = ctx;
-      playGainRef.current = gain;
-    }
-    return playCtxRef.current;
+  /** The one session <audio> element; created and unlocked inside the entry tap. */
+  const ensureAudioEl = () => {
+    if (!audioElRef.current) audioElRef.current = new Audio();
+    return audioElRef.current;
   };
 
-  /** Play text through bani-tts (PCM SSE) with a browser-speech fallback. */
+  /** Play text through bani-tts (PCM SSE → WAV blob in an <audio> element). */
   const speak = async (text: string, gen: number): Promise<void> => {
     const { token } = paramsRef.current.getAuth();
     if (!token || !text.trim() || gen !== generationRef.current) return;
@@ -266,37 +258,19 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       });
       if (!resp.ok || !resp.body) throw new Error(`tts ${resp.status}`);
 
-      const ctx = ensurePlayCtx();
-      if (ctx.state === "suspended") await ctx.resume();
-      const out = playGainRef.current!;
-
-      let playhead = 0;
-      let pending = new Uint8Array(0);
+      // Collect the whole PCM stream, then play it as one WAV clip. Clips are
+      // 1–3 sentences, so buffering adds ~1s but plays reliably on phones.
+      const chunks: Uint8Array[] = [];
+      let total = 0;
       let completed = false;
-      let played = 0;
-      const playbacks: Promise<void>[] = [];
-
       const parser = (data: string) => {
         const ev = JSON.parse(data);
         if (ev.type === "error" || ev.error) throw new Error("speech stream error");
         if (ev.type === "speech.audio.done") { completed = true; return; }
         if (ev.type !== "speech.audio.delta" || !ev.audio) return;
-        const decoded = decodePCM(pending, Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0)));
-        pending = new Uint8Array(decoded.pending);
-        if (!decoded.samples.length) return;
-        played += decoded.samples.length;
-        const buffer = ctx.createBuffer(1, decoded.samples.length, 24000);
-        buffer.copyToChannel(decoded.samples, 0);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(out);
-        playSourcesRef.current.add(source);
-        playbacks.push(new Promise<void>((resolve) => {
-          source.onended = () => { playSourcesRef.current.delete(source); resolve(); };
-        }));
-        playhead = Math.max(playhead, ctx.currentTime + 0.05);
-        source.start(playhead);
-        playhead += buffer.duration;
+        const bytes = Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0));
+        chunks.push(bytes);
+        total += bytes.length;
       };
 
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -316,8 +290,26 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           }
         }
       }
-      if (!completed || !played) throw new Error("incomplete speech");
-      await Promise.all(playbacks);
+      if (!completed || !total) throw new Error("incomplete speech");
+      if (gen !== generationRef.current) return;
+
+      const pcm = new Uint8Array(total - (total % 2));
+      let off = 0;
+      for (const c of chunks) { pcm.set(c.subarray(0, Math.min(c.length, pcm.length - off)), off); off += c.length; }
+      const url = URL.createObjectURL(pcmToWav(pcm));
+      audioUrlRef.current = url;
+      const el = ensureAudioEl();
+      el.src = url;
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          el.onended = null; el.onerror = null;
+          if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
+          resolve();
+        };
+        el.onended = done;
+        el.onerror = done;
+        el.play().then(() => {}).catch(done);
+      });
     } catch (e) {
       if ((e as Error)?.name === "AbortError" || gen !== generationRef.current) return;
       // Fallback: browser speech synthesis with a matching-language voice.
