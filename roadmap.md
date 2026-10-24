@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Approved Bani voice screens and audible latency pass
-- [ ] Match expanded/collapsed reference on /assistant only; preserve typing, mute, transcript and session
-- [ ] Measure authenticated before/after acknowledgement, answer and playback timings; remove actual bottlenecks
-- [ ] Verify cancellation, pending audio, typed turns, gestures and mobile appearance; no publication
-- [ ] Use the existing reasoning turn to choose conversation, clarification or lookup; speak only confirmed work, verify multi-turn context
+- [x] Match expanded/collapsed reference on /assistant only; preserve typing, mute, transcript and session
+- [x] Measure authenticated before/after acknowledgement, answer and playback timings; remove serial summary call and artificial text delays
+- [x] Verify cancellation, pending audio, typed turns, gestures and mobile/desktop appearance; no publication
+- [x] Use the existing reasoning turn to choose conversation, clarification or lookup; verify real multi-turn tool routing and spoken events
+- [ ] Actual Android/iPhone speaker, microphone, browser speech and echo behaviour — requires physical devices; headless media playback is not hardware verification
 
 ## Bani two-way voice conversation
 - [x] Built and deployed (bani-stt, bani-tts, chat-assistant voice events, useVoiceConversation hook, voice panel)

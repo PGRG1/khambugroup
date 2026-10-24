@@ -401,16 +401,15 @@ export default function Assistant() {
         />
         {voiceMode ? (
           hasText && (
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={sendVoiceTyped}
               disabled={voiceBusy || !scopeReady}
               aria-label="Send question"
-              className="bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-45"
-              style={{ background: "#1F3A37" }}
+              className="bani-voice-end bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 disabled:opacity-45"
             >
               <ArrowUp className="h-4 w-4" />
-            </button>
+            </Button>
           )
         ) : (
           <>
