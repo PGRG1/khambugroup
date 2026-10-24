@@ -1058,13 +1058,15 @@ Deno.serve(async (req) => {
       const files = validateFiles(body.attachments);
       if (!files.ok) return new Response(JSON.stringify({ error: files.error }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (body.draft_review !== undefined && JSON.stringify(body.draft_review).length > 18000) return new Response(JSON.stringify({ error: "Review context is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: venueRows } = await admin.from("venues").select("name").eq("tenant_id", tenantId).eq("is_active", true).limit(50);
+      const tenantVenues = ((venueRows ?? []) as any[]).map((v) => v.name).filter((n) => typeof n === "string" && n.trim());
+      const requestedVenue = typeof body.active_venue === "string" ? body.active_venue.trim() : "";
+      const venueHint = requestedVenue ? tenantVenues.find((n) => n.toLowerCase() === requestedVenue.toLowerCase()) ?? null : null;
       return await analyzeFiles(req, files.files, messages, body.draft_review ? { header: body.draft_review.header, line: body.draft_review.line } : null, LOVABLE_API_KEY, corsHeaders, async (venue) => {
         if (venue === undefined || venue === null || venue === "") return { ok: true as const, venue: null };
-        const { data: venueRows } = await admin.from("venues").select("name").eq("tenant_id", tenantId).eq("is_active", true).limit(50);
-        const names = ((venueRows ?? []) as any[]).map((v) => v.name).filter((n) => typeof n === "string" && n.trim());
-        const match = names.find((n) => n.toLowerCase() === String(venue).trim().toLowerCase());
-        return match ? { ok: true as const, venue: match } : { ok: false as const, venues: names };
-      });
+        const match = tenantVenues.find((n) => n.toLowerCase() === String(venue).trim().toLowerCase());
+        return match ? { ok: true as const, venue: match } : { ok: false as const, venues: tenantVenues };
+      }, venueHint);
     }
     if (body.draft_review !== undefined) {
       if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
