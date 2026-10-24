@@ -531,7 +531,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
    *  while the rest synthesise in parallel; all queue on the same <audio>. */
   const speakSummary = async (text: string, gen: number, turn: number): Promise<void> => {
     const { token } = paramsRef.current.getAuth();
-    const sentences = splitSentences(text).slice(0, 3);
+    const sentences = splitSentences(text);
     if (!token || !sentences.length) return;
     playAbortRef.current = new AbortController();
     let earlyPlayback = Promise.resolve();
