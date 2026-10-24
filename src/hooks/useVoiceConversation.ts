@@ -5,7 +5,9 @@
 //
 // Phone-safety rules:
 // - start() must be called directly from a tap. It marks voice active, unlocks
-//   both AudioContexts and calls getUserMedia synchronously (no await first).
+//   the playback <audio> element (silent clip) and calls getUserMedia
+//   synchronously (no await first). Playback uses an <audio> element, not an
+//   AudioContext, because the iPhone silent switch mutes WebAudio output.
 // - One mic stream per voice session; only the MediaRecorder starts/stops per
 //   turn. The track is disabled while Bani speaks and released only in end().
 // - stateRef is written synchronously via setVoiceState so async callbacks never
@@ -46,17 +48,24 @@ function speechLangTag(lang: string): string {
   return "en";
 }
 
-/** Decode 24 kHz signed 16-bit LE PCM base64 chunks, carrying odd trailing bytes. */
-function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
-  const bytes = new Uint8Array(pending.length + incoming.length);
-  bytes.set(pending);
-  bytes.set(incoming, pending.length);
-  const usable = bytes.length - (bytes.length % 2);
-  const view = new DataView(bytes.buffer);
-  const samples = new Float32Array(usable / 2);
-  for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true) / 32768;
-  return { samples, pending: bytes.slice(usable) };
+/** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
+function pcmToWav(pcm: Uint8Array<ArrayBuffer>): Blob {
+  const sr = 24000;
+  const header = new ArrayBuffer(44);
+  const v = new DataView(header);
+  const wstr = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  wstr(0, "RIFF"); v.setUint32(4, 36 + pcm.length, true);
+  wstr(8, "WAVE"); wstr(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  wstr(36, "data"); v.setUint32(40, pcm.length, true);
+  return new Blob([header, pcm], { type: "audio/wav" });
 }
+
+/** 24 kHz mono WAV with a single silent sample — used to unlock the <audio> element on the entry tap. */
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAA";
 
 /**
  * Adaptive speech detector (pure, unit-tested). Feed RMS frames with timestamps.
@@ -115,13 +124,14 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const recorderRef = useRef<MediaRecorder | null>(null);
   const micCtxRef = useRef<AudioContext | null>(null);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
-  const playCtxRef = useRef<AudioContext | null>(null);
-  const playGainRef = useRef<GainNode | null>(null);
+  // Playback uses an <audio> element (WAV blob), not WebAudio: on iPhone the
+  // hardware silent switch mutes AudioContext output but not media elements.
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const rafRef = useRef<number>(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const playAbortRef = useRef<AbortController | null>(null);
-  const playSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const lastLevelSetRef = useRef(0);
   const ttsCountRef = useRef(0);
   const turnRef = useRef(0); // id of the current question turn
@@ -147,8 +157,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const stopPlayback = () => {
     playAbortRef.current?.abort();
     playAbortRef.current = null;
-    for (const s of playSourcesRef.current) { try { s.stop(); } catch { /* done */ } }
-    playSourcesRef.current.clear();
+    const el = audioElRef.current;
+    if (el) { try { el.pause(); } catch { /* ignore */ } }
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
   };
 
@@ -178,9 +189,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     micAnalyserRef.current = null;
     micCtxRef.current?.close().catch(() => {});
     micCtxRef.current = null;
-    playCtxRef.current?.close().catch(() => {});
-    playCtxRef.current = null;
-    playGainRef.current = null;
+    audioElRef.current = null;
     stateRef.current = "idle";
     setState("idle");
     setCaption("");
@@ -223,19 +232,13 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     return Math.sqrt(sum / buf.length);
   };
 
-  const ensurePlayCtx = () => {
-    if (!playCtxRef.current) {
-      const ctx = new AudioContext(); // no fixed sampleRate — buffers are 24 kHz and get resampled
-      const gain = ctx.createGain();
-      gain.gain.value = 1.0;
-      gain.connect(ctx.destination);
-      playCtxRef.current = ctx;
-      playGainRef.current = gain;
-    }
-    return playCtxRef.current;
+  /** The one session <audio> element; created and unlocked inside the entry tap. */
+  const ensureAudioEl = () => {
+    if (!audioElRef.current) audioElRef.current = new Audio();
+    return audioElRef.current;
   };
 
-  /** Play text through bani-tts (PCM SSE) with a browser-speech fallback. */
+  /** Play text through bani-tts (PCM SSE → WAV blob in an <audio> element). */
   const speak = async (text: string, gen: number): Promise<void> => {
     const { token } = paramsRef.current.getAuth();
     if (!token || !text.trim() || gen !== generationRef.current) return;
@@ -257,37 +260,19 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       });
       if (!resp.ok || !resp.body) throw new Error(`tts ${resp.status}`);
 
-      const ctx = ensurePlayCtx();
-      if (ctx.state === "suspended") await ctx.resume();
-      const out = playGainRef.current!;
-
-      let playhead = 0;
-      let pending = new Uint8Array(0);
+      // Collect the whole PCM stream, then play it as one WAV clip. Clips are
+      // 1–3 sentences, so buffering adds ~1s but plays reliably on phones.
+      const chunks: Uint8Array[] = [];
+      let total = 0;
       let completed = false;
-      let played = 0;
-      const playbacks: Promise<void>[] = [];
-
       const parser = (data: string) => {
         const ev = JSON.parse(data);
         if (ev.type === "error" || ev.error) throw new Error("speech stream error");
         if (ev.type === "speech.audio.done") { completed = true; return; }
         if (ev.type !== "speech.audio.delta" || !ev.audio) return;
-        const decoded = decodePCM(pending, Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0)));
-        pending = new Uint8Array(decoded.pending);
-        if (!decoded.samples.length) return;
-        played += decoded.samples.length;
-        const buffer = ctx.createBuffer(1, decoded.samples.length, 24000);
-        buffer.copyToChannel(decoded.samples, 0);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(out);
-        playSourcesRef.current.add(source);
-        playbacks.push(new Promise<void>((resolve) => {
-          source.onended = () => { playSourcesRef.current.delete(source); resolve(); };
-        }));
-        playhead = Math.max(playhead, ctx.currentTime + 0.05);
-        source.start(playhead);
-        playhead += buffer.duration;
+        const bytes = Uint8Array.from(atob(ev.audio), (c) => c.charCodeAt(0));
+        chunks.push(bytes);
+        total += bytes.length;
       };
 
       const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -307,8 +292,26 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           }
         }
       }
-      if (!completed || !played) throw new Error("incomplete speech");
-      await Promise.all(playbacks);
+      if (!completed || !total) throw new Error("incomplete speech");
+      if (gen !== generationRef.current) return;
+
+      const pcm = new Uint8Array(total - (total % 2));
+      let off = 0;
+      for (const c of chunks) { pcm.set(c.subarray(0, Math.min(c.length, pcm.length - off)), off); off += c.length; }
+      const url = URL.createObjectURL(pcmToWav(pcm));
+      audioUrlRef.current = url;
+      const el = ensureAudioEl();
+      el.src = url;
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          el.onended = null; el.onerror = null;
+          if (audioUrlRef.current === url) { URL.revokeObjectURL(url); audioUrlRef.current = null; }
+          resolve();
+        };
+        el.onended = done;
+        el.onerror = done;
+        el.play().then(() => {}).catch(done);
+      });
     } catch (e) {
       if ((e as Error)?.name === "AbortError" || gen !== generationRef.current) return;
       // Fallback: browser speech synthesis with a matching-language voice.
@@ -539,7 +542,12 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     stopPlayback();
     summaryTurnRef.current = -1;
     try {
-      ensurePlayCtx().resume().catch(() => {});
+      // Unlock the session <audio> element inside the tap: play a silent clip so
+      // iOS allows later play() calls, and so output uses the media channel
+      // (audible even when the phone's silent switch is on).
+      const el = ensureAudioEl();
+      el.src = SILENT_WAV;
+      el.play().then(() => { try { el.pause(); } catch { /* ignore */ } }).catch(() => {});
       if (!micCtxRef.current) micCtxRef.current = new AudioContext();
       micCtxRef.current.resume().catch(() => {});
     } catch { /* audio unlock best-effort */ }
@@ -570,7 +578,6 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       abortRef.current?.abort();
       listen();
     } else if (s === "idle") {
-      playCtxRef.current?.resume().catch(() => {});
       listen();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
