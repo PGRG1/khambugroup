@@ -318,7 +318,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
    * counted=true charges the per-turn cap (max 3); cached acknowledgements
    * are pre-generated with counted=false.
    */
-  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true): Promise<Uint8Array | null> => {
+  const fetchTtsPcm = async (text: string, token: string, gen: number, counted = true): Promise<Uint8Array<ArrayBuffer> | null> => {
     if (!text.trim() || gen !== generationRef.current) return null;
     if (counted) {
       if (ttsCountRef.current >= 3) return null;
@@ -377,7 +377,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   };
 
   /** Play one PCM clip on the session <audio> element. */
-  const playPcm = async (pcm: Uint8Array, gen: number): Promise<void> => {
+  const playPcm = async (pcm: Uint8Array<ArrayBuffer>, gen: number): Promise<void> => {
     if (gen !== generationRef.current) return;
     const url = URL.createObjectURL(pcmToWav(pcm));
     audioUrlRef.current = url;
