@@ -1030,6 +1030,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   // id is never scanned again on remount or re-render.
   useEffect(() => {
     if (!handoff || handoffDone.current === handoff.id) return;
+    // Never scan over an unsaved review: the parent asks replace/keep first,
+    // and a "replace" choice remounts this scanner fresh.
+    if (reviewDirty) return;
     handoffDone.current = handoff.id;
     if (!handoff.files.length) { consumeScannerHandoff(handoff.id); return; }
     handoffVenueRef.current = handoff.venue;
@@ -1038,7 +1041,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       if (ok) consumeScannerHandoff(handoff.id);
       else handoffDone.current = null;
     });
-  }, [handoff, processMultipleFiles]);
+  }, [handoff, processMultipleFiles, reviewDirty]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
