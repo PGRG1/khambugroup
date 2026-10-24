@@ -469,7 +469,10 @@ export default function Assistant() {
         .bani-fade{animation:bani-fade 200ms ease-out}
         @keyframes bani-dots{0%,100%{opacity:.25}50%{opacity:1}}
         .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
-        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}.bani-orb-level{transform:none !important}}
+        @keyframes bani-speak-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+        .bani-orb-speaking{animation:bani-speak-pulse 1.6s ease-in-out infinite}
+        body.bani-voice-mode [data-sidebar="trigger"]{display:none}
+        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots,.bani-orb-speaking{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
@@ -478,12 +481,17 @@ export default function Assistant() {
       {voiceMode ? (
         <VoicePanel
           state={voice.state}
-          caption={voice.caption}
           level={voice.level}
-          onCancel={cancelVoice}
-          onSend={voice.sendNow}
+          muted={voice.muted}
+          needsTap={voice.needsTap}
+          userWords={voice.userWords}
+          userWordsLive={voice.userWordsLive}
+          stepLabel={voice.stepLabel}
+          reveal={voice.reveal}
+          notice={voice.notice}
+          onToggleMute={voice.toggleMute}
+          onEnd={cancelVoice}
           onOrbTap={voice.interrupt}
-          onShowChat={cancelVoice}
         />
       ) : placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
