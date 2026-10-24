@@ -946,40 +946,18 @@ async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: 
 }
 
 // ---------- voice helpers (only used when the request sets voice: true) ----------
-const VOICE_FILLERS: Record<string, Record<string, string>> = {
+// Brief, varied, natural spoken acknowledgements. Never tool labels or findings.
+// "first" plays only when a real lookup is under way; "more" only if it is slow.
+const VOICE_FILLERS: Record<string, { first: string[]; more: string[] }> = {
   en: {
-    sales: "Let me pull up your sales.", invoices: "Checking your supplier invoices.",
-    prices: "Let me look at supplier prices.", payroll: "Checking payroll against revenue.",
-    menu: "Looking at your menu costs.", stock: "Checking your stock.",
-    default: "Give me a second, checking your numbers.", more: "Still going through it.",
+    first: ["Hmm, let me check.", "Okay, let me take a look.", "Let me pull that up.", "One sec, checking that now."],
+    more: ["Give me a moment, I'm still checking.", "Still checking, nearly there."],
   },
-  zh: {
-    sales: "等我睇下你嘅銷售。", invoices: "等我查下供應商發票。", prices: "等我睇下供應商價格。",
-    payroll: "等我對下人工同收入。", menu: "等我睇下菜單成本。", stock: "等我查下庫存。",
-    default: "等我一下,查緊你嘅數字。", more: "仲睇緊。",
-  },
-  ne: {
-    sales: "तपाईंको बिक्री हेर्छु।", invoices: "सप्लायर इन्भ्वाइस हेर्दैछु।", prices: "सप्लायर मूल्य हेर्छु।",
-    payroll: "पेरोल र आम्दानी तुलना गर्दैछु।", menu: "मेनु लागत हेर्दैछु।", stock: "स्टक हेर्दैछु।",
-    default: "एक क्षण, तपाईंको संख्या हेर्दैछु।", more: "अझै हेर्दैछु।",
-  },
-  hi: {
-    sales: "आपकी सेल्स देखता हूँ।", invoices: "सप्लायर इनवॉइस देख रहा हूँ।", prices: "सप्लायर कीमतें देखता हूँ।",
-    payroll: "पेरोल और रेवेन्यू जाँच रहा हूँ।", menu: "मेनू लागत देख रहा हूँ।", stock: "स्टॉक देख रहा हूँ।",
-    default: "एक पल, आपके आँकड़े देख रहा हूँ।", more: "अभी भी देख रहा हूँ।",
-  },
-  tl: {
-    sales: "Titingnan ko ang benta niyo.", invoices: "Tinitingnan ang mga supplier invoice.",
-    prices: "Titingnan ko ang presyo ng mga supplier.", payroll: "Tinitingnan ang payroll kumpara sa kita.",
-    menu: "Titingnan ang menu costs.", stock: "Tinitingnan ang stock.",
-    default: "Sandali lang, tinitingnan ko ang mga numero.", more: "Tinitingnan ko pa rin.",
-  },
-  id: {
-    sales: "Saya cek penjualan Anda.", invoices: "Saya periksa faktur pemasok.",
-    prices: "Saya lihat harga pemasok.", payroll: "Saya bandingkan gaji dengan pendapatan.",
-    menu: "Saya periksa biaya menu.", stock: "Saya cek stok.",
-    default: "Sebentar, saya periksa angkanya.", more: "Masih saya periksa.",
-  },
+  zh: { first: ["嗯,等我睇下。", "好,我查下先。"], more: ["等我多一陣,仲查緊。"] },
+  ne: { first: ["हम्म, म हेर्छु।", "ठीक छ, एकछिन हेर्छु।"], more: ["एकछिन, म अझै हेर्दैछु।"] },
+  hi: { first: ["हम्म, देखता हूँ।", "ठीक है, एक बार देख लेता हूँ।"], more: ["एक पल, अभी भी देख रहा हूँ।"] },
+  tl: { first: ["Hmm, titingnan ko.", "Sige, sandali lang."], more: ["Sandali pa, tinitingnan ko pa."] },
+  id: { first: ["Hmm, saya cek dulu.", "Oke, sebentar saya lihat."], more: ["Sebentar, masih saya cek."] },
 };
 
 function voiceLangKey(lang: string): string {
@@ -996,10 +974,10 @@ const VOICE_LANG_NAMES: Record<string, string> = {
   en: "English", zh: "Cantonese", ne: "Nepali", hi: "Hindi", tl: "Tagalog", id: "Indonesian",
 };
 
-function fillerText(kind: string | undefined, lang: string): string {
+function fillerText(stage: "first" | "more", lang: string): string {
   const set = VOICE_FILLERS[voiceLangKey(lang)] ?? VOICE_FILLERS.en;
-  const k = kind && kind in set ? kind : "default";
-  return set[k];
+  const list = set[stage];
+  return list[Math.floor(Math.random() * list.length)];
 }
 
 /** Strip markdown so a fallback spoken line reads cleanly. */
@@ -1032,7 +1010,7 @@ async function spokenSummary(answer: string, lang: string): Promise<string> {
         messages: [
           {
             role: "system",
-            content: `Turn this answer into what a sharp finance manager would SAY out loud in 1–3 short sentences, in ${langName}. Lead with the key number and what it means. Round numbers naturally (e.g. "about 64 percent", "up roughly 3 points", "HK$12,400"). No tables, lists, markdown, caveats or sources. Don't add anything not in the answer.`,
+            content: `Turn this answer into what a sharp finance manager would SAY out loud in 1–3 short sentences, in ${langName}. Lead with the key number and what it means. Round numbers naturally (e.g. "about 64 percent", "up roughly 3 points", "HK$12,400"). Sound like a calm colleague talking, not a report: plain words, natural rhythm, contractions. You may occasionally open with a light word like "Okay," or "So," but not every time. If the answer clearly invites a next step, end with one short follow-up question. No tables, lists, markdown, caveats, sources, sound effects or stage directions. Don't add anything not in the answer.`,
           },
           { role: "user", content: answer },
         ],
@@ -1104,12 +1082,12 @@ Deno.serve(async (req) => {
       let fillerSent = false;
       let turnDone = false;
       let stillTimer: ReturnType<typeof setTimeout> | null = null;
-      const speakFiller = (kind?: string) => {
-        if (!voiceMode || fillerSent || closed) return;
+      const speakFiller = (_kind?: string) => {
+        if (!voiceMode || fillerSent || closed || turnDone) return;
         fillerSent = true;
-        emit({ speak: { kind: "filler", text: fillerText(kind, voiceLang) } });
+        emit({ speak: { kind: "filler", stage: "first", text: fillerText("first", voiceLang) } });
         stillTimer = setTimeout(() => {
-          if (!turnDone && !closed) emit({ speak: { kind: "filler", text: fillerText("more", voiceLang) } });
+          if (!turnDone && !closed) emit({ speak: { kind: "filler", stage: "more", text: fillerText("more", voiceLang) } });
         }, 8000);
       };
 

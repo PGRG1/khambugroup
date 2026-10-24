@@ -16,9 +16,10 @@
 // - stateRef is written synchronously via setVoiceState so async callbacks never
 //   read a stale state.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { decideFiller, fillerStillWanted } from "./voiceFiller";
 
 export type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
-export type SpeakEvent = { kind: "filler" | "summary"; text: string };
+export type SpeakEvent = { kind: "filler" | "summary"; text: string; stage?: "first" | "more" };
 export type Reveal = { prior: string; text: string; durationMs: number; id: number } | null;
 
 type SendOpts = {
@@ -40,7 +41,6 @@ export const SPEECH_START_MS = 250;
 const MAX_TURN_MS = 30000;
 const NO_SPEECH_MS = 8000;
 const NOTICE_MS = 2000;
-const FILLER_DELAY_MS = 2500;
 const ACKS_ENABLED = false;
 const BARGE_MS = 350;
 const BARGE_GUARD_MS = 400;
@@ -174,6 +174,8 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const playAbortRef = useRef<AbortController | null>(null);
   const lastLevelSetRef = useRef(0);
   const ttsCountRef = useRef(0);
+  const fillerUsedRef = useRef({ turn: -1, first: false, more: false });
+  const fillerPlayingRef = useRef(false);
   const turnRef = useRef(0); // id of the current question turn
   const summaryTurnRef = useRef(-1); // turn whose summary has arrived
   const generationRef = useRef(0); // invalidates stale async continuations
@@ -511,15 +513,23 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     }
   };
 
-  /** Speak a short server filler (single clip, counts toward the cap). */
+  /** Speak a short server filler. Uses its own budget (never a summary slot)
+   *  and re-checks right before playback that the lookup is still running. */
   const speakFiller = async (text: string, gen: number, turn: number): Promise<void> => {
     const { token } = paramsRef.current.getAuth();
     if (!token) return;
+    const live = () => gen === generationRef.current && turn === turnRef.current
+      && fillerStillWanted(stateRef.current, summaryTurnRef.current === turn);
+    if (!live()) return;
     playAbortRef.current = new AbortController();
-    const pcm = await fetchTtsPcm(text, token, gen);
-    if (!pcm || gen !== generationRef.current || turn !== turnRef.current) return;
-    if (summaryTurnRef.current === turn) return; // summary already arrived
-    await playPcm(pcm, gen);
+    fillerPlayingRef.current = true;
+    try {
+      const pcm = await fetchTtsPcm(text, token, gen, false);
+      if (!pcm || !live()) return;
+      await playPcm(pcm, gen);
+    } finally {
+      fillerPlayingRef.current = false;
+    }
   };
 
   /** Live words: Web Speech API in parallel with the recorder, display only. */
@@ -622,11 +632,20 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
             setReveal(null);
             listen();
           });
-        } else if (summaryTurnRef.current !== turn) {
-          // The cached acknowledgement covers the first ~2.5s; the server
-          // filler only speaks if the lookup is still running after that.
-          if (performance.now() - turnEndedAtRef.current < FILLER_DELAY_MS) return;
-          void speakFiller(s.text, gen, turn);
+        } else {
+          const used = fillerUsedRef.current.turn === turn
+            ? fillerUsedRef.current : (fillerUsedRef.current = { turn, first: false, more: false });
+          const stage = s.stage ?? "first";
+          const d = decideFiller({
+            stage, state: stateRef.current, summaryArrived: summaryTurnRef.current === turn,
+            firstUsed: used.first, moreUsed: used.more, fillerPlaying: fillerPlayingRef.current,
+            sinceTurnEndMs: performance.now() - turnEndedAtRef.current,
+          });
+          if (!d.play) return;
+          if (stage === "first") used.first = true; else used.more = true;
+          // Timers are cleared on answer, interrupt, typed turn, end and tenant switch.
+          if (d.delayMs > 0) timersRef.current.push(setTimeout(() => void speakFiller(s.text, gen, turn), d.delayMs));
+          else void speakFiller(s.text, gen, turn);
         }
       };
       const onStatus = (label: string) => {
