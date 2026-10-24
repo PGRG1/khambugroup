@@ -92,4 +92,4 @@
 
 ## Two-way voice conversation in Bani AI — DONE 2026-10-24 (not published)
 - All pieces built, deployed and function-tested; UI loop not browser-verified (no real mic in sandbox)
-- [ ] Floating Bani: keep existing panel sizes (desktop min(390px,100vw-2rem) × min(620px,100dvh-6rem); mobile 100% × min(540px,100dvh-5rem)); keyboard-safe only
+- [x] Floating Bani: keep existing panel sizes (desktop min(390px,100vw-2rem) × min(620px,100dvh-6rem); mobile 100% × min(540px,100dvh-5rem)); keyboard-safe only
