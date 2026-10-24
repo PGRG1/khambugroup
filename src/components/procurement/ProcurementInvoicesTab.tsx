@@ -213,13 +213,14 @@ export default function ProcurementInvoicesTab() {
   const baniStore = useFloatingBaniStore();
   useEffect(() => {
     if (!pendingHandoff) return;
-    if (scannerOpen && scannerDirty) {
+    const hasFiles = pendingHandoff.mode === "scan" && pendingHandoff.files.length > 0;
+    if (scannerOpen && scannerDirty && hasFiles) {
       // The decision dialog must be clickable: the hosted Bani panel stacks
       // above it, so tuck the panel away (conversation state is preserved).
       baniStore?.open[1](false);
       setHandoffConflict(true);
-    }
-    else if (!scannerOpen) setScannerOpen(true);
+    } else if (!scannerOpen) setScannerOpen(true);
+    // A plain "open" while the scanner is already up just leaves it focused.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoffTick]);
   const [searchParams, setSearchParams] = useSearchParams();

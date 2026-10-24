@@ -13,7 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
-import { requestScannerHandoff } from "@/utils/scannerHandoff";
+import { clearScannerHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -86,7 +86,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   useEffect(() => {
     if (!store || scope === identity) return;
-    abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current);
+    abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff();
     setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
   }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
@@ -122,16 +122,30 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
-  // Server-approved navigation handoff: open the real scanner with the original files.
-  const runScannerAction = (action: { venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
+  // Server-approved navigation handoff: open the real scanner, optionally with files.
+  const runScannerAction = (action: { mode: "open" | "scan"; venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
+    const say = (content: string) => setMessages(prev => [...prev, { role: "assistant" as const, content }]);
     if (!canAccessPage("invoices")) {
-      setMessages(prev => [...prev, { role: "assistant", content: "You don't have access to Procurement, so I can't open Scan Invoice. Ask an admin to grant you access." }]);
+      say("You don't have access to Procurement, so I can't open Scan Invoice. Ask an admin to grant you access.");
       return;
     }
-    const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
-    const wanted = action.files.length ? pool.filter(f => action.files.some(n => n === f.name)) : pool;
-    const handoffFiles = (wanted.length ? wanted : pool).map(f => f.file);
-    requestScannerHandoff({ id: crypto.randomUUID(), files: handoffFiles, venue: action.venue });
+    let handoffFiles: File[] = [];
+    if (action.mode === "scan") {
+      const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
+      if (!pool.length) { say("I couldn't find the invoice file — please attach it again and I'll scan it."); return; }
+      if (action.files.length) {
+        // Exact names only — never fall back to whatever happens to be attached.
+        const wanted = action.files.map(n => pool.find(f => f.name === n)).filter((f): f is BaniAttachment => Boolean(f));
+        if (!wanted.length) { say(`I couldn't find ${action.files.join(", ")} in our recent attachments — please re-attach the file you want scanned.`); return; }
+        handoffFiles = wanted.map(f => f.file);
+      } else if (pool.length === 1) {
+        handoffFiles = [pool[0].file];
+      } else {
+        say(`Which file should I scan: ${pool.map(f => f.name).join(", ")}? You can also say "all".`);
+        return;
+      }
+    }
+    requestScannerHandoff({ id: crypto.randomUUID(), mode: action.mode, files: handoffFiles, venue: action.venue, scope: identity });
     navigate("/procurement/invoices");
   };
 
@@ -158,15 +172,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       })) : undefined;
       if (controller.signal.aborted) return;
       const reviewBody = review ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
+      // Current concrete venue as untrusted UI context — the server validates it
+      // against tenant venues and the user's explicit text always wins.
+      const contextVenue = page && page.path === pathname && page.detail && page.detail !== "All venues" ? page.detail : null;
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
         method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(attachments ? { attachments } : {}) }),
+        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(contextVenue ? { active_venue: contextVenue } : {}), ...(attachments ? { attachments } : {}) }),
       });
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
-      let action: { venue: string | null; files: string[] } | null = null;
+      let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -177,7 +194,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
-          if (event.action?.type === "open_invoice_scanner") action = { venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
+          if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
       }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {

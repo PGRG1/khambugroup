@@ -77,7 +77,7 @@ import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invo
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
-import { consumeScannerHandoff } from "@/utils/scannerHandoff";
+import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -253,10 +253,9 @@ interface InvoiceScannerProps {
   
   onClose: () => void;
   userId: string;
-  /** Floating-Bani handoff: original files to scan once on mount, with an
-   *  optional server-validated venue override. Consumed by id — never rescans
-   *  on remount, and is re-armed only after a real scan failure. */
-  handoff?: { id: string; files: File[]; venue: string | null } | null;
+  /** Floating-Bani handoff: identity-scoped request, settled before intake —
+   *  never rescans on remount/rerender; failures stage files for explicit retry. */
+  handoff?: ScannerHandoff | null;
   /** Reports whether an unsaved review exists so automatic navigation never destroys it. */
   onDirtyChange?: (dirty: boolean) => void;
 }
@@ -364,9 +363,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const baniBinding = `${revisionFingerprint(baniScope)}:${baniLineId || "none"}:${revisionFingerprint(invoices.map(inv => `${inv._baniDraftId}:${inv._baniRevision}`).join("|"))}`;
   const baniLive = useRef({ binding: baniBinding, scope: baniScope, editable: baniEditable });
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
-  const handoffDone = useRef<string | null>(null);
+  // Handoff intake: attempted ids are never started again (no rerender/remount
+  // retry loop); a failed scan stages the files for explicit "Scan All" retry.
+  const handoffAttempted = useRef(new Set<string>());
   const handoffVenueRef = useRef<string | null>(null);
-  const reviewDirty = invoices.length > 0;
+  const handoffActiveRef = useRef(false);
+  const handoffIdentity = `${baniUser?.id}:${tenantId}:${baniPreview}`;
+  const handoffCanEdit = !baniPreview && !!baniUser && baniUser.id === userId && baniCanAccess("procurement") && (baniAdmin || ["edit", "admin"].includes(baniAuthority("procurement")));
+  const reviewDirty = invoices.length > 0 || scanning || pendingFiles.length > 0;
   useEffect(() => { onDirtyChange?.(reviewDirty); }, [reviewDirty, onDirtyChange]);
   useEffect(() => {
     if (!baniHostNode) return;
@@ -973,7 +977,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         parsedInvoices.push({
           supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
-          venue: handoffVenueRef.current || raw?.venue || "Hanabi",
+          venue: handoffVenueRef.current || raw?.venue || (handoffActiveRef.current ? "" : "Hanabi"),
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
@@ -1025,23 +1029,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
 
-  // Floating-Bani handoff: scan the handed-off original files exactly once.
-  // A failed scan re-arms the same request so the user can retry; a consumed
-  // id is never scanned again on remount or re-render.
+  // Floating-Bani handoff: validated scope, settled before scanning, never
+  // automatic on rerender/remount. Dirty work is protected by the parent's
+  // replace/keep dialog (a "replace" remounts this scanner fresh).
   useEffect(() => {
-    if (!handoff || handoffDone.current === handoff.id) return;
-    // Never scan over an unsaved review: the parent asks replace/keep first,
-    // and a "replace" choice remounts this scanner fresh.
-    if (reviewDirty) return;
-    handoffDone.current = handoff.id;
-    if (!handoff.files.length) { consumeScannerHandoff(handoff.id); return; }
+    if (!handoff || baniRoleLoading || baniPermissionLoading) return;
+    const decision = decideHandoff(handoff, { dirty: reviewDirty, identity: handoffIdentity, canEdit: handoffCanEdit }, handoffAttempted.current);
+    if (decision.kind === "skip") return;
+    handoffAttempted.current.add(handoff.id);
+    consumeScannerHandoff(handoff.id);
+    if (decision.kind === "open-only") return;
+    if (decision.kind === "denied") {
+      toast({ title: "Read-only access", description: "You can review invoices here, but scanning new files needs edit access to Procurement.", variant: "destructive" });
+      return;
+    }
     handoffVenueRef.current = handoff.venue;
+    handoffActiveRef.current = true;
     void processMultipleFiles(handoff.files).then((ok) => {
       handoffVenueRef.current = null;
-      if (ok) consumeScannerHandoff(handoff.id);
-      else handoffDone.current = null;
+      handoffActiveRef.current = false;
+      // Explicit retry only: stage the files so the user presses "Scan All".
+      if (!ok) setPendingFiles(handoff.files);
     });
-  }, [handoff, processMultipleFiles, reviewDirty]);
+  }, [handoff, processMultipleFiles, reviewDirty, handoffIdentity, handoffCanEdit, baniRoleLoading, baniPermissionLoading]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {

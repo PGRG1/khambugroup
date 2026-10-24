@@ -5,6 +5,7 @@
 - [x] Guarded unsaved scanner proposals with server and host validation
 - [x] 46 focused tests and real-model desktop/mobile local-draft verification; no publication
 - [x] Scanner handoff: open_invoice_scanner action, in-memory file handoff, unsaved-review protection — browser-verified with stubbed OCR; no publication
+- [x] Handoff hardening: explicit open/scan modes, identity-scoped store, settle-before-scan (no auto retry), edit-authority gate, dirty/scanning protection, validated current-venue context
 
 ## Android voice capture stall
 - [x] Bound capture, transcription, chat and playback; preserve recorded quiet speech and explicit orb send
