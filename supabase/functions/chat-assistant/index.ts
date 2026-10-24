@@ -5,7 +5,7 @@ import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
-import { groundedVoiceAnswer } from "../_shared/voiceAnswer.ts";
+import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 
 const corsHeaders = {
@@ -1059,7 +1059,8 @@ Deno.serve(async (req) => {
       const FALLBACK_MODEL = "openai/gpt-6-luna";
       let currentModel = PRIMARY_MODEL;
 
-      const streamContent = async (content: string) => {
+      const streamContent = async (raw: string) => {
+        const content = stripToolNames(raw);
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
