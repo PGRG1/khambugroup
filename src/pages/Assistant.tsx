@@ -151,7 +151,10 @@ export default function Assistant() {
     onStatus?: (label: string) => void;
   }) => {
     const trimmed = text.trim();
-    if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) return;
+    if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) {
+      if (opts?.voice) throw new Error("Bani is not ready to send. Wait for the current reply or reopen this workspace.");
+      return;
+    }
 
     const convId = active.id;
     const sentScope = scopeKey;
@@ -787,7 +790,7 @@ function VoicePanel({ state, level, needsTap, notice, onOrbTap, onCollapse, foot
         onPointerCancel={() => { dragRef.current = null; }}
       >
         <Button type="button" variant="ghost" onClick={onOrbTap}
-          aria-label={needsTap ? "Resume voice audio" : "Interrupt and talk"}
+          aria-label={needsTap ? "Resume voice" : state === "listening" ? "Send voice recording" : "Interrupt and talk"}
           className="bani-voice-orb h-auto rounded-full">
           <BaniOrb size={176} mode={orbMode} />
         </Button>
