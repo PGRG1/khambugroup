@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSpeechInput } from "@/hooks/useSpeechInput";
 import { useVoiceConversation, type Reveal, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
