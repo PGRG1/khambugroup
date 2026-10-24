@@ -71,11 +71,5 @@
 
 - [blocked] Switch Bani AI to gemini-4-argon + gpt-6-astra: GPT-6 Astra rejects lookups on the current connection; awaiting owner decision.
 
-## Two-way voice conversation in Bani AI (owner approved 2026-10-24, baseline 4dcc674)
-- [ ] Verify STT/TTS/summary models on live list (budget only, zero retention)
-- [ ] bani-stt edge function (gpt-transcribe, tenant vocab hint)
-- [ ] bani-tts edge function (gemini-3.1-flash-tts-preview, streaming)
-- [ ] chat-assistant voice:true filler + summary speak events
-- [ ] useVoiceConversation hook (MediaRecorder, silence detection, audio queue)
-- [ ] Voice panel UI in Assistant.tsx (orb modes, captions, controls, lifecycle)
-- [ ] Deploy + test STT/TTS/voice flow; build passes
+## Two-way voice conversation in Bani AI — DONE 2026-10-24 (not published)
+- All pieces built, deployed and function-tested; UI loop not browser-verified (no real mic in sandbox)
