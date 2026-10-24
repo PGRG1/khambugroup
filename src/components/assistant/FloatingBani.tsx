@@ -122,6 +122,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
+  // Server-approved navigation handoff: open the real scanner with the original files.
+  const runScannerAction = (action: { venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
+    if (!canAccessPage("invoices")) {
+      setMessages(prev => [...prev, { role: "assistant", content: "You don't have access to Procurement, so I can't open Scan Invoice. Ask an admin to grant you access." }]);
+      return;
+    }
+    const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
+    const wanted = action.files.length ? pool.filter(f => action.files.some(n => n === f.name)) : pool;
+    const handoffFiles = (wanted.length ? wanted : pool).map(f => f.file);
+    requestScannerHandoff({ id: crypto.randomUUID(), files: handoffFiles, venue: action.venue });
+    navigate("/procurement/invoices");
+  };
+
   const send = async () => {
     const typed = draft.trim();
     const attached = filesRef.current;
@@ -129,8 +142,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const text = typed || FILES_ONLY_PROMPT;
     const requestIdentity = identity;
     const controller = new AbortController(); abort.current = controller;
-    const history = [...messages.map(({ role, content }) => ({ role, content })), { role: "user" as const, content: text }].slice(-12);
+    // File names stay in the conversational context so a follow-up ("add it in
+    // procurement") can refer to an earlier turn's attachments.
+    const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
+      ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
+    const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
     setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    if (attached.length) setLastFiles(attached);
     setDraft(""); setFiles([]); setBusy(true); setError("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
@@ -148,6 +166,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
+      let action: { venue: string | null; files: string[] } | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -158,12 +177,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
+          if (event.action?.type === "open_invoice_scanner") action = { venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
       }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
         setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined }]);
+        if (action) runScannerAction(action, attached);
       }
     } catch (e) {
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) { restore(); setError(e instanceof Error ? e.message : "Bani could not reply."); }
