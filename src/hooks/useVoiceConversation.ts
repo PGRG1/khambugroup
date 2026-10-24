@@ -49,7 +49,7 @@ function speechLangTag(lang: string): string {
 }
 
 /** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
-function pcmToWav(pcm: Uint8Array): Blob {
+function pcmToWav(pcm: Uint8Array<ArrayBuffer>): Blob {
   const sr = 24000;
   const header = new ArrayBuffer(44);
   const v = new DataView(header);
