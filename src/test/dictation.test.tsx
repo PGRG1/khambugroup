@@ -32,7 +32,7 @@ describe("dictation recorder", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
   const mount = (onText = vi.fn(), onError = vi.fn()) =>
-    ({ onText, onError, ...renderHook(() => useDictation({ getAuth: () => ({ token: "t", tenantId: "x" }), onText, onError })) });
+    ({ onText, onError, ...renderHook(() => useDictation({ getAuth: () => ({ token: "t", tenantId: "x" }), onError })) });
 
   it("confirm flushes the final audio, transcribes once and releases the mic", async () => {
     const { result, onText } = mount();
@@ -70,8 +70,9 @@ describe("dictation recorder", () => {
     fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ text: "" }) }));
     const { result, onText, onError } = mount();
     await act(async () => result.current.start());
-    await act(async () => result.current.confirm());
-    expect(onText).not.toHaveBeenCalled();
+    let text: string | null = "x";
+    await act(async () => { text = await result.current.confirm(); });
+    expect(text).toBeNull();
     expect(onError).toHaveBeenCalledWith(expect.stringContaining("Didn't catch"));
   });
 });
