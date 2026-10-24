@@ -1048,6 +1048,8 @@ Deno.serve(async (req) => {
               model: currentModel,
               messages: conversation,
               ...(forceFinal ? {} : { tools, tool_choice: "auto" }),
+              // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
+              ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
           });
 
@@ -1059,7 +1061,7 @@ Deno.serve(async (req) => {
             currentModel === PRIMARY_MODEL &&
             (lastStatus === 429 || lastStatus === 402 || (lastStatus >= 500 && lastStatus <= 504))
           ) {
-            console.warn(`Pro model failed (${lastStatus}), falling back to Flash`);
+            console.warn(`Primary model failed (${lastStatus}), falling back to ${FALLBACK_MODEL}`);
             currentModel = FALLBACK_MODEL;
             continue;
           }
