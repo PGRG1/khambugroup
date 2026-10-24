@@ -312,13 +312,15 @@ const openScannerTool = {
   function: {
     name: "open_invoice_scanner",
     description:
-      "Open the existing procurement Scan Invoice screen and hand it the invoice file(s) the user attached in this conversation, so the normal extraction/review workflow starts. Use ONLY when the user explicitly asks to add, scan or process an invoice into procurement (e.g. 'add this invoice to procurement', 'scan this for Assembly', 'take me to the scanner'). NEVER for read-only questions like 'what is on this invoice?'. If the request is ambiguous, ask ONE specific clarifying question instead of calling this. Works without files too (just opens the scanner).",
+      "Open the existing procurement Scan Invoice screen. mode='open': the user only wants to go to the scanner ('open the invoice scanner', 'take me to procurement scanner') — never scans anything. mode='scan': the user explicitly asked to add/scan attached invoice file(s) into procurement ('add this invoice to procurement', 'scan this for Assembly') — the normal extraction/review workflow starts with those files. NEVER use either mode for read-only questions like 'what is on this invoice?'. If the request or the file choice is ambiguous, ask ONE specific clarifying question instead of calling this.",
     parameters: {
       type: "object",
       properties: {
-        venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one." },
-        file_names: { type: "array", items: { type: "string" }, description: "Names of the attached files to scan, from the conversation. Omit to use all recently attached files." },
+        mode: { type: "string", enum: ["open", "scan"], description: "'open' = navigate only, no files. 'scan' = start extraction with the named attached files." },
+        venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one or one is supplied as validated current-venue context." },
+        file_names: { type: "array", items: { type: "string" }, description: "Required for mode='scan': exact names of the attached files to scan, from the conversation. Name every file when the user said 'all'; name the one file when several were attached and the user meant one." },
       },
+      required: ["mode"],
     },
   },
 };
@@ -1244,7 +1246,8 @@ Deno.serve(async (req) => {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_invoice_scanner" && result?.ok) {
-                  emit({ action: { type: "open_invoice_scanner", venue: result.venue ?? null, files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
+                  const mode = args.mode === "scan" ? "scan" : "open";
+                  emit({ action: { type: "open_invoice_scanner", mode, venue: result.venue ?? null, files: mode === "scan" && Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
                 }
               } catch (e) {
                 // Errors are surfaced, not cached — a retry may succeed.
