@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useSpeechInput } from "@/hooks/useSpeechInput";
+import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
@@ -53,6 +53,7 @@ export default function Assistant() {
   const [loading, setLoading] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const trackRequestRef = useRef<((c: AbortController | null) => void) | null>(null);
   const requestScopeRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -141,7 +142,12 @@ export default function Assistant() {
     if (active) dropEmptyTail(active.id);
   };
 
-  const send = async (text: string) => {
+  const send = async (text: string, opts?: {
+    voice?: boolean;
+    voiceLanguage?: string;
+    onSpeak?: (s: SpeakEvent) => void;
+    onStatus?: (label: string) => void;
+  }) => {
     const trimmed = text.trim();
     if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) return;
 
@@ -162,6 +168,7 @@ export default function Assistant() {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    trackRequestRef.current?.(controller);
 
     let assistantSoFar = "";
     const collectedCharts: ChartSpec[] = [];
@@ -203,6 +210,7 @@ export default function Assistant() {
         body: JSON.stringify({
           messages: toRequestMessages(nextMessages),
           tenant_id: tenantId,
+          ...(opts?.voice ? { voice: true, voice_language: opts.voiceLanguage || "en" } : {}),
         }),
         signal: controller.signal,
       });
@@ -260,6 +268,9 @@ export default function Assistant() {
               break;
             } else if (parsed.status && typeof parsed.status.label === "string") {
               upsert("", undefined, { label: parsed.status.label, kind: parsed.status.kind });
+              opts?.onStatus?.(parsed.status.label);
+            } else if (parsed.speak && typeof parsed.speak.text === "string") {
+              opts?.onSpeak?.(parsed.speak as SpeakEvent);
             } else if (parsed.chart) {
               upsert("", parsed.chart as ChartSpec);
             } else {
@@ -291,39 +302,28 @@ export default function Assistant() {
     if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      speech.stop();
       send(input);
     }
   };
 
-  // Voice input (browser only, never auto-sends).
-  const voiceBaseRef = useRef("");
+  // Two-way voice conversation: MediaRecorder + bani-stt/bani-tts edge functions.
+  // The loop (listening → thinking → speaking → listening) lives in the hook;
+  // questions go through the normal send() path with voice flags, so the chat
+  // history is identical to text mode.
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceText, setVoiceText] = useState("");
-  const voiceModeRef = useRef(false);
-  voiceModeRef.current = voiceMode;
-  const speech = useSpeechInput({
-    onTranscript: (t) => {
-      if (voiceModeRef.current) { setVoiceText(t); return; }
-      const base = voiceBaseRef.current;
-      setInput(base ? `${base} ${t}` : t);
-    },
-    onError: () =>
-      toast({ title: "Microphone unavailable. Check your browser permissions.", variant: "destructive" }),
+  const voice = useVoiceConversation({
+    active: voiceMode,
+    getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
+    sendQuestion: (text, opts) => send(text, opts),
+    onError: (msg) => toast({ title: msg, variant: "destructive" }),
   });
-  const speechStopRef = useRef(speech.stop);
-  speechStopRef.current = speech.stop;
-  useEffect(() => { speechStopRef.current(); setVoiceMode(false); setVoiceText(""); }, [scopeKey]);
+  trackRequestRef.current = voice.trackRequest;
+  const voiceEndRef = useRef(voice.end);
+  voiceEndRef.current = voice.end;
+  useEffect(() => { voiceEndRef.current(); setVoiceMode(false); }, [scopeKey]);
 
-  const enterVoice = () => { setVoiceText(""); setVoiceMode(true); speech.start(); };
-  const cancelVoice = () => { speech.stop(); setVoiceMode(false); setVoiceText(""); };
-  const sendVoice = () => {
-    const t = voiceText.trim();
-    speech.stop();
-    setVoiceMode(false);
-    setVoiceText("");
-    if (t) send(t);
-  };
+  const enterVoice = () => { setVoiceMode(true); voice.start(); };
+  const cancelVoice = () => { voice.end(); setVoiceMode(false); };
   useEffect(() => {
     if (!voiceMode) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelVoice(); };
@@ -360,24 +360,21 @@ export default function Assistant() {
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
           onKeyDown={onKeyDown}
-          placeholder={speech.listening ? "Listening…" : "Ask Bani…"}
+          placeholder="Ask Bani…"
           aria-label="Ask Bani a question"
           rows={1}
           className="bani-input bani-ask-input min-h-[36px] flex-1 resize-none self-center py-[7px] text-[15px] leading-[22px]"
         />
-        {speech.supported && (
-          <button
-            type="button"
-            onClick={speech.listening ? speech.stop : enterVoice}
-            disabled={!speech.listening && (!scopeReady || loading)}
-            aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
-            className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
-            style={{ color: speech.listening ? "#1F3A37" : "#5B706B" }}
-          >
-            {speech.listening && <span className="bani-mic-pulse pointer-events-none absolute inset-0 rounded-full" />}
-            {speech.listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={enterVoice}
+          disabled={!scopeReady || loading}
+          aria-label="Start voice input"
+          className="bani-mic relative mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+          style={{ color: "#5B706B" }}
+        >
+          <Mic className="h-4 w-4" />
+        </button>
         <button
           type="button"
           onClick={loading ? stop : () => send(input)}
@@ -445,21 +442,29 @@ export default function Assistant() {
         .bani-fade{animation:bani-fade 200ms ease-out}
         @keyframes bani-dots{0%,100%{opacity:.25}50%{opacity:1}}
         .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
-        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}}
+        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && createPortal(topbarActions, topbarTarget)}
 
 
       {voiceMode ? (
-        <VoicePanel listening={speech.listening} transcript={voiceText} onCancel={cancelVoice} onSend={sendVoice} />
+        <VoicePanel
+          state={voice.state}
+          caption={voice.caption}
+          level={voice.level}
+          onCancel={cancelVoice}
+          onSend={voice.sendNow}
+          onOrbTap={voice.interrupt}
+          onShowChat={cancelVoice}
+        />
       ) : placement === "welcome" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4">
           <div style={{ flex: 42 }} />
           <div className="mx-auto w-full max-w-[640px]">
             {Composer}
             <div className="mt-3 min-h-[30px]">
-              {focused && !input && !speech.listening && (
+              {focused && !input && (
                 <div className="bani-fade flex flex-wrap justify-center gap-2">
                   {SUGGESTIONS.map(({ text, label }) => (
                     <button
@@ -625,20 +630,55 @@ function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationM
   );
 }
 
-function VoicePanel({ listening, transcript, onCancel, onSend }: { listening: boolean; transcript: string; onCancel: () => void; onSend: () => void }) {
-  const has = !!transcript.trim();
+function VoicePanel({ state, caption, level, onCancel, onSend, onOrbTap, onShowChat }: {
+  state: VoiceState;
+  caption: string;
+  level: number;
+  onCancel: () => void;
+  onSend: () => void;
+  onOrbTap: () => void;
+  onShowChat: () => void;
+}) {
+  const listening = state === "listening";
+  const orbMode = state === "thinking" ? "thinking" : listening || state === "speaking" ? "listening" : "idle";
+  const scale = 1 + Math.min(1, Math.max(0, level)) * 0.15;
+  const orbLabel =
+    state === "thinking" || state === "speaking" ? "Interrupt and talk"
+      : state === "idle" ? "Tap the orb to talk"
+      : "Listening";
   return (
     <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}>
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <BaniOrb size={110} mode={listening ? "listening" : "idle"} />
-        <p className="text-[14px] text-white">{listening ? "Listening…" : has ? "Ready to send" : "Listening…"}</p>
-        <p className="line-clamp-3 max-w-[480px] text-center text-[13px]" style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}>{transcript}</p>
+        <button
+          type="button"
+          onClick={onOrbTap}
+          aria-label={orbLabel}
+          className="bani-orb-level rounded-full transition-transform duration-150"
+          style={{ transform: `scale(${scale})` }}
+        >
+          <BaniOrb size={110} mode={orbMode} />
+        </button>
+        <p
+          key={caption}
+          className="bani-fade line-clamp-3 max-w-[480px] text-center text-[13px]"
+          style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}
+        >
+          {caption}
+        </p>
       </div>
+      <button
+        type="button"
+        onClick={onShowChat}
+        className="mb-3 text-[12px]"
+        style={{ color: "rgba(255,255,255,0.7)" }}
+      >
+        Show chat
+      </button>
       <div className="flex items-center gap-6">
         <button type="button" aria-label="Cancel voice input" onClick={onCancel} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "rgba(255,255,255,0.3)" }}>
           <X className="h-5 w-5" />
         </button>
-        <button type="button" aria-label="Send" onClick={onSend} disabled={!has} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: has ? 1 : 0.45 }}>
+        <button type="button" aria-label="Send" onClick={onSend} disabled={!listening} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: listening ? 1 : 0.45 }}>
           <ArrowUp className="h-5 w-5" />
         </button>
       </div>

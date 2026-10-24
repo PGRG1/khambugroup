@@ -945,6 +945,109 @@ async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: 
   }
 }
 
+// ---------- voice helpers (only used when the request sets voice: true) ----------
+const VOICE_FILLERS: Record<string, Record<string, string>> = {
+  en: {
+    sales: "Let me pull up your sales.", invoices: "Checking your supplier invoices.",
+    prices: "Let me look at supplier prices.", payroll: "Checking payroll against revenue.",
+    menu: "Looking at your menu costs.", stock: "Checking your stock.",
+    default: "Give me a second, checking your numbers.", more: "Still going through it.",
+  },
+  zh: {
+    sales: "等我睇下你嘅銷售。", invoices: "等我查下供應商發票。", prices: "等我睇下供應商價格。",
+    payroll: "等我對下人工同收入。", menu: "等我睇下菜單成本。", stock: "等我查下庫存。",
+    default: "等我一下,查緊你嘅數字。", more: "仲睇緊。",
+  },
+  ne: {
+    sales: "तपाईंको बिक्री हेर्छु।", invoices: "सप्लायर इन्भ्वाइस हेर्दैछु।", prices: "सप्लायर मूल्य हेर्छु।",
+    payroll: "पेरोल र आम्दानी तुलना गर्दैछु।", menu: "मेनु लागत हेर्दैछु।", stock: "स्टक हेर्दैछु।",
+    default: "एक क्षण, तपाईंको संख्या हेर्दैछु।", more: "अझै हेर्दैछु।",
+  },
+  hi: {
+    sales: "आपकी सेल्स देखता हूँ।", invoices: "सप्लायर इनवॉइस देख रहा हूँ।", prices: "सप्लायर कीमतें देखता हूँ।",
+    payroll: "पेरोल और रेवेन्यू जाँच रहा हूँ।", menu: "मेनू लागत देख रहा हूँ।", stock: "स्टॉक देख रहा हूँ।",
+    default: "एक पल, आपके आँकड़े देख रहा हूँ।", more: "अभी भी देख रहा हूँ।",
+  },
+  tl: {
+    sales: "Titingnan ko ang benta niyo.", invoices: "Tinitingnan ang mga supplier invoice.",
+    prices: "Titingnan ko ang presyo ng mga supplier.", payroll: "Tinitingnan ang payroll kumpara sa kita.",
+    menu: "Titingnan ang menu costs.", stock: "Tinitingnan ang stock.",
+    default: "Sandali lang, tinitingnan ko ang mga numero.", more: "Tinitingnan ko pa rin.",
+  },
+  id: {
+    sales: "Saya cek penjualan Anda.", invoices: "Saya periksa faktur pemasok.",
+    prices: "Saya lihat harga pemasok.", payroll: "Saya bandingkan gaji dengan pendapatan.",
+    menu: "Saya periksa biaya menu.", stock: "Saya cek stok.",
+    default: "Sebentar, saya periksa angkanya.", more: "Masih saya periksa.",
+  },
+};
+
+function voiceLangKey(lang: string): string {
+  const l = lang.toLowerCase();
+  if (l.startsWith("zh") || l === "yue") return "zh";
+  if (l.startsWith("ne")) return "ne";
+  if (l.startsWith("hi")) return "hi";
+  if (l.startsWith("tl") || l.startsWith("fil")) return "tl";
+  if (l.startsWith("id")) return "id";
+  return "en";
+}
+
+const VOICE_LANG_NAMES: Record<string, string> = {
+  en: "English", zh: "Cantonese", ne: "Nepali", hi: "Hindi", tl: "Tagalog", id: "Indonesian",
+};
+
+function fillerText(kind: string | undefined, lang: string): string {
+  const set = VOICE_FILLERS[voiceLangKey(lang)] ?? VOICE_FILLERS.en;
+  const k = kind && kind in set ? kind : "default";
+  return set[k];
+}
+
+/** Strip markdown so a fallback spoken line reads cleanly. */
+function plainText(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\|/g, " ")
+    .replace(/[#*>`_-]+/g, " ")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** First 1–2 plain sentences of the answer, capped for TTS. */
+function fallbackSummary(answer: string): string {
+  const plain = plainText(answer);
+  const sentences = plain.match(/[^.!?]+[.!?]+/g) ?? [plain];
+  return sentences.slice(0, 2).join(" ").trim().slice(0, 600);
+}
+
+/** One short call that rewrites the final answer as a spoken summary. */
+async function spokenSummary(answer: string, lang: string): Promise<string> {
+  const langName = VOICE_LANG_NAMES[voiceLangKey(lang)] ?? "English";
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Turn this answer into what a sharp finance manager would SAY out loud in 1–3 short sentences, in ${langName}. Lead with the key number and what it means. Round numbers naturally (e.g. "about 64 percent", "up roughly 3 points", "HK$12,400"). No tables, lists, markdown, caveats or sources. Don't add anything not in the answer.`,
+          },
+          { role: "user", content: answer },
+        ],
+      }),
+    });
+    if (!resp.ok) return fallbackSummary(answer);
+    const json = await resp.json();
+    const text = (json.choices?.[0]?.message?.content ?? "").trim();
+    if (!text) return fallbackSummary(answer);
+    return text.slice(0, 600);
+  } catch {
+    return fallbackSummary(answer);
+  }
+}
+
 // ---------- main handler ----------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -974,6 +1077,8 @@ Deno.serve(async (req) => {
       );
     }
     const tenantId = resolved.tenant_id;
+    const voiceMode = validated.voice;
+    const voiceLang = validated.voiceLanguage || "en";
 
     const encoder = new TextEncoder();
     let closed = false;
@@ -995,6 +1100,19 @@ Deno.serve(async (req) => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     const run = async () => {
+      // Voice mode: one filler with the first tool status, one "still going" after 8s.
+      let fillerSent = false;
+      let turnDone = false;
+      let stillTimer: ReturnType<typeof setTimeout> | null = null;
+      const speakFiller = (kind?: string) => {
+        if (!voiceMode || fillerSent || closed) return;
+        fillerSent = true;
+        emit({ speak: { kind: "filler", text: fillerText(kind, voiceLang) } });
+        stillTimer = setTimeout(() => {
+          if (!turnDone && !closed) emit({ speak: { kind: "filler", text: fillerText("more", voiceLang) } });
+        }, 8000);
+      };
+
       emit({ status: { label: "Reading your question" } });
       const workspace = await loadWorkspaceContext(tenantId);
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
@@ -1010,6 +1128,12 @@ Deno.serve(async (req) => {
       let currentModel = PRIMARY_MODEL;
 
       const streamContent = async (content: string) => {
+        turnDone = true;
+        if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
+        if (voiceMode && !closed) {
+          const summary = await spokenSummary(content, voiceLang);
+          if (summary) emit({ speak: { kind: "summary", text: summary } });
+        }
         emit({ status: { label: "Writing up the answer" } });
         for (const spec of chartSpecs) emit({ chart: spec });
         const chunkSize = 12;
@@ -1112,6 +1236,7 @@ Deno.serve(async (req) => {
           let result: any;
           if (tc.function.name === "render_chart") {
             emit({ status: toolStepLabel(tc.function.name, args) });
+            speakFiller("default");
             chartSpecs.push(args);
             result = { ok: true, rendered: args.title || "chart" };
           } else {
@@ -1119,7 +1244,9 @@ Deno.serve(async (req) => {
             if (toolCache.has(cacheKey)) {
               result = toolCache.get(cacheKey);
             } else {
-              emit({ status: toolStepLabel(tc.function.name, args) });
+              const step = toolStepLabel(tc.function.name, args);
+              emit({ status: step });
+              speakFiller(step.kind);
               try {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
