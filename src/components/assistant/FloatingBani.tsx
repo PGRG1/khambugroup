@@ -172,15 +172,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       })) : undefined;
       if (controller.signal.aborted) return;
       const reviewBody = review ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
+      // Current concrete venue as untrusted UI context — the server validates it
+      // against tenant venues and the user's explicit text always wins.
+      const contextVenue = page && page.path === pathname && page.detail && page.detail !== "All venues" ? page.detail : null;
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
         method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(attachments ? { attachments } : {}) }),
+        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(contextVenue ? { active_venue: contextVenue } : {}), ...(attachments ? { attachments } : {}) }),
       });
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
-      let action: { venue: string | null; files: string[] } | null = null;
+      let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -191,7 +194,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
-          if (event.action?.type === "open_invoice_scanner") action = { venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
+          if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
       }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
