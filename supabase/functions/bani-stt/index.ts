@@ -71,8 +71,17 @@ Deno.serve(async (req) => {
     const upstream = new FormData();
     upstream.append("model", MODEL);
     // MediaRecorder can label audio-only webm as video/webm; normalise to audio/*.
+    // Keep the extension consistent with the actual container — the provider
+    // rejects files whose name and content disagree.
     const mime = file.type.startsWith("audio/") ? file.type : "audio/webm";
-    upstream.append("file", new File([file], "question.webm", { type: mime }));
+    const ext =
+      mime.includes("webm") ? "webm"
+        : mime.includes("mp4") ? "m4a"
+          : mime.includes("mpeg") ? "mp3"
+            : mime.includes("wav") ? "wav"
+              : mime.includes("ogg") ? "ogg"
+                : "webm";
+    upstream.append("file", new File([file], `question.${ext}`, { type: mime }));
     upstream.append("response_format", "json");
     upstream.append("stream", "true");
     upstream.append(
