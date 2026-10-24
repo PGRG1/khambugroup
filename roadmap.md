@@ -1,5 +1,10 @@
 # Roadmap
 
+## Bani two-way voice conversation
+- [ ] Voice loop, interruption, spoken captions, and lifecycle cleanup
+- [ ] Voice-only filler/summary stream events and authenticated ElevenLabs speech
+- [ ] Focused tests, deployment, and signed-in desktop/phone verification
+
 ## Revenue navigation consolidation
 
 - [x] Single permission-aware Revenue sidebar destination and shared route-driven bar
