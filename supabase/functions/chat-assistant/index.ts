@@ -1236,6 +1236,7 @@ Deno.serve(async (req) => {
           let result: any;
           if (tc.function.name === "render_chart") {
             emit({ status: toolStepLabel(tc.function.name, args) });
+            speakFiller("default");
             chartSpecs.push(args);
             result = { ok: true, rendered: args.title || "chart" };
           } else {
@@ -1243,7 +1244,9 @@ Deno.serve(async (req) => {
             if (toolCache.has(cacheKey)) {
               result = toolCache.get(cacheKey);
             } else {
-              emit({ status: toolStepLabel(tc.function.name, args) });
+              const step = toolStepLabel(tc.function.name, args);
+              emit({ status: step });
+              speakFiller(step.kind);
               try {
                 result = await runTool(tc.function.name, args, tenantId);
                 toolCache.set(cacheKey, result);
