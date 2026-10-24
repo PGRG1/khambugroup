@@ -551,6 +551,7 @@ export default function Assistant() {
       {voiceMode && voiceExpanded ? (
         <VoicePanel
           state={voice.state}
+          getLevel={voice.getLevel}
           level={voice.level}
           muted={voice.muted}
           needsTap={voice.needsTap}
