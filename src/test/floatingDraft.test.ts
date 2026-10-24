@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { canApplyProposal, correctDraftLine, sameSupplier, validCorrection, validateProposal, type DraftProposal } from "@/utils/floatingDraft";
+import { canApplyProposal, correctDraftLine, isExplanationQuestion, sameSupplier, validCorrection, validateProposal, type DraftProposal } from "@/utils/floatingDraft";
 import { buildMatchLinkPatch } from "@/utils/invoiceMatchActions";
 import { computeAcceptedAmount } from "@/utils/invoiceAcceptedAmount";
 const proposal: DraftProposal = { id: "p1", binding: "user:tenant:draft:1", lineId: "line1", field: "quantity", value: "3", reason: "User confirmed three units." };
 const line = { quantity: "2", unit_price: "10", tax_amount: "2", discount: "1", total: "21", accepted_qty: "2", printed_amount: "31", scanned_description: "Printed item", scanned_item_code: "SOURCE", pack_size: "24", matched_stock_qty_ratio: 24 };
 describe("Floating invoice review safety", () => {
+  it("keeps explanation requests read-only even if the model proposes a match", () => {
+    expect(isExplanationQuestion("Why is this not matching?")).toBe(true);
+    expect(isExplanationQuestion("How does this conversion work")).toBe(true);
+    expect(isExplanationQuestion("Correct the selected line quantity to 3. Keep price unchanged.")).toBe(false);
+  });
   it("allows only the explicit editable whitelist, never postings or master conversions", () => {
     expect(validCorrection("quantity", "3", line)).toBe(true);
     for (const field of ["sql", "delete", "approved", "stock_qty", "purchase_unit_cost", "total"]) expect(validCorrection(field, "3", line)).toBe(false);

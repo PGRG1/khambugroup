@@ -17,6 +17,10 @@ export function validCorrection(field: string, value: unknown, line: Record<stri
   return true;
 }
 export function sameSupplier(a: string, b: string) { return a.trim().toLowerCase() === b.trim().toLowerCase(); }
+// Conservative action gate, not an answer engine: explanation questions cannot edit.
+export function isExplanationQuestion(text: string) {
+  return /^\s*(why|how|what|which|where|when|does|is|can you explain)\b/i.test(text) || /\?\s*$/.test(text);
+}
 export function revisionFingerprint(value: string) {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);

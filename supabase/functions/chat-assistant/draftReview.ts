@@ -1,5 +1,5 @@
 import { z } from "npm:zod@3";
-import { validateProposal, sameSupplier } from "../_shared/floatingDraft.ts";
+import { validateProposal, sameSupplier, isExplanationQuestion } from "../_shared/floatingDraft.ts";
 
 const scalar = z.union([z.string().max(1000), z.number().finite(), z.boolean(), z.null()]);
 const contextSchema = z.object({
@@ -14,6 +14,8 @@ export async function draftReview(req: Request, raw: unknown, messages: { role: 
   const parsed = contextSchema.safeParse(raw);
   if (!parsed.success) return fail("Invalid review context.");
   const ctx = parsed.data;
+  const latestRequest = messages[messages.length - 1]?.content || "";
+  const explanationOnly = isExplanationQuestion(latestRequest);
   const [{ data: access, error: accessError }, { data: page, error: pageError }, { data: roles, error: roleError }] = await Promise.all([
     admin.from("user_access_control").select("status,position").eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle(),
     admin.from("user_page_permissions").select("can_access,authority,hidden_actions").eq("tenant_id", tenantId).eq("user_id", userId).eq("page_key", "procurement").maybeSingle(),
@@ -71,7 +73,7 @@ export async function draftReview(req: Request, raw: unknown, messages: { role: 
       let proposal = null;
       // Gemini can encode nullable function parameters as an empty object/string.
       // An explanation's empty proposal is not a correction and must not fail the answer.
-      if (output.proposal && typeof output.proposal === "object" && output.proposal.field && editable && ctx.line && ctx.lineId) {
+      if (!explanationOnly && output.proposal && typeof output.proposal === "object" && output.proposal.field && editable && ctx.line && ctx.lineId) {
         proposal = validateProposal({ ...output.proposal, id: crypto.randomUUID(), binding: ctx.binding, lineId: ctx.lineId }, ctx.binding, ctx.lineId, ctx.line, candidates.map(e => e.id));
         if (!proposal) throw new Error("That correction is not safe to apply. Please clarify the intended value.");
       }
