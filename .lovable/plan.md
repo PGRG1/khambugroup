@@ -13,7 +13,7 @@
 - Limit speech requests to three per turn and unlock the shared audio player from the mic tap.
 
 ## Decisions needed
-- The authenticated catalog still lists the requested Gemini 2.5 Flash, but marks it deprecated, retiring **20 October 2026** (already past today). Confirm whether to retain this currently listed model, or use the current Gemini 3.8 Flash for the new summary call only. Existing chat model routing stays untouched.
+- The authenticated catalog still lists the requested Gemini 2.5 Flash, but marks it deprecated with a retirement date of **20 October 2026** (already past today). Its availability is therefore inconsistent and cannot be relied on for a new call. Choose a current replacement for the new summary call only; Gemini 3.8 Flash is the proposed alternative, subject to an authenticated availability check. Existing chat model routing stays untouched.
 - ElevenLabs API key is not currently set. Check an accessible ElevenLabs connection first; if none exists, the owner can add their own key securely in Project Settings → Secrets. Browser speech remains available without it.
 
 ## Technical details
