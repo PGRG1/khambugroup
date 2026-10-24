@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, Mic, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useVoiceConversation, type SpeakEvent } from "@/hooks/useVoiceConversation";
+import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
@@ -442,7 +442,7 @@ export default function Assistant() {
         .bani-fade{animation:bani-fade 200ms ease-out}
         @keyframes bani-dots{0%,100%{opacity:.25}50%{opacity:1}}
         .bani-dots{animation:bani-dots 1.4s ease-in-out infinite}
-        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}}
+        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && createPortal(topbarActions, topbarTarget)}
@@ -630,20 +630,55 @@ function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationM
   );
 }
 
-function VoicePanel({ listening, transcript, onCancel, onSend }: { listening: boolean; transcript: string; onCancel: () => void; onSend: () => void }) {
-  const has = !!transcript.trim();
+function VoicePanel({ state, caption, level, onCancel, onSend, onOrbTap, onShowChat }: {
+  state: VoiceState;
+  caption: string;
+  level: number;
+  onCancel: () => void;
+  onSend: () => void;
+  onOrbTap: () => void;
+  onShowChat: () => void;
+}) {
+  const listening = state === "listening";
+  const orbMode = state === "thinking" ? "thinking" : listening || state === "speaking" ? "listening" : "idle";
+  const scale = 1 + Math.min(1, Math.max(0, level)) * 0.15;
+  const orbLabel =
+    state === "thinking" || state === "speaking" ? "Interrupt and talk"
+      : state === "idle" ? "Tap the orb to talk"
+      : "Listening";
   return (
     <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}>
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <BaniOrb size={110} mode={listening ? "listening" : "idle"} />
-        <p className="text-[14px] text-white">{listening ? "Listening…" : has ? "Ready to send" : "Listening…"}</p>
-        <p className="line-clamp-3 max-w-[480px] text-center text-[13px]" style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}>{transcript}</p>
+        <button
+          type="button"
+          onClick={onOrbTap}
+          aria-label={orbLabel}
+          className="bani-orb-level rounded-full transition-transform duration-150"
+          style={{ transform: `scale(${scale})` }}
+        >
+          <BaniOrb size={110} mode={orbMode} />
+        </button>
+        <p
+          key={caption}
+          className="bani-fade line-clamp-3 max-w-[480px] text-center text-[13px]"
+          style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}
+        >
+          {caption}
+        </p>
       </div>
+      <button
+        type="button"
+        onClick={onShowChat}
+        className="mb-3 text-[12px]"
+        style={{ color: "rgba(255,255,255,0.7)" }}
+      >
+        Show chat
+      </button>
       <div className="flex items-center gap-6">
         <button type="button" aria-label="Cancel voice input" onClick={onCancel} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "rgba(255,255,255,0.3)" }}>
           <X className="h-5 w-5" />
         </button>
-        <button type="button" aria-label="Send" onClick={onSend} disabled={!has} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: has ? 1 : 0.45 }}>
+        <button type="button" aria-label="Send" onClick={onSend} disabled={!listening} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: listening ? 1 : 0.45 }}>
           <ArrowUp className="h-5 w-5" />
         </button>
       </div>
