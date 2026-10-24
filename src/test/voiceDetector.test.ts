@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSpeechDetector, SILENCE_MS, SPEECH_START_MS } from "@/hooks/useVoiceConversation";
+import { createSpeechDetector, splitSentences, SILENCE_MS, SPEECH_START_MS } from "@/hooks/useVoiceConversation";
 
 const run = (frames: [number, number][]) => {
   const d = createSpeechDetector();
@@ -20,7 +20,7 @@ describe("voice speech detector", () => {
     expect(out).not.toContain("end");
   });
 
-  it("ends the turn after 1.2s of quiet once speech started", () => {
+  it("ends the turn after ~700ms of quiet once speech started", () => {
     const d = createSpeechDetector();
     d.push(0.2, 0); d.push(0.2, 300);
     expect(d.push(0.001, 300 + SILENCE_MS - 50)).toBe("none");
@@ -32,5 +32,16 @@ describe("voice speech detector", () => {
     const before = d.threshold;
     for (let i = 0; i < 200; i++) d.push(0.01, i * 16);
     expect(d.threshold).toBeGreaterThan(before);
+  });
+});
+
+describe("splitSentences", () => {
+  it("splits on sentence boundaries and caps at 3 with merged tail", () => {
+    expect(splitSentences("Sales rose. Assembly led. Costs fell. Labour held.")).toEqual([
+      "Sales rose.", "Assembly led.", "Costs fell. Labour held.",
+    ]);
+  });
+  it("keeps short text as one sentence", () => {
+    expect(splitSentences("Sales look fine")).toEqual(["Sales look fine"]);
   });
 });
