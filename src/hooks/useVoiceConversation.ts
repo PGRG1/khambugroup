@@ -60,9 +60,8 @@ function speechLangTag(lang: string): string {
 // Short spoken acknowledgements, pre-generated once per session so they play
 // with zero network delay the moment a turn ends.
 const ACKS: Record<string, string[]> = {
-  en: ["Let me look into that for you.", "Let me take a look at that for you.", "Give me a moment, I'm still working on your answer."],
+  en: ["I'm looking at your revenue figures now.", "I'm checking those supplier prices now.", "I'm comparing the revenue figures for those periods now."],
 };
-const ackKey = (_lang: string): string => "en";
 
 /** Wrap 24 kHz signed 16-bit LE mono PCM bytes in a WAV header for <audio> playback. */
 function pcmToWav(pcm: Uint8Array<ArrayBuffer>): Blob {
@@ -182,7 +181,6 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const ackClipsRef = useRef<Map<string, Uint8Array<ArrayBuffer>>>(new Map());
   const warmAbortRef = useRef<AbortController | null>(null);
   const playbackDoneRef = useRef<(() => void) | null>(null);
-  const lastAckRef = useRef(-1);
   const ackLangsDoneRef = useRef<Set<string>>(new Set());
 
   const setLevelThrottled = (v: number) => {
@@ -652,14 +650,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       setUserWordsLive(false);
       setVoiceState("thinking");
 
-      // Local early acknowledgement does not wait for the first model/tool response.
-      const ackIndex = (lastAckRef.current + 1) % 2;
-      lastAckRef.current = ackIndex;
-      fillerUsedRef.current = { turn, first: true, more: false };
-      timersRef.current.push(setTimeout(() => void speakFiller(ACKS.en[ackIndex], gen, turn), 250));
-      timersRef.current.push(setTimeout(() => {
-        if (!fillerPlayingRef.current) void speakFiller(ACKS.en[2], gen, turn);
-      }, 8000));
+      fillerUsedRef.current = { turn, first: false, more: false };
 
       const onSpeak = (s: SpeakEvent) => {
         if (gen !== generationRef.current || turn !== turnRef.current) return;
@@ -675,8 +666,17 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
             setReveal(null);
             listen();
           });
+        } else {
+          const used = fillerUsedRef.current;
+          if (s.stage === "more") {
+            if (used.more || fillerPlayingRef.current) return;
+            used.more = true;
+          } else {
+            if (used.first) return;
+            used.first = true;
+          }
+          void speakFiller(s.text, gen, turn);
         }
-
       };
       const onStatus = (label: string) => {
         if (gen !== generationRef.current || turn !== turnRef.current) return;
