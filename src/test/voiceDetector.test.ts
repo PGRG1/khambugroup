@@ -34,3 +34,14 @@ describe("voice speech detector", () => {
     expect(d.threshold).toBeGreaterThan(before);
   });
 });
+
+describe("splitSentences", () => {
+  it("splits on sentence boundaries and caps at 3 with merged tail", () => {
+    expect(splitSentences("Sales rose. Assembly led. Costs fell. Labour held.")).toEqual([
+      "Sales rose.", "Assembly led.", "Costs fell. Labour held.",
+    ]);
+  });
+  it("keeps short text as one sentence", () => {
+    expect(splitSentences("Sales look fine")).toEqual(["Sales look fine"]);
+  });
+});
