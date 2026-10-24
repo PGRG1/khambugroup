@@ -1,5 +1,10 @@
 # Roadmap
 
+## Android voice capture stall
+- [x] Bound capture, transcription, chat and playback; preserve recorded quiet speech and explicit orb send
+- [x] Verify deterministic capture failures and authenticated recorded-speech stage calls; no design change or publication
+- [ ] Physical Samsung Chrome/Lovable preview confirmation — requires the user's device
+
 ## Approved Bani voice screens and audible latency pass
 - [x] Match expanded/collapsed reference on /assistant only; preserve typing, mute, transcript and session
 - [x] Measure authenticated before/after acknowledgement, answer and playback timings; remove serial summary call and artificial text delays
