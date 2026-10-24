@@ -665,56 +665,94 @@ function CheckedLine({ steps, durationMs }: { steps?: AssistantStep[]; durationM
   );
 }
 
-function VoicePanel({ state, caption, level, onCancel, onSend, onOrbTap, onShowChat }: {
+/** Reveals Bani's words one by one, roughly in sync with the audio clip. */
+function RevealWords({ text, durationMs }: { text: string; durationMs: number }) {
+  const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    setCount(0);
+    if (!words.length) return;
+    const per = Math.max(70, durationMs / words.length);
+    const iv = setInterval(() => setCount((c) => Math.min(words.length, c + 1)), per);
+    return () => clearInterval(iv);
+  }, [text, durationMs, words.length]);
+  return <span>{words.slice(0, count).join(" ")}</span>;
+}
+
+function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, stepLabel, reveal, notice, onToggleMute, onEnd, onOrbTap }: {
   state: VoiceState;
-  caption: string;
   level: number;
-  onCancel: () => void;
-  onSend: () => void;
+  muted: boolean;
+  needsTap: boolean;
+  userWords: string;
+  userWordsLive: boolean;
+  stepLabel: string;
+  reveal: Reveal;
+  notice: string;
+  onToggleMute: () => void;
+  onEnd: () => void;
   onOrbTap: () => void;
-  onShowChat: () => void;
 }) {
   const listening = state === "listening";
-  const orbMode = state === "thinking" ? "thinking" : listening || state === "speaking" ? "listening" : "idle";
-  const scale = 1 + Math.min(1, Math.max(0, level)) * 0.15;
+  const speaking = state === "speaking";
+  const thinking = state === "thinking" || state === "transcribing";
+  const orbMode = thinking ? "thinking" : listening || speaking ? "listening" : "idle";
+  const scale = listening ? 1 + Math.min(1, Math.max(0, level)) * 0.15 : 1;
   const orbLabel =
-    state === "thinking" || state === "speaking" ? "Interrupt and talk"
+    thinking || speaking ? "Interrupt and talk"
       : state === "idle" ? "Tap the orb to talk"
       : "Listening";
+  const isPhone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
   return (
-    <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+    <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(28px + env(safe-area-inset-bottom))" }}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-5">
         <button
           type="button"
           onClick={onOrbTap}
           aria-label={orbLabel}
-          className="bani-orb-level rounded-full transition-transform duration-150"
-          style={{ transform: `scale(${scale})` }}
+          className={`bani-orb-level rounded-full transition-transform duration-200 ${speaking ? "bani-orb-speaking" : ""}`}
+          style={speaking ? undefined : { transform: `scale(${scale})` }}
         >
-          <BaniOrb size={110} mode={orbMode} />
+          <BaniOrb size={isPhone ? 120 : 140} mode={orbMode} />
         </button>
-        <p
-          key={caption}
-          className="bani-fade line-clamp-3 max-w-[480px] text-center text-[13px]"
-          style={{ color: "rgba(255,255,255,0.85)", minHeight: 20 }}
-        >
-          {caption}
-        </p>
+        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 96 }}>
+          {speaking && reveal ? (
+            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white">
+              {reveal.prior ? <span>{reveal.prior} </span> : null}
+              <RevealWords key={reveal.id} text={reveal.text} durationMs={reveal.durationMs} />
+            </p>
+          ) : userWords ? (
+            <p className="line-clamp-4 text-[17px] leading-[1.5] text-white" style={{ opacity: userWordsLive ? 0.7 : 0.85 }}>
+              {userWords}
+            </p>
+          ) : notice ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>{notice}</p>
+          ) : needsTap ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>Tap the orb to talk</p>
+          ) : null}
+          {thinking && stepLabel ? (
+            <p className="bani-fade mt-2 text-[13px] text-white" style={{ opacity: 0.6 }}>{stepLabel}</p>
+          ) : null}
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onShowChat}
-        className="mb-3 text-[12px]"
-        style={{ color: "rgba(255,255,255,0.7)" }}
-      >
-        Show chat
-      </button>
-      <div className="flex items-center gap-6">
-        <button type="button" aria-label="Cancel voice input" onClick={onCancel} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "rgba(255,255,255,0.3)" }}>
-          <X className="h-5 w-5" />
+      <div className="flex items-center gap-8">
+        <button
+          type="button"
+          aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+          onClick={onToggleMute}
+          className="flex h-14 w-14 items-center justify-center rounded-full text-white transition-opacity"
+          style={{ background: "rgba(255,255,255,0.22)", opacity: muted ? 1 : 0.9 }}
+        >
+          {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
         </button>
-        <button type="button" aria-label="Send" onClick={onSend} disabled={!listening} className="flex h-11 w-11 items-center justify-center rounded-full text-white" style={{ background: "#1F3A37", opacity: listening ? 1 : 0.45 }}>
-          <ArrowUp className="h-5 w-5" />
+        <button
+          type="button"
+          aria-label="End voice conversation"
+          onClick={onEnd}
+          className="flex h-14 w-14 items-center justify-center rounded-full text-white"
+          style={{ background: "rgba(220,80,80,0.85)" }}
+        >
+          <X className="h-5 w-5" />
         </button>
       </div>
     </div>
