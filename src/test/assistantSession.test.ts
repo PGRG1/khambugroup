@@ -76,6 +76,17 @@ describe("session conversations", () => {
 });
 
 describe("live steps", () => {
+  it("toRequestMessages drops empty assistant turns left by a stopped stream", () => {
+    const out = toRequestMessages([
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "", steps: [{ label: "Reading your question" }] },
+      { role: "user", content: "next question" },
+    ]);
+    expect(out).toEqual([
+      { role: "user", content: "hi" },
+      { role: "user", content: "next question" },
+    ]);
+  });
   it("toRequestMessages never sends steps or duration", () => {
     const out = toRequestMessages([
       { role: "assistant", content: "a", steps: [{ label: "Pulling sales", kind: "sales" }], durationMs: 900 },

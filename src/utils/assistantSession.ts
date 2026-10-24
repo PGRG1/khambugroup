@@ -95,9 +95,13 @@ export function canSend(opts: {
   return !!opts.text.trim() && !opts.loading && opts.scopeReady;
 }
 
-/** Only send user/assistant turns to the server; strip client-side chart payloads. */
+/**
+ * Only send user/assistant turns to the server; strip client-side chart payloads.
+ * Empty assistant turns (left behind when a stream is stopped mid-thought) are
+ * dropped — they carry no meaning for the model and break the conversation.
+ */
 export function toRequestMessages<C = unknown>(messages: AssistantMessage<C>[]): { role: AssistantRole; content: string }[] {
   return messages
-    .filter((m) => m.role === "user" || m.role === "assistant")
+    .filter((m) => m.role === "user" || (m.role === "assistant" && !!m.content))
     .map((m) => ({ role: m.role, content: m.content }));
 }
