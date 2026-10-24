@@ -5,6 +5,7 @@ import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
+import { groundedVoiceAnswer } from "../_shared/voiceAnswer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -950,8 +951,8 @@ async function loadWorkspaceContext(tenantId: string): Promise<{ workspaceName: 
 // "first" plays only when a real lookup is under way; "more" only if it is slow.
 const VOICE_FILLERS: Record<string, { first: string[]; more: string[] }> = {
   en: {
-    first: ["Hmm, let me check.", "Okay, let me take a look.", "Let me pull that up.", "One sec, checking that now."],
-    more: ["Give me a moment, I'm still checking.", "Still checking, nearly there."],
+    first: ["Let me look into that for you.", "Let me take a look at that for you."],
+    more: ["Give me a moment, I'm still working on your answer."],
   },
   zh: { first: ["嗯,等我睇下。", "好,我查下先。"], more: ["等我多一陣,仲查緊。"] },
   ne: { first: ["हम्म, म हेर्छु।", "ठीक छ, एकछिन हेर्छु।"], more: ["एकछिन, म अझै हेर्दैछु।"] },
@@ -1109,15 +1110,14 @@ Deno.serve(async (req) => {
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
-          const summary = await spokenSummary(content, voiceLang);
+          const summary = groundedVoiceAnswer(content);
           if (summary) emit({ speak: { kind: "summary", text: summary } });
         }
         emit({ status: { label: "Writing up the answer" } });
         for (const spec of chartSpecs) emit({ chart: spec });
-        const chunkSize = 12;
+        const chunkSize = 2048;
         for (let i = 0; i < content.length && !closed; i += chunkSize) {
           emit({ choices: [{ delta: { content: content.slice(i, i + chunkSize) } }] });
-          await sleep(12);
         }
         finish();
       };
