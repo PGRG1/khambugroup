@@ -37,6 +37,7 @@ import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
+import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -209,9 +210,15 @@ export default function ProcurementInvoicesTab() {
   // never destroy an unsaved review — ask first.
   useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
   const pendingHandoff = peekScannerHandoff();
+  const baniStore = useFloatingBaniStore();
   useEffect(() => {
     if (!pendingHandoff) return;
-    if (scannerOpen && scannerDirty) setHandoffConflict(true);
+    if (scannerOpen && scannerDirty) {
+      // The decision dialog must be clickable: the hosted Bani panel stacks
+      // above it, so tuck the panel away (conversation state is preserved).
+      baniStore?.open[1](false);
+      setHandoffConflict(true);
+    }
     else if (!scannerOpen) setScannerOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoffTick]);
