@@ -35,6 +35,8 @@ import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, t
 import { uploadInvoiceSources, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
 import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -199,6 +201,20 @@ export default function ProcurementInvoicesTab() {
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerDirty, setScannerDirty] = useState(false);
+  const [scannerKey, setScannerKey] = useState(0);
+  const [handoffConflict, setHandoffConflict] = useState(false);
+  const [handoffTick, setHandoffTick] = useState(0);
+  // Floating-Bani scanner handoff: open the scanner for a pending request, but
+  // never destroy an unsaved review — ask first.
+  useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
+  const pendingHandoff = peekScannerHandoff();
+  useEffect(() => {
+    if (!pendingHandoff) return;
+    if (scannerOpen && scannerDirty) setHandoffConflict(true);
+    else if (!scannerOpen) setScannerOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffTick]);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useEffect(() => {
