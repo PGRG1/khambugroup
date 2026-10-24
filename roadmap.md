@@ -1,5 +1,10 @@
 # Roadmap
 
+## Floating Bani prototype
+- [ ] Tenant launcher and modal-safe contextual panel
+- [ ] Guarded unsaved scanner proposals with server and host validation
+- [ ] Focused tests and real-model desktop/mobile local-draft verification; no publication
+
 ## Android voice capture stall
 - [x] Bound capture, transcription, chat and playback; preserve recorded quiet speech and explicit orb send
 - [x] Verify deterministic capture failures and authenticated recorded-speech stage calls; no design change or publication
