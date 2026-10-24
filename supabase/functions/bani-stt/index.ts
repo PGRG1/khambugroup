@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
           if (ev.type === "transcript.text.delta" && typeof ev.delta === "string") text += ev.delta;
           if (ev.type === "transcript.text.done") {
             if (typeof ev.text === "string" && ev.text.trim()) finalText = ev.text;
-            if (typeof ev.language === "string") language = ev.language;
+            const code = Array.isArray(ev.languages) ? ev.languages[0]?.code : ev.language;
+            if (typeof code === "string") language = code;
           }
           if (ev.type === "error") throw new Error("Transcription stream error");
         } catch (e) {
