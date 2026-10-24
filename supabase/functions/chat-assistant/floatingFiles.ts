@@ -35,12 +35,14 @@ const openScannerTool = {
   function: {
     name: "open_invoice_scanner",
     description:
-      "Open the existing procurement Scan Invoice screen and hand it the attached invoice file(s), so the normal extraction/review workflow starts. Use ONLY when the user explicitly asks to add, scan or process the attached invoice into procurement (e.g. 'add this invoice to procurement', 'scan this for Assembly'). NEVER for read-only questions like 'what is on this invoice?'. If the request is ambiguous, ask ONE specific clarifying question instead of calling this.",
+      "Open the existing procurement Scan Invoice screen. mode='open': the user only wants to go to the scanner — never scans anything. mode='scan': the user explicitly asked to add/scan the attached invoice file(s) into procurement (e.g. 'add this invoice to procurement', 'scan this for Assembly') — the normal extraction/review workflow starts with those files. NEVER use either mode for read-only questions like 'what is on this invoice?'. If the request or the choice among several attached files is ambiguous, ask ONE specific clarifying question instead of calling this.",
     parameters: {
       type: "object",
       properties: {
-        venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one." },
+        mode: { type: "string", enum: ["open", "scan"], description: "'open' = navigate only, no files. 'scan' = start extraction with the attached files." },
+        venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one or one is supplied as validated current-venue context." },
       },
+      required: ["mode"],
     },
   },
 };
