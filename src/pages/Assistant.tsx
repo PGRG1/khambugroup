@@ -278,6 +278,8 @@ export default function Assistant() {
         toast({ title: "Assistant error", description: e?.message, variant: "destructive" });
       }
     } finally {
+      // Covers stop(), network drops and scope changes: never leave an empty bubble.
+      dropEmptyTail(convId);
       if (!stale()) {
         setLoading(false);
         abortRef.current = null;
