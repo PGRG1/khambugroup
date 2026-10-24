@@ -609,8 +609,9 @@ function MessageBlock({ msg }: { msg: Msg }) {
   );
 }
 
-function ThinkingLine({ label }: { label?: string }) {
-  const target = label || "Reading your question";
+function ThinkingLine() {
+  // Tool steps stay in the answer's "Checked …" detail; the live line is calm.
+  const target = "Thinking";
   const [shown, setShown] = useState(target);
   const [fading, setFading] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -679,19 +680,53 @@ function RevealWords({ text, durationMs }: { text: string; durationMs: number })
   return <span>{words.slice(0, count).join(" ")}</span>;
 }
 
-function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, stepLabel, reveal, notice, onToggleMute, onEnd, onOrbTap }: {
+/** Simple status word for voice mode (no raw tool progress). */
+export function voiceStatusWord(state: VoiceState, muted: boolean): string {
+  if (state === "listening") return muted ? "Muted" : "Listening";
+  if (state === "speaking") return "Speaking";
+  if (state === "idle") return "Paused";
+  return "Thinking";
+}
+
+/** Mute + end controls shared by expanded and collapsed voice views. */
+function VoiceControls({ muted, onToggleMute, onEnd }: { muted: boolean; onToggleMute: () => void; onEnd: () => void }) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+        aria-pressed={muted}
+        onClick={onToggleMute}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ background: muted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.22)" }}
+      >
+        {muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}
+      </button>
+      <button
+        type="button"
+        aria-label="End voice conversation"
+        onClick={onEnd}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ background: "rgba(220,80,80,0.85)" }}
+      >
+        <X className="h-[18px] w-[18px]" />
+      </button>
+    </>
+  );
+}
+
+function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, reveal, notice, onOrbTap, onCollapse, footer }: {
   state: VoiceState;
   level: number;
   muted: boolean;
   needsTap: boolean;
   userWords: string;
   userWordsLive: boolean;
-  stepLabel: string;
   reveal: Reveal;
   notice: string;
-  onToggleMute: () => void;
-  onEnd: () => void;
   onOrbTap: () => void;
+  onCollapse: () => void;
+  footer: React.ReactNode;
 }) {
   const listening = state === "listening";
   const speaking = state === "speaking";
@@ -703,9 +738,58 @@ function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, s
       : state === "idle" ? "Tap the orb to talk"
       : "Listening";
   const isPhone = typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches;
+  // Drag-down to collapse: only the handle captures the pointer, so the rest
+  // of the screen (and the transcript later) scrolls normally.
+  const [dy, setDy] = useState(0);
+  const dragRef = useRef<{ y: number; id: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    dragRef.current = { y: e.clientY, id: e.pointerId };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current || dragRef.current.id !== e.pointerId) return;
+    setDy(Math.max(0, e.clientY - dragRef.current.y));
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current) return;
+    const moved = Math.max(0, e.clientY - dragRef.current.y);
+    dragRef.current = null;
+    setDy(0);
+    if (moved > 70) onCollapse();
+  };
   return (
-    <div className="bani-fade flex min-h-0 flex-1 flex-col items-center px-6" style={{ paddingBottom: "calc(28px + env(safe-area-inset-bottom))" }}>
-      <div className="flex flex-1 flex-col items-center justify-center gap-5">
+    <div
+      className="bani-fade flex min-h-0 flex-1 flex-col items-center px-4"
+      style={{
+        paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+        transform: dy ? `translateY(${dy}px)` : undefined,
+        opacity: dy ? Math.max(0.4, 1 - dy / 400) : 1,
+        transition: dy ? "none" : "transform 200ms ease, opacity 200ms ease",
+      }}
+    >
+      <button
+        type="button"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { dragRef.current = null; setDy(0); }}
+        onClick={(e) => { if (e.detail === 0) onCollapse(); }}
+        aria-label="Show chat (voice stays on)"
+        title="Drag down or click to show chat"
+        className="flex w-full max-w-[240px] flex-col items-center gap-1 pb-2 pt-1 text-white"
+        style={{ touchAction: "none", cursor: "grab" }}
+      >
+        <span className="block h-1.5 w-11 rounded-full" style={{ background: "rgba(255,255,255,0.55)" }} />
+      </button>
+      <button
+        type="button"
+        onClick={onCollapse}
+        className="flex items-center gap-1 rounded-full px-3 py-1 text-[12px] text-white"
+        style={{ background: "rgba(255,255,255,0.14)" }}
+      >
+        <ChevronDown className="h-3.5 w-3.5" /> Show chat
+      </button>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
         <button
           type="button"
           onClick={onOrbTap}
@@ -715,46 +799,27 @@ function VoicePanel({ state, level, muted, needsTap, userWords, userWordsLive, s
         >
           <BaniOrb size={isPhone ? 120 : 140} mode={orbMode} />
         </button>
-        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 96 }}>
+        <p className="text-[13px] font-medium tracking-wide text-white" style={{ opacity: 0.75 }} role="status" aria-live="polite">
+          {voiceStatusWord(state, muted)}
+        </p>
+        <div className="w-full max-w-[520px] text-center" style={{ minHeight: 84 }}>
           {speaking && reveal ? (
             <p className="line-clamp-4 text-[17px] leading-[1.5] text-white">
               {reveal.prior ? <span>{reveal.prior} </span> : null}
               <RevealWords key={reveal.id} text={reveal.text} durationMs={reveal.durationMs} />
             </p>
+          ) : notice ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>{notice}</p>
+          ) : needsTap ? (
+            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.8 }}>Tap the orb to talk</p>
           ) : userWords ? (
             <p className="line-clamp-4 text-[17px] leading-[1.5] text-white" style={{ opacity: userWordsLive ? 0.7 : 0.85 }}>
               {userWords}
             </p>
-          ) : notice ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>{notice}</p>
-          ) : needsTap ? (
-            <p className="bani-fade text-[15px] text-white" style={{ opacity: 0.7 }}>Tap the orb to talk</p>
-          ) : null}
-          {thinking && stepLabel ? (
-            <p className="bani-fade mt-2 text-[13px] text-white" style={{ opacity: 0.6 }}>{stepLabel}</p>
           ) : null}
         </div>
       </div>
-      <div className="flex items-center gap-8">
-        <button
-          type="button"
-          aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-          onClick={onToggleMute}
-          className="flex h-14 w-14 items-center justify-center rounded-full text-white transition-opacity"
-          style={{ background: "rgba(255,255,255,0.22)", opacity: muted ? 1 : 0.9 }}
-        >
-          {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-        </button>
-        <button
-          type="button"
-          aria-label="End voice conversation"
-          onClick={onEnd}
-          className="flex h-14 w-14 items-center justify-center rounded-full text-white"
-          style={{ background: "rgba(220,80,80,0.85)" }}
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+      <div className="w-full max-w-[640px]">{footer}</div>
     </div>
   );
 }
