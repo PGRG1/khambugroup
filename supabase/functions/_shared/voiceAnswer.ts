@@ -2,7 +2,7 @@
 export function groundedVoiceAnswer(answer: string): string {
   const prose = answer.split(/\n/).filter((line) => {
     const s = line.trim();
-    return s && !s.startsWith("#") && !s.includes("|") && !s.startsWith("```") && !/^source:/i.test(s);
+    return s && !s.startsWith("#") && !s.includes("|") && !s.startsWith("```") && !/^[*_]*source:/i.test(s);
   }).map((line) => line.replace(/^\s*[-*]\s+/, "").replace(/\*\*|`/g, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")).join(" ");
   const sentences = prose.split(/(?<=[.!?])\s+/).filter(Boolean);
   let result = "";
