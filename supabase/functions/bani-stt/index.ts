@@ -86,11 +86,13 @@ Deno.serve(async (req) => {
     upstream.append("stream", "true");
     upstream.append(
       "prompt",
-      "A staff member at a Hong Kong restaurant group asking their finance assistant a question. " +
+      "A staff member at KHAMBU group, a Hong Kong restaurant group, asking their finance assistant Bani a question. " +
+        "The assistant's name is spelled Bani (not Barney, Bonnie or Bunny). " +
         "Speech may be English, Cantonese, Nepali, Hindi, Tagalog or Indonesian, possibly mixed. " +
-        "Expect venue, supplier and product names.",
+        "Expect venue, supplier and product names such as Assembly, Caliente and Hanabi.",
     );
-    if (vocab.length) upstream.append("keywords", vocab.join(", "));
+    const words = [...new Set(["Bani", "KHAMBU", "Assembly", "Caliente", "Hanabi", ...vocab])];
+    upstream.append("keywords", words.join(", "));
 
     const resp = await fetch(GATEWAY, {
       method: "POST",
