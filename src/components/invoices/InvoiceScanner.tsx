@@ -77,7 +77,7 @@ import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invo
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
-import { consumeScannerHandoff, decideHandoff } from "@/utils/scannerHandoff";
+import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -253,10 +253,9 @@ interface InvoiceScannerProps {
   
   onClose: () => void;
   userId: string;
-  /** Floating-Bani handoff: original files to scan once on mount, with an
-   *  optional server-validated venue override. Consumed by id — never rescans
-   *  on remount, and is re-armed only after a real scan failure. */
-  handoff?: { id: string; files: File[]; venue: string | null } | null;
+  /** Floating-Bani handoff: identity-scoped request, settled before intake —
+   *  never rescans on remount/rerender; failures stage files for explicit retry. */
+  handoff?: ScannerHandoff | null;
   /** Reports whether an unsaved review exists so automatic navigation never destroys it. */
   onDirtyChange?: (dirty: boolean) => void;
 }
