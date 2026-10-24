@@ -1736,7 +1736,10 @@ export default function ProcurementInvoicesTab() {
     <div className="space-y-4">
       {scannerOpen && (
         <InvoiceScanner
+          key={scannerKey}
           suppliers={suppliers}
+          handoff={pendingHandoff ? { ...pendingHandoff, venue: pendingHandoff.venue && activeVenueNames.includes(pendingHandoff.venue) ? pendingHandoff.venue : null } : null}
+          onDirtyChange={setScannerDirty}
           productMaster={productMaster}
           onProductMasterChanged={loadProductMaster}
           onSuppliersChanged={fetchAll}
