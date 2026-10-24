@@ -120,10 +120,25 @@ export default function Assistant() {
     setInput("");
   };
 
+  // Remove a trailing assistant message that never got any content (e.g. the
+  // stream was stopped during the thinking phase), so no empty bubble remains.
+  const dropEmptyTail = useCallback(
+    (convId: string) => {
+      patchActive(convId, (c) => {
+        const last = c.messages[c.messages.length - 1];
+        return last?.role === "assistant" && !last.content && !(last.charts?.length)
+          ? { ...c, messages: c.messages.slice(0, -1) }
+          : c;
+      });
+    },
+    [patchActive],
+  );
+
   const stop = () => {
     abortRef.current?.abort();
     abortRef.current = null;
     setLoading(false);
+    if (active) dropEmptyTail(active.id);
   };
 
   const send = async (text: string) => {
