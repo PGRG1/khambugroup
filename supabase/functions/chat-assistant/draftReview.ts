@@ -69,7 +69,9 @@ export async function draftReview(req: Request, raw: unknown, messages: { role: 
       const output = JSON.parse(args);
       if (typeof output.answer !== "string" || output.answer.length > 5000) throw new Error("Invalid review answer.");
       let proposal = null;
-      if (output.proposal && editable && ctx.line && ctx.lineId) {
+      // Gemini can encode nullable function parameters as an empty object/string.
+      // An explanation's empty proposal is not a correction and must not fail the answer.
+      if (output.proposal && typeof output.proposal === "object" && output.proposal.field && editable && ctx.line && ctx.lineId) {
         proposal = validateProposal({ ...output.proposal, id: crypto.randomUUID(), binding: ctx.binding, lineId: ctx.lineId }, ctx.binding, ctx.lineId, ctx.line, candidates.map(e => e.id));
         if (!proposal) throw new Error("That correction is not safe to apply. Please clarify the intended value.");
       }

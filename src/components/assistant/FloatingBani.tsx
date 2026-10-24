@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUp, X, ExternalLink } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
@@ -48,7 +49,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => { abort.current?.abort(); setBusy(false); }, [binding]);
   useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [messages, busy]);
+  useEffect(() => { const scroller = end.current?.parentElement; if (scroller) scroller.scrollTop = scroller.scrollHeight; }, [messages, busy]);
   if (!allowed || (!hosted && host)) return null;
   const module = pathname.startsWith("/procurement") ? "Procurement" : pathname.startsWith("/hr") ? "People" : pathname.startsWith("/revenue") ? "Revenue" : pathname.startsWith("/finance") ? "Finance" : "Portal";
   const send = async () => {
@@ -86,7 +87,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     } catch (e) { if (!controller.signal.aborted && liveScope.current === requestScope) setError(e instanceof Error ? e.message : "Bani could not reply."); }
     finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
   };
-  return <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
+  const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
     {open ? <section className="floating-bani-panel" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex min-w-0 items-center gap-2"><BaniLoginMark className="h-6 w-3 text-primary" /><span className="font-display font-semibold">Bani</span></div>
@@ -120,4 +121,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       </form>
     </section> : <Button className="floating-bani-launcher" size="icon" aria-label="Open Bani" title="Ask Bani" onClick={() => setOpen(true)}><BaniLoginMark className="h-7 w-4" /></Button>}
   </div>;
+  // A modal owns focus and inertness: portal into that modal, never above it.
+  // The current scanner is inline; body avoids its transformed/clipped card ancestor.
+  return hosted ? createPortal(surface, host?.node.closest('[role="dialog"]') || document.body) : surface;
 }
