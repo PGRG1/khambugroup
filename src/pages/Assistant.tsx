@@ -388,7 +388,12 @@ export default function Assistant() {
   const history = visibleConversations(conversations, activeId);
   const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
   useEffect(() => { setTopbarTarget(document.getElementById("assistant-topbar-actions")); }, []);
-  const placement = composerPlacement(messages.length);
+  // Once a recording starts, the composer docks at the bottom and stays there after
+  // Stop and edit; Cancel (or an empty new chat) restores the welcome layout.
+  const [dictationDocked, setDictationDocked] = useState(false);
+  useEffect(() => { if (dictation.active) setDictationDocked(true); }, [dictation.active]);
+  useEffect(() => { if (!dictation.active && !input.trim() && messages.length === 0) setDictationDocked(false); }, [dictation.active, input, messages.length]);
+  const placement = dictationDocked || dictation.active ? "bottom" : composerPlacement(messages.length);
   const hasText = !!input.trim();
 
   const canSendNow = canSendFn({ text: input, loading, scopeReady });
@@ -397,7 +402,7 @@ export default function Assistant() {
     <div className="relative w-full">
       {!voiceMode && dictation.active ? (
       <div className="bani-glass bani-composer bani-recorder flex items-center gap-1 rounded-[24px] px-1 py-1">
-        <button type="button" onClick={dictation.cancel} aria-label="Cancel dictation"
+        <button type="button" onClick={() => { dictation.cancel(); setDictationDocked(false); }} aria-label="Cancel dictation"
           className="bani-mic flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ color: "#3F5652" }}>
           <X className="h-[18px] w-[18px]" />
         </button>
@@ -529,7 +534,7 @@ export default function Assistant() {
     <div className={`relative flex min-h-0 w-full flex-col ${voiceMode ? "bani-voice-surface" : ""}`} style={{ height: voiceMode ? "calc(100dvh - 1rem)" : "calc(100dvh - 4rem)" }}>
       <style>{`
         .bani-glass{background:rgba(255,255,255,0.84);-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.65);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 14px 36px -12px rgba(20,45,43,0.30);}
-        .bani-composer{transition:border-color 150ms,box-shadow 150ms}.bani-recorder{min-height:54px;animation:bani-fade 180ms ease-out}
+        .bani-composer{transition:border-color 150ms,box-shadow 150ms}@keyframes bani-dock{from{opacity:.6;transform:translateY(-24px)}to{opacity:1;transform:none}}.bani-dock{animation:bani-dock 220ms ease-out}.bani-recorder{min-height:54px;animation:bani-fade 180ms ease-out}
         .bani-answer{color:#10302C;max-width:68ch;font-size:15.5px;line-height:1.6}.bani-answer .prose{font-size:15.5px;line-height:1.6;color:inherit}.bani-answer .prose p{margin:0 0 .75em}
         .bani-composer:focus-within{outline:none;border-color:rgba(255,255,255,0.95);box-shadow:inset 0 1px 0 rgba(255,255,255,0.8),0 0 0 4px rgba(255,255,255,0.18),0 14px 36px -12px rgba(20,45,43,0.30)}
         html:not(.dark) .tenant-portal .app-shell textarea.bani-ask-input,textarea.bani-ask-input{background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;outline:none !important}
@@ -558,7 +563,7 @@ export default function Assistant() {
         .bani-voice-surface .bani-user-message{background:hsl(var(--bani-voice-paper)/.65)!important;color:hsl(var(--bani-voice-ink));border:0!important;border-radius:18px!important}
         .bani-voice-answer{color:hsl(var(--bani-voice-ink));font-size:17px;padding:0;background:none;border:0;box-shadow:none}
         .bani-voice-answer .prose{font-size:17px;color:inherit}
-        @media (prefers-reduced-motion: reduce){.bani-mic-pulse,.bani-fade,.bani-dots,.bani-orb-speaking{animation:none}.bani-orb-level{transform:none !important}}
+        @media (prefers-reduced-motion: reduce){.bani-dock,.bani-recorder,.bani-mic-pulse,.bani-fade,.bani-dots,.bani-orb-speaking{animation:none}.bani-orb-level{transform:none !important}}
       `}</style>
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
@@ -628,7 +633,7 @@ export default function Assistant() {
             className="pointer-events-none absolute inset-x-0 px-4"
             style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
           >
-            <div className="pointer-events-auto mx-auto w-full max-w-[640px]">
+            <div className={`pointer-events-auto mx-auto w-full max-w-[640px] ${dictationDocked && messages.length === 0 ? "bani-dock" : ""}`}>
               {voiceMode ? (
                 <>
                   <div className="mb-6 flex justify-center">
