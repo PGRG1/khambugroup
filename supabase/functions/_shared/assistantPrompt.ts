@@ -10,7 +10,7 @@ export const MAX_MESSAGE_CHARS = 8000;
 export const MAX_TOTAL_CHARS = 60000;
 
 export type ValidationResult =
-  | { ok: true; messages: ChatMessage[]; tenantId: string | null }
+  | { ok: true; messages: ChatMessage[]; tenantId: string | null; voice: boolean; voiceLanguage: string | null }
   | { ok: false; error: string };
 
 /**
@@ -48,7 +48,12 @@ export function validateChatRequest(body: unknown): ValidationResult {
 
   const tenantRaw = (body as Record<string, unknown>).tenant_id;
   const tenantId = typeof tenantRaw === "string" && tenantRaw.trim() ? tenantRaw.trim() : null;
-  return { ok: true, messages, tenantId };
+  // Voice mode flags: optional, ignored unless explicitly set.
+  const voice = (body as Record<string, unknown>).voice === true;
+  const langRaw = (body as Record<string, unknown>).voice_language;
+  const voiceLanguage =
+    typeof langRaw === "string" && /^[a-zA-Z-]{2,35}$/.test(langRaw.trim()) ? langRaw.trim() : null;
+  return { ok: true, messages, tenantId, voice, voiceLanguage };
 }
 
 export type DateContext = {
