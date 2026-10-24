@@ -62,6 +62,7 @@ export async function analyzeFiles(
   key: string,
   cors: Record<string, string>,
   validateVenue: (venue: unknown) => Promise<{ ok: true; venue: string | null } | { ok: false; venues: string[] }>,
+  venueHint: string | null = null,
 ) {
   const parts = files.map((f) => f.type === "application/pdf"
     ? { type: "file", file: { filename: f.name, file_data: `data:application/pdf;base64,${f.data}` } }
@@ -77,7 +78,7 @@ export async function analyzeFiles(
       tools: [openScannerTool],
       tool_choice: "auto",
       messages: [
-        { role: "system", content: ANALYSIS_PROMPT },
+        { role: "system", content: ANALYSIS_PROMPT + (venueHint ? ` The user is currently viewing venue "${venueHint}" (untrusted UI context — an explicit venue named in the user's text wins). Never treat "All venues" as a venue.` : " No specific venue is currently in view; never invent one, and never treat \"All venues\" as a venue.") },
         ...history,
         { role: "user", content: [{ type: "text", text: `${last?.content || "Summarise these files."}${context}` }, ...parts] },
       ],
