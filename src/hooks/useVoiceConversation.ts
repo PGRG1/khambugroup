@@ -692,9 +692,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
     setUserWordsLive(false);
     finalTranscriptRef.current = "";
 
-    (window as any).__vdbg = { phase: "listen-enter", gen, cur: generationRef.current, t: Math.round(performance.now()) };
     getStream().then((stream) => {
-      (window as any).__vdbg = { phase: "listen-stream", gen, cur: generationRef.current, t: Math.round(performance.now()) };
       if (gen !== generationRef.current || !activeRef.current) return;
       setTrackEnabled(!mutedRef.current);
       if (micCtxRef.current?.state === "suspended") micCtxRef.current.resume().catch(() => {});
@@ -730,7 +728,6 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       const detector = createSpeechDetector();
       let startedAt = 0; // set when the recorder has actually started
       recorder.onstart = () => {
-        (window as any).__vdbg = { phase: "recorder-started", gen, t: Math.round(performance.now()) };
         startedAt = performance.now();
         startLiveWords(gen);
       };
@@ -752,7 +749,6 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
       };
 
       const tick = () => {
-        (window as any).__vdbg = { phase: "tick", gen, cur: generationRef.current, rec: recorderRef.current === recorder, state: stateRef.current, t: Math.round(performance.now()) };
         if (gen !== generationRef.current || recorderRef.current !== recorder) return; // superseded on purpose
         try {
           const now = performance.now();
