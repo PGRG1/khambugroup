@@ -1,22 +1,26 @@
-.floating-bani { --fb-ink: #EEF4EF; --fb-muted: rgba(226,236,229,.66); --fb-line: rgba(220,232,218,.14); --fb-glass: rgba(255,255,255,.06); --fb-sage: #A9C2A0;
+.floating-bani { --fb-ink: #EAF2F8; --fb-muted: rgba(214,232,242,.66); --fb-line: rgba(214,232,242,.16); --fb-glass: rgba(255,255,255,.06); --fb-accent: #6FA8C9;
+  /* Soft Ice orb palette — overrides BaniOrb green defaults inside the sphere only. */
+  --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6;
+  --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58;
   position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+#floating-bani-restore, .floating-bani-restore-fixed { --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6; --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58; }
 .floating-bani-hosted { z-index: 60; }
 .floating-bani > * { pointer-events: auto; }
 
 /* Sphere launcher: the orb itself, no button chrome. */
-.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: 0 8px 22px rgba(14,38,35,.32); }
-.floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-sage); outline-offset: 3px; }
+.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: 0 8px 22px rgba(14,32,50,.35); }
+.floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-accent); outline-offset: 3px; }
 .floating-bani-sphere { will-change: left, top, transform; transition: transform 140ms cubic-bezier(.34,1.56,.64,1); }
 .floating-bani-sphere:active { transform: scale(1.06); }
 .floating-bani-sphere.is-dragging { z-index: 2; right: auto; bottom: auto; cursor: grabbing; }
-.floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: #143430; color: var(--fb-ink); font-size: .8rem; }
-.floating-bani-target { position: fixed; left: 50%; bottom: calc(72px - 32px + env(safe-area-inset-bottom)); width: 64px; height: 64px; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; color: var(--fb-ink); background: rgba(20,40,38,.72); border: 1px solid var(--fb-line); backdrop-filter: blur(12px); pointer-events: none; transition: transform 140ms ease, box-shadow 140ms ease; }
+.floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: #1B3A55; color: var(--fb-ink); font-size: .8rem; }
+.floating-bani-target { position: fixed; left: 50%; bottom: calc(72px - 32px + env(safe-area-inset-bottom)); width: 64px; height: 64px; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; color: var(--fb-ink); background: rgba(27,52,77,.72); border: 1px solid var(--fb-line); backdrop-filter: blur(12px); pointer-events: none; transition: transform 140ms ease, box-shadow 140ms ease; }
 .floating-bani-target.is-active { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(240,180,180,.55); }
 .floating-bani-restore { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; }
 .floating-bani-restore-fixed { position: fixed; top: max(.5rem, env(safe-area-inset-top)); right: 3.5rem; }
 
-/* Dark forest glass panel — existing live dimensions retained. */
-.floating-bani-panel { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; width: min(390px, calc(100vw - 2rem)); height: min(620px, calc(100dvh - 6rem)); color: var(--fb-ink); border: 1px solid var(--fb-line); border-radius: 22px; background: linear-gradient(180deg, rgba(30,70,64,.94), rgba(16,42,38,.97)); backdrop-filter: blur(22px); box-shadow: 0 24px 60px rgba(10,30,28,.38); overflow: hidden; }
+/* Soft Ice glass panel — existing live dimensions retained. */
+.floating-bani-panel { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; width: min(390px, calc(100vw - 2rem)); height: min(620px, calc(100dvh - 6rem)); color: var(--fb-ink); border: 1px solid var(--fb-line); border-radius: 22px; background: linear-gradient(180deg, rgba(39,75,109,.94), rgba(23,44,66,.97)); backdrop-filter: blur(22px); box-shadow: 0 24px 60px rgba(10,26,40,.4); overflow: hidden; }
 .floating-bani-header { display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem .6rem; cursor: grab; touch-action: none; user-select: none; }
 .floating-bani-panel.is-mobile .floating-bani-header { cursor: default; touch-action: auto; }
 .floating-bani-title { font-family: "Space Grotesk", system-ui, sans-serif; font-weight: 600; font-size: 1.05rem; }
@@ -41,7 +45,7 @@
 .floating-bani-change-value { margin-top: .2rem; font-size: .9rem; font-family: "JetBrains Mono", monospace; overflow-wrap: anywhere; }
 .floating-bani-change-reason { margin-top: .3rem; font-size: .78rem; color: var(--fb-muted); }
 .floating-bani-apply, .floating-bani-dismiss { min-height: 34px; padding: 0 .9rem; border-radius: 999px; font-size: .82rem; cursor: pointer; }
-.floating-bani-apply { border: 0; background: var(--fb-sage); color: #143430; font-weight: 600; }
+.floating-bani-apply { border: 0; background: var(--fb-accent); color: #12314B; font-weight: 600; }
 .floating-bani-apply:disabled { opacity: .45; cursor: not-allowed; }
 .floating-bani-dismiss { border: 1px solid var(--fb-line); background: none; color: var(--fb-ink); }
 .floating-bani-typing { display: flex; gap: 6px; padding: .4rem 0; }
@@ -52,7 +56,7 @@
 
 /* Pill composer is itself the drop target. */
 .floating-bani-composer { flex-shrink: 0; margin: 0 .75rem .75rem; padding: .35rem; border-radius: 26px; background: rgba(255,255,255,.07); border: 1px solid var(--fb-line); transition: border-color 120ms ease, box-shadow 120ms ease; }
-.floating-bani-composer.is-dropping { border-color: var(--fb-sage); box-shadow: 0 0 0 2px rgba(169,194,160,.35); }
+.floating-bani-composer.is-dropping { border-color: var(--fb-accent); box-shadow: 0 0 0 2px rgba(111,168,201,.35); }
 .floating-bani-attachments { display: flex; gap: .4rem; overflow-x: auto; padding: .25rem .25rem .4rem; }
 .floating-bani-attachment { display: flex; align-items: center; gap: .4rem; max-width: 180px; padding: .3rem .35rem .3rem .4rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-size: .8rem; flex-shrink: 0; }
 .floating-bani-attachment img { width: 28px; height: 28px; object-fit: cover; border-radius: 6px; }
@@ -60,7 +64,7 @@
 .floating-bani-row { display: flex; align-items: flex-end; gap: .35rem; }
 .floating-bani-plus, .floating-bani-send { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 0; flex-shrink: 0; cursor: pointer; }
 .floating-bani-plus { background: rgba(255,255,255,.08); color: var(--fb-ink); }
-.floating-bani-send { background: var(--fb-sage); color: #143430; }
+.floating-bani-send { background: var(--fb-accent); color: #12314B; }
 .floating-bani-send:disabled, .floating-bani-plus:disabled { opacity: .4; cursor: not-allowed; }
 .floating-bani-input { flex: 1; min-width: 0; min-height: 40px; max-height: 112px; padding: .55rem .25rem; resize: none; border: 0; background: none; color: var(--fb-ink); font-size: 16px; line-height: 1.4; outline: none; field-sizing: content; }
 .floating-bani-input::placeholder { color: var(--fb-muted); }
@@ -74,7 +78,7 @@
 /* Mobile sheet: swipe the header/grab bar down to close. */
 .floating-bani-panel.is-mobile .floating-bani-header, .floating-bani-grab { touch-action: none; }
 .floating-bani-grab { display: flex; justify-content: center; padding: .45rem 0 0; cursor: grab; }
-.floating-bani-grab span { width: 38px; height: 4px; border-radius: 999px; background: rgba(226,236,229,.35); }
+.floating-bani-grab span { width: 38px; height: 4px; border-radius: 999px; background: rgba(214,232,242,.4); }
 .floating-bani-panel.is-mobile .floating-bani-header { padding-top: .8rem; }
 .floating-bani-mic { display: grid; place-items: center; width: 36px; height: 40px; border: 0; background: none; color: var(--fb-muted); border-radius: 50%; cursor: pointer; flex-shrink: 0; }
 .floating-bani-mic:hover:not(:disabled) { color: var(--fb-ink); background: var(--fb-glass); }
@@ -84,7 +88,7 @@
 .floating-bani-voice-pill { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: .35rem; background: rgba(255,255,255,.9); border-radius: 28px; padding: 4px 6px 4px 14px; }
 .floating-bani-voice-mute, .floating-bani-voice-end { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .floating-bani-voice-mute { background: rgba(255,255,255,.94); color: var(--fb-ink); }
-.floating-bani-voice-end { background: #1F3A37; color: #fff; }
+.floating-bani-voice-end { background: #1E3A55; color: #fff; }
 .floating-bani-voice-orb { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
 .floating-bani-voice-status { font-size: .85rem; font-weight: 600; color: var(--fb-ink); }
 .floating-bani-voice-words { font-size: .78rem; color: var(--fb-muted); text-align: center; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }

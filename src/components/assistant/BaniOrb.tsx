@@ -65,7 +65,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
     const apply = () => {
       const scale = 1 + level * (reduced ? 0.04 : mode === "speaking" ? 0.1 : 0.14);
       root.style.transform = `scale(${scale.toFixed(4)})`;
-      root.style.boxShadow = `0 0 ${(size * (0.3 + level * 0.35)).toFixed(1)}px ${(size * (0.05 + level * 0.08)).toFixed(1)}px rgba(220,232,218,${(0.35 + level * 0.45).toFixed(3)})`;
+      root.style.boxShadow = `0 0 ${(size * (0.3 + level * 0.35)).toFixed(1)}px ${(size * (0.05 + level * 0.08)).toFixed(1)}px rgba(var(--bani-orb-hi,220,232,218),${(0.35 + level * 0.45).toFixed(3)})`;
       mat.style.transform = `rotate(${angle.toFixed(2)}deg)`;
       root.dataset.level = level.toFixed(3);
     };
@@ -89,7 +89,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       aria-hidden="true"
       data-mode={mode}
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ${mode === "thinking" ? "bani-orb-thinking" : ""} ${className ?? ""}`}
-      style={{ width: size, height: size, boxShadow: `0 0 ${size * 0.3}px ${size * 0.05}px rgba(220,232,218,0.35)`, willChange: "transform" }}
+      style={{ width: size, height: size, boxShadow: `0 0 ${size * 0.3}px ${size * 0.05}px rgba(var(--bani-orb-hi,220,232,218),0.35)`, willChange: "transform" }}
     >
       <style>{CSS}</style>
       <span className="absolute bani-orb-swirl" style={{ inset: "-40%" }}>
@@ -97,22 +97,22 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
           ref={matRef}
           className="absolute inset-0"
           style={{
-            background: "conic-gradient(#8FAF9D, #2F5E5A, #1B3F3C, #6E928A, #DCE8DA, #4F7F78, #8FAF9D)",
+            background: "conic-gradient(var(--bani-orb-c1,#8FAF9D), var(--bani-orb-c2,#2F5E5A), var(--bani-orb-c3,#1B3F3C), var(--bani-orb-c4,#6E928A), var(--bani-orb-c5,#DCE8DA), var(--bani-orb-c6,#4F7F78), var(--bani-orb-c1,#8FAF9D))",
             filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 8)}px)`,
           }}
         />
       </span>
       <span
         className="absolute bani-orb-drift"
-        style={{ inset: "-20%", background: "radial-gradient(circle at 38% 42%, rgba(220,232,218,0.55), transparent 42%), radial-gradient(circle at 66% 68%, rgba(35,76,71,0.6), transparent 48%)", filter: "blur(8px)" }}
+        style={{ inset: "-20%", background: "radial-gradient(circle at 38% 42%, rgba(var(--bani-orb-hi,220,232,218),0.55), transparent 42%), radial-gradient(circle at 66% 68%, rgba(var(--bani-orb-deep,35,76,71),0.6), transparent 48%)", filter: "blur(8px)" }}
       />
       {/* Spherical shading: bottom shadow, top-left highlight, rim light */}
       <span
         className="absolute inset-0 rounded-full pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.55), rgba(255,255,255,0) 34%), radial-gradient(circle at 50% 120%, rgba(16,40,38,0.65), rgba(16,40,38,0) 62%)",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 -10px 24px rgba(16,40,38,0.35), inset 0 6px 18px rgba(242,247,244,0.35)",
+            "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.55), rgba(255,255,255,0) 34%), radial-gradient(circle at 50% 120%, rgba(var(--bani-orb-shadow,16,40,38),0.65), rgba(var(--bani-orb-shadow,16,40,38),0) 62%)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 -10px 24px rgba(var(--bani-orb-shadow,16,40,38),0.35), inset 0 6px 18px rgba(242,247,244,0.35)",
         }}
       />
       <span
