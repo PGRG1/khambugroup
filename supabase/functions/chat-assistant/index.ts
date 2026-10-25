@@ -8,6 +8,7 @@ import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
 import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 import { draftReview } from "./draftReview.ts";
+import { salesReview } from "./salesReview.ts";
 import { analyzeFiles, openSalesScannerTool, validateFiles } from "./floatingFiles.ts";
 
 const corsHeaders = {
@@ -1048,13 +1049,21 @@ Deno.serve(async (req) => {
       );
     }
     const tenantId = resolved.tenant_id;
-    if (body.floating === true || body.draft_review !== undefined) {
+    if (body.floating === true || body.draft_review !== undefined || body.sales_review !== undefined) {
       if (!user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
       const [{ data: access, error: accessError }, { data: permission, error: permissionError }] = await Promise.all([
         admin.from("user_access_control").select("status").eq("tenant_id", tenantId).eq("user_id", user.id).maybeSingle(),
         admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user.id).eq("page_key", "assistant").maybeSingle(),
       ]);
       if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (body.sales_review !== undefined) {
+      if (JSON.stringify(body.sales_review).length > 6000) return new Response(JSON.stringify({ error: "Receipt draft is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: rev } = await admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user!.id).eq("page_key", "revenue").maybeSingle();
+      if (rev?.can_access === false) return new Response(JSON.stringify({ error: "You don't have access to Sales Data." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: vRows } = await admin.from("venues").select("name").eq("tenant_id", tenantId).eq("is_active", true).limit(50);
+      const vNames = ((vRows ?? []) as any[]).map((v) => v.name).filter((n) => typeof n === "string" && n.trim());
+      return await salesReview(req, body.sales_review, messages, vNames, LOVABLE_API_KEY, corsHeaders);
     }
     if (body.attachments !== undefined) {
       if (body.floating !== true && body.draft_review === undefined) return new Response(JSON.stringify({ error: "Attachments are only supported in floating Bani." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

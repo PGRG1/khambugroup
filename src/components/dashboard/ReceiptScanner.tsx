@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
+import { SalesReceiptBani } from "@/components/dashboard/SalesReceiptBani";
 
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
@@ -386,6 +387,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
             )}
             <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
           </div>
+
+          <SalesReceiptBani record={extractedData} venues={activeVenueNames} onApply={(next) => setExtractedData(next)} />
 
           {venueUnmatched && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
