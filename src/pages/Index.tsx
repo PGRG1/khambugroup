@@ -200,12 +200,18 @@ const Index = () => {
 
           <RevenueTrend data={filtered} view={view} forecastDaily={forecastSummary.daily} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
-            <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
-            <DowPattern data={filtered} />
-          </div>
+          <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
 
-          <BestWorstStrip data={filtered} />
+          <details className="group">
+            <summary className="cursor-pointer list-none text-[13px] font-medium text-muted-foreground hover:text-foreground py-2 select-none">
+              <span className="group-open:hidden">Show more insights</span>
+              <span className="hidden group-open:inline">Hide insights</span>
+            </summary>
+            <div className="space-y-4 pt-2">
+              <DowPattern data={filtered} />
+              <BestWorstStrip data={filtered} />
+            </div>
+          </details>
         </>
       )}
 
