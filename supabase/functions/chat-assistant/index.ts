@@ -1063,7 +1063,7 @@ Deno.serve(async (req) => {
       if (rev?.can_access === false) return new Response(JSON.stringify({ error: "You don't have access to Sales Data." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const { data: vRows } = await admin.from("venues").select("name").eq("tenant_id", tenantId).eq("is_active", true).limit(50);
       const vNames = ((vRows ?? []) as any[]).map((v) => v.name).filter((n) => typeof n === "string" && n.trim());
-      return await salesReview(req, body.sales_review, messages, vNames, LOVABLE_API_KEY, corsHeaders);
+      return await salesReview(req, body.sales_review, messages, vNames, LOVABLE_API_KEY, corsHeaders, admin, tenantId, user!.id);
     }
     if (body.attachments !== undefined) {
       if (body.floating !== true && body.draft_review === undefined) return new Response(JSON.stringify({ error: "Attachments are only supported in floating Bani." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

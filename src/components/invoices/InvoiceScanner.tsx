@@ -75,7 +75,7 @@ import { MoreHorizontal } from "lucide-react";
 import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
-import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
+import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
 import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
@@ -352,6 +352,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { isPreviewActive: baniPreview } = usePreviewMode();
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
   const { setHost: setBaniHost } = useFloatingBaniHost();
+  const baniSay = useFloatingBaniSay();
   const [baniHostNode, setBaniHostNode] = useState<HTMLDivElement | null>(null);
   const baniHostToken = useRef(crypto.randomUUID());
   const [baniLineId, setBaniLineId] = useState<string | null>(null);
@@ -1000,6 +1001,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
+      // Grounded post-scan verdict from the scanner's own checks — never an extra model call.
+      const verdicts = parsedInvoices.map((inv, i) => {
+        const st = computeReviewStats(inv);
+        const flags = [...(inv.review_blocking || []), ...(inv.line_items || []).flatMap(l => l.review_blocking || [])];
+        const warns = [...(inv.review_warnings || []), ...(inv.line_items || []).flatMap(l => l.review_warnings || [])];
+        const name = `${parsedInvoices.length > 1 ? `Invoice ${i + 1}` : "This invoice"}${inv.supplier_name ? ` from ${inv.supplier_name}` : ""}`;
+        if (!flags.length && !warns.length) return `${name} looks good — ${st.totalLines} line${st.totalLines === 1 ? "" : "s"}, ${st.matched} matched to Items Master${st.newItems ? `, ${st.newItems} new item${st.newItems === 1 ? "" : "s"}` : ""}. Check it over and save when ready.`;
+        const list = [...flags.map(f => `${f} (must fix)`), ...warns].slice(0, 6);
+        return `${name} needs a look:\n- ${list.join("\n- ")}${flags.length + warns.length > 6 ? `\n- …and ${flags.length + warns.length - 6} more` : ""}`;
+      });
+      baniSay(`${verdicts.join("\n\n")}\n\nTap a line and tell me what's right if anything needs fixing.`);
       return true;
     } catch (err: any) {
       setInvoices([]);
@@ -1027,7 +1039,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId, baniSay]);
 
   // Floating-Bani handoff: validated scope, settled before scanning, never
   // automatic on rerender/remount. Dirty work is protected by the parent's
@@ -2349,8 +2361,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       data-testid="scanner-shell"
       ref={setBaniHostNode}
       className={cn(
-        "card-glass flex flex-col overflow-hidden rounded-lg p-3 animate-fade-in",
-        isReview ? "h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
+        // Phones: the whole review scrolls as one page so header, preview and lines
+        // all stay reachable. Desktop keeps the fixed-height split with inner scrolls.
+        "card-glass flex flex-col overflow-y-auto lg:overflow-hidden rounded-lg p-3 animate-fade-in",
+        isReview ? "max-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
       )}
     >
       <div className="mb-2 flex shrink-0 items-center justify-between">
@@ -2465,7 +2479,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           <div className="grid min-h-0 min-w-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)]">
 
             <SourceDocumentViewer files={current.sourceFiles || []} />
-            <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
+            <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-hidden">
           {/* Content-sized review header above the independently scrolling line items */}
           <div data-testid="review-fields-scroll" className="min-h-0 shrink-0 space-y-2 lg:overflow-visible">
 
@@ -2701,7 +2715,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
           {/* Line items: own bounded scroll viewport (both axes in one container) */}
-          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto lg:min-h-[240px]">
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 max-lg:max-h-[65dvh] max-lg:min-h-[200px] max-lg:shrink-0 lg:flex-1 lg:min-h-[240px] overflow-auto">
 
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead className="sticky top-0 z-20 bg-card">

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import type { Point } from "@/utils/floatingBaniUi";
 import type { SalesRecord } from "@/types/sales";
@@ -43,3 +43,13 @@ export const useFloatingBaniHost = () => { const s = useContext(Context); return
 export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
 /** Scan Receipt registers its live unsaved draft so the floating sphere can fix it. */
 export const useFloatingBaniSales = () => useContext(Context)?.sales[1] ?? noop;
+/** Scanners post a grounded post-scan verdict into the shared Bani conversation and open it. */
+export const useFloatingBaniSay = () => {
+  const s = useContext(Context);
+  const setMessages = s?.messages[1], setOpen = s?.open[1], setHidden = s?.hidden[1];
+  return useCallback((content: string) => {
+    if (!setMessages) return;
+    setMessages(prev => [...prev, { role: "assistant", content }]);
+    setHidden?.(false); setOpen?.(true);
+  }, [setMessages, setOpen, setHidden]);
+};
