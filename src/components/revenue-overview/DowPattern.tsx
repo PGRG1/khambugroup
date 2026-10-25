@@ -23,9 +23,9 @@ export function DowPattern({ data }: Props) {
   const top = stats.reduce((a, b) => (b.avg > a.avg ? b : a), stats[0]);
 
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-4">
+    <div className="card-glass rounded-xl border border-border/60 p-4 h-full flex flex-col">
       <div className="text-[13px] font-medium mb-3">Day-of-Week Pattern</div>
-      <div className="space-y-2">
+      <div className="flex-1 flex flex-col justify-around gap-2">
         {stats.map((s) => {
           const isTop = s.day === top.day && s.avg > 0;
           const w = (s.avg / max) * 100;

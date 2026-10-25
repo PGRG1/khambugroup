@@ -154,11 +154,11 @@ const Index = () => {
         </div>
       ) : (
         <>
-          <HeroBand cur={cur} prev={prev} sparkline90={sparkline90} forecast={forecastSummary} />
+          <HeroBand cur={cur} prev={prev} sparkline90={sparkline90} forecast={forecastSummary}>
+            <BestWorstStrip data={filtered} />
+          </HeroBand>
 
-          <BestWorstStrip data={filtered} />
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
             <div className="min-w-0">
               <RevenueTrend data={filtered} view="daily" forecastDaily={forecastSummary.daily} />
             </div>

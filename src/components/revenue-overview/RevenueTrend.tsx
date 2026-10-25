@@ -106,7 +106,7 @@ export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
   };
 
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-4">
+    <div className="card-glass rounded-xl border border-border/60 p-4 h-full">
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <div>
           <div className="text-[13px] font-medium">Revenue Trend</div>

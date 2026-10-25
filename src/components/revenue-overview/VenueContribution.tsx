@@ -29,7 +29,7 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
     return (
       <div className="glass-surface rounded-xl border border-border/60 p-4">
         <div className="text-[13px] font-medium mb-3">Venue Contribution</div>
-        <div className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((r) => {
             const share = (r.revenue / total) * 100;
             const bar = (r.revenue / max) * 100;
