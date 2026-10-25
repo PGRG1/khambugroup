@@ -205,7 +205,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     } finally {
       setScanning(false);
     }
-  }, [activeVenueNames, venuesLoading]);
+  }, [activeVenueNames, venuesLoading, baniSay]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
