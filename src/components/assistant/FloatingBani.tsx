@@ -408,7 +408,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani Finance Team</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <button type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </header>
-        {voiceMode && <div className="floating-bani-voice">
+        {voiceMode && <div className={`floating-bani-voice ${messages.length ? "" : "is-alone"}`}>
           <button type="button" className="floating-bani-voice-orb" onClick={voice.interrupt}
             aria-label={voice.needsTap ? "Resume voice" : voice.state === "listening" ? "Send voice recording" : "Interrupt and talk"}>
             <BaniOrb size={112} mode={voice.state === "listening" ? "listening" : voice.state === "speaking" ? "speaking" : voice.state === "idle" ? "idle" : "thinking"} getLevel={voice.getLevel} />
@@ -463,12 +463,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <span className="truncate">{f.name}</span>
             <button type="button" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3.5 w-3.5" /></button>
           </div>)}</div>}
-          {voiceMode ? <div className="floating-bani-row">
-            <button type="button" className="floating-bani-plus" aria-label={voice.muted ? "Unmute microphone" : "Mute microphone"} aria-pressed={voice.muted} onClick={voice.toggleMute}>{voice.muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}</button>
-            <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Type to Bani during voice" className="floating-bani-input"
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (draft.trim() && voice.sendTyped(draft)) setDraft(""); } }} />
-            {draft.trim() && <button type="button" className="floating-bani-send" aria-label="Send to Bani" disabled={voice.state === "thinking" || voice.state === "transcribing"} onClick={() => { if (voice.sendTyped(draft)) setDraft(""); }}><ArrowUp className="h-5 w-5" /></button>}
-            <button type="button" className="floating-bani-plus" aria-label="End voice conversation" onClick={exitVoice}><X className="h-5 w-5" /></button>
+          {voiceMode ? <div className="floating-bani-voice-row">
+            <div className="floating-bani-voice-pill">
+              <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Type to Bani during voice" className="floating-bani-input"
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (draft.trim() && voice.sendTyped(draft)) setDraft(""); } }} />
+              {draft.trim() && <button type="button" className="floating-bani-send" aria-label="Send to Bani" disabled={voice.state === "thinking" || voice.state === "transcribing"} onClick={() => { if (voice.sendTyped(draft)) setDraft(""); }}><ArrowUp className="h-5 w-5" /></button>}
+            </div>
+            <button type="button" className="floating-bani-voice-mute" aria-label={voice.muted ? "Unmute microphone" : "Mute microphone"} aria-pressed={voice.muted} onClick={voice.toggleMute}>{voice.muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}</button>
+            <button type="button" className="floating-bani-voice-end" aria-label="End voice conversation" onClick={exitVoice}><X className="h-[18px] w-[18px]" /></button>
           </div> : dictation.active ? <div className="floating-bani-row">
             <button type="button" className="floating-bani-plus" aria-label="Cancel dictation" onClick={() => dictation.cancel()}><X className="h-5 w-5" /></button>
             <div className="flex min-h-[40px] flex-1 items-center px-1">
