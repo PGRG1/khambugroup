@@ -14,6 +14,8 @@ import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { classifySalesFile } from "@/utils/salesFileIntake";
 import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
+import { collectScanLearning, diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -79,6 +81,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const { tenantId } = useActiveTenant();
+  /** The reader's untouched output, compared on save so corrections are learned silently. */
+  const scannedRef = useRef<SalesRecord | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -141,7 +147,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       }
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: guessMimeType(file), venues: activeVenueNames },
+        body: { imageBase64: base64, mimeType: guessMimeType(file), venues: activeVenueNames, tenantId },
       });
 
       if (error) {
@@ -195,6 +201,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
         cardTips: -(Math.abs(Number(raw.cardTips) || 0)),
       };
 
+      scannedRef.current = record;
+      setShowDetails(false);
       setExtractedData(record);
       const verdict = auditSalesRecord(record, activeVenueNames);
       baniSay(verdict.message);
@@ -205,7 +213,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     } finally {
       setScanning(false);
     }
-  }, [activeVenueNames, venuesLoading, baniSay]);
+  }, [activeVenueNames, venuesLoading, baniSay, tenantId]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
@@ -286,6 +294,11 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     : false;
 
   const venueUnmatched = !!extractedData && !activeVenueNames.includes(extractedData.venue);
+  const diagnosis = extractedData ? diagnoseSalesScan(extractedData) : null;
+  const flagged = new Set<string>(diagnosis?.fields ?? []);
+  const ready = !!extractedData && !!diagnosis?.balanced && !venueUnmatched && !!extractedData.date;
+  const compact = ready && !showDetails;
+  const flagCls = (f: string) => (flagged.has(f) ? " ring-2 ring-warning/60 border-warning/60" : "");
 
   const handleSave = async () => {
     if (!extractedData) return;
@@ -300,6 +313,14 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     setSaving(true);
     try {
       await onSave(extractedData, originalFile);
+      // Learn from corrections in the background — never blocks or prompts.
+      const learning = scannedRef.current ? collectScanLearning(scannedRef.current, extractedData, scannedVenueRaw) : null;
+      if (learning) {
+        void supabase.functions.invoke("parse-receipt", {
+          body: { op: "learn", tenantId, venues: activeVenueNames, ...learning },
+        }).catch(() => undefined);
+      }
+      scannedRef.current = null;
       toast({ title: "Record saved successfully!", description: originalFile ? "Receipt file attached." : undefined });
       setExtractedData(null);
       setPreviewUrl(null);
@@ -395,9 +416,39 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
             {previewUrl && (
               <img src={previewUrl} alt="Receipt" className="h-20 w-auto rounded-lg border border-border object-cover" />
             )}
-            <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
+            <p className="text-sm text-muted-foreground">
+              {compact ? "Everything on this slip balances." : "Check the highlighted lines against the slip, then save."}
+            </p>
           </div>
 
+          {compact && extractedData && (
+            <div className="rounded-xl border border-success/40 bg-success/5 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-success">
+                <Check className="h-4 w-4" /> All payments balance with Total Sales
+              </div>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">{extractedData.venue}</span>
+                <span className="text-muted-foreground"> · {extractedData.date ? format(parseISO(extractedData.date), "EEE dd MMM yyyy") : ""}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><div className="text-xs text-muted-foreground">Total Sales</div><div className="td-num text-base font-semibold">{hkd(extractedData.totalSales)}</div></div>
+                <div><div className="text-xs text-muted-foreground">Guests</div><div className="td-num text-base font-semibold">{extractedData.guests.toLocaleString("en-US")}</div></div>
+                <div><div className="text-xs text-muted-foreground">Avg spend</div><div className="td-num text-base font-semibold">{extractedData.guests ? hkd(extractedData.totalSales / extractedData.guests) : "—"}</div></div>
+              </div>
+              <button type="button" onClick={() => setShowDetails(true)} className="text-xs text-primary hover:underline">
+                See all lines
+              </button>
+            </div>
+          )}
+
+          {!compact && diagnosis && !diagnosis.balanced && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+              <span className="text-foreground">{diagnosis.message}</span>
+            </div>
+          )}
+
+          {!compact && (<>
           {venueUnmatched && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
               <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
@@ -421,7 +472,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                 type="date"
                 value={extractedData.date}
                 onChange={(e) => handleFieldChange("date", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("date")}
               />
             </div>
             <div>
@@ -430,7 +481,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                 type="text"
                 value={extractedData.day}
                 onChange={(e) => handleFieldChange("day", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("day")}
               />
             </div>
             <div>
@@ -454,7 +505,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                 type="text"
                 value={extractedData.reportNumber}
                 onChange={(e) => handleFieldChange("reportNumber", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("reportNumber")}
               />
             </div>
             <div>
@@ -463,7 +514,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                 type="number"
                 value={extractedData.orders || ""}
                 onChange={(e) => handleFieldChange("orders", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("orders")}
               />
             </div>
             <div>
@@ -472,39 +523,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                 type="number"
                 value={extractedData.guests || ""}
                 onChange={(e) => handleFieldChange("guests", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("guests")}
               />
             </div>
           </div>
-
-          {/* Validation warnings */}
-          {(totalSalesMismatch || paymentMismatch) && (
-            <div className="space-y-2">
-              {totalSalesMismatch && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
-                  <span className="text-destructive font-semibold shrink-0">⚠</span>
-                  <div>
-                    <span className="font-medium text-destructive">Total Sales mismatch:</span>{" "}
-                    <span className="text-foreground">
-                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) − Discount ({Math.abs(extractedData!.discount).toFixed(2)}) ={" "}
-                      <strong>{calcTotalSales.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
-                    </span>
-                  </div>
-                </div>
-              )}
-              {paymentMismatch && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
-                  <span className="text-destructive font-semibold shrink-0">⚠</span>
-                  <div>
-                    <span className="font-medium text-destructive">Payment total mismatch:</span>{" "}
-                    <span className="text-foreground">
-                      Sum of payments + card tips ({Math.abs(extractedData!.cardTips).toFixed(2)} deducted) = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Revenue section */}
           <div className="rounded-lg border border-border bg-background/40 p-4">
@@ -521,7 +543,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                   type="number"
                   value={extractedData.subtotal || ""}
                   onChange={(e) => handleFieldChange("subtotal", e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("subtotal")}
                 />
               </div>
               <div>
@@ -530,7 +552,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                   type="number"
                   value={extractedData.serviceCharge || ""}
                   onChange={(e) => handleFieldChange("serviceCharge", e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("serviceCharge")}
                 />
               </div>
               <div>
@@ -570,7 +592,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                     type="number"
                     value={extractedData[field] || ""}
                     onChange={(e) => handleFieldChange(field, e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls(field)}
                   />
                 </div>
               ))}
@@ -580,11 +602,13 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
                   type="number"
                   value={extractedData.cardTips ? Math.abs(extractedData.cardTips) : ""}
                   onChange={(e) => handleFieldChange("cardTips", e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                  className={"w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30" + flagCls("cardTips")}
                 />
               </div>
             </div>
           </div>
+
+          </>)}
 
           <div className="flex items-center gap-3 pt-2">
             <button
@@ -594,10 +618,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
               title={venueUnmatched ? "Select a venue from the master list first" : undefined}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {saving ? "Saving..." : venueUnmatched ? "Select venue to save" : "Save Record"}
+              {saving ? "Saving..." : venueUnmatched ? "Select venue to save" : ready ? "Confirm & Save" : "Save Record"}
             </button>
             <button
-              onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); }}
+              onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); scannedRef.current = null; }}
               className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
             >
               Scan Another
