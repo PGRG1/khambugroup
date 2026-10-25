@@ -478,7 +478,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div> : dictation.active ? <div className="floating-bani-row">
             <button type="button" className="floating-bani-plus" aria-label="Cancel dictation" onClick={() => dictation.cancel()}><X className="h-5 w-5" /></button>
             <div className="flex min-h-[40px] flex-1 items-center px-1">
-              {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="#A9C2A0" className="h-7 w-full" />}
+              {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="#6FA8C9" className="h-7 w-full" />}
             </div>
             <button type="button" className="floating-bani-send" aria-label="Finish dictation" disabled={dictation.state !== "recording"} onClick={async () => { const t = await dictation.confirm(); if (t) setDraft(d => joinDraft(d, t)); input.current?.focus(); }}><Check className="h-5 w-5" /></button>
           </div> : <div className="floating-bani-row">
