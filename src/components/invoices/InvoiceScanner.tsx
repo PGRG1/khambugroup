@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { computeAcceptedAmount, amountsEqual } from "@/utils/invoiceAcceptedAmount";
 import { isReturnedKegLine, getMatchIdentity, resolveReturnedKegEntry } from "@/utils/returnedKegs";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
+import { buildBaniSuggestions, rawOptionsOf, BANI_FULL_CATALOGUE_LIMIT, BANI_MAX_OPTIONS } from "@/utils/baniLineSuggestions";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
@@ -1433,8 +1435,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [aiMatchingAll, setAiMatchingAll] = useState(false);
   const [bulkQuickAddOpen, setBulkQuickAddOpen] = useState(false);
 
+  /** Save the invoice's own code (or wording) onto the supplier's Items Master entry so it matches next time. */
+  const rememberInvoiceWording = async (entry: ProductMasterEntry, code: string, wording: string) => {
+    if (!entry.supplier_entry_id || !tenantId) return;
+    const patch = code ? { external_sku: code } : { supplier_product_name: wording };
+    const { error } = await supabase.from("product_suppliers" as any).update(patch as any).eq("id", entry.supplier_entry_id).eq("tenant_id", tenantId);
+    if (error) { toast({ title: "Couldn't update Items Master", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Items Master updated", description: code ? `Code ${code} will match ${entry.internal_product_name} next time.` : `"${wording}" will match ${entry.internal_product_name} next time.` });
+    onProductMasterChanged?.();
+  };
+
   const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
-    selectProduct(i, candidate.entry as ProductMasterEntry);
+    const line = current?.line_items[i];
+    const entry = candidate.entry as ProductMasterEntry;
+    selectProduct(i, entry);
+    if (!line || !isEntryForActiveSupplier(entry)) return;
+    const code = String(line.scanned_item_code || line.item_code || "").trim();
+    const wording = String(line.scanned_description || line.description || "").trim();
+    const differs = code ? normalizeText(code) !== normalizeText(entry.external_sku || "") : !!wording && normalizeText(wording) !== normalizeText(entry.supplier_product_name || "");
+    if (!differs || !baniEditable) return;
+    toast({
+      title: `Linked to ${entry.internal_product_name || entry.supplier_product_name}`,
+      description: code ? `Save invoice code ${code} to this item so it matches automatically next time?` : `Save the invoice wording to this item so it matches automatically next time?`,
+      action: <ToastAction altText="Save to Items Master" onClick={() => void rememberInvoiceWording(entry, code, wording)}>Save to master</ToastAction>,
+    });
   };
 
   /** Open the existing product search on a line without touching any extracted field. */
@@ -1479,29 +1503,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   /** Ask the AI to match the given line indexes against a shortlist of candidates. */
-  const askAiToMatch = useCallback(async (indexes: number[]) => {
+  const askAiToMatch = useCallback(async (indexes: number[], silent = false) => {
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
     // supplier_id is mandatory; scope by the canonical supplier record's name,
     // never the raw OCR supplier_name.
     const scope = resolveAiMatchScope(allSuppliers, inv, productMaster);
     if (scope.status === "no_supplier") {
-      toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
+      if (!silent) toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
       return;
     }
     if (scope.status === "no_products") {
-      toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
+      if (!silent) toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
       return;
     }
     const supplierName = scope.supplierName;
     // Strict supplier scope — the AI may only ever pick this supplier's entries.
     const scopedPM = scope.scopedPM;
 
-    // Shortlist candidates per line, then merge into one candidate pool.
+    // Small supplier catalogues go to Bani whole so abbreviations ("PS RIB",
+    // "HEIN BTL 24S") can be reasoned about; large ones get a per-line shortlist.
     const pool = new Map<string, ProductMasterEntry>();
+    const fullCatalogue = scopedPM.length <= BANI_FULL_CATALOGUE_LIMIT;
+    if (fullCatalogue) scopedPM.forEach((p) => pool.set(p.internal_sku + "|" + (p.supplier_entry_id || p.id), p as ProductMasterEntry));
     const items = indexes.map((idx) => {
       const l = inv.line_items[idx];
-      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
+      if (!fullCatalogue) scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
         .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
       return {
         source_index: idx,
@@ -1509,6 +1536,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         item_code: l.scanned_item_code || l.item_code,
         pack_size: l.pack_size,
         unit: l.unit,
+        quantity: l.quantity,
         unit_price: l.unit_price,
         supplier_name: supplierName,
       };
@@ -1523,9 +1551,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       supplier: p.supplier,
       pack_size_norm: p.purchase_unit,
       unit_norm: p.stock_uom,
+      stock_qty: p.stock_qty,
+      last_unit_cost: p.purchase_unit_cost,
     }));
     if (candidates.length === 0) {
-      toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
+      if (!silent) toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
       return;
     }
 
@@ -1548,49 +1578,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const copy = [...prev];
         const lines = [...copy[currentIdx].line_items];
         let hits = 0;
-        let rejected = 0;
         results.forEach((r, batchIdx) => {
           if (!r) return;
           const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
           if (lineIdx == null || !lines[lineIdx]) return;
-          const s = r.suggestion || {};
-          const entry =
-            scopedPM.find((p) => p.id === s.product_master_id) ||
-            scopedPM.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
-          if (!entry) return;
-
-          // Re-score the AI's answer locally against the scanned text. If it can't
-          // clear the same bar a local match must clear, discard it.
           const line = lines[lineIdx];
-          const scannedText = (line as any).scanned_description || line.description || "";
-          const [rescored] = scoreCandidates(
-            { description: scannedText, itemCode: (line as any).scanned_item_code || line.item_code },
-            [entry as any],
-            supplierName,
-            1,
-          );
-          if (!rescored || !isSuggestable(rescored)) { rejected++; return; }
-
-          const aiConfidence = Number(r.confidence ?? s.confidence ?? 0);
+          if (!line.unmatched) return; // user already picked meanwhile
+          const raw = rawOptionsOf(r.suggestion).map((o) => ({ ...o, confidence: o.confidence ?? r.confidence }));
+          const bani = buildBaniSuggestions(raw, scopedPM as any, {
+            description: (line as any).scanned_description || line.description || "",
+            itemCode: (line as any).scanned_item_code || line.item_code,
+          }, supplierName);
+          if (!bani.length) return;
           hits++;
+          const keys = new Set(bani.map((c) => c.entry.supplier_entry_id || c.entry.id));
+          const local = (line.suggestions || []).filter((c) => !keys.has(c.entry.supplier_entry_id || c.entry.id));
           lines[lineIdx] = {
             ...line,
-            suggestions: [{
-              ...rescored,
-              score: Math.min(rescored.score, aiConfidence > 0 ? Math.max(aiConfidence, rescored.rawNameScore) : rescored.score),
-              reasons: [s.needs_review_reason || "AI match", ...rescored.reasons],
-              blockingReasons: rescored.blockingReasons,
-            }],
+            suggestions: [...bani, ...local].slice(0, BANI_MAX_OPTIONS),
             suggestion_source: "ai",
           };
         });
-        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines — they were left unmatched." });
-        else if (rejected > 0) toast({ title: `${hits} matched`, description: `${rejected} AI answer${rejected === 1 ? "" : "s"} didn't resemble the scanned line and ${rejected === 1 ? "was" : "were"} left unmatched.` });
+        if (hits === 0 && !silent) toast({ title: "No likely items found", description: "Bani couldn't find a likely Items Master item. Pick one manually or add it as a new item." });
         copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
         return copy;
       });
     } catch (e: any) {
       const msg = e?.message || String(e);
+      if (silent) return;
       if (msg.includes("rate_limited")) toast({ title: "AI busy", description: "Rate limit reached, try again shortly.", variant: "destructive" });
       else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
       else toast({ title: "AI error", description: msg, variant: "destructive" });
@@ -1602,7 +1617,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     try { await askAiToMatch([i]); } finally { setAiMatchingIdx(null); }
   };
 
-  const resolveAllWithAi = async () => {
+  const resolveAllWithAi = async (silent = false) => {
     const inv = invoices[currentIdx];
     if (!inv) return;
     const idxs = inv.line_items
@@ -1611,8 +1626,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       .map(({ i }) => i);
     if (idxs.length === 0) return;
     setAiMatchingAll(true);
-    try { await askAiToMatch(idxs); } finally { setAiMatchingAll(false); }
+    try { await askAiToMatch(idxs, silent); } finally { setAiMatchingAll(false); }
   };
+
+  // After a scan, Bani looks for likely items for unmatched lines automatically
+  // (once per draft + supplier). Nothing is linked until the user picks.
+  const autoSuggestedRef = useRef(new Set<string>());
+  const currentDraftKey = current?._baniDraftId && current?.supplier_id ? `${current._baniDraftId}|${current.supplier_id}` : "";
+  const currentHasUnmatched = !!current?.line_items.some((l) => l.unmatched && (l.description || "").trim());
+  useEffect(() => {
+    if (!currentDraftKey || !currentHasUnmatched || !productMaster?.length || aiMatchingAll) return;
+    if (autoSuggestedRef.current.has(currentDraftKey)) return;
+    autoSuggestedRef.current.add(currentDraftKey);
+    void resolveAllWithAi(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDraftKey, currentHasUnmatched, productMaster?.length]);
 
 
   // Editable Accepted Price (Items Master baseline)
@@ -2675,7 +2703,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </button>
             {hasUnmatchedItems && (
               <>
-                <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                <Button size="sm" variant="outline" onClick={() => resolveAllWithAi()} disabled={aiMatchingAll}>
                   {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5" />}
                   <span>Resolve {unmatchedItems.length} unmatched with AI</span>
                 </Button>
