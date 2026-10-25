@@ -355,6 +355,15 @@ export default function Assistant() {
   // Expanded/collapsed is view-only: the hook (mic stream, playback, mute) keeps running.
   const [voiceExpanded, setVoiceExpanded] = useState(true);
   const enterVoice = () => { dictation.cancel(); voice.start(); setVoiceExpanded(true); setVoiceMode(true); };
+  // Floating Bani's voice button opens this page with ?voice=1 (navigation keeps the tap's user activation).
+  const voiceHandoff = useRef(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("voice") === "1");
+  useEffect(() => {
+    if (!voiceHandoff.current || !scopeReady) return;
+    voiceHandoff.current = false;
+    window.history.replaceState(null, "", window.location.pathname);
+    enterVoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeReady]);
   const cancelVoice = () => { voice.end(); stop(); setVoiceMode(false); };
   // Esc collapses the expanded view; only ✕ ends voice.
   useEffect(() => {
