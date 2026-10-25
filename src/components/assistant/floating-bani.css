@@ -6,8 +6,9 @@
 /* Sphere launcher: the orb itself, no button chrome. */
 .floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: 0 8px 22px rgba(14,38,35,.32); }
 .floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-sage); outline-offset: 3px; }
-.floating-bani-sphere.is-dragging { z-index: 2; right: auto; bottom: auto; transform: scale(1.08); cursor: grabbing; transition: transform 120ms ease; }
-.floating-bani-sphere.is-over { transform: scale(.92); }
+.floating-bani-sphere { will-change: left, top, transform; transition: transform 140ms cubic-bezier(.34,1.56,.64,1); }
+.floating-bani-sphere:active { transform: scale(1.06); }
+.floating-bani-sphere.is-dragging { z-index: 2; right: auto; bottom: auto; cursor: grabbing; }
 .floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: #143430; color: var(--fb-ink); font-size: .8rem; }
 .floating-bani-target { position: fixed; left: 50%; bottom: calc(72px - 32px + env(safe-area-inset-bottom)); width: 64px; height: 64px; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; color: var(--fb-ink); background: rgba(20,40,38,.72); border: 1px solid var(--fb-line); backdrop-filter: blur(12px); pointer-events: none; transition: transform 140ms ease, box-shadow 140ms ease; }
 .floating-bani-target.is-active { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(240,180,180,.55); }
