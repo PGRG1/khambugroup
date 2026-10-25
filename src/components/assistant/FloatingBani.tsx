@@ -395,29 +395,21 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
 
   const sphereStyle = drag ? { left: drag.x, top: drag.y } : sphere ? { left: sphere.x, top: sphere.y } : undefined;
-  const panelStyle = isMobile ? { maxHeight: vv.h - 16, bottom: `max(.75rem, calc(${Math.max(0, window.innerHeight - vv.h - vv.top)}px + .5rem))` } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined;
+  const mobileH = Math.min(540, vv.h - 16);
+  // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
+  const panelStyle = isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined;
   const restore = <button type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></button>;
   const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
     {hidden ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : open ? (
       <section ref={panelEl} className={`floating-bani-panel ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
-        {isMobile && <div className="floating-bani-grab" aria-hidden="true" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}><span /></div>}
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
           <BaniOrb size={36} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani Finance Team</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <button type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </header>
-        {voiceMode && <div className={`floating-bani-voice ${messages.length ? "" : "is-alone"}`}>
-          <button type="button" className="floating-bani-voice-orb" onClick={voice.interrupt}
-            aria-label={voice.needsTap ? "Resume voice" : voice.state === "listening" ? "Send voice recording" : "Interrupt and talk"}>
-            <BaniOrb size={112} mode={voice.state === "listening" ? "listening" : voice.state === "speaking" ? "speaking" : voice.state === "idle" ? "idle" : "thinking"} getLevel={voice.getLevel} />
-          </button>
-          <p className="floating-bani-voice-status" role="status">{voice.needsTap ? "Tap the orb to resume audio" : voice.muted && voice.state === "listening" ? "Mic muted" : voiceLabel[voice.state] ?? ""}</p>
-          {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
-          {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
-        </div>}
-        <div className="floating-bani-transcript" aria-live="polite">
+        <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {messages.map((message, index) => <div key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
@@ -457,6 +449,15 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
         </div>
+        {voiceMode && <div className="floating-bani-voice">
+          <button type="button" className="floating-bani-voice-orb" onClick={voice.interrupt}
+            aria-label={voice.needsTap ? "Resume voice" : voice.state === "listening" ? "Send voice recording" : "Interrupt and talk"}>
+            <BaniOrb size={52} mode={voice.state === "listening" ? "listening" : voice.state === "speaking" ? "speaking" : voice.state === "idle" ? "idle" : "thinking"} getLevel={voice.getLevel} />
+          </button>
+          <p className="floating-bani-voice-status" role="status">{voice.needsTap ? "Tap the orb to resume audio" : voice.muted && voice.state === "listening" ? "Mic muted" : voiceLabel[voice.state] ?? ""}</p>
+          {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
+          {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
+        </div>}
         <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => <div key={f.id} className="floating-bani-attachment">
             {f.url ? <img src={f.url} alt="" /> : <FileText className="h-5 w-5" />}
