@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { SalesReceiptBani } from "@/components/dashboard/SalesReceiptBani";
+import { useFloatingBaniSales } from "@/components/assistant/FloatingBaniContext";
 
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +67,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
+  // Fixes happen in the floating Bani sphere: share the live unsaved draft with it.
+  const setBaniSales = useFloatingBaniSales();
+  useEffect(() => {
+    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData } : null);
+  }, [extractedData, activeVenueNames, setBaniSales]);
+  useEffect(() => () => setBaniSales(null), [setBaniSales]);
   const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -387,8 +393,6 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
             )}
             <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
           </div>
-
-          <SalesReceiptBani record={extractedData} venues={activeVenueNames} onApply={(next) => setExtractedData(next)} />
 
           {venueUnmatched && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
