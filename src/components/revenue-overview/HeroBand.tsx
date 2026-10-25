@@ -66,14 +66,18 @@ function ForecastBlock({ forecast }: { forecast?: ForecastOverviewSummary }) {
   );
 }
 
-export function HeroBand({ cur, prev, sparkline90, forecast }: Props) {
+export function HeroBand({ cur, prev, sparkline90, forecast, children }: Props & { children?: React.ReactNode }) {
   const avgPerDay = cur.days ? cur.revenue / cur.days : 0;
   const delta = prev && prev.days ? pctDelta(cur.revenue, prev.revenue) : null;
 
-  const sparkData = sparkline90.map((p) => ({ v: p.revenue }));
+  // 7-day rolling average keeps the 90-day line calm instead of jagged
+  const smoothed = sparkline90.map((_, i) => {
+    const win = sparkline90.slice(Math.max(0, i - 6), i + 1);
+    return { v: win.reduce((s, p) => s + p.revenue, 0) / win.length };
+  });
 
   return (
-    <div className="glass-surface rounded-xl border border-border/60 px-5 py-6 sm:py-7">
+    <div className="glass-surface rounded-xl border border-border/60 px-5 py-6">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr] lg:gap-0">
         {/* Left: Net revenue */}
         <div className="lg:pr-6">
@@ -92,7 +96,7 @@ export function HeroBand({ cur, prev, sparkline90, forecast }: Props) {
         {/* Middle: New Targets forecast */}
         <ForecastBlock forecast={forecast} />
 
-        {/* Right: 90-day sparkline */}
+        {/* Right: 90-day trend */}
         <div className="lg:pl-6 lg:border-l lg:border-border/50">
           <div className="flex items-center justify-between">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Last 90 Days</div>
@@ -101,10 +105,11 @@ export function HeroBand({ cur, prev, sparkline90, forecast }: Props) {
             </div>
           </div>
           <div className="mt-2 -mx-1">
-            <Sparkline data={sparkData} fill height={72} dotLast />
+            <Sparkline data={smoothed} fill height={56} dotLast />
           </div>
         </div>
       </div>
+      {children}
     </div>
   );
 }
