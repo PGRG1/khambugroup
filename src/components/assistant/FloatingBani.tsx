@@ -125,6 +125,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     return () => { v?.removeEventListener("resize", update); v?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, [setSphere, setPanelPos]);
 
+  const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
   if (!allowed || (!hosted && host)) return null;
   const module = moduleLabel(pathname);
   const context = review?.label || (salesDraft ? "Scan Receipt · unsaved draft" : null) || (page && page.path === pathname ? `${module} · ${page.detail}` : module);
@@ -322,7 +323,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     resetGesture();
   };
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
-  const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
