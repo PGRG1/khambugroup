@@ -61,11 +61,16 @@ Return output_action: { "supplier_id": uuid|null, "supplier_name": string, "alia
 - alias_to_learn = the raw name string, only if it differs from the matched supplier's canonical name.`,
 
   line_to_product:
-    `You match invoice line items to product_master records.
-You will receive "candidates" (array of {id, internal_sku, internal_product_name, supplier_id, item_code, pack_size_norm, unit_norm}) and an array "lines" of normalized line inputs.
-For each line return: { line_index, product_master_id|null, internal_sku|null, confidence:0..1, needs_review_reason?: "pack_size_changed"|"unit_changed"|"no_match" }
-- Prefer same supplier_id + item_code matches.
-- If pack_size_norm or unit_norm of the candidate differs from the line, still return the id but set needs_review_reason.`,
+    `You are an experienced F&B purchasing manager matching scanned supplier invoice lines to this supplier's Items Master entries.
+You receive "candidates" (this supplier's items: id, internal_sku, internal_product_name, supplier_product_name, item_code, pack_size_norm, unit_norm, stock_qty, last_unit_cost) and "lines" (description, item_code, pack_size, unit, quantity, unit_price).
+Think like a buyer, not a string matcher:
+- Expand trade abbreviations (e.g. PS = prime steer, RIB = ribeye, BTL = bottle, CTN/CS = carton/case, 24S = 24 units, BLK = black, CHLD = chilled, FRZ = frozen, EVOO = extra virgin olive oil) and brand shorthands.
+- Use pack format and price sanity: a line price should be plausible versus last_unit_cost for the same pack (a case of 24 at ~24x the bottle price fits a bottle item).
+- Respect qualifiers that make a different product: size/volume, cut, fresh vs frozen, origin, flavour, full vs empty/deposit.
+- Never pick an item just because one generic word matches.
+For each line return: { line_index, candidates: [ { product_master_id, internal_sku, confidence:0..1, reason } ] } with 0 to 3 options, best first.
+"reason" is one short plain-English sentence a buyer would understand (e.g. "PS RIB 200G = NZ ribeye 200g; price close to last HK$ 185"). Mention any pack or price difference.
+Only use ids from candidates. If nothing is plausible return an empty candidates array. Confidence must be honest: below 0.5 only when it is a genuine alternative worth showing.`,
 
   invoice_categorize:
     `You assign accounting metadata per invoice line.
@@ -257,8 +262,9 @@ function outputActionSchema(workflow: string) {
         internal_sku: { type: ["string", "null"] },
         confidence: { type: "number" },
         needs_review_reason: { type: ["string", "null"] },
+        candidates: { type: "array", items: { type: "object", additionalProperties: true } },
       },
-      required: ["confidence"],
+      required: [],
       additionalProperties: true,
     };
   }
