@@ -280,6 +280,9 @@ const SalesRecordDetail = () => {
           <Row label="WeChat" value={active.wechat} fieldKey="wechat" />
           <Row label="PayMe" value={active.payme} fieldKey="payme" />
           <Row label="Cash" value={active.cash} fieldKey="cash" />
+          {(active.deliveroo ?? 0) !== 0 && <Row label="Deliveroo" value={active.deliveroo ?? 0} fieldKey="deliveroo" />}
+          {(active.foodpanda ?? 0) !== 0 && <Row label="Foodpanda" value={active.foodpanda ?? 0} fieldKey="foodpanda" />}
+          {(active.keeta ?? 0) !== 0 && <Row label="Keeta" value={active.keeta ?? 0} fieldKey="keeta" />}
           <Row label="Card Tips" value={active.cardTips} fieldKey="cardTips" />
         </Section>
 

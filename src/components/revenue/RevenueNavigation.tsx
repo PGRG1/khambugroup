@@ -15,14 +15,13 @@ export function RevenueNavigation() {
   const href = (path: string) => retainCurrentQuery(path, pathname, search);
   const primary = [
     { key: "overview", label: "Overview", path: "/revenue", allowed: access.revenue },
-    { key: "sales", label: "Sales Records", path: "/sales-data", allowed: access.revenue },
+    { key: "sales", label: "Sales", path: "/sales-data", allowed: access.revenue },
     { key: "analysis", label: "Analysis", path: "/revenue/analysis", allowed: access.revenue },
-    { key: "targets", label: "Targets & Forecasts", path: "/revenue/targets-new", allowed: access.forecast },
-    { key: "reconciliation", label: "Reconciliation", path: "/revenue/reconciliation", allowed: access.revenue },
+    { key: "targets", label: "Targets", path: "/revenue/targets-new", allowed: access.forecast },
     { key: "setup", label: "Setup", path: "/revenue/setup", allowed: access.revenue },
   ];
   return (
-    <div className="mb-5 space-y-2 border-b border-border pb-3">
+    <div className="mb-5 space-y-2">
       <nav aria-label="Revenue" className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {primary.filter(item => item.allowed).map(item => (

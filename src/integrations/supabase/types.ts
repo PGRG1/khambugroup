@@ -9250,13 +9250,16 @@ export type Database = {
           created_at: string
           date: string
           day: string
+          deliveroo: number
           discount: number
           event_id: string | null
           event_name: string | null
           external_location: string | null
+          foodpanda: number
           guests: number
           id: string
           jcb: number
+          keeta: number
           legacy_venue_name: string | null
           mastercard: number
           orders: number
@@ -9286,13 +9289,16 @@ export type Database = {
           created_at?: string
           date: string
           day: string
+          deliveroo?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
           external_location?: string | null
+          foodpanda?: number
           guests?: number
           id?: string
           jcb?: number
+          keeta?: number
           legacy_venue_name?: string | null
           mastercard?: number
           orders?: number
@@ -9322,13 +9328,16 @@ export type Database = {
           created_at?: string
           date?: string
           day?: string
+          deliveroo?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
           external_location?: string | null
+          foodpanda?: number
           guests?: number
           id?: string
           jcb?: number
+          keeta?: number
           legacy_venue_name?: string | null
           mastercard?: number
           orders?: number

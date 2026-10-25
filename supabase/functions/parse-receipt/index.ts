@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const WORKFLOW = "sales_receipt_extract";
-const FIELDS = new Set(["orders","guests","subtotal","serviceCharge","discount","visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","cardTips"]);
+const FIELDS = new Set(["orders","guests","subtotal","serviceCharge","discount","visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","deliveroo","foodpanda","keeta","cardTips"]);
 const clean = (v: unknown, max = 80) => String(v ?? "").replace(/[\u0000-\u001f`]/g, " ").trim().slice(0, max);
 
 function adminClient() {
@@ -135,6 +135,9 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
   "wechat": number,
   "payme": number,
   "cash": number,
+  "deliveroo": number,
+  "foodpanda": number,
+  "keeta": number,
   "cardTips": number
 }
 
@@ -149,6 +152,7 @@ Rules:
         : `Return the venue name as printed, or "" if none is shown.`
     }
 - IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
+- Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use 0 when not printed.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation${hints}`;
 

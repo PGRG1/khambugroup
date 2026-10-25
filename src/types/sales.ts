@@ -20,6 +20,10 @@ export interface SalesRecord {
   wechat: number;
   payme: number;
   cash: number;
+  /** Delivery platform settlements printed on the Z-report (0 when unused). */
+  deliveroo?: number;
+  foodpanda?: number;
+  keeta?: number;
   cardTips: number;
   receiptFileUrl?: string | null;
   receiptFileName?: string | null;
