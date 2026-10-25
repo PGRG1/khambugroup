@@ -9,7 +9,7 @@ import ExcelFilterPopover from "./ExcelFilterPopover";
 import NumericRangeFilterPopover, { NumericRange } from "./NumericRangeFilterPopover";
 import AccountingMappingSummary from "./AccountingMappingSummary";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
-import { DataTableShell } from "@/components/common/data-table";
+import { DataTableShell, DataTableSearch } from "@/components/common/data-table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
@@ -441,18 +441,23 @@ const DataTable = ({ data }: DataTableProps) => {
       )}
 
       <DataTableShell
-        search={{ value: searchQuery, onChange: setSearchQuery, placeholder: "Search date, venue, report #..." }}
         toolbarLeft={
           <div className="flex items-center gap-2 flex-wrap">
+            <DataTableSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search date, venue, report #"
+              className="w-[240px]"
+            />
             <div className="flex items-center gap-1 flex-wrap">
               {venueOptions.map(v => (
                 <button
                   key={v}
                   onClick={() => setVenueFilter(v)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  className={`h-9 px-3 text-xs font-medium rounded-lg border transition-colors ${
                     venueFilter === v
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+                      ? "border-transparent bg-foreground text-background"
+                      : "border-border bg-background/70 text-foreground hover:bg-background"
                   }`}
                 >
                   {v}
@@ -467,22 +472,15 @@ const DataTable = ({ data }: DataTableProps) => {
               months={months.map(m => m.label)}
               onPeriodSelect={handlePeriodSelect}
             />
+            <Button variant="outline" size="sm" className="h-9" onClick={() => setShowMappingDialog(true)} title="Accounting mapping">
+              Mapping
+            </Button>
+            <Button variant="outline" onClick={downloadCSV} size="sm" className="h-9 gap-2">
+              <Download className="h-3.5 w-3.5" /> CSV
+            </Button>
           </div>
         }
         resultCount={`${filteredAndSorted.length}${filteredAndSorted.length !== data.length ? ` of ${data.length}` : ""} records${anyFilterActive ? " (filtered)" : ""}`}
-        toolbarRight={
-          <>
-            <button
-              onClick={() => setShowMappingDialog(true)}
-              className="text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-2 hover:underline"
-            >
-              Mapping
-            </button>
-            <Button onClick={downloadCSV} size="sm" className="h-9 gap-2">
-              <Download className="h-3.5 w-3.5" /> CSV
-            </Button>
-          </>
-        }
       >
         <Table>
           <TableHeader>

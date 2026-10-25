@@ -428,6 +428,9 @@ html:not(.dark) .tenant-portal {
   --secondary: 150 12% 95%;
   --border: 153 15% 88%;
   --input: 153 15% 88%;
+  --primary: 175 39% 14%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 175 39% 24%;
   --tenant-white: 0 0% 100%;
   --tenant-ink: 174 38% 13%;
   --tenant-petrol: 174.89 33.33% 27.65%;
