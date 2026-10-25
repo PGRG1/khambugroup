@@ -98,9 +98,7 @@ function Scene({
   const targetColor1Ref = useRef(new THREE.Color(colors[0]))
   const targetColor2Ref = useRef(new THREE.Color(colors[1]))
   const animSpeedRef = useRef(0.1)
-  const perlinNoiseTexture = useTexture(
-    "https://storage.googleapis.com/eleven-public-cdn/images/perlin-noise.png"
-  )
+  const perlinNoiseTexture = useTexture("/orb/perlin-noise.png")
 
   const agentRef = useRef<AgentState>(agentState)
   const modeRef = useRef<"auto" | "manual">(volumeMode)
@@ -145,20 +143,10 @@ function Scene({
   }, [colors])
 
   useEffect(() => {
-    const apply = () => {
-      if (!circleRef.current) return
-      const isDark = document.documentElement.classList.contains("dark")
-      circleRef.current.material.uniforms.uInverted.value = isDark ? 1 : 0
+    // Bani's orb must never invert: uInverted stays 0 regardless of theme.
+    if (circleRef.current) {
+      circleRef.current.material.uniforms.uInverted.value = 0
     }
-
-    apply()
-
-    const observer = new MutationObserver(apply)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    })
-    return () => observer.disconnect()
   }, [])
 
   useFrame((_, delta: number) => {
@@ -233,9 +221,6 @@ function Scene({
   const uniforms = useMemo(() => {
     perlinNoiseTexture.wrapS = THREE.RepeatWrapping
     perlinNoiseTexture.wrapT = THREE.RepeatWrapping
-    const isDark =
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark")
     return {
       uColor1: new THREE.Uniform(new THREE.Color(initialColorsRef.current[0])),
       uColor2: new THREE.Uniform(new THREE.Color(initialColorsRef.current[1])),
