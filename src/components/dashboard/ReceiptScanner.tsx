@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { useFloatingBaniSales } from "@/components/assistant/FloatingBaniContext";
+import { useFloatingBaniSales, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
+import { auditSalesRecord } from "@/utils/salesReceiptCorrections";
 
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
   // Fixes happen in the floating Bani sphere: share the live unsaved draft with it.
   const setBaniSales = useFloatingBaniSales();
+  const baniSay = useFloatingBaniSay();
   useEffect(() => {
     setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData } : null);
   }, [extractedData, activeVenueNames, setBaniSales]);
@@ -194,7 +196,9 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
       };
 
       setExtractedData(record);
-      toast({ title: "Receipt scanned!", description: "Please review the extracted data below." });
+      const verdict = auditSalesRecord(record, activeVenueNames);
+      baniSay(verdict.message);
+      toast({ title: verdict.ok ? "Receipt scanned — looks good" : "Receipt scanned — check flagged items", description: "Bani has reviewed it." });
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
