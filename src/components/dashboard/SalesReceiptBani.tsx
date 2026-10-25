@@ -6,7 +6,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
 import type { SalesRecord } from "@/types/sales";
 import { applySalesChanges, sanitizeSalesChanges, type SalesChange } from "@/utils/salesReceiptCorrections";
-import { formatCurrency } from "@/utils/format";
+import { fmtHK } from "@/components/expenses/shared";
 
 type Turn = { role: "user" | "assistant"; content: string };
 type Proposal = { changes: SalesChange[]; base: SalesRecord };
@@ -18,7 +18,7 @@ const LABELS: Record<string, string> = {
   wechat: "WeChat", payme: "PayMe", cash: "Cash", cardTips: "Card Tips",
 };
 const show = (field: string, v: unknown) =>
-  typeof v === "number" && field !== "orders" && field !== "guests" ? formatCurrency(Math.abs(v)) : String(v ?? "—");
+  typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
 
 /** Talk or type corrections to the unsaved receipt. Bani proposes; you Apply; Save stays manual. */
 export function SalesReceiptBani({ record, venues, onApply }: { record: SalesRecord; venues: string[]; onApply: (next: SalesRecord) => void }) {
@@ -68,7 +68,7 @@ export function SalesReceiptBani({ record, venues, onApply }: { record: SalesRec
   return (
     <div className="rounded-xl border border-border bg-card/60 p-3 space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <BaniProcessingMark className="h-4 w-4" /> Fix with Bani
+        <BaniProcessingMark size={16} label="Bani" /> Fix with Bani
         <span className="text-xs font-normal text-muted-foreground">Say or type what's wrong — e.g. "service charge is 10%, cash was 450, rest is Visa".</span>
       </div>
 
