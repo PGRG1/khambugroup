@@ -57,11 +57,11 @@ export default function RevenueAnalysis() {
         </div>
       ) : (
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList className="h-auto w-full justify-start gap-4 rounded-none bg-transparent p-0">
-            <TabsTrigger value="trends" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Trends</TabsTrigger>
-            <TabsTrigger value="weekdays" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Day of week</TabsTrigger>
-            <TabsTrigger value="mix" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Venue mix</TabsTrigger>
-            <TabsTrigger value="leakage" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Best days &amp; discounts</TabsTrigger>
+          <TabsList className="h-auto w-fit max-w-full justify-start gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
+            <TabsTrigger value="trends" className="h-7 rounded-md px-3 text-[12px] font-medium">Trends</TabsTrigger>
+            <TabsTrigger value="weekdays" className="h-7 rounded-md px-3 text-[12px] font-medium">Day of week</TabsTrigger>
+            <TabsTrigger value="mix" className="h-7 rounded-md px-3 text-[12px] font-medium">Venue mix</TabsTrigger>
+            <TabsTrigger value="leakage" className="h-7 rounded-md px-3 text-[12px] font-medium">Best days &amp; discounts</TabsTrigger>
           </TabsList>
 
           {/* Only the active tab mounts its charts. */}

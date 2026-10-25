@@ -20,27 +20,33 @@ export function RevenueNavigation() {
     { key: "targets", label: "Targets", path: "/revenue/targets-new", allowed: access.forecast },
     { key: "setup", label: "Setup", path: "/revenue/setup", allowed: access.revenue },
   ];
+  const pill = (active: boolean) => cn(
+    "inline-flex h-7 shrink-0 items-center rounded-md px-3 text-[12px] font-medium transition-colors",
+    active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+  );
+  const main = primary.filter(item => item.allowed && item.key !== "setup");
+  const setup = primary.find(item => item.key === "setup" && item.allowed);
   return (
     <div className="mb-5 space-y-2">
       <nav aria-label="Revenue" className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-          {primary.filter(item => item.allowed).map(item => (
-            <Button key={item.key} asChild variant="ghost" size="sm" className={cn("h-8 shrink-0 text-xs", section === item.key ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" : "text-muted-foreground")}>
-              <Link to={href(item.path)} aria-current={section === item.key ? "page" : undefined}>{item.label}</Link>
-            </Button>
+        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
+          {main.map(item => (
+            <Link key={item.key} to={href(item.path)} className={pill(section === item.key)} aria-current={section === item.key ? "page" : undefined}>{item.label}</Link>
           ))}
         </div>
+        {setup && (
+          <Button asChild variant="ghost" size="sm" className={cn("ml-auto h-8 shrink-0 text-xs", section === "setup" ? "text-foreground" : "text-muted-foreground")}>
+            <Link to={href(setup.path)} aria-current={section === "setup" ? "page" : undefined}>Setup</Link>
+          </Button>
+        )}
       </nav>
       {section === "targets" && access.forecast && (
-        <nav aria-label="Forecast and target views" className="flex gap-1 overflow-x-auto">
+        <nav aria-label="Forecast and target views" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-muted/40 p-1">
           {[
             { label: "Daily forecast", path: "/revenue/targets-new", active: pathname === "/revenue/targets-new" },
-            { label: "Detailed targets", path: lastDetailedPath.current, active: pathname.startsWith("/forecast/") },
-            { label: "Legacy forecast", path: lastDetailedPath.current.replace("/forecast/", "/forecast-legacy/"), active: pathname.startsWith("/forecast-legacy/") },
+            { label: "Detailed targets", path: lastDetailedPath.current, active: pathname.startsWith("/forecast/") || pathname.startsWith("/forecast-legacy/") },
           ].map(item => (
-            <Button key={item.label} asChild variant="ghost" size="sm" className={cn("h-7 shrink-0 text-xs", item.active ? "bg-muted text-foreground" : "text-muted-foreground")}>
-              <Link to={href(item.path)} aria-current={item.active ? "page" : undefined}>{item.label}</Link>
-            </Button>
+            <Link key={item.label} to={href(item.path)} className={pill(item.active)} aria-current={item.active ? "page" : undefined}>{item.label}</Link>
           ))}
         </nav>
       )}
