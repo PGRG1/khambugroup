@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { toast } from "@/hooks/use-toast";
+import { consumeSalesHandoff, decideSalesHandoff, peekSalesHandoff, subscribeSalesHandoff } from "@/utils/scannerHandoff";
 import { useSearchParams } from "react-router-dom";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,7 +39,9 @@ const VIEWS: { key: ViewKey; label: string }[] = [
 
 const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, roleLoading } = useAuth();
+  const { tenantId } = useActiveTenant();
+  const { isPreviewActive } = usePreviewMode();
   const { isActionHidden } = usePagePermissions();
   const mr = useManualRevenue();
 
@@ -52,6 +58,25 @@ const DataPage = () => {
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
   const hideManualEntry = isActionHidden("data.manual_entry");
+
+  // Floating-Bani sales receipt handoff: scope-checked, consumed once, never replaces an open receipt.
+  const salesHandoff = useSyncExternalStore(subscribeSalesHandoff, peekSalesHandoff);
+  useEffect(() => {
+    if (!salesHandoff || roleLoading) return;
+    const decision = decideSalesHandoff(salesHandoff, { identity: `${user?.id}:${tenantId}:${isPreviewActive}`, canScan: isAdmin && !hideScanReceipt, busy: false });
+    if (decision === "skip") return;
+    consumeSalesHandoff(salesHandoff.id);
+    if (decision === "denied") {
+      toast({ title: "No access to Scan Receipt", description: "Ask an admin for access to upload sales receipts.", variant: "destructive" });
+      return;
+    }
+    if (showScanner) {
+      toast({ title: "A receipt is already open", description: "Finish or close the current receipt, then ask Bani again." });
+      return;
+    }
+    setShowUpload(false); setShowManual(false); setScanFile(salesHandoff.file); setShowScanner(true); setView("daily");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesHandoff, roleLoading, user?.id, tenantId, isPreviewActive, isAdmin, hideScanReceipt]);
 
   const kpis = useMemo(() => {
     const totalSales = data.reduce((s, r) => s + r.totalSales, 0);
