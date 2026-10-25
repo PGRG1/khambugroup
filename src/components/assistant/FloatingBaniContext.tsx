@@ -1,10 +1,15 @@
 import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import type { Point } from "@/utils/floatingBaniUi";
+import type { SalesRecord } from "@/types/sales";
+import type { SalesChange } from "@/utils/salesReceiptCorrections";
+
+/** The unsaved Scan Receipt draft Bani may propose corrections for (Apply only; Save stays manual). */
+export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: SalesRecord) => void };
 
 type Host = { token: string; node: HTMLElement };
 export type BaniAttachment = { id: string; file: File; name: string; type: string; size: number; url?: string };
-export type BaniMessage = { role: "user" | "assistant"; content: string; files?: string[]; proposal?: DraftProposal; outcome?: string; before?: string; target?: string };
+export type BaniMessage = { role: "user" | "assistant"; content: string; files?: string[]; proposal?: DraftProposal; outcome?: string; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord };
 export type PageContext = { path: string; detail: string } | null;
 
 type S<T> = [T, Dispatch<SetStateAction<T>>];
@@ -15,6 +20,7 @@ type Store = {
    *  "add it in procurement" can hand them to the scanner after the composer cleared. */
   lastFiles: S<BaniAttachment[]>;
   open: S<boolean>; hidden: S<boolean>; sphere: S<Point | null>; panel: S<Point | null>; page: S<PageContext>;
+  sales: S<SalesDraft | null>;
 };
 const Context = createContext<Store | null>(null);
 
@@ -26,6 +32,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
     scope: useState(""), messages: useState<BaniMessage[]>([]), draft: useState(""), files: useState<BaniAttachment[]>([]),
     lastFiles: useState<BaniAttachment[]>([]),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
+    sales: useState<SalesDraft | null>(null),
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
@@ -34,3 +41,5 @@ export const useFloatingBaniStore = () => useContext(Context);
 export const useFloatingBaniHost = () => { const s = useContext(Context); return { host: s?.host ?? null, setHost: s?.setHost ?? noop }; };
 /** Pages register only facts they actually hold (e.g. Home's selected venue chip). */
 export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
+/** Scan Receipt registers its live unsaved draft so the floating sphere can fix it. */
+export const useFloatingBaniSales = () => useContext(Context)?.sales[1] ?? noop;

@@ -14,6 +14,8 @@ import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
+import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
+import { fmtHK } from "@/components/expenses/shared";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -24,6 +26,13 @@ export type FloatingReview = {
   before: (proposal: DraftProposal) => string;
   apply: (proposal: DraftProposal) => boolean;
 };
+const SALES_LABELS: Record<string, string> = {
+  date: "Date", venue: "Venue", reportNumber: "Report #", orders: "Orders", guests: "Guests",
+  subtotal: "Subtotal", serviceCharge: "Service Charge", discount: "Discount", totalSales: "Total Sales",
+  visa: "VISA", mastercard: "Mastercard", amex: "AMEX", unionPay: "Union Pay", jcb: "JCB", alipay: "Alipay",
+  wechat: "WeChat", payme: "PayMe", cash: "Cash", cardTips: "Card Tips",
+};
+const showSales = (field: string, v: unknown) => typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
 const SPHERE = 48;
 const HOLD_MS = 320;
 const FILES_ONLY_PROMPT = "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.";
@@ -75,6 +84,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [panelPos, setPanelPos] = store?.panel ?? [null, () => {}];
   const page = store?.page[0] ?? null;
   const host = store?.host ?? null;
+  const salesDraft = review ? null : store?.sales[0] ?? null;
+  const salesRef = useRef(salesDraft); salesRef.current = salesDraft;
 
   const allowed = Boolean(store && user && tenantId && !authLoading && !roleLoading && !tenantLoading && !permissionsLoading && canAccessPage("assistant") && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
   // Confidential content resets only when the user, client or preview identity changes.
@@ -109,7 +120,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   if (!allowed || (!hosted && host)) return null;
   const module = moduleLabel(pathname);
-  const context = review?.label || (page && page.path === pathname ? `${module} · ${page.detail}` : module);
+  const context = review?.label || (salesDraft ? "Scan Receipt · unsaved draft" : null) || (page && page.path === pathname ? `${module} · ${page.detail}` : module);
 
   const addFiles = (list: FileList | File[]) => {
     let next = [...filesRef.current]; let message = "";
@@ -184,6 +195,23 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         return { name: f.name, type: prepared.type || f.type, data: await toBase64(prepared, controller.signal) };
       })) : undefined;
       if (controller.signal.aborted) return;
+      const sales = salesRef.current;
+      if (sales && !attachments) {
+        const base = sales.record;
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
+          method: "POST", signal: controller.signal,
+          headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ tenant_id: tenantId, messages: history.slice(-8), sales_review: { record: base } }),
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(body.error || "Bani could not review this receipt.");
+        if (controller.signal.aborted || liveIdentity.current !== requestIdentity) return;
+        const answer = String(body.answer || "").trim();
+        if (!answer) throw new Error("No answer received. Please try again.");
+        const changes = sanitizeSalesChanges(body.changes, sales.venues);
+        setMessages(prev => [...prev, { role: "assistant", content: answer, ...(changes?.length ? { salesChanges: changes, salesBase: base, target: "Scan Receipt" } : {}) }]);
+        return;
+      }
       const reviewBody = review ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
       // Current concrete venue as untrusted UI context — the server validates it
       // against tenant venues and the user's explicit text always wins.
@@ -286,6 +314,24 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {messages.map((message, index) => <div key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
+            {message.salesChanges && message.salesBase && (() => {
+              const base = message.salesBase; const preview = applySalesChanges(base, message.salesChanges);
+              const stale = !salesDraft || JSON.stringify(salesDraft.record) !== JSON.stringify(base);
+              return <div className="floating-bani-change">
+                <p className="floating-bani-change-target">{message.target}</p>
+                {message.salesChanges.map((c, i) => <p key={i} className="floating-bani-change-value td-num">{SALES_LABELS[c.field] ?? c.field}: {showSales(c.field, base[c.field as keyof typeof base])} → {showSales(c.field, preview[c.field as keyof typeof preview])}</p>)}
+                {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
+                  <button type="button" className="floating-bani-apply" disabled={stale} onClick={() => {
+                    const live = salesRef.current;
+                    const ok = Boolean(live && JSON.stringify(live.record) === JSON.stringify(base));
+                    if (ok && live) live.apply(applySalesChanges(live.record, message.salesChanges!));
+                    setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: ok ? "Applied to receipt — not saved" : "Receipt changed — ask Bani again" } : m));
+                  }}>Apply</button>
+                  <button type="button" className="floating-bani-dismiss" onClick={() => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: "Dismissed" } : m))}>Dismiss</button>
+                </div>}
+                {!message.outcome && stale && <p className="floating-bani-change-reason">Receipt changed — ask Bani again</p>}
+              </div>;
+            })()}
             {message.proposal && <div className="floating-bani-change">
               <p className="floating-bani-change-target">{message.target}</p>
               <p className="floating-bani-change-value">{message.proposal.field.replace(/_/g, " ")}: {message.before || "—"} → {message.proposal.value}</p>
