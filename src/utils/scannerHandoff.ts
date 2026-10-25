@@ -82,3 +82,28 @@ export function decideHandoff(
   if (!state.canEdit) return { kind: "denied" };
   return { kind: "scan" };
 }
+
+/**
+ * Separate slot for sales-receipt handoffs to Upload Sales → Scan Receipt.
+ * Kept apart from the invoice slot so a sales receipt can never reach the
+ * procurement scanner (and vice versa). Same scope rules apply.
+ */
+export type SalesHandoff = { id: string; file: File; scope: string };
+let salesPending: SalesHandoff | null = null;
+const salesListeners = new Set<() => void>();
+const salesEmit = () => salesListeners.forEach((fn) => fn());
+
+export function requestSalesHandoff(handoff: SalesHandoff): void { salesPending = handoff; salesEmit(); }
+export function peekSalesHandoff(): SalesHandoff | null { return salesPending; }
+export function consumeSalesHandoff(id: string): void { if (salesPending?.id === id) { salesPending = null; salesEmit(); } }
+export function clearSalesHandoff(): void { if (salesPending) { salesPending = null; salesEmit(); } }
+export function subscribeSalesHandoff(fn: () => void): () => void { salesListeners.add(fn); return () => { salesListeners.delete(fn); }; }
+
+/** Pure intake decision for the sales scanner: scope must match and edit rights are required. */
+export function decideSalesHandoff(
+  handoff: SalesHandoff | null,
+  state: { identity: string; canScan: boolean; busy: boolean },
+): "skip" | "denied" | "scan" {
+  if (!handoff || handoff.scope !== state.identity || state.busy) return "skip";
+  return state.canScan ? "scan" : "denied";
+}

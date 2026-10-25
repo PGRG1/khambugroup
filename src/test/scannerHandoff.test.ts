@@ -89,3 +89,23 @@ describe("decideHandoff", () => {
     expect(decideHandoff(handoff(), { ...state, canEdit: false }, new Set())).toEqual({ kind: "denied" });
   });
 });
+
+import { consumeSalesHandoff as consumeSales, decideSalesHandoff, peekScannerHandoff as peekInvoice, peekSalesHandoff, requestSalesHandoff } from "@/utils/scannerHandoff";
+
+describe("sales receipt handoff", () => {
+  const file = new File(["x"], "z-report.jpg", { type: "image/jpeg" });
+  it("never lands in the invoice scanner slot", () => {
+    const before = peekInvoice();
+    requestSalesHandoff({ id: "s1", file, scope: "u:t:false" });
+    expect(peekInvoice()).toBe(before);
+    expect(peekSalesHandoff()?.id).toBe("s1");
+    consumeSales("s1");
+    expect(peekSalesHandoff()).toBeNull();
+  });
+  it("only scans for the same user, client and preview identity with edit access", () => {
+    const h = { id: "s2", file, scope: "u:t:false" };
+    expect(decideSalesHandoff(h, { identity: "other:t:false", canScan: true, busy: false })).toBe("skip");
+    expect(decideSalesHandoff(h, { identity: "u:t:false", canScan: false, busy: false })).toBe("denied");
+    expect(decideSalesHandoff(h, { identity: "u:t:false", canScan: true, busy: false })).toBe("scan");
+  });
+});
