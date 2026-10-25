@@ -95,21 +95,22 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
           ref={matRef}
           className="absolute inset-0"
           style={{
-            background: mode === "speaking"
-              ? "conic-gradient(#DCE8DA, #6E928A, #2F5E5A, #8FAF9D, #F2F7F4, #A9C2B5, #DCE8DA)"
-              : "conic-gradient(#DCE8DA, #8FAF9D, #2F5E5A, #6E928A, #F2F7F4, #A9C2B5, #DCE8DA)",
-            filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 6)}px)`,
+            background: "conic-gradient(from 20deg, #5E8A3C, #9CC46A, #D6EBB0, #E6F6FA, #7FB2EE, #4E86E0, #3F6F3A, #5E8A3C)",
+            filter: `blur(${Math.round(8 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 8)}px)`,
           }}
         />
       </span>
       <span
         className="absolute bani-orb-drift"
-        style={{ inset: "-20%", background: "radial-gradient(circle at 40% 40%, rgba(47,94,90,0.55), transparent 50%), radial-gradient(circle at 65% 70%, rgba(242,247,244,0.5), transparent 45%)", filter: "blur(6px)" }}
+        style={{ inset: "-20%", background: "radial-gradient(circle at 35% 45%, rgba(70,110,40,0.6), transparent 50%), radial-gradient(circle at 75% 45%, rgba(235,250,255,0.75), transparent 40%), radial-gradient(circle at 70% 85%, rgba(80,140,230,0.6), transparent 45%)", filter: "blur(8px)" }}
       />
-      <span className="absolute inset-0" style={{ background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.75), transparent 45%)" }} />
       <span
         className="absolute bani-orb-grain pointer-events-none"
-        style={{ inset: "-20%", backgroundImage: GRAIN, backgroundSize: "120px 120px", opacity: 0.35, mixBlendMode: "overlay" }}
+        style={{ inset: "-20%", backgroundImage: GRAIN, backgroundSize: "70px 70px", opacity: 0.6, mixBlendMode: "soft-light" }}
+      />
+      <span
+        className="absolute pointer-events-none"
+        style={{ inset: "-20%", backgroundImage: GRAIN, backgroundSize: "45px 45px", opacity: 0.25, mixBlendMode: "multiply" }}
       />
       <svg
         data-testid="bani-orb-mark"
