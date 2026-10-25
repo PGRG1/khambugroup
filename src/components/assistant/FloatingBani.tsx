@@ -430,9 +430,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Ask floating Bani" className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); void send(); } }} />
             {dictation.supported && <button type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></button>}
-            {draft.trim() || files.length || busy
-              ? <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>
-              : <button type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={() => { setOpen(false); navigate("/assistant?voice=1"); }}><AudioLines className="h-5 w-5" /></button>}
+            <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>
           </div>}
         </form>
       </section>
