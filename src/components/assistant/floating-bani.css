@@ -70,3 +70,12 @@
 }
 @media (prefers-reduced-motion: no-preference) { .floating-bani-panel { animation: floating-bani-enter 140ms ease-out; } @keyframes floating-bani-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } } }
 @media (prefers-reduced-motion: reduce) { .floating-bani-sphere, .floating-bani-target { transition: none; } .floating-bani-typing span { animation: none; } }
+
+/* Mobile sheet: swipe the header/grab bar down to close. */
+.floating-bani-panel.is-mobile .floating-bani-header, .floating-bani-grab { touch-action: none; }
+.floating-bani-grab { display: flex; justify-content: center; padding: .45rem 0 0; cursor: grab; }
+.floating-bani-grab span { width: 38px; height: 4px; border-radius: 999px; background: rgba(226,236,229,.35); }
+.floating-bani-panel.is-mobile .floating-bani-header { padding-top: .4rem; }
+.floating-bani-mic { display: grid; place-items: center; width: 36px; height: 40px; border: 0; background: none; color: var(--fb-muted); border-radius: 50%; cursor: pointer; flex-shrink: 0; }
+.floating-bani-mic:hover:not(:disabled) { color: var(--fb-ink); background: var(--fb-glass); }
+.floating-bani-mic:disabled { opacity: .4; }

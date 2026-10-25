@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, Check, AudioLines } from "lucide-react";
+import { useDictation, joinDraft } from "@/hooks/useDictation";
+import { LiveWaveform } from "@/components/assistant/LiveWaveform";
 import { useLocation, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -75,6 +77,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const springRaf = useRef(0);
   const vel = useRef({ x: 0, y: 0, t: 0, px: 0, py: 0 });
   useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
+  const dictation = useDictation({ getAuth: () => ({ token: session?.access_token ?? null, tenantId }), onError: msg => setError(msg) });
+  dictation.setOnAutoFinish(t => setDraft(d => joinDraft(d, t)));
 
   const [scope, setScope] = store?.scope ?? ["", () => {}];
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
@@ -317,19 +321,40 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!cancelled && isTap(g.moved, performance.now() - g.t, HOLD_MS)) setOpen(true);
     resetGesture();
   };
-  // Desktop panel moves by its header only (never input, buttons or transcript).
+  // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
+  const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
-    if (isMobile || e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
-    const r = panelEl.current.getBoundingClientRect();
+    if (e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (isMobile) { sheet.current = { id: e.pointerId, sy: e.clientY, dy: 0, t: performance.now() }; panelEl.current.style.transition = "none"; return; }
+    const r = panelEl.current.getBoundingClientRect();
     panelDrag.current = { id: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
   };
   const onHeaderMove = (e: RPointerEvent<HTMLElement>) => {
+    const s = sheet.current;
+    if (s && s.id === e.pointerId && panelEl.current) {
+      const raw = e.clientY - s.sy; s.dy = raw > 0 ? raw : raw / 6; // rubber-band upward
+      panelEl.current.style.transform = `translateY(${s.dy}px)`;
+      return;
+    }
     const d = panelDrag.current; if (!d || d.id !== e.pointerId || !panelEl.current) return;
     const el = panelEl.current;
     setPanelPos(clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, 0, window.innerWidth - el.offsetWidth, window.innerHeight - el.offsetHeight, 8));
   };
-  const onHeaderUp = (e: RPointerEvent<HTMLElement>) => { if (panelDrag.current?.id === e.pointerId) { panelDrag.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* released */ } } };
+  const onHeaderUp = (e: RPointerEvent<HTMLElement>) => {
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* released */ }
+    const s = sheet.current;
+    if (s && s.id === e.pointerId && panelEl.current) {
+      sheet.current = null; const el = panelEl.current;
+      const v = s.dy / Math.max(1, performance.now() - s.t);
+      const close = s.dy > 90 || (s.dy > 30 && v > 0.6);
+      el.style.transition = close ? "transform 200ms ease-in, opacity 200ms ease-in" : "transform 320ms cubic-bezier(.34,1.56,.64,1)";
+      el.style.transform = close ? `translateY(${el.offsetHeight + 40}px)` : "translateY(0)";
+      if (close) { el.style.opacity = "0"; window.setTimeout(() => { dictation.cancel(); setOpen(false); }, 190); }
+      return;
+    }
+    if (panelDrag.current?.id === e.pointerId) panelDrag.current = null;
+  };
 
   const onDrag = (e: DragEvent) => { if (!Array.from(e.dataTransfer.types).includes("Files")) return; e.preventDefault(); setDropping(e.type !== "dragleave"); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
@@ -342,6 +367,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
     {hidden ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : open ? (
       <section ref={panelEl} className={`floating-bani-panel ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
+        {isMobile && <div className="floating-bani-grab" aria-hidden="true" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}><span /></div>}
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
           <BaniOrb size={36} mode={busy ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
@@ -393,12 +419,21 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <span className="truncate">{f.name}</span>
             <button type="button" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3.5 w-3.5" /></button>
           </div>)}</div>}
-          <div className="floating-bani-row">
+          {dictation.active ? <div className="floating-bani-row">
+            <button type="button" className="floating-bani-plus" aria-label="Cancel dictation" onClick={() => dictation.cancel()}><X className="h-5 w-5" /></button>
+            <div className="flex min-h-[40px] flex-1 items-center px-1">
+              {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="#A9C2A0" className="h-7 w-full" />}
+            </div>
+            <button type="button" className="floating-bani-send" aria-label="Finish dictation" disabled={dictation.state !== "recording"} onClick={async () => { const t = await dictation.confirm(); if (t) setDraft(d => joinDraft(d, t)); input.current?.focus(); }}><Check className="h-5 w-5" /></button>
+          </div> : <div className="floating-bani-row">
             <button type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Ask floating Bani" className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); void send(); } }} />
-            <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>
-          </div>
+            {dictation.supported && <button type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></button>}
+            {draft.trim() || files.length || busy
+              ? <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>
+              : <button type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={() => { setOpen(false); navigate("/assistant?voice=1"); }}><AudioLines className="h-5 w-5" /></button>}
+          </div>}
         </form>
       </section>
     ) : <>
