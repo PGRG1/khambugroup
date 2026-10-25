@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 
 export type BaniOrbMode = "thinking" | "listening" | "speaking" | "idle";
 type BaniOrbProps = {
@@ -42,59 +42,36 @@ export function followLevel(prev: number, target: number, attack = 0.45, release
   return next < 0.002 ? 0 : next;
 }
 
-/**
- * Bani orb: sage/petrol material with the official five-triangle mark.
- * Motion comes only from the real audio signal passed in getLevel; silence settles it.
- * Thinking uses a quiet, distinct breathe that is not audio-driven.
- */
-export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
-  const rootRef = useRef<HTMLSpanElement>(null);
-  const matRef = useRef<HTMLSpanElement>(null);
-  const getRef = useRef(getLevel);
-  getRef.current = getLevel;
+/** Official ElevenLabs UI Orb (MIT), lazy-loaded so the CSS orb renders first and SSR/jsdom never touch WebGL. */
+const LazyElevenOrb = lazy(() =>
+  import("@/components/ui/orb").then((m) => ({ default: m.Orb })),
+);
 
-  useEffect(() => {
-    const root = rootRef.current;
-    const mat = matRef.current;
-    if (!root || !mat) return;
-    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const audioDriven = mode === "listening" || mode === "speaking";
-    let level = 0;
-    let angle = 0;
-    let raf = 0;
-    const apply = () => {
-      const scale = 1 + level * (reduced ? 0.04 : mode === "speaking" ? 0.1 : 0.14);
-      root.style.transform = `scale(${scale.toFixed(4)})`;
-      root.style.boxShadow = `0 0 ${(size * (0.3 + level * 0.35)).toFixed(1)}px ${(size * (0.05 + level * 0.08)).toFixed(1)}px rgba(var(--bani-orb-hi,220,232,218),${(0.35 + level * 0.45).toFixed(3)})`;
-      mat.style.transform = `rotate(${angle.toFixed(2)}deg)`;
-      root.dataset.level = level.toFixed(3);
-    };
-    const tick = () => {
-      const raw = audioDriven ? getRef.current?.() ?? 0 : 0;
-      level = followLevel(level, raw);
-      // Material moves only with sound: no sound, no rotation.
-      if (!reduced) angle = (angle + level * (mode === "speaking" ? 5 : 7)) % 360;
-      apply();
-      raf = requestAnimationFrame(tick);
-    };
-    if (audioDriven) raf = requestAnimationFrame(tick);
-    else { level = 0; apply(); root.style.transform = ""; }
-    return () => { cancelAnimationFrame(raf); root.dataset.level = "0"; };
-  }, [mode, size]);
+const ORB_COLORS: [string, string] = ["#DCE8DA", "#2F5E5A"];
 
-  const markH = size * 0.36;
+function agentStateFor(mode: BaniOrbMode): "thinking" | "listening" | "talking" | null {
+  if (mode === "listening") return "listening";
+  if (mode === "speaking") return "talking";
+  if (mode === "thinking") return "thinking";
+  return null;
+}
+
+function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+/** The original sage/petrol CSS orb (visual only; no surrounding box-shadow). */
+function CssOrbVisual({ size, mode }: { size: number; mode: BaniOrbMode }) {
   return (
-    <span
-      ref={rootRef}
-      aria-hidden="true"
-      data-mode={mode}
-      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ${mode === "thinking" ? "bani-orb-thinking" : ""} ${className ?? ""}`}
-      style={{ width: size, height: size, boxShadow: `0 0 ${size * 0.3}px ${size * 0.05}px rgba(var(--bani-orb-hi,220,232,218),0.35)`, willChange: "transform" }}
-    >
+    <span className="absolute inset-0 overflow-hidden rounded-full">
       <style>{CSS}</style>
       <span className="absolute bani-orb-swirl" style={{ inset: "-40%" }}>
         <span
-          ref={matRef}
           className="absolute inset-0"
           style={{
             background: "conic-gradient(var(--bani-orb-c1,#8FAF9D), var(--bani-orb-c2,#2F5E5A), var(--bani-orb-c3,#1B3F3C), var(--bani-orb-c4,#6E928A), var(--bani-orb-c5,#DCE8DA), var(--bani-orb-c6,#4F7F78), var(--bani-orb-c1,#8FAF9D))",
@@ -119,6 +96,76 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
         className="absolute bani-orb-grain pointer-events-none"
         style={{ inset: "-30%", backgroundImage: GRAIN, backgroundSize: "160px 160px", opacity: 0.22, mixBlendMode: "overlay" }}
       />
+    </span>
+  );
+}
+
+/**
+ * Bani orb: the official ElevenLabs UI Orb in Bani's sage/petrol colours with the
+ * five-triangle mark on top. Falls back to the CSS orb while loading, when WebGL
+ * is unavailable, or when reduced motion is preferred.
+ */
+export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const getRef = useRef(getLevel);
+  getRef.current = getLevel;
+  const [useWebgl, setUseWebgl] = useState(false);
+
+  useEffect(() => {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    setUseWebgl(!reduced && webglAvailable());
+  }, []);
+
+  // Keep the CSS orb's audio-reactive scale/glow only when it is the active renderer.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || useWebgl) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const audioDriven = mode === "listening" || mode === "speaking";
+    let level = 0;
+    let raf = 0;
+    const apply = () => {
+      const scale = 1 + level * (reduced ? 0.04 : mode === "speaking" ? 0.1 : 0.14);
+      root.style.transform = `scale(${scale.toFixed(4)})`;
+      root.style.boxShadow = `0 0 ${(size * (0.3 + level * 0.35)).toFixed(1)}px ${(size * (0.05 + level * 0.08)).toFixed(1)}px rgba(var(--bani-orb-hi,220,232,218),${(0.35 + level * 0.45).toFixed(3)})`;
+      root.dataset.level = level.toFixed(3);
+    };
+    const tick = () => {
+      const raw = audioDriven ? getRef.current?.() ?? 0 : 0;
+      level = followLevel(level, raw);
+      apply();
+      raf = requestAnimationFrame(tick);
+    };
+    if (audioDriven) raf = requestAnimationFrame(tick);
+    else { level = 0; apply(); root.style.transform = ""; }
+    return () => { cancelAnimationFrame(raf); root.dataset.level = "0"; };
+  }, [mode, size, useWebgl]);
+
+  const markH = size * 0.36;
+  return (
+    <span
+      ref={rootRef}
+      aria-hidden="true"
+      data-mode={mode}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ${mode === "thinking" && !useWebgl ? "bani-orb-thinking" : ""} ${className ?? ""}`}
+      style={{ width: size, height: size, boxShadow: `0 0 ${size * 0.3}px ${size * 0.05}px rgba(var(--bani-orb-hi,220,232,218),0.35)`, willChange: "transform" }}
+    >
+      {useWebgl ? (
+        <Suspense fallback={<CssOrbVisual size={size} mode={mode} />}>
+          <span className="absolute inset-0">
+            <LazyElevenOrb
+              colors={ORB_COLORS}
+              agentState={agentStateFor(mode)}
+              volumeMode="manual"
+              getInputVolume={mode === "listening" ? () => getRef.current?.() ?? 0 : undefined}
+              getOutputVolume={mode === "speaking" ? () => getRef.current?.() ?? 0 : undefined}
+              className="relative h-full w-full"
+            />
+          </span>
+        </Suspense>
+      ) : (
+        <CssOrbVisual size={size} mode={mode} />
+      )}
       <svg
         data-testid="bani-orb-mark"
         viewBox="0 0 320 600"
