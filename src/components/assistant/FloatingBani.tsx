@@ -139,7 +139,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     return () => { v?.removeEventListener("resize", update); v?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, [setSphere, setPanelPos]);
 
-  useEffect(() => { if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
+  const openedAt = useRef(0);
+  useEffect(() => { if (open) openedAt.current = performance.now(); if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
   useEffect(() => () => voiceEndRef.current(), []);
 
   if (!allowed || (!hosted && host)) return null;
@@ -151,7 +152,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const context = working && roles.length
     ? `${roles.join(" & ")} · ${voice.stepLabel && voiceMode ? voice.stepLabel : ROLE_ACTIVITY[roles[0]]}`
     : working ? "Working on it" : moduleLabel(pathname);
-  const enterVoice = () => { dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
+  const enterVoice = () => { if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
   const addFiles = (list: FileList | File[]) => {
@@ -207,7 +208,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   const send = async (turn?: { text: string; opts: VoiceOpts }) => {
     const typed = turn ? turn.text.trim() : draft.trim();
-    const attached = turn ? [] : filesRef.current;
+    const attached = filesRef.current;
     if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn)) {
       if (turn) throw new Error("Bani is not ready yet. Try again in a moment.");
       return;
@@ -224,7 +225,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
     setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
-    if (!turn) { setDraft(""); setFiles([]); }
+    if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
@@ -466,9 +467,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>)}</div>}
           {voiceMode ? <div className="floating-bani-voice-row">
             <div className="floating-bani-voice-pill">
+              <button type="button" className="floating-bani-plus" aria-label="Attach files" onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></button>
+              <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
               <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Type to Bani during voice" className="floating-bani-input"
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (draft.trim() && voice.sendTyped(draft)) setDraft(""); } }} />
-              {draft.trim() && <button type="button" className="floating-bani-send" aria-label="Send to Bani" disabled={voice.state === "thinking" || voice.state === "transcribing"} onClick={() => { if (voice.sendTyped(draft)) setDraft(""); }}><ArrowUp className="h-5 w-5" /></button>}
+              {draft.trim() && <button type="button" className="floating-bani-send" aria-label="Send to Bani" onClick={() => { if (voice.sendTyped(draft)) setDraft(""); }}><ArrowUp className="h-5 w-5" /></button>}
             </div>
             <button type="button" className="floating-bani-voice-mute" aria-label={voice.muted ? "Unmute microphone" : "Mute microphone"} aria-pressed={voice.muted} onClick={voice.toggleMute}>{voice.muted ? <MicOff className="h-[18px] w-[18px]" /> : <Mic className="h-[18px] w-[18px]" />}</button>
             <button type="button" className="floating-bani-voice-end" aria-label="End voice conversation" onClick={exitVoice}><X className="h-[18px] w-[18px]" /></button>

@@ -403,7 +403,6 @@ export default function Assistant() {
   }, [voiceMode, voiceExpanded]);
 
   // Typed question during voice: goes through the voice turn (spoken reply).
-  const voiceBusy = loading || voice.state === "thinking" || voice.state === "transcribing";
   const sendVoiceTyped = () => {
     if (!scopeReady || !input.trim()) return;
     if (loading) stop();
@@ -474,7 +473,7 @@ export default function Assistant() {
           <button
             type="button"
             onClick={() => pickerRef.current?.click()}
-            disabled={loading}
+            disabled={loading && !voiceMode}
             aria-label="Attach files"
             className="bani-mic mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ color: "#5B706B" }}
@@ -501,7 +500,7 @@ export default function Assistant() {
             <Button variant="ghost"
               type="button"
               onClick={sendVoiceTyped}
-              disabled={voiceBusy || !scopeReady}
+              disabled={!scopeReady}
               aria-label="Send question"
               className="bani-voice-end bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 disabled:opacity-45"
             >
