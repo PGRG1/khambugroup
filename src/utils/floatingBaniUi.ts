@@ -60,12 +60,9 @@ const ROLE_WORDS: [TeamRole, RegExp][] = [
   ["Accountant", /\b(bank|deposit|payable|receivable|cash|payment|reconcil|petty|journal|ledger)/i],
   ["Financial Controller", /\b(margin|profit|p&l|p and l|cogs|gross|ebitda)/i],
 ];
-/** Visual only: up to two specialists for a question, else the page specialist; empty = whole team. */
-export function teamRoles(question: string, pathname: string): TeamRole[] {
-  const hits = ROLE_WORDS.filter(([, re]) => re.test(question)).map(([r]) => r).slice(0, 2);
-  if (hits.length) return hits;
-  const page = teamRole(pathname);
-  return page ? [page] : [];
+/** Visual only: up to two specialists whose topic the question actually raises; empty = whole team. */
+export function teamRoles(question: string, _pathname?: string): TeamRole[] {
+  return ROLE_WORDS.filter(([, re]) => re.test(question)).map(([r]) => r).slice(0, 2);
 }
 export const ROLE_ACTIVITY: Record<TeamRole, string> = {
   "Accountant": "Reconciling the ledgers",
