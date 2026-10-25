@@ -1114,7 +1114,9 @@ Deno.serve(async (req) => {
       const speakFiller = (tool: string) => {
         if (!voiceMode || fillerSent || closed || turnDone) return;
         fillerSent = true;
-        emit({ speak: { kind: "filler", stage: "first", text: confirmedWorkSpeech(tool) } });
+        // Tool-specific wording exists only in English; other languages get their localized acknowledgement.
+        const firstText = voiceLangKey(voiceLang) === "en" ? confirmedWorkSpeech(tool) : fillerText("first", voiceLang);
+        emit({ speak: { kind: "filler", stage: "first", text: firstText } });
         stillTimer = setTimeout(() => {
           if (!turnDone && !closed) emit({ speak: { kind: "filler", stage: "more", text: fillerText("more", voiceLang) } });
         }, 8000);
