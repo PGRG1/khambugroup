@@ -1026,8 +1026,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const sendTyped = useCallback((raw: string): boolean => {
     const text = raw.trim();
     if (!activeRef.current || !text) return false;
-    const s = stateRef.current;
-    if (s === "transcribing" || s === "thinking") return false;
+    // Typed text preempts any pending capture, transcription or reply.
     generationRef.current++;
     abortRef.current?.abort();
     turnEndedAtRef.current = performance.now();

@@ -168,7 +168,7 @@ export default function Assistant() {
     onSpeak?: (s: SpeakEvent) => void;
     onStatus?: (label: string) => void;
   }) => {
-    const attached = opts?.voice ? [] : files;
+    const attached = files;
     const trimmed = text.trim() || (attached.length ? "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them." : "");
     if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) {
       if (opts?.voice) throw new Error("Bani is not ready to send. Wait for the current reply or reopen this workspace.");
@@ -403,9 +403,9 @@ export default function Assistant() {
   }, [voiceMode, voiceExpanded]);
 
   // Typed question during voice: goes through the voice turn (spoken reply).
-  const voiceBusy = loading || voice.state === "thinking" || voice.state === "transcribing";
   const sendVoiceTyped = () => {
-    if (voiceBusy || !scopeReady || !input.trim()) return;
+    if (!scopeReady || !input.trim()) return;
+    if (loading) stop();
     if (voice.sendTyped(input)) setInput("");
   };
 
@@ -457,7 +457,7 @@ export default function Assistant() {
       </div>
       ) : (
       <>
-      {!voiceMode && files.length > 0 && (
+      {files.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((f, i) => (
             <span key={`${f.name}-${i}`} className="bani-glass flex max-w-[220px] items-center gap-1.5 rounded-full py-1 pl-3 pr-1 text-xs">
@@ -467,15 +467,13 @@ export default function Assistant() {
           ))}
         </div>
       )}
-      <div className={`bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pr-2 ${voiceMode ? "pl-[18px]" : "pl-2"}`}>
-        {!voiceMode && (
-          <input ref={pickerRef} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
-        )}
-        {!voiceMode && (
+      <div className="bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pr-2 pl-2">
+        <input ref={pickerRef} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+        {(
           <button
             type="button"
             onClick={() => pickerRef.current?.click()}
-            disabled={loading}
+            disabled={loading && !voiceMode}
             aria-label="Attach files"
             className="bani-mic mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ color: "#5B706B" }}
@@ -502,7 +500,7 @@ export default function Assistant() {
             <Button variant="ghost"
               type="button"
               onClick={sendVoiceTyped}
-              disabled={voiceBusy || !scopeReady}
+              disabled={!scopeReady}
               aria-label="Send question"
               className="bani-voice-end bani-fade relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 disabled:opacity-45"
             >
