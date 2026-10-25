@@ -38,3 +38,25 @@ export const overDismiss = (p: Point, size: number, cx: number, cy: number, r = 
   Math.hypot(p.x + size / 2 - cx, p.y + size / 2 - cy) < r + size / 2 - 8;
 /** Sphere gesture: a press shorter than holdMs without movement is a tap. */
 export const isTap = (moved: number, heldMs: number, holdMs = 320) => moved < 8 && heldMs < holdMs;
+
+/** Visual-only Finance Team member shown in Bani's header; one clear title per area. */
+export type TeamRole = "Accountant" | "Procurement Analyst" | "Revenue Manager" | "Financial Controller" | "Finance Director";
+const ROLE_PATHS: [string, TeamRole][] = [
+  ["/procurement", "Procurement Analyst"], ["/invoices", "Procurement Analyst"],
+  ["/revenue", "Revenue Manager"], ["/sales-data", "Revenue Manager"], ["/forecast", "Revenue Manager"], ["/kpis", "Revenue Manager"],
+  ["/bank", "Accountant"], ["/expenses", "Accountant"], ["/payments", "Accountant"], ["/petty-cash", "Accountant"],
+  ["/staff-reimbursements", "Accountant"], ["/finance/payables", "Accountant"], ["/finance/cashflow", "Accountant"],
+  ["/finance/receivables", "Accountant"], ["/finance/journal", "Accountant"],
+  ["/pl-report", "Financial Controller"], ["/finance", "Financial Controller"],
+];
+export function teamRole(pathname: string): TeamRole {
+  const hit = ROLE_PATHS.find(([root]) => pathname === root || pathname.startsWith(`${root}/`) || pathname.startsWith(`${root}-`));
+  return hit ? hit[1] : "Finance Director";
+}
+export const ROLE_ACTIVITY: Record<TeamRole, string> = {
+  "Accountant": "Reconciling the ledgers",
+  "Procurement Analyst": "Checking supplier pricing",
+  "Revenue Manager": "Reviewing sales performance",
+  "Financial Controller": "Reviewing margins",
+  "Finance Director": "Reviewing group performance",
+};
