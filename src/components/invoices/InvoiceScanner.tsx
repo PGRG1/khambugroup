@@ -1497,11 +1497,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     // Strict supplier scope — the AI may only ever pick this supplier's entries.
     const scopedPM = scope.scopedPM;
 
-    // Shortlist candidates per line, then merge into one candidate pool.
+    // Small supplier catalogues go to Bani whole so abbreviations ("PS RIB",
+    // "HEIN BTL 24S") can be reasoned about; large ones get a per-line shortlist.
     const pool = new Map<string, ProductMasterEntry>();
+    const fullCatalogue = scopedPM.length <= BANI_FULL_CATALOGUE_LIMIT;
+    if (fullCatalogue) scopedPM.forEach((p) => pool.set(p.internal_sku + "|" + (p.supplier_entry_id || p.id), p as ProductMasterEntry));
     const items = indexes.map((idx) => {
       const l = inv.line_items[idx];
-      scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
+      if (!fullCatalogue) scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
         .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
       return {
         source_index: idx,
@@ -1509,6 +1512,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         item_code: l.scanned_item_code || l.item_code,
         pack_size: l.pack_size,
         unit: l.unit,
+        quantity: l.quantity,
         unit_price: l.unit_price,
         supplier_name: supplierName,
       };
@@ -1523,6 +1527,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       supplier: p.supplier,
       pack_size_norm: p.purchase_unit,
       unit_norm: p.stock_uom,
+      stock_qty: p.stock_qty,
+      last_unit_cost: p.purchase_unit_cost,
     }));
     if (candidates.length === 0) {
       toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
@@ -1548,44 +1554,28 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const copy = [...prev];
         const lines = [...copy[currentIdx].line_items];
         let hits = 0;
-        let rejected = 0;
         results.forEach((r, batchIdx) => {
           if (!r) return;
           const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
           if (lineIdx == null || !lines[lineIdx]) return;
-          const s = r.suggestion || {};
-          const entry =
-            scopedPM.find((p) => p.id === s.product_master_id) ||
-            scopedPM.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
-          if (!entry) return;
-
-          // Re-score the AI's answer locally against the scanned text. If it can't
-          // clear the same bar a local match must clear, discard it.
           const line = lines[lineIdx];
-          const scannedText = (line as any).scanned_description || line.description || "";
-          const [rescored] = scoreCandidates(
-            { description: scannedText, itemCode: (line as any).scanned_item_code || line.item_code },
-            [entry as any],
-            supplierName,
-            1,
-          );
-          if (!rescored || !isSuggestable(rescored)) { rejected++; return; }
-
-          const aiConfidence = Number(r.confidence ?? s.confidence ?? 0);
+          if (!line.unmatched) return; // user already picked meanwhile
+          const raw = rawOptionsOf(r.suggestion).map((o) => ({ ...o, confidence: o.confidence ?? r.confidence }));
+          const bani = buildBaniSuggestions(raw, scopedPM as any, {
+            description: (line as any).scanned_description || line.description || "",
+            itemCode: (line as any).scanned_item_code || line.item_code,
+          }, supplierName);
+          if (!bani.length) return;
           hits++;
+          const keys = new Set(bani.map((c) => c.entry.supplier_entry_id || c.entry.id));
+          const local = (line.suggestions || []).filter((c) => !keys.has(c.entry.supplier_entry_id || c.entry.id));
           lines[lineIdx] = {
             ...line,
-            suggestions: [{
-              ...rescored,
-              score: Math.min(rescored.score, aiConfidence > 0 ? Math.max(aiConfidence, rescored.rawNameScore) : rescored.score),
-              reasons: [s.needs_review_reason || "AI match", ...rescored.reasons],
-              blockingReasons: rescored.blockingReasons,
-            }],
+            suggestions: [...bani, ...local].slice(0, BANI_MAX_OPTIONS),
             suggestion_source: "ai",
           };
         });
-        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines — they were left unmatched." });
-        else if (rejected > 0) toast({ title: `${hits} matched`, description: `${rejected} AI answer${rejected === 1 ? "" : "s"} didn't resemble the scanned line and ${rejected === 1 ? "was" : "were"} left unmatched.` });
+        if (hits === 0 && !silent) toast({ title: "No likely items found", description: "Bani couldn't find a likely Items Master item. Pick one manually or add it as a new item." });
         copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
         return copy;
       });
