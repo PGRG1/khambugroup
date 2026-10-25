@@ -18,13 +18,8 @@ export const BANI_MARK_PATHS = [
   "M0 400 L160 500 L0 600 Z",
 ];
 
-/**
- * Film grain: contrast-boosted monochrome turbulence (never thresholded to 1-bit,
- * which reads as TV static). Two scales so the grit has depth.
- */
-const GRAIN_A = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.9' intercept='-0.42'/%3E%3CfeFuncG type='linear' slope='1.9' intercept='-0.42'/%3E%3CfeFuncB type='linear' slope='1.9' intercept='-0.42'/%3E%3CfeFuncA type='linear' slope='2.6' intercept='0.18'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
-
-const GRAIN_B = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.35' numOctaves='2' seed='29' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.4' intercept='-0.6'/%3E%3CfeFuncG type='linear' slope='2.4' intercept='-0.6'/%3E%3CfeFuncB type='linear' slope='2.4' intercept='-0.6'/%3E%3CfeFuncA type='linear' slope='2.2' intercept='0.12'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+/** Soft continuous film grain (greyscale, no thresholding). */
+const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const CSS = `
 @keyframes bani-orb-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
@@ -122,11 +117,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       />
       <span
         className="absolute bani-orb-grain pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_A, backgroundSize: "180px 180px", opacity: 0.5, mixBlendMode: "overlay" }}
-      />
-      <span
-        className="absolute bani-orb-grain-b pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_B, backgroundSize: "120px 120px", opacity: 0.34, mixBlendMode: "hard-light" }}
+        style={{ inset: "-30%", backgroundImage: GRAIN, backgroundSize: "160px 160px", opacity: 0.22, mixBlendMode: "overlay" }}
       />
       <svg
         data-testid="bani-orb-mark"
