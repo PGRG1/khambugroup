@@ -21,14 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  KpiCard,
-  KpiGrid,
-  KpiSkeleton,
-  TableSkeleton,
-  fmtHKWhole,
-  fmtInt,
-} from "@/components/expenses/shared";
+import { TableSkeleton, fmtInt } from "@/components/expenses/shared";
 
 type ViewKey = "all" | "daily" | "other";
 const VIEWS: { key: ViewKey; label: string }[] = [
@@ -159,37 +152,19 @@ const DataPage = () => {
 
       {loading ? (
         <>
-          <KpiSkeleton count={4} />
           <div className="card-glass rounded-xl">
             <TableSkeleton rows={8} cols={7} />
           </div>
         </>
       ) : (
         <>
-          <KpiGrid>
-            <KpiCard
-              label="Total Recorded"
-              value={fmtHKWhole(kpis.totalSales)}
-              hint={`${fmtInt(data.length)} record${data.length === 1 ? "" : "s"}`}
-              tone="info"
-            />
-            <KpiCard
-              label="Sales Days"
-              value={fmtInt(kpis.uniqueDays)}
-              hint="Unique trading days recorded"
-            />
-            <KpiCard
-              label="Needs Review"
-              value={fmtInt(kpis.needsReview)}
-              hint={kpis.needsReview > 0 ? "Totals do not balance" : "All balanced"}
-              tone={kpis.needsReview > 0 ? "warning" : "success"}
-            />
-            <KpiCard
-              label="Other Revenue"
-              value={fmtHKWhole(kpis.otherRevenue)}
-              hint={`${fmtInt(mr.entries.length)} entr${mr.entries.length === 1 ? "y" : "ies"} · ${fmtInt(kpis.otherDrafts)} draft`}
-            />
-          </KpiGrid>
+          {kpis.needsReview > 0 && (
+            <div className="card-glass rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-warning shrink-0" />
+              <span className="font-medium">{fmtInt(kpis.needsReview)} day{kpis.needsReview === 1 ? "" : "s"} don't balance</span>
+              <span className="text-muted-foreground">— totals differ from subtotal + service + discount.</span>
+            </div>
+          )}
 
           {isAdmin && !hideUpload && showUpload && (
             <DataUpload
