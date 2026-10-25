@@ -1479,7 +1479,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
   /** Ask the AI to match the given line indexes against a shortlist of candidates. */
-  const askAiToMatch = useCallback(async (indexes: number[]) => {
+  const askAiToMatch = useCallback(async (indexes: number[], silent = false) => {
     const inv = invoices[currentIdx];
     if (!inv || indexes.length === 0 || !productMaster?.length) return;
     // supplier_id is mandatory; scope by the canonical supplier record's name,
@@ -1592,7 +1592,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     try { await askAiToMatch([i]); } finally { setAiMatchingIdx(null); }
   };
 
-  const resolveAllWithAi = async () => {
+  const resolveAllWithAi = async (silent = false) => {
     const inv = invoices[currentIdx];
     if (!inv) return;
     const idxs = inv.line_items
@@ -1601,8 +1601,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       .map(({ i }) => i);
     if (idxs.length === 0) return;
     setAiMatchingAll(true);
-    try { await askAiToMatch(idxs); } finally { setAiMatchingAll(false); }
+    try { await askAiToMatch(idxs, silent); } finally { setAiMatchingAll(false); }
   };
+
+  // After a scan, Bani looks for likely items for unmatched lines automatically
+  // (once per draft + supplier). Nothing is linked until the user picks.
+  const autoSuggestedRef = useRef(new Set<string>());
+  const currentDraftKey = current?._baniDraftId && current?.supplier_id ? `${current._baniDraftId}|${current.supplier_id}` : "";
+  const currentHasUnmatched = !!current?.line_items.some((l) => l.unmatched && (l.description || "").trim());
+  useEffect(() => {
+    if (!currentDraftKey || !currentHasUnmatched || !productMaster?.length || aiMatchingAll) return;
+    if (autoSuggestedRef.current.has(currentDraftKey)) return;
+    autoSuggestedRef.current.add(currentDraftKey);
+    void resolveAllWithAi(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDraftKey, currentHasUnmatched, productMaster?.length]);
 
 
   // Editable Accepted Price (Items Master baseline)
