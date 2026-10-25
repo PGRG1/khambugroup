@@ -70,3 +70,19 @@ export function applySalesChanges(record: SalesRecord, changes: SalesChange[]): 
   }
   return next;
 }
+
+/** Deterministic post-scan check of a sales receipt draft — what Bani says right after a scan. */
+export function auditSalesRecord(r: SalesRecord, venues: string[]): { ok: boolean; message: string } {
+  const money = (n: number) => `HK$ ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const issues: string[] = [];
+  if (!r.date) issues.push("the date is missing");
+  if (!r.venue || !venues.some(v => v.toLowerCase() === r.venue.toLowerCase())) issues.push(r.venue ? `"${r.venue}" isn't one of your venues` : "the venue is missing");
+  const expected = Math.round((r.subtotal + r.serviceCharge + r.discount) * 100) / 100;
+  if (Math.abs(expected - r.totalSales) > 0.01) issues.push(`Total Sales is ${money(r.totalSales)} but subtotal + service charge − discount gives ${money(expected)}`);
+  const paid = Math.round((r.visa + r.mastercard + r.amex + r.unionPay + r.jcb + r.alipay + r.wechat + r.payme + r.cash + (r.cardTips ?? 0)) * 100) / 100;
+  const gap = Math.round((r.totalSales - paid) * 100) / 100;
+  if (Math.abs(gap) > 0.01) issues.push(`payments add up to ${money(paid)}, ${money(Math.abs(gap))} ${gap > 0 ? "short of" : "more than"} Total Sales`);
+  if (r.totalSales > 0 && r.guests === 0) issues.push("guests is 0");
+  if (!issues.length) return { ok: true, message: `Everything looks good — Total Sales ${money(r.totalSales)} and the payments balance exactly. Check it over and press Save when ready.` };
+  return { ok: false, message: `I checked this receipt and found ${issues.length === 1 ? "one thing" : `${issues.length} things`} to look at:\n- ${issues.join("\n- ")}\n\nTell me what's right (e.g. "the rest is Visa") and I'll suggest the fix.` };
+}
