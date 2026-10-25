@@ -97,28 +97,33 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
           ref={matRef}
           className="absolute inset-0"
           style={{
-            background: "conic-gradient(#DCE8DA, #8FAF9D, #2F5E5A, #6E928A, #F2F7F4, #A9C2B5, #DCE8DA)",
-            filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 6)}px)`,
+            background: "conic-gradient(#8FAF9D, #2F5E5A, #1B3F3C, #6E928A, #DCE8DA, #4F7F78, #8FAF9D)",
+            filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 8)}px)`,
           }}
         />
       </span>
       <span
         className="absolute bani-orb-drift"
-        style={{ inset: "-20%", background: "radial-gradient(circle at 40% 40%, rgba(47,94,90,0.55), transparent 50%), radial-gradient(circle at 65% 70%, rgba(242,247,244,0.5), transparent 45%)", filter: "blur(6px)" }}
+        style={{ inset: "-20%", background: "radial-gradient(circle at 38% 42%, rgba(220,232,218,0.55), transparent 42%), radial-gradient(circle at 66% 68%, rgba(35,76,71,0.6), transparent 48%)", filter: "blur(8px)" }}
+      />
+      {/* Spherical shading: bottom shadow, top-left highlight, rim light */}
+      <span
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.55), rgba(255,255,255,0) 34%), radial-gradient(circle at 50% 120%, rgba(16,40,38,0.65), rgba(16,40,38,0) 62%)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 -10px 24px rgba(16,40,38,0.35), inset 0 6px 18px rgba(242,247,244,0.35)",
+        }}
       />
       <span
         className="absolute bani-orb-grain pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_DARK, backgroundSize: "140px 140px", opacity: 0.4, mixBlendMode: "multiply" }}
-      />
-      <span
-        className="absolute bani-orb-grain-b pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_LIGHT, backgroundSize: "140px 140px", opacity: 0.45, mixBlendMode: "screen" }}
+        style={{ inset: "-30%", backgroundImage: GRAIN, backgroundSize: "160px 160px", opacity: 0.22, mixBlendMode: "overlay" }}
       />
       <svg
         data-testid="bani-orb-mark"
         viewBox="0 0 320 600"
-        style={{ height: markH, width: (markH * 320) / 600, position: "relative" }}
-        fill="#FFFFFF"
+        style={{ height: markH, width: (markH * 320) / 600, position: "relative", opacity: 0.92, filter: `drop-shadow(0 0 ${Math.max(2, size * 0.04)}px rgba(242,247,244,0.7))` }}
+        fill="#F7FBF8"
       >
         {BANI_MARK_PATHS.map((d) => <path key={d} d={d} />)}
       </svg>
