@@ -1453,7 +1453,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const code = String(line.scanned_item_code || line.item_code || "").trim();
     const wording = String(line.scanned_description || line.description || "").trim();
     const differs = code ? normalizeText(code) !== normalizeText(entry.external_sku || "") : !!wording && normalizeText(wording) !== normalizeText(entry.supplier_product_name || "");
-    if (!differs || !baniEditableMaster) return;
+    if (!differs || !baniEditable) return;
     toast({
       title: `Linked to ${entry.internal_product_name || entry.supplier_product_name}`,
       description: code ? `Save invoice code ${code} to this item so it matches automatically next time?` : `Save the invoice wording to this item so it matches automatically next time?`,
