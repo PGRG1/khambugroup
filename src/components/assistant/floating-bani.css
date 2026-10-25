@@ -1,9 +1,5 @@
-.floating-bani { --fb-ink: #EAF2F8; --fb-muted: rgba(214,232,242,.66); --fb-line: rgba(214,232,242,.16); --fb-glass: rgba(255,255,255,.06); --fb-accent: #6FA8C9;
-  /* Soft Ice orb palette — overrides BaniOrb green defaults inside the sphere only. */
-  --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6;
-  --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58;
+.floating-bani { --fb-ink: #EEF4EF; --fb-muted: rgba(226,236,229,.66); --fb-line: rgba(220,232,218,.14); --fb-glass: rgba(255,255,255,.06); --fb-accent: #A9C2A0;
   position: fixed; inset: 0; z-index: 45; pointer-events: none; }
-#floating-bani-restore, .floating-bani-restore-fixed { --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6; --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58; }
 .floating-bani-hosted { z-index: 60; }
 .floating-bani > * { pointer-events: auto; }
 
