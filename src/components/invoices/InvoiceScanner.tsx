@@ -2349,8 +2349,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       data-testid="scanner-shell"
       ref={setBaniHostNode}
       className={cn(
-        "card-glass flex flex-col overflow-hidden rounded-lg p-3 animate-fade-in",
-        isReview ? "h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
+        // Phones: the whole review scrolls as one page so header, preview and lines
+        // all stay reachable. Desktop keeps the fixed-height split with inner scrolls.
+        "card-glass flex flex-col overflow-y-auto lg:overflow-hidden rounded-lg p-3 animate-fade-in",
+        isReview ? "max-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" : "max-h-[calc(100dvh-4rem)]"
       )}
     >
       <div className="mb-2 flex shrink-0 items-center justify-between">
@@ -2465,7 +2467,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           <div className="grid min-h-0 min-w-0 flex-1 items-stretch gap-3 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)]">
 
             <SourceDocumentViewer files={current.sourceFiles || []} />
-            <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
+            <div data-testid="review-right-pane" className="flex min-h-0 min-w-0 flex-col gap-2 lg:overflow-hidden">
           {/* Content-sized review header above the independently scrolling line items */}
           <div data-testid="review-fields-scroll" className="min-h-0 shrink-0 space-y-2 lg:overflow-visible">
 
@@ -2701,7 +2703,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
           {/* Line items: own bounded scroll viewport (both axes in one container) */}
-          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 flex-1 min-h-0 overflow-auto lg:min-h-[240px]">
+          <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 max-lg:max-h-[65dvh] max-lg:min-h-[200px] max-lg:shrink-0 lg:flex-1 lg:min-h-[240px] overflow-auto">
 
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead className="sticky top-0 z-20 bg-card">
