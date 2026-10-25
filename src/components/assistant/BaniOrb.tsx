@@ -26,24 +26,27 @@ export function followLevel(prev: number, target: number, attack = 0.45, release
   return next < 0.002 ? 0 : next;
 }
 
-/** Per-state motion targets. focus = how fully the Bani mark forms out of the smoke. */
+/** Per-state motion targets. sp = flow speed, focus = how fully the Bani mark forms, wob = mark ripple. */
 const TARGETS: Record<BaniOrbMode, { sp: number; focus: number; wob: number }> = {
-  idle: { sp: 1, focus: 0, wob: 0.1 },
-  listening: { sp: 1.6, focus: 0.15, wob: 0.16 },
-  thinking: { sp: 0.6, focus: 0.55, wob: 0.05 },
-  speaking: { sp: 2.2, focus: 1, wob: 0.06 },
+  idle: { sp: 1.8, focus: 0, wob: 0.08 },
+  listening: { sp: 2.6, focus: 0.15, wob: 0.13 },
+  thinking: { sp: 1.0, focus: 0.55, wob: 0.05 },
+  speaking: { sp: 2.8, focus: 1, wob: 0.06 },
 };
 
 const VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
 
-/** Smoky ink-flow sphere, petrol -> silver sage, with the Bani mark woven into the flow. */
+/** 3D rolling smoke sphere (petrol -> silver sage), steady grain, Bone mark woven into the flow. */
 const FS = `precision highp float;
-uniform float t,lvl,focus,wob,glow;uniform vec2 res;
+uniform float t,lvl,focus,wob,glow,gsz;uniform vec2 res;
 const vec3 k0=vec3(.184,.369,.353);const vec3 k1=vec3(.373,.549,.510);const vec3 k2=vec3(.616,.733,.667);
-const vec3 k3=vec3(.827,.890,.824);const vec3 k4=vec3(.973,.984,.961);
-float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
-float fbm(vec2 p){float v=0.,a=.55;mat2 m=mat2(1.6,1.2,-1.2,1.6);for(int i=0;i<4;i++){v+=a*n(p);p=m*p;a*=.48;}return v;}
+const vec3 k3=vec3(.827,.890,.824);const vec3 k4=vec3(.973,.984,.961);const vec3 bone=vec3(.961,.957,.941);
+float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+float n3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fb3(vec3 p){float v=0.,a=.55;for(int i=0;i<4;i++){v+=a*n3(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=.5;}return v;}
+mat3 rot(float a,float b){float ca=cos(a),sa=sin(a),cb=cos(b),sb=sin(b);return mat3(ca,0.,-sa,0.,1.,0.,sa,0.,ca)*mat3(1.,0.,0.,0.,cb,sb,0.,-sb,cb);}
+float h2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 ramp(float x){x=clamp(x,0.,1.);if(x<.25)return mix(k0,k1,x*4.);if(x<.5)return mix(k1,k2,(x-.25)*4.);if(x<.75)return mix(k2,k3,(x-.5)*4.);return mix(k3,k4,(x-.75)*4.);}
 float cr(vec2 u,vec2 v){return u.x*v.y-u.y*v.x;}
 float ed(vec2 p,vec2 a,vec2 b,float s){return s*cr(b-a,p-a)/length(b-a);}
@@ -53,35 +56,32 @@ d=max(d,tri(m,vec2(160,100),vec2(320,200),vec2(160,300)));d=max(d,tri(m,vec2(0,2
 d=max(d,tri(m,vec2(160,300),vec2(320,400),vec2(160,500)));d=max(d,tri(m,vec2(0,400),vec2(160,500),vec2(0,600)));return d;}
 void main(){vec2 uv=(gl_FragCoord.xy/res)*2.-1.;float r=length(uv);
 float z=sqrt(max(0.,1.-r*r));vec3 N=vec3(uv,z);
-vec2 p=uv/(.6+.4*z)*.95;
-vec2 q=vec2(fbm(p+vec2(0.,t*.035)),fbm(p+vec2(5.2,1.3)-t*.03));
-float wq=2.2+lvl*1.2;
-vec2 w=vec2(fbm(p+wq*q+vec2(1.7,9.2)+t*.05),fbm(p+wq*q+vec2(8.3,2.8)-t*.04));
-float f=fbm(p+2.4*w);
-float tone=smoothstep(.18,.92,f*1.15+q.y*.25-.1);
+vec3 P=rot(t*.32,t*.13+.6)*N*1.45;
+vec3 q=vec3(fb3(P+vec3(0.,0.,t*.22)),fb3(P+vec3(5.2,1.3,2.1)-t*.17),fb3(P+vec3(2.4,7.7,4.4)+t*.12));
+float f=fb3(P+(1.9+lvl*.8)*q);
 vec3 L=normalize(vec3(-.45,.55,.7));float dif=clamp(dot(N,L),0.,1.);
-tone=tone*.75+dif*.35-.12+lvl*.12;
+float tone=smoothstep(.2,.85,f*1.25-.12)*.75+dif*.35-.12+lvl*.1;
 vec3 col=ramp(tone);
 float H=.74,W=H*320./600.;
-vec2 mu=uv+(w-.5)*wob;
+vec2 mu=uv+(q.yz-.5)*wob;
 vec2 m=vec2((mu.x+W*.5)/W*320.,(H*.5-mu.y)/H*600.);
-float msk=smoothstep(-7.,7.,mark(m));
-float form=smoothstep(.3,.7,fbm(p*1.4+w*1.6+vec2(t*.06,-t*.05)));
-float vis=mix(mix(.25,.95,form),1.,focus);
-vec3 lit=mix(col,vec3(.97,.99,.96),.62+.3*(f-.5));
-col=mix(col,lit,msk*vis*(.85+glow*.15));
-col+=msk*glow*.12;
+float dm=mark(m);float msk=smoothstep(-8.,8.,dm);
+float rim=smoothstep(-24.,-4.,dm)*(1.-msk);
+col=mix(col,col*.7,rim*.3);
+float vis=mix(mix(.55,.8,smoothstep(.35,.7,q.y)),1.,focus);
+col=mix(col,bone*(.95+.1*(f-.5)),msk*vis);
+col+=msk*glow*.1;
 col*=mix(.72,1.,smoothstep(0.,.55,z));
 col=mix(col,k0*.9,smoothstep(.62,1.,r)*.55);
 col+=.35*smoothstep(.9,.975,r)*smoothstep(1.,.975,r)*clamp(dot(normalize(uv+1e-5),vec2(-.6,.8))*.5+.6,0.,1.);
 col+=(.08+glow*.06)*pow(dif,6.);
-col+=(h(gl_FragCoord.xy+fract(t*9.))-.5)*.12;
+col+=(h2(floor((uv*.5+.5)*gsz))-.5)*.07;
 float a=smoothstep(1.,.985,r);gl_FragColor=vec4(col*a,a);}`;
 
 /**
- * Bani orb: smoky ink-flow sphere (petrol -> silver sage) with the Bani mark woven into
- * the smoke. Idle: mark half-formed. Listening: swells and swirls with the mic level.
- * Thinking: slows and gathers into the mark. Speaking: mark in full focus, glowing with speech.
+ * Bani orb: 3D rolling smoke sphere (petrol -> silver sage) with the Bone Bani mark woven into
+ * the smoke. Idle: lively flow, mark subtle. Listening: swells and swirls with the mic level.
+ * Thinking: slows and gathers into the mark. Speaking: energetic flow, mark in full focus.
  * Falls back to a static CSS sphere + mark when WebGL is unavailable.
  */
 export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
@@ -145,6 +145,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
         uF = gl.getUniformLocation(prog, "focus");
         uW = gl.getUniformLocation(prog, "wob");
         uG = gl.getUniformLocation(prog, "glow");
+        gl.uniform1f(gl.getUniformLocation(prog, "gsz"), Math.max(40, size * 1.15));
       }
     }
     setFallback(!gl);
@@ -169,7 +170,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       const raw = audio ? getRef.current?.() ?? 0 : m === "thinking" ? 0.12 + 0.08 * Math.sin(now * 0.002) : 0;
       lv = followLevel(lv, raw);
       gw += ((m === "speaking" ? lv : 0) - gw) * 0.3;
-      if (!reduced) t += dt * cur.sp * (1 + lv * 1.8);
+      if (!reduced) t += dt * cur.sp * (1 + lv * 0.8);
       if (gl) {
         gl.uniform1f(uT, t);
         gl.uniform1f(uL, lv);
@@ -221,7 +222,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
           data-testid="bani-orb-mark"
           viewBox="0 0 320 600"
           style={{ height: markH, width: (markH * 320) / 600, position: "relative", opacity: 0.92 }}
-          fill="#F7FBF8"
+          fill="#F5F4F0"
         >
           {BANI_MARK_PATHS.map((d) => <path key={d} d={d} />)}
         </svg>
