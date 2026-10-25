@@ -79,7 +79,7 @@ export function auditSalesRecord(r: SalesRecord, venues: string[]): { ok: boolea
   if (!r.venue || !venues.some(v => v.toLowerCase() === r.venue.toLowerCase())) issues.push(r.venue ? `"${r.venue}" isn't one of your venues` : "the venue is missing");
   const expected = Math.round((r.subtotal + r.serviceCharge + r.discount) * 100) / 100;
   if (Math.abs(expected - r.totalSales) > 0.01) issues.push(`Total Sales is ${money(r.totalSales)} but subtotal + service charge − discount gives ${money(expected)}`);
-  const paid = Math.round((r.visa + r.mastercard + r.amex + r.unionPay + r.jcb + r.alipay + r.wechat + r.payme + r.cash + (r.cardTips ?? 0)) * 100) / 100;
+  const paid = Math.round((r.visa + r.mastercard + r.amex + r.unionPay + r.jcb + r.alipay + r.wechat + r.payme + r.cash + (r.deliveroo ?? 0) + (r.foodpanda ?? 0) + (r.keeta ?? 0) + (r.cardTips ?? 0)) * 100) / 100;
   const gap = Math.round((r.totalSales - paid) * 100) / 100;
   if (Math.abs(gap) > 0.01) issues.push(`payments add up to ${money(paid)}, ${money(Math.abs(gap))} ${gap > 0 ? "short of" : "more than"} Total Sales`);
   if (r.totalSales > 0 && r.guests === 0) issues.push("guests is 0");

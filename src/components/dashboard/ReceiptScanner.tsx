@@ -28,7 +28,7 @@ interface ReceiptScannerProps {
 
 const numberFields = [
   "orders", "guests", "subtotal", "serviceCharge", "discount", "totalSales",
-  "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "payme", "cash", "cardTips",
+  "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "payme", "cash", "deliveroo", "foodpanda", "keeta", "cardTips",
 ] as const;
 
 const fieldLabels: Record<string, string> = {
@@ -51,13 +51,16 @@ const fieldLabels: Record<string, string> = {
   wechat: "WeChat",
   payme: "PayMe",
   cash: "Cash",
+  deliveroo: "Deliveroo",
+  foodpanda: "Foodpanda",
+  keeta: "Keeta",
   cardTips: "Card Tips",
 };
 
 const emptyRecord: SalesRecord = {
   date: "", day: "", venue: "", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0, totalSales: 0,
-  visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
+  visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, deliveroo: 0, foodpanda: 0, keeta: 0, cardTips: 0,
 };
 
 const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
@@ -198,6 +201,9 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
         wechat: Number(raw.wechat) || 0,
         payme: Number(raw.payme) || 0,
         cash: Number(raw.cash) || 0,
+        deliveroo: Number(raw.deliveroo) || 0,
+        foodpanda: Number(raw.foodpanda) || 0,
+        keeta: Number(raw.keeta) || 0,
         cardTips: -(Math.abs(Number(raw.cardTips) || 0)),
       };
 
@@ -585,7 +591,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {(["visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash"] as const).map((field) => (
+              {(["visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","deliveroo","foodpanda","keeta"] as const).map((field) => (
                 <div key={field}>
                   <label className="text-xs text-muted-foreground block mb-1">{fieldLabels[field]}</label>
                   <input

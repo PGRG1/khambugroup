@@ -21,6 +21,9 @@ const SalesRecordSchema = z.object({
   wechat: z.number().min(0).max(100000000),
   payme: z.number().min(0).max(100000000),
   cash: z.number().min(0).max(100000000),
+  deliveroo: z.number().min(0).max(100000000).optional(),
+  foodpanda: z.number().min(0).max(100000000).optional(),
+  keeta: z.number().min(0).max(100000000).optional(),
   cardTips: z.number().min(-100000000).max(100000000),
 });
 
@@ -48,14 +51,19 @@ export function formatCurrency(value: number): string {
 }
 
 export function getPaymentTotal(
-  record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash"> & Partial<Pick<SalesRecord, "cardTips">>,
+  record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash"> & Partial<Pick<SalesRecord, "cardTips" | "deliveroo" | "foodpanda" | "keeta">>,
 ): number {
   // Card tips are already INCLUDED in one of the card payment columns on the receipt,
   // but the printed Total Sales does NOT include the tip. cardTips is stored as a NEGATIVE
   // value (mirroring discount), so adding it here performs the deduction:
   //   sum(payments) + cardTips (negative) = totalSales
   const tips = (record as any).cardTips ?? 0;
-  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash + tips;
+  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash + getDeliveryTotal(record) + tips;
+}
+
+/** Delivery platform settlements (Deliveroo, Foodpanda, Keeta). Missing values count as 0. */
+export function getDeliveryTotal(record: Partial<Pick<SalesRecord, "deliveroo" | "foodpanda" | "keeta">>): number {
+  return (record.deliveroo ?? 0) + (record.foodpanda ?? 0) + (record.keeta ?? 0);
 }
 
 export function getMonthKey(date: string): string {
