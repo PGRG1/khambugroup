@@ -433,7 +433,18 @@ export default function Assistant() {
         </button>
       </div>
       ) : (
-      <div className="bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pl-[18px] pr-2">
+      <div className={`bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pr-2 ${voiceMode ? "pl-[18px]" : "pl-2"}`}>
+        {!voiceMode && (
+          <button
+            type="button"
+            onClick={() => { cancelVoice(); startNewConversation(); }}
+            aria-label="New chat"
+            className="bani-mic mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+            style={{ color: "#5B706B" }}
+          >
+            <Plus className="h-[18px] w-[18px]" />
+          </button>
+        )}
         <textarea
           ref={taRef}
           value={input}
