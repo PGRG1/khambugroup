@@ -60,7 +60,7 @@ export function diagnoseSalesScan(r: SalesRecord): ScanDiagnosis {
       fields: ["cardTips"],
     };
   }
-  const match = PAYMENT_FIELDS.find((f) => r[f] === 0 && gap > 0) && PAYMENT_FIELDS.find((f) => same(r[f], amount));
+  const match = PAYMENT_FIELDS.find((f) => r[f] > 0 && same(r[f], amount));
   if (match) {
     return {
       balanced: false,
