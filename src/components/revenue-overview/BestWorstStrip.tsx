@@ -27,12 +27,12 @@ export function BestWorstStrip({ data }: Props) {
 
   return (
     <div className="glass-surface rounded-xl border border-border/60 p-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:divide-x sm:divide-border/40">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 ">
         {items.map((it, i) => (
           <div key={i} className={i === 0 ? "" : "sm:pl-4"}>
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{it.label}</div>
             <div className="mt-1 text-[15px] font-semibold tabular-nums">{it.value}</div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">{fmtDate(it.date)}</div>
+            <div className="text-[11px] text-muted-foreground tabular-nums">{it.date}</div>
           </div>
         ))}
       </div>

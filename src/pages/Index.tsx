@@ -12,7 +12,6 @@ import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
 import { FileText, Armchair } from "lucide-react";
 
 import { HeroBand } from "@/components/revenue-overview/HeroBand";
-import { KpiRow } from "@/components/revenue-overview/KpiRow";
 import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
@@ -22,14 +21,13 @@ import { aggregate, priorRange, toDaily, mtdRange, isMtdRange, priorCalendarMont
 const Index = () => {
   const { data, loading } = useSalesData();
   const { venues: dbVenues } = useVenues();
-  const venues: VenueFilter[] = ["All Venues" as VenueFilter, ...dbVenues.filter((v) => v.is_active).map((v) => v.name as VenueFilter)];
+  const venues: VenueFilter[] = ["All Venues" as VenueFilter, ...dbVenues.filter((v) => v.is_active && v.name !== "Events").map((v) => v.name as VenueFilter)];
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
 
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
   const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
-  const [view, setView] = useState<"daily" | "monthly">("daily");
   const [showMTDText, setShowMTDText] = useState(false);
   const [showSeatingEditor, setShowSeatingEditor] = useState(false);
   const [seatingKey, setSeatingKey] = useState(0);
@@ -90,7 +88,6 @@ const Index = () => {
 
   const hideDateRange = isActionHidden("revenue.date_range");
   const hideVenueFilter = isActionHidden("revenue.venue_filter");
-  const hideViewToggle = isActionHidden("revenue.view_toggle");
 
   if (loading) {
     return (
