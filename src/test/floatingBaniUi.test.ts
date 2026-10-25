@@ -26,3 +26,19 @@ describe("floating Bani UI rules", () => {
     expect(clampPoint({ x: -50, y: 9999 }, 48, 400, 800)).toEqual({ x: 8, y: 744 });
   });
 });
+
+import { teamRole } from "@/utils/floatingBaniUi";
+describe("teamRole", () => {
+  it("maps each area to one decisive title", () => {
+    expect(teamRole("/procurement/invoices")).toBe("Procurement Analyst");
+    expect(teamRole("/sales-data")).toBe("Revenue Manager");
+    expect(teamRole("/bank")).toBe("Accountant");
+    expect(teamRole("/petty-cash")).toBe("Accountant");
+    expect(teamRole("/finance/payables")).toBe("Accountant");
+    expect(teamRole("/pl-report")).toBe("Financial Controller");
+    expect(teamRole("/")).toBe("Finance Director");
+  });
+  it("never uses slashes in a title", () => {
+    for (const p of ["/", "/bank", "/procurement", "/revenue", "/finance"]) expect(teamRole(p)).not.toContain("/");
+  });
+});

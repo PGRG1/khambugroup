@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import { BaniOrb, type BaniOrbMode } from "@/components/assistant/BaniOrb";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check, FileText } from "lucide-react";
+import { ATTACH_TYPES, attachmentError } from "@/utils/floatingBaniUi";
+import { compressImageFile } from "@/utils/imageCompression";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
@@ -116,7 +118,20 @@ export default function Assistant() {
     [],
   );
 
+  // "+" attaches files (read-only analysis, same server path as floating Bani).
+  const [files, setFiles] = useState<File[]>([]);
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const addFiles = (list: FileList) => {
+    const next = [...files];
+    for (const f of Array.from(list)) {
+      const problem = attachmentError(f, next);
+      if (problem) { toast({ title: problem, variant: "destructive" }); continue; }
+      next.push(f);
+    }
+    setFiles(next);
+  };
   const startNewConversation = () => {
+    setFiles([]);
     abortRef.current?.abort();
     abortRef.current = null;
     setLoading(false);
@@ -153,7 +168,8 @@ export default function Assistant() {
     onSpeak?: (s: SpeakEvent) => void;
     onStatus?: (label: string) => void;
   }) => {
-    const trimmed = text.trim();
+    const attached = opts?.voice ? [] : files;
+    const trimmed = text.trim() || (attached.length ? "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them." : "");
     if (!canSendFn({ text: trimmed, loading, scopeReady }) || !session || !active) {
       if (opts?.voice) throw new Error("Bani is not ready to send. Wait for the current reply or reopen this workspace.");
       return;
@@ -164,7 +180,8 @@ export default function Assistant() {
     requestScopeRef.current = sentScope;
 
     setInput("");
-    const userMsg: Msg = { role: "user", content: trimmed };
+    if (attached.length) setFiles([]);
+    const userMsg: Msg = { role: "user", content: attached.length ? `${trimmed}\n\n_Attached: ${attached.map(f => f.name).join(", ")}_` : trimmed };
     const nextMessages = [...active.messages, userMsg];
     patchActive(convId, (c) => ({
       ...c,
@@ -207,6 +224,11 @@ export default function Assistant() {
     };
 
     try {
+      const attachments = attached.length ? await Promise.all(attached.map(async (f) => {
+        const prepared = f.type.startsWith("image/") ? await compressImageFile(f) : f;
+        const data = await new Promise<string>((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result).split(",")[1] || ""); rd.onerror = () => rej(new Error(`Could not read ${f.name}.`)); rd.readAsDataURL(prepared); });
+        return { name: f.name, type: prepared.type || f.type, data };
+      })) : undefined;
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`;
       const resp = await fetch(url, {
         method: "POST",
@@ -218,6 +240,7 @@ export default function Assistant() {
         body: JSON.stringify({
           messages: toRequestMessages(nextMessages),
           tenant_id: tenantId,
+          ...(attachments ? { floating: true, attachments } : {}),
           ...(opts?.voice ? { voice: true, voice_language: opts.voiceLanguage || "en" } : {}),
         }),
         signal: controller.signal,
@@ -404,9 +427,9 @@ export default function Assistant() {
   useEffect(() => { if (dictation.active) setDictationDocked(true); }, [dictation.active]);
   useEffect(() => { if (!dictation.active && !input.trim() && messages.length === 0) setDictationDocked(false); }, [dictation.active, input, messages.length]);
   const placement = dictationDocked || dictation.active ? "bottom" : composerPlacement(messages.length);
-  const hasText = !!input.trim();
+  const hasText = !!input.trim() || files.length > 0;
 
-  const canSendNow = canSendFn({ text: input, loading, scopeReady });
+  const canSendNow = canSendFn({ text: input.trim() || (files.length ? "files" : ""), loading, scopeReady });
 
   const Composer = (
     <div className="relative w-full">
@@ -433,12 +456,27 @@ export default function Assistant() {
         </button>
       </div>
       ) : (
+      <>
+      {!voiceMode && files.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {files.map((f, i) => (
+            <span key={`${f.name}-${i}`} className="bani-glass flex max-w-[220px] items-center gap-1.5 rounded-full py-1 pl-3 pr-1 text-xs">
+              <FileText className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{f.name}</span>
+              <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="flex h-5 w-5 items-center justify-center rounded-full"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className={`bani-glass bani-composer flex min-h-[54px] items-end gap-1 rounded-[24px] py-2 pr-2 ${voiceMode ? "pl-[18px]" : "pl-2"}`}>
+        {!voiceMode && (
+          <input ref={pickerRef} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+        )}
         {!voiceMode && (
           <button
             type="button"
-            onClick={() => { cancelVoice(); startNewConversation(); }}
-            aria-label="New chat"
+            onClick={() => pickerRef.current?.click()}
+            disabled={loading}
+            aria-label="Attach files"
             className="bani-mic mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ color: "#5B706B" }}
           >
@@ -500,6 +538,7 @@ export default function Assistant() {
           </>
         )}
       </div>
+      </>
       )}
       {!scopeReady && (
         <p className="mt-2 text-center text-xs text-white/80">

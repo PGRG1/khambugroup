@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, Check, AudioLines } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines } from "lucide-react";
+import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
 import { LiveWaveform } from "@/components/assistant/LiveWaveform";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,7 +15,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
-import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
+import { ATTACH_TYPES, ROLE_ACTIVITY, attachmentError, clampPoint, isTap, overDismiss, teamRole, type Point } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -80,6 +81,17 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
   const dictation = useDictation({ getAuth: () => ({ token: session?.access_token ?? null, tenantId }), onError: msg => setError(msg) });
   dictation.setOnAutoFinish(t => setDraft(d => joinDraft(d, t)));
+  // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
+  const [voiceMode, setVoiceMode] = useState(false);
+  type VoiceOpts = { voice: boolean; voiceLanguage: string; onSpeak?: (s: SpeakEvent) => void; onStatus?: (label: string) => void };
+  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts }) => Promise<void>>(async () => {});
+  const voice = useVoiceConversation({
+    active: voiceMode,
+    getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
+    sendQuestion: (text, opts) => sendRef.current({ text, opts }),
+    onError: msg => setError(msg),
+  });
+  const voiceEndRef = useRef(voice.end); voiceEndRef.current = voice.end;
 
   const [scope, setScope] = store?.scope ?? ["", () => {}];
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
@@ -106,6 +118,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => {
     if (!store || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
+    voiceEndRef.current(); setVoiceMode(false);
     setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
   }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
@@ -126,9 +139,17 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     return () => { v?.removeEventListener("resize", update); v?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, [setSphere, setPanelPos]);
 
+  useEffect(() => { if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
+  useEffect(() => () => voiceEndRef.current(), []);
+
   if (!allowed || (!hosted && host)) return null;
-  const module = moduleLabel(pathname);
-  const context = review?.label || (salesDraft ? "Scan Receipt · unsaved draft" : null) || (page && page.path === pathname ? `${module} · ${page.detail}` : module);
+  // Visual only: one Finance Team member per area; no selection or behaviour change.
+  const role = review ? "Procurement Analyst" : salesDraft ? "Revenue Manager" : teamRole(pathname);
+  const voiceLabel: Record<VoiceState, string> = { idle: "Tap the orb to talk", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
+  const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
+  const context = working ? `${role} · ${voice.stepLabel && voiceMode ? voice.stepLabel : ROLE_ACTIVITY[role]}` : role;
+  const enterVoice = () => { dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
+  const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
   const addFiles = (list: FileList | File[]) => {
     let next = [...filesRef.current]; let message = "";
@@ -181,13 +202,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     navigate("/sales-data?view=daily");
   };
 
-  const send = async () => {
-    const typed = draft.trim();
-    const attached = filesRef.current;
-    if ((!typed && !attached.length) || busy || !session || !tenantId) return;
+  const send = async (turn?: { text: string; opts: VoiceOpts }) => {
+    const typed = turn ? turn.text.trim() : draft.trim();
+    const attached = turn ? [] : filesRef.current;
+    if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn)) {
+      if (turn) throw new Error("Bani is not ready yet. Try again in a moment.");
+      return;
+    }
     const text = typed || FILES_ONLY_PROMPT;
     const requestIdentity = identity;
+    abort.current?.abort();
     const controller = new AbortController(); abort.current = controller;
+    if (turn) voice.trackRequest(controller);
     // File names stay in the conversational context so a follow-up ("add it in
     // procurement") can refer to an earlier turn's attachments.
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
@@ -195,7 +221,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
     setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
-    setDraft(""); setFiles([]); setBusy(true); setError("");
+    if (!turn) { setDraft(""); setFiles([]); }
+    setBusy(true); setError("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
       const attachments = attached.length ? await Promise.all(attached.map(async f => {
@@ -204,7 +231,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       })) : undefined;
       if (controller.signal.aborted) return;
       const sales = salesRef.current;
-      if (sales && !attachments) {
+      if (sales && !attachments && !turn) {
         const base = sales.record;
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
           method: "POST", signal: controller.signal,
@@ -220,14 +247,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         setMessages(prev => [...prev, { role: "assistant", content: answer, ...(changes?.length ? { salesChanges: changes, salesBase: base, target: "Scan Receipt" } : {}) }]);
         return;
       }
-      const reviewBody = review ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
+      const reviewBody = review && !turn ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
       // Current concrete venue as untrusted UI context — the server validates it
       // against tenant venues and the user's explicit text always wins.
       const contextVenue = page && page.path === pathname && page.detail && page.detail !== "All venues" ? page.detail : null;
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
         method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(contextVenue ? { active_venue: contextVenue } : {}), ...(attachments ? { attachments } : {}) }),
+        body: JSON.stringify({ tenant_id: tenantId, messages: history, ...reviewBody, ...(contextVenue ? { active_venue: contextVenue } : {}), ...(attachments ? { attachments } : {}), ...(turn ? { voice: true, voice_language: turn.opts.voiceLanguage || "en" } : {}) }),
       });
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
@@ -242,6 +269,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
           const event = JSON.parse(line.slice(6));
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
+          if (event.status && typeof event.status.label === "string") turn?.opts.onStatus?.(event.status.label);
+          if (event.speak && typeof event.speak.text === "string") turn?.opts.onSpeak?.(event.speak as SpeakEvent);
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
@@ -256,9 +285,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         else if (salesAction) runSalesAction(salesAction, attached);
       }
     } catch (e) {
+      if (turn) { if (!controller.signal.aborted) setMessages(prev => prev.slice(0, -1)); throw e; }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) { restore(); setError(e instanceof Error ? e.message : "Bani could not reply."); }
     } finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
   };
+
+  sendRef.current = send;
 
   // Sphere: tap opens; moving past the slop drags it immediately (direct DOM, no React per frame).
   // Release springs to the nearest side edge with carried velocity; near the × it is pulled in.
@@ -369,10 +401,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       <section ref={panelEl} className={`floating-bani-panel ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {isMobile && <div className="floating-bani-grab" aria-hidden="true" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}><span /></div>}
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
-          <BaniOrb size={36} mode={busy ? "thinking" : "idle"} />
-          <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
+          <BaniOrb size={36} mode={working ? "thinking" : "idle"} />
+          <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani Finance Team</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <button type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </header>
+        {voiceMode && <div className="floating-bani-voice">
+          <button type="button" className="floating-bani-voice-orb" onClick={voice.interrupt}
+            aria-label={voice.needsTap ? "Resume voice" : voice.state === "listening" ? "Send voice recording" : "Interrupt and talk"}>
+            <BaniOrb size={112} mode={voice.state === "listening" ? "listening" : voice.state === "speaking" ? "speaking" : voice.state === "idle" ? "idle" : "thinking"} getLevel={voice.getLevel} />
+          </button>
+          <p className="floating-bani-voice-status" role="status">{voice.needsTap ? "Tap the orb to resume audio" : voice.muted && voice.state === "listening" ? "Mic muted" : voiceLabel[voice.state] ?? ""}</p>
+          {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
+          {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
+        </div>}
         <div className="floating-bani-transcript" aria-live="polite">
           {messages.map((message, index) => <div key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
@@ -413,13 +454,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
         </div>
-        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); void send(); }}>
+        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => <div key={f.id} className="floating-bani-attachment">
             {f.url ? <img src={f.url} alt="" /> : <FileText className="h-5 w-5" />}
             <span className="truncate">{f.name}</span>
             <button type="button" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3.5 w-3.5" /></button>
           </div>)}</div>}
-          {dictation.active ? <div className="floating-bani-row">
+          {voiceMode ? <div className="floating-bani-row">
+            <button type="button" className="floating-bani-plus" aria-label={voice.muted ? "Unmute microphone" : "Mute microphone"} aria-pressed={voice.muted} onClick={voice.toggleMute}>{voice.muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}</button>
+            <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Type to Bani during voice" className="floating-bani-input"
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (draft.trim() && voice.sendTyped(draft)) setDraft(""); } }} />
+            {draft.trim() && <button type="button" className="floating-bani-send" aria-label="Send to Bani" disabled={voice.state === "thinking" || voice.state === "transcribing"} onClick={() => { if (voice.sendTyped(draft)) setDraft(""); }}><ArrowUp className="h-5 w-5" /></button>}
+            <button type="button" className="floating-bani-plus" aria-label="End voice conversation" onClick={exitVoice}><X className="h-5 w-5" /></button>
+          </div> : dictation.active ? <div className="floating-bani-row">
             <button type="button" className="floating-bani-plus" aria-label="Cancel dictation" onClick={() => dictation.cancel()}><X className="h-5 w-5" /></button>
             <div className="flex min-h-[40px] flex-1 items-center px-1">
               {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="#A9C2A0" className="h-7 w-full" />}
@@ -430,7 +477,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani…" aria-label="Ask floating Bani" className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); void send(); } }} />
             {dictation.supported && <button type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></button>}
-            <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>
+            {!busy && !draft.trim() && !files.length
+              ? <button type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></button>
+              : <button type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></button>}
           </div>}
         </form>
       </section>
