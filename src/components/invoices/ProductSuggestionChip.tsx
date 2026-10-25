@@ -3,7 +3,7 @@ import { Sparkles, Check, ChevronDown } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Button } from "@/components/ui/button";
 import type { FuzzyCandidate } from "@/utils/productFuzzyMatch";
-import { formatCurrency } from "@/utils/format";
+import { formatCurrency } from "@/utils/salesUtils";
 
 interface Props {
   candidates: FuzzyCandidate[];
