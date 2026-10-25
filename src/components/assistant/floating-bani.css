@@ -88,3 +88,10 @@
 .floating-bani-voice-orb { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
 .floating-bani-voice-status { font-size: .85rem; font-weight: 600; color: var(--fb-ink); }
 .floating-bani-voice-words { font-size: .78rem; color: var(--fb-muted); text-align: center; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+
+/* Voice controls on the dark panel: readable glass, not white-on-white. */
+.floating-bani-composer:has(.floating-bani-voice-row) { background: none; border: 0; padding: 0; }
+.floating-bani-voice-pill { background: rgba(255,255,255,.1); border: 1px solid var(--fb-line); padding: 3px 4px 3px 4px; align-items: center; }
+.floating-bani-voice-pill .floating-bani-plus { width: 36px; height: 36px; background: none; }
+.floating-bani-voice-mute { background: rgba(255,255,255,.1); border: 1px solid var(--fb-line); color: var(--fb-ink); }
+.floating-bani-voice-end { background: rgba(255,255,255,.16); color: var(--fb-ink); }
