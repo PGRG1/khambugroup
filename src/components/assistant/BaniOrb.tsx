@@ -111,11 +111,11 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       />
       <span
         className="absolute bani-orb-grain pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_DARK, backgroundSize: "140px 140px", opacity: 0.55, mixBlendMode: "multiply" }}
+        style={{ inset: "-30%", backgroundImage: GRAIN_DARK, backgroundSize: "140px 140px", opacity: 0.4, mixBlendMode: "multiply" }}
       />
       <span
         className="absolute bani-orb-grain-b pointer-events-none"
-        style={{ inset: "-30%", backgroundImage: GRAIN_LIGHT, backgroundSize: "140px 140px", opacity: 0.6, mixBlendMode: "screen" }}
+        style={{ inset: "-30%", backgroundImage: GRAIN_LIGHT, backgroundSize: "140px 140px", opacity: 0.45, mixBlendMode: "screen" }}
       />
       <svg
         data-testid="bani-orb-mark"
