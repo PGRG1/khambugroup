@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { computeAcceptedAmount, amountsEqual } from "@/utils/invoiceAcceptedAmount";
 import { isReturnedKegLine, getMatchIdentity, resolveReturnedKegEntry } from "@/utils/returnedKegs";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1434,8 +1435,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [aiMatchingAll, setAiMatchingAll] = useState(false);
   const [bulkQuickAddOpen, setBulkQuickAddOpen] = useState(false);
 
+  /** Save the invoice's own code (or wording) onto the supplier's Items Master entry so it matches next time. */
+  const rememberInvoiceWording = async (entry: ProductMasterEntry, code: string, wording: string) => {
+    if (!entry.supplier_entry_id || !tenantId) return;
+    const patch = code ? { external_sku: code } : { supplier_product_name: wording };
+    const { error } = await supabase.from("product_suppliers" as any).update(patch as any).eq("id", entry.supplier_entry_id).eq("tenant_id", tenantId);
+    if (error) { toast({ title: "Couldn't update Items Master", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Items Master updated", description: code ? `Code ${code} will match ${entry.internal_product_name} next time.` : `"${wording}" will match ${entry.internal_product_name} next time.` });
+    onProductMasterChanged?.();
+  };
+
   const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
-    selectProduct(i, candidate.entry as ProductMasterEntry);
+    const line = current?.line_items[i];
+    const entry = candidate.entry as ProductMasterEntry;
+    selectProduct(i, entry);
+    if (!line || !isEntryForActiveSupplier(entry)) return;
+    const code = String(line.scanned_item_code || line.item_code || "").trim();
+    const wording = String(line.scanned_description || line.description || "").trim();
+    const differs = code ? normalizeText(code) !== normalizeText(entry.external_sku || "") : !!wording && normalizeText(wording) !== normalizeText(entry.supplier_product_name || "");
+    if (!differs || !baniEditableMaster) return;
+    toast({
+      title: `Linked to ${entry.internal_product_name || entry.supplier_product_name}`,
+      description: code ? `Save invoice code ${code} to this item so it matches automatically next time?` : `Save the invoice wording to this item so it matches automatically next time?`,
+      action: <ToastAction altText="Save to Items Master" onClick={() => void rememberInvoiceWording(entry, code, wording)}>Save to master</ToastAction>,
+    });
   };
 
   /** Open the existing product search on a line without touching any extracted field. */
