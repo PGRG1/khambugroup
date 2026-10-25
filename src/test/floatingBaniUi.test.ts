@@ -41,7 +41,8 @@ describe("teamRole", () => {
   it("shows no role unprompted on home and joins two roles for cross-area questions", () => {
     expect(teamRoles("", "/")).toEqual([]);
     expect(teamRoles("why don't sales match bank deposits", "/")).toEqual(["Revenue Manager", "Accountant"]);
-    expect(teamRoles("hello", "/bank")).toEqual(["Accountant"]);
+    expect(teamRoles("hello", "/bank")).toEqual([]);
+    expect(teamRoles("whatsup", "/finance-team")).toEqual([]);
   });
   it("never uses slashes in a title", () => {
     for (const p of ["/bank", "/procurement", "/revenue", "/finance"]) expect(teamRole(p)).not.toContain("/");
