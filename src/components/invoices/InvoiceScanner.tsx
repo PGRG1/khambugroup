@@ -32,6 +32,7 @@ import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
+import { buildBaniSuggestions, rawOptionsOf, BANI_FULL_CATALOGUE_LIMIT, BANI_MAX_OPTIONS } from "@/utils/baniLineSuggestions";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
@@ -1486,11 +1487,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     // never the raw OCR supplier_name.
     const scope = resolveAiMatchScope(allSuppliers, inv, productMaster);
     if (scope.status === "no_supplier") {
-      toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
+      if (!silent) toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
       return;
     }
     if (scope.status === "no_products") {
-      toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
+      if (!silent) toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
       return;
     }
     const supplierName = scope.supplierName;
@@ -1531,7 +1532,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       last_unit_cost: p.purchase_unit_cost,
     }));
     if (candidates.length === 0) {
-      toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
+      if (!silent) toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
       return;
     }
 
@@ -1581,6 +1582,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
     } catch (e: any) {
       const msg = e?.message || String(e);
+      if (silent) return;
       if (msg.includes("rate_limited")) toast({ title: "AI busy", description: "Rate limit reached, try again shortly.", variant: "destructive" });
       else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
       else toast({ title: "AI error", description: msg, variant: "destructive" });
@@ -2678,7 +2680,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </button>
             {hasUnmatchedItems && (
               <>
-                <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                <Button size="sm" variant="outline" onClick={() => resolveAllWithAi()} disabled={aiMatchingAll}>
                   {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5" />}
                   <span>Resolve {unmatchedItems.length} unmatched with AI</span>
                 </Button>
