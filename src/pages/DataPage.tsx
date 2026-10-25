@@ -139,34 +139,22 @@ const DataPage = () => {
 
   return (
     <div className="w-full mx-auto space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">
-            <span className="text-gradient-gold">Revenue</span>
-            <span className="text-muted-foreground ml-2 text-[13px] font-normal">Sales Records</span>
-          </h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
-            Review, validate and manage recorded revenue
-          </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+        <div className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setView(v.key)}
+              aria-pressed={view === v.key}
+              className={`inline-flex h-7 shrink-0 items-center rounded-md px-3 text-[12px] font-medium transition-colors ${
+                view === v.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
         {actions}
-      </div>
-
-      {/* View filter */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {VIEWS.map((v) => (
-          <button
-            key={v.key}
-            onClick={() => setView(v.key)}
-            className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${
-              view === v.key
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
       </div>
 
       {loading ? (
