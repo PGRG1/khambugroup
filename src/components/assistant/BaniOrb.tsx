@@ -18,10 +18,18 @@ export const BANI_MARK_PATHS = [
   "M0 400 L160 500 L0 600 Z",
 ];
 
+const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+
 const CSS = `
 @keyframes bani-orb-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes bani-orb-swirl{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(180deg) scale(1.12)}100%{transform:rotate(360deg) scale(1)}}
+@keyframes bani-orb-drift{0%,100%{transform:translate(-8%,-6%) rotate(0deg)}33%{transform:translate(7%,4%) rotate(120deg)}66%{transform:translate(-3%,8%) rotate(240deg)}}
+@keyframes bani-orb-grain{0%,100%{transform:translate(0,0)}25%{transform:translate(-6%,4%)}50%{transform:translate(5%,-5%)}75%{transform:translate(-4%,-3%)}}
 .bani-orb-thinking{animation:bani-orb-breathe 3.2s ease-in-out infinite}
-@media (prefers-reduced-motion: reduce){.bani-orb-thinking{animation:none}}
+.bani-orb-swirl{animation:bani-orb-swirl 14s linear infinite}
+.bani-orb-drift{animation:bani-orb-drift 9s ease-in-out infinite}
+.bani-orb-grain{animation:bani-orb-grain .9s steps(4) infinite}
+@media (prefers-reduced-motion: reduce){.bani-orb-thinking,.bani-orb-swirl,.bani-orb-drift,.bani-orb-grain{animation:none}}
 `;
 
 /** Smooth attack/release follower (pure, unit-tested). */
@@ -82,18 +90,27 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       style={{ width: size, height: size, boxShadow: `0 0 ${size * 0.3}px ${size * 0.05}px rgba(220,232,218,0.35)`, willChange: "transform" }}
     >
       <style>{CSS}</style>
+      <span className="absolute bani-orb-swirl" style={{ inset: "-40%" }}>
+        <span
+          ref={matRef}
+          className="absolute inset-0"
+          style={{
+            background: mode === "speaking"
+              ? "conic-gradient(#DCE8DA, #6E928A, #2F5E5A, #8FAF9D, #F2F7F4, #A9C2B5, #DCE8DA)"
+              : "conic-gradient(#DCE8DA, #8FAF9D, #2F5E5A, #6E928A, #F2F7F4, #A9C2B5, #DCE8DA)",
+            filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 6)}px)`,
+          }}
+        />
+      </span>
       <span
-        ref={matRef}
-        className="absolute"
-        style={{
-          inset: "-40%",
-          background: mode === "speaking"
-            ? "conic-gradient(#DCE8DA, #6E928A, #2F5E5A, #8FAF9D, #F2F7F4, #A9C2B5, #DCE8DA)"
-            : "conic-gradient(#DCE8DA, #8FAF9D, #2F5E5A, #6E928A, #F2F7F4, #A9C2B5, #DCE8DA)",
-          filter: `blur(${Math.round(6 + ((Math.max(22, Math.min(176, size)) - 22) / 154) * 6)}px)`,
-        }}
+        className="absolute bani-orb-drift"
+        style={{ inset: "-20%", background: "radial-gradient(circle at 40% 40%, rgba(47,94,90,0.55), transparent 50%), radial-gradient(circle at 65% 70%, rgba(242,247,244,0.5), transparent 45%)", filter: "blur(6px)" }}
       />
       <span className="absolute inset-0" style={{ background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.75), transparent 45%)" }} />
+      <span
+        className="absolute bani-orb-grain pointer-events-none"
+        style={{ inset: "-20%", backgroundImage: GRAIN, backgroundSize: "120px 120px", opacity: 0.35, mixBlendMode: "overlay" }}
+      />
       <svg
         data-testid="bani-orb-mark"
         viewBox="0 0 320 600"
