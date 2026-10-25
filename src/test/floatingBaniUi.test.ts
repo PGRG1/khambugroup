@@ -27,7 +27,7 @@ describe("floating Bani UI rules", () => {
   });
 });
 
-import { teamRole } from "@/utils/floatingBaniUi";
+import { teamRole, teamRoles } from "@/utils/floatingBaniUi";
 describe("teamRole", () => {
   it("maps each area to one decisive title", () => {
     expect(teamRole("/procurement/invoices")).toBe("Procurement Analyst");
@@ -36,9 +36,14 @@ describe("teamRole", () => {
     expect(teamRole("/petty-cash")).toBe("Accountant");
     expect(teamRole("/finance/payables")).toBe("Accountant");
     expect(teamRole("/pl-report")).toBe("Financial Controller");
-    expect(teamRole("/")).toBe("Finance Director");
+    expect(teamRole("/")).toBeNull();
+  });
+  it("shows no role unprompted on home and joins two roles for cross-area questions", () => {
+    expect(teamRoles("", "/")).toEqual([]);
+    expect(teamRoles("why don't sales match bank deposits", "/")).toEqual(["Revenue Manager", "Accountant"]);
+    expect(teamRoles("hello", "/bank")).toEqual(["Accountant"]);
   });
   it("never uses slashes in a title", () => {
-    for (const p of ["/", "/bank", "/procurement", "/revenue", "/finance"]) expect(teamRole(p)).not.toContain("/");
+    for (const p of ["/bank", "/procurement", "/revenue", "/finance"]) expect(teamRole(p)).not.toContain("/");
   });
 });

@@ -49,9 +49,23 @@ const ROLE_PATHS: [string, TeamRole][] = [
   ["/finance/receivables", "Accountant"], ["/finance/journal", "Accountant"],
   ["/pl-report", "Financial Controller"], ["/finance", "Financial Controller"],
 ];
-export function teamRole(pathname: string): TeamRole {
+/** Page specialist, or null when no single area applies (the team speaks as "Bani Finance Team"). */
+export function teamRole(pathname: string): TeamRole | null {
   const hit = ROLE_PATHS.find(([root]) => pathname === root || pathname.startsWith(`${root}/`) || pathname.startsWith(`${root}-`));
-  return hit ? hit[1] : "Finance Director";
+  return hit ? hit[1] : null;
+}
+const ROLE_WORDS: [TeamRole, RegExp][] = [
+  ["Procurement Analyst", /\b(invoice|supplier|vendor|purchas|procure|item|cost price|unit cost|grn)/i],
+  ["Revenue Manager", /\b(sales|revenue|guest|cover|forecast|performance|trading|spend)/i],
+  ["Accountant", /\b(bank|deposit|payable|receivable|cash|payment|reconcil|petty|journal|ledger)/i],
+  ["Financial Controller", /\b(margin|profit|p&l|p and l|cogs|gross|ebitda)/i],
+];
+/** Visual only: up to two specialists for a question, else the page specialist; empty = whole team. */
+export function teamRoles(question: string, pathname: string): TeamRole[] {
+  const hits = ROLE_WORDS.filter(([, re]) => re.test(question)).map(([r]) => r).slice(0, 2);
+  if (hits.length) return hits;
+  const page = teamRole(pathname);
+  return page ? [page] : [];
 }
 export const ROLE_ACTIVITY: Record<TeamRole, string> = {
   "Accountant": "Reconciling the ledgers",

@@ -15,7 +15,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
-import { ATTACH_TYPES, ROLE_ACTIVITY, attachmentError, clampPoint, isTap, overDismiss, teamRole, type Point } from "@/utils/floatingBaniUi";
+import { ATTACH_TYPES, ROLE_ACTIVITY, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, teamRoles, type Point } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -143,11 +143,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => () => voiceEndRef.current(), []);
 
   if (!allowed || (!hosted && host)) return null;
-  // Visual only: one Finance Team member per area; no selection or behaviour change.
-  const role = review ? "Procurement Analyst" : salesDraft ? "Revenue Manager" : teamRole(pathname);
+  // Visual only: the team is the default; specialists appear only while working on a question.
   const voiceLabel: Record<VoiceState, string> = { idle: "Tap the orb to talk", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
-  const context = working ? `${role} · ${voice.stepLabel && voiceMode ? voice.stepLabel : ROLE_ACTIVITY[role]}` : role;
+  const lastQuestion = [...messages].reverse().find(m => m.role === "user")?.content ?? "";
+  const roles = review ? ["Procurement Analyst" as const] : salesDraft ? ["Revenue Manager" as const] : teamRoles(lastQuestion, pathname);
+  const context = working && roles.length
+    ? `${roles.join(" & ")} · ${voice.stepLabel && voiceMode ? voice.stepLabel : ROLE_ACTIVITY[roles[0]]}`
+    : working ? "Working on it" : moduleLabel(pathname);
   const enterVoice = () => { dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
