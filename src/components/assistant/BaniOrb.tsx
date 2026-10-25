@@ -47,7 +47,7 @@ const LazyElevenOrb = lazy(() =>
   import("@/components/ui/orb").then((m) => ({ default: m.Orb })),
 );
 
-const ORB_COLORS: [string, string] = ["#DCE8DA", "#2F5E5A"];
+const ORB_COLORS: [string, string] = ["#6E928A", "#C4D6C6"];
 
 function agentStateFor(mode: BaniOrbMode): "thinking" | "listening" | "talking" | null {
   if (mode === "listening") return "listening";
