@@ -53,7 +53,7 @@ export function MonthlyAverages({ data, venue }: Props) {
 
   return (
     <div className="space-y-4">
-      <SectionHeader title="Monthly Averages" description="Per-day averages within each month of the selected range" />
+      <SectionHeader title="Monthly Averages" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <MiniPanel title="Avg Revenue / Day" data={monthlyAverages} dataKey="revenuePerDay" tickFmt={(v) => `$${compactHK(v)}`} tipFmt={(v) => `$${formatCurrency(v)}`} />
         <MiniPanel title="Avg Guests / Day" data={monthlyAverages} dataKey="guestsPerDay" tickFmt={(v) => `${v}`} tipFmt={(v) => formatCurrency(v)} />
@@ -72,7 +72,7 @@ export function MonthlyMix({ data, venue }: Props) {
   const venueData = useMemo(() => getVenueComparison(data), [data]);
   return (
     <div className="space-y-4">
-      <SectionHeader title="Mix" description="Where the revenue comes from" />
+      <SectionHeader title="Revenue mix" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <VenuePerformanceChart data={venueData} venue={venue} />
         <PaymentBreakdownChart data={paymentData} />
