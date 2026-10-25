@@ -625,7 +625,7 @@ export default function Assistant() {
       `}</style>
 
       {topbarTarget && !voiceMode && createPortal(topbarActions, topbarTarget)}
-      {voiceMode && <div className="bani-voice-title absolute left-4 top-2 z-10">Bani</div>}
+      {voiceMode && <div className="bani-voice-title absolute left-4 top-2 z-10">{"\n"}</div>}
 
       {voiceMode ? (
         <VoiceStage
