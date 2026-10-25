@@ -75,7 +75,7 @@ import { MoreHorizontal } from "lucide-react";
 import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
-import { useFloatingBaniHost } from "@/components/assistant/FloatingBaniContext";
+import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
 import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
 import { useAuth } from "@/hooks/useAuth";
@@ -1000,6 +1000,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
+      // Grounded post-scan verdict from the scanner's own checks — never an extra model call.
+      const verdicts = parsedInvoices.map((inv, i) => {
+        const st = computeReviewStats(inv);
+        const flags = [...(inv.review_blocking || []), ...(inv.line_items || []).flatMap(l => l.review_blocking || [])];
+        const warns = [...(inv.review_warnings || []), ...(inv.line_items || []).flatMap(l => l.review_warnings || [])];
+        const name = `${parsedInvoices.length > 1 ? `Invoice ${i + 1}` : "This invoice"}${inv.supplier_name ? ` from ${inv.supplier_name}` : ""}`;
+        if (!flags.length && !warns.length) return `${name} looks good — ${st.totalLines} line${st.totalLines === 1 ? "" : "s"}, ${st.matched} matched to Items Master${st.newItems ? `, ${st.newItems} new item${st.newItems === 1 ? "" : "s"}` : ""}. Check it over and save when ready.`;
+        const list = [...flags.map(f => `${f} (must fix)`), ...warns].slice(0, 6);
+        return `${name} needs a look:\n- ${list.join("\n- ")}${flags.length + warns.length > 6 ? `\n- …and ${flags.length + warns.length - 6} more` : ""}`;
+      });
+      baniSay(`${verdicts.join("\n\n")}\n\nTap a line and tell me what's right if anything needs fixing.`);
       return true;
     } catch (err: any) {
       setInvoices([]);
@@ -1027,7 +1038,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId, baniSay]);
 
   // Floating-Bani handoff: validated scope, settled before scanning, never
   // automatic on rerender/remount. Dirty work is protected by the parent's
