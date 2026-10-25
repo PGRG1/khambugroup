@@ -304,7 +304,7 @@ export function AnalysisLeakage({ data, venue, seatingKey }: Props) {
   return (
     <div className="space-y-4">
       {/* ================= Records & Leakage ================= */}
-      <SectionHeader title="Records & Leakage" description="Best/worst days per venue and discount trends" />
+      <SectionHeader title="Best days & discounts" description="Highest and lowest days per venue, and discounts over time" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {a.venueList.map((v) => {
           const { top5, bottom5 } = a.getTopBottom(v);
