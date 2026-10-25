@@ -352,6 +352,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { isPreviewActive: baniPreview } = usePreviewMode();
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
   const { setHost: setBaniHost } = useFloatingBaniHost();
+  const baniSay = useFloatingBaniSay();
   const [baniHostNode, setBaniHostNode] = useState<HTMLDivElement | null>(null);
   const baniHostToken = useRef(crypto.randomUUID());
   const [baniLineId, setBaniLineId] = useState<string | null>(null);
