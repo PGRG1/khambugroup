@@ -1,0 +1,4 @@
+ALTER TABLE public.sales_records
+  ADD COLUMN IF NOT EXISTS deliveroo numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS foodpanda numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS keeta numeric NOT NULL DEFAULT 0;
