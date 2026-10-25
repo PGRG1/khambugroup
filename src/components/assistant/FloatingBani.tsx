@@ -72,6 +72,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const gesture = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; t: number; held: boolean; moved: number; timer: number; last: Point; over: boolean } | null>(null);
   const panelDrag = useRef<{ id: number; ox: number; oy: number } | null>(null);
   const panelEl = useRef<HTMLElement>(null);
+  const springRaf = useRef(0);
+  const vel = useRef({ x: 0, y: 0, t: 0, px: 0, py: 0 });
+  useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
 
   const [scope, setScope] = store?.scope ?? ["", () => {}];
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
@@ -252,32 +255,66 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     } finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
   };
 
-  // Sphere: tap opens; press-and-hold reveals the bottom × and lets the sphere follow the pointer.
+  // Sphere: tap opens; moving past the slop drags it immediately (direct DOM, no React per frame).
+  // Release springs to the nearest side edge with carried velocity; near the × it is pulled in.
   const dismissCentre = () => ({ x: window.innerWidth / 2, y: window.innerHeight - 72 });
+  const place = (p: Point, scale = 1) => { const el = sphereEl.current; if (!el) return; el.style.left = `${p.x}px`; el.style.top = `${p.y}px`; el.style.right = "auto"; el.style.bottom = "auto"; el.style.transform = `scale(${scale})`; };
   const resetGesture = () => { const g = gesture.current; if (g) clearTimeout(g.timer); gesture.current = null; setHolding(false); setOverX(false); setDrag(null); };
+  const springTo = (from: Point, v: Point, to: Point, done: () => void, endScale = 1) => {
+    cancelAnimationFrame(springRaf.current);
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) { place(to, endScale); done(); return; }
+    let x = from.x, y = from.y, vx = v.x, vy = v.y, s = 1, last = performance.now();
+    const k = 260, c = 22; // slightly under-damped: a soft elastic settle
+    const tick = (now: number) => {
+      const dt = Math.min(0.032, (now - last) / 1000); last = now;
+      vx += (k * (to.x - x) - c * vx) * dt; vy += (k * (to.y - y) - c * vy) * dt;
+      x += vx * dt; y += vy * dt; s += (endScale - s) * Math.min(1, dt * 14);
+      if (Math.hypot(to.x - x, to.y - y) < 0.5 && Math.hypot(vx, vy) < 10 && Math.abs(endScale - s) < 0.02) { place(to, endScale); done(); return; }
+      place({ x, y }, s); springRaf.current = requestAnimationFrame(tick);
+    };
+    springRaf.current = requestAnimationFrame(tick);
+  };
   const onSphereDown = (e: RPointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0 || !sphereEl.current) return;
+    cancelAnimationFrame(springRaf.current);
     const r = sphereEl.current.getBoundingClientRect();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
     const start = { x: r.left, y: r.top };
-    gesture.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, t: performance.now(), held: false, moved: 0, last: start, over: false,
-      timer: window.setTimeout(() => { const g = gesture.current; if (g && g.moved < 8) { g.held = true; setHolding(true); setDrag(g.last); } }, HOLD_MS) };
+    gesture.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, t: performance.now(), held: false, moved: 0, last: start, over: false, timer: 0 };
+    vel.current = { x: 0, y: 0, t: e.timeStamp, px: e.clientX, py: e.clientY };
   };
   const onSphereMove = (e: RPointerEvent<HTMLButtonElement>) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     g.moved = Math.max(g.moved, Math.hypot(e.clientX - g.sx, e.clientY - g.sy));
-    if (!g.held) { if (g.moved >= 8) clearTimeout(g.timer); return; }
-    const p = clampPoint({ x: e.clientX - g.ox, y: e.clientY - g.oy }, SPHERE, window.innerWidth, window.innerHeight);
-    const c = dismissCentre(); g.last = p; g.over = overDismiss(p, SPHERE, c.x, c.y);
-    setDrag(p); setOverX(g.over);
+    if (!g.held) { if (g.moved < 8) return; g.held = true; setHolding(true); setDrag(g.last); }
+    const dt = Math.max(1, e.timeStamp - vel.current.t);
+    vel.current = { x: 0.6 * vel.current.x + 0.4 * ((e.clientX - vel.current.px) * 1000 / dt), y: 0.6 * vel.current.y + 0.4 * ((e.clientY - vel.current.py) * 1000 / dt), t: e.timeStamp, px: e.clientX, py: e.clientY };
+    let p = clampPoint({ x: e.clientX - g.ox, y: e.clientY - g.oy }, SPHERE, window.innerWidth, window.innerHeight);
+    const c = dismissCentre(); const target = { x: c.x - SPHERE / 2, y: c.y - SPHERE / 2 };
+    const d = Math.hypot(p.x - target.x, p.y - target.y);
+    if (d < 90) { const pull = 1 - d / 90; p = { x: p.x + (target.x - p.x) * pull * 0.7, y: p.y + (target.y - p.y) * pull * 0.7 }; }
+    g.last = p; const over = overDismiss(p, SPHERE, c.x, c.y) || d < 40;
+    place(p, over ? 0.92 : 1.08);
+    if (over !== g.over) { g.over = over; setOverX(over); }
   };
   const onSphereUp = (e: RPointerEvent<HTMLButtonElement>, cancelled = false) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    if (!cancelled) {
-      if (g.held) { if (g.over) { setHidden(true); setOpen(false); } else setSphere(g.last); }
-      else if (isTap(g.moved, performance.now() - g.t, HOLD_MS)) setOpen(true);
+    if (!cancelled && g.held) {
+      const w = window.innerWidth, h = window.innerHeight; const v = { x: vel.current.x, y: vel.current.y };
+      if (g.over) {
+        const c = dismissCentre(); gesture.current = null; setOverX(true);
+        springTo(g.last, { x: 0, y: 0 }, { x: c.x - SPHERE / 2, y: c.y - SPHERE / 2 }, () => { resetGesture(); setHidden(true); setOpen(false); }, 0.01);
+        return;
+      }
+      const projX = g.last.x + SPHERE / 2 + v.x * 0.18;
+      const to = clampPoint({ x: projX < w / 2 ? 0 : w, y: g.last.y + v.y * 0.18 }, SPHERE, w, h);
+      gesture.current = null; setHolding(false); setOverX(false);
+      springTo(g.last, v, to, () => { setSphere(to); setDrag(null); });
+      return;
     }
+    if (!cancelled && isTap(g.moved, performance.now() - g.t, HOLD_MS)) setOpen(true);
     resetGesture();
   };
   // Desktop panel moves by its header only (never input, buttons or transcript).
