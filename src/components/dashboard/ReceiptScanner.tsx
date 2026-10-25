@@ -67,6 +67,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
+  // Fixes happen in the floating Bani sphere: share the live unsaved draft with it.
+  const setBaniSales = useFloatingBaniSales();
+  useEffect(() => {
+    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData } : null);
+  }, [extractedData, activeVenueNames, setBaniSales]);
+  useEffect(() => () => setBaniSales(null), [setBaniSales]);
   const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
