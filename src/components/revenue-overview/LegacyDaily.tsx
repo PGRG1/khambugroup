@@ -159,7 +159,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
     <div className="space-y-4">
 
       {/* ================= Momentum ================= */}
-      <SectionHeader title="Momentum" description="How the period is building day over day" />
+      <SectionHeader title="Daily trend" />
       <CumulativeSalesChart data={data} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -205,7 +205,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
       </div>
 
       {/* ================= Spend ================= */}
-      <SectionHeader title="Spend" description="Ticket size trends across the period" />
+      <SectionHeader title="Average spend" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartShell
           title="Avg Spend / Guest"
@@ -249,7 +249,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
       </div>
 
       {/* ================= Distribution ================= */}
-      <SectionHeader title="Distribution" description="Individual data points by day of month" />
+      <SectionHeader title="Distribution" />
       <ScatterAnalysisCharts data={data} />
 
     </div>
@@ -261,7 +261,7 @@ export function AnalysisWeekdays({ data, venue, seatingKey }: Props) {
   return (
     <div className="space-y-4">
       {/* ================= Weekday Deep Dive ================= */}
-      <SectionHeader title="Weekday Deep Dive" description="Performance broken down by day of week, per month" />
+      <SectionHeader title="By weekday" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DowChart title="Avg Sales by Day of Week" data={a.dayStats} months={a.months} prefix="sales" fmt={(v) => `$${compactHK(v)}`} fmtTooltip={(v) => `$${formatCurrency(v)}`} />
         <DowChart title="Avg Guests by Day of Week" data={a.dayStats} months={a.months} prefix="guests" fmt={(v) => `${v}`} fmtTooltip={(v) => formatCurrency(v)} />
@@ -289,7 +289,7 @@ export function AnalysisVenueMix({ data, venue, seatingKey }: Props) {
   return (
     <div className="space-y-4">
       {/* ================= Mix ================= */}
-      <SectionHeader title="Mix" description="Where the revenue comes from" />
+      <SectionHeader title="Revenue mix" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <VenuePerformanceChart data={a.venueData} venue={venue} />
         <PaymentBreakdownChart data={a.paymentData} />
@@ -304,7 +304,7 @@ export function AnalysisLeakage({ data, venue, seatingKey }: Props) {
   return (
     <div className="space-y-4">
       {/* ================= Records & Leakage ================= */}
-      <SectionHeader title="Best days & discounts" description="Highest and lowest days per venue, and discounts over time" />
+      <SectionHeader title="Best days and discounts" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {a.venueList.map((v) => {
           const { top5, bottom5 } = a.getTopBottom(v);
