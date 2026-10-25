@@ -1,15 +1,19 @@
-.floating-bani { --fb-ink: #EEF4EF; --fb-muted: rgba(226,236,229,.66); --fb-line: rgba(220,232,218,.14); --fb-glass: rgba(255,255,255,.06); --fb-sage: #A9C2A0;
+.floating-bani { --fb-ink: #EAF2F8; --fb-muted: rgba(214,232,242,.66); --fb-line: rgba(214,232,242,.16); --fb-glass: rgba(255,255,255,.06); --fb-accent: #6FA8C9;
+  /* Soft Ice orb palette — overrides BaniOrb green defaults inside the sphere only. */
+  --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6;
+  --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58;
   position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+#floating-bani-restore, .floating-bani-restore-fixed { --bani-orb-c1:#8FBBDC; --bani-orb-c2:#3E6E96; --bani-orb-c3:#274B6D; --bani-orb-c4:#6FA8C9; --bani-orb-c5:#D6E8F2; --bani-orb-c6:#4A7FA6; --bani-orb-hi:214,232,242; --bani-orb-deep:27,58,88; --bani-orb-shadow:15,35,58; }
 .floating-bani-hosted { z-index: 60; }
 .floating-bani > * { pointer-events: auto; }
 
 /* Sphere launcher: the orb itself, no button chrome. */
-.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: 0 8px 22px rgba(14,38,35,.32); }
-.floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-sage); outline-offset: 3px; }
+.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: 0 8px 22px rgba(14,32,50,.35); }
+.floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-accent); outline-offset: 3px; }
 .floating-bani-sphere { will-change: left, top, transform; transition: transform 140ms cubic-bezier(.34,1.56,.64,1); }
 .floating-bani-sphere:active { transform: scale(1.06); }
 .floating-bani-sphere.is-dragging { z-index: 2; right: auto; bottom: auto; cursor: grabbing; }
-.floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: #143430; color: var(--fb-ink); font-size: .8rem; }
+.floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: #1B3A55; color: var(--fb-ink); font-size: .8rem; }
 .floating-bani-target { position: fixed; left: 50%; bottom: calc(72px - 32px + env(safe-area-inset-bottom)); width: 64px; height: 64px; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; color: var(--fb-ink); background: rgba(20,40,38,.72); border: 1px solid var(--fb-line); backdrop-filter: blur(12px); pointer-events: none; transition: transform 140ms ease, box-shadow 140ms ease; }
 .floating-bani-target.is-active { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(240,180,180,.55); }
 .floating-bani-restore { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; }
