@@ -76,6 +76,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const panelEl = useRef<HTMLElement>(null);
   const springRaf = useRef(0);
   const vel = useRef({ x: 0, y: 0, t: 0, px: 0, py: 0 });
+  const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
   useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
   const dictation = useDictation({ getAuth: () => ({ token: session?.access_token ?? null, tenantId }), onError: msg => setError(msg) });
   dictation.setOnAutoFinish(t => setDraft(d => joinDraft(d, t)));
@@ -322,7 +323,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     resetGesture();
   };
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
-  const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
