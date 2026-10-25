@@ -108,110 +108,69 @@ const Index = () => {
   const btnGhost = "inline-flex items-center gap-1.5 h-8 px-2.5 text-[13px] font-medium rounded-md border border-border/60 bg-transparent text-foreground/80 hover:bg-muted transition-colors";
 
   return (
-    <div className="w-full mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">
-            <span className="text-gradient-gold">Revenue</span>
-            <span className="text-muted-foreground ml-2 text-[13px] font-normal">Overview</span>
-          </h1>
-          <div className="flex items-center gap-1.5">
-            {isAdmin && (
-              <button onClick={() => setShowSeatingEditor(true)} className={btnGhost}>
-                <Armchair className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Seats</span>
+    <div className="w-full mx-auto space-y-5">
+      <div className="flex items-center gap-2 flex-wrap">
+        {!hideVenueFilter && (
+          <div className="flex gap-[3px] p-[3px] bg-muted/60 rounded-full">
+            {venues.map((v) => (
+              <button
+                key={v}
+                onClick={() => setVenue(v)}
+                className={`px-3 h-7 text-[12px] font-medium rounded-full transition-colors ${
+                  venue === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {v === "All Venues" ? "All" : v}
               </button>
-            )}
-            {isAdmin && (
-              <button onClick={() => setShowMTDText(true)} className={btnGhost}>
-                <FileText className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">MTD Summary</span>
-              </button>
-            )}
+            ))}
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {!hideVenueFilter && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {venues.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVenue(v)}
-                  className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${
-                    venue === v
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
+        )}
+        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+          {!hideDateRange && (
+            <DateFilter
+              from={from}
+              to={to}
+              onFromChange={setFrom}
+              onToChange={setTo}
+              months={months.map((m) => m.label)}
+              onPeriodSelect={handlePeriodSelect}
+              includeMtd
+              initialPeriod="MTD"
+            />
           )}
-          <div className="flex items-center gap-2 flex-wrap ml-auto">
-            {!hideDateRange && (
-              <DateFilter
-                from={from}
-                to={to}
-                onFromChange={setFrom}
-                onToChange={setTo}
-                months={months.map((m) => m.label)}
-                onPeriodSelect={handlePeriodSelect}
-                includeMtd
-                initialPeriod="MTD"
-
-              />
-            )}
-            {!hideViewToggle && (
-              <div className="flex gap-[3px] p-[3px] bg-muted rounded-md">
-                {(["daily", "monthly"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`px-3 h-7 text-[12px] font-medium rounded-[3px] transition-colors ${
-                      view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {v === "daily" ? "Daily" : "Monthly"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {isAdmin && (
+            <button onClick={() => setShowSeatingEditor(true)} className={btnGhost} title="Seats">
+              <Armchair className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => setShowMTDText(true)} className={btnGhost} title="MTD summary">
+              <FileText className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="card-glass rounded-xl p-12 text-center">
-          <p className="text-muted-foreground">No data for the selected filters.</p>
+          <p className="text-muted-foreground">No sales recorded for this period.</p>
         </div>
       ) : (
         <>
-          <HeroBand
-            cur={cur}
-            prev={prev}
-            sparkline90={sparkline90}
-            forecast={forecastSummary}
-          />
+          <HeroBand cur={cur} prev={prev} sparkline90={sparkline90} forecast={forecastSummary} />
 
-          <KpiRow cur={cur} prev={prev} dailyCurrent={dailyCurrent} />
+          <BestWorstStrip data={filtered} />
 
-          <RevenueTrend data={filtered} view={view} forecastDaily={forecastSummary.daily} />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <RevenueTrend data={filtered} view="daily" forecastDaily={forecastSummary.daily} />
+            </div>
+            <div className="min-w-0">
+              <DowPattern data={filtered} />
+            </div>
+          </div>
 
           <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} seatingKey={seatingKey} />
-
-          <details className="group">
-            <summary className="cursor-pointer list-none text-[13px] font-medium text-muted-foreground hover:text-foreground py-2 select-none">
-              <span className="group-open:hidden">Show more insights</span>
-              <span className="hidden group-open:inline">Hide insights</span>
-            </summary>
-            <div className="space-y-4 pt-2">
-              <DowPattern data={filtered} />
-              <BestWorstStrip data={filtered} />
-            </div>
-          </details>
         </>
       )}
 
