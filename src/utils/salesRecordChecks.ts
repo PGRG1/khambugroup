@@ -34,19 +34,52 @@ export function addDaysIso(iso: string, n: number) {
 const weekday = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
 
 export interface MissingDay { date: string; venue: string; venueId: string }
+export interface MissingRun extends MissingDay { endDate: string; days: number }
+
+/** Calendar date at the tenant, independent of the browser's timezone. */
+export function tenantToday(timeZone = "Asia/Hong_Kong", now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const value = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+export function firstSaleDates(history: SalesRecord[]): Map<string, string> {
+  const first = new Map<string, string>();
+  for (const r of history) if (!first.has(r.venue) || r.date < (first.get(r.venue) ?? r.date)) first.set(r.venue, r.date);
+  return first;
+}
+
+export function collapseMissingDays(days: MissingDay[]): MissingRun[] {
+  const sorted = [...days].sort((a, b) => a.venueId.localeCompare(b.venueId) || a.date.localeCompare(b.date));
+  const runs: MissingRun[] = [];
+  for (const day of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && last.venueId === day.venueId && addDaysIso(last.endDate, 1) === day.date) {
+      last.endDate = day.date; last.days++;
+    } else runs.push({ ...day, endDate: day.date, days: 1 });
+  }
+  return runs;
+}
+
+export function salesListCounts(records: SalesRecord[], runs: MissingRun[]) {
+  return { days: new Set(records.map((r) => r.date)).size, attention: runs.length + records.filter((r) => !checkRecord(r).ok).length };
+}
 
 /**
  * Every date from `from` to min(`to`, yesterday) with no record for an active venue in scope.
  * Records are matched per venue per day, so a venue with service periods is flagged only when the whole day is missing.
  */
-export function missingDays(records: SalesRecord[], venues: { id: string; name: string }[], from: string, to: string, today: string): MissingDay[] {
+export function missingDays(records: SalesRecord[], venues: { id: string; name: string }[], from: string, to: string, today: string, firstSales = firstSaleDates(records)): MissingDay[] {
   const yesterday = addDaysIso(today, -1);
   const end = to < yesterday ? to : yesterday;
   if (from > end) return [];
   const have = new Set(records.map((r) => `${r.venue}|${r.date}`));
   const out: MissingDay[] = [];
   for (let d = from; d <= end; d = addDaysIso(d, 1)) {
-    for (const v of venues) if (!have.has(`${v.name}|${d}`)) out.push({ date: d, venue: v.name, venueId: v.id });
+    for (const v of venues) {
+      const first = firstSales.get(v.name);
+      if (first && d >= first && !have.has(`${v.name}|${d}`)) out.push({ date: d, venue: v.name, venueId: v.id });
+    }
   }
   return out;
 }
@@ -81,6 +114,13 @@ export function notePrompt(record: SalesRecord, history: SalesRecord[]): string 
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export function missingRunLabel(run: MissingRun) {
+  if (run.days === 1) return `${run.venue} · No sales ${shortDay(run.date)}`;
+  const [y1, m1, d1] = run.date.split("-").map(Number);
+  const [y2, m2, d2] = run.endDate.split("-").map(Number);
+  const range = y1 === y2 && m1 === m2 ? `${d1}–${d2} ${MON[m2 - 1]}` : `${d1} ${MON[m1 - 1]}${y1 !== y2 ? ` ${y1}` : ""}–${d2} ${MON[m2 - 1]}${y1 !== y2 ? ` ${y2}` : ""}`;
+  return `${run.venue} · No sales ${range} (${run.days} days)`;
+}
 export function shortDay(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${DOW[new Date(y, m - 1, d).getDay()]} ${d} ${MON[m - 1]}`;

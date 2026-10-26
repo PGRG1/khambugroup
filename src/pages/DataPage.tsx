@@ -20,7 +20,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { useSalesNotes } from "@/hooks/useSalesNotes";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { getMonthKey, getMonthLabel } from "@/utils/salesUtils";
-import { isoDay } from "@/utils/salesRecordChecks";
+import { isoDay, tenantToday } from "@/utils/salesRecordChecks";
 import { mtdRange } from "@/components/revenue-overview/utils";
 import { monthSoFarLabel } from "@/utils/revenueOverview";
 import type { DayNote } from "@/components/dashboard/ManualInput";
@@ -112,7 +112,7 @@ const DataPage = () => {
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
     setPeriodName(period);
   };
-  const today = isoDay(new Date());
+  const today = tenantToday();
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
   const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
@@ -219,7 +219,10 @@ const DataPage = () => {
 
           <div ref={dailyRef} className="scroll-mt-16">
             <DailyRecords
+              key={`${tenantId}:${user?.id}`}
               records={periodRecords}
+              history={scopedData}
+              userId={user?.id}
               venues={vs.selectedVenues.map((v) => ({ id: v.id, name: v.name }))}
               from={fromIso} to={toIso} today={today}
               periodLabel={periodName} tenantName={tenantName}
