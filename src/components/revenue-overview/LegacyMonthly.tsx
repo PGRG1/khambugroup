@@ -74,7 +74,7 @@ export function MonthlyMix({ data, venue }: Props) {
     <div className="space-y-4">
       <SectionHeader title="Revenue mix" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <VenuePerformanceChart data={venueData} venue={venue} />
+        <VenuePerformanceChart data={venueData} venue={venue} records={data} />
         <PaymentBreakdownChart data={paymentData} />
       </div>
     </div>

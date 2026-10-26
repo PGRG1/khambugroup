@@ -20,7 +20,8 @@ import {
   getPaymentBreakdown,
   getVenueComparison,
 } from "@/utils/salesUtils";
-import { getVenueSeats } from "@/constants/venueSeating";
+import { useSeatHistory } from "@/hooks/useSeatHistory";
+import { seatsForDate } from "@/utils/seatHistory";
 import { SectionHeader } from "./SectionHeader";
 import { ChartShell } from "./ChartShell";
 import {
@@ -85,12 +86,16 @@ function useAnalytics(data: SalesRecord[], venue: string, seatingKey?: number) {
 
   const daily = useDaily(data);
   const vs = useVenueScope();
-  const seats = vs.selectedVenues.reduce((sum, v) => sum + (getVenueSeats(v.name) ?? v.seats ?? 0), 0) || null;
-  // seatingKey forces recompute on seat edits (via getDayOfWeekStats reading current config)
+  const seatHist = useSeatHistory();
+  const venueIds = useMemo(() => vs.selectedVenues.map((v) => v.id), [vs.selectedVenues]);
+  // Seats that applied on each day (summed across the chosen venues).
+  const seatsOnDate = useMemo(() => (d: string) => seatsForDate(seatHist.rows, venueIds, d), [seatHist.rows, venueIds]);
+  const lastDate = data.reduce((m, r) => (r.date > m ? r.date : m), "");
+  const seats = lastDate ? seatsOnDate(lastDate) : null;
   const { data: dayStats, months } = useMemo(
-    () => getDayOfWeekStats(data, seats),
+    () => getDayOfWeekStats(data, seatsOnDate),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, seats, seatingKey]
+    [data, seatsOnDate, seatingKey]
   );
   const hasSeats = seats !== null && seats > 0;
 

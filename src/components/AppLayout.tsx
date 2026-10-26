@@ -46,7 +46,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
             <div className="md:hidden">
-              {isRevenueRoute(pathname) && <RevenueNavigation />}
+              {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             </div>

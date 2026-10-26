@@ -14,7 +14,7 @@ import { mtdRange } from "@/components/revenue-overview/utils";
  * Used by the Revenue Analysis page so it behaves identically to Overview
  * without duplicating any calculation logic.
  */
-export function useRevenueFilters() {
+export function useRevenueFilters(initial?: () => { from: Date; to: Date }) {
   const { data, loading } = useSalesData();
   const { venues: dbVenues } = useVenues();
   const { isActionHidden } = usePagePermissions();
@@ -26,8 +26,8 @@ export function useRevenueFilters() {
 
   const vs = useVenueScope();
   const venue: VenueFilter = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name as VenueFilter : "All Venues";
-  const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
-  const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
+  const [from, setFrom] = useState<Date | undefined>(() => (initial ?? mtdRange)().from);
+  const [to, setTo] = useState<Date | undefined>(() => (initial ?? mtdRange)().to);
   const [view, setView] = useState<"daily" | "monthly">("daily");
 
   const months = useMemo(() => {

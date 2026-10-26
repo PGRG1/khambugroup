@@ -1,5 +1,5 @@
 /**
- * /admin/structure — Business Structure
+ * /admin/structure — Business & venues
  *
  * Single home for organizations + their venues. Venues are rendered nested
  * inside their owning org so the hierarchy is visible at a glance. Each venue
@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader, KpiCard, KpiGrid, EmptyState } from "@/components/expenses/shared";
+import { useSeatHistory, type SeatHistoryEntry } from "@/hooks/useSeatHistory";
+import { VenueSeats } from "@/components/admin/VenueSeats";
 
 type ServicePeriodCounts = Record<string, number>;
 
@@ -44,8 +46,11 @@ function useServicePeriodCounts(venueIds: string[]) {
 
 // ---------- Org card ----------
 function OrgCard({
-  org, venues, spCounts, updateOrg, deleteOrg, addVenue, updateVenue, deleteVenue,
+  org, venues, spCounts, updateOrg, deleteOrg, addVenue, updateVenue, deleteVenue, seatHistory, tenantId, onSeatsSaved,
 }: {
+  seatHistory: SeatHistoryEntry[];
+  tenantId: string | null;
+  onSeatsSaved: () => void;
   org: Organization;
   venues: Venue[];
   spCounts: ServicePeriodCounts;
@@ -64,9 +69,8 @@ function OrgCard({
   const [venueDraft, setVenueDraft] = useState<{ name: string; seats: string }>({ name: "", seats: "" });
 
   const saveVenue = async (v: Venue) => {
-    const seatsNum = venueDraft.seats.trim() === "" ? null : parseInt(venueDraft.seats, 10);
-    if (seatsNum !== null && (isNaN(seatsNum) || seatsNum < 0)) return;
-    if (await updateVenue(v.id, { name: venueDraft.name, seats: seatsNum })) setEditingVenueId(null);
+    // Seats change only through seat history ("Change seats").
+    if (await updateVenue(v.id, { name: venueDraft.name })) setEditingVenueId(null);
   };
   const submitNewVenue = async () => {
     if (!newVenueName.trim()) return;
@@ -137,11 +141,10 @@ function OrgCard({
           />
         )}
         {venues.map((v) => (
-          <div key={v.id} className="rounded-lg border border-border/60 p-3 flex items-center gap-3">
+          <div key={v.id} className="rounded-lg border border-border/60 p-3 flex flex-wrap items-start gap-3">
             {editingVenueId === v.id ? (
               <>
                 <Input value={venueDraft.name} onChange={(e) => setVenueDraft({ ...venueDraft, name: e.target.value })} className="h-8 flex-1"/>
-                <Input type="number" placeholder="Seats" value={venueDraft.seats} onChange={(e) => setVenueDraft({ ...venueDraft, seats: e.target.value })} className="h-8 w-24"/>
                 <Button size="sm" variant="ghost" onClick={() => saveVenue(v)}><Check className="h-4 w-4"/></Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditingVenueId(null)}><X className="h-4 w-4"/></Button>
               </>
@@ -157,12 +160,12 @@ function OrgCard({
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
-                    <span>Seats: <span className="text-foreground tabular-nums">{v.seats ?? "—"}</span></span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3"/>
                       <span className="tabular-nums">{spCounts[v.id] ?? 0}</span> service period{(spCounts[v.id] ?? 0) === 1 ? "" : "s"}
                     </span>
                   </div>
+                  <VenueSeats venueId={v.id} tenantId={tenantId} history={seatHistory.filter((h) => h.venue_id === v.id)} onSaved={onSeatsSaved} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -190,7 +193,7 @@ function OrgCard({
         {addingVenue ? (
           <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-border bg-muted/20">
             <Input placeholder="Venue name" value={newVenueName} onChange={(e) => setNewVenueName(e.target.value)} className="h-9 flex-1" autoFocus/>
-            <Input type="number" placeholder="Seats" value={newVenueSeats} onChange={(e) => setNewVenueSeats(e.target.value)} className="h-9 w-28"/>
+            <Input type="number" min={1} placeholder="Seats" aria-label="Seats (from today)" value={newVenueSeats} onChange={(e) => setNewVenueSeats(e.target.value)} className="h-9 w-28"/>
             <Button size="sm" onClick={submitNewVenue} disabled={!newVenueName.trim()}>Add</Button>
             <Button size="sm" variant="ghost" onClick={() => { setAddingVenue(false); setNewVenueName(""); setNewVenueSeats(""); }}>Cancel</Button>
           </div>
@@ -230,7 +233,8 @@ export default function BusinessStructure() {
   const { isAdmin } = useAuth();
   const { tenantId, memberships } = useActiveTenant();
   const { organizations, loading: orgLoading, create: createOrg, update: updateOrg, remove: removeOrg } = useOrganizations();
-  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue } = useVenues();
+  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue, reload: reloadVenues } = useVenues();
+  const seatHist = useSeatHistory();
   const [adding, setAdding] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
@@ -263,7 +267,7 @@ export default function BusinessStructure() {
   return (
     <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
       <PageHeader
-        title="Business Structure"
+        title="Business & venues"
         description={`Organizations (legal entities) and the venues they operate for ${activeTenantName ?? "the active tenant"}. Venues, bank accounts and reporting all roll up through this hierarchy.`}
         actions={
           <div className="flex items-center gap-3">
@@ -316,6 +320,9 @@ export default function BusinessStructure() {
               addVenue={(name, seats) => createVenue({ name, seats, organization_id: org.id })}
               updateVenue={updateVenue}
               deleteVenue={(v) => removeVenue(v.id)}
+              seatHistory={seatHist.rows}
+              tenantId={tenantId}
+              onSeatsSaved={() => { seatHist.reload(); reloadVenues(); }}
             />
           ))}
         </div>

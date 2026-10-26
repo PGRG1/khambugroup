@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { useVenues } from "@/hooks/useVenues";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { useScopedProjections } from "@/hooks/useScopedProjections";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useDailyProjections } from "@/hooks/useDailyProjections";
 import {
   buildProjectionRows,
@@ -30,20 +32,28 @@ const shortHkd = (v: number) => {
 
 /** Unified Targets page: monthly goal, pacing, chart and a light daily table. */
 export default function RevenueTargetsNew() {
-  const { venues, loading: venuesLoading } = useVenues();
-  const activeVenues = useMemo(() => venues.filter((v) => v.is_active && v.id && v.name), [venues]);
+  const vs = useVenueScope();
+  // Viewing follows the shared venue scope; editing needs exactly one venue.
+  const scopeVenues = useMemo(() => vs.selectedVenues.filter((v) => v.is_active && v.id && v.name), [vs.selectedVenues]);
+  const singleScope = scopeVenues.length === 1 ? scopeVenues[0] : null;
+  const venuesLoading = !vs.ready;
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const [venueId, setVenueId] = useState<string | null>(null);
   const [ym, setYm] = useState(todayIso.slice(0, 7));
   const [year, month] = ym.split("-").map(Number);
 
-  const effectiveVenueId = venueId ?? activeVenues[0]?.id ?? null;
-  const { projections, actuals, history, loading, saveProjection } = useDailyProjections(effectiveVenueId, year, month);
-  const rows = useMemo(
+  // The venue a target is saved to: the single scoped venue, or the one picked in the target box.
+  const effectiveVenueId = singleScope?.id ?? (venueId && vs.venues.some((v) => v.id === venueId) ? venueId : null);
+  const { projections, actuals, history, loading: editLoading, saveProjection } = useDailyProjections(effectiveVenueId, year, month);
+  const scopeIds = useMemo(() => scopeVenues.map((v) => v.id), [scopeVenues]);
+  const scoped = useScopedProjections(scopeIds, year, month, !singleScope);
+  const singleRows = useMemo(
     () => buildProjectionRows(year, month, projections, actuals, history),
     [year, month, projections, actuals, history],
   );
+  const rows = singleScope ? singleRows : scoped.rows;
+  const loading = singleScope ? editLoading : scoped.loading;
   const summary = useMemo(() => summarizeTargets(rows, todayIso), [rows, todayIso]);
 
   const [goal, setGoal] = useState("");
@@ -77,6 +87,10 @@ export default function RevenueTargetsNew() {
       toast({ title: "Enter a monthly target", description: parsed.error, variant: "destructive" });
       return;
     }
+    if (!effectiveVenueId) {
+      toast({ title: "Pick a venue", description: "A target is always saved to one venue.", variant: "destructive" });
+      return;
+    }
     setApplying(true);
     const split = distributeMonthlyTarget(parsed.value, monthDates(year, month), history);
     let failed = 0;
@@ -84,10 +98,12 @@ export default function RevenueTargetsNew() {
     setApplying(false);
     if (failed) toast({ title: "Some days were not saved", description: `${failed} day(s) failed. Try again.`, variant: "destructive" });
     else { toast({ title: "Monthly target set", description: `${formatHkd(parsed.value)} spread across ${split.size} days.` }); setGoal(""); }
+    if (!singleScope) scoped.reload();
   };
 
   const commit = async (date: string) => {
     setEditing(null);
+    if (!singleScope) return;
     const raw = drafts[date];
     if (raw === undefined) return;
     const parsed = parseProjectedInput(raw);
@@ -100,9 +116,9 @@ export default function RevenueTargetsNew() {
   const pct = summary.target > 0 ? (summary.actual / summary.target) * 100 : null;
   const kpis = [
     { label: "Monthly target", value: summary.target > 0 ? formatHkd(summary.target) : "—", sub: `${MONTH_LABELS[month - 1]} ${year}` },
-    { label: "Achieved", value: formatHkd(summary.actual), sub: pct === null ? "No target yet" : `${pct.toFixed(1)}% of target` },
+    { label: "Sold so far", value: formatHkd(summary.actual), sub: pct === null ? "No target yet" : `${pct.toFixed(1)}% of target` },
     {
-      label: "Pace",
+      label: "Ahead or behind",
       value: summary.targetToDate > 0 ? `${summary.pace >= 0 ? "+" : ""}${formatHkd(summary.pace)}` : "—",
       sub: summary.targetToDate > 0 ? (summary.pace >= 0 ? "Ahead of target" : "Behind target") : "No sales yet",
       tone: summary.targetToDate > 0 ? (summary.pace >= 0 ? "text-primary" : "text-destructive") : "",
@@ -110,30 +126,30 @@ export default function RevenueTargetsNew() {
     {
       label: "Needed per day",
       value: summary.runRateNeeded === null ? "—" : formatHkd(summary.runRateNeeded),
-      sub: summary.remainingDays > 0 ? `${summary.remainingDays} days left` : "Month closed",
+      sub: summary.remainingDays > 0 ? `${summary.remainingDays} days left` : "Month finished",
     },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={effectiveVenueId ?? undefined} onValueChange={setVenueId} disabled={venuesLoading || activeVenues.length === 0}>
-          <SelectTrigger className="h-8 w-[170px] text-[13px]"><SelectValue placeholder="Venue" /></SelectTrigger>
-          <SelectContent>
-            {activeVenues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={ym} onValueChange={setYm}>
-          <SelectTrigger className="h-8 w-[160px] text-[13px]"><SelectValue placeholder="Month" /></SelectTrigger>
-          <SelectContent>
-            {monthOptions.map((m) => {
-              const [y, mo] = m.split("-").map(Number);
-              return <SelectItem key={m} value={m}>{`${MONTH_LABELS[mo - 1]} ${y}`}</SelectItem>;
-            })}
-          </SelectContent>
-        </Select>
-        {loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}
-      </div>
+      <RevenuePageTop
+        title="Targets"
+        period={
+          <div className="flex items-center gap-3">
+            <span id="targets-period" className="text-[12px] font-medium text-muted-foreground">Period</span>
+            <Select value={ym} onValueChange={setYm}>
+              <SelectTrigger aria-labelledby="targets-period" className="h-10 w-[170px] text-sm"><SelectValue placeholder="Month" /></SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((m) => {
+                  const [y, mo] = m.split("-").map(Number);
+                  return <SelectItem key={m} value={m}>{`${MONTH_LABELS[mo - 1]} ${y}`}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+            {loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
@@ -147,8 +163,20 @@ export default function RevenueTargetsNew() {
 
       <div className="card-glass rounded-xl p-3">
         <p className="text-[13px] font-medium">Set the monthly target</p>
-        <p className="mb-2 text-[12px] text-muted-foreground">Bani spreads it across the days using this venue's usual weekday pattern. You can still adjust any single day below.</p>
+        <p className="mb-2 text-[12px] text-muted-foreground">
+          {singleScope
+            ? `Saved to ${singleScope.name}. Bani spreads it across the days using this venue's usual weekday pattern. You can still adjust any single day below.`
+            : "A target belongs to one venue. Pick the venue first, then Bani spreads it across the days using that venue's usual weekday pattern."}
+        </p>
         <div className="flex flex-wrap gap-2">
+          {!singleScope && (
+            <Select value={effectiveVenueId ?? undefined} onValueChange={setVenueId} disabled={venuesLoading || vs.venues.length === 0}>
+              <SelectTrigger aria-label="Venue" aria-required="true" className="h-9 w-[180px] text-[13px]"><SelectValue placeholder="Venue (required)" /></SelectTrigger>
+              <SelectContent>
+                {vs.venues.filter((v) => v.id && v.name).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Input
             inputMode="decimal"
             placeholder="e.g. 850,000"
@@ -165,7 +193,7 @@ export default function RevenueTargetsNew() {
       </div>
 
       <div className="card-glass rounded-xl p-3">
-        <p className="mb-2 text-[13px] font-medium">Target vs actual, month to date</p>
+        <p className="mb-2 text-[13px] font-medium">Target and sales, day by day so far</p>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -180,14 +208,17 @@ export default function RevenueTargetsNew() {
         </div>
       </div>
 
+      {!singleScope && (
+        <p className="text-[12px] text-muted-foreground">Pick one venue in the top bar to adjust single days.</p>
+      )}
       <div className="card-glass overflow-x-auto rounded-xl">
         <table className="w-full min-w-[520px] text-[13px]" data-testid="new-targets-table">
           <thead>
             <tr className="h-9 text-left text-[11px] text-muted-foreground">
               <th className="px-3 font-medium">Date</th>
               <th className="px-3 text-right font-medium">Target</th>
-              <th className="px-3 text-right font-medium">Actual</th>
-              <th className="px-3 text-right font-medium">Variance</th>
+              <th className="px-3 text-right font-medium">Sold</th>
+              <th className="px-3 text-right font-medium">Difference</th>
             </tr>
           </thead>
           <tbody>
@@ -197,7 +228,9 @@ export default function RevenueTargetsNew() {
                 <tr key={r.date} className="h-10">
                   <td className="whitespace-nowrap px-3 td-num"><span className="text-muted-foreground">{r.day}</span> {r.date.slice(8)}</td>
                   <td className="px-3 text-right td-num tabular-nums">
-                    {isEditing ? (
+                    {!singleScope ? (
+                      r.effectiveForecast === null ? <span className="text-muted-foreground">—</span> : formatHkd(r.effectiveForecast)
+                    ) : isEditing ? (
                       <Input
                         autoFocus
                         inputMode="decimal"

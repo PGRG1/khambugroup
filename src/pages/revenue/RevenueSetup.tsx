@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ShieldCheck, Check, Minus, ArrowRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useRevenueTargetPermissions } from "@/hooks/useRevenueTargetPermissions";
 
-const TABS = ["service-periods", "mapping", "sources", "venues"] as const;
+const TABS = ["service-periods", "mapping", "sources"] as const;
 type TabKey = (typeof TABS)[number];
 
 function StatusRow({ done, label, hint }: { done: boolean; label: string; hint: string }) {
@@ -109,12 +109,16 @@ export default function RevenueSetup() {
         </Badge>
       </div>
 
+      <p className="text-[13px] text-muted-foreground">
+        Venues and seats are set in{" "}
+        <Link to="/admin/structure" className="font-medium text-foreground underline underline-offset-2">Settings → Business &amp; venues</Link>.
+      </p>
+
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
         <TabsList className="h-auto w-full justify-start gap-4 rounded-none border-b border-border/60 bg-transparent p-0">
           <TabsTrigger value="service-periods" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Service Periods</TabsTrigger>
           <TabsTrigger value="mapping" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Revenue Mapping</TabsTrigger>
           <TabsTrigger value="sources" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Data Sources</TabsTrigger>
-          <TabsTrigger value="venues" className="h-9 rounded-none border-b-2 border-transparent bg-transparent px-0.5 text-[13px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">Venues</TabsTrigger>
         </TabsList>
 
         <TabsContent value="service-periods" className="mt-4 space-y-3.5">
@@ -237,46 +241,6 @@ export default function RevenueSetup() {
           {tab === "sources" && <RevenueSourcesCard />}
         </TabsContent>
 
-        <TabsContent value="venues" className="mt-4">
-          {tab === "venues" && (
-            <div className="card-glass rounded-xl p-4">
-              <div className="text-[13px] font-semibold mb-1">Venues</div>
-              <p className="text-[11px] text-muted-foreground mb-3">
-                Venues are maintained in Business Structure. Seating drives occupancy analytics.
-              </p>
-              {venuesLoading ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
-              ) : venues.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">No venues configured yet.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px] min-w-[480px]">
-                    <thead>
-                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
-                        <th className="text-left font-medium py-2">Venue</th>
-                        <th className="text-right font-medium py-2">Seats</th>
-                        <th className="text-right font-medium py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {venues.map((v) => (
-                        <tr key={v.id} className="border-b border-border/40">
-                          <td className="py-2">{v.name}</td>
-                          <td className="py-2 text-right td-num">{v.seats ?? "—"}</td>
-                          <td className="py-2 text-right">
-                            <Badge variant={v.is_active ? "outline" : "secondary"} className="text-[10px]">
-                              {v.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   );

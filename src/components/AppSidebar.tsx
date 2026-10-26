@@ -351,7 +351,7 @@ export function AppSidebar() {
   const { pathname, search } = useLocation();
   const revenueAccess = useRevenueNavigationAccess();
   const revenueDestination = revenueLanding(revenueAccess.sidebarRevenue, revenueAccess.sidebarForecast);
-  const revenueActive = isRevenueRoute(pathname);
+  const revenueActive = isRevenueRoute(pathname) && revenueSection(pathname) !== "setup";
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const { isPlatformAdmin } = usePlatformAdmin();
@@ -381,10 +381,9 @@ export function AppSidebar() {
   const revSection = revenueSection(pathname);
   const revenueChildren = [
     { key: "overview", title: "Overview", to: "/revenue", allowed: revenueAccess.revenue },
-    { key: "sales", title: "Sales", to: "/sales-data", allowed: revenueAccess.revenue },
-    { key: "analysis", title: "Analysis", to: "/revenue/analysis", allowed: revenueAccess.revenue },
+    { key: "sales", title: "Sales records", to: "/sales-data", allowed: revenueAccess.revenue },
+    { key: "analysis", title: "Trends", to: "/revenue/analysis", allowed: revenueAccess.revenue },
     { key: "targets", title: "Targets", to: "/revenue/targets-new", allowed: revenueAccess.forecast },
-    { key: "setup", title: "Setup", to: "/revenue/setup", allowed: revenueAccess.revenue },
   ].filter((c) => c.allowed);
   const kpiChildren = (kpiCap.loading || (!kpiCap.isGlobalAdmin && !canAccessPage("kpis"))) ? [] : [
     { title: "My KPIs", to: "/kpis/my-cards", allowed: true },
@@ -484,7 +483,7 @@ export function AppSidebar() {
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
           ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
-          ...(showAdmin ? [{ title: "Admin", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
@@ -670,7 +669,7 @@ export function AppSidebar() {
 
         {showAdmin && (
           <CollapsibleNavGroup
-            label="Admin"
+            label="Settings"
             icon={Settings}
             defaultOpen={groupState.admin}
             onOpenChange={(o) => setGroup("admin", o)}
@@ -679,7 +678,8 @@ export function AppSidebar() {
               {[
                 { title: "Notifications", url: "/notifications" },
                 { title: "User Access", url: "/user-access" },
-                { title: "Business Structure", url: "/admin/structure" },
+                { title: "Business & venues", url: "/admin/structure" },
+                { title: "Revenue setup", url: "/revenue/setup" },
                 { title: "Master Data", url: "/admin/master-data" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
                 

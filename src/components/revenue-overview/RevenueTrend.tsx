@@ -5,6 +5,8 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceDot,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,14 +16,30 @@ import { SalesRecord } from "@/types/sales";
 import { fmtHKD, fmtNum, toDaily } from "./utils";
 import { getMonthKey as gm } from "@/utils/salesUtils";
 import type { ForecastOverviewDay } from "@/utils/revenueForecastOverview";
+import { bestWorst, shortMoney } from "@/utils/revenueOverview";
 
 interface Props {
   data: SalesRecord[];
   view: "daily" | "monthly";
   forecastDaily?: ForecastOverviewDay[];
+  /** Label the best and worst trading day on the chart. */
+  markBestWorst?: boolean;
 }
 
-export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
+function MarkLabel({ viewBox, text, color }: { viewBox?: { x: number; y: number }; text: string; color: string }) {
+  if (!viewBox) return null;
+  const w = text.length * 6.2 + 12;
+  const x = Math.max(4, viewBox.x - w / 2);
+  const y = Math.max(2, viewBox.y - 24);
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={18} rx={5} fill="hsl(var(--card))" stroke={color} strokeOpacity={0.5} />
+      <text x={x + w / 2} y={y + 12.5} textAnchor="middle" fontSize={11} fontWeight={600} fill={color}>{text}</text>
+    </g>
+  );
+}
+
+export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: Props) {
   const showForecast = view === "daily" && forecastDaily.some((day) => day.forecast !== null);
   const chartData = useMemo(() => {
     if (view === "daily") {
@@ -72,6 +90,18 @@ export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
       }));
   }, [data, view, forecastDaily]);
 
+  const marks = useMemo(() => {
+    if (!markBestWorst || view !== "daily") return null;
+    const traded = chartData.filter((d) => d.revenue > 0).map((d) => ({ ...d, date: d.key }));
+    const bw = bestWorst(traded);
+    if (!bw) return null;
+    const text = (p: { key: string; revenue: number }) => {
+      const dt = new Date(`${p.key}T00:00:00`);
+      return `${dt.toLocaleDateString("en-GB", { weekday: "short" })} ${dt.getDate()} · ${shortMoney(p.revenue)}`;
+    };
+    return { best: bw.best, worst: bw.worst, bestText: `Best · ${text(bw.best)}`, worstText: `Worst · ${text(bw.worst)}` };
+  }, [markBestWorst, view, chartData]);
+
   const tooltipContent = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const point = payload[0]?.payload;
@@ -109,9 +139,9 @@ export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
     <div className="card-glass rounded-xl border border-border/60 p-4 h-full">
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <div>
-          <div className="text-[13px] font-medium">Revenue Trend</div>
+          <div className="text-[13px] font-medium">Daily sales</div>
           <div className="text-[11px] text-muted-foreground">
-            {view === "daily" ? "Daily" : "Monthly totals"}
+            {view === "daily" ? "Each trading day" : "Each month"}
           </div>
         </div>
         {showForecast && (
@@ -123,7 +153,7 @@ export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
       </div>
       <div style={{ width: "100%", height: 320 }}>
         <ResponsiveContainer>
-          <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" vertical={false} />
             <XAxis
               dataKey="label"
@@ -141,7 +171,19 @@ export function RevenueTrend({ data, view, forecastDaily = [] }: Props) {
               width={48}
             />
             <Tooltip content={tooltipContent} />
-            <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
+              {chartData.map((d) => (
+                <Cell key={d.key} fill={marks && d.key === marks.worst.key ? "hsl(var(--warning))" : "hsl(var(--primary))"} />
+              ))}
+            </Bar>
+            {marks && (
+              <ReferenceDot x={marks.best.label} y={marks.best.revenue} r={0} ifOverflow="extendDomain"
+                label={(props: any) => <MarkLabel {...props} text={marks.bestText} color="hsl(var(--foreground))" />} />
+            )}
+            {marks && (
+              <ReferenceDot x={marks.worst.label} y={marks.worst.revenue} r={0} ifOverflow="extendDomain"
+                label={(props: any) => <MarkLabel {...props} text={marks.worstText} color="hsl(var(--warning))" />} />
+            )}
             {showForecast && (
               <Line
                 type="monotone"

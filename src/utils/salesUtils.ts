@@ -79,7 +79,8 @@ export function getMonthLabel(key: string): string {
 
 const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export function getDayOfWeekStats(data: SalesRecord[], seats?: number | null) {
+/** `seats` may be a fixed number or the seat count that applied on a given ISO date. */
+export function getDayOfWeekStats(data: SalesRecord[], seats?: number | null | ((date: string) => number | null)) {
   const months = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
 
   const result = dayOrder.map((day) => {
@@ -107,12 +108,13 @@ export function getDayOfWeekStats(data: SalesRecord[], seats?: number | null) {
         entry[`orders_${month}`] = Math.round(totalOrders / numDays);
         entry[`spendPerGuest_${month}`] = totalGuests ? Math.round(totalSales / totalGuests) : 0;
         entry[`spendPerOrder_${month}`] = totalOrders ? Math.round(totalSales / totalOrders) : 0;
-        if (seats && seats > 0) {
-          const avgDailySales = totalSales / numDays;
-          const avgDailyGuests = totalGuests / numDays;
-          entry[`revPerSeat_${month}`] = Math.round(avgDailySales / seats);
-          entry[`seatTurnover_${month}`] = parseFloat((avgDailyGuests / seats).toFixed(1));
-          entry[`occupancy_${month}`] = Math.round((avgDailyGuests / seats) * 100);
+        const seatDays = typeof seats === "function"
+          ? Array.from(byDate.keys()).reduce((s, d) => s + (seats(d) ?? 0), 0)
+          : seats && seats > 0 ? seats * numDays : 0;
+        if (seatDays > 0) {
+          entry[`revPerSeat_${month}`] = Math.round(totalSales / seatDays);
+          entry[`seatTurnover_${month}`] = parseFloat((totalGuests / seatDays).toFixed(1));
+          entry[`occupancy_${month}`] = Math.round((totalGuests / seatDays) * 100);
         }
       }
     });

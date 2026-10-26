@@ -1,5 +1,7 @@
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { getPaymentTotal } from "@/utils/salesUtils";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { toast } from "@/hooks/use-toast";
@@ -14,7 +16,7 @@ import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
 import { OtherRevenuePanel } from "@/pages/revenue/OtherRevenue";
-import { Upload, PenLine, ScanLine, Plus, Coins } from "lucide-react";
+import { Upload, PenLine, ScanLine, ChevronDown, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,12 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TableSkeleton, fmtInt } from "@/components/expenses/shared";
 
-type ViewKey = "all" | "daily" | "other";
-const VIEWS: { key: ViewKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "daily", label: "Daily Sales" },
-  { key: "other", label: "Other Revenue" },
-];
+type ViewKey = "daily" | "other";
 
 const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
@@ -41,8 +38,14 @@ const DataPage = () => {
 
   const [params, setParams] = useSearchParams();
   const rawView = params.get("view") as ViewKey | null;
-  const view: ViewKey = rawView && VIEWS.some((v) => v.key === rawView) ? rawView : "all";
-  const setView = (v: ViewKey) => setParams(v === "all" ? {} : { view: v }, { replace: true });
+  // ?view= links scroll to the matching section; both sections always show.
+  const dailyRef = useRef<HTMLDivElement>(null);
+  const otherRef = useRef<HTMLElement>(null);
+  const setView = (v: ViewKey) => {
+    setParams({ view: v }, { replace: true });
+    requestAnimationFrame(() => (v === "other" ? otherRef : dailyRef).current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const [onlyMismatched, setOnlyMismatched] = useState(false);
 
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
@@ -78,9 +81,7 @@ const DataPage = () => {
   const kpis = useMemo(() => {
     const totalSales = scopedData.reduce((s, r) => s + r.totalSales, 0);
     const uniqueDays = new Set(scopedData.map((r) => r.date)).size;
-    const needsReview = scopedData.filter(
-      (r) => Math.abs(r.totalSales - (r.subtotal + r.serviceCharge + r.discount)) > 0.01
-    ).length;
+    const needsReview = scopedData.filter((r) => Math.abs(getPaymentTotal(r) - r.totalSales) > 0.01).length;
     const otherRevenue = scopedOther.reduce((s, e) => s + Number(e.amount || 0), 0);
     const otherDrafts = scopedOther.filter((e) => e.status === "draft").length;
     return { totalSales, uniqueDays, needsReview, otherRevenue, otherDrafts };
@@ -88,71 +89,54 @@ const DataPage = () => {
 
   const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); setScanFile(null); };
 
-  const actions = isAdmin ? (
-    <div className="flex flex-wrap gap-2">
-      {!hideUpload && (
-        <Button
-          variant={showUpload ? "secondary" : "outline"}
-          size="sm"
-          className="h-9"
-          onClick={() => { const next = !showUpload; closePanels(); setShowUpload(next); }}
-        >
-          <Upload className="h-4 w-4" />
-          <span>Upload Sales</span>
+  const canUpload = !hideUpload, canScan = !hideScanReceipt, canType = !hideManualEntry, canOther = true;
+  const actions = isAdmin && (canUpload || canScan || canType || canOther) ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="h-10">
+          <span>Add sales</span>
+          <ChevronDown className="h-4 w-4" />
         </Button>
-      )}
-      {(!hideManualEntry || !hideScanReceipt) && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" className="h-9">
-              <Plus className="h-4 w-4" />
-              <span>Add Revenue</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {!hideManualEntry && (
-              <DropdownMenuItem
-                onSelect={() => { closePanels(); setShowManual(true); setView("daily"); }}
-              >
-                <PenLine className="h-4 w-4 mr-2" /> Daily sales entry
-              </DropdownMenuItem>
-            )}
-            {!hideScanReceipt && (
-              <DropdownMenuItem onSelect={() => { closePanels(); setShowScanner(true); setView("daily"); }}>
-                <ScanLine className="h-4 w-4 mr-2" /> Scan receipt
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={() => { closePanels(); setView("other"); }}>
-              <Coins className="h-4 w-4 mr-2" /> Other revenue entry
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {canUpload && (
+          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setShowUpload(true); setView("daily"); }}>
+            <Upload className="h-4 w-4 mr-2" /> Upload a file
+          </DropdownMenuItem>
+        )}
+        {canScan && (
+          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setShowScanner(true); setView("daily"); }}>
+            <ScanLine className="h-4 w-4 mr-2" /> Scan a receipt
+          </DropdownMenuItem>
+        )}
+        {canType && (
+          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setShowManual(true); setView("daily"); }}>
+            <PenLine className="h-4 w-4 mr-2" /> Type in a day
+          </DropdownMenuItem>
+        )}
+        {canOther && (
+          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setView("other"); }}>
+            <Coins className="h-4 w-4 mr-2" /> Add other income
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   ) : undefined;
 
-  const showDaily = view === "all" || view === "daily";
-  const showOther = view === "all" || view === "other";
+  useEffect(() => {
+    if (loading || !rawView) return;
+    (rawView === "other" ? otherRef : dailyRef).current?.scrollIntoView({ block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const tableData = useMemo(
+    () => (onlyMismatched ? data.filter((r) => vs.includesName(r.venue) && Math.abs(getPaymentTotal(r) - r.totalSales) > 0.01) : data),
+    [onlyMismatched, data, vs.includesName],
+  );
 
   return (
     <div className="w-full mx-auto space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-        <div className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
-          {VIEWS.map((v) => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              aria-pressed={view === v.key}
-              className={`inline-flex h-7 shrink-0 items-center rounded-md px-3 text-[12px] font-medium transition-colors ${
-                view === v.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-        {actions}
-      </div>
+      <RevenuePageTop title="Sales records" actions={actions} />
 
       {loading ? (
         <>
@@ -162,11 +146,16 @@ const DataPage = () => {
         </>
       ) : (
         <>
-          {kpis.needsReview > 0 && (
-            <div className="card-glass rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+          {(kpis.needsReview > 0 || onlyMismatched) && (
+            <div className="card-glass rounded-xl px-4 py-3 text-sm flex flex-wrap items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-warning shrink-0" />
-              <span className="font-medium">{fmtInt(kpis.needsReview)} day{kpis.needsReview === 1 ? "" : "s"} don't balance</span>
-              <span className="text-muted-foreground">— totals differ from subtotal + service + discount.</span>
+              <span className="font-medium">
+                {kpis.needsReview === 1 ? "1 day doesn't add up." : `${fmtInt(kpis.needsReview)} days don't add up.`}
+              </span>
+              <span className="text-muted-foreground">The payment totals don't match the day's sales.</span>
+              <Button size="sm" variant="outline" className="ml-auto h-9" onClick={() => setOnlyMismatched((v) => !v)}>
+                {onlyMismatched ? "Show all" : "Show them"}
+              </Button>
             </div>
           )}
 
@@ -188,8 +177,11 @@ const DataPage = () => {
             <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
           )}
 
-          {showDaily && <DataTable data={data} />}
-          {showOther && <OtherRevenuePanel embedded />}
+          <div ref={dailyRef} className="scroll-mt-16"><DataTable data={tableData} /></div>
+          <section ref={otherRef} className="scroll-mt-16 space-y-3" aria-labelledby="other-income">
+            <h2 id="other-income" className="text-lg font-display font-semibold">Other income</h2>
+            <OtherRevenuePanel embedded />
+          </section>
         </>
       )}
     </div>
