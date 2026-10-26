@@ -640,10 +640,8 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 }
 
 /* Portal-wide venue scope pill (fixed tenant theme) */
-.bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 700; font-size: 20px; color: hsl(var(--sidebar-foreground)); letter-spacing: -0.01em; }
-.bani-brand-mark { color: hsl(var(--sidebar-foreground)); }
-html:not(.dark) .bani-brand-word { color: #1F3F3B; }
-html:not(.dark) .bani-brand-mark { color: #2F5E5A; }
+.bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 300; font-size: 20px; color: #25372B; letter-spacing: -0.025em; }
+.bani-brand-mark { color: #25372B; }
 html:not(.dark) .bani-collapse-btn { color: #55605A; }
 html:not(.dark) .bani-collapse-btn:hover { color: #1F3F3B; background: rgba(20,45,43,0.06); }
 html:not(.dark) .bani-sidebar-head,

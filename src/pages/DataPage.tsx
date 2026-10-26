@@ -43,7 +43,7 @@ import { TableSkeleton } from "@/components/expenses/shared";
 type ViewKey = "daily" | "other";
 
 const DataPage = () => {
-  const { data, loading, uploadRecords, addRecord } = useSalesData();
+  const { data, loading, uploadRecords, addRecord, updateRecord } = useSalesData();
   const { isAdmin, user, roleLoading } = useAuth();
   const { tenantId } = useActiveTenant();
   const [tenantZone, setTenantZone] = useState<{ id: string; zone: string } | null>(null);
@@ -270,7 +270,13 @@ const DataPage = () => {
             notes={(openRecord?.id && notes.byRecord.get(openRecord.id)) || []}
             onAddNote={(body, tag) => (openRecord?.id ? notes.addNote(openRecord.id, body, tag) : Promise.resolve(false))}
             canFix={canFix}
-            onFix={() => openRecord?.id && navigate(`/sales-data/${openRecord.id}?edit=1`)}
+            onSaveEdit={async (draft) => {
+              if (!openRecord || openItem?.kind !== "record") return false;
+              const ok = await updateRecord(openRecord, draft);
+              if (ok) { toast({ title: "Record updated" }); setOpenItem({ ...openItem, r: draft }); }
+              else toast({ title: "Update failed", variant: "destructive" });
+              return ok;
+            }}
             onViewReceipt={() => setViewingReceipt(openRecord)}
             servicePeriodName={periodNameOf(openRecord?.servicePeriodId)}
             canManageClosures={isAdmin}
