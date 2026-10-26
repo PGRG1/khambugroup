@@ -19,6 +19,7 @@ import { ATTACH_TYPES, ROLE_ACTIVITY, attachmentError, clampPoint, isTap, module
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -52,6 +53,7 @@ const revoke = (files: BaniAttachment[]) => files.forEach(f => f.url && URL.revo
 
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
+  const venueScope = useVenueScope();
   const { user, session, isAdmin, loading: authLoading, roleLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { isPreviewActive, previewUserId } = usePreviewMode();
@@ -254,7 +256,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const reviewBody = review && !turn ? { draft_review: { binding: review.binding, draftId: review.draftId, lineId: review.lineId, supplierId: review.supplierId, header: review.header, line: review.line, issues: review.issues, candidateIds: review.candidateIds } } : { floating: true };
       // Current concrete venue as untrusted UI context — the server validates it
       // against tenant venues and the user's explicit text always wins.
-      const contextVenue = page && page.path === pathname && page.detail && page.detail !== "All venues" ? page.detail : null;
+      const pageVenue = page && page.path === pathname && page.detail && page.detail !== "All venues" ? page.detail : null;
+      const contextVenue = pageVenue ?? (venueScope.selectedNames.length === 1 && !venueScope.isAll ? venueScope.selectedNames[0] : null);
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
         method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },

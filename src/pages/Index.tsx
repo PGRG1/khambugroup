@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo, useState } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
@@ -25,7 +26,9 @@ const Index = () => {
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
 
-  const [venue, setVenue] = useState<VenueFilter>("All Venues");
+  const vs = useVenueScope();
+  const venue: VenueFilter = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name as VenueFilter : "All Venues";
+  const scopedData = useMemo(() => data.filter((r) => vs.includesName(r.venue)), [data, vs.includesName]);
   const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
   const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
   const [showMTDText, setShowMTDText] = useState(false);
@@ -48,15 +51,15 @@ const Index = () => {
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
   };
 
-  const filtered = useMemo(() => filterData(data, venue, from, to), [data, venue, from, to]);
+  const filtered = useMemo(() => filterData(scopedData, "All Venues", from, to), [scopedData, from, to]);
 
   // Prior comparable — MTD compares against the same elapsed dates last calendar month
   const prior = isMtdRange(from, to)
     ? priorCalendarMonthRange(from!, to!)
     : priorRange(from, to);
   const priorFiltered = useMemo(
-    () => (prior ? filterData(data, venue, prior.from, prior.to) : []),
-    [data, venue, prior?.from, prior?.to]
+    () => (prior ? filterData(scopedData, "All Venues", prior.from, prior.to) : []),
+    [scopedData, prior?.from, prior?.to]
   );
 
 
@@ -66,12 +69,12 @@ const Index = () => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
     const scoped = data.filter((r) => {
-      if (venue !== "All Venues" && r.venue !== venue) return false;
+      if (!vs.includesName(r.venue)) return false;
       const d = new Date(r.date);
       return d >= cutoff && d <= now;
     });
     return toDaily(scoped);
-  }, [data, venue]);
+  }, [data, vs.includesName]);
 
   const cur = useMemo(() => aggregate(filtered), [filtered]);
   const prev = useMemo(() => (priorFiltered.length ? aggregate(priorFiltered) : null), [priorFiltered]);
@@ -80,7 +83,7 @@ const Index = () => {
   // New Targets daily forecast summary (manager overrides + auto forecast)
   const { summary: forecastSummary } = useRevenueForecastOverview({
     sales: data,
-    venues: dbVenues,
+    venues: dbVenues.filter((v) => vs.includesId(v.id)),
     selectedVenue: venue,
     from,
     to,
@@ -107,21 +110,6 @@ const Index = () => {
   return (
     <div className="w-full mx-auto space-y-5">
       <div className="flex items-center gap-2 flex-wrap">
-        {!hideVenueFilter && (
-          <div className="flex gap-[3px] p-[3px] bg-muted/60 rounded-full">
-            {venues.map((v) => (
-              <button
-                key={v}
-                onClick={() => setVenue(v)}
-                className={`px-3 h-7 text-[12px] font-medium rounded-full transition-colors ${
-                  venue === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v === "All Venues" ? "All" : v}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="flex items-center gap-1.5 flex-wrap ml-auto">
           {!hideDateRange && (
             <DateFilter

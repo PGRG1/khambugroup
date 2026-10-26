@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -77,7 +78,8 @@ export default function HRPayrollPayables() {
   const [rows, setRows] = useState<PayrollRow[]>([]);
   const [emps, setEmps] = useState<Map<string, EmpRow>>(new Map());
   const [bucket, setBucket] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenueFilter = (_v: string) => {};
   const [kind, setKind] = useState<"both" | "salary" | "mpf">("both");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -181,7 +183,7 @@ export default function HRPayrollPayables() {
   }, [rows, emps, venueById, venueByLowerName, todayMs]);
 
   const filtered = useMemo(() => enriched.filter((row) => {
-    if (venueFilter !== "all" && row.venueName !== venueFilter) return false;
+    if (!venueScope.includesName(row.venueName)) return false;
     if (kind === "salary" && row.salaryOut <= 0.005) return false;
     if (kind === "mpf" && row.mpfOut <= 0.005) return false;
     if (bucket !== "all") {
@@ -245,13 +247,7 @@ export default function HRPayrollPayables() {
           <p className="text-sm text-muted-foreground mt-0.5">Outstanding salary and MPF grouped by period, aged by due date (salary: 7th of following month · MPF: 10th of following month)</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={venueFilter} onValueChange={setVenueFilter}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venueOptions.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
         </div>
       </div>
 

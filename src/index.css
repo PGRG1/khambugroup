@@ -636,3 +636,10 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
   background: hsl(var(--tenant-white) / 0.55);
   color: hsl(var(--foreground));
 }
+
+/* Portal-wide venue scope pill (fixed tenant theme) */
+.venue-pill-dark { background-color: #1F3F3B; color: #F5F4F0; }
+.venue-pill-dark:hover { background-color: #2a524d; }
+.bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 700; font-size: 20px; color: hsl(var(--sidebar-foreground)); letter-spacing: -0.01em; }
+.bani-brand-mark { color: hsl(var(--sidebar-foreground)); }
+.bani-client-box { background-color: #F2F5F3; border-radius: 10px; color: #1F3F3B; }

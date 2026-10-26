@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -128,6 +129,7 @@ function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const venueScope = useVenueScope();
   const [fromVenue, setFromVenue] = useState<string>("all");
   const [toVenue, setToVenue] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -178,13 +180,14 @@ function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
 
   const filtered = useMemo(() => {
     return transfers.filter((t) => {
+      if (!venueScope.includesName(t.from_venue) && !venueScope.includesName(t.to_venue)) return false;
       if (fromVenue !== "all" && t.from_venue !== fromVenue) return false;
       if (toVenue !== "all" && t.to_venue !== toVenue) return false;
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
       if (monthFilter !== "all" && !t.transfer_date.startsWith(monthFilter)) return false;
       return true;
     });
-  }, [transfers, fromVenue, toVenue, statusFilter, monthFilter]);
+  }, [transfers, fromVenue, toVenue, statusFilter, monthFilter, venueScope.includesName]);
 
   return (
     <>

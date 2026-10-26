@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import React, { useMemo, useState, useCallback } from "react";
 import {
   ResponsiveContainer, ComposedChart, LineChart, BarChart, Line, Bar,
@@ -205,9 +206,10 @@ export default function RevenueTargets() {
   const navigate = useNavigate();
   const today = useMemo(() => new Date(), []);
 
-  const { filters, setMonth, setVenues, setPeriods, setWeekdays, setStatuses } =
+  const { filters, setMonth, setPeriods, setWeekdays, setStatuses } =
     useRevenueTargetFilters({ year: today.getFullYear(), month: today.getMonth() + 1 });
-  const { year, month, venueIds, servicePeriodIds, weekdays, operatingStatuses } = filters;
+  const { year, month, servicePeriodIds, weekdays, operatingStatuses } = filters;
+  const vs = useVenueScope();
 
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(
@@ -215,26 +217,7 @@ export default function RevenueTargets() {
     [venues],
   );
 
-  // Empty venueIds ("All" in the filter) = every active venue. The route slug
-  // is only used to seed the initial single-venue selection once, via the effect below.
-  const effectiveVenueIds = useMemo(() => {
-    if (venueIds.length) return venueIds;
-    return activeVenues.map((v) => v.id);
-  }, [venueIds, activeVenues]);
-
-  // Seed venueIds from the route slug once venues have loaded, so the picker
-  // reflects the venue in the URL. User can then switch to "All" to clear it.
-  const seededFromRoute = React.useRef(false);
-  React.useEffect(() => {
-    if (seededFromRoute.current) return;
-    if (!activeVenues.length || !routeVenue || venueIds.length) return;
-    const match = activeVenues.find((v) =>
-      v.name.toLowerCase().replace(/\s+/g, "-") === routeVenue.toLowerCase());
-    if (match) {
-      setVenues([match.id]);
-      seededFromRoute.current = true;
-    }
-  }, [activeVenues, routeVenue, venueIds.length, setVenues]);
+  const effectiveVenueIds = useMemo(() => vs.selectedVenues.map((v) => v.id), [vs.selectedVenues]);
 
   const perms = useRevenueTargetPermissions();
   const canEdit = perms.canEditManagerTargets;
@@ -762,23 +745,6 @@ export default function RevenueTargets() {
 
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Compact venue scope */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
-              All venues
-            </PillToggle>
-            {activeVenues.map((v) => (
-              <PillToggle
-                key={v.id}
-                active={venueIds.includes(v.id)}
-                onClick={() => setVenues(venueIds.includes(v.id) ? venueIds.filter((x) => x !== v.id) : [...venueIds, v.id])}
-                variant="outlined"
-              >
-                {v.name}
-              </PillToggle>
-            ))}
-          </div>
-
           {/* Month navigation */}
           <div className="flex items-center gap-0.5 rounded-lg border border-border/60 px-1 h-8">
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0"

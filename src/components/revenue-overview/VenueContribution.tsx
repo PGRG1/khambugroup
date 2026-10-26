@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { SalesRecord, VenueFilter } from "@/types/sales";
 import { fmtHKD, fmtNum, pctDelta } from "./utils";
 import { DeltaChip } from "./DeltaChip";
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function VenueContribution({ data, prevData, venue, seatingKey }: Props) {
+  const vs = useVenueScope();
   if (venue === "All Venues") {
     const map = new Map<string, { revenue: number; guests: number; dates: Set<string> }>();
     for (const r of data) {
@@ -66,7 +68,7 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
   }
 
   // Single-venue: seat economics
-  const seats = getVenueSeats(venue) ?? null;
+  const seats = vs.selectedVenues.reduce((sum, v) => sum + (getVenueSeats(v.name) ?? v.seats ?? 0), 0) || null;
   const days = new Set(data.map((r) => r.date)).size || 1;
   const prevDays = new Set(prevData.map((r) => r.date)).size || 1;
   const revenue = data.reduce((s, r) => s + r.totalSales, 0);

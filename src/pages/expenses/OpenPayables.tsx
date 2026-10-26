@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,7 +53,8 @@ export default function ExpenseOpenPayablesPage() {
   const [paidByBill, setPaidByBill] = useState<Map<string, number>>(new Map());
   const [vendorMap, setVendorMap] = useState<Map<string, string>>(new Map());
   const [bucket, setBucket] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [vendorFilter, setVendorFilter] = useState("all");
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export default function ExpenseOpenPayablesPage() {
         const paid = paidByBill.get(b.id) ?? (Number(b.paid_amount) || 0);
         const out = total - paid;
         if (out <= 0.005) return false;
-        if (venueFilter !== "all" && b.venue !== venueFilter) return false;
+        if (!venueScope.includesName(b.venue)) return false;
         if (vendorFilter !== "all" && b.supplier_id !== vendorFilter) return false;
         return true;
       })
@@ -100,7 +102,7 @@ export default function ExpenseOpenPayablesPage() {
         const paid = paidByBill.get(b.id) ?? (Number(b.paid_amount) || 0);
         return { bill: b, total, paid, outstanding: Math.max(0, total - paid) };
       });
-  }, [bills, paidByBill, vendorMap, venueFilter, vendorFilter]);
+  }, [bills, paidByBill, vendorMap, venueScope.includesName, vendorFilter]);
 
   const venues = useMemo(() => {
     const s = new Set<string>();
@@ -164,13 +166,7 @@ export default function ExpenseOpenPayablesPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Outstanding expense bills grouped by vendor, aged by due date</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={venueFilter} onValueChange={setVenueFilter}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
           <Select value={vendorFilter} onValueChange={setVendorFilter}>
             <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="All vendors" /></SelectTrigger>
             <SelectContent>

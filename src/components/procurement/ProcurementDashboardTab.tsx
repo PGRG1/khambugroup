@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { useVenues } from "@/hooks/useVenues";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { SectionHeader } from "@/components/revenue-overview/SectionHeader";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import {
@@ -243,7 +244,8 @@ export default function ProcurementDashboardTab() {
   const lineItems = liQ.data ?? [];
   const pmCategories = pmQ.data ?? [];
 
-  const [venue, setVenue] = useState<string>(ALL_VENUES);
+  const vs = useVenueScope();
+  const venue = vs.label;
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -259,21 +261,8 @@ export default function ProcurementDashboardTab() {
       return next;
     });
 
-  const venuePills: string[] = useMemo(
-    () => [ALL_VENUES, ...dbVenues.filter(v => v.is_active).map(v => v.name)],
-    [dbVenues]
-  );
-
-  // Venue-scoped source datasets (case-insensitive match).
-  const venueKey = norm(venue);
-  const invoices = useMemo(
-    () => venue === ALL_VENUES ? invoicesAll : invoicesAll.filter(i => norm(i.venue) === venueKey),
-    [invoicesAll, venue, venueKey]
-  );
-  const salesRecords = useMemo(
-    () => venue === ALL_VENUES ? salesRecordsAll : salesRecordsAll.filter(s => norm(s.venue) === venueKey),
-    [salesRecordsAll, venue, venueKey]
-  );
+  const invoices = useMemo(() => invoicesAll.filter(i => vs.includesName(i.venue)), [invoicesAll, vs.includesName]);
+  const salesRecords = useMemo(() => salesRecordsAll.filter(s => vs.includesName(s.venue)), [salesRecordsAll, vs.includesName]);
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
   const pmMap = useMemo(() => new Map(pmCategories.map(p => [p.id, p])), [pmCategories]);
@@ -709,24 +698,6 @@ export default function ProcurementDashboardTab() {
     <div className="space-y-4 mt-4">
       {/* Filter bar */}
       <div className="flex items-start justify-between flex-wrap gap-3">
-        {/* Venue pills (left) */}
-        <div className="flex items-center gap-1 flex-wrap">
-          {venuePills.map(v => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={cn(
-                "px-2.5 h-9 text-[12px] font-medium rounded-md border transition-colors",
-                venue === v
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
-              )}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
         {/* Period (right) */}
         <div className="flex items-center flex-wrap gap-2 ml-auto">
           <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); if (v !== "custom") { setCustomFrom(undefined); setCustomTo(undefined); } }}>

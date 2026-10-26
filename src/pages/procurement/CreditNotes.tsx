@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,7 +80,8 @@ export default function CreditNotes() {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
 
   const [cnDialogOpen, setCnDialogOpen] = useState(false);
   const [selectedCn, setSelectedCn] = useState<CN | null>(null);
@@ -182,10 +184,10 @@ export default function CreditNotes() {
         invNum.toLowerCase().includes(q);
       const matchesSupplier = supplierFilter === "all" || cn.supplier_id === supplierFilter;
       const matchesStatus = statusFilter === "all" || cn.status === statusFilter;
-      const matchesVenue = venueFilter === "all" || cn.venue === venueFilter;
+      const matchesVenue = venueScope.includesName(cn.venue);
       return matchesSearch && matchesSupplier && matchesStatus && matchesVenue;
     });
-  }, [creditNotes, search, supplierFilter, statusFilter, venueFilter, supplierMap, linkedInvoiceMap]);
+  }, [creditNotes, search, supplierFilter, statusFilter, venueScope.includesName, supplierMap, linkedInvoiceMap]);
 
   const summary = useMemo(() => {
     const available = creditNotes
@@ -294,13 +296,7 @@ export default function CreditNotes() {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="All venues" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All venues</SelectItem>
-            {venues.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        
       </div>
 
       {/* Tabs */}

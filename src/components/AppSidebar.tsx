@@ -2,7 +2,7 @@ import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings, HandCoins, ArrowLeft,
+  Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, UserRound,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -25,12 +25,65 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
-import { isRevenueRoute, revenueLanding } from "@/utils/revenueNavigation";
+import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueNavigation";
+import { useKpiCapability } from "@/hooks/useKpiCapability";
+import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
+import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
+
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
+}
+
+/** Child link that is active by an explicit flag (for section sub-pages). */
+function FlagChildLink({ title, to, active }: { title: string; to: string; active: boolean }) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+        <Link to={to} aria-current={active ? "page" : undefined}
+          className={cn("relative flex items-center pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", active && "glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100")}>
+          <span className="active-bar absolute left-4 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+          <span className="truncate">{title}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+type RailItem = { title: string; to: string; icon: any; active: boolean };
+function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () => void }) {
+  return (
+    <SidebarContent className="items-center gap-1 py-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+            <ChevronsRight className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">Expand sidebar</TooltipContent>
+      </Tooltip>
+      {items.map((it) => (
+        <Tooltip key={it.title}>
+          <TooltipTrigger asChild>
+            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined}
+              className={cn("inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "glass-active !text-sidebar-primary")}>
+              <it.icon className="h-4 w-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">{it.title}</TooltipContent>
+        </Tooltip>
+      ))}
+    </SidebarContent>
+  );
+}
 
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
@@ -311,16 +364,39 @@ export function AppSidebar() {
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
   useEffect(() => {
-    if (!isPlatformAdmin || !isInsideClient || !activeTenantId) {
-      setClientName("");
-      return;
-    }
+    if (!activeTenantId) { setClientName(""); return; }
     let cancelled = false;
     supabase.from("tenants").select("name").eq("id", activeTenantId).maybeSingle().then(({ data }) => {
-      if (!cancelled) setClientName(data?.name ?? "Client");
+      if (!cancelled) setClientName(data?.name ?? "");
     });
     return () => { cancelled = true; };
-  }, [activeTenantId, isInsideClient, isPlatformAdmin]);
+  }, [activeTenantId]);
+
+  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
+  const collapsed = state === "collapsed" && !isMobile;
+  useEffect(() => { setOpenMobile(false); }, [pathname, setOpenMobile]);
+  const kpiCap = useKpiCapability();
+  const revSection = revenueSection(pathname);
+  const revenueChildren = [
+    { key: "overview", title: "Overview", to: "/revenue", allowed: revenueAccess.revenue },
+    { key: "sales", title: "Sales", to: "/sales-data", allowed: revenueAccess.revenue },
+    { key: "analysis", title: "Analysis", to: "/revenue/analysis", allowed: revenueAccess.revenue },
+    { key: "targets", title: "Targets", to: "/revenue/targets-new", allowed: revenueAccess.forecast },
+    { key: "setup", title: "Setup", to: "/revenue/setup", allowed: revenueAccess.revenue },
+  ].filter((c) => c.allowed);
+  const kpiChildren = (kpiCap.loading || (!kpiCap.isGlobalAdmin && !canAccessPage("kpis"))) ? [] : [
+    { title: "My KPIs", to: "/kpis/my-cards", allowed: true },
+    { title: "Planner", to: "/kpis/planner", allowed: kpiCap.canPlan },
+    { title: "KPI Setup", to: "/kpis/setup", allowed: kpiCap.canConfigure },
+  ].filter((c) => c.allowed);
+  const kpiChildActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`)
+    || (to === "/kpis/setup" && ["/kpis/assignments", "/kpis/targets"].some((r) => pathname === r || pathname.startsWith(`${r}/`)));
+  const peopleChildren = [
+    { title: "Overview", to: "/hr" }, { title: "Employees", to: "/hr/employees" }, { title: "Schedule", to: "/hr/schedule" },
+    { title: "Leave", to: "/hr/leave" }, { title: "Payroll", to: "/hr/payroll" }, { title: "Payroll Payables", to: "/hr/payroll/payables" },
+  ];
+  const peopleActivePath = peopleNavigationPath(pathname);
+  const showSubPages = !isMobile;
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
@@ -353,34 +429,37 @@ export function AppSidebar() {
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
   return (
-    <Sidebar variant="floating">
-      {/* Workspace identity */}
-      <div className={cn("px-4 py-3.5 border-b border-sidebar-border", isPreviewActive && "mt-10")}>
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-semibold flex items-center justify-center text-sm shrink-0">
-            K
-          </div>
-          <div className="min-w-0">
-            <div className="text-[14px] font-semibold text-sidebar-foreground leading-tight truncate">
-              KHAMBU Group
-            </div>
-            <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-              Operating Workspace
-            </div>
-          </div>
+    <Sidebar variant="floating" collapsible="icon">
+      {collapsed ? (
+        <div className={cn(isPreviewActive && "mt-10")} />
+      ) : (
+      <div className={cn("px-3 pt-3 pb-3 border-b border-sidebar-border space-y-2.5", isPreviewActive && "mt-10")}>
+        <div className="flex items-center gap-2 pl-1">
+          <BaniLoginMark className="bani-brand-mark h-5 w-[11px] shrink-0" />
+          <span className="bani-brand-word leading-none">Bani</span>
+          {!isMobile && (
+            <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar"
+              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        {isPlatformAdmin && isInsideClient && (
-          <div className="mt-3 border-t border-sidebar-border/60 pt-2.5">
-            <div className="flex items-center gap-2 min-w-0 text-[11px] text-warning">
-              <Building2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Client: {clientName || "Loading…"}</span>
+        {clientName && (
+          <div className="bani-client-box flex items-center gap-2.5 px-2.5 py-2">
+            <div className="h-7 w-7 rounded-md bg-white text-[11px] font-semibold flex items-center justify-center shrink-0 shadow-sm">
+              {initialsOf(clientName)}
             </div>
+            <div className="min-w-0 text-[13px] font-semibold truncate">{clientName}</div>
+          </div>
+        )}
+        {isPlatformAdmin && isInsideClient && (
+          <div className="border-t border-sidebar-border/60 pt-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={exitToPlatform}
-              className="mt-1.5 h-7 w-full justify-start px-1.5 text-[11px] text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="h-7 w-full justify-start px-1.5 text-[11px] text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Exit to Platform
@@ -388,7 +467,25 @@ export function AppSidebar() {
           </div>
         )}
       </div>
+      )}
 
+      {collapsed ? (
+        <CollapsedRail onExpand={() => setOpen(true)} items={[
+          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
+          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
+          ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance/dashboard", icon: Scale, active: pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
+          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
+          ...(showProcurement ? [{ title: "Procurement", to: "/procurement/dashboard", icon: ShoppingCart, active: pathname.startsWith("/procurement") }] : []),
+          ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
+          ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
+          ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
+          ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
+          ...(showAdmin ? [{ title: "Admin", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
+        ]} />
+      ) : (
       <SidebarContent className="py-2 gap-3">
         {/* Top-level items, no group label */}
         <SidebarGroup className="py-0 px-2">
@@ -413,6 +510,7 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {showSubPages && revenueActive && revenueChildren.map((c) => <FlagChildLink key={c.key} title={c.title} to={c.to} active={revSection === c.key} />)}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -429,6 +527,7 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {showSubPages && kpiActive && kpiChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={kpiChildActive(c.to)} />)}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -562,6 +661,7 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -601,8 +701,9 @@ export function AppSidebar() {
         )}
 
       </SidebarContent>
+      )}
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-3">
         {user && (
           <p className="text-[11px] text-muted-foreground mb-2 truncate px-1">{user.email}</p>
         )}
@@ -613,12 +714,7 @@ export function AppSidebar() {
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </button>
-        <div className="mt-3 pt-3 border-t border-sidebar-border/60 px-1">
-          <p className="text-[10px] text-sidebar-foreground/50 tracking-wide">
-            Powered by <span className="text-sidebar-primary font-semibold">Bani</span>
-          </p>
-        </div>
-      </SidebarFooter>
+      </SidebarFooter>}
     </Sidebar>
   );
 }

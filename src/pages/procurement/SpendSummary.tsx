@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { ChevronLeft, ChevronRight, AlertTriangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,8 @@ export default function SpendSummaryPage() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [venue, setVenue] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venue: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenue = (_v: string) => {};
   const [venues, setVenues] = useState<string[]>([]);
 
   const { start: periodStart, end: periodEnd } = useMemo(() => monthBounds(year, month), [year, month]);
@@ -94,7 +96,7 @@ export default function SpendSummaryPage() {
       for (const r of (refundData || []) as any[]) {
         const date = r.invoices?.invoice_date;
         if (!date || date < periodStart || date >= periodEnd) continue;
-        if (venue !== "all" && r.invoices?.venue !== venue) continue;
+        if (!venueScope.includesName(r.invoices?.venue)) continue;
         const price = Number(r.unit_price) || 0;
         const csm = r.product_master?.creates_stock_movement;
         const lineTotal = Number(r.total) || (Number(r.quantity) || 0) * price;
@@ -111,7 +113,7 @@ export default function SpendSummaryPage() {
         const d = c.credit_note_date;
         if (!d || d < periodStart || d >= periodEnd) continue;
         if (!["fully_applied", "approved"].includes(c.status)) continue;
-        if (venue !== "all" && c.venue && c.venue !== venue) continue;
+        if (c.venue && !venueScope.includesName(c.venue)) continue;
         const orig = Number(c.original_amount) || 0;
         const rem = Number(c.remaining_balance) || 0;
         cnSum += Math.max(0, orig - rem); cnN += 1;
@@ -129,7 +131,7 @@ export default function SpendSummaryPage() {
     if (!g || !pm) return false;
     if (g.status !== status) return false;
     if (!g.received_date || g.received_date < start || g.received_date >= end) return false;
-    if (venue !== "all" && g.venue !== venue) return false;
+    if (!venueScope.includesName(g.venue)) return false;
     if (pm.creates_stock_movement === false) return false;
     if (pm.financial_treatment && /^Asset/i.test(pm.financial_treatment)) return false;
     return true;
@@ -182,13 +184,7 @@ export default function SpendSummaryPage() {
             <div className="px-2 text-sm font-medium min-w-[120px] text-center">{label}</div>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-          <Select value={venue} onValueChange={setVenue}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
         </div>
       </div>
 

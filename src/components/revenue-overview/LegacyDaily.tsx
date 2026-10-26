@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo } from "react";
 import {
   ResponsiveContainer,
@@ -83,7 +84,8 @@ function useDaily(data: SalesRecord[]) {
 function useAnalytics(data: SalesRecord[], venue: string, seatingKey?: number) {
 
   const daily = useDaily(data);
-  const seats = venue !== "All Venues" ? getVenueSeats(venue) : null;
+  const vs = useVenueScope();
+  const seats = vs.selectedVenues.reduce((sum, v) => sum + (getVenueSeats(v.name) ?? v.seats ?? 0), 0) || null;
   // seatingKey forces recompute on seat edits (via getDayOfWeekStats reading current config)
   const { data: dayStats, months } = useMemo(
     () => getDayOfWeekStats(data, seats),

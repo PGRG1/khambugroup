@@ -5,7 +5,8 @@ import { ArrowUp, AudioLines, Check, Copy, Loader2, Mic, RefreshCw, X } from "lu
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { useVenues } from "@/hooks/useVenues";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
@@ -163,10 +164,13 @@ const KEYWORDS: [RegExp, Role][] = [
 export default function YourTeam() {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
-  const { venues } = useVenues();
+  const vs = useVenueScope();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [venueId, setVenueId] = useState<string | null>(null);
+  // Reviews exist for all venues or for one venue; a mix of 2+ venues has no review.
+  const scopeIds = vs.filterIds;
+  const mixedScope = !!scopeIds && scopeIds.length > 1;
+  const venueId: string | null = scopeIds && scopeIds.length === 1 ? scopeIds[0] : null;
   const [openRole, setOpenRole] = useState<Role | null>(null);
   const [threads, setThreads] = useState<Partial<Record<Role, ThreadMsg[]>>>({});
   const [raised, setRaised] = useState<Partial<Record<Role, string[]>>>({});
@@ -186,7 +190,7 @@ export default function YourTeam() {
 
   const reviewQ = useQuery({
     queryKey: ["yourteam", "review", tenantId, venueId],
-    enabled: !!tenantId,
+    enabled: !!tenantId && vs.ready && !mixedScope,
     staleTime: 60 * 1000,
     queryFn: async (): Promise<Review | null> => {
       let q = (supabase as any).from("finance_team_reviews")
@@ -205,7 +209,7 @@ export default function YourTeam() {
   // Finance Director tiles (client-side, only shown when calculable).
   const tiles = useQuery({
     queryKey: ["yourteam", "tiles", tenantId, venueId],
-    enabled: !!tenantId,
+    enabled: !!tenantId && vs.ready && !mixedScope,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const now = new Date();
@@ -230,7 +234,7 @@ export default function YourTeam() {
   const stale = !review || !review.generated_at || review.generated_at.slice(0, 10) < yesterdayStr;
 
   const runUpdate = async () => {
-    if (!tenantId || running) return;
+    if (!tenantId || running || mixedScope) return;
     setRunning(true);
     const { error } = await supabase.functions.invoke("finance-team", { body: { mode: "run", tenant_id: tenantId, venue_id: venueId, review_type: "daily" } });
     setRunning(false);
@@ -419,6 +423,9 @@ export default function YourTeam() {
     }
   };
 
+  // A different venue scope means a different review: start fresh desks.
+  useEffect(() => { setOpenRole(null); setThreads({}); setRaised({}); setFdLine(null); }, [venueId, mixedScope]);
+
   // Esc closes the open desk.
   useEffect(() => {
     if (!openRole) return;
@@ -441,23 +448,34 @@ export default function YourTeam() {
           <span className="td-num" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{fmtDate(new Date().toISOString().slice(0, 10))}</span>
           {tenantName.data ? <span> · {tenantName.data}</span> : null}
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => { setVenueId(null); setOpenRole(null); setThreads({}); setRaised({}); }}
-            className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${venueId === null ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-foreground/70 hover:bg-muted"}`}>
-            All venues
-          </button>
-          {venues.filter((v) => v.is_active).map((v) => (
-            <button key={v.id} onClick={() => { setVenueId(v.id); setOpenRole(null); setThreads({}); setRaised({}); }}
-              className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${venueId === v.id ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-foreground/70 hover:bg-muted"}`}>
-              {v.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Finance Director band */}
       <div className="mt-4 rounded-2xl p-5 text-[#F2F7F4]" style={{ background: "#1F3F3B" }}>
-        {reviewQ.isLoading ? (
+        {mixedScope ? (
+          <div className="flex items-start gap-4">
+            <PixelAvatar seed={FD.seed} palette={FD.pal} size={56} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Finance Director</p>
+              <p className="text-[18px] leading-snug mt-1">Your team prepares updates for one venue or all venues. Pick one venue, or all venues, to see their work.</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {!vs.restricted && (
+                  <button onClick={vs.reset} className="inline-flex items-center h-10 px-4 rounded-full text-[13px] font-medium bg-white/15 hover:bg-white/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
+                    All venues
+                  </button>
+                )}
+                <Select onValueChange={(id) => vs.setScope([id])}>
+                  <SelectTrigger aria-label="Pick one venue" className="h-10 w-[200px] rounded-full bg-card text-[13px] text-foreground">
+                    <SelectValue placeholder="Pick one venue" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vs.venues.filter((v) => !!v.id).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        ) : reviewQ.isLoading ? (
           <div className="space-y-2"><Skeleton className="h-6 w-2/3 bg-white/10" /><Skeleton className="h-4 w-1/3 bg-white/10" /></div>
         ) : !review ? (
           <div className="flex items-start gap-4">
@@ -514,7 +532,7 @@ export default function YourTeam() {
       </div>
 
       {/* Team grid / open desk */}
-      {reviewQ.isLoading ? (
+      {mixedScope ? null : reviewQ.isLoading ? (
         <div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[150px] rounded-xl" />)}
         </div>

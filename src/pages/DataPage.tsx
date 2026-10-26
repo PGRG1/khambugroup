@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -71,16 +72,19 @@ const DataPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salesHandoff, roleLoading, user?.id, tenantId, isPreviewActive, isAdmin, hideScanReceipt]);
 
+  const vs = useVenueScope();
+  const scopedData = useMemo(() => data.filter((r) => vs.includesName(r.venue)), [data, vs.includesName]);
+  const scopedOther = useMemo(() => mr.entries.filter((r) => vs.includesId(r.venue_id)), [mr.entries, vs.includesId]);
   const kpis = useMemo(() => {
-    const totalSales = data.reduce((s, r) => s + r.totalSales, 0);
-    const uniqueDays = new Set(data.map((r) => r.date)).size;
-    const needsReview = data.filter(
+    const totalSales = scopedData.reduce((s, r) => s + r.totalSales, 0);
+    const uniqueDays = new Set(scopedData.map((r) => r.date)).size;
+    const needsReview = scopedData.filter(
       (r) => Math.abs(r.totalSales - (r.subtotal + r.serviceCharge + r.discount)) > 0.01
     ).length;
-    const otherRevenue = mr.entries.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const otherDrafts = mr.entries.filter((e) => e.status === "draft").length;
+    const otherRevenue = scopedOther.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const otherDrafts = scopedOther.filter((e) => e.status === "draft").length;
     return { totalSales, uniqueDays, needsReview, otherRevenue, otherDrafts };
-  }, [data, mr.entries]);
+  }, [scopedData, scopedOther]);
 
   const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); setScanFile(null); };
 

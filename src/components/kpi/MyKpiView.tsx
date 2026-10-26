@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,8 @@ export default function MyKpiView() {
   const { actions } = useKpiActions();
   const { venues } = useVenues();
 
-  const [venueFilter, setVenueFilter] = useState<string>("__all__");
+  const venueScope = useVenueScope();
+  const venueFilter: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "__all__"; const setVenueFilter = (_v: string) => {};
   const [sortBy, setSortBy] = useState<"urgency" | "venue" | "name">("urgency");
   const [statusFilter, setStatusFilter] = useState<Tone | null>(null);
   const [editing, setEditing] = useState<null | { cardId: string; venueId: string | null; periodDate: string; title: string }>(null);
@@ -64,7 +66,7 @@ export default function MyKpiView() {
 
   const visible = useMemo(() => {
     let arr = snapshots;
-    if (venueFilter !== "__all__") arr = arr.filter((s) => (s.venueId ?? "__all__") === venueFilter);
+    arr = arr.filter((s) => venueScope.includesId(s.venueId));
     if (statusFilter) {
       if (statusFilter === "warn") arr = arr.filter((s) => s.tone === "warn" || s.tone === "info");
       else if (statusFilter === "neutral") arr = arr.filter((s) => s.awaitingUpdate);
@@ -109,10 +111,6 @@ export default function MyKpiView() {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-              <VenuePill active={venueFilter === "__all__"} onClick={() => setVenueFilter("__all__")}>All</VenuePill>
-              {venueOptions.filter((v) => v !== "__all__").map((v) => (
-                <VenuePill key={v} active={venueFilter === v} onClick={() => setVenueFilter(v)}>{venueName(v)}</VenuePill>
-              ))}
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
               <SelectTrigger className="w-32 h-9 text-xs"><SelectValue /></SelectTrigger>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -89,7 +90,8 @@ export default function ReceivingTab() {
   const [isManager, setIsManager] = useState(false);
 
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -171,7 +173,7 @@ export default function ReceivingTab() {
     const q = search.trim().toLowerCase();
     return grns.filter((g) => {
       if (supplierFilter !== "all" && g.supplier_id !== supplierFilter) return false;
-      if (venueFilter !== "all" && g.venue !== venueFilter) return false;
+      if (!venueScope.includesName(g.venue)) return false;
       if (statusFilter !== "all" && g.status !== statusFilter) return false;
       if (monthFilter !== "all" && (!g.received_date || g.received_date.slice(0, 7) !== monthFilter)) return false;
       if (dateFrom && (!g.received_date || g.received_date < dateFrom)) return false;
@@ -188,7 +190,7 @@ export default function ReceivingTab() {
       }
       return true;
     });
-  }, [grns, suppliers, supplierFilter, venueFilter, statusFilter, monthFilter, dateFrom, dateTo, search]);
+  }, [grns, suppliers, supplierFilter, venueScope.includesName, statusFilter, monthFilter, dateFrom, dateTo, search]);
 
   const kpis = useMemo(() => {
     const total = filtered.length;
@@ -360,8 +362,6 @@ export default function ReceivingTab() {
   const filterFields: FilterField[] = [
     { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
       options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
-    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
-      options: activeVenueNames.map((v) => ({ value: v, label: v })), allLabel: "All Venues" },
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
       options: [
         { value: "draft", label: "Draft" },

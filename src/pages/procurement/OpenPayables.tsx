@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +50,8 @@ export default function OpenPayablesPage() {
   const { tenantId } = useActiveTenant();
   const { invoices, creditNotesAvailable, loading } = usePayables();
   const [bucket, setBucket] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [venues, setVenues] = useState<string[]>([]);
 
@@ -71,11 +73,11 @@ export default function OpenPayablesPage() {
   const openInvoices = useMemo(() => {
     return invoices.filter((i) => {
       if (i.outstanding_amount <= 0 || i.payment_status === "voided") return false;
-      if (venueFilter !== "all" && i.venue !== venueFilter) return false;
+      if (!venueScope.includesName(i.venue)) return false;
       if (supplierFilter !== "all" && i.supplier_id !== supplierFilter) return false;
       return true;
     });
-  }, [invoices, venueFilter, supplierFilter]);
+  }, [invoices, venueScope.includesName, supplierFilter]);
 
   const supplierOptions = useMemo(() => {
     const m = new Map<string, string>();
@@ -118,13 +120,7 @@ export default function OpenPayablesPage() {
           <p className="text-sm text-muted-foreground mt-0.5">All outstanding supplier invoices awaiting payment</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={venueFilter} onValueChange={setVenueFilter}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
             <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="All suppliers" /></SelectTrigger>
             <SelectContent>

@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { formatCurrency } from "@/utils/salesUtils";
 import { TrendingUp, Users, ShoppingCart, DollarSign, Armchair, RotateCw, BarChart3 } from "lucide-react";
 import { getVenueSeats } from "@/constants/venueSeating";
@@ -16,7 +17,8 @@ interface KPICardsProps {
 }
 
 const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrder, totalDiscount, salesPerDay, guestsPerDay, venue = "All Venues", uniqueDays = 1 }: KPICardsProps) => {
-  const seats = venue !== "All Venues" ? getVenueSeats(venue) : null;
+  const vs = useVenueScope();
+  const seats = vs.selectedVenues.reduce((sum, v) => sum + (getVenueSeats(v.name) ?? v.seats ?? 0), 0) || null;
   const ordersPerDay = uniqueDays ? Math.round(totalOrders / uniqueDays) : 0;
 
   // Daily averages for seating metrics

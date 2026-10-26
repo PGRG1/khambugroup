@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo, useState } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
@@ -23,7 +24,8 @@ export function useRevenueFilters() {
     ...dbVenues.filter((v) => v.is_active).map((v) => v.name as VenueFilter),
   ];
 
-  const [venue, setVenue] = useState<VenueFilter>("All Venues");
+  const vs = useVenueScope();
+  const venue: VenueFilter = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name as VenueFilter : "All Venues";
   const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
   const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
   const [view, setView] = useState<"daily" | "monthly">("daily");
@@ -45,10 +47,10 @@ export function useRevenueFilters() {
   };
 
 
-  const filtered = useMemo(() => filterData(data, venue, from, to), [data, venue, from, to]);
+  const filtered = useMemo(() => filterData(data.filter((r) => vs.includesName(r.venue)), "All Venues", from, to), [data, vs.includesName, from, to]);
 
   return {
-    data, loading, venues, venue, setVenue, from, setFrom, to, setTo,
+    data, loading, venues, venue, from, setFrom, to, setTo,
     view, setView, months, onPeriodSelect, filtered, isActionHidden,
   };
 }
@@ -56,7 +58,6 @@ export function useRevenueFilters() {
 interface ControlsProps {
   venues: VenueFilter[];
   venue: VenueFilter;
-  setVenue: (v: VenueFilter) => void;
   from?: Date;
   to?: Date;
   setFrom: (d: Date | undefined) => void;
@@ -71,28 +72,11 @@ interface ControlsProps {
 }
 
 export function RevenueControls({
-  venues, venue, setVenue, from, to, setFrom, setTo, months, onPeriodSelect,
+  venues, venue, from, to, setFrom, setTo, months, onPeriodSelect,
   view, setView, hideVenueFilter, hideDateRange, hideViewToggle,
 }: ControlsProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {!hideVenueFilter && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {venues.map((v) => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${
-                venue === v
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      )}
       <div className="flex items-center gap-2 flex-wrap ml-auto">
         {!hideDateRange && (
           <DateFilter

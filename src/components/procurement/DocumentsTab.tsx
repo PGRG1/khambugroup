@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,8 @@ export default function DocumentsTab() {
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState("all");
   const [downloading, setDownloading] = useState(false);
 
@@ -73,7 +75,7 @@ export default function DocumentsTab() {
     let list = docsInvoices;
     if (periodFilter !== "all") list = list.filter((inv) => inv.invoice_date.startsWith(periodFilter));
     if (supplierFilter !== "all") list = list.filter((inv) => inv.supplier_id === supplierFilter);
-    if (venueFilter !== "all") list = list.filter((inv) => inv.venue === venueFilter);
+    list = list.filter((inv) => venueScope.includesName(inv.venue));
     if (statusFilter !== "all") list = list.filter((inv) => inv.status === statusFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -85,7 +87,7 @@ export default function DocumentsTab() {
       );
     }
     return list;
-  }, [docsInvoices, periodFilter, supplierFilter, venueFilter, statusFilter, search]);
+  }, [docsInvoices, periodFilter, supplierFilter, venueScope.includesName, statusFilter, search]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -161,7 +163,7 @@ export default function DocumentsTab() {
     if (venueFilter !== "all") parts.push(venueFilter);
     if (statusFilter !== "all") parts.push(statusFilter);
     return parts.length ? parts.join(" · ") : "All documents";
-  }, [periodFilter, supplierFilter, venueFilter, statusFilter, suppliers]);
+  }, [periodFilter, supplierFilter, venueScope.includesName, statusFilter, suppliers]);
 
   return (
     <div className="space-y-4">
@@ -200,13 +202,7 @@ export default function DocumentsTab() {
             {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="Venue" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
-            {VENUES.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>

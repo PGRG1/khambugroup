@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,7 +51,8 @@ export default function ExpenseSpendSummaryPage() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [venue, setVenue] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venue: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenue = (_v: string) => {};
   const [venues, setVenues] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<AllocRow[]>([]);
@@ -98,7 +100,7 @@ export default function ExpenseSpendSummaryPage() {
   const inPeriod = (r: AllocRow, start: string, end: string) => {
     const d = r.expense_bills?.bill_date;
     if (!d || d < start || d >= end) return false;
-    if (venue !== "all" && r.venue !== venue) return false;
+    if (!venueScope.includesName(r.venue)) return false;
     return true;
   };
   const amt = (r: AllocRow) => Number(r.amount) || 0;
@@ -179,13 +181,7 @@ export default function ExpenseSpendSummaryPage() {
             <div className="px-2 text-sm font-medium min-w-[120px] text-center">{label}</div>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-          <Select value={venue} onValueChange={setVenue}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
         </div>
       </div>
 

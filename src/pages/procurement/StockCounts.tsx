@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
@@ -117,7 +118,8 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
   const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [itemStats, setItemStats] = useState<Record<string, { total: number; counted: number; value: number }>>({});
-  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
 
@@ -158,7 +160,7 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
 
   const filtered = sessions.filter(
     (s) =>
-      (venueFilter === "all" || s.venue === venueFilter) &&
+      venueScope.includesName(s.venue) &&
       (statusFilter === "all" || s.status === statusFilter)
   );
 
@@ -174,19 +176,7 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <div className="flex gap-2 mb-4">
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-36 h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All venues</SelectItem>
-            {activeVenueNames.map((v) => (
-              <SelectItem key={v} value={v}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40 h-9 text-sm">
             <SelectValue />

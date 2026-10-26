@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo } from "react";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
@@ -17,11 +18,13 @@ interface Props {
 const VenueBreakdownTable = ({
   year,
   month,
-  selectedVenues,
+  selectedVenues: requestedVenues,
   salesData,
   forecasts,
   statisticalDaily,
 }: Props) => {
+  const vs = useVenueScope();
+  const selectedVenues = useMemo(() => requestedVenues.filter((v) => vs.includesName(v)), [requestedVenues, vs.includesName]);
 
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const today = new Date();

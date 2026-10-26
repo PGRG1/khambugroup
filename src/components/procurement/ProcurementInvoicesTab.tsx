@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { toast } from "sonner";
 import { autoCreateGrnFromInvoice } from "@/utils/autoCreateGrnFromInvoice";
 import { syncGrnFromInvoice } from "@/utils/syncGrnFromInvoice";
@@ -194,7 +195,8 @@ export default function ProcurementInvoicesTab() {
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   
@@ -370,7 +372,7 @@ export default function ProcurementInvoicesTab() {
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
-      if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
+      if (!venueScope.includesName(inv.venue)) return false;
       
       if (reviewStatusFilter !== "all" && (inv.review_status || "Approved") !== reviewStatusFilter) return false;
       
@@ -382,7 +384,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, reviewStatusFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueScope.includesName, reviewStatusFilter, monthFilter, search, sortColumns]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
@@ -2154,9 +2156,6 @@ function InvoiceTableSection({
     { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
       options: suppliers.map(s => ({ value: s.id, label: s.name })),
       allLabel: "All Suppliers" },
-    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
-      options: activeVenueNames.map((v) => ({ value: v, label: v })),
-      allLabel: "All Venues" },
     { type: "select", key: "review_status", label: "Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
       options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
       allLabel: "All Statuses" },

@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { SalesRecord } from "@/types/sales";
@@ -56,7 +57,7 @@ const DataTable = ({ data }: DataTableProps) => {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [searchQuery, setSearchQuery] = useState("");
-  const [venueFilter, setVenueFilter] = useState<string>("All");
+  const vs = useVenueScope();
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
   const [checkboxFilters, setCheckboxFilters] = useState<Record<string, Set<string>>>({});
@@ -71,7 +72,6 @@ const DataTable = ({ data }: DataTableProps) => {
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
-    const v = searchParams.get("venue"); if (v) setVenueFilter(v);
     const f = searchParams.get("from"); if (f) { const d = new Date(f); if (!isNaN(d.getTime())) setFrom(d); }
     const t = searchParams.get("to"); if (t) { const d = new Date(t); if (!isNaN(d.getTime())) setTo(d); }
     const q = searchParams.get("q"); if (q) setSearchQuery(q);
@@ -99,7 +99,7 @@ const DataTable = ({ data }: DataTableProps) => {
   useEffect(() => {
     if (!hydrated.current) return;
     const next = new URLSearchParams();
-    if (venueFilter !== "All") next.set("venue", venueFilter);
+    next.delete("venue");
     if (from) next.set("from", from.toISOString().slice(0, 10));
     if (to) next.set("to", to.toISOString().slice(0, 10));
     if (searchQuery.trim()) next.set("q", searchQuery.trim());
@@ -117,7 +117,7 @@ const DataTable = ({ data }: DataTableProps) => {
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [venueFilter, from, to, searchQuery, sortKey, sortDir, reconciliationOnly, checkboxFilters, numericFilters, searchParams, setSearchParams]);
+  }, [vs.includesName, from, to, searchQuery, sortKey, sortDir, reconciliationOnly, checkboxFilters, numericFilters, searchParams, setSearchParams]);
 
   // --- helpers -----------------------------------------------------------
   const toggleSort = (key: SortKey) => {
@@ -137,7 +137,7 @@ const DataTable = ({ data }: DataTableProps) => {
 
   // Apply every predicate except a specific one — used for filter option lists.
   const matches = useCallback((r: SalesRecord, exclude?: string): boolean => {
-    if (exclude !== "venue" && venueFilter !== "All" && r.venue !== venueFilter) return false;
+    if (!vs.includesName(r.venue)) return false;
     if (exclude !== "date") {
       if (from) {
         const d = new Date(r.date);
@@ -167,7 +167,7 @@ const DataTable = ({ data }: DataTableProps) => {
       if (range.max !== undefined && val > range.max) return false;
     }
     return true;
-  }, [venueFilter, from, to, searchQuery, reconciliationOnly, checkboxFilters, numericFilters, hasTotalMismatch]);
+  }, [vs.includesName, from, to, searchQuery, reconciliationOnly, checkboxFilters, numericFilters, hasTotalMismatch]);
 
   const uniqueValues = useCallback((key: SortKey) => {
     const vals = new Set<string>();
@@ -242,7 +242,6 @@ const DataTable = ({ data }: DataTableProps) => {
 
   // --- clear all ----------------------------------------------------------
   const anyFilterActive =
-    venueFilter !== "All" ||
     !!from || !!to ||
     searchQuery.trim().length > 0 ||
     Object.keys(checkboxFilters).length > 0 ||
@@ -250,7 +249,6 @@ const DataTable = ({ data }: DataTableProps) => {
     reconciliationOnly;
 
   const clearAll = () => {
-    setVenueFilter("All");
     setFrom(undefined); setTo(undefined);
     setSearchQuery("");
     setCheckboxFilters({});
@@ -277,7 +275,7 @@ const DataTable = ({ data }: DataTableProps) => {
   // --- CSV ---------------------------------------------------------------
   const activeFilterSummary = (): string => {
     const bits: string[] = [];
-    if (venueFilter !== "All") bits.push(venueFilter);
+    if (vs.filterIds) bits.push(vs.label);
     if (from || to) bits.push(`${from ? from.toISOString().slice(0,10) : "…"} → ${to ? to.toISOString().slice(0,10) : "…"}`);
     if (searchQuery.trim()) bits.push(`"${searchQuery.trim()}"`);
     if (reconciliationOnly) bits.push("mismatched only");
@@ -340,7 +338,6 @@ const DataTable = ({ data }: DataTableProps) => {
 
   // --- chips --------------------------------------------------------------
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
-  if (venueFilter !== "All") chips.push({ key: "venue", label: `Venue: ${venueFilter}`, onRemove: () => setVenueFilter("All") });
   if (from || to) {
     const l = `${from ? from.toISOString().slice(0,10) : "…"} → ${to ? to.toISOString().slice(0,10) : "…"}`;
     chips.push({ key: "date", label: l, onRemove: () => { setFrom(undefined); setTo(undefined); } });
@@ -449,21 +446,6 @@ const DataTable = ({ data }: DataTableProps) => {
               placeholder="Search date, venue, report #"
               className="w-[240px]"
             />
-            <div className="flex items-center gap-1 flex-wrap">
-              {venueOptions.map(v => (
-                <button
-                  key={v}
-                  onClick={() => setVenueFilter(v)}
-                  className={`h-9 px-3 text-xs font-medium rounded-lg border transition-colors ${
-                    venueFilter === v
-                      ? "border-transparent bg-foreground text-background"
-                      : "border-border bg-background/70 text-foreground hover:bg-background"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
             <DateFilter
               from={from}
               to={to}
