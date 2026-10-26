@@ -280,3 +280,19 @@ describe("sales notes and delivery payments", () => {
     expect(find(dropInput("Staff short"), "revenue.sales").severity).toBe("watch");
   });
 });
+
+describe("venues marked closed", () => {
+  it("a venue marked closed on the day is not raised as missing sales; others still are", () => {
+    const venues = [{ id: "c", name: "Caliente", is_active: true }, { id: "a", name: "Arca", is_active: true }];
+    const end = base({}).periodEnd;
+    const f = find(base({ venues, closedDays: [{ venue_id: "a", date: end }] }), "revenue.missing_venues");
+    expect(f.figures[0].value).toBe(1);
+    expect(f.statement).toContain("Caliente");
+    expect(f.statement).not.toContain("Arca");
+  });
+  it("when every missing venue is marked closed nothing needs action", () => {
+    const venues = [{ id: "a", name: "Arca", is_active: true }];
+    const end = base({}).periodEnd;
+    expect(find(base({ venues, closedDays: [{ venue_id: "a", date: end }] }), "revenue.missing_venues").severity).toBe("info");
+  });
+});

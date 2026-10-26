@@ -105,3 +105,12 @@ describe("week groups", () => {
     expect(weekLabel("2026-10-14", "2026-10-26")).toBe("12–18 Oct");
   });
 });
+
+describe("closed days", () => {
+  it("a day marked closed is not listed as missing", () => {
+    const venues = [{ id: "c", name: "Caliente" }];
+    const history = [rec({ venue: "Caliente", date: "2026-10-23" })];
+    const closed = new Set(["c|2026-10-24"]);
+    expect(missingDays(history, venues, "2026-10-23", "2026-10-31", "2026-10-26", firstSaleDates(history), closed).map((m) => m.date)).toEqual(["2026-10-25"]);
+  });
+});

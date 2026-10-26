@@ -86,7 +86,7 @@ function roleViews(review: Review): RoleView[] {
 
 // ---------------- quick replies ----------------
 type ChipAction =
-  | { kind: "closed" }
+  | { kind: "closed"; venueIds?: string[]; names?: string[] }
   | { kind: "traded-missing" }
   | { kind: "action"; verb: string; reply: string; quote?: string };
 
@@ -148,6 +148,7 @@ interface ThreadMsg {
   confirm?: { label: string; action: ChipAction; finding: Finding };
   done?: boolean; // chips/confirm already handled
 }
+const joinNames = (n?: string[]) => (!n || !n.length ? "that venue" : n.length === 1 ? n[0] : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`);
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `m-${Date.now()}-${Math.random()}`);
 /** "sales records imported" → "sales record imported" when count is 1. */
 const workLabel = (label: string, count: number) => (count === 1 ? label.replace(/s (\w+)$/, " $1") : label);
@@ -206,6 +207,34 @@ export default function YourTeam() {
   const review = reviewQ.data ?? null;
   const views = useMemo(() => (review ? roleViews(review) : []), [review]);
 
+  // Venue-days already marked closed for the review's day, so answered items don't come back.
+  const closedQ = useQuery({
+    queryKey: ["yourteam", "closed", tenantId, review?.period_end],
+    enabled: !!tenantId && !!review,
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("venue_closed_days").select("venue_id").eq("tenant_id", tenantId).eq("date", review!.period_end);
+      return new Set<string>((data ?? []).map((c: any) => c.venue_id as string));
+    },
+  });
+  /** Venues the missing-sales finding names that are not yet marked closed. */
+  const missingVenuesOf = useCallback((f: Finding) => {
+    if (f.key !== "revenue.missing_venues") return [];
+    const closed = closedQ.data ?? new Set<string>();
+    return vs.venues.filter((v) => f.statement.includes(v.name) && !closed.has(v.id));
+  }, [vs.venues, closedQ.data]);
+  const isResolved = useCallback((f: Finding) => f.key === "revenue.missing_venues" && !!closedQ.data && missingVenuesOf(f).length === 0, [missingVenuesOf, closedQ.data]);
+  const chipsFor = useCallback((f: Finding) => {
+    if (f.key !== "revenue.missing_venues") return CHIPS[f.key] ?? [];
+    const mv = missingVenuesOf(f);
+    const traded = { label: mv.length > 1 ? "They traded, data is missing" : "It traded, data is missing", action: { kind: "traded-missing" } as ChipAction };
+    if (mv.length <= 1) return [{ label: mv.length ? `${mv[0].name} was closed` : "They were closed", action: { kind: "closed", venueIds: mv.map((v) => v.id), names: mv.map((v) => v.name) } as ChipAction }, traded];
+    return [
+      { label: "All were closed", action: { kind: "closed", venueIds: mv.map((v) => v.id), names: mv.map((v) => v.name) } as ChipAction },
+      ...mv.map((v) => ({ label: `Only ${v.name} was closed`, action: { kind: "closed", venueIds: [v.id], names: [v.name] } as ChipAction })),
+      traded,
+    ];
+  }, [missingVenuesOf]);
+
   // Finance Director tiles (client-side, only shown when calculable).
   const tiles = useQuery({
     queryKey: ["yourteam", "tiles", tenantId, venueId],
@@ -249,19 +278,19 @@ export default function YourTeam() {
 
   const openItems = useCallback((v: RoleView) =>
     v.findings
-      .filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch"))
+      .filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch") && !isResolved(f))
       .sort((a, b) => (a.severity === "action" ? 0 : 1) - (b.severity === "action" ? 0 : 1))
-      .slice(0, 2), []);
+      .slice(0, 2), [isResolved]);
 
   const raiseItem = useCallback((v: RoleView, finding: Finding) => {
-    const chips = CHIPS[finding.key] ?? [];
+    const chips = chipsFor(finding);
     pushMsg(v.role, {
       id: newId(), from: "role",
       text: finding.assessable ? finding.statement : finding.statement,
       chips: [{ label: "Show me", action: { kind: "action", verb: "", reply: "" } }, ...chips],
     });
     setRaised((r) => ({ ...r, [v.role]: [...(r[v.role] ?? []), finding.key] }));
-  }, [pushMsg]);
+  }, [pushMsg, chipsFor]);
 
   const openDesk = useCallback((role: Role, seedMessage?: string) => {
     setOpenRole(role);
@@ -275,7 +304,7 @@ export default function YourTeam() {
       if (first) {
         msgs.push({
           id: newId(), from: "role", text: first.statement,
-          chips: [{ label: "Show me", action: { kind: "action", verb: "", reply: "" } }, ...(CHIPS[first.key] ?? [])],
+          chips: [{ label: "Show me", action: { kind: "action", verb: "", reply: "" } }, ...chipsFor(first)],
         });
       } else {
         msgs.push({ id: newId(), from: "role", text: v.summary || "Nothing needs you from me today. Ask me anything about my area." });
@@ -291,7 +320,7 @@ export default function YourTeam() {
       void askRole(role, seedMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [views, openItems, pushMsg]);
+  }, [views, openItems, pushMsg, chipsFor]);
 
   const askRole = async (role: Role | null, question: string) => {
     if (!tenantId || !review) return;
@@ -342,7 +371,7 @@ export default function YourTeam() {
     pushMsg(role, {
       id: newId(), from: "role",
       text: chip.action.kind === "closed"
-        ? "I'll treat that venue as closed in my reviews. OK?"
+        ? `I'll mark ${joinNames(chip.action.names)} as closed on ${review ? fmtDate(review.period_end) : "that day"}, so ${chip.action.names && chip.action.names.length > 1 ? "they stop" : "it stops"} showing as missing sales. OK?`
         : chip.action.kind === "traded-missing"
           ? "I'll keep it flagged until the sales record arrives. OK?"
           : `I'll ${chip.action.verb}. OK?`,
@@ -362,21 +391,33 @@ export default function YourTeam() {
     }
     const { action, finding } = msg.confirm;
     if (action.kind === "closed") {
-      await recordAction(role, finding, "User confirmed the venue was closed — treat as closed in reviews.");
-      // If a sales record exists for that day, also leave a "Closed early" note on it.
-      if (review && tenantId) {
-        let q = supabase.from("sales_records").select("id,venue,venue_id").eq("tenant_id", tenantId).eq("date", review.period_end);
-        if (review.venue_id) q = q.eq("venue_id", review.venue_id);
-        const { data: recs } = await q;
-        const named = (recs ?? []).filter((r) => r.venue && finding.statement.includes(r.venue));
-        const targets = named.length ? named : review.venue_id ? (recs ?? []) : [];
-        if (targets.length) {
-          await supabase.from("sales_record_notes").insert(
-            targets.map((r) => ({ tenant_id: tenantId, sales_record_id: r.id, body: "Marked closed from Your team", tag: "Closed early" })) as any,
-          );
-        }
+      const ids = action.venueIds?.length ? action.venueIds : missingVenuesOf(finding).map((v) => v.id);
+      const names = action.names?.length ? action.names : vs.venues.filter((v) => ids.includes(v.id)).map((v) => v.name);
+      if (!review || !tenantId || !user || !ids.length) {
+        pushMsg(role, { id: newId(), from: "role", text: "I couldn't tell which venue you mean — tap the venue's button above." });
+        return;
       }
-      pushMsg(role, { id: newId(), from: "role", text: "Noted. I'll treat it as closed in my reviews." });
+      const { error } = await (supabase as any).from("venue_closed_days").upsert(
+        ids.map((venue_id) => ({ tenant_id: tenantId, venue_id, date: review.period_end, reason: "Marked closed from Your team", created_by: user.id })),
+        { onConflict: "venue_id,date", ignoreDuplicates: true },
+      );
+      if (error) {
+        pushMsg(role, { id: newId(), from: "role", text: "I couldn't save that just now — try again in a moment." });
+        return;
+      }
+      await recordAction(role, finding, `User confirmed ${names.join(", ")} closed on ${review.period_end}.`);
+      // Records for that day (e.g. a partial day) also get a "Closed early" note.
+      const { data: recs } = await supabase.from("sales_records").select("id,venue_id").eq("tenant_id", tenantId).eq("date", review.period_end).in("venue_id", ids);
+      if (recs?.length) {
+        await supabase.from("sales_record_notes").insert(
+          recs.map((r) => ({ tenant_id: tenantId, sales_record_id: r.id, body: "Marked closed from Your team", tag: "Closed early" })) as any,
+        );
+      }
+      await qc.invalidateQueries({ queryKey: ["yourteam", "closed"] });
+      qc.invalidateQueries({ queryKey: ["venue-closed-days"] });
+      const left = missingVenuesOf(finding).filter((v) => !ids.includes(v.id)).map((v) => v.name);
+      pushMsg(role, { id: newId(), from: "role", text: `Done — ${joinNames(names)} ${names.length > 1 ? "are" : "is"} marked closed on ${fmtDate(review.period_end)} and won't show as missing sales.` + (left.length ? ` ${joinNames(left)} still has no sales — scan or upload the Z-report if it traded.` : "") });
+      if (left.length) return;
     } else if (action.kind === "traded-missing") {
       await recordAction(role, finding, "User confirmed the venue traded — sales data is missing.");
       pushMsg(role, { id: newId(), from: "role", text: "Got it — they traded, so the data is missing. Scan or upload the Z-report and I'll pick it up tomorrow." });
@@ -409,13 +450,18 @@ export default function YourTeam() {
     // Exception: venue-closed message with an open missing-venues item.
     const rev = views.find((x) => x.role === "revenue");
     const missing = rev?.findings.find((f) => f.key === "revenue.missing_venues" && f.recommendation && f.severity !== "info");
-    if (/closed/i.test(text) && missing) {
+    // A plain statement like "Arca was closed" (not a question) offers to mark it; questions go to the team.
+    const isQuestion = /\?\s*$/.test(text) || /^(can|could|are|is|do|does|will|would|why|how|what|when|where|which|who)\b/i.test(text);
+    const mv = missing && !isResolved(missing) ? missingVenuesOf(missing) : [];
+    if (mv.length && !isQuestion && /\bclosed\b/i.test(text)) {
+      const named = mv.filter((v) => text.toLowerCase().includes(v.name.toLowerCase()));
+      const target = named.length ? named : mv;
       if (openRole !== "revenue") openDesk("revenue");
       pushMsg("revenue", { id: newId(), from: "user", text });
       pushMsg("revenue", {
         id: newId(), from: "role",
-        text: "Sounds like a venue was closed. I'll treat it as closed in my reviews. OK?",
-        confirm: { label: "They were closed", action: { kind: "closed" }, finding: missing },
+        text: `I'll mark ${joinNames(target.map((v) => v.name))} as closed on ${review ? fmtDate(review.period_end) : "that day"}. OK?`,
+        confirm: { label: "Closed", action: { kind: "closed", venueIds: target.map((v) => v.id), names: target.map((v) => v.name) }, finding: missing! },
       });
       return;
     }
