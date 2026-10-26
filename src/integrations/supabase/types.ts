@@ -10688,6 +10688,44 @@ export type Database = {
           },
         ]
       }
+      venue_seat_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          seats: number
+          tenant_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          id?: string
+          seats: number
+          tenant_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          seats?: number
+          tenant_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_seat_history_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_service_periods: {
         Row: {
           applicable_weekdays: number[]
