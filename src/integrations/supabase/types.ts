@@ -10701,6 +10701,51 @@ export type Database = {
           },
         ]
       }
+      venue_closed_days: {
+        Row: {
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          reason: string | null
+          tenant_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          date: string
+          id?: string
+          reason?: string | null
+          tenant_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          reason?: string | null
+          tenant_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_closed_days_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_closed_days_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_memberships: {
         Row: {
           created_at: string
