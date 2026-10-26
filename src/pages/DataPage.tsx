@@ -20,7 +20,8 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { useSalesNotes } from "@/hooks/useSalesNotes";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { getMonthKey, getMonthLabel } from "@/utils/salesUtils";
-import { isoDay } from "@/utils/salesRecordChecks";
+import { isoDay, todayInTz } from "@/utils/salesRecordChecks";
+import { supabase } from "@/integrations/supabase/client";
 import { mtdRange } from "@/components/revenue-overview/utils";
 import { monthSoFarLabel } from "@/utils/revenueOverview";
 import type { DayNote } from "@/components/dashboard/ManualInput";
