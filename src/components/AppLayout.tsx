@@ -11,7 +11,7 @@ import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
 import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
 import { FloatingBani } from "@/components/assistant/FloatingBani";
 import { VenueScopeProvider } from "@/hooks/useVenueScope";
-import { VenueScopePicker, VenueScopeReminder } from "@/components/venue/VenueScopePicker";
+import { VenueScopePicker } from "@/components/venue/VenueScopePicker";
 import "@/components/assistant/floating-bani.css";
 
 const SIDEBAR_OPEN_KEY = "bani.sidebar.open";
@@ -50,7 +50,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             </div>
-            <VenueScopeReminder />
             {children}
           </div>
         </main>
