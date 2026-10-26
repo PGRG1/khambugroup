@@ -4,7 +4,6 @@ import type { SalesRecord } from "@/types/sales";
 import type { SalesNote } from "@/hooks/useSalesNotes";
 import { ChoiceChips, FilterGroup, FilterPanel, ListRow, QuickFilter, Segmented, SortMenu, StatusPill, Toolbar, type ActiveChip } from "@/components/kit";
 import { checkRecord, missingDays, shortDay, weekLabel, type MissingDay } from "@/utils/salesRecordChecks";
-import { formatCurrency } from "@/utils/format";
 import { toast } from "sonner";
 
 type SortKey = "date" | "sales" | "guests" | "venue";
@@ -15,7 +14,7 @@ interface Filters { show: Show; days: Set<string>; min: string; max: string; rec
 const EMPTY: Filters = { show: "all", days: new Set(), min: "", max: "", receipt: "any", period: "all", note: "any" };
 const DOWS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const dowOf = (iso: string) => shortDay(iso).slice(0, 3);
-const hkd0 = (v: number) => formatCurrency(Math.round(v)).replace(/\.00$/, "");
+export const hkd0 = (v: number) => `${v < 0 ? "-" : ""}HK$ ${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
 
 type Row = { kind: "record"; r: SalesRecord; ok: boolean; notes: SalesNote[] } | { kind: "missing"; m: MissingDay };
 
