@@ -206,6 +206,7 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
   const ttsCountRef = useRef(0);
   const fillerUsedRef = useRef({ turn: -1, first: false, more: false });
   const fillerPlayingRef = useRef(false);
+  const fillerPromiseRef = useRef<Promise<void> | null>(null);
   const turnRef = useRef(0); // id of the current question turn
   const summaryTurnRef = useRef(-1); // turn whose summary has arrived
   const generationRef = useRef(0); // invalidates stale async continuations
@@ -732,15 +733,20 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
           // A summary replaces any still-queued/playing filler.
           clearTimers();
           pendingSpeechRef.current = null;
-          stopPlayback();
           summaryTurnRef.current = turn;
+          // Let an acknowledgement already playing finish its sentence.
+          const pendingFiller = fillerPlayingRef.current ? fillerPromiseRef.current : null;
+          if (!pendingFiller) stopPlayback();
+          void (pendingFiller ?? Promise.resolve()).catch(() => {}).then(() => {
+          if (gen !== generationRef.current || turn !== turnRef.current) return;
           setVoiceState("speaking");
           setStepLabel("");
-          void speakSummary(s.text, gen, turn).then(() => {
+          return speakSummary(s.text, gen, turn).then(() => {
             if (gen !== generationRef.current || !activeRef.current) return;
             if (pendingSpeechRef.current) { setVoiceState("idle"); return; }
             setReveal(null);
             listen();
+          });
           });
         } else {
           const used = fillerUsedRef.current;
@@ -751,7 +757,9 @@ export function useVoiceConversation({ active, getAuth, sendQuestion, onError }:
             if (used.first) return;
             used.first = true;
           }
-          void speakFiller(s.text, gen, turn);
+          const fp = speakFiller(s.text, gen, turn);
+          fillerPromiseRef.current = fp;
+          void fp;
         }
       };
       const onStatus = (label: string) => {
