@@ -102,7 +102,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
   return (
     <div className="glass-surface rounded-xl border border-border/60 p-4">
       <div className="flex items-baseline justify-between mb-2">
-        <div className="text-[13px] font-medium">Seat Economics</div>
+        <div className="text-[13px] font-medium">Seats</div>
         <div className="text-[11px] text-muted-foreground tabular-nums">
           {seats ? `${seats} seats` : "Seats not set"}
         </div>
