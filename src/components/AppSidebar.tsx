@@ -2,7 +2,7 @@ import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings, HandCoins, ArrowLeft,
+  Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, UserRound,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -25,12 +25,65 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
-import { isRevenueRoute, revenueLanding } from "@/utils/revenueNavigation";
+import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueNavigation";
+import { useKpiCapability } from "@/hooks/useKpiCapability";
+import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
+import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
+
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
+}
+
+/** Child link that is active by an explicit flag (for section sub-pages). */
+function FlagChildLink({ title, to, active }: { title: string; to: string; active: boolean }) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+        <Link to={to} aria-current={active ? "page" : undefined}
+          className={cn("relative flex items-center pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", active && "glass-active !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100")}>
+          <span className="active-bar absolute left-4 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+          <span className="truncate">{title}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+type RailItem = { title: string; to: string; icon: any; active: boolean };
+function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () => void }) {
+  return (
+    <SidebarContent className="items-center gap-1 py-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+            <ChevronsRight className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">Expand sidebar</TooltipContent>
+      </Tooltip>
+      {items.map((it) => (
+        <Tooltip key={it.title}>
+          <TooltipTrigger asChild>
+            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined}
+              className={cn("inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "glass-active !text-sidebar-primary")}>
+              <it.icon className="h-4 w-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">{it.title}</TooltipContent>
+        </Tooltip>
+      ))}
+    </SidebarContent>
+  );
+}
 
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
