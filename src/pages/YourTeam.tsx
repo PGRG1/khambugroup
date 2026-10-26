@@ -425,7 +425,7 @@ export default function YourTeam() {
         );
       }
       await qc.invalidateQueries({ queryKey: ["yourteam", "closed"] });
-      qc.invalidateQueries({ queryKey: ["venue-closed-days"] });
+      qc.invalidateQueries({ queryKey: ["venue-closures"] });
       const left = missingVenuesOf(finding).filter((v) => !ids.includes(v.id)).map((v) => v.name);
       pushMsg(role, { id: newId(), from: "role", text: `Done — ${joinNames(names)} ${names.length > 1 ? "are" : "is"} marked closed on ${fmtDate(review.period_end)} and won't show as missing sales.` + (left.length ? ` ${joinNames(left)} still has no sales — scan or upload the Z-report if it traded.` : "") });
       if (left.length) return;
