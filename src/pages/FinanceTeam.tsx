@@ -246,7 +246,7 @@ function Briefing({ review, ...ctx }: ActionCtx) {
 function TeamReports({ review, ...ctx }: ActionCtx) {
   const [role, setRole] = useState<string>("revenue");
   const sp = review.specialists.find((s) => s.role === role);
-  const labels: Record<string, string> = { revenue: "Revenue", procurement: "Procurement", accounting: "Accounting & cash" };
+  const labels: Record<string, string> = { revenue: "Revenue", procurement: "Procurement", accounting: "Accounting & cash", accountant: "Accountant", people: "People", controller: "Financial Controller" };
   return (
     <div className="space-y-3">
       <div className="flex gap-1.5">{review.specialists.map((s) => (

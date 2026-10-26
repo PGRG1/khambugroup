@@ -1,0 +1,41 @@
+/* "Your team" page — pixel avatars + Bani composer replica (mirrors Assistant.tsx look). */
+
+@keyframes pxglow {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50% { filter: brightness(1.45) saturate(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-avatar span { animation: none !important; }
+}
+
+.yt-glass {
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 14px 36px -12px rgba(20, 45, 43, 0.30);
+}
+.yt-composer { transition: border-color 150ms, box-shadow 150ms; }
+.yt-composer:focus-within {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.18), 0 14px 36px -12px rgba(20, 45, 43, 0.30);
+}
+textarea.yt-input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  color: #14302D;
+}
+textarea.yt-input::placeholder { color: #7A8C8C; }
+textarea.yt-input:focus, textarea.yt-input:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; }
+.yt-mic { background: transparent; }
+.yt-mic:hover:not(:disabled) { background: rgba(20, 45, 43, 0.06); }
+
+.yt-quote {
+  border: 1px dashed rgba(31, 63, 59, 0.4);
+  border-radius: 12px;
+  background: rgba(31, 63, 59, 0.04);
+}
