@@ -351,7 +351,7 @@ async function answerQuestion(review: any, question: string, role?: string | nul
 The reader is a restaurant owner with little finance knowledge: plain English, no accounting jargon (never say COGS, accrual or reconciled — say "matched to the bank").
 Use only the facts given; repeat figures exactly as displayed and never calculate new numbers.
 If the facts do not contain what is needed, set can_answer=false and say exactly what data is missing. Never infer causes. Purchases are not cost of goods sold; bank balances are not verified cash.
-Never claim you paid, sent or chased anything. Cite the finding keys you relied on. Keep answers under 120 words.`,
+Never claim you paid, sent or chased anything. If the user asks whether you can mark or record a venue as closed: yes — they can tap the venue's "was closed" button under the missing-sales message, or type a plain statement like "Arca was closed"; that saves the closed day so it stops showing as missing. Cite the finding keys you relied on. Keep answers under 120 words.`,
     `Facts (JSON):\n${facts}\n\nQuestion: ${question}`, "finance_team_answer", ASK_SCHEMA);
   if (!r.ok) return { error: r.status === 402 ? "AI credits are exhausted for this workspace." : r.status === 429 ? "AI is rate limited — try again shortly." : `AI could not answer: ${r.error}`, status: r.status === 402 || r.status === 429 ? r.status : 502 };
   const a = r.value as { can_answer: boolean; answer: string; cited_finding_keys: string[] };
