@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useRevenueFilters } from "@/components/revenue-overview/RevenueControls";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
@@ -12,9 +11,7 @@ function last12(): { from: Date; to: Date } {
 
 /** Trends: month-by-month sales and venue mix, then discounts. One page, no tabs. */
 export default function RevenueAnalysis() {
-  const f = useRevenueFilters();
-  const [init] = useState(() => { const r = last12(); f.setFrom(r.from); f.setTo(r.to); return true; });
-  void init;
+  const f = useRevenueFilters(last12);
   const hideDateRange = f.isActionHidden("revenue.date_range");
 
   const onPeriodSelect = (p: string) => {
