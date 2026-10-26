@@ -233,7 +233,7 @@ export default function BusinessStructure() {
   const { isAdmin } = useAuth();
   const { tenantId, memberships } = useActiveTenant();
   const { organizations, loading: orgLoading, create: createOrg, update: updateOrg, remove: removeOrg } = useOrganizations();
-  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue, reload: reloadVenues } = useVenues() as ReturnType<typeof useVenues> & { reload?: () => void };
+  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue, reload: reloadVenues } = useVenues();
   const seatHist = useSeatHistory();
   const [adding, setAdding] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
@@ -322,7 +322,7 @@ export default function BusinessStructure() {
               deleteVenue={(v) => removeVenue(v.id)}
               seatHistory={seatHist.rows}
               tenantId={tenantId}
-              onSeatsSaved={() => { seatHist.reload(); reloadVenues?.(); }}
+              onSeatsSaved={() => { seatHist.reload(); reloadVenues(); }}
             />
           ))}
         </div>
