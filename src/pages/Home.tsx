@@ -32,6 +32,7 @@ import { useVenues } from "@/hooks/useVenues";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FinanceTeamBriefing } from "@/components/home/FinanceTeamBriefing";
 import { Sparkline } from "@/components/revenue-overview/Sparkline";
 import { DeltaChip } from "@/components/revenue-overview/DeltaChip";
 import { SectionHeader } from "@/components/revenue-overview/SectionHeader";
@@ -402,6 +403,8 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <FinanceTeamBriefing />
 
       {/* Pulse row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
