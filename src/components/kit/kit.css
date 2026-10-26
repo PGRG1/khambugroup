@@ -62,3 +62,47 @@
 .kit-explain { background: var(--kit-attn); border: 1px solid #F3DDBF; color: var(--kit-amber-ink); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; }
 .kit-headline { font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace; font-size: 28px; font-weight: 600; color: var(--kit-ink); letter-spacing: -0.01em; }
 .kit-divider { border-top: 1px solid #ECEAE3; }
+
+/* Fixed-width semantic sales table; optional columns expand the scroll area. */
+.kit.sales-table-scroll, .kit.sales-column-choice { --kit-line: #ECEAE3; --kit-missing-a: #FBFBF9; --kit-missing-b: #F6F6F2; --kit-table-surface: #fff; }
+.sales-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.sales-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; color: var(--kit-ink); font-size: 13px; }
+.sales-col-date { width: 118px; }
+.sales-col-venue { width: 220px; }
+.sales-col-guests, .sales-col-orders { width: 90px; }
+.sales-col-sales { width: 140px; }
+.sales-col-status { width: 190px; }
+.sales-col-subtotal, .sales-col-serviceCharge, .sales-col-cards { width: 140px; }
+.sales-col-discount, .sales-col-reportNumber, .sales-col-cash { width: 120px; }
+.sales-col-servicePeriod, .sales-col-ewallets { width: 150px; }
+.sales-col-delivery { width: 190px; }
+.sales-table td, .sales-table th { padding: 0 12px; height: 44px; border-bottom: 1px solid var(--kit-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sales-table thead th { color: var(--kit-muted); font-weight: 500; font-size: 12px; }
+.sales-cell-left { text-align: left; }
+.sales-cell-right { text-align: right; }
+.sales-header-button { background: transparent; height: 36px; padding: 0; width: 100%; font-size: 12px; font-weight: 500; justify-content: inherit; color: inherit; }
+.sales-cell-left .sales-header-button { justify-content: flex-start; }
+.sales-cell-right .sales-header-button { justify-content: flex-end; }
+.sales-record-row { --sales-row-bg: var(--kit-table-surface); cursor: pointer; }
+.sales-record-row td { background: var(--sales-row-bg); }
+.sales-attention-row { --sales-row-bg: var(--kit-attn); }
+.sales-record-row:hover, .sales-open-row { --sales-row-bg: var(--kit-hover); }
+.sales-open-row td:first-child { box-shadow: inset 3px 0 0 var(--kit-ink); }
+.sales-record-row:focus-visible { outline: 2px solid var(--kit-petrol); outline-offset: -2px; }
+.sales-table tr td:first-child { border-radius: 10px 0 0 10px; }
+.sales-table tr td:last-child { border-radius: 0 10px 10px 0; }
+.sales-status-content { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--kit-muted); }
+.sales-status-content svg { flex-shrink: 0; }
+.sales-week-row th { text-align: left; height: 36px; border: 0; }
+.sales-missing-row { background: repeating-linear-gradient(135deg, var(--kit-missing-a) 0 10px, var(--kit-missing-b) 10px 20px); color: var(--kit-muted); }
+.sales-quiet-row { color: var(--kit-muted); }
+.sales-message-content { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.sales-table .sales-message-cell { border-radius: 10px; }
+.sales-table .sales-empty { text-align: center; height: 100px; color: var(--kit-muted); }
+.sales-column-choice { min-height: 40px; font-size: 14px; font-family: "IBM Plex Sans", sans-serif; }
+.sales-column-choice[aria-checked="true"] svg { color: var(--kit-petrol); }
+@media (max-width: 639px) {
+  .sales-table thead th:first-child, .sales-record-row td:first-child { position: sticky; left: 0; z-index: 2; background: var(--sales-row-bg, var(--kit-table-surface)); }
+  .sales-message-content { position: sticky; left: 0; width: min(310px, calc(100vw - 64px)); white-space: normal; }
+  .sales-week-row th span { position: sticky; left: 12px; }
+}

@@ -2,6 +2,7 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabase } from "@/integrations/supabase/client";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { toast } from "@/hooks/use-toast";
 import { consumeSalesHandoff, decideSalesHandoff, peekSalesHandoff, subscribeSalesHandoff } from "@/utils/scannerHandoff";
@@ -20,7 +21,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { useSalesNotes } from "@/hooks/useSalesNotes";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { getMonthKey, getMonthLabel } from "@/utils/salesUtils";
-import { isoDay } from "@/utils/salesRecordChecks";
+import { isoDay, tenantToday } from "@/utils/salesRecordChecks";
 import { mtdRange } from "@/components/revenue-overview/utils";
 import { monthSoFarLabel } from "@/utils/revenueOverview";
 import type { DayNote } from "@/components/dashboard/ManualInput";
@@ -42,6 +43,14 @@ const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
   const { isAdmin, user, roleLoading } = useAuth();
   const { tenantId } = useActiveTenant();
+  const [tenantZone, setTenantZone] = useState<{ id: string; zone: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (tenantId) supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle().then(({ data }) => {
+      if (!cancelled) setTenantZone({ id: tenantId, zone: data?.timezone || "Asia/Hong_Kong" });
+    });
+    return () => { cancelled = true; };
+  }, [tenantId]);
   const { isPreviewActive } = usePreviewMode();
   const { isActionHidden } = usePagePermissions();
   const mr = useManualRevenue();
@@ -112,7 +121,7 @@ const DataPage = () => {
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
     setPeriodName(period);
   };
-  const today = isoDay(new Date());
+  const today = tenantToday(tenantZone?.id === tenantId ? tenantZone.zone : "Asia/Hong_Kong");
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
   const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
@@ -219,7 +228,10 @@ const DataPage = () => {
 
           <div ref={dailyRef} className="scroll-mt-16">
             <DailyRecords
+              key={`${tenantId}:${user?.id}`}
               records={periodRecords}
+              history={scopedData}
+              userId={user?.id}
               venues={vs.selectedVenues.map((v) => ({ id: v.id, name: v.name }))}
               from={fromIso} to={toIso} today={today}
               periodLabel={periodName} tenantName={tenantName}
