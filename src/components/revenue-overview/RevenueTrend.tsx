@@ -26,6 +26,19 @@ interface Props {
   markBestWorst?: boolean;
 }
 
+function MarkLabel({ viewBox, text, color }: { viewBox?: { x: number; y: number }; text: string; color: string }) {
+  if (!viewBox) return null;
+  const w = text.length * 6.2 + 12;
+  const x = Math.max(4, viewBox.x - w / 2);
+  const y = Math.max(2, viewBox.y - 24);
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={18} rx={5} fill="hsl(var(--card))" stroke={color} strokeOpacity={0.5} />
+      <text x={x + w / 2} y={y + 12.5} textAnchor="middle" fontSize={11} fontWeight={600} fill={color}>{text}</text>
+    </g>
+  );
+}
+
 export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: Props) {
   const showForecast = view === "daily" && forecastDaily.some((day) => day.forecast !== null);
   const chartData = useMemo(() => {
@@ -165,11 +178,11 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
             </Bar>
             {marks && (
               <ReferenceDot x={marks.best.label} y={marks.best.revenue} r={0} ifOverflow="extendDomain"
-                label={{ value: marks.bestText, position: "top", fontSize: 11, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
+                label={(props: any) => <MarkLabel {...props} text={marks.bestText} color="hsl(var(--foreground))" />} />
             )}
             {marks && (
               <ReferenceDot x={marks.worst.label} y={marks.worst.revenue} r={0} ifOverflow="extendDomain"
-                label={{ value: marks.worstText, position: "top", fontSize: 11, fontWeight: 600, fill: "hsl(var(--warning))" }} />
+                label={(props: any) => <MarkLabel {...props} text={marks.worstText} color="hsl(var(--warning))" />} />
             )}
             {showForecast && (
               <Line
