@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, AudioLines, Check, Copy, Loader2, Mic, RefreshCw, X } from "lucide-react";
+import { ruleCovers, type VenueClosureRule } from "@/utils/venueClosures";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -212,8 +213,14 @@ export default function YourTeam() {
     queryKey: ["yourteam", "closed", tenantId, review?.period_end],
     enabled: !!tenantId && !!review,
     queryFn: async () => {
-      const { data } = await (supabase as any).from("venue_closed_days").select("venue_id").eq("tenant_id", tenantId).eq("date", review!.period_end);
-      return new Set<string>((data ?? []).map((c: any) => c.venue_id as string));
+      const day = review!.period_end;
+      const [old, cl, rules] = await Promise.all([
+        (supabase as any).from("venue_closed_days").select("venue_id").eq("tenant_id", tenantId).eq("date", day),
+        supabase.from("venue_closures").select("venue_id").eq("tenant_id", tenantId).eq("date", day),
+        supabase.from("venue_closure_rules").select("*").eq("tenant_id", tenantId).lte("start_date", day),
+      ]);
+      const ids = [...(old.data ?? []), ...(cl.data ?? []), ...((rules.data ?? []) as VenueClosureRule[]).filter((r) => ruleCovers(r, day))].map((c: any) => c.venue_id as string);
+      return new Set<string>(ids);
     },
   });
   /** Venues the missing-sales finding names that are not yet marked closed. */
@@ -401,6 +408,10 @@ export default function YourTeam() {
         ids.map((venue_id) => ({ tenant_id: tenantId, venue_id, date: review.period_end, reason: "Marked closed from Your team", created_by: user.id })),
         { onConflict: "venue_id,date", ignoreDuplicates: true },
       );
+      await supabase.from("venue_closures").upsert(
+        ids.map((venue_id) => ({ tenant_id: tenantId, venue_id, date: review.period_end, reason: "Closed", note: "Marked closed from Your team", source: "your_team", created_by: user.id })),
+        { onConflict: "venue_id,date", ignoreDuplicates: true },
+      );
       if (error) {
         pushMsg(role, { id: newId(), from: "role", text: "I couldn't save that just now — try again in a moment." });
         return;
@@ -414,7 +425,7 @@ export default function YourTeam() {
         );
       }
       await qc.invalidateQueries({ queryKey: ["yourteam", "closed"] });
-      qc.invalidateQueries({ queryKey: ["venue-closed-days"] });
+      qc.invalidateQueries({ queryKey: ["venue-closures"] });
       const left = missingVenuesOf(finding).filter((v) => !ids.includes(v.id)).map((v) => v.name);
       pushMsg(role, { id: newId(), from: "role", text: `Done — ${joinNames(names)} ${names.length > 1 ? "are" : "is"} marked closed on ${fmtDate(review.period_end)} and won't show as missing sales.` + (left.length ? ` ${joinNames(left)} still has no sales — scan or upload the Z-report if it traded.` : "") });
       if (left.length) return;

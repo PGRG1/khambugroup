@@ -15,8 +15,11 @@ import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DateFilter from "@/components/dashboard/DateFilter";
-import { DailyRecords } from "@/components/sales/DailyRecords";
-import { SalesDetailPanel } from "@/components/sales/SalesDetailPanel";
+import { DailyRecords, itemKey, type DayItem } from "@/components/sales/DailyRecords";
+import { SalesDayDialog } from "@/components/sales/SalesDayDialog";
+import { useVenueClosures } from "@/hooks/useVenueClosures";
+import { useQuery } from "@tanstack/react-query";
+import { weekdayOf } from "@/utils/venueClosures";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useSalesNotes } from "@/hooks/useSalesNotes";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
@@ -131,7 +134,17 @@ const DataPage = () => {
   );
   const periodNameOf = (id?: string | null) => (id ? allPeriods.find((p: any) => p.id === id)?.name : undefined);
 
-  const [openRecord, setOpenRecord] = useState<SalesRecord | null>(null);
+  const [openItem, setOpenItem] = useState<DayItem | null>(null);
+  const openRecord = openItem?.kind === "record" ? openItem.r : null;
+  const closures = useVenueClosures(vs.selectedVenues.map((v) => v.id));
+  const venueIdByName = useMemo(() => new Map(vs.selectedVenues.map((v) => [v.name, v.id])), [vs.selectedVenues]);
+  // Closed days never count towards "usual weekday" averages.
+  const openHistory = useMemo(() => scopedData.filter((r) => { const id = venueIdByName.get(r.venue); return !id || !closures.lookup(id, r.date); }), [scopedData, venueIdByName, closures.lookup]);
+  const closerIds = [...new Set(closures.closures.map((c) => c.created_by))].sort();
+  const closersQ = useQuery({
+    queryKey: ["closure-authors", closerIds.join(",")], enabled: closerIds.length > 0,
+    queryFn: async () => { const { data } = await supabase.from("profiles").select("user_id,display_name").in("user_id", closerIds); return new Map((data ?? []).map((d) => [d.user_id, d.display_name ?? undefined])); },
+  });
   const [viewingReceipt, setViewingReceipt] = useState<SalesRecord | null>(null);
   const [prefill, setPrefill] = useState<{ date: string; venue: string } | null>(null);
   const canFix = isAdmin && !isActionHidden("data.edit_rows");
@@ -206,7 +219,7 @@ const DataPage = () => {
         <>
           {isAdmin && !hideUpload && showUpload && (
             <DataUpload
-              history={scopedData}
+              history={openHistory}
               onUpload={async (records, note) => { const ok = await uploadRecords(records); if (ok && records.length === 1) await saveNote(records[0], note); }}
               onScanFile={(file) => { setShowUpload(false); setScanFile(file); setShowScanner(true); setView("daily"); }}
               onClose={() => setShowUpload(false)}
@@ -215,13 +228,13 @@ const DataPage = () => {
           {isAdmin && !hideScanReceipt && showScanner && (
             <ReceiptScanner
               initialFile={scanFile}
-              history={scopedData}
+              history={openHistory}
               onSave={async (record, file, note) => { const ok = await addRecord(record, file); if (ok) await saveNote(record, note); }}
               onClose={() => { setShowScanner(false); setScanFile(null); }}
             />
           )}
           {isAdmin && !hideManualEntry && showManual && (
-            <ManualInput key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} initial={prefill} history={scopedData}
+            <ManualInput key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} initial={prefill} history={openHistory}
               onAdd={async (record, file, note) => { const ok = await addRecord(record, file); if (ok) { await saveNote(record, note); setPrefill(null); } }}
               onClose={() => { setShowManual(false); setPrefill(null); }} />
           )}
@@ -237,8 +250,9 @@ const DataPage = () => {
               periodLabel={periodName} tenantName={tenantName}
               notesByRecord={notes.byRecord}
               servicePeriods={scopedPeriods}
-              openId={openRecord?.id ?? null}
-              onOpen={setOpenRecord}
+              closedLookup={closures.lookup}
+              openKey={openItem ? itemKey(openItem) : null}
+              onOpen={setOpenItem}
               onAddDay={isAdmin && !hideManualEntry ? (date, venue) => {
                 closePanels(); setPrefill({ date, venue }); setShowManual(true);
                 requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
@@ -250,15 +264,33 @@ const DataPage = () => {
             <div className="card-glass rounded-xl p-3 sm:p-4"><OtherRevenuePanel embedded /></div>
           </section>
 
-          <SalesDetailPanel
-            record={openRecord}
-            onClose={() => setOpenRecord(null)}
+          <SalesDayDialog
+            item={openItem}
+            onClose={() => setOpenItem(null)}
             notes={(openRecord?.id && notes.byRecord.get(openRecord.id)) || []}
             onAddNote={(body, tag) => (openRecord?.id ? notes.addNote(openRecord.id, body, tag) : Promise.resolve(false))}
             canFix={canFix}
             onFix={() => openRecord?.id && navigate(`/sales-data/${openRecord.id}?edit=1`)}
             onViewReceipt={() => setViewingReceipt(openRecord)}
             servicePeriodName={periodNameOf(openRecord?.servicePeriodId)}
+            canManageClosures={isAdmin}
+            onAddSales={isAdmin && !hideManualEntry ? (date, venue) => {
+              closePanels(); setPrefill({ date, venue }); setShowManual(true);
+              requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+            } : undefined}
+            onMarkClosed={async (venueId, date, reason, note, weekly) => {
+              const ok = weekly
+                ? await closures.addRule({ venue_id: venueId, weekday: weekdayOf(date), start_date: date, end_date: null, reason })
+                : await closures.markClosed(venueId, date, reason, note);
+              toast(ok ? { title: weekly ? "Marked closed every week" : "Marked closed" } : { title: "Couldn't mark it closed", description: "Only admins and managers with access to this venue can.", variant: "destructive" });
+              return ok;
+            }}
+            onUnmark={async (venueId, date) => {
+              const ok = await closures.unmark(venueId, date);
+              toast(ok ? { title: "Closed mark removed" } : { title: "Couldn't remove the closed mark", variant: "destructive" });
+              return ok;
+            }}
+            closerName={(id) => closersQ.data?.get(id)}
           />
           {viewingReceipt?.receiptFileUrl && (
             <AttachmentViewerDialog open onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}
