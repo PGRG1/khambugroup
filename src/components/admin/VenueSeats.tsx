@@ -5,7 +5,7 @@ import { notifySeatHistoryChanged, type SeatHistoryEntry } from "@/hooks/useSeat
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { formatDate } from "@/utils/format";
+import { fmtDate as formatDate } from "@/components/expenses/shared";
 import { iso } from "@/utils/revenueOverview";
 
 /** Current seats, a "Change seats" form (number + From date) and earlier counts. */
