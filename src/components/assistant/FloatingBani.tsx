@@ -5,6 +5,7 @@ import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/
 import { useDictation, joinDraft } from "@/hooks/useDictation";
 import { LiveWaveform } from "@/components/assistant/LiveWaveform";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
@@ -169,6 +170,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
   // Server-approved navigation handoff: open the real scanner, optionally with files.
+  const queryClient = useQueryClient();
   const runScannerAction = (action: { mode: "open" | "scan"; venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
     const say = (content: string) => setMessages(prev => [...prev, { role: "assistant" as const, content }]);
     if (!canAccessPage("invoices")) {
@@ -280,6 +282,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.speak && typeof event.speak.text === "string") turn?.opts.onSpeak?.(event.speak as SpeakEvent);
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
+          if (event.action?.type === "closures_changed") { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
