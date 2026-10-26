@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { SalesRecord } from "@/types/sales";
 import type { SalesNote } from "@/hooks/useSalesNotes";
@@ -31,6 +33,23 @@ const itemDate = (x: DayItem) => (x.kind === "record" ? x.r.date : x.date);
 const itemVenue = (x: DayItem) => (x.kind === "record" ? x.r.venue : x.venue);
 const needsAttention = (x: DayItem) => x.kind === "missing" || (x.kind === "record" && !!x.reason);
 export const itemKey = (x: DayItem) => (x.kind === "record" ? (x.r.id ?? `${x.r.date}-${x.r.venue}-${x.r.reportNumber}`) : `${x.kind}-${x.venueId}-${x.date}`);
+
+/** A heading that can be held and dragged sideways; mirrors its offset onto the column's cells via CSS variables. */
+function SortableTh({ id, className, ariaSort, tableRef, dragging, children }: {
+  id: string; className: string; ariaSort?: "ascending" | "descending"; tableRef: RefObject<HTMLTableElement>; dragging: boolean; children: ReactNode;
+}) {
+  const { listeners, setNodeRef, transform, transition } = useSortable({ id, transition: { duration: 150, easing: "ease" } });
+  const x = transform?.x ?? 0;
+  useLayoutEffect(() => {
+    const t = tableRef.current; if (!t) return;
+    t.style.setProperty(`--tx-${id}`, `${x}px`);
+    t.style.setProperty(`--tr-${id}`, transition ?? "none");
+  }, [id, x, transition, tableRef]);
+  return <th ref={setNodeRef} scope="col" aria-sort={ariaSort} {...listeners}
+    className={`${className} sales-movable ${dragging ? "sales-drag-col" : ""}`}
+    style={{ transform: `translateX(${x}px)`, transition: transition ?? undefined }}>{children}</th>;
+}
+const colMove = (k: string) => ({ transform: `translateX(var(--tx-${k}, 0px))`, transition: `var(--tr-${k}, none)` });
 
 export interface DailyRecordsProps {
   records: SalesRecord[];
@@ -198,6 +217,20 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
 
   const shownCols = order.filter((k) => !(singleVenue && k === "venue"));
   const colCount = 2 + shownCols.length;
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
+  );
+  const endDrag = (e?: DragEndEvent) => {
+    setDragCol(null);
+    document.body.style.cursor = "";
+    if (!e?.over || e.active.id === e.over.id) return;
+    const from = order.indexOf(e.active.id as OrderColumn), to = order.indexOf(e.over.id as OrderColumn);
+    if (from >= 0 && to >= 0) persist(arrayMove(order, from, to));
+  };
+  const dc = (k: string) => (dragCol === k ? " sales-drag-col" : "");
   const leftAligned = (k: OrderColumn) => k === "venue" || k === "servicePeriod" || k === "reportNumber";
   const open = (x: DayItem) => onOpen(x);
   const flag = (reason: string) => (
@@ -249,7 +282,10 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
 
       <TooltipProvider delayDuration={150}>
       <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Daily records table">
-        <table className="sales-table" aria-label="Daily records">
+        <DndContext sensors={sensors} collisionDetection={closestCenter}
+          onDragStart={(e) => { setDragCol(String(e.active.id)); document.body.style.cursor = "grabbing"; }}
+          onDragEnd={endDrag} onDragCancel={() => endDrag()}>
+        <table ref={tableRef} className="sales-table" aria-label="Daily records">
           <colgroup>
             <col className="sales-col-flag" />
             <col className="sales-col-date" />
@@ -257,9 +293,17 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
           </colgroup>
           <thead><tr>
             <th scope="col" className="sales-flag-cell"><span className="sr-only">Needs attention</span></th>
-            {([{ key: "date", label: "Date" }, ...shownCols.map((k) => ({ key: k, label: columnLabel(k) }))] as { key: SortKey; label: string }[]).map((c) => <th key={c.key} scope="col" className={c.key === "date" || leftAligned(c.key as OrderColumn) ? "sales-cell-left" : "sales-cell-right"} aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
-              <Button variant="ghost" className="sales-header-button" onClick={() => headerSort(c.key)}>{c.label}{arrow(c.key)}</Button>
-            </th>)}
+            {(() => {
+              const al = (k: string) => (k === "date" || leftAligned(k as OrderColumn) ? "sales-cell-left" : "sales-cell-right");
+              const aSort = (k: string) => (sort.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : undefined) as "ascending" | "descending" | undefined;
+              const btn = (k: SortKey, label: string) => <button type="button" className="sales-header-button" onClick={() => headerSort(k)}>{label}{arrow(k)}</button>;
+              return <>
+                <th scope="col" className={al("date")} aria-sort={aSort("date")}>{btn("date", "Date")}</th>
+                <SortableContext items={shownCols} strategy={horizontalListSortingStrategy}>
+                  {shownCols.map((k) => <SortableTh key={k} id={k} className={al(k)} ariaSort={aSort(k)} tableRef={tableRef} dragging={dragCol === k}>{btn(k as SortKey, columnLabel(k))}</SortableTh>)}
+                </SortableContext>
+              </>;
+            })()}
           </tr></thead>
           <tbody>
           {neverTraded.map((v) => <tr key={`new-${v.id}`} className="sales-quiet-row">
@@ -270,7 +314,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
             const date = itemDate(x);
             const key = itemKey(x);
             const attn = needsAttention(x);
-            const cls = `sales-record-row ${attn ? "sales-attention-row" : ""} ${x.kind === "closed" ? "sales-closed-row" : ""} ${openKey === key ? "sales-open-row" : ""}`;
+            const cls = `sales-record-row ${attn ? "sales-attention-row" : ""} ${x.kind === "closed" ? "sales-closed-row" : ""}`;
             const venueLabel = x.kind === "record" ? `${x.r.venue}${periodName(x.r.servicePeriodId) ? ` · ${periodName(x.r.servicePeriodId)}` : ""}` : x.venue;
             return (
               <tr key={key} className={cls} tabIndex={0} onClick={() => open(x)}
@@ -282,22 +326,23 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
                 </td>
                 <td className="sales-cell-left">{shortDay(date)}</td>
                 {shownCols.map((k) => {
-                  if (k === "venue") return <td key={k} className="sales-cell-left" title={venueLabel}>{venueLabel}</td>;
+                  if (k === "venue") return <td key={k} style={colMove(k)} className={`sales-cell-left${dc(k)}`} title={venueLabel}>{venueLabel}</td>;
                   if (x.kind !== "record") {
-                    if (k === "guests") return <td key={k} className="kit-num">—</td>;
-                    if (k === "sales") return <td key={k} className={`kit-num ${x.kind === "missing" ? "sales-nosales" : ""}`}>{x.kind === "missing" ? "No sales" : "Closed"}</td>;
-                    return <td key={k} />;
+                    if (k === "guests") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>—</td>;
+                    if (k === "sales") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)} ${x.kind === "missing" ? "sales-nosales" : ""}`}>{x.kind === "missing" ? "No sales" : "Closed"}</td>;
+                    return <td key={k} style={colMove(k)} className={dc(k)} />;
                   }
-                  if (k === "guests") return <td key={k} className="kit-num">{formatTableInteger(x.r.guests)}</td>;
-                  if (k === "sales") return <td key={k} className="kit-num">{hkd0(x.r.totalSales)}</td>;
+                  if (k === "guests") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>{formatTableInteger(x.r.guests)}</td>;
+                  if (k === "sales") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>{hkd0(x.r.totalSales)}</td>;
                   const value = extraValue(x.r, k);
-                  return <td key={k} className={leftAligned(k) ? "sales-cell-left" : "kit-num"} title={String(value)}>{typeof value === "string" ? value || "—" : k === "orders" ? formatTableInteger(value) : hkd0(value)}</td>;
+                  return <td key={k} style={colMove(k)} className={`${leftAligned(k) ? "sales-cell-left" : "kit-num"}${dc(k)}`} title={String(value)}>{typeof value === "string" ? value || "—" : k === "orders" ? formatTableInteger(value) : hkd0(value)}</td>;
                 })}
               </tr>
             );
           })}
           </tbody>
         </table>
+        </DndContext>
       </div>
       </TooltipProvider>
     </section>
