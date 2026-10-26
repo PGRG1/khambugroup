@@ -74,6 +74,27 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
     if (venueId) q = q.eq("venue_id", venueId);
     return q.range(f, t);
   }).catch(() => [] as any[]);
+  const closuresP = fetchAll((f, t) => {
+    let q = admin.from("venue_closures").select("venue_id,date").eq("tenant_id", tenantId).gte("date", p.periodStart).lte("date", p.periodEnd);
+    if (venueId) q = q.eq("venue_id", venueId);
+    return q.range(f, t);
+  }).catch(() => [] as any[]);
+  const rulesP = fetchAll((f, t) => {
+    let q = admin.from("venue_closure_rules").select("venue_id,weekday,start_date,end_date").eq("tenant_id", tenantId).lte("start_date", p.periodEnd);
+    if (venueId) q = q.eq("venue_id", venueId);
+    return q.range(f, t);
+  }).catch(() => [] as any[]);
+  const allClosedDays = async () => {
+    const out = [...((await closedP) as any[]), ...((await closuresP) as any[])];
+    for (const r of (await rulesP) as any[]) {
+      for (let d = p.periodStart; d <= p.periodEnd; d = addDays(d, 1)) {
+        if (d < r.start_date || (r.end_date && d > r.end_date)) continue;
+        if (r.weekday == null ? !r.end_date : new Date(`${d}T00:00:00Z`).getUTCDay() !== r.weekday) continue;
+        out.push({ venue_id: r.venue_id, date: d });
+      }
+    }
+    return out;
+  };
   const [s, cs, inv, cinv, open, bills, accts, venues, priceInvs, payroll, leave, employees, nextShifts, recentShifts, attendance, billsMtd, billsPrevMtd, batches, salesMonths] = await Promise.all([
     sales(p.periodStart, p.periodEnd), sales(p.comparisonStart, p.comparisonEnd),
     invs(p.periodStart, p.periodEnd), invs(p.comparisonStart, p.comparisonEnd),
@@ -164,7 +185,7 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
     expenseBillsPrevMtd: (billsPrevMtd as any[]).map((b) => ({ ...b, category: b.department || "General" })),
     settlementBatches: batches as any,
     salesByMonth,
-    closedDays: (await closedP) as any[],
+    closedDays: await allClosedDays(),
     salesNotes: ((await notesP) as any[]).map((n) => ({ date: n.sales_records?.date, venue_id: n.sales_records?.venue_id ?? null, tag: n.tag ?? null, body: n.body ?? "" })).filter((n) => n.date),
     workDone,
   };
