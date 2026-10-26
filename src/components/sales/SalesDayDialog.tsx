@@ -67,8 +67,8 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
   const title = x?.kind === "record" ? "Sales record" : x?.kind === "missing" ? "Missing day" : "Closed day";
   return (
     <Dialog open={!!x} onOpenChange={(o) => { if (!o) p.onClose(); }}>
-      <DialogContent className="kit sales-day-dialog max-w-[760px] p-0 gap-0 max-sm:h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 overflow-y-auto">
-        {x && <div className="p-5 sm:p-7 space-y-5" style={{ color: "var(--kit-ink)" }}>
+      <DialogContent className="kit sales-day-dialog max-w-[760px] grid-cols-[minmax(0,1fr)] p-0 gap-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 overflow-y-auto">
+        {x && <div className="min-w-0 p-5 sm:p-7 space-y-5" style={{ color: "var(--kit-ink)" }}>
           {x.kind !== "record" && <div className="space-y-1 pr-8">
             <div className="kit-group-h">{title}</div>
             <DialogTitle className="text-[15px] font-semibold whitespace-nowrap truncate">
