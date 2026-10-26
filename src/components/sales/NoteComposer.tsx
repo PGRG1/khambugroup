@@ -42,14 +42,19 @@ export function NoteComposer({ onSend }: { onSend: (body: string, tag: string | 
     setBusy(false);
     if (ok) { setBody(""); setTag(null); }
   };
+  const [focused, setFocused] = useState(false);
+  const expanded = focused || body.trim().length > 0;
   return (
-    <div className="space-y-2">
-      <textarea value={body} maxLength={1000} rows={2} onChange={(e) => setBody(e.target.value)} placeholder="Add a note"
-        aria-label="Add a note" className="w-full px-3 py-2 text-sm rounded-md border bg-white focus:outline-none focus:ring-1 focus:ring-primary" />
-      <NoteTags value={tag} onChange={setTag} />
-      <div className="flex justify-end">
-        <button type="button" className="kit-btn kit-btn-primary" disabled={busy || !body.trim()} onClick={send}>{busy ? "Sending…" : "Send"}</button>
-      </div>
+    <div className="space-y-2" onFocus={() => setFocused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false); }}>
+      <input value={body} maxLength={1000} onChange={(e) => setBody(e.target.value)} placeholder="Add a note…"
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
+        aria-label="Add a note" className="w-full h-9 px-3 text-sm rounded-[9px] border bg-white focus:outline-none focus:ring-1 focus:ring-primary" style={{ borderColor: "rgba(31,63,59,.2)" }} />
+      {expanded && <>
+        <NoteTags value={tag} onChange={setTag} />
+        <div className="flex justify-end">
+          <button type="button" className="kit-btn kit-btn-primary" disabled={busy || !body.trim()} onClick={send}>{busy ? "Sending…" : "Send"}</button>
+        </div>
+      </>}
     </div>
   );
 }

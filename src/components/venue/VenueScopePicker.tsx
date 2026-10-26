@@ -13,7 +13,7 @@ function Row({ label, selected, onClick, big }: { label: string; selected: boole
       role="menuitemcheckbox"
       aria-checked={selected}
       onClick={onClick}
-      className={cn("venue-row", big ? "h-12" : "h-10", selected && "is-selected")}
+      className={cn("venue-row", big ? "h-12" : "h-9", selected && "is-selected")}
     >
       <span className="truncate">{label}</span>
       {selected && <Check className="h-4 w-4 shrink-0" aria-hidden />}

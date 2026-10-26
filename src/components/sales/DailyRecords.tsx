@@ -8,7 +8,7 @@ import type { ClosedInfo } from "@/utils/venueClosures";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ColumnsMenu, EXTRA_COLUMNS, type ExtraColumn } from "./ColumnsMenu";
+import { ColumnsMenu, EXTRA_COLUMNS, columnLabel, type ExtraColumn, type OrderColumn } from "./ColumnsMenu";
 import { toast } from "sonner";
 
 type SortKey = "date" | "sales" | "guests" | "venue" | "attention" | ExtraColumn;
@@ -52,16 +52,27 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   const [f, setF] = useState<Filters>(EMPTY);
   const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
   const storageKey = userId ? `sales-record-columns:${userId}` : null;
-  const [columns, setColumns] = useState<ExtraColumn[]>(() => {
+  const [order, setOrder] = useState<OrderColumn[]>(() => {
+    const base: OrderColumn[] = ["venue", "guests", "sales"];
     try {
-      const saved: unknown = storageKey ? JSON.parse(localStorage.getItem(storageKey) ?? "[]") : [];
-      return Array.isArray(saved) ? EXTRA_COLUMNS.filter((c) => saved.includes(c.key)).map((c) => c.key) : [];
-    } catch { return []; }
+      const saved: unknown = storageKey ? JSON.parse(localStorage.getItem(storageKey) ?? "null") : null;
+      const valid = new Set<string>([...base, ...EXTRA_COLUMNS.map((c) => c.key)]);
+      if (Array.isArray(saved)) return [...base, ...EXTRA_COLUMNS.filter((c) => saved.includes(c.key)).map((c) => c.key)];
+      if (saved && typeof saved === "object" && Array.isArray((saved as { order?: unknown }).order)) {
+        const list = [...new Set(((saved as { order: unknown[] }).order).filter((k): k is OrderColumn => typeof k === "string" && valid.has(k)))];
+        for (const b of base) if (!list.includes(b)) list.push(b);
+        return list;
+      }
+    } catch { /* Storage is optional. */ }
+    return base;
   });
+  const persist = (next: OrderColumn[]) => {
+    setOrder(next);
+    try { if (storageKey) localStorage.setItem(storageKey, JSON.stringify({ order: next })); } catch { /* Storage is optional. */ }
+  };
   const toggleColumn = (key: ExtraColumn) => {
-    const next = columns.includes(key) ? columns.filter((c) => c !== key) : [...columns, key];
-    setColumns(next);
-    try { if (storageKey) localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Storage is optional. */ }
+    const next = order.includes(key) ? order.filter((c) => c !== key) : [...order, key];
+    persist(next);
     if (sort.key === key && !next.includes(key)) setSort({ key: "date", dir: "desc" });
   };
   const singleVenue = venues.length === 1;
@@ -185,8 +196,9 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
     toast(`Downloaded ${recs.length} record${recs.length === 1 ? "" : "s"}`);
   };
 
-  const shownColumns = EXTRA_COLUMNS.filter((c) => columns.includes(c.key));
-  const colCount = 4 + (singleVenue ? 0 : 1) + shownColumns.length;
+  const shownCols = order.filter((k) => !(singleVenue && k === "venue"));
+  const colCount = 2 + shownCols.length;
+  const leftAligned = (k: OrderColumn) => k === "venue" || k === "servicePeriod" || k === "reportNumber";
   const open = (x: DayItem) => onOpen(x);
   const flag = (reason: string) => (
     <Tooltip>
@@ -224,7 +236,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
           </FilterPanel>
         }
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={setSortKey} />}
-        columns={<ColumnsMenu selected={columns} onToggle={toggleColumn} />}
+        columns={<ColumnsMenu order={order} onToggle={toggleColumn} onReorder={persist} venueLocked={singleVenue} />}
         onDownload={download} downloadLabel="Download as spreadsheet (CSV)"
         chips={chips}
         onClear={() => setF(EMPTY)}
@@ -241,13 +253,11 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
           <colgroup>
             <col className="sales-col-flag" />
             <col className="sales-col-date" />
-            {!singleVenue && <col className="sales-col-venue" />}
-            <col className="sales-col-guests" /><col className="sales-col-sales" />
-            {shownColumns.map((c) => <col key={c.key} className={`sales-col-${c.key}`} />)}
+            {shownCols.map((k) => <col key={k} className={`sales-col-${k}`} />)}
           </colgroup>
           <thead><tr>
             <th scope="col" className="sales-flag-cell"><span className="sr-only">Needs attention</span></th>
-            {([{ key: "date", label: "Date" }, ...(!singleVenue ? [{ key: "venue", label: "Venue" }] : []), { key: "guests", label: "Guests" }, { key: "sales", label: "Sales" }, ...shownColumns] as { key: SortKey; label: string }[]).map((c) => <th key={c.key} scope="col" className={c.key === "date" || c.key === "venue" ? "sales-cell-left" : "sales-cell-right"} aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
+            {([{ key: "date", label: "Date" }, ...shownCols.map((k) => ({ key: k, label: columnLabel(k) }))] as { key: SortKey; label: string }[]).map((c) => <th key={c.key} scope="col" className={c.key === "date" || leftAligned(c.key as OrderColumn) ? "sales-cell-left" : "sales-cell-right"} aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
               <Button variant="ghost" className="sales-header-button" onClick={() => headerSort(c.key)}>{c.label}{arrow(c.key)}</Button>
             </th>)}
           </tr></thead>
@@ -271,20 +281,18 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
                   {x.kind === "record" && x.reason && flag(x.reason)}
                 </td>
                 <td className="sales-cell-left">{shortDay(date)}</td>
-                {!singleVenue && <td className="sales-cell-left" title={venueLabel}>{venueLabel}</td>}
-                {x.kind === "record" ? (
-                  <>
-                    <td className="kit-num">{formatTableInteger(x.r.guests)}</td>
-                    <td className="kit-num">{hkd0(x.r.totalSales)}</td>
-                    {shownColumns.map((c) => { const value = extraValue(x.r, c.key); return <td key={c.key} className="kit-num" title={String(value)}>{typeof value === "string" ? value || "—" : c.key === "orders" ? formatTableInteger(value) : hkd0(value)}</td>; })}
-                  </>
-                ) : (
-                  <>
-                    <td className="kit-num">—</td>
-                    <td className={`kit-num ${x.kind === "missing" ? "sales-nosales" : ""}`}>{x.kind === "missing" ? "No sales" : "Closed"}</td>
-                    {shownColumns.map((c) => <td key={c.key} />)}
-                  </>
-                )}
+                {shownCols.map((k) => {
+                  if (k === "venue") return <td key={k} className="sales-cell-left" title={venueLabel}>{venueLabel}</td>;
+                  if (x.kind !== "record") {
+                    if (k === "guests") return <td key={k} className="kit-num">—</td>;
+                    if (k === "sales") return <td key={k} className={`kit-num ${x.kind === "missing" ? "sales-nosales" : ""}`}>{x.kind === "missing" ? "No sales" : "Closed"}</td>;
+                    return <td key={k} />;
+                  }
+                  if (k === "guests") return <td key={k} className="kit-num">{formatTableInteger(x.r.guests)}</td>;
+                  if (k === "sales") return <td key={k} className="kit-num">{hkd0(x.r.totalSales)}</td>;
+                  const value = extraValue(x.r, k);
+                  return <td key={k} className={leftAligned(k) ? "sales-cell-left" : "kit-num"} title={String(value)}>{typeof value === "string" ? value || "—" : k === "orders" ? formatTableInteger(value) : hkd0(value)}</td>;
+                })}
               </tr>
             );
           })}

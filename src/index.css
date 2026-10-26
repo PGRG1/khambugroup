@@ -640,10 +640,8 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 }
 
 /* Portal-wide venue scope pill (fixed tenant theme) */
-.bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 700; font-size: 20px; color: hsl(var(--sidebar-foreground)); letter-spacing: -0.01em; }
-.bani-brand-mark { color: hsl(var(--sidebar-foreground)); }
-html:not(.dark) .bani-brand-word { color: #1F3F3B; }
-html:not(.dark) .bani-brand-mark { color: #2F5E5A; }
+.bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 300; font-size: 20px; color: #25372B; letter-spacing: -0.025em; }
+.bani-brand-mark { color: #25372B; }
 html:not(.dark) .bani-collapse-btn { color: #55605A; }
 html:not(.dark) .bani-collapse-btn:hover { color: #1F3F3B; background: rgba(20,45,43,0.06); }
 html:not(.dark) .bani-sidebar-head,
@@ -663,7 +661,7 @@ html:not(.dark) .bani-rail-tip { background: #1F3F3B; color: #F5F4F0; font-size:
 .venue-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; border-radius: 8px; font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-size: 14px; color: #121510; text-align: left; }
 .venue-row:hover { background: rgba(20,45,43,0.05); }
 .venue-row:focus-visible { outline: 2px solid #2F5E5A; outline-offset: -2px; }
-.venue-row.is-selected { background: #E9F1EC; color: #1F3F3B; font-weight: 600; }
+.venue-row.is-selected { background: #E9F1EC; color: #1F3F3B; font-weight: 500; }
 .venue-row.is-selected svg { color: #2F5E5A; }
 .venue-divider { height: 1px; background: #ECEAE3; margin: 4px 4px; }
 .venue-note { padding: 8px 10px 4px; font-size: 12px; color: #55605A; }

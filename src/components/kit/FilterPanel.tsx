@@ -9,7 +9,7 @@ export function FilterPanel({ activeCount, resultLabel, onReset, children, width
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="kit kit-btn kit-btn-secondary">
+        <button type="button" className="kit kit-btn kit-tool-btn">
           <SlidersHorizontal className="h-4 w-4" /> Filter
           {activeCount > 0 && <span className="kit-bubble">{activeCount}</span>}
         </button>

@@ -433,8 +433,8 @@ export function AppSidebar() {
       ) : (
       <div className={cn("pb-3 border-b border-sidebar-border space-y-2.5", isPreviewActive && "mt-10")}>
         <div className="bani-sidebar-head flex h-[52px] items-center gap-2 px-4">
-          <BaniLoginMark className="bani-brand-mark h-5 w-[11px] shrink-0" />
-          <span className="bani-brand-word leading-none">Bani</span>
+          <BaniLoginMark className="bani-brand-mark h-[30px] w-[18px] shrink-0" />
+          <span className="bani-brand-word font-light tracking-tight leading-none">Bani</span>
           {!isMobile && (
             <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar"
               className="bani-collapse-btn ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
