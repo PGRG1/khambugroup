@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ShieldCheck, Check, Minus, ArrowRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +108,11 @@ export default function RevenueSetup() {
           Bani Operations · {perms.canEditManagerTargets ? "Configuration access" : "Read only"}
         </Badge>
       </div>
+
+      <p className="text-[13px] text-muted-foreground">
+        Venues and seats are set in{" "}
+        <Link to="/admin/structure" className="font-medium text-foreground underline underline-offset-2">Settings → Business &amp; venues</Link>.
+      </p>
 
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
         <TabsList className="h-auto w-full justify-start gap-4 rounded-none border-b border-border/60 bg-transparent p-0">
