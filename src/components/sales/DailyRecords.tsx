@@ -66,7 +66,6 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
     } catch { /* Storage is optional. */ }
     return base;
   });
-  const columns = order.filter((k): k is ExtraColumn => k !== "venue" && k !== "guests" && k !== "sales");
   const persist = (next: OrderColumn[]) => {
     setOrder(next);
     try { if (storageKey) localStorage.setItem(storageKey, JSON.stringify({ order: next })); } catch { /* Storage is optional. */ }
