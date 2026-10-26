@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ChevronDown } from "lucide-react";
+import { monthSoFarLabel } from "@/utils/revenueOverview";
 
 interface DateFilterProps {
   from: Date | undefined;
@@ -11,21 +12,25 @@ interface DateFilterProps {
   onToChange: (d: Date | undefined) => void;
   months: string[];
   onPeriodSelect: (period: string) => void;
-  /** Adds an "MTD" (month-to-date) option to the period menu. */
+  /** Adds a "{Month} so far" option (value "MTD") to the period menu. */
   includeMtd?: boolean;
-  /** Label shown before the user picks a period. Defaults to "All Time". */
+  /** Adds a "Last 12 months" option (value "Last 12 months"). */
+  includeLast12?: boolean;
+  /** Value selected before the user picks a period. Defaults to "All Time". */
   initialPeriod?: string;
+  /** Shows a "Period" label to the left. */
+  labelled?: boolean;
 }
 
-const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect, includeMtd, initialPeriod }: DateFilterProps) => {
+const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect, includeMtd, includeLast12, initialPeriod, labelled }: DateFilterProps) => {
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod ?? "All Time");
   const [showCustom, setShowCustom] = useState(false);
 
-  const options = [...(includeMtd ? ["MTD"] : []), "All Time", ...months, "Custom"];
-
+  const options = [...(includeMtd ? ["MTD"] : []), ...(includeLast12 ? ["Last 12 months"] : []), "All Time", ...months, "Custom"];
+  const display = (o: string) => (o === "MTD" ? monthSoFarLabel() : o === "All Time" ? "All time" : o === "Custom" ? "Custom range" : o);
 
   const handleSelect = (option: string) => {
     setSelectedPeriod(option);
@@ -42,16 +47,19 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
+      {labelled && <span id="period-label" className="text-[12px] font-medium text-muted-foreground">Period</span>}
       <div className="relative">
         <button
+          aria-labelledby={labelled ? "period-label" : undefined}
+          aria-haspopup="listbox"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors min-w-[160px] justify-between"
+          className="flex items-center gap-2 px-4 h-10 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors min-w-[170px] justify-between"
         >
-          {selectedPeriod}
+          {display(selectedPeriod)}
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
         {dropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[170px] max-h-[60vh] overflow-y-auto">
             {options.map((option) => (
               <button
                 key={option}
@@ -60,7 +68,7 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
                   selectedPeriod === option ? "bg-primary/10 text-primary font-medium" : "text-foreground"
                 }`}
               >
-                {option}
+                {display(option)}
               </button>
             ))}
           </div>
@@ -73,7 +81,7 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors">
                 <CalendarIcon className="h-3 w-3" />
-                {from ? format(from, "MMM d, yyyy") : "From"}
+                {from ? format(from, "dd MMM yyyy") : "From"}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -85,7 +93,7 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors">
                 <CalendarIcon className="h-3 w-3" />
-                {to ? format(to, "MMM d, yyyy") : "To"}
+                {to ? format(to, "dd MMM yyyy") : "To"}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
