@@ -36,6 +36,7 @@ type Item = { title: string; url: string; pageKey?: string; end?: boolean; disab
 
 const navItems: (Item & { icon: any })[] = [
   { title: "Launchpad", url: "/", icon: Home, pageKey: "home", end: true },
+  { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 
