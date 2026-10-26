@@ -1,7 +1,7 @@
 // "Your Finance Team" — generates immutable review snapshots and answers grounded questions.
 // Modes:
 //   run       (user JWT)            → deterministic review + optional AI interpretation
-//   ask       (user JWT)            → grounded Q&A on one saved review
+//   ask       (user JWT)            → grounded Q&A on one saved review (optional `role` voices one specialist)
 //   scheduled (x-scheduler-token)   → hourly sweep of due schedule preferences (pg_cron)
 // Never writes to purchasing, payroll, payments or ledger tables.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -9,7 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import {
   buildSpecialists, deterministicSynthesis, evaluatePriorActions, localParts, mergeAiSynthesis, reviewPeriod, addDays,
-  ungroundedNumbers, validateAiSynthesis, type ReviewType, type SpecialistReport, type ReviewInput,
+  ungroundedNumbers, validateAiSynthesis, type ReviewType, type SpecialistReport, type SpecialistRole, type ReviewInput, type WorkDoneItem,
 } from "../_shared/financeTeamReview.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -36,8 +36,14 @@ async function fetchAll(build: (from: number, to: number) => any): Promise<any[]
   return out;
 }
 
-const SALES_COLS = "date,subtotal,service_charge,discount,total_sales,guests,visa,mastercard,amex,union_pay,jcb,alipay,wechat,payme,cash,card_tips";
+const SALES_COLS = "date,venue_id,subtotal,service_charge,discount,total_sales,guests,visa,mastercard,amex,union_pay,jcb,alipay,wechat,payme,cash,card_tips";
 const INV_COLS = "id,invoice_date,due_date,status,payment_status,total_amount,remaining_balance,amount_paid,has_disputes,disputed_amount,voided_at,suppliers(name)";
+
+async function countSince(admin: Admin, table: string, tenantId: string, sinceIso: string, col = "created_at"): Promise<number> {
+  const { count, error } = await admin.from(table).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte(col, sinceIso);
+  if (error) return 0;
+  return count ?? 0;
+}
 
 async function loadInput(admin: Admin, tenantId: string, venueId: string | null, type: ReviewType, endDate: string, asOf: string): Promise<ReviewInput> {
   const p = reviewPeriod(type, endDate);
@@ -45,20 +51,110 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
   const sales = (a: string, b: string) => fetchAll((f, t) => scoped(admin.from("sales_records").select(SALES_COLS).eq("tenant_id", tenantId).gte("date", a).lte("date", b)).range(f, t));
   const invs = (a: string, b: string) => fetchAll((f, t) => scoped(admin.from("invoices").select(INV_COLS).eq("tenant_id", tenantId).gte("invoice_date", a).lte("invoice_date", b)).range(f, t));
   const mapInv = (r: any) => ({ ...r, supplier_name: r.suppliers?.name ?? null });
-  const [s, cs, inv, cinv, open, bills, accts] = await Promise.all([
+  const monthStart = `${asOf.slice(0, 7)}-01`;
+  const dayOfMonth = Number(asOf.slice(8, 10));
+  const prevMonthDate = new Date(`${monthStart}T00:00:00Z`);
+  prevMonthDate.setUTCMonth(prevMonthDate.getUTCMonth() - 1);
+  const prevMonthStart = prevMonthDate.toISOString().slice(0, 10);
+  const prevMonthEnd = addDays(prevMonthStart, dayOfMonth - 1);
+  const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const nextWeekEnd = addDays(asOf, 7);
+  const twoWeeksAgo = addDays(asOf, -14);
+  const sixtyDaysAgo = addDays(asOf, -60);
+  const fourMonthsAgo = `${addDays(monthStart, -120).slice(0, 7)}-01`;
+
+  const [s, cs, inv, cinv, open, bills, accts, venues, priceInvs, payroll, leave, employees, nextShifts, recentShifts, attendance, billsMtd, billsPrevMtd, batches, salesMonths] = await Promise.all([
     sales(p.periodStart, p.periodEnd), sales(p.comparisonStart, p.comparisonEnd),
     invs(p.periodStart, p.periodEnd), invs(p.comparisonStart, p.comparisonEnd),
     fetchAll((f, t) => scoped(admin.from("invoices").select(INV_COLS).eq("tenant_id", tenantId).neq("payment_status", "paid")).range(f, t)),
     fetchAll((f, t) => scoped(admin.from("expense_bills").select("id,bill_date,due_date,approval_status,payment_status,total_amount,paid_amount,reversed_at").eq("tenant_id", tenantId).neq("payment_status", "paid")).range(f, t)),
     fetchAll((f, t) => scoped(admin.from("bank_accounts").select("id,account_name,last_reconciled_date").eq("tenant_id", tenantId).eq("is_active", true)).range(f, t)),
+    fetchAll((f, t) => admin.from("venues").select("id,name,is_active").eq("tenant_id", tenantId).range(f, t)),
+    fetchAll((f, t) => scoped(admin.from("invoices").select("id,invoice_date,suppliers(name)").eq("tenant_id", tenantId).gte("invoice_date", sixtyDaysAgo).is("voided_at", null)).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_payroll").select("year,month,employee_id,actual_total,forecast_total").eq("tenant_id", tenantId).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_leave_requests").select("id,status,start_date,end_date,days").eq("tenant_id", tenantId).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_employees").select("id,venue_id,status").eq("tenant_id", tenantId).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_shifts").select("shift_date,employee_id,actual_hours_worked,variance_minutes,no_show").eq("tenant_id", tenantId).gt("shift_date", asOf).lte("shift_date", nextWeekEnd).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_shifts").select("shift_date,employee_id,actual_hours_worked,variance_minutes,no_show").eq("tenant_id", tenantId).gte("shift_date", twoWeeksAgo).lte("shift_date", asOf).range(f, t)),
+    fetchAll((f, t) => admin.from("hr_attendance").select("date,hours_worked,overtime_hours").eq("tenant_id", tenantId).gte("date", twoWeeksAgo).lte("date", asOf).range(f, t)),
+    fetchAll((f, t) => scoped(admin.from("expense_bills").select("bill_date,total_amount,department,reversed_at").eq("tenant_id", tenantId).gte("bill_date", monthStart).lte("bill_date", asOf)).range(f, t)),
+    fetchAll((f, t) => scoped(admin.from("expense_bills").select("bill_date,total_amount,department,reversed_at").eq("tenant_id", tenantId).gte("bill_date", prevMonthStart).lte("bill_date", prevMonthEnd)).range(f, t)),
+    fetchAll((f, t) => admin.from("payment_settlement_batches").select("id,settlement_date,net_settlement,bank_transaction_id,status").eq("tenant_id", tenantId).lte("settlement_date", asOf).range(f, t)),
+    fetchAll((f, t) => scoped(admin.from("sales_records").select("date,subtotal,service_charge").eq("tenant_id", tenantId).gte("date", fourMonthsAgo).lt("date", monthStart)).range(f, t)),
   ]);
+
   const bankAccounts = await Promise.all(accts.map(async (a: any) => {
     const { data: last } = await admin.from("bank_transactions").select("txn_date,running_balance").eq("tenant_id", tenantId).eq("bank_account_id", a.id).order("txn_date", { ascending: false }).limit(1).maybeSingle();
     const { count } = await admin.from("bank_transactions").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("bank_account_id", a.id).eq("status", "unmatched").gte("txn_date", p.periodStart).lte("txn_date", p.periodEnd);
     return { id: a.id, account_name: a.account_name, last_reconciled_date: a.last_reconciled_date, latest_txn_date: (last as any)?.txn_date ?? null,
       latest_running_balance: (last as any)?.running_balance ?? null, unmatched_in_period: count ?? 0 };
   }));
-  return { reviewType: type, ...p, asOf, sales: s, comparisonSales: cs, invoices: inv.map(mapInv), comparisonInvoices: cinv.map(mapInv), openPayableInvoices: open.map(mapInv), bills, bankAccounts };
+
+  // Price history: lines of last-60-day invoices with a matched product.
+  const invMeta = new Map((priceInvs as any[]).map((i) => [i.id, { date: i.invoice_date, supplier: i.suppliers?.name ?? "Unknown supplier" }]));
+  const invIds = [...invMeta.keys()];
+  let priceLines: ReviewInput["priceLines"] = [];
+  if (invIds.length) {
+    const lines = await fetchAll((f, t) => admin.from("invoice_line_items")
+      .select("invoice_id,description,scanned_description,quantity,unit_price,net_unit_cost,standard_product_id,product_master_id")
+      .eq("tenant_id", tenantId).in("invoice_id", invIds.slice(0, 500)).range(f, t));
+    priceLines = (lines as any[])
+      .map((l) => {
+        const meta = invMeta.get(l.invoice_id);
+        const key = l.standard_product_id ?? l.product_master_id;
+        const price = l.net_unit_cost ?? l.unit_price;
+        if (!meta || !key || price == null) return null;
+        return { product_key: String(key), item_label: l.scanned_description || l.description || "Item", supplier_name: meta.supplier,
+          invoice_date: meta.date, unit_price: Number(price), quantity: Number(l.quantity) || 0 };
+      })
+      .filter(Boolean) as ReviewInput["priceLines"];
+  }
+
+  // Revenue per calendar month (for staff-cost ratio).
+  const byMonth = new Map<string, number>();
+  for (const r of salesMonths as any[]) {
+    const k = r.date.slice(0, 7);
+    byMonth.set(k, (byMonth.get(k) ?? 0) + (Number(r.subtotal) || 0) + (Number(r.service_charge) || 0));
+  }
+  const salesByMonth = [...byMonth.entries()].map(([k, revenue]) => ({ year: Number(k.slice(0, 4)), month: Number(k.slice(5, 7)), revenue }));
+
+  // Work done in the last 24h (real counts only).
+  const [salesNew, invNew, billsNew, paymentsNew, shiftsNew, leaveNew, bankMatched, stmtImports] = await Promise.all([
+    countSince(admin, "sales_records", tenantId, since24h),
+    countSince(admin, "invoices", tenantId, since24h),
+    countSince(admin, "expense_bills", tenantId, since24h),
+    countSince(admin, "payments", tenantId, since24h),
+    countSince(admin, "hr_shifts", tenantId, since24h),
+    countSince(admin, "hr_leave_requests", tenantId, since24h),
+    countSince(admin, "bank_transaction_matches", tenantId, since24h),
+    countSince(admin, "bank_statement_imports", tenantId, since24h),
+  ]);
+  const wd = (label: string, count: number): WorkDoneItem[] => (count > 0 ? [{ label, count }] : []);
+  const workDone: Record<SpecialistRole, WorkDoneItem[]> = {
+    revenue: wd("sales records imported", salesNew),
+    procurement: wd("supplier invoices scanned", invNew),
+    accountant: [...wd("expense bills entered", billsNew), ...wd("payments recorded", paymentsNew)],
+    people: [...wd("shifts rostered", shiftsNew), ...wd("leave requests filed", leaveNew)],
+    controller: [...wd("bank lines matched", bankMatched), ...wd("bank statements imported", stmtImports)],
+  };
+
+  return {
+    reviewType: type, ...p, asOf,
+    sales: s, comparisonSales: cs, invoices: inv.map(mapInv), comparisonInvoices: cinv.map(mapInv), openPayableInvoices: open.map(mapInv), bills, bankAccounts,
+    venues: venues as any,
+    priceLines,
+    payroll: payroll as any,
+    leaveRequests: leave as any,
+    employees: employees as any,
+    nextWeekShifts: nextShifts as any,
+    recentShifts: recentShifts as any,
+    attendance: attendance as any,
+    expenseBillsMtd: (billsMtd as any[]).map((b) => ({ ...b, category: b.department || "General" })),
+    expenseBillsPrevMtd: (billsPrevMtd as any[]).map((b) => ({ ...b, category: b.department || "General" })),
+    settlementBatches: batches as any,
+    salesByMonth,
+    workDone,
+  };
 }
 
 // ---------- Lovable AI Gateway (Responses API, streamed) ----------
@@ -101,9 +197,10 @@ async function callAiJson(instructions: string, input: string, name: string, sch
   }
   if (refused) return { ok: false, status: 200, error: "AI declined to answer" };
   if (failed) return { ok: false, status: 500, error: failed };
-  try { return { ok: true, value: JSON.parse(text) }; } catch { return { ok: false, status: 200, error: "AI returned invalid JSON" }; }
+  try { return { ok: true, value: JSON.parse(text) }; } catch { return { ok: false, status: 200, error: "AI returned invalid JSON" } };
 }
 
+const ROLE_ENUM = ["revenue", "procurement", "accountant", "people", "controller"];
 const SYNTH_SCHEMA = {
   type: "object", additionalProperties: false,
   required: ["headline", "what_changed", "profit_cash_implication", "priorities", "specialist_summaries"],
@@ -112,14 +209,15 @@ const SYNTH_SCHEMA = {
     what_changed: { type: "array", items: { type: "string" } },
     profit_cash_implication: { type: "string" },
     priorities: { type: "array", items: { type: "object", additionalProperties: false, required: ["finding_key", "why"], properties: { finding_key: { type: "string" }, why: { type: "string" } } } },
-    specialist_summaries: { type: "array", items: { type: "object", additionalProperties: false, required: ["role", "summary"], properties: { role: { type: "string", enum: ["revenue", "procurement", "accounting"] }, summary: { type: "string" } } } },
+    specialist_summaries: { type: "array", items: { type: "object", additionalProperties: false, required: ["role", "summary"], properties: { role: { type: "string", enum: ROLE_ENUM }, summary: { type: "string" } } } },
   },
 };
-const SYNTH_INSTRUCTIONS = `You are the Finance Director of a restaurant group, synthesising reports from the Revenue Manager, Procurement Manager and Financial Controller.
+const SYNTH_INSTRUCTIONS = `You are the Finance Director of a restaurant group, synthesising reports from the Revenue Manager, Procurement Manager, Accountant, People Manager and Financial Controller.
+The reader is a restaurant owner with little finance knowledge: use plain English, no accounting jargon.
 Use ONLY the facts provided. Never calculate new numbers; you may only repeat figures exactly as they appear in the facts (use the "display" strings).
-Never infer causes the facts do not show. If something is marked not assessable, say it cannot be assessed.
+Never infer causes the facts do not show. If something is marked not assessable, say it cannot be checked yet and why.
 Purchases are invoice spend, never cost of goods sold. Bank balances are last imported statement lines, never verified cash. Profit cannot be assessed unless the facts say so.
-Do not claim any action was agreed. Roster/labour and inventory are not covered.
+Do not claim any action was agreed. Never say "paid", "sent" or "chased" — the team never pays, emails or chases anyone.
 headline: one sentence. what_changed: up to 4 short bullets. profit_cash_implication: 1-2 sentences, stating clearly what cannot be assessed.
 priorities: up to 3, finding_key MUST be one of the actionable keys listed. specialist_summaries: one concise sentence per role.`;
 
@@ -188,8 +286,11 @@ async function generateReview(admin: Admin, opts: { tenantId: string; venueId: s
       period_label: periodLabel, comparison: { start: p.comparisonStart, end: p.comparisonEnd },
       calculation_rules: ["Revenue = subtotal + service charge", "Payment check: sum of payment methods + card tips vs total sales (±HK$0.50)",
         "Purchases = supplier invoice totals by invoice date, excluding voided; not COGS", "Overdue = unpaid with due date before as-of date",
-        "Bank balance = last imported statement running balance, not verified cash"],
-      row_counts: { sales: input.sales.length, comparison_sales: input.comparisonSales.length, invoices: input.invoices.length, open_invoices: input.openPayableInvoices.length, unpaid_bills: input.bills.length, bank_accounts: input.bankAccounts.length },
+        "Bank balance = last imported statement running balance, not verified cash",
+        "Price rises = latest invoice unit price vs previous from the same supplier (60 days); monthly impact = increase × qty bought in last 30 days",
+        "Staff cost per HK$100 = payroll ÷ revenue for the latest full month with both"],
+      row_counts: { sales: input.sales.length, comparison_sales: input.comparisonSales.length, invoices: input.invoices.length, open_invoices: input.openPayableInvoices.length, unpaid_bills: input.bills.length, bank_accounts: input.bankAccounts.length,
+        price_lines: input.priceLines.length, payroll_rows: input.payroll.length, settlement_batches: input.settlementBatches.length },
       ai: { status: aiStatus, model: aiStatus === "ai" ? MODEL : null, error: aiError },
       deterministic,
     };
@@ -210,8 +311,13 @@ async function generateReview(admin: Admin, opts: { tenantId: string; venueId: s
 const ASK_SCHEMA = { type: "object", additionalProperties: false, required: ["can_answer", "answer", "cited_finding_keys"],
   properties: { can_answer: { type: "boolean" }, answer: { type: "string" }, cited_finding_keys: { type: "array", items: { type: "string" } } } };
 
-async function answerQuestion(review: any, question: string) {
-  const specialists = review.specialists as SpecialistReport[];
+const ROLE_NAMES: Record<string, string> = { revenue: "Revenue Manager", procurement: "Procurement Manager", accountant: "Accountant", people: "People Manager", controller: "Financial Controller" };
+
+async function answerQuestion(review: any, question: string, role?: string | null) {
+  let specialists = review.specialists as SpecialistReport[];
+  if (role && ROLE_NAMES[role]) {
+    specialists = [...specialists].sort((a, b) => (a.role === role ? -1 : 0) - (b.role === role ? -1 : 0));
+  }
   const findings = specialists.flatMap((s) => s.findings);
   const byKey = new Map(findings.map((f) => [f.key, f]));
   const evidenceFor = (keys: string[]) => keys.flatMap((k) => byKey.get(k)?.evidence ?? []).filter((e, i, a) => a.findIndex((x) => x.route === e.route) === i);
@@ -224,10 +330,15 @@ async function answerQuestion(review: any, question: string) {
       answer: hits.length ? hits.map((f) => `${f.title}: ${f.statement}`).join("\n") : "This saved review does not contain data that answers that question.",
       cited_finding_keys: hits.map((f) => f.key), evidence: evidenceFor(hits.map((f) => f.key)) };
   }
+  const persona = role && ROLE_NAMES[role]
+    ? `Answer as the ${ROLE_NAMES[role]} on the user's finance team: use that role's findings first, speak in first person ("I checked…"), and stay in your lane — if the question belongs to another team member, say who to ask.`
+    : "Answer as the Finance Director of the user's finance team.";
   const r = await callAiJson(
-    `You answer questions about ONE saved restaurant finance review. Use only the facts given; repeat figures exactly as displayed and never calculate new numbers.
-If the facts do not contain what is needed, set can_answer=false and say exactly what data is missing. Never infer causes. Purchases are not COGS; bank balances are not verified cash.
-Cite the finding keys you relied on. Keep answers under 120 words.`,
+    `You answer questions about ONE saved restaurant finance review. ${persona}
+The reader is a restaurant owner with little finance knowledge: plain English, no accounting jargon (never say COGS, accrual or reconciled — say "matched to the bank").
+Use only the facts given; repeat figures exactly as displayed and never calculate new numbers.
+If the facts do not contain what is needed, set can_answer=false and say exactly what data is missing. Never infer causes. Purchases are not cost of goods sold; bank balances are not verified cash.
+Never claim you paid, sent or chased anything. Cite the finding keys you relied on. Keep answers under 120 words.`,
     `Facts (JSON):\n${facts}\n\nQuestion: ${question}`, "finance_team_answer", ASK_SCHEMA);
   if (!r.ok) return { error: r.status === 402 ? "AI credits are exhausted for this workspace." : r.status === 429 ? "AI is rate limited — try again shortly." : `AI could not answer: ${r.error}`, status: r.status === 402 || r.status === 429 ? r.status : 502 };
   const a = r.value as { can_answer: boolean; answer: string; cited_finding_keys: string[] };
@@ -307,11 +418,12 @@ Deno.serve(async (req) => {
     if (!isUuid(body.review_id)) return json({ error: "review_id is required" }, 400);
     const q = typeof body.question === "string" ? body.question.trim() : "";
     if (!q || q.length > 500) return json({ error: "Question must be 1–500 characters." }, 400);
+    const role = typeof body.role === "string" && ROLE_ENUM.includes(body.role) ? body.role : null;
     const { data: review } = await admin.from("finance_team_reviews").select("*").eq("id", body.review_id).eq("tenant_id", tenant.tenant_id).eq("status", "completed").maybeSingle();
     if (!review) return json({ error: "Review not found." }, 404);
     const { data: allowed } = await admin.rpc("ft_can_access_scope", { _user_id: userId, _tenant_id: tenant.tenant_id, _venue_id: (review as any).venue_id });
     if (!allowed && !tenant.isSuper) return json({ error: "You do not have access to this review." }, 403);
-    const a: any = await answerQuestion(review, q);
+    const a: any = await answerQuestion(review, q, role);
     if (a.error) return json({ error: a.error }, a.status ?? 502);
     return json(a);
   }
