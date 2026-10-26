@@ -2,17 +2,18 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { SalesRecord, VenueFilter } from "@/types/sales";
 import { fmtHKD, fmtNum, pctDelta } from "./utils";
 import { DeltaChip } from "./DeltaChip";
-import { getVenueSeats } from "@/constants/venueSeating";
+import { useSeatHistory } from "@/hooks/useSeatHistory";
+import { seatTotals } from "@/utils/seatHistory";
 
 interface Props {
   data: SalesRecord[];
   prevData: SalesRecord[];
-  venue: VenueFilter;
-  seatingKey: number;
+  venue: VenueFilter | string;
 }
 
-export function VenueContribution({ data, prevData, venue, seatingKey }: Props) {
+export function VenueContribution({ data, prevData, venue }: Props) {
   const vs = useVenueScope();
+  const seatHist = useSeatHistory();
   if (venue === "All Venues") {
     const map = new Map<string, { revenue: number; guests: number; dates: Set<string> }>();
     for (const r of data) {
@@ -68,18 +69,20 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
   }
 
   // Single-venue: seat economics
-  const seats = vs.selectedVenues.reduce((sum, v) => sum + (getVenueSeats(v.name) ?? v.seats ?? 0), 0) || null;
-  const days = new Set(data.map((r) => r.date)).size || 1;
-  const prevDays = new Set(prevData.map((r) => r.date)).size || 1;
+  const idByName = new Map(vs.venues.map((v) => [v.name, v.id]));
+  const cur = seatTotals(data, seatHist.rows, idByName);
+  const prevT = seatTotals(prevData, seatHist.rows, idByName);
+  const seats = cur.latestSeats;
   const revenue = data.reduce((s, r) => s + r.totalSales, 0);
   const guests = data.reduce((s, r) => s + r.guests, 0);
   const prevRevenue = prevData.reduce((s, r) => s + r.totalSales, 0);
   const prevGuests = prevData.reduce((s, r) => s + r.guests, 0);
 
-  const revPerSeat = seats ? revenue / seats / days : null;
-  const prevRevPerSeat = seats && prevData.length ? prevRevenue / seats / prevDays : null;
-  const turns = seats ? guests / seats / days : null;
-  const prevTurns = seats && prevData.length ? prevGuests / seats / prevDays : null;
+  // Each day uses the seat count that applied on that day.
+  const revPerSeat = cur.seatDays ? cur.revenue / cur.seatDays : null;
+  const prevRevPerSeat = prevT.seatDays ? prevT.revenue / prevT.seatDays : null;
+  const turns = cur.seatDays ? cur.guests / cur.seatDays : null;
+  const prevTurns = prevT.seatDays ? prevT.guests / prevT.seatDays : null;
   const spg = guests ? revenue / guests : 0;
   const prevSpg = prevGuests ? prevRevenue / prevGuests : 0;
 
@@ -101,35 +104,33 @@ export function VenueContribution({ data, prevData, venue, seatingKey }: Props) 
       <div className="flex items-baseline justify-between mb-2">
         <div className="text-[13px] font-medium">Seat Economics</div>
         <div className="text-[11px] text-muted-foreground tabular-nums">
-          {seats ? `${seats} seats` : "No seats set"}
+          {seats ? `${seats} seats` : "Seats not set"}
         </div>
       </div>
       {seats ? (
         <>
           <Row
-            label="Revenue / seat / day"
+            label="Sales per seat per day"
             value={`HK$${fmtHKD(revPerSeat ?? 0)}`}
             delta={prevRevPerSeat ? pctDelta(revPerSeat ?? 0, prevRevPerSeat) : null}
           />
           <Row
-            label="Turns / seat / day"
+            label="Guests per seat per day"
             value={(turns ?? 0).toFixed(2)}
             delta={prevTurns ? pctDelta(turns ?? 0, prevTurns) : null}
-            sub="Covers per seat"
+            sub="How often each seat was used"
           />
           <Row
-            label="Avg spend / guest"
+            label="Spent per guest"
             value={`HK$${fmtHKD(spg)}`}
             delta={prevSpg ? pctDelta(spg, prevSpg) : null}
           />
         </>
       ) : (
         <div className="text-[12px] text-muted-foreground py-4">
-          Configure seat count for {venue} in the Seats editor.
+          Seats not set. An admin can add them in Settings → Business &amp; venues.
         </div>
       )}
-      {/* seatingKey ensures re-render */}
-      <input type="hidden" value={seatingKey} />
     </div>
   );
 }
