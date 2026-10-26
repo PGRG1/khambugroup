@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -45,7 +46,8 @@ export default function SupplierAccountsPage() {
   const [supplierMap, setSupplierMap] = useState<Map<string, string>>(new Map());
   const [venues, setVenues] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [venueFilter, setVenueFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
 
   useEffect(() => {
     if (!tenantId) return;
@@ -76,7 +78,7 @@ export default function SupplierAccountsPage() {
   const filteredInvoices = useMemo(() => {
     if (venueFilter === "all") return invoices;
     return invoices.filter((i) => i.venue === venueFilter);
-  }, [invoices, venueFilter]);
+  }, [invoices, venueScope.includesName]);
 
   const rows = useMemo(() => {
     const tenantSupplierIds = new Set(filteredInvoices.map((i) => i.supplier_id).filter(Boolean) as string[]);
@@ -159,13 +161,7 @@ export default function SupplierAccountsPage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search suppliers" className="h-9 pl-8 w-[220px]" />
           </div>
-          <Select value={venueFilter} onValueChange={setVenueFilter}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (<SelectItem key={v} value={v}>{v}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          
         </div>
       </div>
 

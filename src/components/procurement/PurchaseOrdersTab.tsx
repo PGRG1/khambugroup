@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,8 @@ export default function PurchaseOrdersTab() {
   const isMobile = useIsMobile();
 
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
-  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
@@ -135,7 +137,7 @@ export default function PurchaseOrdersTab() {
   const filtered = useMemo(() => {
     return pos.filter((p) => {
       if (supplierFilter !== "all" && p.supplier_id !== supplierFilter) return false;
-      if (venueFilter !== "all" && p.venue !== venueFilter) return false;
+      if (!venueScope.includesName(p.venue)) return false;
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -143,7 +145,7 @@ export default function PurchaseOrdersTab() {
       }
       return true;
     });
-  }, [pos, supplierFilter, venueFilter, statusFilter, search, suppliers]);
+  }, [pos, supplierFilter, venueScope.includesName, statusFilter, search, suppliers]);
 
   const addLine = () => {
     setLines((l) => [...l, { key: crypto.randomUUID(), product_master_id: "", description: "", quantity_ordered: 1, unit: "each", unit_price: 0 }]);
@@ -273,7 +275,7 @@ export default function PurchaseOrdersTab() {
     parts.push(venueFilter === "all" ? "All venues" : venueFilter);
     parts.push(statusFilter === "all" ? "All statuses" : statusFilter);
     return parts.join(" · ");
-  }, [supplierFilter, venueFilter, statusFilter, suppliers]);
+  }, [supplierFilter, venueScope.includesName, statusFilter, suppliers]);
 
   const StatTile = ({ label, value, tone, filterValue }: { label: string; value: number; tone?: "warn" | "primary" | "danger"; filterValue?: string }) => {
     const active = filterValue && statusFilter === filterValue;
@@ -326,13 +328,7 @@ export default function PurchaseOrdersTab() {
           </div>
           <div className="w-40">
             <Label className="text-xs">Venue</Label>
-            <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All venues</SelectItem>
-                {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            
           </div>
           <div className="w-40">
             <Label className="text-xs">Status</Label>

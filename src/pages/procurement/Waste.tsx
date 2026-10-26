@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
@@ -121,7 +122,8 @@ export default function WastePage() {
   const [periodSpend, setPeriodSpend] = useState<number>(0);
 
   const [search, setSearch] = useState("");
-  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [period, setPeriod] = useState<"all" | "30d" | "mtd" | "ytd">("30d");
 
@@ -193,7 +195,7 @@ export default function WastePage() {
   // ----- filtered for table/chart -----
   const filtered = useMemo(() => {
     let list = periodEntries;
-    if (venueFilter !== "all") list = list.filter((e) => e.venue === venueFilter);
+    list = list.filter((e) => venueScope.includesName(e.venue));
     if (typeFilter !== "all") list = list.filter((e) => e.entry_type === typeFilter);
     if (search) {
       const q = search.toLowerCase();
@@ -205,7 +207,7 @@ export default function WastePage() {
       );
     }
     return list;
-  }, [periodEntries, venueFilter, typeFilter, search]);
+  }, [periodEntries, venueScope.includesName, typeFilter, search]);
 
   // ----- KPIs -----
   const totalValue = useMemo(() => filtered.reduce((s, e) => s + Number(e.total_value || 0), 0), [filtered]);
@@ -401,15 +403,7 @@ export default function WastePage() {
             <SelectItem value="consumption">Consumption</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="All venues" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All venues</SelectItem>
-            {venues.filter((v) => v.name).map((v) => (
-              <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
       </div>
 
       {/* Table */}

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useExpenseBills, ExpenseBill, ExpenseBillAllocation } from "@/hooks/useExpenseBills";
@@ -97,7 +98,8 @@ export default function ExpenseApprovals() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending_review");
-  const [venueFilter, setVenueFilter] = useState<string>(ANY);
+  const venueScope = useVenueScope();
+  const venueFilter: string = ANY; const setVenueFilter = (_v: string) => {};
   const [vendorFilter, setVendorFilter] = useState<string>(ANY);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
@@ -201,7 +203,7 @@ export default function ExpenseApprovals() {
       case "all":
         break;
     }
-    if (venueFilter !== ANY && b.venue !== venueFilter) return false;
+    if (!venueScope.includesName(b.venue)) return false;
     if (vendorFilter !== ANY && b.vendor_name !== vendorFilter) return false;
     if (fromDate && b.bill_date < fromDate) return false;
     if (toDate && b.bill_date > toDate) return false;
@@ -228,7 +230,7 @@ export default function ExpenseApprovals() {
         .filter(matchesFilter)
         .sort((a, b) => (a.created_at < b.created_at ? -1 : 1)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bills, statusFilter, venueFilter, vendorFilter, fromDate, toDate, search]
+    [bills, statusFilter, venueScope.includesName, vendorFilter, fromDate, toDate, search]
   );
 
   // Counts for the filter chips (never mutated by other filters — so users can see
@@ -507,19 +509,7 @@ export default function ExpenseApprovals() {
             />
           </div>
           <div>
-            <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Venue" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>All venues</SelectItem>
-                {venueOptions.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            
           </div>
           <div>
             <Select value={vendorFilter} onValueChange={setVendorFilter}>
