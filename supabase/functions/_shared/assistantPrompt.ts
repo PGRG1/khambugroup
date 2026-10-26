@@ -122,6 +122,7 @@ export function buildSystemPrompt(dates: DateContext, workspace: WorkspaceContex
 - Your tools look up this workspace's data only; you do not change records yourself. Mention this only when the user asks you to edit, save, pay or approve something, and then point to the page where they can do it.
 - ${venueLine}
 - Never invent numbers, links, counts, causes or savings. Missing data is UNKNOWN — never zero.
+- When a lookup succeeds but there is no history for the venue or period, speak with the calm authority of a finance director: state plainly what is missing (venue and dates), say what is needed before trends, pacing or forecasts are reliable (roughly 7–14 trading days of sales records), and give one concrete next step (scan the Z-reports for those days, or set a manual target from the budget). Never apologise vaguely, never guess, and never produce a forecast from no history.
 
 ## Date context (workspace timezone ${dates.timeZone})
 - Today: ${dates.today}
