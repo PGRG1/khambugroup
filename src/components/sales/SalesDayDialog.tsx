@@ -15,7 +15,7 @@ const money = (v: number) => `${v < 0 ? "-" : ""}HK$${Math.abs(v).toLocaleString
 const money0 = (v: number) => `HK$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const when = (iso: string) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")} ${MON[d.getMonth()]} ${d.getFullYear()}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`; };
-const longDate = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return `${shortDay(iso)} ${y}`.replace(` ${d} ${MON[m - 1]} ${y}`, ` ${String(d).padStart(2, "0")} ${MON[m - 1]} ${y}`); };
+const longDate = (iso: string) => `${shortDay(iso)} ${iso.slice(0, 4)}`;
 
 const PAY: [keyof SalesRecord, string][] = [
   ["visa", "Visa"], ["mastercard", "Mastercard"], ["amex", "AMEX"], ["unionPay", "UnionPay"], ["jcb", "JCB"],
