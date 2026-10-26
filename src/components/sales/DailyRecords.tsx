@@ -213,7 +213,7 @@ export function DailyRecords({ records, venues, from, to, today, periodLabel, te
                     <span>{shortDay(date)}</span>
                     {!singleVenue && <span className="truncate">{x.m.venue}</span>}
                     <span className="hidden sm:block" />
-                    <span className="text-right sm:text-left text-[12px] truncate">No sales recorded</span>
+                    <span className="hidden sm:block text-[12px] truncate">No sales recorded</span>
                     <span className="flex justify-end">
                       {onAddDay && <button type="button" className="kit-btn kit-btn-secondary !h-8" onClick={() => onAddDay(date, x.m.venue)}>Add</button>}
                     </span>
