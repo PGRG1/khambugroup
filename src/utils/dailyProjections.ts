@@ -155,3 +155,76 @@ export const NEW_TARGET_COLUMNS = [
   { key: "actualSales", label: "Actual Sales", editable: false },
   { key: "variance", label: "Variance", editable: false },
 ] as const;
+
+/**
+ * Split a monthly target across the month's days, weighted by each weekday's
+ * historical average sales (before the month starts). Falls back to an even
+ * split when there is no history. Values are rounded to cents and the last
+ * day absorbs the rounding so the days add up exactly to the monthly total.
+ */
+export function distributeMonthlyTarget(
+  total: number,
+  dates: string[],
+  salesByDate: Map<string, number>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (dates.length === 0 || !Number.isFinite(total) || total < 0) return out;
+  const start = dates[0];
+  const sums: Record<string, { s: number; n: number }> = {};
+  for (const [d, v] of salesByDate) {
+    if (d >= start) continue;
+    const k = dayLabel(d);
+    sums[k] = sums[k] ?? { s: 0, n: 0 };
+    sums[k].s += v;
+    sums[k].n += 1;
+  }
+  const weights = dates.map((d) => {
+    const w = sums[dayLabel(d)];
+    return w && w.n > 0 ? Math.max(0, w.s / w.n) : 0;
+  });
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  const share = wSum > 0 ? weights.map((w) => w / wSum) : dates.map(() => 1 / dates.length);
+  let allocated = 0;
+  dates.forEach((d, i) => {
+    const v = i === dates.length - 1
+      ? Math.round((total - allocated) * 100) / 100
+      : Math.round(total * share[i] * 100) / 100;
+    allocated += v;
+    out.set(d, v);
+  });
+  return out;
+}
+
+export interface TargetSummary {
+  target: number;
+  actual: number;
+  /** Target for days up to and including the last day with sales. */
+  targetToDate: number;
+  pace: number;
+  /** Target still to do divided by remaining days; null when month is over. */
+  runRateNeeded: number | null;
+  remainingDays: number;
+  projected: number | null;
+}
+
+/** Month-level pacing from projection rows. `today` is an ISO date. */
+export function summarizeTargets(rows: DailyProjectionRow[], today: string): TargetSummary {
+  const target = rows.reduce((a, r) => a + (r.effectiveForecast ?? 0), 0);
+  const actual = rows.reduce((a, r) => a + (r.actualSales ?? 0), 0);
+  const lastActual = rows.filter((r) => r.actualSales !== null).map((r) => r.date).pop() ?? null;
+  const targetToDate = lastActual
+    ? rows.filter((r) => r.date <= lastActual).reduce((a, r) => a + (r.effectiveForecast ?? 0), 0)
+    : 0;
+  const cutoff = lastActual && lastActual > today ? lastActual : today;
+  const remaining = rows.filter((r) => r.date > cutoff && r.actualSales === null).length;
+  const elapsed = lastActual ? rows.filter((r) => r.date <= lastActual).length : 0;
+  return {
+    target,
+    actual,
+    targetToDate,
+    pace: actual - targetToDate,
+    runRateNeeded: remaining > 0 ? Math.max(0, target - actual) / remaining : null,
+    remainingDays: remaining,
+    projected: elapsed > 0 ? (actual / elapsed) * rows.length : null,
+  };
+}

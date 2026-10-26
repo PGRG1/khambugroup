@@ -1,17 +1,13 @@
-import { useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
-import { detailedTargetsPath, retainCurrentQuery, revenueSection } from "@/utils/revenueNavigation";
+import { retainCurrentQuery, revenueSection } from "@/utils/revenueNavigation";
 import { cn } from "@/lib/utils";
 
 export function RevenueNavigation() {
   const { pathname, search } = useLocation();
   const access = useRevenueNavigationAccess();
   const section = revenueSection(pathname);
-  const lastDetailedPath = useRef("/forecast/assembly");
-  const currentDetailedPath = detailedTargetsPath(pathname);
-  if (currentDetailedPath) lastDetailedPath.current = currentDetailedPath;
   const href = (path: string) => retainCurrentQuery(path, pathname, search);
   const primary = [
     { key: "overview", label: "Overview", path: "/revenue", allowed: access.revenue },
@@ -40,16 +36,6 @@ export function RevenueNavigation() {
           </Button>
         )}
       </nav>
-      {section === "targets" && access.forecast && (
-        <nav aria-label="Forecast and target views" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-muted/40 p-1">
-          {[
-            { label: "Daily forecast", path: "/revenue/targets-new", active: pathname === "/revenue/targets-new" },
-            { label: "Detailed targets", path: lastDetailedPath.current, active: pathname.startsWith("/forecast/") || pathname.startsWith("/forecast-legacy/") },
-          ].map(item => (
-            <Link key={item.label} to={href(item.path)} className={pill(item.active)} aria-current={item.active ? "page" : undefined}>{item.label}</Link>
-          ))}
-        </nav>
-      )}
     </div>
   );
 }
