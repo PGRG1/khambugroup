@@ -462,75 +462,73 @@ html:not(.dark) .tenant-portal .app-shell > div > [class*="min-h-screen"][class*
   background: transparent;
 }
 
+html:not(.dark) .tenant-atmosphere.tenant-atmosphere-off { display: none; }
+
 html:not(.dark) .tenant-portal .app-shell,
-html:not(.dark) .tenant-portal [data-variant="floating"] {
+html:not(.dark) .tenant-portal [data-variant="sidebar"] {
   position: relative;
   z-index: 1;
 }
 
+/* Attached light sidebar (light mode). */
 html:not(.dark) .tenant-portal,
 html:not(.dark) body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
-  --sidebar-background: 175 39% 13%;
-  --sidebar-foreground: 154 23% 94%;
-  --sidebar-accent: 175 39% 13%;
-  --sidebar-accent-foreground: 154 23% 94%;
-  --sidebar-border: 154 23% 94%;
-  --tenant-sidebar-surface: hsl(var(--sidebar-background) / 0.82);
-  --tenant-sidebar-border: hsl(0 0% 100% / 0.08);
-  --tenant-sidebar-hover: hsl(0 0% 100% / 0.06);
-  --tenant-sidebar-active: hsl(146 17% 62% / 0.18);
-  --tenant-sidebar-shadow: 0 20px 50px -20px hsl(174 50% 8% / 0.45);
+  --sidebar-foreground: 150 8% 26%;
+  --sidebar-accent: 150 8% 94%;
+  --sidebar-accent-foreground: 173 34% 18%;
+  --sidebar-primary: 173 34% 18%;
+  --sidebar-border: 48 17% 91%;
 }
-
-html:not(.dark) .tenant-portal [data-variant="floating"] > div {
-  background: transparent;
+html:not(.dark) .tenant-portal [data-variant="sidebar"] > div:last-child {
+  border-right: 1px solid rgba(31,63,59,0.12);
+  border-left: 0;
+  box-shadow: none;
 }
 html:not(.dark) .tenant-portal [data-sidebar="sidebar"],
 html:not(.dark) body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] {
-  background: var(--tenant-sidebar-surface);
-  border: 1px solid var(--tenant-sidebar-border);
-  box-shadow: var(--tenant-sidebar-shadow);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  color: hsl(var(--sidebar-foreground) / 0.85);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 0;
+  box-shadow: none;
+  color: #3D4842;
 }
-html:not(.dark) .tenant-portal [data-sidebar="sidebar"] {
-  border-radius: 20px;
-  overflow: hidden;
+html:not(.dark) body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] { border: 0; border-right: 1px solid rgba(31,63,59,0.12); }
+html:not(.dark) body:has(.tenant-portal) div.fixed:has(+ [data-sidebar="sidebar"][data-mobile="true"]) { background: rgba(18,21,16,0.35); }
+html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) a {
+  color: #3D4842;
 }
-
-html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) :is(a, [data-sidebar="group-label"]) {
-  color: hsl(var(--sidebar-foreground) / 0.85);
-}
-html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) :is(a, [data-sidebar="group-label"]):hover {
-  background: var(--tenant-sidebar-hover);
+html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) :is(a, button:not(.bani-rail-expand)):hover {
+  background: rgba(20,45,43,0.06);
+  color: #1F3F3B;
 }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) .glass-active {
-  background: var(--tenant-sidebar-active);
-  border-color: var(--tenant-sidebar-border);
-  color: hsl(var(--sidebar-foreground)) !important;
+  background: #E9F1EC !important;
+  border-color: transparent;
+  color: #1F3F3B !important;
+  font-weight: 600;
   box-shadow: none;
   backdrop-filter: none;
 }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) :is(.text-muted-foreground, [data-sidebar="group-label"]) {
-  color: hsl(var(--sidebar-foreground) / 0.5);
+  color: #55605A;
 }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) :is(.border-sidebar-border, [class*="border-sidebar-border/"]) {
-  border-color: var(--tenant-sidebar-border);
+  border-color: #ECEAE3;
 }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) [class*="bg-sidebar-border"] {
-  background: var(--tenant-sidebar-border);
+  background: #ECEAE3;
 }
 
 html:not(.dark) .tenant-portal .tenant-topbar {
-  background: transparent;
-  border-bottom: 0;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(245,244,240,0.75);
+  border-bottom: 1px solid rgba(31,63,59,0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 html:not(.dark) .tenant-portal .tenant-topbar [data-sidebar="trigger"],
 html:not(.dark) .tenant-portal .tenant-topbar [aria-label="User menu"] svg {
-  color: hsl(var(--tenant-white) / 0.9);
+  color: #1F3F3B;
 }
 
 html:not(.dark) .tenant-portal .app-atmosphere :is(.card-glass, .glass-surface, div.bg-card.border) {
@@ -608,9 +606,13 @@ html:not(.dark) body:has(.tenant-portal) :is([data-radix-popper-content-wrapper]
 
 /* Sage-to-bone page background (light mode, all tenant pages except Bani AI). */
 html:not(.dark) .tenant-portal .app-shell.app-bg-sage {
-  background: linear-gradient(180deg, #9FBDB2 0px, #C9DDD3 380px, #E9F0EC 900px, #F5F4F0 1400px) #F5F4F0;
+  background: linear-gradient(180deg, #C6DAD2 0px, #DDE9E3 380px, #EDF3EF 900px, #F5F4F0 1400px) #F5F4F0;
   background-repeat: no-repeat;
   background-color: #F5F4F0;
+}
+html:not(.dark) body:has(.tenant-portal .app-bg-sage) { background: #F5F4F0; }
+html:not(.dark) .tenant-portal .app-bg-sage :is(.card-glass, .glass-surface, div.bg-card.border) {
+  box-shadow: inset 0 1px 0 hsl(var(--tenant-white) / 0.8), 0 12px 30px -16px rgba(20,45,43,0.30);
 }
 /* Text sitting directly on the light gradient must be dark for WCAG AA. */
 html:not(.dark) .tenant-portal .app-bg-sage h1 {
@@ -642,4 +644,16 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 .venue-pill-dark:hover { background-color: #2a524d; }
 .bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 700; font-size: 20px; color: hsl(var(--sidebar-foreground)); letter-spacing: -0.01em; }
 .bani-brand-mark { color: hsl(var(--sidebar-foreground)); }
+html:not(.dark) .bani-brand-word { color: #1F3F3B; }
+html:not(.dark) .bani-brand-mark { color: #2F5E5A; }
+html:not(.dark) .bani-collapse-btn { color: #55605A; }
+html:not(.dark) .bani-collapse-btn:hover { color: #1F3F3B; background: rgba(20,45,43,0.06); }
+html:not(.dark) .bani-sidebar-head,
+html:not(.dark) .bani-rail-head { border-bottom: 1px solid rgba(31,63,59,0.12); }
+html:not(.dark) .bani-rail-expand { background: #F2F5F3; color: #55605A; }
+html:not(.dark) .bani-rail-expand:hover { color: #1F3F3B; }
+html:not(.dark) .tenant-portal .bani-rail-item { color: #55605A !important; background: transparent !important; }
+html:not(.dark) .tenant-portal .bani-rail-item:is(:hover, :focus-visible) { color: #1F3F3B !important; background: rgba(20,45,43,0.06) !important; }
+html:not(.dark) .tenant-portal .bani-rail-item.is-active { color: #1F3F3B !important; background: #E9F1EC !important; }
+html:not(.dark) .bani-rail-tip { background: #1F3F3B; color: #F5F4F0; font-size: 12px; border-radius: 7px; border: 0; }
 .bani-client-box { background-color: #F2F5F3; border-radius: 10px; color: #1F3F3B; }

@@ -61,24 +61,26 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
 type RailItem = { title: string; to: string; icon: any; active: boolean };
 function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () => void }) {
   return (
-    <SidebarContent className="items-center gap-1 py-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-            <ChevronsRight className="h-4 w-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">Expand sidebar</TooltipContent>
-      </Tooltip>
+    <SidebarContent className="bani-rail items-center gap-1 pb-2">
+      <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="bani-rail-expand inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="bani-rail-tip">Expand sidebar</TooltipContent>
+        </Tooltip>
+      </div>
       {items.map((it) => (
         <Tooltip key={it.title}>
           <TooltipTrigger asChild>
             <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined}
-              className={cn("inline-flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/80 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "glass-active !text-sidebar-primary")}>
-              <it.icon className="h-4 w-4" />
+              className={cn("bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
+              <it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">{it.title}</TooltipContent>
+          <TooltipContent side="right" className="bani-rail-tip">{it.title}</TooltipContent>
         </Tooltip>
       ))}
     </SidebarContent>
@@ -429,23 +431,23 @@ export function AppSidebar() {
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
   return (
-    <Sidebar variant="floating" collapsible="icon">
+    <Sidebar variant="sidebar" collapsible="icon">
       {collapsed ? (
         <div className={cn(isPreviewActive && "mt-10")} />
       ) : (
-      <div className={cn("px-3 pt-3 pb-3 border-b border-sidebar-border space-y-2.5", isPreviewActive && "mt-10")}>
-        <div className="flex items-center gap-2 pl-1">
+      <div className={cn("pb-3 border-b border-sidebar-border space-y-2.5", isPreviewActive && "mt-10")}>
+        <div className="bani-sidebar-head flex h-[52px] items-center gap-2 px-4">
           <BaniLoginMark className="bani-brand-mark h-5 w-[11px] shrink-0" />
           <span className="bani-brand-word leading-none">Bani</span>
           {!isMobile && (
             <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar"
-              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              className="bani-collapse-btn ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
               <ChevronsLeft className="h-4 w-4" />
             </button>
           )}
         </div>
         {clientName && (
-          <div className="bani-client-box flex items-center gap-2.5 px-2.5 py-2">
+          <div className="bani-client-box mx-3 flex items-center gap-2.5 px-2.5 py-2">
             <div className="h-7 w-7 rounded-md bg-white text-[11px] font-semibold flex items-center justify-center shrink-0 shadow-sm">
               {initialsOf(clientName)}
             </div>

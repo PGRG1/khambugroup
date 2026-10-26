@@ -29,12 +29,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={sidebarOpen} onOpenChange={onSidebarOpen}>
-      <div className="tenant-atmosphere" aria-hidden="true" />
+    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={sidebarOpen} onOpenChange={onSidebarOpen} style={{ "--sidebar-width-icon": "64px" } as React.CSSProperties}>
+      <div className={`tenant-atmosphere ${pathname.startsWith("/assistant") ? "" : "tenant-atmosphere-off"}`} aria-hidden="true" />
       <div className={`min-h-screen flex w-full overflow-x-hidden ${topPad}`}>
         <AppSidebar />
         <main className={`app-shell app-atmosphere flex-1 min-w-0 max-w-full flex flex-col ${pathname.startsWith("/assistant") ? "" : "app-bg-sage"}`}>
-          <header className="tenant-topbar sticky top-0 z-30 h-12 shrink-0 flex items-center justify-between gap-2 border-b border-border px-2 sm:px-4 backdrop-blur">
+          <header className="tenant-topbar sticky top-0 z-30 h-[52px] shrink-0 flex items-center justify-between gap-2 border-b border-border px-2 sm:px-4 backdrop-blur">
             <SidebarTrigger className="h-10 w-10 sm:h-9 sm:w-9 md:hidden" />
             <span className="hidden md:block" />
             <div className="flex min-w-0 items-center gap-2">
