@@ -51,6 +51,52 @@ export function missingDays(records: SalesRecord[], venues: { id: string; name: 
   return out;
 }
 
+/** Today's date (YYYY-MM-DD) in a timezone, e.g. the tenant's. */
+export function todayInTz(tz = "Asia/Hong_Kong", now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  } catch {
+    return isoDay(now);
+  }
+}
+
+export interface MissingRun { venue: string; venueId: string; start: string; end: string; days: number }
+
+/**
+ * Missing days collapsed into consecutive runs per venue. Each venue is checked only from its first
+ * recorded sale ever (from `allRecords`) and only up to yesterday. Venues with no sales ever are returned
+ * separately in `neverSold` and not flagged day by day.
+ */
+export function missingRuns(
+  records: SalesRecord[], allRecords: SalesRecord[], venues: { id: string; name: string }[],
+  from: string, to: string, today: string,
+): { runs: MissingRun[]; neverSold: { id: string; name: string }[] } {
+  const first = new Map<string, string>();
+  for (const r of allRecords) { const f = first.get(r.venue); if (!f || r.date < f) first.set(r.venue, r.date); }
+  const neverSold = venues.filter((v) => !first.has(v.name));
+  const runs: MissingRun[] = [];
+  for (const v of venues) {
+    const f = first.get(v.name);
+    if (!f) continue;
+    const start = f > from ? f : from;
+    let cur: MissingRun | null = null;
+    for (const m of missingDays(records, [v], start, to, today)) {
+      if (cur && addDaysIso(cur.end, 1) === m.date) { cur.end = m.date; cur.days++; }
+      else { cur = { venue: v.name, venueId: v.id, start: m.date, end: m.date, days: 1 }; runs.push(cur); }
+    }
+  }
+  return { runs, neverSold };
+}
+
+/** "Sun 25 Oct" or "23–25 Oct (3 days)". */
+export function runLabel(run: Pick<MissingRun, "start" | "end" | "days">): string {
+  if (run.days === 1) return shortDay(run.start);
+  const [, m1, d1] = run.start.split("-").map(Number);
+  const [, m2, d2] = run.end.split("-").map(Number);
+  const range = m1 === m2 ? `${d1}–${d2} ${MON[m2 - 1]}` : `${d1} ${MON[m1 - 1]} – ${d2} ${MON[m2 - 1]}`;
+  return `${range} (${run.days} days)`;
+}
+
 /** Sales vs the venue's average for the same weekday over the previous 8 weeks; null when there's no history. */
 export function unusualDay(record: Pick<SalesRecord, "date" | "venue" | "totalSales">, history: SalesRecord[]): { pct: number; weekday: string } | null {
   if (!record.date || !record.venue) return null;
