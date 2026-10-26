@@ -36,7 +36,7 @@ async function fetchAll(build: (from: number, to: number) => any): Promise<any[]
   return out;
 }
 
-const SALES_COLS = "date,venue_id,subtotal,service_charge,discount,total_sales,guests,visa,mastercard,amex,union_pay,jcb,alipay,wechat,payme,cash,card_tips";
+const SALES_COLS = "date,venue_id,subtotal,service_charge,discount,total_sales,guests,visa,mastercard,amex,union_pay,jcb,alipay,wechat,payme,cash,deliveroo,foodpanda,keeta,card_tips";
 const INV_COLS = "id,invoice_date,due_date,status,payment_status,total_amount,remaining_balance,amount_paid,has_disputes,disputed_amount,voided_at,suppliers(name)";
 
 async function countSince(admin: Admin, table: string, tenantId: string, sinceIso: string, col = "created_at"): Promise<number> {
@@ -63,6 +63,12 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
   const sixtyDaysAgo = addDays(asOf, -60);
   const fourMonthsAgo = `${addDays(monthStart, -120).slice(0, 7)}-01`;
 
+  const notesP = fetchAll((f, t) => {
+    let q = admin.from("sales_record_notes").select("tag,body,sales_records!inner(date,venue_id)").eq("tenant_id", tenantId)
+      .gte("sales_records.date", p.periodStart).lte("sales_records.date", p.periodEnd);
+    if (venueId) q = q.eq("sales_records.venue_id", venueId);
+    return q.range(f, t);
+  }).catch(() => [] as any[]);
   const [s, cs, inv, cinv, open, bills, accts, venues, priceInvs, payroll, leave, employees, nextShifts, recentShifts, attendance, billsMtd, billsPrevMtd, batches, salesMonths] = await Promise.all([
     sales(p.periodStart, p.periodEnd), sales(p.comparisonStart, p.comparisonEnd),
     invs(p.periodStart, p.periodEnd), invs(p.comparisonStart, p.comparisonEnd),
@@ -153,6 +159,7 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
     expenseBillsPrevMtd: (billsPrevMtd as any[]).map((b) => ({ ...b, category: b.department || "General" })),
     settlementBatches: batches as any,
     salesByMonth,
+    salesNotes: ((await notesP) as any[]).map((n) => ({ date: n.sales_records?.date, venue_id: n.sales_records?.venue_id ?? null, tag: n.tag ?? null, body: n.body ?? "" })).filter((n) => n.date),
     workDone,
   };
 }

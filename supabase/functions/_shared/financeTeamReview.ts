@@ -46,7 +46,12 @@ export interface Synthesis {
 }
 
 export interface SaleRow { date: string; venue_id?: string | null; subtotal: number | null; service_charge: number | null; discount: number | null; total_sales: number | null; guests: number | null;
-  visa: number | null; mastercard: number | null; amex: number | null; union_pay: number | null; jcb: number | null; alipay: number | null; wechat: number | null; payme: number | null; cash: number | null; card_tips: number | null }
+  visa: number | null; mastercard: number | null; amex: number | null; union_pay: number | null; jcb: number | null; alipay: number | null; wechat: number | null; payme: number | null; cash: number | null; card_tips: number | null;
+  deliveroo?: number | null; foodpanda?: number | null; keeta?: number | null }
+/** Manager note on a sales record (venue-day). */
+export interface SalesNoteRow { date: string; venue_id: string | null; tag: string | null; body: string }
+/** Note tags that explain an unusual trading day. */
+export const EXPLAINING_NOTE_TAGS = ["Closed early", "Weather", "Private event", "POS problem"];
 export interface InvoiceRow { id: string; invoice_date: string | null; due_date: string | null; status: string | null; payment_status: string | null; total_amount: number | null;
   remaining_balance: number | null; amount_paid: number | null; has_disputes: boolean | null; disputed_amount: number | null; voided_at: string | null; supplier_name: string | null }
 export interface BillRow { id: string; bill_date: string | null; due_date: string | null; approval_status: string | null; payment_status: string | null; total_amount: number | null; paid_amount: number | null; reversed_at: string | null }
@@ -86,6 +91,8 @@ export interface ReviewInput {
   /** Revenue per calendar month (subtotal + service charge), for staff-cost ratio. */
   salesByMonth: { year: number; month: number; revenue: number }[];
   workDone: Record<SpecialistRole, WorkDoneItem[]>;
+  /** Manager notes on sales records in the period (optional). */
+  salesNotes?: SalesNoteRow[];
 }
 
 // ---------------- formatting ----------------
@@ -147,11 +154,17 @@ export function localParts(now: Date, timeZone: string) {
 export const saleRevenue = (r: SaleRow) => n0(r.subtotal) + n0(r.service_charge);
 /** Sum of payment methods + card tips (negative) must equal Total Sales (getPaymentTotal rule). */
 export const salePaymentTotal = (r: SaleRow) =>
-  n0(r.visa) + n0(r.mastercard) + n0(r.amex) + n0(r.union_pay) + n0(r.jcb) + n0(r.alipay) + n0(r.wechat) + n0(r.payme) + n0(r.cash) + n0(r.card_tips);
+  n0(r.visa) + n0(r.mastercard) + n0(r.amex) + n0(r.union_pay) + n0(r.jcb) + n0(r.alipay) + n0(r.wechat) + n0(r.payme) + n0(r.cash)
+  + n0(r.deliveroo) + n0(r.foodpanda) + n0(r.keeta) + n0(r.card_tips);
 const liveInvoice = (i: InvoiceRow) => !i.voided_at;
 const liveBill = (b: BillRow) => !b.reversed_at;
 const emptyWork = (): Record<SpecialistRole, WorkDoneItem[]> => ({ revenue: [], procurement: [], accountant: [], people: [], controller: [] });
 const workFor = (inp: ReviewInput, role: SpecialistRole) => (inp.workDone ?? emptyWork())[role] ?? [];
+
+function explainingNotes(inp: ReviewInput): SalesNoteRow[] {
+  return (inp.salesNotes ?? []).filter((n) => n.tag && EXPLAINING_NOTE_TAGS.includes(n.tag) && n.date >= inp.periodStart && n.date <= inp.periodEnd);
+}
+const venueName = (inp: ReviewInput, id: string | null) => inp.venues.find((v) => v.id === id)?.name ?? "A venue";
 
 // ---------------- specialists ----------------
 function revenueReport(inp: ReviewInput): SpecialistReport {
@@ -171,11 +184,16 @@ function revenueReport(inp: ReviewInput): SpecialistReport {
     const rev = inp.sales.reduce((s, r) => s + saleRevenue(r), 0);
     const cmpRev = inp.comparisonSales.length ? inp.comparisonSales.reduce((s, r) => s + saleRevenue(r), 0) : null;
     const ch = pctChange(rev, cmpRev);
-    const sev: Severity = ch != null && ch <= -10 ? "watch" : "info";
+    const dropped = ch != null && ch <= -10;
+    const explained = explainingNotes(inp);
+    const sev: Severity = dropped && explained.length === 0 ? "watch" : "info";
+    const noteText = dropped && explained.length
+      ? ` A manager note explains it: ${explained.slice(0, 2).map((n) => `${venueName(inp, n.venue_id)} on ${fmtDate(n.date)}, ${n.tag}${n.body ? ` ("${n.body}")` : ""}`).join("; ")}.`
+      : "";
     findings.push({ key: "revenue.sales", title: "Revenue vs comparison", severity: sev, assessable: true,
-      statement: cmpRev == null
+      statement: (cmpRev == null
         ? `Revenue was ${fmtHKD(rev)} for ${periodLbl}. No sales records exist for the ${cmpLbl}, so no comparison is possible.`
-        : `Revenue was ${fmtHKD(rev)} for ${periodLbl}, ${fmtPct(ch)} vs ${fmtHKD(cmpRev)} on the ${cmpLbl}.`,
+        : `Revenue was ${fmtHKD(rev)} for ${periodLbl}, ${fmtPct(ch)} vs ${fmtHKD(cmpRev)} on the ${cmpLbl}.`) + noteText,
       figures: [fig("Revenue (subtotal + service charge)", rev, "HKD", { label: cmpLbl, value: cmpRev })],
       evidence: ev,
       recommendation: sev === "watch" ? "Review the sales records for this period with the venue manager to confirm the drop is genuine and understood." : null });
