@@ -11,8 +11,7 @@ const SEV_LABEL: Record<string, string> = { action: "Needs action", watch: "Watc
 
 /** Latest saved Finance Team review, shown as the home briefing. Read-only. */
 export function FinanceTeamBriefing() {
-  const tenant = useActiveTenant() as any;
-  const tenantId: string | null = tenant?.tenantId ?? tenant?.activeTenantId ?? tenant?.tenant?.id ?? null;
+  const { tenantId } = useActiveTenant();
 
   const q = useQuery({
     queryKey: ["home", "financeTeamLatest", tenantId],
