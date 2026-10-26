@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo } from "react";
 import {
   ResponsiveContainer,
@@ -34,11 +35,13 @@ const STAT_COLOR = "hsl(45 96% 60%)";
 const ThreeWayChart = ({
   year,
   month,
-  selectedVenues,
+  selectedVenues: requestedVenues,
   salesData,
   forecasts,
   statisticalDaily,
 }: Props) => {
+  const vs = useVenueScope();
+  const selectedVenues = useMemo(() => requestedVenues.filter((v) => vs.includesName(v)), [requestedVenues, vs.includesName]);
 
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const daysInMonth = new Date(year, month, 0).getDate();

@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { Camera, Copy, Check, AlertTriangle } from "lucide-react";
@@ -46,24 +47,10 @@ const ForecastTableView = ({
   const today = new Date();
   const [year, setYear] = useState(initialYear ?? today.getFullYear());
   const [month, setMonth] = useState(initialMonth ?? today.getMonth() + 1);
-  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(
-    defaultVenues && defaultVenues.length > 0
-      ? defaultVenues
-      : defaultVenue
-      ? [defaultVenue]
-      : allVenues,
-  );
+  const vs = useVenueScope();
+  const selectedVenues = useMemo(() => allVenues.filter((v) => vs.includesName(v)), [allVenues, vs.includesName]);
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-
-  // Drop selections that no longer exist as active Admin venues
-  useEffect(() => {
-    setSelectedVenues((prev) => {
-      const filtered = prev.filter((v) => allVenues.includes(v));
-      if (filtered.length === prev.length) return prev;
-      return filtered.length > 0 ? filtered : allVenues;
-    });
-  }, [allVenues]);
 
   const monthOptions = useMemo(() => {
     const opts: { y: number; m: number; label: string }[] = [];
@@ -79,7 +66,7 @@ const ForecastTableView = ({
   // Order venues canonically (so labels are stable)
   const orderedSelection = useMemo(
     () => allVenues.filter((v) => selectedVenues.includes(v)),
-    [selectedVenues],
+    [selectedVenues, allVenues],
   );
 
   const effectiveTargetVenues = useMemo<ForecastVenue[]>(
@@ -136,17 +123,6 @@ const ForecastTableView = ({
       setFrom(iso(new Date(year, month - 1, 1)));
       setTo(iso(new Date(year, month, 0)));
     }
-  };
-
-  const toggleVenue = (v: ForecastVenue) => {
-    setSelectedVenues((prev) => {
-      if (prev.includes(v)) {
-        // don't allow deselecting the last one
-        if (prev.length === 1) return prev;
-        return prev.filter((x) => x !== v);
-      }
-      return [...prev, v];
-    });
   };
 
   const isAllSelected = sameSet(orderedSelection, allVenues);
@@ -206,41 +182,6 @@ const ForecastTableView = ({
           </div>
         </div>
 
-        {/* Venue multi-select chips */}
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <button
-            onClick={() => setSelectedVenues(allVenues)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-              isAllSelected
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-border bg-secondary text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            All Venues
-          </button>
-          <span className="mx-1 text-muted-foreground/50 text-xs">|</span>
-          {allVenues.map((v) => {
-            const active = selectedVenues.includes(v);
-            return (
-              <button
-                key={v}
-                onClick={() => toggleVenue(v)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                  active && !isAllSelected
-                    ? "border-primary bg-primary/15 text-primary"
-                    : active && isAllSelected
-                    ? "border-border bg-secondary text-foreground hover:bg-muted"
-                    : "border-border bg-secondary text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {v}
-              </button>
-            );
-          })}
-          <span className="ml-2 text-[11px] text-muted-foreground">
-            Tip: click multiple venues to combine them
-          </span>
-        </div>
       </div>
 
       {monthlyTarget <= 0 && (

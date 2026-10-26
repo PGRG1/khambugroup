@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo } from "react";
 import { useFloatingBaniPage } from "@/components/assistant/FloatingBaniContext";
 import { Link, useNavigate } from "react-router-dom";
@@ -198,7 +199,8 @@ export default function Home() {
   const { user } = useAuth();
   const { venues } = useVenues();
   const activeVenues = venues.filter((v) => v.is_active).map((v) => v.name);
-  const [venue, setVenue] = useState<string>("All Venues");
+  const vs = useVenueScope();
+  const venue = vs.label;
   const setBaniPage = useFloatingBaniPage();
   useEffect(() => { setBaniPage({ path: "/", detail: venue === "All Venues" ? "All venues" : venue }); return () => setBaniPage(null); }, [venue, setBaniPage]);
   const navigate = useNavigate();
@@ -227,9 +229,8 @@ export default function Home() {
 
   const filteredSales = useMemo(() => {
     const rows = sales.data ?? [];
-    if (venue === "All Venues") return rows;
-    return rows.filter((r) => (r.venue ?? "").toLowerCase() === venue.toLowerCase());
-  }, [sales.data, venue]);
+    return rows.filter((r) => vs.includesName(r.venue));
+  }, [sales.data, vs.includesName]);
 
   // Roll-ups
   const pulse = useMemo(() => {
@@ -388,26 +389,11 @@ export default function Home() {
           </h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">{dayLabel()}</p>
         </div>
-        <div className="home-venue-filters flex items-center gap-1 flex-wrap">
-          {["All Venues", ...activeVenues].map((v) => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={`px-2.5 h-8 text-[12px] font-medium rounded-md border transition-colors ${
-                venue === v
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
       </div>
 
       <LaunchpadPanel
-        sales={sales.data ?? []}
-        venues={venue === "All Venues" ? activeVenues : [venue]}
+        sales={filteredSales}
+        venues={vs.selectedNames}
         items={attention.map((a) => ({ key: a.key, title: a.title, to: a.to }))}
         loading={sales.isLoading}
       />

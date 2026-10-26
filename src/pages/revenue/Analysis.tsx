@@ -36,7 +36,6 @@ export default function RevenueAnalysis() {
         <RevenueControls
           venues={f.venues}
           venue={f.venue}
-          setVenue={f.setVenue}
           from={f.from}
           to={f.to}
           setFrom={f.setFrom}

@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useMemo, useCallback } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
@@ -82,7 +83,8 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
 
 const MTDTextReport = ({ open, onOpenChange, data, from, to }: MTDTextReportProps) => {
   const [copied, setCopied] = useState(false);
-  const reportText = useMemo(() => generateMTDText(data, from, to), [data, from, to]);
+  const vs = useVenueScope();
+  const reportText = useMemo(() => generateMTDText(data.filter((r) => vs.includesName(r.venue)), from, to), [data, from, to, vs.includesName]);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(reportText).then(() => {

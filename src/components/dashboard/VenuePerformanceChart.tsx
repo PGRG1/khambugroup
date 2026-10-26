@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { formatCurrency } from "@/utils/salesUtils";
 import { getVenueSeats } from "@/constants/venueSeating";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
@@ -19,7 +20,8 @@ interface VenuePerformanceChartProps {
 }
 
 const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceChartProps) => {
-  const activeVenues = data.filter((d) => d.totalSales > 0);
+  const vs = useVenueScope();
+  const activeVenues = data.filter((d) => vs.includesName(d.venue) && d.totalSales > 0);
   const isSingleVenue = venue !== "All Venues";
   const singleVenueData = isSingleVenue ? data.find((d) => d.venue === venue) : null;
 

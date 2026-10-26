@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -24,6 +25,7 @@ export function useRevenueForecastOverview(args: {
   to: Date | undefined;
 }): { summary: ForecastOverviewSummary; loading: boolean } {
   const { sales, venues, selectedVenue, from, to } = args;
+  const vs = useVenueScope();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
 
   const today = useMemo(() => new Date(), []);
@@ -34,11 +36,12 @@ export function useRevenueForecastOverview(args: {
       venues.filter(
         (v) =>
           v.is_active &&
+          vs.includesId(v.id) &&
           v.id &&
           v.name &&
           (selectedVenue === "All Venues" || v.name === selectedVenue),
       ),
-    [venues, selectedVenue],
+    [venues, selectedVenue, vs.includesId],
   );
 
   const monthStart = win.ok ? `${win.year}-${String(win.month).padStart(2, "0")}-01` : "";

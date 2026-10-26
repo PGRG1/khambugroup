@@ -1,3 +1,4 @@
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,8 @@ const NONE = "__none__";
 
 export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) {
   const mr = useManualRevenue();
+  const vs = useVenueScope();
+  const entries = mr.entries.filter((r) => vs.includesId(r.venue_id));
   const { venues } = useVenues();
   const { sources } = useRevenueSources();
   const activeSources = sources.filter((s) => s.is_active);
@@ -165,7 +168,7 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
         <h2 className="text-sm font-semibold mb-3">All entries</h2>
         {mr.loading ? (
           <div className="text-sm text-muted-foreground py-8 text-center">Loading…</div>
-        ) : mr.entries.length === 0 ? (
+        ) : entries.length === 0 ? (
           <div className="text-sm text-muted-foreground py-8 text-center">No entries yet.</div>
         ) : (
           <div className="text-sm overflow-x-auto">
@@ -173,7 +176,7 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
               <span>Date</span><span>Label</span><span>Venue</span><span>Source</span>
               <span className="text-right">Amount</span><span className="text-right">Status</span><span className="text-right">Actions</span>
             </div>
-            {mr.entries.map((r) => {
+            {entries.map((r) => {
               const venueName = venues.find((v) => v.id === r.venue_id)?.name;
               const sourceName = sources.find((s) => s.id === r.revenue_source_id)?.name;
               return (
