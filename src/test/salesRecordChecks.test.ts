@@ -75,7 +75,7 @@ describe("missing runs", () => {
     expect(runLabel({ start: "2026-10-25", end: "2026-10-25", days: 1 })).toBe("Sun 25 Oct");
   });
   it("starts from the venue's first recorded sale", () => {
-    const { runs } = missingRuns([rec("Caliente", "2026-10-12")], [rec("Caliente", "2026-10-10"), rec("Caliente", "2026-10-12")], [venues[1]], "2026-10-01", "2026-10-13", "2026-10-14");
+    const { runs } = missingRuns([rec("Caliente", "2026-10-10"), rec("Caliente", "2026-10-12")], [rec("Caliente", "2026-10-10"), rec("Caliente", "2026-10-12")], [venues[1]], "2026-10-01", "2026-10-13", "2026-10-14");
     expect(runs.map((r) => [r.start, r.end])).toEqual([["2026-10-11", "2026-10-11"], ["2026-10-13", "2026-10-13"]]);
   });
   it("today follows Hong Kong time", () => {
