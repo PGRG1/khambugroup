@@ -111,10 +111,6 @@ export default function MyKpiView() {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-              <VenuePill active={venueFilter === "__all__"} onClick={() => setVenueFilter("__all__")}>All</VenuePill>
-              {venueOptions.filter((v) => v !== "__all__").map((v) => (
-                <VenuePill key={v} active={venueFilter === v} onClick={() => setVenueFilter(v)}>{venueName(v)}</VenuePill>
-              ))}
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
               <SelectTrigger className="w-32 h-9 text-xs"><SelectValue /></SelectTrigger>
