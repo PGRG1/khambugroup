@@ -28,7 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
@@ -69,7 +69,7 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
               <ChevronsRight className="h-4 w-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right" className="bani-rail-tip">Expand sidebar</TooltipContent>
+          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Expand sidebar</TooltipContent></TooltipPortal>
         </Tooltip>
       </div>
       {items.map((it) => (
@@ -80,7 +80,7 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
               <it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right" className="bani-rail-tip">{it.title}</TooltipContent>
+          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
         </Tooltip>
       ))}
     </SidebarContent>
