@@ -76,8 +76,7 @@ export default function SupplierAccountsPage() {
 
   // Pre-filter invoices by venue (client-side)
   const filteredInvoices = useMemo(() => {
-    if (venueFilter === "all") return invoices;
-    return invoices.filter((i) => i.venue === venueFilter);
+    return invoices.filter((i) => venueScope.includesName(i.venue));
   }, [invoices, venueScope.includesName]);
 
   const rows = useMemo(() => {

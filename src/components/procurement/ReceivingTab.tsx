@@ -362,8 +362,6 @@ export default function ReceivingTab() {
   const filterFields: FilterField[] = [
     { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
       options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
-    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
-      options: activeVenueNames.map((v) => ({ value: v, label: v })), allLabel: "All Venues" },
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
       options: [
         { value: "draft", label: "Draft" },
