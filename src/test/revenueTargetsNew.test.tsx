@@ -151,3 +151,35 @@ describe("automatic same-weekday forecast", () => {
     expect(rows.every((r) => r.forecastSource === "none" && r.effectiveForecast === null)).toBe(true);
   });
 });
+
+import { distributeMonthlyTarget, summarizeTargets } from "@/utils/dailyProjections";
+
+describe("monthly target distribution", () => {
+  it("splits evenly without history and sums exactly to the total", () => {
+    const dates = ["2026-11-01", "2026-11-02", "2026-11-03"];
+    const out = distributeMonthlyTarget(100, dates, new Map());
+    expect([...out.values()]).toEqual([33.33, 33.33, 33.34]);
+  });
+  it("weights days by historical weekday averages", () => {
+    // 2026-10-30 is Fri, 2026-10-26 is Mon
+    const hist = new Map([["2026-10-30", 300], ["2026-10-26", 100]]);
+    const out = distributeMonthlyTarget(400, ["2026-11-02", "2026-11-06"], hist); // Mon, Fri
+    expect(out.get("2026-11-02")).toBe(100);
+    expect(out.get("2026-11-06")).toBe(300);
+  });
+});
+
+describe("target pacing summary", () => {
+  it("compares actual against target to date and computes needed run-rate", () => {
+    const rows = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"].map((date, i) => ({
+      date, day: "", projectedSales: 100, autoForecast: null, effectiveForecast: 100,
+      forecastSource: "manager" as const, actualSales: i < 2 ? 120 : null, variance: null,
+    }));
+    const s = summarizeTargets(rows, "2026-11-02");
+    expect(s.target).toBe(400);
+    expect(s.actual).toBe(240);
+    expect(s.pace).toBe(40);
+    expect(s.remainingDays).toBe(2);
+    expect(s.runRateNeeded).toBe(80);
+  });
+});
