@@ -62,3 +62,23 @@
 .kit-explain { background: var(--kit-attn); border: 1px solid #F3DDBF; color: var(--kit-amber-ink); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; }
 .kit-headline { font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace; font-size: 28px; font-weight: 600; color: var(--kit-ink); letter-spacing: -0.01em; }
 .kit-divider { border-top: 1px solid #ECEAE3; }
+.kit-row-missing { background: repeating-linear-gradient(135deg, #FBFBF9 0 10px, #F6F6F2 10px 20px); color: var(--kit-muted); }
+
+/* Data table: soft look, hairlines between rows, no vertical grid lines. */
+.kit-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.kit-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; color: var(--kit-ink); }
+.kit-table th { height: 36px; padding: 0 12px; font-size: 12px; font-weight: 500; color: var(--kit-muted); text-align: left; white-space: nowrap; background: #fff; }
+.kit-table th.num, .kit-table td.num { text-align: right; }
+.kit-table td.num { font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.kit-table th button { display: inline-flex; align-items: center; gap: 4px; }
+.kit-table td { height: 44px; padding: 0 12px; border-top: 1px solid #ECEAE3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #fff; }
+.kit-table tbody tr.data { cursor: pointer; }
+.kit-table tbody tr.data:hover td { background: var(--kit-hover); }
+.kit-table tbody tr.attention td { background: var(--kit-attn); }
+.kit-table tbody tr.attention:hover td { background: #FFF2DE; }
+.kit-table tbody tr.missing td { background: repeating-linear-gradient(135deg, #FBFBF9 0 10px, #F6F6F2 10px 20px); color: var(--kit-muted); }
+.kit-table tbody tr.open td { background: var(--kit-hover); }
+.kit-table tbody tr.open td:first-child { box-shadow: inset 3px 0 0 var(--kit-petrol); }
+.kit-table tbody tr:focus-visible { outline: 2px solid var(--kit-petrol); outline-offset: -2px; }
+.kit-table tr.group td { height: 32px; padding-top: 10px; border-top: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--kit-muted); font-weight: 600; background: #fff; }
+.kit-table .sticky-col { position: sticky; left: 0; z-index: 1; }
