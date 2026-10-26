@@ -19,6 +19,7 @@ import { ATTACH_TYPES, ROLE_ACTIVITY, attachmentError, clampPoint, isTap, module
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
@@ -52,6 +53,7 @@ const revoke = (files: BaniAttachment[]) => files.forEach(f => f.url && URL.revo
 
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
+  const venueScope = useVenueScope();
   const { user, session, isAdmin, loading: authLoading, roleLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { isPreviewActive, previewUserId } = usePreviewMode();
