@@ -251,3 +251,32 @@ describe("finance team review", () => {
     expect(sp.find((s) => s.role === "revenue")!.work_done[0].count).toBe(4);
   });
 });
+
+describe("sales notes and delivery payments", () => {
+  it("counts Deliveroo, Foodpanda and Keeta in the payment total", () => {
+    const f = find(base({ sales: [sale("2026-10-09", { visa: 600, deliveroo: 300, foodpanda: 150, keeta: 50 })] }), "revenue.payment_mismatch");
+    expect(f.figures[0].value).toBe(0);
+    expect(f.severity).toBe("info");
+  });
+  it("still flags a day whose payments are short", () => {
+    const f = find(base({ sales: [sale("2026-10-09", { visa: 600, deliveroo: 300 })] }), "revenue.payment_mismatch");
+    expect(f.figures[0].value).toBe(1);
+  });
+  const dropInput = (tag: string | null) => base({
+    venues: [{ id: "v1", name: "Assembly", is_active: true }],
+    sales: [sale("2026-10-09", { venue_id: "v1", subtotal: 500, service_charge: 50, total_sales: 550, visa: 550 })],
+    comparisonSales: [sale("2026-10-02", { venue_id: "v1" })],
+    salesNotes: tag ? [{ date: "2026-10-09", venue_id: "v1", tag, body: "Typhoon" }] : [],
+  });
+  it("raises an unexplained 50% drop", () => {
+    expect(find(dropInput(null), "revenue.sales").severity).toBe("watch");
+  });
+  it("does not raise a drop explained by a Weather note, and mentions the note", () => {
+    const f = find(dropInput("Weather"), "revenue.sales");
+    expect(f.severity).toBe("info");
+    expect(f.statement).toMatch(/Assembly on 09 Oct 2026, Weather/);
+  });
+  it("a Staff short note does not explain a drop", () => {
+    expect(find(dropInput("Staff short"), "revenue.sales").severity).toBe("watch");
+  });
+});
