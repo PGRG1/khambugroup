@@ -51,7 +51,7 @@ export function FinanceTeamBriefing() {
     );
   }
 
-  const specialists = (r.specialists ?? []).filter((s) => s.role !== "finance_director");
+  const specialists = r.specialists ?? [];
 
   return (
     <div className="space-y-3">
