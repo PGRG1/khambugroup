@@ -171,43 +171,33 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
         ) : entries.length === 0 ? (
           <div className="text-sm text-muted-foreground py-8 text-center">No entries yet.</div>
         ) : (
-          <div className="text-sm overflow-x-auto">
-            <div className="grid grid-cols-[90px_1fr_140px_140px_110px_90px_200px] gap-3 text-xs text-muted-foreground border-b border-border pb-2 min-w-[900px]">
-              <span>Date</span><span>Label</span><span>Venue</span><span>Source</span>
-              <span className="text-right">Amount</span><span className="text-right">Status</span><span className="text-right">Actions</span>
-            </div>
+          <div className="space-y-0.5">
             {entries.map((r) => {
               const venueName = venues.find((v) => v.id === r.venue_id)?.name;
               const sourceName = sources.find((s) => s.id === r.revenue_source_id)?.name;
               return (
-                <div key={r.id} className="grid grid-cols-[90px_1fr_140px_140px_110px_90px_200px] gap-3 py-2 border-b border-border/50 items-center min-w-[900px]">
-                  <span className="text-xs">{fmtDate(r.entry_date)}</span>
-                  <span className="truncate">{r.description || "—"}</span>
-                  <span className="truncate text-xs">{venueName ?? "—"}</span>
-                  <span className="truncate text-xs">{sourceName ?? "—"}</span>
-                  <span className="text-right td-num">{formatCurrency(r.amount)}</span>
-                  <span className="text-right">
-                    <Badge variant={r.status === "posted" ? "default" : "outline"} className="text-[10px]">
-                      {r.status}
-                    </Badge>
+                <ListRow key={r.id} className="flex-wrap py-1.5">
+                  <span className="w-[84px] shrink-0">{fmtDate(r.entry_date)}</span>
+                  <span className="flex-1 min-w-[140px] truncate">
+                    {r.description || "No label"}
+                    {(venueName || sourceName) && <span className="text-muted-foreground"> · {[venueName, sourceName].filter(Boolean).join(" · ")}</span>}
                   </span>
-                  <div className="flex justify-end gap-1">
+                  <span className="kit-num w-[110px]">{formatCurrency(r.amount)}</span>
+                  <StatusPill tone={r.status === "posted" ? "ok" : "neutral"}>{r.status === "posted" ? "Posted" : "Draft"}</StatusPill>
+                  <div className="flex justify-end gap-1.5">
                     {r.receipt_url && (
-                      <a href={r.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline px-2 self-center">View</a>
+                      <a href={r.receipt_url} target="_blank" rel="noreferrer" className="kit-link px-1 self-center">View</a>
                     )}
                     {r.status === "draft" && (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => remove(r)}>Delete</Button>
-                        <Button size="sm" onClick={() => post(r)} disabled={postingId === r.id}>
-                          {postingId === r.id ? "Posting…" : "Post to GL"}
-                        </Button>
+                        <button type="button" className="kit-btn kit-btn-secondary" onClick={() => remove(r)}>Delete</button>
+                        <button type="button" className="kit-btn kit-btn-primary" onClick={() => post(r)} disabled={postingId === r.id}>
+                          {postingId === r.id ? "Posting…" : "Post to accounts"}
+                        </button>
                       </>
                     )}
-                    {r.status === "posted" && r.journal_entry_id && (
-                      <Badge variant="outline" className="text-[10px]">JE #{r.journal_entry_id.slice(0, 6)}</Badge>
-                    )}
                   </div>
-                </div>
+                </ListRow>
               );
             })}
           </div>
