@@ -43,6 +43,17 @@ export const useFloatingBaniHost = () => { const s = useContext(Context); return
 export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
 /** Scan Receipt registers its live unsaved draft so the floating sphere can fix it. */
 export const useFloatingBaniSales = () => useContext(Context)?.sales[1] ?? noop;
+/** Launchpad drop zone: stage files in Bani's composer and open it; Bani classifies and routes them. */
+export const useFloatingBaniAttach = () => {
+  const s = useContext(Context);
+  const setFiles = s?.files[1], setOpen = s?.open[1], setHidden = s?.hidden[1];
+  return useCallback((list: File[]) => {
+    if (!setFiles || !list.length) return false;
+    setFiles(prev => [...prev, ...list.map(f => ({ id: crypto.randomUUID(), file: f, name: f.name, type: f.type, size: f.size }))]);
+    setHidden?.(false); setOpen?.(true);
+    return true;
+  }, [setFiles, setOpen, setHidden]);
+};
 /** Scanners post a grounded post-scan verdict into the shared Bani conversation and open it. */
 export const useFloatingBaniSay = () => {
   const s = useContext(Context);

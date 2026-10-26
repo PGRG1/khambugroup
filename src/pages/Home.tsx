@@ -33,6 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FinanceTeamBriefing } from "@/components/home/FinanceTeamBriefing";
+import { LaunchpadPanel } from "@/components/home/LaunchpadPanel";
 import { Sparkline } from "@/components/revenue-overview/Sparkline";
 import { DeltaChip } from "@/components/revenue-overview/DeltaChip";
 import { SectionHeader } from "@/components/revenue-overview/SectionHeader";
@@ -403,6 +404,13 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <LaunchpadPanel
+        sales={sales.data ?? []}
+        venues={venue === "All Venues" ? activeVenues : [venue]}
+        items={attention.map((a) => ({ key: a.key, title: a.title, to: a.to }))}
+        loading={sales.isLoading}
+      />
 
       <FinanceTeamBriefing />
 
