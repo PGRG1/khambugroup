@@ -36,6 +36,13 @@
       "when": 1793034782661,
       "tag": "0004_venue_seat_history",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793035180154,
+      "tag": "0005_venue_seat_history_on_create",
+      "breakpoints": true
     }
   ]
 }
