@@ -1,6 +1,8 @@
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { formatCurrency } from "@/utils/salesUtils";
-import { getVenueSeats } from "@/constants/venueSeating";
+import { useSeatHistory } from "@/hooks/useSeatHistory";
+import { seatTotals, type SeatTotals } from "@/utils/seatHistory";
+import type { SalesRecord } from "@/types/sales";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import { monthOpacity } from "@/components/revenue-overview/chartTheme";
 
@@ -17,17 +19,25 @@ interface VenueData {
 interface VenuePerformanceChartProps {
   data: VenueData[];
   venue?: string;
+  /** Raw records so each day uses the seat count that applied on that day. */
+  records?: SalesRecord[];
 }
 
-const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceChartProps) => {
+const VenuePerformanceChart = ({ data, venue = "All Venues", records = [] }: VenuePerformanceChartProps) => {
   const vs = useVenueScope();
+  const seatHist = useSeatHistory();
+  const idByName = new Map(vs.venues.map((v) => [v.name, v.id]));
+  const seatFor = (name: string): SeatTotals | null => {
+    const t = seatTotals(records.filter((r) => r.venue === name), seatHist.rows, idByName);
+    return t.seatDays > 0 ? t : null;
+  };
   const activeVenues = data.filter((d) => vs.includesName(d.venue) && d.totalSales > 0);
   const isSingleVenue = venue !== "All Venues";
   const singleVenueData = isSingleVenue ? data.find((d) => d.venue === venue) : null;
 
   if (isSingleVenue && singleVenueData) {
     const d = singleVenueData;
-    const seats = getVenueSeats(venue);
+    const st = seatFor(venue);
     const avgSalesPerDay = d.days ? Math.round(d.totalSales / d.days) : 0;
     const avgGuestsPerDay = d.days ? Math.round(d.totalGuests / d.days) : 0;
     const avgOrdersPerDay = d.days ? Math.round(d.totalOrders / d.days) : 0;
@@ -43,14 +53,14 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
       { label: "Avg Orders/Day", val: formatCurrency(avgOrdersPerDay) },
       { label: "Avg/Guest", val: `$${formatCurrency(d.avgPerGuest)}` },
       { label: "Avg/Order", val: `$${formatCurrency(d.avgPerOrder)}` },
-      ...(seats
+      ...(st
         ? [
-            { label: `Seats`, val: String(seats) },
-            { label: "Rev/Seat/Day", val: `$${d.days ? formatCurrency(Math.round(d.totalSales / seats / d.days)) : 0}` },
-            { label: "Turnover/Day", val: `${d.days ? (d.totalGuests / seats / d.days).toFixed(1) : 0}x` },
-            { label: "Occupancy %", val: `${d.days ? Math.round((d.totalGuests / (seats * d.days)) * 100) : 0}%` },
+            { label: `Seats`, val: String(st.latestSeats) },
+            { label: "Sales per seat per day", val: `$${formatCurrency(Math.round(st.revenue / st.seatDays))}` },
+            { label: "Guests per seat per day", val: `${(st.guests / st.seatDays).toFixed(1)}x` },
+            { label: "Seats filled", val: `${Math.round((st.guests / st.seatDays) * 100)}%` },
           ]
-        : []),
+        : [{ label: "Seats", val: "Seats not set" }]),
     ];
 
     return (
@@ -74,7 +84,8 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     opacity: monthOpacity(i),
   }));
 
-  const hasAnySeats = activeVenues.some((v) => getVenueSeats(v.venue) !== null);
+  const seatMap = new Map(activeVenues.map((v) => [v.venue, seatFor(v.venue)]));
+  const hasAnySeats = [...seatMap.values()].some(Boolean);
 
   const metricRows = [
     { label: "Total Sales", getValue: (d: VenueData) => `$${formatCurrency(d.totalSales)}` },
@@ -88,10 +99,10 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     { label: "Avg/Order", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerOrder)}` },
     ...(hasAnySeats
       ? [
-          { label: "Seats", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? String(s) : "-"; } },
-          { label: "Rev/Seat/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `$${formatCurrency(Math.round(d.totalSales / s / d.days))}` : "-"; } },
-          { label: "Turnover/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${(d.totalGuests / s / d.days).toFixed(1)}x` : "-"; } },
-          { label: "Occupancy", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${Math.round((d.totalGuests / (s * d.days)) * 100)}%` : "-"; } },
+          { label: "Seats", getValue: (d: VenueData) => { const s = seatMap.get(d.venue); return s ? String(s.latestSeats) : "Seats not set"; } },
+          { label: "Sales per seat per day", getValue: (d: VenueData) => { const s = seatMap.get(d.venue); return s ? `$${formatCurrency(Math.round(s.revenue / s.seatDays))}` : "-"; } },
+          { label: "Guests per seat per day", getValue: (d: VenueData) => { const s = seatMap.get(d.venue); return s ? `${(s.guests / s.seatDays).toFixed(1)}x` : "-"; } },
+          { label: "Seats filled", getValue: (d: VenueData) => { const s = seatMap.get(d.venue); return s ? `${Math.round((s.guests / s.seatDays) * 100)}%` : "-"; } },
         ]
       : []),
   ];
