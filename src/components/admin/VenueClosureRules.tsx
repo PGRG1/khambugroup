@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useVenueClosures } from "@/hooks/useVenueClosures";
 import { weekdayName } from "@/utils/venueClosures";
-import { formatDate } from "@/utils/format";
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const formatDate = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d} ${MON[Number(m) - 1]} ${y}`; };
 
 const DAYS = [1, 2, 3, 4, 5, 6, 0];
 const todayIso = () => new Date().toISOString().slice(0, 10);
