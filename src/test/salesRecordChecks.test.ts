@@ -56,29 +56,3 @@ describe("week groups", () => {
     expect(weekLabel("2026-10-14", "2026-10-26")).toBe("12–18 Oct");
   });
 });
-
-import { missingRuns, runLabel, todayInTz } from "@/utils/salesRecordChecks";
-describe("missing runs", () => {
-  const rec = (venue: string, date: string) => ({ venue, date } as any);
-  const venues = [{ id: "a", name: "Assembly" }, { id: "c", name: "Caliente" }, { id: "x", name: "Arca" }];
-  const all = [rec("Assembly", "2026-09-01"), rec("Caliente", "2026-10-10")];
-  const period = [...["20","21","22","23","24","25"].map((d) => rec("Assembly", `2026-10-${d}`)), rec("Caliente", "2026-10-20"), rec("Caliente", "2026-10-21"), rec("Caliente", "2026-10-22")];
-  it("venue with no sales ever is one row, not daily", () => {
-    const { runs, neverSold } = missingRuns(period, [...all, ...period], venues, "2026-10-20", "2026-10-26", "2026-10-26");
-    expect(neverSold.map((v) => v.name)).toEqual(["Arca"]);
-    expect(runs.some((r) => r.venue === "Arca")).toBe(false);
-  });
-  it("collapses consecutive missing days and never flags today", () => {
-    const { runs } = missingRuns(period, [...all, ...period], venues, "2026-10-20", "2026-10-26", "2026-10-26");
-    expect(runs).toEqual([{ venue: "Caliente", venueId: "c", start: "2026-10-23", end: "2026-10-25", days: 3 }]);
-    expect(runLabel(runs[0])).toBe("23–25 Oct (3 days)");
-    expect(runLabel({ start: "2026-10-25", end: "2026-10-25", days: 1 })).toBe("Sun 25 Oct");
-  });
-  it("starts from the venue's first recorded sale", () => {
-    const { runs } = missingRuns([rec("Caliente", "2026-10-10"), rec("Caliente", "2026-10-12")], [rec("Caliente", "2026-10-10"), rec("Caliente", "2026-10-12")], [venues[1]], "2026-10-01", "2026-10-13", "2026-10-14");
-    expect(runs.map((r) => [r.start, r.end])).toEqual([["2026-10-11", "2026-10-11"], ["2026-10-13", "2026-10-13"]]);
-  });
-  it("today follows Hong Kong time", () => {
-    expect(todayInTz("Asia/Hong_Kong", new Date("2026-10-26T18:08:00Z"))).toBe("2026-10-27");
-  });
-});

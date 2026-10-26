@@ -5,9 +5,9 @@ import "./kit.css";
 export interface ActiveChip { key: string; label: string; onRemove: () => void }
 
 /** One row: search, Filter, Sort, download (far right). Active filters below as mint chips. */
-export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, columns, onDownload, downloadLabel = "Download", chips = [], onClear }: {
+export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, onDownload, downloadLabel = "Download", chips = [], onClear }: {
   search: string; onSearch: (v: string) => void; placeholder?: string;
-  filter?: ReactNode; sort?: ReactNode; columns?: ReactNode; onDownload?: () => void; downloadLabel?: string;
+  filter?: ReactNode; sort?: ReactNode; onDownload?: () => void; downloadLabel?: string;
   chips?: ActiveChip[]; onClear?: () => void;
 }) {
   return (
@@ -20,7 +20,6 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
         </label>
         {filter}
         {sort}
-        {columns}
         {onDownload && (
           <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
             <Download className="h-4 w-4" />

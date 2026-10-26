@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, MessageSquare, Receipt } from "lucide-react";
 import type { SalesRecord } from "@/types/sales";
 import type { SalesNote } from "@/hooks/useSalesNotes";
-import { ChoiceChips, ColumnsMenu, FilterGroup, FilterPanel, QuickFilter, Segmented, SortMenu, StatusPill, Toolbar, type ActiveChip } from "@/components/kit";
-import { checkRecord, missingRuns, runLabel, shortDay, weekLabel, type MissingRun } from "@/utils/salesRecordChecks";
+import { ChoiceChips, FilterGroup, FilterPanel, ListRow, QuickFilter, Segmented, SortMenu, StatusPill, Toolbar, type ActiveChip } from "@/components/kit";
+import { checkRecord, missingDays, shortDay, weekLabel, type MissingDay } from "@/utils/salesRecordChecks";
 import { toast } from "sonner";
 
 type SortKey = "date" | "sales" | "guests" | "venue";
@@ -14,34 +14,12 @@ interface Filters { show: Show; days: Set<string>; min: string; max: string; rec
 const EMPTY: Filters = { show: "all", days: new Set(), min: "", max: "", receipt: "any", period: "all", note: "any" };
 const DOWS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const dowOf = (iso: string) => shortDay(iso).slice(0, 3);
-export const hkd0 = (v: number) => `${v < 0 ? "-" : ""}HK$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
+export const hkd0 = (v: number) => `${v < 0 ? "-" : ""}HK$ ${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
 
-type Row = { kind: "record"; r: SalesRecord; ok: boolean; notes: SalesNote[] } | { kind: "missing"; m: MissingRun };
-
-type ColKey = "orders" | "subtotal" | "service" | "discount" | "report" | "period" | "cards" | "wallets" | "cash" | "delivery";
-const COLS: { key: ColKey; label: string; head: string; num: boolean; w: number }[] = [
-  { key: "orders", label: "Orders", head: "Orders", num: true, w: 80 },
-  { key: "subtotal", label: "Food & drink (subtotal)", head: "Food & drink", num: true, w: 120 },
-  { key: "service", label: "Service charge", head: "Service charge", num: true, w: 120 },
-  { key: "discount", label: "Discounts", head: "Discounts", num: true, w: 110 },
-  { key: "report", label: "Report #", head: "Report #", num: true, w: 100 },
-  { key: "period", label: "Service period", head: "Service period", num: false, w: 120 },
-  { key: "cards", label: "Cards total", head: "Cards", num: true, w: 110 },
-  { key: "wallets", label: "E-wallets total", head: "E-wallets", num: true, w: 110 },
-  { key: "cash", label: "Cash", head: "Cash", num: true, w: 100 },
-  { key: "delivery", label: "Delivery platforms total", head: "Delivery", num: true, w: 110 },
-];
-const COLS_KEY = "sales-records-columns";
-function loadCols(uid: string): Set<ColKey> {
-  try { const v = JSON.parse(localStorage.getItem(`${COLS_KEY}:${uid}`) || "[]"); return new Set((Array.isArray(v) ? v : []).filter((k: string) => COLS.some((c) => c.key === k))); } catch { return new Set(); }
-}
-function saveCols(uid: string, s: Set<ColKey>) { try { localStorage.setItem(`${COLS_KEY}:${uid}`, JSON.stringify([...s])); } catch { /* ignore */ } }
+type Row = { kind: "record"; r: SalesRecord; ok: boolean; notes: SalesNote[] } | { kind: "missing"; m: MissingDay };
 
 export interface DailyRecordsProps {
   records: SalesRecord[];
-  /** All records for the chosen venues (any date), used to find each venue's first sale. */
-  allRecords?: SalesRecord[];
-  userId?: string;
   venues: { id: string; name: string }[];
   from: string; to: string; today: string;
   periodLabel: string;
@@ -53,39 +31,34 @@ export interface DailyRecordsProps {
   onAddDay?: (date: string, venue: string) => void;
 }
 
-export function DailyRecords({ records, allRecords, userId = "anon", venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, openId, onOpen, onAddDay }: DailyRecordsProps) {
+export function DailyRecords({ records, venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, openId, onOpen, onAddDay }: DailyRecordsProps) {
   const [search, setSearch] = useState("");
   const [f, setF] = useState<Filters>(EMPTY);
   const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
   const singleVenue = venues.length === 1;
   const periodName = (id?: string | null) => (id ? servicePeriods.find((p) => p.id === id)?.name : undefined);
 
-  const missing = useMemo(() => missingRuns(records, allRecords ?? records, venues, from, to, today), [records, allRecords, venues, from, to, today]);
   const allRows = useMemo<Row[]>(() => {
     const rs: Row[] = records.map((r) => ({ kind: "record", r, ok: checkRecord(r).ok, notes: (r.id && notesByRecord.get(r.id)) || [] }));
-    const ms: Row[] = missing.runs.map((m) => ({ kind: "missing", m }));
+    const ms: Row[] = missingDays(records, venues, from, to, today).map((m) => ({ kind: "missing", m }));
     return [...rs, ...ms];
-  }, [records, missing, notesByRecord]);
-  const [cols, setCols] = useState<Set<ColKey>>(() => loadCols(userId));
-  useEffect(() => { setCols(loadCols(userId)); }, [userId]);
-  const toggleCol = (k: ColKey) => setCols((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); saveCols(userId, n); return n; });
-  const extra = COLS.filter((c) => cols.has(c.key));
+  }, [records, venues, from, to, today, notesByRecord]);
 
   const attentionCount = allRows.filter((x) => x.kind === "missing" || !x.ok).length;
-  const dayCount = new Set(records.map((r) => r.date)).size;
+  const dayCount = new Set(allRows.map((x) => (x.kind === "record" ? x.r.date : x.m.date))).size;
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = f.min === "" ? null : Number(f.min), max = f.max === "" ? null : Number(f.max);
     const pass = (x: Row) => {
-      const date = x.kind === "record" ? x.r.date : x.m.start;
+      const date = x.kind === "record" ? x.r.date : x.m.date;
       const attn = x.kind === "missing" || !x.ok;
       if (f.show === "attention" && !attn) return false;
       if (f.show === "good" && attn) return false;
-      if (f.days.size && x.kind === "record" && !f.days.has(dowOf(date))) return false;
+      if (f.days.size && !f.days.has(dowOf(date))) return false;
       if (x.kind === "missing") {
         if (min != null || max != null || f.receipt !== "any" || f.period !== "all" || f.note !== "any") return false;
-        return !q || `${date} ${x.m.end} ${runLabel(x.m)} ${x.m.venue} no sales`.toLowerCase().includes(q);
+        return !q || `${date} ${shortDay(date)} ${x.m.venue} no sales recorded`.toLowerCase().includes(q);
       }
       const r = x.r;
       if (min != null && r.totalSales < min) return false;
@@ -101,7 +74,7 @@ export function DailyRecords({ records, allRecords, userId = "anon", venues, fro
       return true;
     };
     const val = (x: Row): number | string => {
-      if (sort.key === "date") return x.kind === "record" ? x.r.date : x.m.end;
+      if (sort.key === "date") return x.kind === "record" ? x.r.date : x.m.date;
       if (sort.key === "venue") return x.kind === "record" ? x.r.venue : x.m.venue;
       if (x.kind === "missing") return Number.NaN;
       return sort.key === "sales" ? x.r.totalSales : x.r.guests;
@@ -143,7 +116,7 @@ export function DailyRecords({ records, allRecords, userId = "anon", venues, fro
   if (f.period !== "all") chips.push({ key: "period", label: periodName(f.period) ?? "Service period", onRemove: () => setF({ ...f, period: "all" }) });
   if (f.note !== "any") chips.push({ key: "note", label: "Has a note", onRemove: () => setF({ ...f, note: "any" }) });
   if (search.trim()) chips.push({ key: "q", label: `“${search.trim()}”`, onRemove: () => setSearch("") });
-  const visibleDays = new Set(visible.flatMap((x) => (x.kind === "record" ? [x.r.date] : []))).size;
+  const visibleDays = new Set(visible.map((x) => (x.kind === "record" ? x.r.date : x.m.date))).size;
 
   // ---- CSV (existing export columns) ----
   const download = () => {
@@ -165,33 +138,9 @@ export function DailyRecords({ records, allRecords, userId = "anon", venues, fro
     toast(`Downloaded ${recs.length} record${recs.length === 1 ? "" : "s"}`);
   };
 
+  const grid = singleVenue ? "grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_70px_110px_150px]" : "grid-cols-[88px_1fr_auto] sm:grid-cols-[110px_1fr_70px_110px_150px]";
   const showWeeks = sort.key === "date";
   let lastWeek = "";
-  const pName = (r: SalesRecord) => periodName(r.servicePeriodId);
-  const cell = (k: ColKey, r: SalesRecord): string => {
-    const n = (v: number) => Math.round(v).toLocaleString("en-US");
-    switch (k) {
-      case "orders": return n(r.orders);
-      case "subtotal": return hkd0(r.subtotal);
-      case "service": return hkd0(r.serviceCharge);
-      case "discount": return hkd0(-Math.abs(r.discount));
-      case "report": return r.reportNumber || "—";
-      case "period": return pName(r) ?? "—";
-      case "cards": return hkd0(r.visa + r.mastercard + r.amex + r.unionPay + r.jcb);
-      case "wallets": return hkd0(r.alipay + r.wechat + r.payme);
-      case "cash": return hkd0(r.cash);
-      case "delivery": return hkd0((r.deliveroo ?? 0) + (r.foodpanda ?? 0) + (r.keeta ?? 0));
-    }
-  };
-  const W = { date: 104, venue: 190, guests: 80, sales: 112, status: 150 };
-  const colCount = 4 + (singleVenue ? 0 : 1) + extra.length;
-  const minWidth = W.date + (singleVenue ? 0 : W.venue) + W.guests + W.sales + W.status + extra.reduce((s, c) => s + c.w, 0);
-  const Th = ({ k, label, num }: { k?: SortKey; label: string; num?: boolean }) => (
-    <th scope="col" className={num ? "num" : ""} aria-sort={k && sort.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
-      {k ? <button type="button" onClick={() => headerSort(k)}>{label} {arrow(k)}</button> : label}
-    </th>
-  );
-  const showNever = f.show !== "attention" && missing.neverSold.length > 0;
 
   return (
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3" aria-labelledby="daily-records">
@@ -235,100 +184,63 @@ export function DailyRecords({ records, allRecords, userId = "anon", venues, fro
           </FilterPanel>
         }
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={setSortKey} />}
-        columns={<ColumnsMenu options={COLS.map((c) => ({ key: c.key, label: c.label }))} selected={cols} onToggle={toggleCol} />}
         onDownload={download} downloadLabel="Download as spreadsheet (CSV)"
         chips={chips}
         onClear={() => { setF(EMPTY); setSearch(""); }}
       />
 
-      <div className="kit kit-table-wrap -mx-1">
-        <table className="kit-table" style={{ minWidth }} aria-label="Daily records">
-          <colgroup>
-            <col style={{ width: W.date }} />
-            {!singleVenue && <col style={{ width: W.venue }} />}
-            <col style={{ width: W.guests }} />
-            <col style={{ width: W.sales }} />
-            {extra.map((c) => <col key={c.key} style={{ width: c.w }} />)}
-            <col style={{ width: W.status }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col" className="sticky-col" aria-sort={sort.key === "date" ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
-                <button type="button" onClick={() => headerSort("date")}>Date {arrow("date")}</button>
-              </th>
-              {!singleVenue && <Th k="venue" label="Venue" />}
-              <Th k="guests" label="Guests" num />
-              <Th k="sales" label="Sales" num />
-              {extra.map((c) => <Th key={c.key} label={c.head} num={c.num} />)}
-              <th scope="col" className="num"><span className="sr-only">Status</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {showNever && missing.neverSold.map((v) => (
-              <tr key={`never-${v.id}`} className="missing">
-                <td colSpan={colCount} className="sticky-col !overflow-visible">
-                  <span className="text-[13px]" style={{ color: "#55605A" }}>{v.name} has no sales recorded yet</span>
-                </td>
-                <td className="num">
-                  {onAddDay && <button type="button" className="kit-btn kit-btn-secondary !h-8" onClick={() => onAddDay(addDefaultDate(today), v.name)}>Add</button>}
-                </td>
-              </tr>
-            ))}
-            {visible.length === 0 && !showNever && (
-              <tr><td colSpan={colCount + 1} className="text-center text-muted-foreground !h-24">No days match. Try clearing the filters.</td></tr>
-            )}
-            {visible.map((x) => {
-              const date = x.kind === "record" ? x.r.date : x.m.end;
-              const wk = showWeeks ? weekLabel(date, today) : "";
-              const heading = showWeeks && wk !== lastWeek ? wk : null;
-              lastWeek = wk;
-              const key = x.kind === "record" ? (x.r.id ?? `${x.r.date}-${x.r.venue}-${x.r.reportNumber}`) : `missing-${x.m.venueId}-${x.m.start}`;
-              return (
-                <React.Fragment key={key}>
-                  {heading && <tr className="group"><td colSpan={colCount + 1}>{heading}</td></tr>}
-                  {x.kind === "missing" ? (
-                    <tr className="missing">
-                      <td colSpan={colCount} className="sticky-col">
-                        <span style={{ color: "#55605A" }}>{x.m.venue} · No sales {runLabel(x.m)}</span>
-                      </td>
-                      <td className="num">
-                        {onAddDay && <button type="button" className="kit-btn kit-btn-secondary !h-8" onClick={() => onAddDay(x.m.start, x.m.venue)}>Add</button>}
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr className={`data ${x.ok ? "" : "attention"} ${openId === x.r.id ? "open" : ""}`} tabIndex={0}
-                      onClick={() => onOpen(x.r)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(x.r); } }}>
-                      <td className="sticky-col">{shortDay(date)}</td>
-                      {!singleVenue && <td title={x.r.venue}>{x.r.venue}{pName(x.r) ? ` · ${pName(x.r)}` : ""}</td>}
-                      <td className="num">{Math.round(x.r.guests).toLocaleString("en-US")}</td>
-                      <td className="num">{hkd0(x.r.totalSales)}</td>
-                      {extra.map((c) => <td key={c.key} className={c.num ? "num" : ""}>{cell(c.key, x.r)}</td>)}
-                      <td className="num">
-                        <span className="inline-flex items-center justify-end gap-1.5">
-                          {x.ok ? <StatusPill tone="ok" /> : <StatusPill tone="problem">Doesn't add up</StatusPill>}
-                          {x.r.receiptFileUrl && <Receipt className="h-3.5 w-3.5" aria-label="Receipt attached" style={{ color: "var(--kit-muted)" }} />}
-                          {x.notes.length > 0 && (
-                            <span className="inline-flex items-center gap-0.5 text-[12px]" style={{ color: "var(--kit-muted)" }} aria-label={`${x.notes.length} notes`}>
-                              <MessageSquare className="h-3.5 w-3.5" />{x.notes.length}
-                            </span>
-                          )}
+      <div className="kit" role="table" aria-label="Daily records">
+        <div role="row" className={`grid ${grid} gap-3 px-3 pb-1 text-[12px] font-medium`} style={{ color: "var(--kit-muted)" }}>
+          <button type="button" className="flex items-center gap-1 text-left" onClick={() => headerSort("date")}>Date {arrow("date")}</button>
+          {!singleVenue && <button type="button" className="flex items-center gap-1 text-left" onClick={() => headerSort("venue")}>Venue {arrow("venue")}</button>}
+          <button type="button" className="hidden sm:flex items-center gap-1 justify-end" onClick={() => headerSort("guests")}>Guests {arrow("guests")}</button>
+          <button type="button" className="flex items-center gap-1 justify-end" onClick={() => headerSort("sales")}>Sales {arrow("sales")}</button>
+          <span className="hidden sm:block" aria-hidden />
+        </div>
+        {visible.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">No days match. Try clearing the filters.</p>}
+        <div className="space-y-0.5">
+          {visible.map((x) => {
+            const date = x.kind === "record" ? x.r.date : x.m.date;
+            const wk = showWeeks ? weekLabel(date, today) : "";
+            const heading = showWeeks && wk !== lastWeek ? wk : null;
+            lastWeek = wk;
+            const key = x.kind === "record" ? (x.r.id ?? `${x.r.date}-${x.r.venue}-${x.r.reportNumber}`) : `missing-${x.m.venueId}-${x.m.date}`;
+            return (
+              <React.Fragment key={key}>
+                {heading && <div className="kit-group-h px-3 pt-3 pb-1">{heading}</div>}
+                {x.kind === "missing" ? (
+                  <ListRow state="missing" className={`grid ${grid} gap-3`}>
+                    <span>{shortDay(date)}</span>
+                    {!singleVenue && <span className="truncate">{x.m.venue}</span>}
+                    <span className="hidden sm:block" />
+                    <span className="hidden sm:block text-[12px] truncate">No sales recorded</span>
+                    <span className="flex justify-end">
+                      {onAddDay && <button type="button" className="kit-btn kit-btn-secondary !h-8" onClick={() => onAddDay(date, x.m.venue)}>Add</button>}
+                    </span>
+                  </ListRow>
+                ) : (
+                  <ListRow state={x.ok ? "normal" : "attention"} open={openId === x.r.id} onClick={() => onOpen(x.r)} className={`grid ${grid} gap-3`}>
+                    <span>{shortDay(date)}</span>
+                    {!singleVenue && <span className="truncate">{x.r.venue}{periodName(x.r.servicePeriodId) ? ` · ${periodName(x.r.servicePeriodId)}` : ""}</span>}
+                    <span className="hidden sm:block kit-num">{Math.round(x.r.guests).toLocaleString("en-US")}</span>
+                    <span className="kit-num">{hkd0(x.r.totalSales)}</span>
+                    <span className={`${singleVenue ? "col-span-3" : "col-span-3"} sm:col-span-1 flex items-center justify-end gap-1.5 -mt-1 sm:mt-0`}>
+                      {singleVenue && periodName(x.r.servicePeriodId) && <span className="text-[12px] mr-auto sm:hidden" style={{ color: "var(--kit-muted)" }}>{periodName(x.r.servicePeriodId)}</span>}
+                      {x.ok ? <StatusPill tone="ok" /> : <StatusPill tone="problem">Doesn't add up</StatusPill>}
+                      {x.r.receiptFileUrl && <Receipt className="h-3.5 w-3.5" aria-label="Receipt attached" style={{ color: "var(--kit-muted)" }} />}
+                      {x.notes.length > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[12px]" style={{ color: "var(--kit-muted)" }} aria-label={`${x.notes.length} notes`}>
+                          <MessageSquare className="h-3.5 w-3.5" />{x.notes.length}
                         </span>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                      )}
+                    </span>
+                  </ListRow>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
-}
-
-/** Default date for a venue with no sales yet: yesterday. */
-function addDefaultDate(today: string) {
-  const [y, m, d] = today.split("-").map(Number);
-  const t = new Date(y, m - 1, d - 1);
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 }

@@ -6,4 +6,3 @@ export { SortMenu } from "./SortMenu";
 export { ListRow, type ListRowState } from "./ListRow";
 export { StatusPill } from "./StatusPill";
 export { DetailPanel, DetailGroup, DetailRow, ExplainBox } from "./DetailPanel";
-export { ColumnsMenu } from "./ColumnsMenu";
