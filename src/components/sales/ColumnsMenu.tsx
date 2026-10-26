@@ -1,7 +1,4 @@
-import { Check, Columns3, ChevronDown, GripVertical } from "lucide-react";
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Check, Columns3, ChevronDown, ChevronUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export const EXTRA_COLUMNS = [
@@ -24,35 +21,17 @@ export const BASE_COLUMNS: { key: OrderColumn; label: string }[] = [
 ];
 export const columnLabel = (k: OrderColumn) => BASE_COLUMNS.find((c) => c.key === k)?.label ?? EXTRA_COLUMNS.find((c) => c.key === k)?.label ?? k;
 
-function SortableRow({ id, label, disabled }: { id: OrderColumn; label: string; disabled?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 2 : undefined, position: "relative" }}
-      className="kit-sort-row" aria-selected="true" role="menuitemcheckbox" aria-checked="true">
-      <button type="button" className="kit-drag" aria-label={`Move ${label}`} disabled={disabled} {...attributes} {...listeners}>
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <span className="kit-row-label">{label}</span>
-      <Check className="kit-row-check" />
-    </div>
-  );
-}
-
 /** `order` lists the "on" columns in table order; Venue is shown but can't be hidden or moved when only one venue is chosen. */
 export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
   order: OrderColumn[]; onToggle: (key: ExtraColumn) => void; onReorder: (next: OrderColumn[]) => void; venueLocked?: boolean;
 }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
   const shown = order.filter((k) => !(venueLocked && k === "venue"));
-  const onDragEnd = (e: DragEndEvent) => {
-    if (!e.over || e.active.id === e.over.id) return;
-    const from = order.indexOf(e.active.id as OrderColumn), to = order.indexOf(e.over.id as OrderColumn);
-    if (from < 0 || to < 0) return;
-    onReorder(arrayMove(order, from, to));
+  const shift = (k: OrderColumn, dir: -1 | 1) => {
+    const i = shown.indexOf(k), j = i + dir;
+    if (i < 0 || j < 0 || j >= shown.length) return;
+    const nextShown = [...shown];
+    [nextShown[i], nextShown[j]] = [nextShown[j], nextShown[i]];
+    onReorder(venueLocked && order.includes("venue") ? ["venue", ...nextShown] : nextShown);
   };
   const off = EXTRA_COLUMNS.filter((c) => !order.includes(c.key));
   return <Popover>
@@ -62,16 +41,21 @@ export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
       </button>
     </PopoverTrigger>
     <PopoverContent align="start" className="kit kit-pop kit-menu-panel w-64 max-h-[70vh] overflow-y-auto" role="menu" aria-label="Visible columns">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={shown} strategy={verticalListSortingStrategy}>
-          {shown.map((k) => {
+          {shown.map((k, i) => {
             const extra = EXTRA_COLUMNS.find((c) => c.key === k);
-            return extra
-              ? <div key={k} onClick={(e) => { if (!(e.target as HTMLElement).closest(".kit-drag")) onToggle(extra.key); }} className="cursor-pointer"><SortableRow id={k} label={extra.label} /></div>
-              : <SortableRow key={k} id={k} label={columnLabel(k)} />;
+            const label = columnLabel(k);
+            return (
+              <div key={k} className={`kit-sort-row${extra ? " cursor-pointer" : ""}`} role="menuitemcheckbox" aria-checked="true"
+                onClick={(e) => { if (extra && !(e.target as HTMLElement).closest(".kit-shift")) onToggle(extra.key); }}>
+                <span className="kit-shift-pair">
+                  <button type="button" className="kit-shift" aria-label={`Move ${label} up`} disabled={i === 0} onClick={() => shift(k, -1)}><ChevronUp className="h-3.5 w-3.5" /></button>
+                  <button type="button" className="kit-shift" aria-label={`Move ${label} down`} disabled={i === shown.length - 1} onClick={() => shift(k, 1)}><ChevronDown className="h-3.5 w-3.5" /></button>
+                </span>
+                <span className="kit-row-label">{label}</span>
+                <Check className="kit-row-check" />
+              </div>
+            );
           })}
-        </SortableContext>
-      </DndContext>
       {off.length > 0 && <div className="kit-divider my-1.5" />}
       {off.map((c) => (
         <button key={c.key} type="button" role="menuitemcheckbox" aria-checked={false} className="kit-sort-row" onClick={() => onToggle(c.key)}>
