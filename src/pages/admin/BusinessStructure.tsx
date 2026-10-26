@@ -233,7 +233,8 @@ export default function BusinessStructure() {
   const { isAdmin } = useAuth();
   const { tenantId, memberships } = useActiveTenant();
   const { organizations, loading: orgLoading, create: createOrg, update: updateOrg, remove: removeOrg } = useOrganizations();
-  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue } = useVenues();
+  const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue, reload: reloadVenues } = useVenues() as ReturnType<typeof useVenues> & { reload?: () => void };
+  const seatHist = useSeatHistory();
   const [adding, setAdding] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
