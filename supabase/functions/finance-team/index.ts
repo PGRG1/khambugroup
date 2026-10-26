@@ -69,6 +69,11 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
     if (venueId) q = q.eq("sales_records.venue_id", venueId);
     return q.range(f, t);
   }).catch(() => [] as any[]);
+  const closedP = fetchAll((f, t) => {
+    let q = admin.from("venue_closed_days").select("venue_id,date").eq("tenant_id", tenantId).gte("date", p.periodStart).lte("date", p.periodEnd);
+    if (venueId) q = q.eq("venue_id", venueId);
+    return q.range(f, t);
+  }).catch(() => [] as any[]);
   const [s, cs, inv, cinv, open, bills, accts, venues, priceInvs, payroll, leave, employees, nextShifts, recentShifts, attendance, billsMtd, billsPrevMtd, batches, salesMonths] = await Promise.all([
     sales(p.periodStart, p.periodEnd), sales(p.comparisonStart, p.comparisonEnd),
     invs(p.periodStart, p.periodEnd), invs(p.comparisonStart, p.comparisonEnd),
@@ -159,6 +164,7 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
     expenseBillsPrevMtd: (billsPrevMtd as any[]).map((b) => ({ ...b, category: b.department || "General" })),
     settlementBatches: batches as any,
     salesByMonth,
+    closedDays: (await closedP) as any[],
     salesNotes: ((await notesP) as any[]).map((n) => ({ date: n.sales_records?.date, venue_id: n.sales_records?.venue_id ?? null, tag: n.tag ?? null, body: n.body ?? "" })).filter((n) => n.date),
     workDone,
   };

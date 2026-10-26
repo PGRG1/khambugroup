@@ -93,6 +93,8 @@ export interface ReviewInput {
   workDone: Record<SpecialistRole, WorkDoneItem[]>;
   /** Manager notes on sales records in the period (optional). */
   salesNotes?: SalesNoteRow[];
+  /** Venue-days the owner confirmed as closed (optional). */
+  closedDays?: { venue_id: string; date: string }[];
 }
 
 // ---------------- formatting ----------------
@@ -232,11 +234,14 @@ function revenueReport(inp: ReviewInput): SpecialistReport {
   } else {
     const endSales = inp.sales.filter((s) => s.date === inp.periodEnd);
     const withSales = new Set(endSales.map((s) => s.venue_id).filter(Boolean));
-    const missing = activeVenues.filter((v) => !withSales.has(v.id));
+    const closed = new Set((inp.closedDays ?? []).filter((c) => c.date === inp.periodEnd).map((c) => c.venue_id));
+    const missing = activeVenues.filter((v) => !withSales.has(v.id) && !closed.has(v.id));
     findings.push({ key: "revenue.missing_venues", title: "Venues with no sales yesterday", severity: missing.length ? "action" : "info", assessable: true,
       statement: missing.length
         ? `${missing.map((v) => v.name).join(", ")} ${missing.length === 1 ? "has" : "have"} no sales record for ${fmtDate(inp.periodEnd)}. If they traded, the Z-report is missing; if they were closed, tell me and I'll treat it as closed.`
-        : `Every active venue has a sales record for ${fmtDate(inp.periodEnd)}.`,
+        : closed.size
+          ? `Every venue that was open has a sales record for ${fmtDate(inp.periodEnd)} (${fmtCount(closed.size)} marked closed).`
+          : `Every active venue has a sales record for ${fmtDate(inp.periodEnd)}.`,
       figures: [fig("Venues missing sales", missing.length, "count")],
       evidence: ev,
       recommendation: missing.length ? "Confirm whether these venues traded or were closed." : null });
