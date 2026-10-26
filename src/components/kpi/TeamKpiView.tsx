@@ -87,7 +87,7 @@ export default function TeamKpiView() {
 
   const filtered = useMemo(() => {
     let arr = entries;
-    if (venueFilter !== "__all__") arr = arr.filter((e) => (e.row.venueId ?? "__none__") === venueFilter);
+    arr = arr.filter((e) => venueScope.includesId(e.row.venueId));
     if (personFilter !== "__all__") arr = arr.filter((e) => e.row.owner?.user_id === personFilter);
     if (statusFilter !== "__all__") {
       if (statusFilter === "awaiting") arr = arr.filter((e) => e.snap.awaitingUpdate);

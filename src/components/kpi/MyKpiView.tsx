@@ -66,7 +66,7 @@ export default function MyKpiView() {
 
   const visible = useMemo(() => {
     let arr = snapshots;
-    if (venueFilter !== "__all__") arr = arr.filter((s) => (s.venueId ?? "__all__") === venueFilter);
+    arr = arr.filter((s) => venueScope.includesId(s.venueId));
     if (statusFilter) {
       if (statusFilter === "warn") arr = arr.filter((s) => s.tone === "warn" || s.tone === "info");
       else if (statusFilter === "neutral") arr = arr.filter((s) => s.awaitingUpdate);
