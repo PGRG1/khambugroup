@@ -2,6 +2,7 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabase } from "@/integrations/supabase/client";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { toast } from "@/hooks/use-toast";
 import { consumeSalesHandoff, decideSalesHandoff, peekSalesHandoff, subscribeSalesHandoff } from "@/utils/scannerHandoff";
@@ -42,6 +43,14 @@ const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
   const { isAdmin, user, roleLoading } = useAuth();
   const { tenantId } = useActiveTenant();
+  const [tenantZone, setTenantZone] = useState<{ id: string; zone: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (tenantId) supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle().then(({ data }) => {
+      if (!cancelled) setTenantZone({ id: tenantId, zone: data?.timezone || "Asia/Hong_Kong" });
+    });
+    return () => { cancelled = true; };
+  }, [tenantId]);
   const { isPreviewActive } = usePreviewMode();
   const { isActionHidden } = usePagePermissions();
   const mr = useManualRevenue();
@@ -112,7 +121,7 @@ const DataPage = () => {
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
     setPeriodName(period);
   };
-  const today = tenantToday();
+  const today = tenantToday(tenantZone?.id === tenantId ? tenantZone.zone : "Asia/Hong_Kong");
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
   const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
