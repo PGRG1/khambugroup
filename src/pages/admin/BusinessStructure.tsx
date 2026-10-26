@@ -166,6 +166,7 @@ function OrgCard({
                     </span>
                   </div>
                   <VenueSeats venueId={v.id} tenantId={tenantId} history={seatHistory.filter((h) => h.venue_id === v.id)} onSaved={onSeatsSaved} />
+                  <VenueClosureRules venueId={v.id} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
