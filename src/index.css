@@ -605,3 +605,34 @@ html:not(.dark) body:has(.tenant-portal) :is([data-radix-popper-content-wrapper]
   --popover: 0 0% 100%;
   --background: 0 0% 100%;
 }
+
+/* Sage-to-bone page background (light mode, all tenant pages except Bani AI). */
+html:not(.dark) .tenant-portal .app-shell.app-bg-sage {
+  background: linear-gradient(180deg, #9FBDB2 0px, #C9DDD3 380px, #E9F0EC 900px, #F5F4F0 1400px) #F5F4F0;
+  background-repeat: no-repeat;
+  background-color: #F5F4F0;
+}
+/* Text sitting directly on the light gradient must be dark for WCAG AA. */
+html:not(.dark) .tenant-portal .app-bg-sage h1 {
+  color: hsl(var(--foreground));
+}
+html:not(.dark) .tenant-portal .app-bg-sage :is(h1 ~ p, .on-band, h1 .text-muted-foreground, .home-greeting h1 span) {
+  color: hsl(175 30% 18% / 0.85);
+}
+html:not(.dark) .tenant-portal .app-bg-sage h1 .text-gradient-gold {
+  -webkit-text-fill-color: hsl(var(--foreground));
+}
+html:not(.dark) .tenant-portal .app-bg-sage > div > div > :is(p, h2, h3, span).text-muted-foreground,
+html:not(.dark) .tenant-portal .app-bg-sage > div > div > div > :is(p, h2, h3, span).text-muted-foreground {
+  color: hsl(175 25% 22%);
+}
+html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [data-sidebar="trigger"],
+html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [aria-label="User menu"] svg {
+  color: hsl(var(--foreground));
+}
+html:not(.dark) .tenant-portal .app-bg-sage :is(nav[aria-label="Revenue"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
+html:not(.dark) .tenant-portal .app-bg-sage .home-venue-filters button,
+html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-muted {
+  background: hsl(var(--tenant-white) / 0.55);
+  color: hsl(var(--foreground));
+}
