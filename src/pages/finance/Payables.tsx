@@ -1,5 +1,6 @@
 import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState } from "react";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -220,7 +221,8 @@ function OpenPayablesTab({
 }: any) {
   const [search, setSearch] = useState("");
   const [supplierF, setSupplierF] = useState("all");
-  const [venueF, setVenueF] = useState("all");
+  const venueScope = useVenueScope();
+  const venueF: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenueF = (_v: string) => {};
   const [paymentStatusF, setPaymentStatusF] = useState("all");
   const [bankMatchF, setBankMatchF] = useState("all");
   const [dueRange, setDueRange] = useState<DueRange>("all");
@@ -244,7 +246,7 @@ function OpenPayablesTab({
         if (!i.supplier_name.toLowerCase().includes(s) && !i.invoice_number.toLowerCase().includes(s)) return false;
       }
       if (supplierF !== "all" && i.supplier_id !== supplierF) return false;
-      if (venueF !== "all" && i.venue !== venueF) return false;
+      if (!venueScope.includesName(i.venue)) return false;
       if (paymentStatusF !== "all" && i.payment_status !== paymentStatusF) return false;
       if (bankMatchF !== "all" && i.bank_match_status !== bankMatchF) return false;
       if (paidFromF !== "all" && i.last_paid_from_account_id !== paidFromF) return false;
@@ -337,7 +339,6 @@ function OpenPayablesTab({
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Search supplier or invoice #…" />
         <FilterSelect label="Supplier" value={supplierF} onChange={setSupplierF} options={[["all", "All Suppliers"], ...suppliers]} />
-        <FilterSelect label="Venue" value={venueF} onChange={setVenueF} options={[["all", "All Venues"], ...venues.map((v: string) => [v, v] as [string, string])]} />
         <FilterSelect label="Status" value={paymentStatusF} onChange={setPaymentStatusF} options={[["all", "All Statuses"], ...PAYMENT_STATUS_OPTIONS.map((s) => [s, paymentStatusLabel(s)] as [string, string])]} />
         <FilterSelect label="Bank Match" value={bankMatchF} onChange={setBankMatchF} options={[["all", "Any Match"], ...BANK_MATCH_OPTIONS.map((s) => [s, bankMatchLabel(s)] as [string, string])]} />
         <FilterSelect label="Due" value={dueRange} onChange={(v) => setDueRange(v as DueRange)} options={[
@@ -620,7 +621,8 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
   const [bookOpen, setBookOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [supplierF, setSupplierF] = useState("all");
-  const [venueF, setVenueF] = useState("all");
+  const venueScope = useVenueScope();
+  const venueF: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenueF = (_v: string) => {};
   const [statusF, setStatusF] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -633,7 +635,7 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
         if (!hay.includes(s)) return false;
       }
       if (supplierF !== "all" && c.supplier_id !== supplierF) return false;
-      if (venueF !== "all" && (c.venue || "") !== venueF) return false;
+      if (!venueScope.includesName(c.venue)) return false;
       if (statusF !== "all" && c.status !== statusF) return false;
       if (from && c.credit_note_date < from) return false;
       if (to && c.credit_note_date > to) return false;
@@ -715,7 +717,6 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Search suppliers or credit notes…" />
         <FilterSelect label="Supplier" value={supplierF} onChange={setSupplierF} options={[["all", "All Suppliers"], ...suppliers]} />
-        <FilterSelect label="Venue" value={venueF} onChange={setVenueF} options={[["all", "All Venues"], ...venues.map((v: string) => [v, v] as [string, string])]} />
         <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
         <FilterSelect label="Status" value={statusF} onChange={setStatusF} options={[
           ["all", "All Statuses"],
@@ -795,7 +796,8 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
 function AgingTab({ invoices, suppliers, venues, loading }: any) {
   const [search, setSearch] = useState("");
   const [supplierF, setSupplierF] = useState("all");
-  const [venueF, setVenueF] = useState("all");
+  const venueScope = useVenueScope();
+  const venueF: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenueF = (_v: string) => {};
   const [bucketF, setBucketF] = useState("all");
 
   const open = useMemo(
@@ -807,7 +809,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
     return open.filter((i) => {
       if (search && !i.supplier_name.toLowerCase().includes(search.toLowerCase())) return false;
       if (supplierF !== "all" && i.supplier_id !== supplierF) return false;
-      if (venueF !== "all" && i.venue !== venueF) return false;
+      if (!venueScope.includesName(i.venue)) return false;
       if (bucketF !== "all" && i.bucket !== bucketF) return false;
       return true;
     });
@@ -891,7 +893,6 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Search suppliers…" />
         <FilterSelect label="Supplier" value={supplierF} onChange={setSupplierF} options={[["all", "All Suppliers"], ...suppliers]} />
-        <FilterSelect label="Venue" value={venueF} onChange={setVenueF} options={[["all", "All Venues"], ...venues.map((v: string) => [v, v] as [string, string])]} />
         <FilterSelect label="Bucket" value={bucketF} onChange={setBucketF} options={[["all", "Aging Bucket: All"], ...AGE_BUCKETS.map((b) => [b, b] as [string, string])]} />
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => { setSearch(""); setSupplierF("all"); setVenueF("all"); setBucketF("all"); }}>Clear</Button>
       </FilterBar>

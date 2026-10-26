@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,7 +53,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   const [saving, setSaving] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
-  const [filterVenue, setFilterVenue] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const filterVenue: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setFilterVenue = (_v: string) => {};
   const [balanceViewMode, setBalanceViewMode] = useState<"summary" | "employee">("summary");
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
 
@@ -90,7 +92,7 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   // Filtered employees for the balance table
   const filteredEmployees = useMemo(() => {
     let list = activeEmployees;
-    if (filterVenue !== "all") list = list.filter(e => e.venue === filterVenue);
+    list = list.filter((e) => venueScope.includesName(e.venue));
     if (filterEmployee !== "all") list = list.filter(e => e.id === filterEmployee);
     return list;
   }, [activeEmployees, filterVenue, filterEmployee]);
@@ -301,15 +303,7 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
 
         <TabsContent value="overview" className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <Select value={filterVenue} onValueChange={setFilterVenue}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Venues" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Venues</SelectItem>
-                {venues.map(v => <SelectItem key={v} value={v!}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            
             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="All Employees" />

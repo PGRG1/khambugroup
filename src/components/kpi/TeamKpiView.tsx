@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +27,8 @@ export default function TeamKpiView() {
   const { rows } = useKpiAssignmentRows();
   const { actions, create: createAction, update: updateAction, setStatus: setActionStatus } = useKpiActions();
 
-  const [venueFilter, setVenueFilter] = useState("__all__");
+  const venueScope = useVenueScope();
+  const venueFilter: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "__all__"; const setVenueFilter = (_v: string) => {};
   const [personFilter, setPersonFilter] = useState("__all__");
   const [statusFilter, setStatusFilter] = useState("__all__");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -115,13 +117,7 @@ export default function TeamKpiView() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-44 h-9 text-xs"><SelectValue placeholder="Venue" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All permitted venues</SelectItem>
-            {venueOptions.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        
         <Select value={personFilter} onValueChange={setPersonFilter}>
           <SelectTrigger className="w-48 h-9 text-xs"><SelectValue placeholder="Team member" /></SelectTrigger>
           <SelectContent>

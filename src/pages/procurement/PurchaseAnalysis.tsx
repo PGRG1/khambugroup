@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +139,8 @@ function CostChip({ label, value, color, spend, revenue, hasSalesData }: {
 export default function PurchaseAnalysis() {
   const { tenantId } = useActiveTenant();
   const [period, setPeriod] = useState<PeriodKey>("6M");
-  const [venue, setVenue] = useState("all");
+  const venueScope = useVenueScope();
+  const venue: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenue = (_v: string) => {};
   const [category, setCategory] = useState("all");
   const [rows, setRows] = useState<GrnItem[]>([]);
   const [priorRows, setPriorRows] = useState<GrnItem[]>([]);
@@ -232,7 +234,7 @@ export default function PurchaseAnalysis() {
       if (!grn || grn.status !== "confirmed") return false;
       if (pm?.creates_stock_movement === false) return false;
       if ((pm?.financial_treatment || "").toLowerCase().startsWith("asset")) return false;
-      if (venue !== "all" && grn.venue !== venue) return false;
+      if (!venueScope.includesName(grn.venue)) return false;
       if (!opts.ignoreCategory && category !== "all" && pm?.level1_category !== category) return false;
       return true;
     });
@@ -545,13 +547,7 @@ export default function PurchaseAnalysis() {
               </button>
             ))}
           </div>
-          <Select value={venue} onValueChange={setVenue}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="All venues" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venueOpts.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="All categories" /></SelectTrigger>
             <SelectContent>

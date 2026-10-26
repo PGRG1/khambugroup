@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,8 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
   const { tenantId } = useActiveTenant();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = venueScope.filterIds ? JSON.stringify(venueScope.filterIds) : "all"; const setVenueFilter = (_v: string) => {};
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<HREmployee & { venue_id: string | null }> | null>(null);
   const [saving, setSaving] = useState(false);
@@ -69,7 +71,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
         (statusFilter === "active" ? isActive(e.status) : !isActive(e.status));
       const vid = (e as any).venue_id as string | null | undefined;
       const empVenueName = vid ? venueById.get(vid) : e.venue;
-      const matchesVenue = venueFilter === "all" || empVenueName === venueFilter;
+      const matchesVenue = venueScope.includesName(empVenueName);
       return matchesSearch && matchesStatus && matchesVenue;
     });
   }, [employees, search, statusFilter, venueFilter, venueById]);
@@ -135,15 +137,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
             {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Venue" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
-            {venues.filter(v => v.is_active).map(v => (
-              <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
         {(statusFilter !== "all" || venueFilter !== "all" || search) && (
           <button
             onClick={() => { setSearch(""); setStatusFilter("all"); setVenueFilter("all"); }}
