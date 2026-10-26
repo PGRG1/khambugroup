@@ -5,7 +5,8 @@ import { ArrowUp, AudioLines, Check, Copy, Loader2, Mic, RefreshCw, X } from "lu
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { useVenues } from "@/hooks/useVenues";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
@@ -422,6 +423,9 @@ export default function YourTeam() {
     }
   };
 
+  // A different venue scope means a different review: start fresh desks.
+  useEffect(() => { setOpenRole(null); setThreads({}); setRaised({}); setFdLine(null); }, [venueId, mixedScope]);
+
   // Esc closes the open desk.
   useEffect(() => {
     if (!openRole) return;
@@ -528,7 +532,7 @@ export default function YourTeam() {
       </div>
 
       {/* Team grid / open desk */}
-      {reviewQ.isLoading ? (
+      {mixedScope ? null : reviewQ.isLoading ? (
         <div className="mt-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[150px] rounded-xl" />)}
         </div>
