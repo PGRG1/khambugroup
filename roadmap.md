@@ -1,4 +1,4 @@
-- [ ] Align DailyRecords as a semantic, horizontally scrollable table.
-- [ ] Add per-user saved optional columns.
-- [ ] Apply first-sale and tenant-local missing-run rules and correct counts.
-- [ ] Run rule tests and check desktop/mobile sales flows.
+- [x] Align DailyRecords as a semantic, horizontally scrollable table.
+- [x] Add per-user saved optional columns.
+- [x] Apply first-sale and tenant-local missing-run rules and correct counts.
+- [x] Run rule tests and check desktop/mobile sales flows.
