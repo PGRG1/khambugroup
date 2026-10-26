@@ -69,7 +69,7 @@ export function salesListCounts(records: SalesRecord[], runs: MissingRun[]) {
  * Every date from `from` to min(`to`, yesterday) with no record for an active venue in scope.
  * Records are matched per venue per day, so a venue with service periods is flagged only when the whole day is missing.
  */
-export function missingDays(records: SalesRecord[], venues: { id: string; name: string }[], from: string, to: string, today: string, firstSales = firstSaleDates(records)): MissingDay[] {
+export function missingDays(records: SalesRecord[], venues: { id: string; name: string }[], from: string, to: string, today: string, firstSales = firstSaleDates(records), closed: Set<string> = new Set()): MissingDay[] {
   const yesterday = addDaysIso(today, -1);
   const end = to < yesterday ? to : yesterday;
   if (from > end) return [];
@@ -78,7 +78,7 @@ export function missingDays(records: SalesRecord[], venues: { id: string; name: 
   for (let d = from; d <= end; d = addDaysIso(d, 1)) {
     for (const v of venues) {
       const first = firstSales.get(v.name);
-      if (first && d >= first && !have.has(`${v.name}|${d}`)) out.push({ date: d, venue: v.name, venueId: v.id });
+      if (first && d >= first && !have.has(`${v.name}|${d}`) && !closed.has(`${v.id}|${d}`)) out.push({ date: d, venue: v.name, venueId: v.id });
     }
   }
   return out;

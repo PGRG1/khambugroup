@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, MessageSquare, Receipt } from "lucide-react";
 import type { SalesRecord } from "@/types/sales";
@@ -57,7 +59,17 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   const periodName = (id?: string | null) => (id ? servicePeriods.find((p) => p.id === id)?.name : undefined);
   const firstSales = useMemo(() => firstSaleDates(history), [history]);
   const neverTraded = venues.filter((v) => !firstSales.has(v.name));
-  const runs = useMemo(() => collapseMissingDays(missingDays(records, venues, from, to, today, firstSales)), [records, venues, from, to, today, firstSales]);
+  const closedQ = useQuery({
+    queryKey: ["venue-closed-days", venues.map((v) => v.id).join(","), from, to],
+    enabled: venues.length > 0,
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("venue_closed_days").select("venue_id,date")
+        .in("venue_id", venues.map((v) => v.id)).gte("date", from).lte("date", to);
+      return new Set<string>((data ?? []).map((c: any) => `${c.venue_id}|${c.date}`));
+    },
+  });
+  const closedSet = closedQ.data;
+  const runs = useMemo(() => collapseMissingDays(missingDays(records, venues, from, to, today, firstSales, closedSet)), [records, venues, from, to, today, firstSales, closedSet]);
   const extraValue = (r: SalesRecord, key: ExtraColumn): number | string => {
     if (key === "servicePeriod") return periodName(r.servicePeriodId) ?? "";
     if (key === "cards") return r.visa + r.mastercard + r.amex + r.unionPay + r.jcb;
