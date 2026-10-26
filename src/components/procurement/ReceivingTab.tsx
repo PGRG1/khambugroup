@@ -391,6 +391,399 @@ export default function ReceivingTab() {
     })),
     [
       { key: "grn_number", label: "GRN Number" },
+      { key: "supplier", label: "Supplier" },{ useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, X, Trash2, ChevronsUpDown, Database, ScanLine, Download, PackageCheck, FileText, CheckCircle2, Clock, DollarSign } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
+import { fetchAllRows } from "@/utils/fetchAllRows";
+import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { downloadCSV } from "@/utils/csvDownload";
+import { useVenues } from "@/hooks/useVenues";
+
+type GrnStatus = "draft" | "confirmed";
+
+const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtMoney = fmtMoneyWhole;
+const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
+
+const statusBadge = (s: GrnStatus) =>
+  s === "confirmed"
+    ? "bg-primary/10 text-primary border-primary/25"
+    : "bg-muted text-muted-foreground border-border";
+
+interface Supplier { id: string; name: string; is_active: boolean }
+interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
+interface PORow { id: string; po_number: string; supplier_id: string; venue: string; status: string }
+interface POItem { id: string; po_id: string; product_master_id: string | null; description: string; quantity_ordered: number; unit: string; unit_price: number }
+interface InvoiceRow { id: string; invoice_number: string; supplier_id: string; supplier_name: string; venue: string }
+interface InvoiceLine { id: string; invoice_id: string; product_master_id: string | null; description: string; quantity: number; unit: string; unit_price: number }
+
+interface GRN {
+  id: string;
+  grn_number: string;
+  po_id: string | null;
+  invoice_id: string | null;
+  supplier_id: string;
+  venue: string;
+  status: GrnStatus;
+  received_date: string;
+  notes: string | null;
+  received_by: string;
+  created_at: string;
+  suppliers?: { name: string } | null;
+  purchase_orders?: { po_number: string } | null;
+  invoices?: { invoice_number: string } | null;
+}
+
+interface GRNItem {
+  id?: string;
+  key: string;
+  po_item_id: string | null;
+  invoice_line_item_id: string | null;
+  product_master_id: string | null;
+  description: string;
+  quantity_invoiced: number | null;
+  quantity_ordered: number | null;
+  quantity_received: number;
+  unit: string;
+  unit_cost: number;
+}
+
+export default function ReceivingTab() {
+  const { user, isAdmin } = useAuth();
+  const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
+  const [grns, setGrns] = useState<GRN[]>([]);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
+  const [grnTotals, setGrnTotals] = useState<Record<string, number>>({});
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [pos, setPos] = useState<PORow[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isManager, setIsManager] = useState(false);
+
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const venueScope = useVenueScope();
+  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
+
+  // create dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [linkedPoId, setLinkedPoId] = useState<string | null>(null);
+  const [linkedInvoiceId, setLinkedInvoiceId] = useState<string | null>(null);
+  const [supplierId, setSupplierId] = useState("");
+  const [venue, setVenue] = useState<string>("");
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [notes, setNotes] = useState("");
+  const [items, setItems] = useState<GRNItem[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [confirmDlgOpen, setConfirmDlgOpen] = useState(false);
+  const [hasPrefilled, setHasPrefilled] = useState(false);
+
+  // detail panel
+  const [selected, setSelected] = useState<GRN | null>(null);
+  const [selectedItems, setSelectedItems] = useState<GRNItem[]>([]);
+
+  const loadAll = async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    const [grnRows, allItems, supRes, prodRes, poRes, invRows] = await Promise.all([
+      fetchAllRows("goods_received_notes", "*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)", { col: "created_at", asc: false }, tenantId),
+      fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
+      supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
+      supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
+      supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").eq("tenant_id", tenantId).in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
+      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, created_at", { col: "created_at", asc: false }, tenantId),
+    ]);
+    setGrns((grnRows ?? []) as any);
+    const totals: Record<string, number> = {};
+    for (const r of (allItems ?? []) as any[]) {
+      totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
+    }
+    setGrnTotals(totals);
+    const sups = (supRes.data ?? []) as Supplier[];
+    setSuppliers(sups);
+    setProducts((prodRes.data ?? []) as Product[]);
+    setPos((poRes.data ?? []) as unknown as PORow[]);
+    const supMap = new Map(sups.map((s) => [s.id, s.name]));
+    setInvoices(((invRows ?? []) as any[]).map((i) => ({
+      id: i.id, invoice_number: i.invoice_number, supplier_id: i.supplier_id,
+      supplier_name: supMap.get(i.supplier_id) || "—", venue: i.venue,
+    })));
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!tenantId) return;
+    loadAll();
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      setIsManager((data ?? []).some((r: any) => r.role === "manager" || r.role === "admin") || isAdmin);
+    })();
+  }, [user, isAdmin, tenantId]);
+
+  const canManage = isAdmin || isManager;
+
+  const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? "—";
+
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    grns.forEach((g) => { if (g.received_date) set.add(g.received_date.slice(0, 7)); });
+    return Array.from(set).sort().reverse();
+  }, [grns]);
+  const fmtMonth = (m: string) => {
+    const [y, mo] = m.split("-");
+    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return grns.filter((g) => {
+      if (supplierFilter !== "all" && g.supplier_id !== supplierFilter) return false;
+      if (!venueScope.includesName(g.venue)) return false;
+      if (statusFilter !== "all" && g.status !== statusFilter) return false;
+      if (monthFilter !== "all" && (!g.received_date || g.received_date.slice(0, 7) !== monthFilter)) return false;
+      if (dateFrom && (!g.received_date || g.received_date < dateFrom)) return false;
+      if (dateTo && (!g.received_date || g.received_date > dateTo)) return false;
+      if (q) {
+        const hay = [
+          g.grn_number,
+          g.suppliers?.name ?? supplierName(g.supplier_id),
+          g.purchase_orders?.po_number ?? "",
+          g.invoices?.invoice_number ?? "",
+          g.venue,
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [grns, suppliers, supplierFilter, venueScope.includesName, statusFilter, monthFilter, dateFrom, dateTo, search]);
+
+  const kpis = useMemo(() => {
+    const total = filtered.length;
+    const confirmed = filtered.filter((g) => g.status === "confirmed").length;
+    const draft = filtered.filter((g) => g.status === "draft").length;
+    const value = filtered.reduce((s, g) => s + (grnTotals[g.id] || 0), 0);
+    return { total, confirmed, draft, value };
+  }, [filtered, grnTotals]);
+
+  const resetForm = () => {
+    setLinkedPoId(null);
+    setLinkedInvoiceId(null);
+    setSupplierId("");
+    setVenue(activeVenueNames[0] ?? "");
+    setReceivedDate(new Date().toISOString().split("T")[0]);
+    setNotes("");
+    setItems([]);
+    setHasPrefilled(false);
+  };
+
+  const handlePickPO = async (poId: string) => {
+    const po = pos.find((p) => p.id === poId);
+    if (!po) return;
+    setLinkedPoId(poId);
+    setSupplierId(po.supplier_id);
+    if (activeVenueNames.includes(po.venue)) setVenue(po.venue);
+    const { data } = await supabase.from("purchase_order_items" as any).select("*").eq("po_id", poId);
+    const lines = ((data ?? []) as unknown as POItem[]).map((it) => ({
+      key: crypto.randomUUID(),
+      po_item_id: it.id,
+      invoice_line_item_id: null,
+      product_master_id: it.product_master_id,
+      description: it.description,
+      quantity_invoiced: null,
+      quantity_ordered: Number(it.quantity_ordered),
+      quantity_received: Number(it.quantity_ordered),
+      unit: it.unit || "each",
+      unit_cost: Number(it.unit_price),
+    }));
+    setItems(lines);
+    setHasPrefilled(true);
+  };
+
+  const clearPoLink = () => {
+    setLinkedPoId(null);
+    setItems([]);
+    setHasPrefilled(false);
+  };
+
+  const handlePickInvoice = async (invId: string) => {
+    const inv = invoices.find((i) => i.id === invId);
+    if (!inv) return;
+    setLinkedInvoiceId(invId);
+    setSupplierId(inv.supplier_id);
+    if (activeVenueNames.includes(inv.venue)) setVenue(inv.venue);
+    const { data } = await supabase.from("invoice_line_items").select("*").eq("invoice_id", invId);
+    const lines = ((data ?? []) as any[]).map((it) => ({
+      key: crypto.randomUUID(),
+      po_item_id: null,
+      invoice_line_item_id: it.id,
+      product_master_id: it.product_master_id,
+      description: it.description || "",
+      quantity_invoiced: Number(it.quantity),
+      quantity_ordered: null,
+      quantity_received: it.accepted_qty != null ? Number(it.accepted_qty) : Number(it.quantity),
+      unit: it.unit || "each",
+      unit_cost: Number(it.net_unit_cost) > 0 ? Number(it.net_unit_cost) : Number(it.unit_price),
+    }));
+    setItems(lines);
+    setHasPrefilled(true);
+  };
+
+  const clearInvoiceLink = () => {
+    setLinkedInvoiceId(null);
+    setItems([]);
+    setHasPrefilled(false);
+  };
+
+  const addRow = () => {
+    setItems((l) => [...l, {
+      key: crypto.randomUUID(), po_item_id: null, invoice_line_item_id: null, product_master_id: null,
+      description: "", quantity_invoiced: null, quantity_ordered: null, quantity_received: 1,
+      unit: "each", unit_cost: 0,
+    }]);
+  };
+
+  const removeRow = (key: string) => setItems((l) => l.filter((x) => x.key !== key));
+  const updateRow = (key: string, patch: Partial<GRNItem>) =>
+    setItems((l) => l.map((x) => (x.key === key ? { ...x, ...patch } : x)));
+
+  const onPickProduct = (key: string, productId: string) => {
+    const p = products.find((pp) => pp.id === productId);
+    if (!p) return;
+    updateRow(key, {
+      product_master_id: productId,
+      description: p.internal_product_name,
+      unit: p.unit || "each",
+      unit_cost: Number(p.unit_cost ?? 0),
+    });
+  };
+
+  const totalValue = useMemo(
+    () => items.reduce((s, r) => s + (Number(r.quantity_received) || 0) * (Number(r.unit_cost) || 0), 0),
+    [items]
+  );
+
+  const doSave = async (status: GrnStatus) => {
+    if (!supplierId) return toast.error("Pick a supplier");
+    if (!venue) return toast.error("Pick a venue");
+    if (items.length === 0) return toast.error("Add at least one line");
+    if (!user) return toast.error("Not signed in");
+    setSaving(true);
+    const { data: grn, error } = await supabase
+      .from("goods_received_notes" as any)
+      .insert({
+        po_id: linkedPoId,
+        invoice_id: linkedInvoiceId,
+        supplier_id: supplierId,
+        venue,
+        status,
+        received_date: receivedDate,
+        notes: notes || null,
+        received_by: user.id,
+      } as any)
+      .select()
+      .single();
+    if (error || !grn) { setSaving(false); return toast.error(error?.message ?? "Failed"); }
+    const payload = items.map((it) => ({
+      grn_id: (grn as any).id,
+      po_item_id: it.po_item_id,
+      invoice_line_item_id: it.invoice_line_item_id,
+      product_master_id: it.product_master_id,
+      description: it.description || "(no description)",
+      quantity_invoiced: it.quantity_invoiced,
+      quantity_ordered: it.quantity_ordered,
+      quantity_received: Number(it.quantity_received) || 0,
+      unit: it.unit || "each",
+      unit_cost: Number(it.unit_cost) || 0,
+    }));
+    const { error: itemsErr } = await supabase.from("grn_items" as any).insert(payload as any);
+    if (itemsErr) {
+      await supabase.from("goods_received_notes" as any).delete().eq("id", (grn as any).id);
+      setSaving(false);
+      return toast.error(itemsErr.message);
+    }
+    toast.success(`Saved ${(grn as any).grn_number}`);
+    setSaving(false);
+    setCreateOpen(false);
+    setConfirmDlgOpen(false);
+    resetForm();
+    loadAll();
+  };
+
+  const openDetail = async (g: GRN) => {
+    setSelected(g);
+    const { data } = await supabase.from("grn_items" as any).select("*").eq("grn_id", g.id);
+    setSelectedItems(((data ?? []) as any[]).map((r) => ({ ...r, key: r.id })));
+  };
+
+  const confirmReceiptFromPanel = async () => {
+    if (!selected) return;
+    const { error } = await supabase.from("goods_received_notes" as any).update({ status: "confirmed" }).eq("id", selected.id);
+    if (error) return toast.error(error.message);
+    toast.success("Receipt confirmed");
+    setSelected({ ...selected, status: "confirmed" });
+    loadAll();
+  };
+
+  const filterFields: FilterField[] = [
+    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
+      options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
+    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
+      options: [
+        { value: "draft", label: "Draft" },
+        { value: "confirmed", label: "Confirmed" },
+        { value: "disputed", label: "Disputed" },
+      ], allLabel: "All Statuses" },
+    { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
+      options: months.map((m) => ({ value: m, label: fmtMonth(m) })), allLabel: "All Months" },
+    { type: "date", key: "dateFrom", label: "From", value: dateFrom, onChange: setDateFrom },
+    { type: "date", key: "dateTo", label: "To", value: dateTo, onChange: setDateTo },
+  ];
+  const resetFilters = () => {
+    setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all");
+    setMonthFilter("all"); setDateFrom(""); setDateTo("");
+  };
+
+  const handleDownload = () => downloadCSV(
+    filtered.map((g) => ({
+      grn_number: g.grn_number,
+      supplier: g.suppliers?.name ?? supplierName(g.supplier_id),
+      venue: g.venue,
+      linked_po: g.purchase_orders?.po_number ?? "",
+      linked_invoice: g.invoices?.invoice_number ?? "",
+      received_date: fmtDate(g.received_date),
+      status: g.status,
+      total_value: (grnTotals[g.id] || 0).toFixed(2),
+    })),
+    [
+      { key: "grn_number", label: "GRN Number" },
       { key: "supplier", label: "Supplier" },
       { key: "venue", label: "Venue" },
       { key: "linked_po", label: "Linked PO" },
