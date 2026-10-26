@@ -61,8 +61,17 @@ export function collapseMissingDays(days: MissingDay[]): MissingRun[] {
   return runs;
 }
 
-export function salesListCounts(records: SalesRecord[], runs: MissingRun[]) {
-  return { days: new Set(records.map((r) => r.date)).size, attention: runs.length + records.filter((r) => !checkRecord(r).ok).length };
+export function salesListCounts(records: SalesRecord[], missing: readonly unknown[]) {
+  return { days: new Set(records.map((r) => r.date)).size, attention: missing.length + records.filter((r) => !checkRecord(r).ok).length };
+}
+
+/** One-line reason a record doesn't add up, or null when it does. */
+export function attentionReason(r: SalesRecord): string | null {
+  const c = checkRecord(r);
+  const hk = (v: number) => `HK$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
+  if (c.paymentsWrong) return `Payments are ${hk(c.paymentGap)} ${c.paymentGap < 0 ? "short" : "over"}`;
+  if (c.partsWrong) return `Food & drink, service charge and discounts add up to ${hk(c.partsTotal)}, not ${hk(r.totalSales)}`;
+  return null;
 }
 
 /**
