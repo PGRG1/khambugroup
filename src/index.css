@@ -493,9 +493,8 @@ html:not(.dark) body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="t
   box-shadow: none;
   color: #3D4842;
 }
-body:has(.tenant-portal) [role="dialog"]:has(> [data-sidebar="sidebar"][data-mobile="true"]),
-html:not(.dark) body:has(.tenant-portal) [role="dialog"][data-mobile="true"] { border-right: 1px solid rgba(31,63,59,0.12); }
-html:not(.dark) body:has(.tenant-portal) div:has(+ [role="dialog"][data-mobile="true"]).fixed { background: rgba(18,21,16,0.35); }
+html:not(.dark) body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"] { border: 0; border-right: 1px solid rgba(31,63,59,0.12); }
+html:not(.dark) body:has(.tenant-portal) div.fixed:has(+ [data-sidebar="sidebar"][data-mobile="true"]) { background: rgba(18,21,16,0.35); }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) a {
   color: #3D4842;
 }
@@ -519,9 +518,6 @@ html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-po
 }
 html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) [class*="bg-sidebar-border"] {
   background: #ECEAE3;
-}
-html:not(.dark) :is(.tenant-portal [data-sidebar="sidebar"], body:has(.tenant-portal) [data-sidebar="sidebar"][data-mobile="true"]) > div > .border-b.border-sidebar-border:first-child {
-  border-bottom: 0;
 }
 
 html:not(.dark) .tenant-portal .tenant-topbar {
