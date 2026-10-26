@@ -59,7 +59,7 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
   const title = x?.kind === "record" ? "Sales record" : x?.kind === "missing" ? "Missing day" : "Closed day";
   return (
     <Dialog open={!!x} onOpenChange={(o) => { if (!o) p.onClose(); }}>
-      <DialogContent className="kit sales-day-dialog max-w-[560px] p-0 gap-0 max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-0 overflow-y-auto">
+      <DialogContent className="kit sales-day-dialog max-w-[560px] p-0 gap-0 max-sm:h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 overflow-y-auto">
         {x && <div className="p-5 sm:p-6 space-y-5" style={{ color: "var(--kit-ink)" }}>
           <div className="space-y-1 pr-8">
             <div className="kit-group-h">{title}</div>
