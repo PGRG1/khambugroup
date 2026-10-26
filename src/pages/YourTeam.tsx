@@ -362,8 +362,20 @@ export default function YourTeam() {
     }
     const { action, finding } = msg.confirm;
     if (action.kind === "closed") {
-      // No mark-venue-closed write path exists in the portal; record it as an action note.
       await recordAction(role, finding, "User confirmed the venue was closed — treat as closed in reviews.");
+      // If a sales record exists for that day, also leave a "Closed early" note on it.
+      if (review && tenantId) {
+        let q = supabase.from("sales_records").select("id,venue,venue_id").eq("tenant_id", tenantId).eq("date", review.period_end);
+        if (review.venue_id) q = q.eq("venue_id", review.venue_id);
+        const { data: recs } = await q;
+        const named = (recs ?? []).filter((r) => r.venue && finding.statement.includes(r.venue));
+        const targets = named.length ? named : review.venue_id ? (recs ?? []) : [];
+        if (targets.length) {
+          await supabase.from("sales_record_notes").insert(
+            targets.map((r) => ({ tenant_id: tenantId, sales_record_id: r.id, body: "Marked closed from Your team", tag: "Closed early" })) as any,
+          );
+        }
+      }
       pushMsg(role, { id: newId(), from: "role", text: "Noted. I'll treat it as closed in my reviews." });
     } else if (action.kind === "traded-missing") {
       await recordAction(role, finding, "User confirmed the venue traded — sales data is missing.");
