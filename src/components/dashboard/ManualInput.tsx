@@ -4,10 +4,18 @@ import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
+import { DayNoteField } from "@/components/sales/NoteComposer";
+import { notePrompt } from "@/utils/salesRecordChecks";
+
+export interface DayNote { body: string; tag: string | null }
 
 interface ManualInputProps {
-  onAdd: (record: SalesRecord, file?: File | null) => void;
+  onAdd: (record: SalesRecord, file?: File | null, note?: DayNote | null) => void;
   onClose: () => void;
+  /** Earlier records, used to spot unusual days. */
+  history?: SalesRecord[];
+  /** Prefill (e.g. from a missing-day "Add" button). */
+  initial?: { date: string; venue: string } | null;
 }
 
 const emptyRecord: SalesRecord = {
@@ -20,8 +28,12 @@ const emptyRecord: SalesRecord = {
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
-  const [form, setForm] = useState<SalesRecord>(emptyRecord);
+const dayOf = (date: string) => (date ? days[(new Date(date).getDay() + 6) % 7] : "");
+
+const ManualInput = ({ onAdd, onClose, history = [], initial }: ManualInputProps) => {
+  const [form, setForm] = useState<SalesRecord>(() => initial ? { ...emptyRecord, date: initial.date, day: dayOf(initial.date), venue: initial.venue } : emptyRecord);
+  const [noteBody, setNoteBody] = useState("");
+  const [noteTag, setNoteTag] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
 
   const { venues } = useVenues();
@@ -72,6 +84,12 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const paymentTotal = getPaymentTotal({ ...form, cardTips: normalizedCardTips });
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
 
+  const prompt = useMemo(
+    () => notePrompt({ ...form, discount: normalizedDiscount, cardTips: normalizedCardTips }, history),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, history],
+  );
+
   const periodRequired = periods.length >= 2;
   const periodMissing = periodRequired && !form.servicePeriodId;
 
@@ -85,9 +103,11 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
     onAdd(
       { ...form, discount: normalizedDiscount, cardTips: normalizedCardTips, servicePeriodId },
       file,
+      noteBody.trim() ? { body: noteBody, tag: noteTag } : null,
     );
     setForm(emptyRecord);
     setFile(null);
+    setNoteBody(""); setNoteTag(null);
   };
 
   const numField = (label: string, key: keyof SalesRecord) => (
@@ -217,6 +237,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             </span>
           </div>
         )}
+        <DayNoteField prompt={prompt} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t border-border">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
             <Paperclip className="h-4 w-4" />

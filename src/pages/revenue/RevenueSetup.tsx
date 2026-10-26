@@ -13,6 +13,7 @@ import { useRevenueSources } from "@/hooks/useRevenueSources";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useRevenueTargetPermissions } from "@/hooks/useRevenueTargetPermissions";
+import AccountingMappingSummary from "@/components/dashboard/AccountingMappingSummary";
 
 const TABS = ["service-periods", "mapping", "sources"] as const;
 type TabKey = (typeof TABS)[number];
@@ -233,8 +234,25 @@ export default function RevenueSetup() {
         </TabsContent>
 
 
-        <TabsContent value="mapping" className="mt-4">
-          {tab === "mapping" && <RevenueMapping embedded />}
+        <TabsContent value="mapping" className="mt-4 space-y-4">
+          {tab === "mapping" && (
+            <>
+              {unmappedCount > 0 && (
+                <div className="rounded-xl px-4 py-3 text-sm flex flex-wrap items-center gap-2" style={{ background: "#FFF8EE", border: "1px solid #F3DDBF" }}>
+                  <span className="font-medium">
+                    {unmappedCount === 1 ? "1 venue isn't linked to its accounts yet" : `${unmappedCount} venues aren't linked to their accounts yet`}
+                    {unmappedVenues.length ? `: ${unmappedVenues.join(", ")}` : ""}.
+                  </span>
+                  <Link to="/finance/chart-of-accounts?tab=mappings" className="ml-auto text-[13px] font-medium underline" style={{ color: "#2F5E5A" }}>Fix it</Link>
+                </div>
+              )}
+              <section className="card-glass rounded-xl p-4 space-y-2">
+                <h2 className="text-sm font-semibold">Accounting mapping</h2>
+                <AccountingMappingSummary />
+              </section>
+              <RevenueMapping embedded />
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="sources" className="mt-4">

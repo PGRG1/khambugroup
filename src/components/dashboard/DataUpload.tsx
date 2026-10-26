@@ -12,8 +12,13 @@ import {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+import { DayNoteField } from "@/components/sales/NoteComposer";
+import { notePrompt } from "@/utils/salesRecordChecks";
+import type { DayNote } from "@/components/dashboard/ManualInput";
+
 interface DataUploadProps {
-  onUpload: (records: SalesRecord[]) => void;
+  onUpload: (records: SalesRecord[], note?: DayNote | null) => void;
+  history?: SalesRecord[];
   /** PDF / image files are handed to the existing AI extraction + review flow. */
   onScanFile?: (file: File) => void;
   onClose: () => void;
@@ -21,7 +26,9 @@ interface DataUploadProps {
 
 type Rejection = { row: number; reason: string; venue?: string; date?: string };
 
-const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
+const DataUpload = ({ onUpload, onScanFile, onClose, history = [] }: DataUploadProps) => {
+  const [noteBody, setNoteBody] = useState("");
+  const [noteTag, setNoteTag] = useState<string | null>(null);
   const { venues } = useVenues();
   const activeVenueNames = venues.filter((v) => v.is_active).map((v) => v.name);
 
@@ -80,7 +87,8 @@ const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
 
   const handleConfirm = () => {
     if (!pending) return;
-    onUpload(pending.records);
+    onUpload(pending.records, pending.records.length === 1 && noteBody.trim() ? { body: noteBody, tag: noteTag } : null);
+    setNoteBody(""); setNoteTag(null);
     setPending(null);
     setTimeout(onClose, 800);
   };
@@ -189,6 +197,10 @@ const DataUpload = ({ onUpload, onScanFile, onClose }: DataUploadProps) => {
                 Fix these rows in the spreadsheet (or add missing venues in the Venues master) and re-upload. They will not be imported.
               </p>
             </div>
+          )}
+
+          {pending.records.length === 1 && (
+            <DayNoteField prompt={notePrompt(pending.records[0], history)} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
           )}
 
           <div className="flex items-center gap-2">

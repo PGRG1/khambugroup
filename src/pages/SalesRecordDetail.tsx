@@ -54,6 +54,16 @@ const SalesRecordDetail = () => {
     return () => { cancelled = true; };
   }, [id, getRecordById]);
 
+  // "Fix this day" from the Sales records panel opens straight into edit.
+  const autoEdit = useRef(false);
+  useEffect(() => {
+    if (autoEdit.current || !record || !canEdit) return;
+    if (new URLSearchParams(window.location.search).get("edit") === "1") {
+      autoEdit.current = true;
+      setDraft({ ...record }); setEditing(true);
+    }
+  }, [record, canEdit]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Loading record…</p></div>;
   }

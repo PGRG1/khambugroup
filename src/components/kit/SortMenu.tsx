@@ -1,0 +1,28 @@
+import { useState } from "react";
+import { Check, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import "./kit.css";
+
+/** Sort button stating the order in words, with a plain list. */
+export function SortMenu<K extends string>({ options, value, onChange }: { options: { key: K; label: string }[]; value: K; onChange: (k: K) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.key === value)?.label ?? "Sort";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className="kit kit-btn kit-btn-secondary" aria-label={`Sort: ${current}`}>
+          {current} <ChevronDown className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="kit kit-pop w-56 p-1.5" role="menu">
+        {options.map((o) => (
+          <button key={o.key} type="button" role="menuitemradio" aria-checked={o.key === value} className="kit-sort-row"
+            onClick={() => { onChange(o.key); setOpen(false); }}>
+            {o.label}
+            {o.key === value && <Check className="h-4 w-4" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}

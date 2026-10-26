@@ -43,6 +43,13 @@
       "when": 1793035180154,
       "tag": "0005_venue_seat_history_on_create",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793037244093,
+      "tag": "0006_sales_record_notes",
+      "breakpoints": true
     }
   ]
 }

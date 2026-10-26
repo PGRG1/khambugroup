@@ -20,7 +20,9 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface ReceiptScannerProps {
-  onSave: (record: SalesRecord, file?: File | null) => Promise<void>;
+  onSave: (record: SalesRecord, file?: File | null, note?: DayNote | null) => Promise<void>;
+  /** Earlier records, used to spot unusual days. */
+  history?: SalesRecord[];
   onClose: () => void;
   /** When supplied (e.g. a PDF/photo dropped on Upload Sales) extraction starts immediately. */
   initialFile?: File | null;
@@ -57,13 +59,19 @@ const fieldLabels: Record<string, string> = {
   cardTips: "Card Tips",
 };
 
+import { DayNoteField } from "@/components/sales/NoteComposer";
+import { notePrompt } from "@/utils/salesRecordChecks";
+import type { DayNote } from "@/components/dashboard/ManualInput";
+
 const emptyRecord: SalesRecord = {
   date: "", day: "", venue: "", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0, totalSales: 0,
   visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, deliveroo: 0, foodpanda: 0, keeta: 0, cardTips: 0,
 };
 
-const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) => {
+const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptScannerProps) => {
+  const [noteBody, setNoteBody] = useState("");
+  const [noteTag, setNoteTag] = useState<string | null>(null);
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
   const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
@@ -318,7 +326,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
     }
     setSaving(true);
     try {
-      await onSave(extractedData, originalFile);
+      await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null);
+      setNoteBody(""); setNoteTag(null);
       // Learn from corrections in the background — never blocks or prompts.
       const learning = scannedRef.current ? collectScanLearning(scannedRef.current, extractedData, scannedVenueRaw) : null;
       if (learning) {
@@ -615,6 +624,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile }: ReceiptScannerProps) =
           </div>
 
           </>)}
+
+          <DayNoteField prompt={notePrompt(extractedData, history)} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
 
           <div className="flex items-center gap-3 pt-2">
             <button
