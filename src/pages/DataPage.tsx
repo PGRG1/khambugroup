@@ -117,7 +117,7 @@ const DataPage = () => {
   const toIso = to ? isoDay(to) : today;
   const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
   const scopedPeriods = useMemo(
-    () => allPeriods.filter((p: any) => vs.includesId(p.venueId ?? p.venue_id)).map((p: any) => ({ id: p.id, name: p.name })),
+    () => allPeriods.filter((p: any) => p.isActive && !p.isRollupOnly && vs.includesId(p.venueId)).map((p: any) => ({ id: p.id, name: p.name })),
     [allPeriods, vs.includesId],
   );
   const periodNameOf = (id?: string | null) => (id ? allPeriods.find((p: any) => p.id === id)?.name : undefined);
