@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import "./kit.css";
 
 /** Filter button + popover. `resultLabel` names the outcome on the primary button ("Show 4 days"). */
-export function FilterPanel({ activeCount, resultLabel, onReset, children }: { activeCount: number; resultLabel: string; onReset: () => void; children: ReactNode }) {
+export function FilterPanel({ activeCount, resultLabel, onReset, children, width = 300 }: { activeCount: number; resultLabel?: string; onReset: () => void; children: ReactNode; width?: number }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -14,11 +14,11 @@ export function FilterPanel({ activeCount, resultLabel, onReset, children }: { a
           {activeCount > 0 && <span className="kit-bubble">{activeCount}</span>}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="kit kit-pop w-[300px] p-0 max-h-[70vh] overflow-y-auto">
+      <PopoverContent align="start" className="kit kit-pop p-0 max-h-[70vh] overflow-y-auto max-w-[calc(100vw-16px)]" style={{ width }}>
         <div className="p-4 space-y-4">{children}</div>
         <div className="flex items-center justify-between gap-2 px-4 py-3 kit-divider sticky bottom-0 bg-white">
           <button type="button" className="kit-link" onClick={onReset}>Reset</button>
-          <button type="button" className="kit-btn kit-btn-primary" onClick={() => setOpen(false)}>{resultLabel}</button>
+          {resultLabel && <button type="button" className="kit-btn kit-btn-primary" onClick={() => setOpen(false)}>{resultLabel}</button>}
         </div>
       </PopoverContent>
     </Popover>
