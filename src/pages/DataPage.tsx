@@ -112,7 +112,12 @@ const DataPage = () => {
     setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
     setPeriodName(period);
   };
-  const today = isoDay(new Date());
+  const [tenantTz, setTenantTz] = useState("Asia/Hong_Kong");
+  useEffect(() => {
+    if (!tenantId) return;
+    supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle().then(({ data }) => { if (data?.timezone) setTenantTz(data.timezone); });
+  }, [tenantId]);
+  const today = todayInTz(tenantTz);
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
   const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
@@ -220,6 +225,7 @@ const DataPage = () => {
           <div ref={dailyRef} className="scroll-mt-16">
             <DailyRecords
               records={periodRecords}
+              allRecords={scopedData}
               venues={vs.selectedVenues.map((v) => ({ id: v.id, name: v.name }))}
               from={fromIso} to={toIso} today={today}
               periodLabel={periodName} tenantName={tenantName}
