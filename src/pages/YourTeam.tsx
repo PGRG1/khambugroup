@@ -465,7 +465,7 @@ export default function YourTeam() {
                   </button>
                 )}
                 <Select onValueChange={(id) => vs.setScope([id])}>
-                  <SelectTrigger aria-label="Pick one venue" className="h-10 w-[200px] rounded-full border-white/20 bg-white/10 text-[13px] text-[#F2F7F4]">
+                  <SelectTrigger aria-label="Pick one venue" className="h-10 w-[200px] rounded-full bg-card text-[13px] text-foreground">
                     <SelectValue placeholder="Pick one venue" />
                   </SelectTrigger>
                   <SelectContent>

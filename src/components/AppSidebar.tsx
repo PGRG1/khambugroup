@@ -446,10 +446,10 @@ export function AppSidebar() {
         </div>
         {clientName && (
           <div className="bani-client-box flex items-center gap-2.5 px-2.5 py-2">
-            <div className="h-7 w-7 rounded-md bg-card text-[11px] font-semibold text-foreground flex items-center justify-center shrink-0 shadow-sm">
+            <div className="h-7 w-7 rounded-md bg-white text-[11px] font-semibold flex items-center justify-center shrink-0 shadow-sm">
               {initialsOf(clientName)}
             </div>
-            <div className="min-w-0 text-[13px] font-semibold text-sidebar-foreground truncate">{clientName}</div>
+            <div className="min-w-0 text-[13px] font-semibold truncate">{clientName}</div>
           </div>
         )}
         {isPlatformAdmin && isInsideClient && (
