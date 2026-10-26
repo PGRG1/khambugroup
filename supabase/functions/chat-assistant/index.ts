@@ -326,6 +326,47 @@ const openScannerTool = {
   },
 };
 
+// Real write: records venue closed days for the user, with their own permissions (RLS).
+const markClosedTool = {
+  type: "function",
+  function: {
+    name: "mark_venue_closed",
+    description:
+      "Record that a venue was CLOSED (did not trade) on specific dates, so those days stop showing as missing sales. Use when the user tells you a venue was closed or asks you to mark/book/record days as closed. If the venue or dates are unclear, ask first. Never use for days that have sales.",
+    parameters: {
+      type: "object",
+      properties: {
+        venue: { type: "string", description: "Venue name exactly as stored in this workspace." },
+        dates: { type: "array", items: { type: "string" }, description: "Dates YYYY-MM-DD (max 62)." },
+        reason: { type: "string", description: "Optional short reason the user gave." },
+      },
+      required: ["venue", "dates"],
+    },
+  },
+};
+
+async function markVenueClosed(args: any, tenantId: string, userId: string, authHeader: string) {
+  const venueName = typeof args.venue === "string" ? args.venue.trim() : "";
+  const dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
+  if (!venueName || !dates.length) return { ok: false, error: "Need a venue and at least one date." };
+  if (dates.length > 62) return { ok: false, error: "Too many dates at once (max 62)." };
+  const { data: venues } = await admin.from("venues").select("id,name").eq("tenant_id", tenantId);
+  const venue = (venues ?? []).find((v: any) => v.name.toLowerCase() === venueName.toLowerCase());
+  if (!venue) return { ok: false, error: `No venue called ${venueName}.`, venues: (venues ?? []).map((v: any) => v.name) };
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+  const reason = typeof args.reason === "string" ? args.reason.slice(0, 100) : null;
+  const { error } = await userClient.from("venue_closures").upsert(
+    dates.map((date) => ({ tenant_id: tenantId, venue_id: venue.id, date, reason, source: "your_team", created_by: userId })),
+    { onConflict: "venue_id,date" },
+  );
+  if (error) return { ok: false, error: "You don't have permission to mark this venue closed, or saving failed." };
+  await userClient.from("venue_closed_days").upsert(
+    dates.map((date) => ({ tenant_id: tenantId, venue_id: venue.id, date, reason, created_by: userId })),
+    { onConflict: "venue_id,date" },
+  );
+  return { ok: true, venue: venue.name, dates_marked_closed: dates.sort() };
+}
+
 // ---------- tool handlers ----------
 async function runTool(name: string, args: any, tenantId: string): Promise<any> {
   // Tenant-scoped fetchAll shortcut so we don't have to thread tenantId through every call site.
@@ -1138,7 +1179,7 @@ Deno.serve(async (req) => {
       if (voiceMode) conversation.splice(1, 0, { role: "system", content:
         "Conversational voice: understand the complete current utterance in the full preceding conversation before choosing direct response, clarification or tools. Reply directly to social/non-data conversation without data lookups. If a user disputes an answer without identifying what is wrong, first ask which figure, scope or assumption they mean, referencing the preceding answer. Do not automatically requery, apologize, concede an error or invent an explanation. For any ambiguous correction or business ask, ask a concise clarifying question rather than guessing the intended metric, venue or dates. Resolve short followups and corrections from prior turns when unambiguous, carrying unchanged scope forward and changing only the corrected part. Only call tools when the understood request needs records. Lead the final answer with 1–3 short natural spoken prose sentences, preserving exact figures, scope and important uncertainty; then keep the full accurate evidence-rich answer. No theatrical sounds or repeated Okay. Do not describe a lookup you have not requested." });
       const chartSpecs: any[] = [];
-      // Memoize identical read-only tool calls within this request.
+      // Memoize identical tool calls within this request.
       const toolCache = new Map<string, any>();
 
       // Models: try the primary first for better reasoning, fall back if it is rate-limited / out of credits / down
@@ -1190,7 +1231,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, openScannerTool, openSalesScannerTool] : tools, tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1266,7 +1307,10 @@ Deno.serve(async (req) => {
               emit({ status: step });
               speakFiller(tc.function.name);
               try {
-                result = await runTool(tc.function.name, args, tenantId);
+                result = tc.function.name === "mark_venue_closed"
+                  ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
+                  : await runTool(tc.function.name, args, tenantId);
+                if (tc.function.name === "mark_venue_closed" && result?.ok) emit({ action: { type: "closures_changed" } });
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
