@@ -1,17 +1,13 @@
-import { useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
-import { detailedTargetsPath, retainCurrentQuery, revenueSection } from "@/utils/revenueNavigation";
+import { retainCurrentQuery, revenueSection } from "@/utils/revenueNavigation";
 import { cn } from "@/lib/utils";
 
 export function RevenueNavigation() {
   const { pathname, search } = useLocation();
   const access = useRevenueNavigationAccess();
   const section = revenueSection(pathname);
-  const lastDetailedPath = useRef("/forecast/assembly");
-  const currentDetailedPath = detailedTargetsPath(pathname);
-  if (currentDetailedPath) lastDetailedPath.current = currentDetailedPath;
   const href = (path: string) => retainCurrentQuery(path, pathname, search);
   const primary = [
     { key: "overview", label: "Overview", path: "/revenue", allowed: access.revenue },
