@@ -227,6 +227,7 @@ const DataPage = () => {
             <DailyRecords
               records={periodRecords}
               allRecords={scopedData}
+              userId={user?.id}
               venues={vs.selectedVenues.map((v) => ({ id: v.id, name: v.name }))}
               from={fromIso} to={toIso} today={today}
               periodLabel={periodName} tenantName={tenantName}
