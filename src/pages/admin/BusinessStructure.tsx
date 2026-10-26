@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { PageHeader, KpiCard, KpiGrid, EmptyState } from "@/components/expenses/shared";
 import { useSeatHistory, type SeatHistoryEntry } from "@/hooks/useSeatHistory";
 import { VenueSeats } from "@/components/admin/VenueSeats";
+import { VenueClosureRules } from "@/components/admin/VenueClosureRules";
 
 type ServicePeriodCounts = Record<string, number>;
 
