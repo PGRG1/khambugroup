@@ -10746,6 +10746,108 @@ export type Database = {
           },
         ]
       }
+      venue_closure_rules: {
+        Row: {
+          created_at: string
+          created_by: string
+          end_date: string | null
+          id: string
+          reason: string | null
+          start_date: string
+          tenant_id: string
+          venue_id: string
+          weekday: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          id?: string
+          reason?: string | null
+          start_date: string
+          tenant_id: string
+          venue_id: string
+          weekday?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          id?: string
+          reason?: string | null
+          start_date?: string
+          tenant_id?: string
+          venue_id?: string
+          weekday?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_closure_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_closure_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_closures: {
+        Row: {
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          note: string | null
+          reason: string | null
+          source: string
+          tenant_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          date: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+          source?: string
+          tenant_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+          source?: string
+          tenant_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_closures_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_closures_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_memberships: {
         Row: {
           created_at: string
