@@ -19,6 +19,7 @@ import Assistant from "./pages/Assistant";
 import FinanceTeam from "./pages/FinanceTeam";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
+import YourTeam from "./pages/YourTeam";
 
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
@@ -239,7 +240,8 @@ function App() {
               <CrossTabTenantGuard />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+<Route path="/" element={<ProtectedRoute><YourTeam /></ProtectedRoute>} />
+                <Route path="/overview" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />

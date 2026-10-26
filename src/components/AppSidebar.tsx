@@ -35,7 +35,8 @@ import { isRevenueRoute, revenueLanding } from "@/utils/revenueNavigation";
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
 const navItems: (Item & { icon: any })[] = [
-  { title: "Launchpad", url: "/", icon: Home, pageKey: "home", end: true },
+  { title: "Your team", url: "/", icon: Users, pageKey: "home", end: true },
+  { title: "Overview", url: "/overview", icon: Home, pageKey: "home" },
   { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
