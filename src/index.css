@@ -607,7 +607,7 @@ html:not(.dark) body:has(.tenant-portal) :is([data-radix-popper-content-wrapper]
 }
 
 /* Sage-to-bone page background (light mode, all tenant pages except Bani AI). */
-html:not(.dark) .tenant-portal .app-bg-sage {
+html:not(.dark) .tenant-portal .app-shell.app-bg-sage {
   background: linear-gradient(180deg, #9FBDB2 0px, #C9DDD3 380px, #E9F0EC 900px, #F5F4F0 1400px) #F5F4F0;
   background-repeat: no-repeat;
   background-color: #F5F4F0;
@@ -623,9 +623,7 @@ html:not(.dark) .tenant-portal .app-bg-sage h1 .text-gradient-gold {
   -webkit-text-fill-color: hsl(var(--foreground));
 }
 html:not(.dark) .tenant-portal .app-bg-sage > div > div > :is(p, h2, h3, span).text-muted-foreground,
-html:not(.dark) .tenant-portal .app-bg-sage > div > div > div > :is(p, h2, h3, span).text-muted-foreground,
-html:not(.dark) .tenant-portal .app-bg-sage > div > main > div > :is(p, h2, h3, span).text-muted-foreground,
-html:not(.dark) .tenant-portal .app-bg-sage > div > main > div > div > :is(p, h2, h3, span).text-muted-foreground {
+html:not(.dark) .tenant-portal .app-bg-sage > div > div > div > :is(p, h2, h3, span).text-muted-foreground {
   color: hsl(175 25% 22%);
 }
 html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [data-sidebar="trigger"],
