@@ -353,6 +353,28 @@ async function markVenueClosed(args: any, tenantId: string, userId: string, auth
   const { data: venues } = await admin.from("venues").select("id,name").eq("tenant_id", tenantId);
   const venue = (venues ?? []).find((v: any) => v.name.toLowerCase() === venueName.toLowerCase());
   if (!venue) return { ok: false, error: `No venue called ${venueName}.`, venues: (venues ?? []).map((v: any) => v.name) };
+  // Safety check: never mark a day closed when sales are already saved for it.
+  const { data: existing, error: salesErr } = await admin
+    .from("sales_records")
+    .select("date,subtotal,service_charge,guests")
+    .eq("tenant_id", tenantId)
+    .eq("venue_id", venue.id)
+    .in("date", dates);
+  if (salesErr) return { ok: false, error: "Could not check existing sales for those days, so nothing was marked. Try again." };
+  if (existing && existing.length) {
+    const conflicts = existing.map((r: any) => ({
+      date: r.date,
+      total_revenue: Number(r.subtotal ?? 0) + Number(r.service_charge ?? 0),
+      guests: r.guests ?? null,
+    })).sort((a: any, b: any) => a.date.localeCompare(b.date));
+    return {
+      ok: false,
+      refused: true,
+      venue: venue.name,
+      days_with_saved_sales: conflicts,
+      note: "Nothing was marked. These days already have saved sales, so they cannot be marked closed. Tell the user plainly which days and amounts, and that if a record is wrong they must fix it on the Sales records page. Offer to mark only the remaining days (without sales) if they want.",
+    };
+  }
   const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
   const reason = typeof args.reason === "string" ? args.reason.slice(0, 100) : null;
   const { error } = await userClient.from("venue_closures").upsert(
