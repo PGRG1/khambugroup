@@ -1,7 +1,7 @@
 import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
-  Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
+  ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
   Settings, HandCoins, ArrowLeft,
 } from "lucide-react";
 
