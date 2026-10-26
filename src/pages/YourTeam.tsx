@@ -148,6 +148,8 @@ interface ThreadMsg {
   done?: boolean; // chips/confirm already handled
 }
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `m-${Date.now()}-${Math.random()}`);
+/** "sales records imported" → "sales record imported" when count is 1. */
+const workLabel = (label: string, count: number) => (count === 1 ? label.replace(/s (\w+)$/, " $1") : label);
 
 const KEYWORDS: [RegExp, Role][] = [
   [/sales|closed|guest|revenue|cover|trade|traded/i, "revenue"],
@@ -537,7 +539,7 @@ export default function YourTeam() {
                     {v.headline ? v.headline.value.display : "—"}
                   </p>
                   {v.headline && <p className="text-[11px] text-muted-foreground mt-0.5">{v.headline.note}</p>}
-                  {v.workDone[0] && <p className="mt-2 text-[12px] text-foreground/80">✓ {v.workDone[0].count} {v.workDone[0].label}</p>}
+                  {v.workDone[0] && <p className="mt-2 text-[12px] text-foreground/80">✓ {v.workDone[0].count} {workLabel(v.workDone[0].label, v.workDone[0].count)}</p>}
                   <div className="mt-3">
                     {openCount > 0
                       ? <span className="chip chip-warn">{openCount} thing{openCount === 1 ? "" : "s"} for you</span>
@@ -658,7 +660,7 @@ function Desk({ view, meta, thread, asking, onClose, onChip, onConfirm }: {
               <ul className="space-y-1">
                 {view.workDone.map((w) => (
                   <li key={w.label} className="text-[13px] flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-primary shrink-0" /> {w.count} {w.label}
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" /> {w.count} {workLabel(w.label, w.count)}
                   </li>
                 ))}
               </ul>
