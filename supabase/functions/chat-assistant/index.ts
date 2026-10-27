@@ -1095,6 +1095,45 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       };
     }
 
+    case "get_venue_closures": {
+      const from = typeof args.date_from === "string" ? args.date_from : "2000-01-01";
+      let to = typeof args.date_to === "string" ? args.date_to : "2100-01-01";
+      const maxTo = new Date(`${from}T00:00:00Z`); maxTo.setUTCDate(maxTo.getUTCDate() + 92);
+      const cap = maxTo.toISOString().slice(0, 10);
+      if (to > cap) to = cap;
+      const [venues, closures, rules] = await Promise.all([
+        fetchAll<any>("venues", "id,name"),
+        fetchAll<any>("venue_closures", "venue_id,date,reason", (q) => q.gte("date", from).lte("date", to)),
+        fetchAll<any>("venue_closure_rules", "venue_id,weekday,start_date,end_date,reason", (q) => q.lte("start_date", to)),
+      ]);
+      const nameOf = new Map(venues.map((v) => [v.id, v.name]));
+      const needle = typeof args.venue === "string" ? args.venue.trim().toLowerCase() : "";
+      const wanted = needle ? new Set(venues.filter((v) => v.name.toLowerCase() === needle).map((v) => v.id)) : null;
+      const byVenue = new Map<string, Set<string>>();
+      const add = (venueId: string, date: string) => {
+        if (wanted && !wanted.has(venueId)) return;
+        if (!byVenue.has(venueId)) byVenue.set(venueId, new Set());
+        byVenue.get(venueId)!.add(date);
+      };
+      for (const c of closures) add(c.venue_id, c.date);
+      for (const r of rules) {
+        for (let d = r.start_date > from ? r.start_date : from; d <= to && (!r.end_date || d <= r.end_date); ) {
+          const day = new Date(`${d}T00:00:00Z`).getUTCDay();
+          if (r.weekday == null ? !!r.end_date : day === r.weekday) add(r.venue_id, d);
+          const next = new Date(`${d}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+          d = next.toISOString().slice(0, 10);
+        }
+      }
+      return {
+        range: { from, to },
+        closed_days: [...byVenue.entries()].map(([vid, dates]) => ({
+          venue: nameOf.get(vid) ?? vid,
+          dates: [...dates].sort(),
+        })),
+        note: "These days are expected to have no sales. Never report them as missing sales.",
+      };
+    }
+
     case "compare_periods": {
       const [sales, invoices] = await Promise.all([
         fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,guests,orders"),
