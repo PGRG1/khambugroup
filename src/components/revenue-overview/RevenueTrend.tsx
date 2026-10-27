@@ -6,7 +6,7 @@ import {
   ComposedChart,
   Line,
   ReferenceDot,
-  ReferenceLine,
+  Scatter,
   Cell,
   ResponsiveContainer,
   Tooltip,
@@ -152,10 +152,10 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
             {view === "daily" ? "Each trading day" : "Each month"}
           </div>
         </div>
-        {avgDay > 0 && (
+        {showForecast && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Actual</span>
-            <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-muted-foreground" />Average day</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-foreground" />Projection</span>
           </div>
         )}
       </div>
@@ -192,14 +192,18 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
               <ReferenceDot x={marks.worst.label} y={marks.worst.revenue} r={0} ifOverflow="extendDomain"
                 label={(props: any) => <MarkLabel {...props} text={marks.worstText} color="hsl(var(--warning))" />} />
             )}
-            {avgDay > 0 && (
-              <ReferenceLine
-                y={avgDay}
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth={1.25}
-                strokeDasharray="4 3"
-                ifOverflow="extendDomain"
-                label={{ value: `Avg ${shortMoney(avgDay)}`, position: "insideTopRight", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            {showForecast && (
+              <Scatter
+                dataKey="forecast"
+                isAnimationActive={false}
+                shape={(props: any) => {
+                  if (props.payload?.forecast == null || props.cx == null || props.cy == null) return <g />;
+                  const w = Math.max(10, Math.min(40, (props.width ?? 24) + 6));
+                  return (
+                    <line x1={props.cx - w / 2} x2={props.cx + w / 2} y1={props.cy} y2={props.cy}
+                      stroke="hsl(var(--foreground))" strokeWidth={2} strokeLinecap="round" />
+                  );
+                }}
               />
             )}
           </ComposedChart>
