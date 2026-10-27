@@ -87,7 +87,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
   const [voiceMode, setVoiceMode] = useState(false);
   type VoiceOpts = { voice: boolean; voiceLanguage: string; onSpeak?: (s: SpeakEvent) => void; onStatus?: (label: string) => void };
-  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts }) => Promise<void>>(async () => {});
+  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => Promise<void>>(async () => {});
   const voice = useVoiceConversation({
     active: voiceMode,
     getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
