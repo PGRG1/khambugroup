@@ -1110,6 +1110,60 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       };
     }
 
+    case "get_missing_sales_days": {
+      const todayHk = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+      const yesterday = new Date(`${todayHk}T00:00:00Z`);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const to = yesterday.toISOString().slice(0, 10);
+      const [venues, sales, closures, rules] = await Promise.all([
+        fetchAll<any>("venues", "id,name", (q) => q.eq("is_active", true)),
+        fetchAll<any>("sales_records", "venue_id,date"),
+        fetchAll<any>("venue_closures", "venue_id,date"),
+        fetchAll<any>("venue_closure_rules", "venue_id,weekday,start_date,end_date", (q) => q.lte("start_date", to)),
+      ]);
+      const needle = typeof args.venue === "string" ? args.venue.trim().toLowerCase() : "";
+      const scopedVenues = needle ? venues.filter((v) => v.name.toLowerCase() === needle) : venues;
+      if (needle && !scopedVenues.length) return { error: `No venue called ${args.venue}.`, venues: venues.map((v) => v.name) };
+      const closedSet = new Set<string>();
+      for (const c of closures) closedSet.add(`${c.venue_id}|${c.date}`);
+      for (const r of rules) {
+        for (let d = r.start_date; d <= to && (!r.end_date || d <= r.end_date); ) {
+          const day = new Date(`${d}T00:00:00Z`).getUTCDay();
+          if (r.weekday == null ? !!r.end_date : day === r.weekday) closedSet.add(`${r.venue_id}|${d}`);
+          const next = new Date(`${d}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+          d = next.toISOString().slice(0, 10);
+        }
+      }
+      const salesByVenue = new Map<string, Set<string>>();
+      for (const s of sales) {
+        if (!salesByVenue.has(s.venue_id)) salesByVenue.set(s.venue_id, new Set());
+        salesByVenue.get(s.venue_id)!.add(s.date);
+      }
+      const fromFilter = typeof args.date_from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date_from) ? args.date_from : null;
+      const result = scopedVenues.map((v) => {
+        const days = salesByVenue.get(v.id) ?? new Set<string>();
+        if (!days.size) return { venue: v.name, missing_dates: [] as string[], note: "No sales recorded yet for this venue." };
+        let start = [...days].sort()[0];
+        if (fromFilter && fromFilter > start) start = fromFilter;
+        // Cap the scan at 92 days back from yesterday.
+        const capStart = new Date(`${to}T00:00:00Z`); capStart.setUTCDate(capStart.getUTCDate() - 92);
+        const capStr = capStart.toISOString().slice(0, 10);
+        if (start < capStr) start = capStr;
+        const missing: string[] = [];
+        for (let d = start; d <= to; ) {
+          if (!days.has(d) && !closedSet.has(`${v.id}|${d}`)) missing.push(d);
+          const next = new Date(`${d}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+          d = next.toISOString().slice(0, 10);
+        }
+        return { venue: v.name, missing_dates: missing };
+      });
+      return {
+        through: to,
+        venues: result,
+        note: "Days marked closed are excluded. 'Through' is yesterday in the workspace timezone — today is never counted as missing because it may still be trading.",
+      };
+    }
+
     case "get_venue_closures": {
       const from = typeof args.date_from === "string" ? args.date_from : "2000-01-01";
       let to = typeof args.date_to === "string" ? args.date_to : "2100-01-01";
