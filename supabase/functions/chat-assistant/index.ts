@@ -389,6 +389,117 @@ async function markVenueClosed(args: any, tenantId: string, userId: string, auth
   return { ok: true, venue: venue.name, dates_marked_closed: dates.sort() };
 }
 
+// Action cards: Bani proposes a concrete piece of work; nothing happens until
+// the user taps Confirm, which calls back into confirm_action below.
+const proposeActionTool = {
+  type: "function",
+  function: {
+    name: "propose_action",
+    description:
+      "Show the user an action card with Confirm and Cancel buttons for a concrete piece of work you can do or open for them. Use it when the user asks you to do something actionable (mark days closed, open a scanner) or when you proactively spot something that needs one-tap attention. Nothing happens until the user taps Confirm. Prefer this over just describing what they could do.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["mark_closed_days", "open_sales_scanner", "open_invoice_scanner"], description: "mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice." },
+        title: { type: "string", description: "Short card title, e.g. 'Mark Caliente closed on 1–5 Oct'." },
+        detail: { type: "string", description: "One line explaining exactly what Confirm will do." },
+        venue: { type: "string", description: "Venue name exactly as stored (required for mark_closed_days)." },
+        dates: { type: "array", items: { type: "string" }, description: "YYYY-MM-DD dates (required for mark_closed_days, max 62)." },
+        reason: { type: "string", description: "Optional short reason for the closure." },
+      },
+      required: ["kind", "title"],
+    },
+  },
+};
+
+async function proposeAction(args: any, tenantId: string, userId: string) {
+  const kind = typeof args.kind === "string" ? args.kind : "";
+  const title = typeof args.title === "string" ? args.title.trim().slice(0, 200) : "";
+  const detail = typeof args.detail === "string" ? args.detail.trim().slice(0, 500) : null;
+  if (!title || !["mark_closed_days", "open_sales_scanner", "open_invoice_scanner"].includes(kind)) {
+    return { ok: false, error: "Action card needs a valid kind and title." };
+  }
+  const payload: Record<string, unknown> = {};
+  if (kind === "mark_closed_days") {
+    const venueName = typeof args.venue === "string" ? args.venue.trim() : "";
+    const dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
+    if (!venueName || !dates.length) return { ok: false, error: "mark_closed_days needs a venue and at least one date." };
+    if (dates.length > 62) return { ok: false, error: "Too many dates at once (max 62)." };
+    const { data: venues } = await admin.from("venues").select("id,name").eq("tenant_id", tenantId);
+    const venue = (venues ?? []).find((v: any) => v.name.toLowerCase() === venueName.toLowerCase());
+    if (!venue) return { ok: false, error: `No venue called ${venueName}.`, venues: (venues ?? []).map((v: any) => v.name) };
+    // Same safety check as an immediate mark: never propose closing days that have saved sales.
+    const { data: existing, error: salesErr } = await admin
+      .from("sales_records").select("date,subtotal,service_charge,guests")
+      .eq("tenant_id", tenantId).eq("venue_id", venue.id).in("date", dates);
+    if (salesErr) return { ok: false, error: "Could not check existing sales for those days, so no card was created." };
+    if (existing && existing.length) {
+      return {
+        ok: false, refused: true, venue: venue.name,
+        days_with_saved_sales: existing.map((r: any) => ({ date: r.date, total_revenue: Number(r.subtotal ?? 0) + Number(r.service_charge ?? 0), guests: r.guests ?? null })).sort((a: any, b: any) => a.date.localeCompare(b.date)),
+        note: "No card was created. These days already have saved sales, so they cannot be marked closed. Tell the user plainly which days and amounts, and offer a card for only the remaining days if they want.",
+      };
+    }
+    payload.venue_id = venue.id;
+    payload.venue_name = venue.name;
+    payload.dates = dates.sort();
+    payload.reason = typeof args.reason === "string" ? args.reason.slice(0, 100) : null;
+  }
+  const { data: row, error } = await admin.from("bani_pending_actions").insert({
+    tenant_id: tenantId, user_id: userId, kind, title, detail, payload,
+  }).select("id").single();
+  if (error || !row) return { ok: false, error: "Could not create the action card." };
+  return { ok: true, action_id: (row as any).id, note: "Action card shown to the user. Tell them in one line what Confirm will do; do not claim it is done." };
+}
+
+// Confirm/cancel callback for action cards. Non-streaming JSON.
+async function confirmAction(body: any, tenantId: string, userId: string, authHeader: string) {
+  const id = typeof body?.action_id === "string" ? body.action_id : "";
+  const decision = body?.decision === "cancel" ? "cancel" : body?.decision === "confirm" ? "confirm" : null;
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !decision) return { status: 400, body: { error: "action_id and decision (confirm|cancel) are required." } };
+  const { data: row } = await admin.from("bani_pending_actions").select("*").eq("id", id).eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle();
+  if (!row) return { status: 404, body: { error: "That action card is no longer available." } };
+  const r = row as any;
+  if (r.status !== "pending") return { status: 409, body: { error: "That action was already handled." } };
+  if (new Date(r.expires_at).getTime() < Date.now()) {
+    await admin.from("bani_pending_actions").update({ status: "expired", resolved_at: new Date().toISOString() }).eq("id", id);
+    return { status: 410, body: { error: "That action card has expired — ask Bani again." } };
+  }
+  const resolve = (status: string) => admin.from("bani_pending_actions").update({ status, resolved_at: new Date().toISOString() }).eq("id", id);
+  if (decision === "cancel") {
+    await resolve("cancelled");
+    return { status: 200, body: { ok: true, message: "Cancelled — nothing was changed." } };
+  }
+  if (r.kind === "mark_closed_days") {
+    const p = r.payload as any;
+    const dates: string[] = Array.isArray(p.dates) ? p.dates : [];
+    // Re-check at confirm time: sales may have been saved since the card was proposed.
+    const { data: existing } = await admin.from("sales_records").select("date").eq("tenant_id", tenantId).eq("venue_id", p.venue_id).in("date", dates);
+    if (existing && existing.length) {
+      await resolve("cancelled");
+      return { status: 409, body: { error: `Sales were saved for ${existing.map((x: any) => x.date).join(", ")} since this card was made, so nothing was marked closed.` } };
+    }
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const reason = typeof p.reason === "string" ? p.reason : null;
+    const { error } = await userClient.from("venue_closures").upsert(
+      dates.map((date) => ({ tenant_id: tenantId, venue_id: p.venue_id, date, reason, source: "your_team", created_by: userId })),
+      { onConflict: "venue_id,date" },
+    );
+    if (error) return { status: 403, body: { error: "You don't have permission to mark this venue closed, or saving failed." } };
+    await userClient.from("venue_closed_days").upsert(
+      dates.map((date) => ({ tenant_id: tenantId, venue_id: p.venue_id, date, reason, created_by: userId })),
+      { onConflict: "venue_id,date" },
+    );
+    await resolve("confirmed");
+    return { status: 200, body: { ok: true, closures_changed: true, message: `Done — ${p.venue_name} is marked closed on ${dates.join(", ")}.` } };
+  }
+  if (r.kind === "open_sales_scanner" || r.kind === "open_invoice_scanner") {
+    await resolve("confirmed");
+    return { status: 200, body: { ok: true, navigate: r.kind === "open_sales_scanner" ? "/sales-data?view=daily" : "/procurement/invoices", message: "Opening it now." } };
+  }
+  return { status: 400, body: { error: "Unknown action kind." } };
+}
+
 // ---------- tool handlers ----------
 async function runTool(name: string, args: any, tenantId: string): Promise<any> {
   // Tenant-scoped fetchAll shortcut so we don't have to thread tenantId through every call site.
