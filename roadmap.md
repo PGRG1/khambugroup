@@ -1,4 +1,6 @@
-- [x] Align DailyRecords as a semantic, horizontally scrollable table.
-- [x] Add per-user saved optional columns.
-- [x] Apply first-sale and tenant-local missing-run rules and correct counts.
-- [x] Run rule tests and check desktop/mobile sales flows.
+# Roadmap: AI-native finance team + Bani
+
+- [ ] Auto-synthesize finance team review on Launchpad load (no "Get today's update" click)
+- [ ] Morning scheduled review via pg_cron → finance-team edge function
+- [ ] Bani chat action cards (mark closed days, open scanner, invoice alerts)
+- [ ] Proactive briefing: surface latest findings in chat on open
