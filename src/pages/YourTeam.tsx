@@ -278,6 +278,19 @@ export default function YourTeam() {
     else qc.invalidateQueries({ queryKey: ["yourteam", "review"] });
   };
 
+  // The team prepares today's update on its own: when the latest review is
+  // stale or missing, run it once per scope per day without waiting for a click.
+  // On failure the button stays as the manual retry.
+  const autoRanFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!tenantId || mixedScope || reviewQ.isLoading || !stale || running) return;
+    const key = `${tenantId}:${venueId ?? "all"}:${yesterdayStr}`;
+    if (autoRanFor.current === key) return;
+    autoRanFor.current = key;
+    void runUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, mixedScope, reviewQ.isLoading, stale, running, venueId, yesterdayStr]);
+
   // ---- desk thread helpers ----
   const pushMsg = useCallback((role: Role, msg: ThreadMsg) => {
     setThreads((t) => ({ ...t, [role]: [...(t[role] ?? []), msg] }));
@@ -551,12 +564,14 @@ export default function YourTeam() {
             <PixelAvatar seed={FD.seed} palette={FD.pal} size={56} />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Finance Director</p>
-              <p className="text-[21px] leading-snug mt-1">Your team hasn't looked at the books yet.</p>
-              <button onClick={runUpdate} disabled={running}
-                className="mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-medium bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50">
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Get today's update
-              </button>
+              <p className="text-[21px] leading-snug mt-1">{running ? "Your team is looking at the books now…" : "Your team hasn't looked at the books yet."}</p>
+              {!running && (
+                <button onClick={runUpdate} disabled={running}
+                  className="mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-medium bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50">
+                  <RefreshCw className="h-4 w-4" />
+                  Get today's update
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -569,11 +584,18 @@ export default function YourTeam() {
                   <p className="text-[12px] text-white/50">Keeps an eye on the whole business</p>
                 </div>
                 {stale && (
-                  <button onClick={runUpdate} disabled={running}
-                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50 shrink-0">
-                    {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    Get today's update
-                  </button>
+                  running ? (
+                    <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium bg-white/15 shrink-0">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Preparing today's update…
+                    </span>
+                  ) : (
+                    <button onClick={runUpdate} disabled={running}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50 shrink-0">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Get today's update
+                    </button>
+                  )
                 )}
               </div>
               <p className="text-[21px] leading-snug mt-2">{review.synthesis?.headline}</p>
