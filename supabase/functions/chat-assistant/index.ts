@@ -420,11 +420,16 @@ async function proposeAction(args: any, tenantId: string, userId: string) {
     return { ok: false, error: "Action card needs a valid kind and title." };
   }
   const payload: Record<string, unknown> = {};
+  let cardTitle = title;
   if (kind === "mark_closed_days") {
     const venueName = typeof args.venue === "string" ? args.venue.trim() : "";
     const dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
     if (!venueName || !dates.length) return { ok: false, error: "mark_closed_days needs a venue and at least one date." };
     if (dates.length > 62) return { ok: false, error: "Too many dates at once (max 62)." };
+    // Never today or the future: the day may still be trading.
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+    const pastDates = dates.filter((d) => d < today).sort();
+    if (!pastDates.length) return { ok: false, error: "Closed days can only be marked for yesterday or earlier — today may still be trading. Offer yesterday and earlier only." };
     const { data: venues } = await admin.from("venues").select("id,name").eq("tenant_id", tenantId);
     const venue = (venues ?? []).find((v: any) => v.name.toLowerCase() === venueName.toLowerCase());
     if (!venue) return { ok: false, error: `No venue called ${venueName}.`, venues: (venues ?? []).map((v: any) => v.name) };
@@ -442,14 +447,16 @@ async function proposeAction(args: any, tenantId: string, userId: string) {
     }
     payload.venue_id = venue.id;
     payload.venue_name = venue.name;
-    payload.dates = dates.sort();
+    payload.dates = pastDates;
     payload.reason = typeof args.reason === "string" ? args.reason.slice(0, 100) : null;
+    // The card title must match exactly what Confirm will do — one venue, these dates.
+    cardTitle = `Mark ${venue.name} closed: ${pastDates[0]}${pastDates.length > 1 ? ` to ${pastDates[pastDates.length - 1]}` : ""}${pastDates.length > 2 ? ` (${pastDates.length} days)` : ""}`;
   }
   const { data: row, error } = await admin.from("bani_pending_actions").insert({
-    tenant_id: tenantId, user_id: userId, kind, title, detail, payload,
+    tenant_id: tenantId, user_id: userId, kind, title: cardTitle, detail, payload,
   }).select("id").single();
   if (error || !row) return { ok: false, error: "Could not create the action card." };
-  return { ok: true, action_id: (row as any).id, note: "Action card shown to the user. Tell them in one line what Confirm will do; do not claim it is done." };
+  return { ok: true, action_id: (row as any).id, title: cardTitle, note: "Action card shown to the user. Tell them in one line what Confirm will do; do not claim it is done." };
 }
 
 // Confirm/cancel callback for action cards. Non-streaming JSON.
@@ -1450,7 +1457,7 @@ Deno.serve(async (req) => {
                     ? await proposeAction(args, tenantId, user!.id)
                     : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) emit({ action: { type: "closures_changed" } });
-                if (tc.function.name === "propose_action" && result?.ok) emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } });
+                if (tc.function.name === "propose_action" && result?.ok) emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } });
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
