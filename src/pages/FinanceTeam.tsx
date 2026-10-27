@@ -105,6 +105,7 @@ export default function FinanceTeam() {
       try { const ctx = await (error as any).context?.json?.(); if (ctx?.error) msg = ctx.error; } catch { /* keep */ }
     } else if ((data as any)?.error) msg = (data as any).error;
     if (msg) { setRunError(msg); await load(); return; }
+    if ((data as any)?.already_running) { toast({ title: "Already preparing", description: "Your team is already working on this review." }); await load(); return; }
     toast({ title: "Review ready", description: (data as any).ai_status === "ai" ? "Briefing prepared." : "Rule-based briefing prepared — see the note on AI status." });
     setSelectedId((data as any).review_id);
     setTab("briefing");
