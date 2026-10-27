@@ -289,6 +289,22 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "get_venue_closures",
+      description:
+        "Days each venue was marked CLOSED (single days plus recurring weekday/range rules) for a date range. ALWAYS check this before calling any day 'missing sales' — a closed day is expected to have no sales and must not be flagged as missing.",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string", description: "Venue name exactly as stored, or omit for all venues." },
+          date_from: { type: "string", description: "YYYY-MM-DD inclusive" },
+          date_to: { type: "string", description: "YYYY-MM-DD inclusive (max 92 days from date_from)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "compare_periods",
       description: "Period-over-period comparator. Computes revenue, total sales, invoice spend, cost-of-revenue %, guests, avg spend per guest for two date ranges and the deltas.",
       parameters: {
