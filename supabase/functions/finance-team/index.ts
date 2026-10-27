@@ -288,7 +288,7 @@ async function generateReview(admin: Admin, opts: { tenantId: string; venueId: s
     trigger_source: opts.trigger, generated_by: opts.userId, status: "running",
   }).select("id").single();
   if (insErr) {
-    if ((insErr as any).code === "23505") return { status: 409, body: { error: "A review for this venue and period is already running." } };
+    if ((insErr as any).code === "23505") return { status: 202, body: { already_running: true, message: "A review for this venue and period is already being prepared." } };
     return { status: 500, body: { error: insErr.message } };
   }
   const id = (row as any).id;
