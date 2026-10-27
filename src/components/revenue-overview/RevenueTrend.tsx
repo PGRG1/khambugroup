@@ -6,6 +6,7 @@ import {
   ComposedChart,
   Line,
   ReferenceDot,
+  ReferenceLine,
   Cell,
   ResponsiveContainer,
   Tooltip,
@@ -102,6 +103,13 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
     return { best: bw.best, worst: bw.worst, bestText: `Best · ${text(bw.best)}`, worstText: `Worst · ${text(bw.worst)}` };
   }, [markBestWorst, view, chartData]);
 
+  // Flat benchmark: average of days that actually traded (matches "Average day").
+  const avgDay = useMemo(() => {
+    if (view !== "daily") return 0;
+    const traded = chartData.filter((d) => d.revenue > 0);
+    return traded.length ? traded.reduce((s, d) => s + d.revenue, 0) / traded.length : 0;
+  }, [view, chartData]);
+
   const tooltipContent = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const point = payload[0]?.payload;
@@ -144,10 +152,10 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
             {view === "daily" ? "Each trading day" : "Each month"}
           </div>
         </div>
-        {showForecast && (
+        {avgDay > 0 && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Actual</span>
-            <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-muted-foreground" />Forecast</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-muted-foreground" />Average day</span>
           </div>
         )}
       </div>
@@ -184,16 +192,14 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
               <ReferenceDot x={marks.worst.label} y={marks.worst.revenue} r={0} ifOverflow="extendDomain"
                 label={(props: any) => <MarkLabel {...props} text={marks.worstText} color="hsl(var(--warning))" />} />
             )}
-            {showForecast && (
-              <Line
-                type="monotone"
-                dataKey="forecast"
+            {avgDay > 0 && (
+              <ReferenceLine
+                y={avgDay}
                 stroke="hsl(var(--muted-foreground))"
-                strokeWidth={1.5}
+                strokeWidth={1.25}
                 strokeDasharray="4 3"
-                dot={false}
-                activeDot={{ r: 3 }}
-                connectNulls={false}
+                ifOverflow="extendDomain"
+                label={{ value: `Avg ${shortMoney(avgDay)}`, position: "insideTopRight", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
               />
             )}
           </ComposedChart>
