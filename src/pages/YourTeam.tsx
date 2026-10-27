@@ -272,7 +272,22 @@ export default function YourTeam() {
   const runUpdate = async () => {
     if (!tenantId || running || mixedScope) return;
     setRunning(true);
-    const { error } = await supabase.functions.invoke("finance-team", { body: { mode: "run", tenant_id: tenantId, venue_id: venueId, review_type: "daily" } });
+    let error: any = null;
+    try {
+      ({ error } = await supabase.functions.invoke("finance-team", { body: { mode: "run", tenant_id: tenantId, venue_id: venueId, review_type: "daily" } }));
+    } catch (e) { error = e; }
+    // 409 = a review for this scope is already being prepared (morning job,
+    // another tab). That's not a failure: wait for it and pick up the result.
+    const status = (error as any)?.context?.status;
+    if (error && status === 409) {
+      setFdLine("Your team is already preparing today's update — it'll appear here shortly.");
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        await qc.invalidateQueries({ queryKey: ["yourteam", "review"] });
+      }
+      setRunning(false);
+      return;
+    }
     setRunning(false);
     if (error) setFdLine("I couldn't prepare today's update just now — try again in a moment.");
     else qc.invalidateQueries({ queryKey: ["yourteam", "review"] });
