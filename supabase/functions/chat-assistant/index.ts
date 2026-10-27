@@ -289,6 +289,21 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "get_missing_sales_days",
+      description:
+        "The authoritative list of MISSING sales days: for each venue, every day from its first recorded sale (or date_from) up to yesterday that has no sales record AND no closed mark. Use this whenever you need to know which days lack sales — never infer missing days from totals or aggregates. Days marked closed are excluded on purpose.",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string", description: "Venue name exactly as stored, or omit for all venues." },
+          date_from: { type: "string", description: "YYYY-MM-DD earliest day to consider (default: each venue's first recorded sale)." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_venue_closures",
       description:
         "Days each venue was marked CLOSED (single days plus recurring weekday/range rules) for a date range. ALWAYS check this before calling any day 'missing sales' — a closed day is expected to have no sales and must not be flagged as missing.",
