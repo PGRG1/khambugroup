@@ -9,7 +9,8 @@ export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: 
 
 type Host = { token: string; node: HTMLElement };
 export type BaniAttachment = { id: string; file: File; name: string; type: string; size: number; url?: string };
-export type BaniMessage = { role: "user" | "assistant"; content: string; files?: string[]; proposal?: DraftProposal; outcome?: string; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord };
+export type BaniActionCard = { id: string; kind: "mark_closed_days" | "open_sales_scanner" | "open_invoice_scanner"; title: string; detail?: string | null };
+export type BaniMessage = { role: "user" | "assistant"; content: string; files?: string[]; proposal?: DraftProposal; outcome?: string; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; hidden?: boolean };
 export type PageContext = { path: string; detail: string } | null;
 
 type S<T> = [T, Dispatch<SetStateAction<T>>];

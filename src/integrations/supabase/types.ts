@@ -608,6 +608,56 @@ export type Database = {
           },
         ]
       }
+      bani_pending_actions: {
+        Row: {
+          created_at: string
+          detail: string | null
+          expires_at: string
+          id: string
+          kind: string
+          payload: Json
+          resolved_at: string | null
+          status: string
+          tenant_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          expires_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          resolved_at?: string | null
+          status?: string
+          tenant_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          expires_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          resolved_at?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_pending_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_name: string

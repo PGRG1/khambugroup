@@ -21,7 +21,7 @@ import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestSca
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { useFloatingBaniStore, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
+import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 
 export type FloatingReview = {
   scope: string; binding: string; draftId: string; lineId: string; supplierId: string;
@@ -87,7 +87,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
   const [voiceMode, setVoiceMode] = useState(false);
   type VoiceOpts = { voice: boolean; voiceLanguage: string; onSpeak?: (s: SpeakEvent) => void; onStatus?: (label: string) => void };
-  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts }) => Promise<void>>(async () => {});
+  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => Promise<void>>(async () => {});
   const voice = useVoiceConversation({
     active: voiceMode,
     getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
@@ -145,6 +145,22 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const openedAt = useRef(0);
   useEffect(() => { if (open) openedAt.current = performance.now(); if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
   useEffect(() => () => voiceEndRef.current(), []);
+
+  // Proactive briefing: the first time Bani is opened each day with an empty
+  // conversation, it briefs you on what needs attention — no prompt needed.
+  // (Hooks must stay above the early return below.)
+  const briefedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!allowed || !open || hidden || busy || messages.length || review || salesDraft || !session || !tenantId) return;
+    const key = `${identity}:${new Date().toISOString().slice(0, 10)}`;
+    if (briefedFor.current === key) return;
+    briefedFor.current = key;
+    void sendRef.current({
+      text: "Morning briefing: look over the workspace and tell me, in 3–5 short bullets, what needs my attention today — missing sales days, figures that don't add up, supplier price moves, bills due. Lead with the most urgent. If you spot something I can fix with one tap, attach an action card for it. If nothing needs attention, say so in one line.",
+      opts: { voice: false, voiceLanguage: "en" },
+      hidden: true,
+    }).catch(() => {});
+  }, [allowed, open, hidden, busy, messages.length, review, salesDraft, session, tenantId, identity]);
 
   if (!allowed || (!hosted && host)) return null;
   // Visual only: the team is the default; specialists appear only while working on a question.
@@ -210,7 +226,28 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     navigate("/sales-data?view=daily");
   };
 
-  const send = async (turn?: { text: string; opts: VoiceOpts }) => {
+  // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
+  const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel") => {
+    if (!session || !tenantId) return;
+    const setOutcome = (text: string) => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m));
+    setOutcome(decision === "confirm" ? "Working on it…" : "Cancelled");
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantId, action_id: card.id, decision }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setOutcome(body.error || "That didn't go through — ask Bani again."); return; }
+      setOutcome(body.message || (decision === "confirm" ? "Done" : "Cancelled"));
+      if (body.closures_changed) { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
+      if (decision === "confirm" && typeof body.navigate === "string") navigate(body.navigate);
+    } catch {
+      setOutcome("That didn't go through — ask Bani again.");
+    }
+  };
+
+  const send = async (turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => {
     const typed = turn ? turn.text.trim() : draft.trim();
     const attached = filesRef.current;
     if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn)) {
@@ -227,7 +264,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
-    setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError("");
@@ -270,6 +307,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
       let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
       let salesAction: { files: string[] } | null = null;
+      let actionCard: BaniActionCard | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -283,6 +321,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
           if (event.action?.type === "closures_changed") { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
+          if (event.action?.type === "action_card" && typeof event.action.action_id === "string") actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null };
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
@@ -290,12 +329,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
-        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined }]);
+        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}) }]);
         if (action) runScannerAction(action, attached);
         else if (salesAction) runSalesAction(salesAction, attached);
       }
     } catch (e) {
-      if (turn) { if (!controller.signal.aborted) setMessages(prev => prev.slice(0, -1)); throw e; }
+      if (turn) { if (!controller.signal.aborted && !turn.hidden) setMessages(prev => prev.slice(0, -1)); throw e; }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) { restore(); setError(e instanceof Error ? e.message : "Bani could not reply."); }
     } finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
   };
@@ -450,6 +489,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 <button type="button" className="floating-bani-dismiss" onClick={() => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: "Dismissed" } : m))}>Dismiss</button>
               </div>}
               {!message.outcome && message.proposal.binding !== binding && <p className="floating-bani-change-reason">Review changed — ask Bani again</p>}
+            </div>}
+            {message.actionCard && <div className="floating-bani-change">
+              <p className="floating-bani-change-target">{message.actionCard.title}</p>
+              {message.actionCard.detail && <p className="floating-bani-change-reason">{message.actionCard.detail}</p>}
+              {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
+                <button type="button" className="floating-bani-apply" onClick={() => void confirmCard(index, message.actionCard!, "confirm")}>Confirm</button>
+                <button type="button" className="floating-bani-dismiss" onClick={() => void confirmCard(index, message.actionCard!, "cancel")}>Cancel</button>
+              </div>}
             </div>}
           </div>)}
           {busy && <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>}

@@ -57,6 +57,13 @@
       "when": 1793055955176,
       "tag": "0007_venue_closures",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793060617107,
+      "tag": "0008_bani_pending_actions",
+      "breakpoints": true
     }
   ]
 }
