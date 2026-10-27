@@ -1231,6 +1231,10 @@ Deno.serve(async (req) => {
       ]);
       if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    if (body.action_id !== undefined) {
+      const r = await confirmAction(body, tenantId, user!.id, req.headers.get("Authorization") ?? "");
+      return new Response(JSON.stringify(r.body), { status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (body.sales_review !== undefined) {
       if (JSON.stringify(body.sales_review).length > 6000) return new Response(JSON.stringify({ error: "Receipt draft is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const { data: rev } = await admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user!.id).eq("page_key", "revenue").maybeSingle();
@@ -1364,7 +1368,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool], tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, proposeActionTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool, proposeActionTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1442,8 +1446,11 @@ Deno.serve(async (req) => {
               try {
                 result = tc.function.name === "mark_venue_closed"
                   ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
-                  : await runTool(tc.function.name, args, tenantId);
+                  : tc.function.name === "propose_action"
+                    ? await proposeAction(args, tenantId, user!.id)
+                    : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) emit({ action: { type: "closures_changed" } });
+                if (tc.function.name === "propose_action" && result?.ok) emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } });
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
