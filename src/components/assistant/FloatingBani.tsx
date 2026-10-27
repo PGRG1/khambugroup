@@ -210,7 +210,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     navigate("/sales-data?view=daily");
   };
 
-  const send = async (turn?: { text: string; opts: VoiceOpts }) => {
+  const send = async (turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => {
     const typed = turn ? turn.text.trim() : draft.trim();
     const attached = filesRef.current;
     if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn)) {
@@ -227,7 +227,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
-    setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError("");
