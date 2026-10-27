@@ -1340,6 +1340,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+
+    // Action-card confirm/cancel: no chat messages involved, handle before chat validation.
+    if (body && body.action_id !== undefined) {
+      const actionTenant = typeof body.tenant_id === "string" ? body.tenant_id.trim() : "";
+      const resolvedAction = actionTenant ? await resolveTenant(admin, user!.id, actionTenant) : null;
+      if (!resolvedAction) {
+        return new Response(JSON.stringify({ error: "Forbidden: no tenant access" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const r = await confirmAction(body, resolvedAction.tenant_id, user!.id, req.headers.get("Authorization") ?? "");
+      return new Response(JSON.stringify(r.body), { status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Client input is untrusted data: only user/assistant roles, bounded lengths.
     const validated = validateChatRequest(body);
     if (!validated.ok) {
