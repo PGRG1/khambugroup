@@ -1379,10 +1379,6 @@ Deno.serve(async (req) => {
       ]);
       if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (body.action_id !== undefined) {
-      const r = await confirmAction(body, tenantId, user!.id, req.headers.get("Authorization") ?? "");
-      return new Response(JSON.stringify(r.body), { status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
     if (body.sales_review !== undefined) {
       if (JSON.stringify(body.sales_review).length > 6000) return new Response(JSON.stringify({ error: "Receipt draft is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const { data: rev } = await admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user!.id).eq("page_key", "revenue").maybeSingle();
