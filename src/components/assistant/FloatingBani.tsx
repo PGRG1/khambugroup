@@ -325,6 +325,21 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   sendRef.current = send;
 
+  // Proactive briefing: the first time Bani is opened each day with an empty
+  // conversation, it briefs you on what needs attention — no prompt needed.
+  const briefedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || hidden || busy || messages.length || review || salesDraft || !session || !tenantId) return;
+    const key = `${identity}:${new Date().toISOString().slice(0, 10)}`;
+    if (briefedFor.current === key) return;
+    briefedFor.current = key;
+    void sendRef.current({
+      text: "Morning briefing: look over the workspace and tell me, in 3–5 short bullets, what needs my attention today — missing sales days, figures that don't add up, supplier price moves, bills due. Lead with the most urgent. If you spot something I can fix with one tap, attach an action card for it. If nothing needs attention, say so in one line.",
+      opts: { voice: false, voiceLanguage: "en" },
+      hidden: true,
+    }).catch(() => {});
+  }, [open, hidden, busy, messages.length, review, salesDraft, session, tenantId, identity]);
+
   // Sphere: tap opens; moving past the slop drags it immediately (direct DOM, no React per frame).
   // Release springs to the nearest side edge with carried velocity; near the × it is pulled in.
   const dismissCentre = () => ({ x: window.innerWidth / 2, y: window.innerHeight - 72 });
