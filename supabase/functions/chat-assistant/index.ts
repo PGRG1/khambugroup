@@ -350,6 +350,11 @@ async function markVenueClosed(args: any, tenantId: string, userId: string, auth
   const dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
   if (!venueName || !dates.length) return { ok: false, error: "Need a venue and at least one date." };
   if (dates.length > 62) return { ok: false, error: "Too many dates at once (max 62)." };
+  // Never today or the future: the day may still be trading.
+  const todayHk = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+  const pastOnly = dates.filter((d) => d < todayHk);
+  if (!pastOnly.length) return { ok: false, error: "Closed days can only be marked for yesterday or earlier — today may still be trading." };
+  if (pastOnly.length < dates.length) dates = pastOnly;
   const { data: venues } = await admin.from("venues").select("id,name").eq("tenant_id", tenantId);
   const venue = (venues ?? []).find((v: any) => v.name.toLowerCase() === venueName.toLowerCase());
   if (!venue) return { ok: false, error: `No venue called ${venueName}.`, venues: (venues ?? []).map((v: any) => v.name) };
