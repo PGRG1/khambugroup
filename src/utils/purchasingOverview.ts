@@ -118,9 +118,8 @@ export function isBudgetableCategory(name: string): boolean {
 
 /**
  * Total budget in force at the end of each day of `month`, rebuilt from the
- * change log so the chart steps on the day a budget was raised or lowered.
- * Categories with no change this month use their current amount; categories
- * first changed this month use the earliest change's old_amount before it.
+ * change log. First sets and changes outside the month apply to the whole
+ * month; subsequent in-month changes step on their Hong Kong calendar day.
  */
 export function budgetByDay(month: string, changes: BudgetChangeRow[], current: Map<string, number>): number[] {
   const days = daysInMonth(month);
@@ -132,17 +131,21 @@ export function budgetByDay(month: string, changes: BudgetChangeRow[], current: 
     byCategory.set(key, list);
   });
   byCategory.forEach(list => list.sort((a, b) => a.changed_at.localeCompare(b.changed_at)));
-  return Array.from({ length: days }, (_, i) => {
-    const date = `${month}-${String(i + 1).padStart(2, "0")}`;
-    const changedCategories = new Set([...byCategory.values()].map(list => list[0].category));
-    let total = [...current].filter(([category]) => !changedCategories.has(category)).reduce((sum, [, amount]) => sum + amount, 0);
-    byCategory.forEach(list => {
-      const inForce = list.filter(row => hongKongDate(row.changed_at) <= date);
-      const amount = inForce.length ? Number(inForce[inForce.length - 1].new_amount) : Number(list[0].old_amount ?? 0);
-      total += amount;
+  // Remove only each changed venue's current contribution, preserving other
+  // venues with the same category and no history in the supplied log.
+  let unchanged = [...current.values()].reduce((sum, amount) => sum + Number(amount), 0);
+  byCategory.forEach(list => { unchanged -= Number(list[list.length - 1].new_amount); });
+  const totals = Array<number>(days).fill(unchanged);
+  byCategory.forEach(list => {
+    const values = Array<number>(days).fill(Number(list[0].old_amount ?? list[0].new_amount));
+    list.forEach(row => {
+      const date = hongKongDate(row.changed_at);
+      const start = row.old_amount == null || date.slice(0, 7) !== month ? 0 : Number(date.slice(8, 10)) - 1;
+      values.fill(Number(row.new_amount), start);
     });
-    return total;
+    values.forEach((amount, i) => { totals[i] += amount; });
   });
+  return totals;
 }
 
 /** Suggested budgets: scale current amounts by actual/expected sales, rounded to 100. */
