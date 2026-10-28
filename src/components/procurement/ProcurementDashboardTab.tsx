@@ -126,7 +126,7 @@ export default function ProcurementDashboardTab() {
     const revenueValue = sumRevenue((previous ? sales : currentSales).filter(row => row.date.startsWith(date)));
     return { date, label: monthLabel(date), spend: spendValue, pct: percentage(spendValue, revenueValue) };
   });
-  const lastRatioIndex = combinedRows.findLastIndex(row => row.pct != null);
+  const lastRatioIndex = combinedRows.reduce((last, row, index) => row.pct != null ? index : last, -1);
   const visibleItems = items.filter(row => row.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => {
     if (sort.key === "change" && a.change == null && b.change == null) return a.name.localeCompare(b.name);
     if (sort.key === "change" && a.change == null) return 1;
