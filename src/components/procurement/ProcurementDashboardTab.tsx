@@ -19,6 +19,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useVenues } from "@/hooks/useVenues";
 import { useVenueScope } from "@/hooks/useVenueScope";
+import { usePurchasingMode } from "@/hooks/usePurchasingMode";
+import { purchasingOverviewRows } from "@/utils/purchasingMode";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SectionHeader } from "@/components/revenue-overview/SectionHeader";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import {
@@ -180,46 +183,49 @@ function KpiCard({ label, value, subline, tone = "default", delta, deltaTone = "
 }
 
 // ─── Data hooks ───
-function usePhase1() {
+function usePhase1(tenantId: string | null) {
   const invoicesQ = useQuery({
-    queryKey: ["proc-dash", "invoices"],
+    queryKey: ["proc-dash", "invoices", tenantId],
+    enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => (await fetchAllRows(
       "invoices",
       "id, supplier_id, invoice_date, invoice_number, total_amount, discount, discount_type, payment_status, status, venue",
-      { col: "invoice_date", asc: false }
+      { col: "invoice_date", asc: false }, tenantId
     )) as InvoiceRow[],
   });
   const suppliersQ = useQuery({
-    queryKey: ["proc-dash", "suppliers"],
+    queryKey: ["proc-dash", "suppliers", tenantId],
+    enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => (await fetchAllRows("suppliers", "id, name", { col: "name", asc: true })) as SupplierRow[],
+    queryFn: async () => (await fetchAllRows("suppliers", "id, name", { col: "name", asc: true }, tenantId)) as SupplierRow[],
   });
   const salesQ = useQuery({
-    queryKey: ["proc-dash", "sales-records", "v2"],
+    queryKey: ["proc-dash", "sales-records", "v2", tenantId],
+    enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => (await fetchAllRows("sales_records", "date, total_sales, venue")) as unknown as SalesRow[],
+    queryFn: async () => (await fetchAllRows("sales_records", "date, total_sales, venue", undefined, tenantId)) as unknown as SalesRow[],
   });
   return { invoicesQ, suppliersQ, salesQ };
 }
 
-function usePhase2(enabled: boolean) {
+function usePhase2(enabled: boolean, tenantId: string | null) {
   const liQ = useQuery({
-    queryKey: ["proc-dash", "line-items"],
+    queryKey: ["proc-dash", "line-items", tenantId],
     enabled,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => (await fetchAllRows(
       "invoice_line_items",
-      "invoice_id, description, unit_price, total, product_master_id"
+      "invoice_id, description, unit_price, total, product_master_id", undefined, tenantId
     )) as LineItemRow[],
   });
   const pmQ = useQuery({
-    queryKey: ["proc-dash", "product-master"],
+    queryKey: ["proc-dash", "product-master", tenantId],
     enabled,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => (await fetchAllRows(
       "product_master",
-      "id, level1_category, level2_category, level3_category, internal_product_name"
+      "id, level1_category, level2_category, level3_category, internal_product_name", undefined, tenantId
     )) as unknown as PMCategory[],
   });
   return { liQ, pmQ };
@@ -233,9 +239,10 @@ function pctDelta(cur: number, prev: number): number | null {
 export default function ProcurementDashboardTab() {
   const navigate = useNavigate();
   const { venues: dbVenues } = useVenues();
-  const { invoicesQ, suppliersQ, salesQ } = usePhase1();
-  const phase1Ready = invoicesQ.isSuccess && suppliersQ.isSuccess && salesQ.isSuccess;
-  const { liQ, pmQ } = usePhase2(phase1Ready);
+  const purchasing = usePurchasingMode();
+  const { invoicesQ, suppliersQ, salesQ } = usePhase1(purchasing.tenantId);
+  const phase1Ready = purchasing.isSuccess && invoicesQ.isSuccess && suppliersQ.isSuccess && salesQ.isSuccess;
+  const { liQ, pmQ } = usePhase2(phase1Ready, purchasing.tenantId);
   const phase2Ready = liQ.isSuccess && pmQ.isSuccess;
 
   const invoicesAll = invoicesQ.data ?? [];
@@ -245,7 +252,7 @@ export default function ProcurementDashboardTab() {
   const pmCategories = pmQ.data ?? [];
 
   const vs = useVenueScope();
-  const venue = vs.label;
+  const venue = purchasing.mode === "central" ? "Whole group" : vs.label;
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -261,8 +268,8 @@ export default function ProcurementDashboardTab() {
       return next;
     });
 
-  const invoices = useMemo(() => invoicesAll.filter(i => vs.includesName(i.venue)), [invoicesAll, vs.includesName]);
-  const salesRecords = useMemo(() => salesRecordsAll.filter(s => vs.includesName(s.venue)), [salesRecordsAll, vs.includesName]);
+  const invoices = useMemo(() => purchasingOverviewRows(invoicesAll, purchasing.mode, vs.includesName), [invoicesAll, purchasing.mode, vs.includesName]);
+  const salesRecords = useMemo(() => purchasingOverviewRows(salesRecordsAll, purchasing.mode, vs.includesName), [salesRecordsAll, purchasing.mode, vs.includesName]);
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
   const pmMap = useMemo(() => new Map(pmCategories.map(p => [p.id, p])), [pmCategories]);
@@ -692,10 +699,16 @@ export default function ProcurementDashboardTab() {
       : "Custom Range";
   const scopeLine = `Showing ${venue} · ${periodSummary} · ${kpis.count.toLocaleString()} invoices`;
 
+  if (purchasing.isError) return <div className="text-sm text-muted-foreground mt-4">Could not load purchasing settings. Please reload to try again.</div>;
   if (!phase1Ready) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-4 mt-4">
+      {purchasing.mode === "central" && (
+        <Alert className="border-info/40 bg-info/5">
+          <AlertDescription>{purchasing.tenantName} buys centrally. Figures are for the whole group; picking a venue in the top bar doesn't split purchasing.</AlertDescription>
+        </Alert>
+      )}
       {/* Filter bar */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         {/* Period (right) */}

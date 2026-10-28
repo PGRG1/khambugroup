@@ -6,6 +6,10 @@
  * counting locations, etc.).
  */
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePurchasingMode } from "@/hooks/usePurchasingMode";
+import { resolvePurchasingMode } from "@/utils/purchasingMode";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Navigate } from "react-router-dom";
 import { Sparkles, Plus, Pencil, Trash2, Check, X, ClipboardCheck, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -116,6 +120,9 @@ const REF_MODES = [
 
 function ProcurementCard() {
   const { tenantId } = useActiveTenant();
+  const purchasing = usePurchasingMode();
+  const queryClient = useQueryClient();
+  const [savingPurchasing, setSavingPurchasing] = useState(false);
   const [refMode, setRefMode] = useState<string>("last_count");
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [activeVenue, setActiveVenue] = useState<string>("Assembly");
@@ -143,6 +150,20 @@ function ProcurementCard() {
     setRefMode(value);
     const { error } = await supabase.from("app_config").upsert({ tenant_id: tenantId, key: "stock_count_reference_mode", value: value as any }, { onConflict: "tenant_id,key" });
     if (error) toast.error(error.message);
+  };
+
+  const savePurchasingMode = async (value: string) => {
+    if (!tenantId) return;
+    setSavingPurchasing(true);
+    try {
+      const { error } = await supabase.from("app_config").upsert({ tenant_id: tenantId, key: "purchasing_mode", value: resolvePurchasingMode(value) }, { onConflict: "tenant_id,key" });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["purchasing-mode", tenantId] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save How you buy");
+    } finally {
+      setSavingPurchasing(false);
+    }
   };
 
   const venueLocations = locations.filter((l) => l.venue === activeVenue).sort((a, b) => a.sort_order - b.sort_order);
@@ -188,6 +209,25 @@ function ProcurementCard() {
         </div>
       </div>
       <div className="p-5 space-y-5">
+        <div>
+          <div id="purchasing-mode-label" className="text-sm font-medium mb-3">How you buy</div>
+          <RadioGroup aria-labelledby="purchasing-mode-label" value={purchasing.mode} onValueChange={savePurchasingMode} disabled={savingPurchasing || !purchasing.isSuccess}>
+            {[
+              { value: "by_venue", title: "Each venue buys for itself", desc: "Purchasing is shown per venue, using the venue on each invoice." },
+              { value: "central", title: "Bought centrally", desc: "One kitchen or buying team supplies several venues (for example a restaurant group in one building). Purchasing is shown for the whole group." },
+            ].map(opt => (
+              <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${purchasing.mode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+                <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium">{opt.title}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+          {purchasing.isError && <div className="text-xs text-destructive mt-2">Could not load How you buy. Please reload to try again.</div>}
+        </div>
+        <Separator/>
         <div>
           <div className="text-sm font-medium">Stock count reference quantity</div>
           <div className="text-xs text-muted-foreground mb-3">Controls what counters see alongside each item.</div>
