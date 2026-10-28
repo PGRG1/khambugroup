@@ -24,3 +24,9 @@ Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COG
 - [x] Verify live navigation at 1280px/375px and rail highlighting; 20 route/access tests pass, including previewed admin/non-admin rules (preview switching not exercised live).
 - [x] Follow-up: direct section links below Revenue, desktop contextual children, mobile section bars, and correct Spend Summary/Supplier Pricing visibility.
 - [x] Updated navigation tests: 16 passed in isolated node environment (default runner blocked by missing canvas binding); signed-in 1280px/375px section navigation and rail order verified without page errors. Previewed access covered by tests, not live switching.
+
+## Purchasing budgets
+- [x] purchasing_budgets + append-only purchasing_budget_changes (tenant RLS: members read, admins write), migration 0009 applied.
+- [x] Pure pace/budget math in purchasingOverview.ts (usualPace median of last ≤6 complete months, ≥3 else even; budgetByDay steps on change day; suggestions scaled by actual/expected sales, rounded to 100); 8 new tests, 43 pass.
+- [x] Overview UI: admin Budgets button, status line, KPI progress, sales-vs-forecast note, stepped budget line in pace chart, Categories against budget, full edit/history dialog.
+- [x] Verified signed-in at 1280px/375px: September without budgets unchanged, with budgets all elements render, no horizontal scroll; test rows removed after check. Sales note path untested live (September has no revenue target).
