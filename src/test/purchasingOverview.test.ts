@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultInvoiceMonth, trailingMonths } from "@/components/procurement/purchasingOverviewPresentation";
+import { budgetBarScale, rankedBudgetCategories, defaultInvoiceMonth, trailingMonths } from "@/components/procurement/purchasingOverviewPresentation";
 import { previousCalendarMonth, periodIncludes, itemRanking, categoryRanking, monthPace, budgetByDay, suggestBudgets, isBudgetableCategory, hongKongDate, purchasingSalesForecast, type OverviewInvoice, type OverviewLine, type OverviewProduct, type BudgetChangeRow } from "@/utils/purchasingOverview";
 const invoice = (id: string, date: string, amount = 100, discount = 0): OverviewInvoice => ({ id, invoice_date: date, total_amount: amount, discount, supplier_id: "supplier", venue: "Assembly", created_at: date, review_status: null, has_disputes: false });
 const line = (id: string, price: number, unit: string, total = 100): OverviewLine => ({ invoice_id: "invoice", product_master_id: id, total, unit_price: price, quantity: 1, unit });
@@ -24,6 +24,20 @@ describe("Purchasing Overview rules", () => {
   it("starts the cumulative revenue percentage at day 3 and stops current data at cutoff", () => { const rows = monthPace("2026-10", [invoice("i", "2026-10-01")], [{ date: "2026-10-01", total_sales: 500, venue: "Assembly" }], 3); expect(rows[0].pct).toBeNull(); expect(rows[1].pct).toBeNull(); expect(rows[2].pct).toBe(20); expect(rows[3].spend).toBeNull(); });
 });
 describe("Purchasing budgets", () => {
+  it("positions the budget at its monetary amount, not the month end", () => {
+    const scale = budgetBarScale([42045, 50000]);
+    expect(42045 / scale).toBeCloseTo(0.7644545);
+    expect(50000 / scale).toBeCloseTo(0.9090909);
+    const overScale = budgetBarScale([60000, 50000]);
+    expect(50000 / overScale).toBeCloseTo(0.7575757);
+    expect(60000 / overScale).toBeGreaterThan(50000 / overScale);
+  });
+  it("ranks all category spend including amounts without budgets", () => {
+    const rows = rankedBudgetCategories([{ name: "Food", value: 42045 }, { name: "Supplies", value: 60000 }, { name: "Discount / Refund", value: -10 }], new Map([["Food", 50000], ["Beverages", 10000]]));
+    expect(rows).toEqual([{ name: "Supplies", value: 60000, budget: null }, { name: "Food", value: 42045, budget: 50000 }, { name: "Beverages", value: 0, budget: 10000 }]);
+    const scale = budgetBarScale(rows.flatMap(row => [row.value, row.budget ?? 0]));
+    expect(rows[0].value / scale).toBeGreaterThan(rows[1].value / scale);
+  });
   const change = (category: string, oldAmount: number | null, newAmount: number, at: string): BudgetChangeRow => ({ id: at, venue_id: null, month: "2026-10-01", category, old_amount: oldAmount, new_amount: newAmount, reason: null, changed_by: null, changed_at: at });
   it("steps the budget line on the day a change was made", () => {
     const current = new Map([["Food", 26000]]);
