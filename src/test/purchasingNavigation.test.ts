@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canOpenPurchasingTab, isStockMenuRoute, purchasingParentPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
+import { canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPages, purchasingSectionPagesForPath, purchasingTabsForPath, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 
 describe("Purchasing route families", () => {
   it("keeps Invoices highlighted for all invoice tabs", () => {
@@ -47,5 +47,37 @@ describe("Purchasing navigation access", () => {
   });
   it("preserves the signed-in admin bypass outside preview", () => {
     expect(canOpenPurchasingTab(standard, { ...access, isAdmin: true, canAccessInvoices: false })).toBe(true);
+  });
+  it("shows Spend Summary to users with invoices access but not Purchase Analysis", () => {
+    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, access)).map(tab => tab.url)).toEqual(["/procurement/finance/spend"]);
+    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, { ...access, canAccessInvoices: false }))).toEqual([]);
+  });
+  it("keeps Supplier Pricing admin-only in shared sidebar and mobile entries", () => {
+    const pricing = purchasingSectionPages.find(tab => tab.url === "/procurement/supplier-pricing");
+    expect(pricing).toBeDefined();
+    if (!pricing) return;
+    expect(canOpenPurchasingTab(pricing, access)).toBe(false);
+    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true })).toBe(true);
+    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true, isPreviewActive: true })).toBe(false);
+    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true, isPreviewActive: true, previewIsAdmin: true })).toBe(true);
+  });
+  it("applies previewed page access to Spend Summary independently of admin-only analysis", () => {
+    const preview = { ...access, isAdmin: true, isPreviewActive: true };
+    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, preview)).map(tab => tab.url)).toEqual(["/procurement/finance/spend"]);
+    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, { ...preview, canAccessInvoices: false }))).toEqual([]);
+  });
+});
+
+describe("Purchasing section destinations", () => {
+  it("preserves the eight Purchasing links in the requested order", () => {
+    expect(purchasingSectionPages.map(page => page.url)).toEqual([
+      "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/receiving", "/procurement/invoices",
+      "/procurement/finance/suppliers", "/procurement/suppliers", "/procurement/products", "/procurement/supplier-pricing",
+    ]);
+  });
+  it("keeps the Stock & menu links separate", () => {
+    expect(stockMenuSectionPages.map(page => page.url)).toEqual(["/procurement/inventory", "/procurement/menu-costing"]);
+    expect(purchasingSectionPagesForPath("/procurement/waste")).toBe(stockMenuSectionPages);
+    expect(purchasingSectionPagesForPath("/procurement/finance/suppliers/123")).toBe(purchasingSectionPages);
   });
 });

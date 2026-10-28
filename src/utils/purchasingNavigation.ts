@@ -1,5 +1,30 @@
 export type PurchasingTab = { title: string; url: string; adminOnly?: boolean };
 
+export const purchasingSectionPages: PurchasingTab[] = [
+  { title: "Overview", url: "/procurement/dashboard" },
+  { title: "Purchase Orders", url: "/procurement/purchase-orders" },
+  { title: "Goods Receipts / GRNs", url: "/procurement/receiving" },
+  { title: "Invoices", url: "/procurement/invoices" },
+  { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
+  { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
+  { title: "Items Master", url: "/procurement/products" },
+  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
+];
+
+export const stockMenuSectionPages: PurchasingTab[] = [
+  { title: "Inventory", url: "/procurement/inventory" },
+  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing" },
+];
+
+export const purchasingAnalysisPages: PurchasingTab[] = [
+  { title: "Purchase Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
+  { title: "Spend Summary", url: "/procurement/finance/spend" },
+];
+
+export function purchasingSectionPagesForPath(pathname: string) {
+  return isStockMenuRoute(pathname) ? stockMenuSectionPages : purchasingSectionPages;
+}
+
 export const purchasingTabGroups: PurchasingTab[][] = [
   [
     { title: "Invoices", url: "/procurement/invoices" },

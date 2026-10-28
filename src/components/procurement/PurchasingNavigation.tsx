@@ -1,40 +1,37 @@
 import { Link, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { usePreviewMode } from "@/hooks/usePreviewMode";
-import { useUserPermissions } from "@/hooks/useUserPermissions";
-import { supabase } from "@/integrations/supabase/client";
+import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
+import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { canOpenPurchasingTab, matchesPurchasingPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
+import { isStockMenuRoute, matchesPurchasingPath, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
 
 /** URL-only navigation; existing page guards and content remain independent. */
 export function PurchasingNavigation() {
   const { pathname } = useLocation();
-  const { user, isAdmin, roleLoading } = useAuth();
-  const { previewUserId, isPreviewActive } = usePreviewMode();
-  const previewing = isPreviewActive && isAdmin;
-  const { canAccessPage, loading } = useUserPermissions((previewing ? previewUserId : user?.id) || undefined);
-  const { data: previewIsAdmin = false, isLoading: previewLoading } = useQuery({
-    queryKey: ["purchasing-navigation-preview-role", previewUserId],
-    enabled: previewing && !!previewUserId,
-    queryFn: async () => {
-      if (!previewUserId) return false;
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", previewUserId).eq("role", "admin");
-      return !error && !!data?.length;
-    },
-  });
-  if (loading || roleLoading || (previewing && previewLoading)) return null;
-  const access = { isAdmin, isPreviewActive: previewing, previewIsAdmin, canAccessInvoices: canAccessPage("invoices") };
-  if (pathname === "/procurement/dashboard") {
-    if (!canOpenPurchasingTab({ title: "", url: "", adminOnly: true }, access)) return null;
-    return <nav aria-label="Purchasing analysis" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-      <Link className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to="/procurement/purchase-analysis">Purchase Analysis</Link>
-      <Link className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to="/procurement/finance/spend">Spend Summary</Link>
-    </nav>;
-  }
-  const tabs = purchasingTabsForPath(pathname)?.filter(tab => canOpenPurchasingTab(tab, access));
-  if (!tabs?.length) return null;
-  return <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
+  const { isMobile } = useSidebar();
+  const { canOpen, loading } = usePurchasingNavigationAccess();
+  if (loading) return null;
+  const pages = purchasingSectionPagesForPath(pathname).filter(canOpen);
+  const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
+  const analysis = pathname === "/procurement/dashboard" ? purchasingAnalysisPages.filter(canOpen) : [];
+  const parentPath = purchasingParentPath(pathname);
+  return <>
+    {isMobile && pages.length > 0 && <div className="mb-5">
+      <nav aria-label={isStockMenuRoute(pathname) ? "Stock & menu" : "Purchasing"} className="flex items-center">
+        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
+          {pages.map(page => {
+            const active = matchesPurchasingPath(parentPath, page.url);
+            return <Link key={page.url} to={page.url} aria-current={active ? "page" : undefined} className={cn(
+              "inline-flex h-9 shrink-0 items-center rounded-md px-3 text-[13px] font-medium transition-colors",
+              active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}>{page.title}</Link>;
+          })}
+        </div>
+      </nav>
+    </div>}
+    {analysis.length > 0 && <nav aria-label="Purchasing analysis" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+      {analysis.map(page => <Link key={page.url} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={page.url}>{page.title}</Link>)}
+    </nav>}
+    {!!tabs?.length && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
     <div className="inline-flex w-max items-center gap-1 rounded-lg bg-muted/40 p-1 border border-border/50">
       {tabs.map(tab => {
         const active = matchesPurchasingPath(pathname, tab.url);
@@ -44,5 +41,6 @@ export function PurchasingNavigation() {
         )}>{tab.title}</Link>;
       })}
     </div>
-  </nav>;
+  </nav>}
+  </>;
 }
