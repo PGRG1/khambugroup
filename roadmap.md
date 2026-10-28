@@ -11,3 +11,5 @@ Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COG
 - [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
 - [x] Add shared access-aware URL tabs and admin-only Overview analysis links.
 - [x] Verify live navigation at 1280px/375px and rail highlighting; 20 route/access tests pass, including previewed admin/non-admin rules (preview switching not exercised live).
+- [ ] Follow-up: direct section links below Revenue, desktop contextual children, mobile section bars, and correct Spend Summary/Supplier Pricing visibility.
+- [ ] Run updated navigation tests and verify desktop/mobile section navigation.
