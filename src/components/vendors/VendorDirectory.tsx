@@ -55,6 +55,7 @@ import {
   Users,
 } from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
@@ -78,6 +79,7 @@ interface Vendor {
   payment_terms: string | null;
   account_number: string | null;
   is_active: boolean;
+  needs_po?: boolean;
 }
 
 const PAYMENT_TERMS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60", "Due on presentation"];
@@ -94,6 +96,7 @@ const emptyForm = {
   account_number: "",
   notes: "",
   is_active: true,
+  needs_po: false,
 };
 
 function generateCodeSuggestion(name: string, existingCodes: string[]): string {
@@ -198,6 +201,7 @@ export default function VendorDirectory({
   defaultTypeFilter = "all",
 }: Props) {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { isAdmin } = useAuth();
   const isMobile = useIsMobile();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -334,6 +338,7 @@ export default function VendorDirectory({
       account_number: v.account_number || "",
       notes: v.notes || "",
       is_active: v.is_active,
+      needs_po: v.needs_po ?? false,
     });
     setCodeManuallyEdited(true);
     setSheetOpen(true);
@@ -366,6 +371,7 @@ export default function VendorDirectory({
       notes: form.notes || null,
       is_active: form.is_active,
     };
+    if (isAdmin) basePayload.needs_po = form.needs_po;
     let error;
     if (editingId) {
       ({ error } = await supabase
@@ -598,6 +604,9 @@ export default function VendorDirectory({
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-sm truncate">{v.name}</div>
                     <TypeChip type={v.vendor_type} />
+                    {v.needs_po && (
+                      <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">PO</span>
+                    )}
                   </div>
                   {v.code && (
                     <div className="text-[11px] font-mono text-muted-foreground">
@@ -730,6 +739,9 @@ export default function VendorDirectory({
                       <TableCell className="py-3">
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-sm text-foreground">{v.name}</div>
+                          {v.needs_po && (
+                            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">PO</span>
+                          )}
                           {(accountCounts[v.id] || 0) > 1 && (
                             <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
                               {accountCounts[v.id]} accounts
@@ -909,6 +921,21 @@ export default function VendorDirectory({
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
+
+            {isAdmin && (
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div>
+                  <div className="text-xs font-medium">Needs a PO</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Deliveries from this vendor are checked against a purchase order, even in Quick mode.
+                  </div>
+                </div>
+                <Switch
+                  checked={form.needs_po}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, needs_po: v }))}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-2 border-t">
               <div>

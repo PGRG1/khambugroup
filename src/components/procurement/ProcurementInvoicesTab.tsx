@@ -39,6 +39,9 @@ import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSource
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
+import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
+import { shouldOfferDoorTap } from "@/utils/deliveryCheck";
+import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -208,6 +211,8 @@ export default function ProcurementInvoicesTab() {
   const [scannerKey, setScannerKey] = useState(0);
   const [handoffConflict, setHandoffConflict] = useState(false);
   const [handoffTick, setHandoffTick] = useState(0);
+  const deliveryCheck = useDeliveryCheckMode();
+  const [doorTap, setDoorTap] = useState<DeliveryCheckTarget | null>(null);
   // Floating-Bani scanner handoff: open the scanner for a pending request, but
   // never destroy an unsaved review — ask first.
   useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
@@ -1854,6 +1859,24 @@ export default function ProcurementInvoicesTab() {
                   );
                 }
               }
+
+              // Quick-mode door tap: confirm the delivery right at the door.
+              // Full mode and PO suppliers keep the existing PO / GRN flow.
+              const supplier = suppliers.find((s: any) => s.id === inv.supplier_id) as any;
+              if (shouldOfferDoorTap(deliveryCheck.mode, !!supplier?.needs_po)) {
+                const savedLines = await fetchLineItems(created.id);
+                setDoorTap({
+                  invoiceId: created.id,
+                  supplierName: supplier?.name || "Supplier",
+                  total: lines.reduce((sum, line) => sum + line.total, 0),
+                  lines: savedLines.map((l) => ({
+                    invoice_line_item_id: l.id,
+                    description: l.description || "(no description)",
+                    unit: l.unit || "each",
+                    quantity_invoiced: Number(l.quantity) || 0,
+                  })),
+                });
+              }
             }
           }}
           onClose={() => {
@@ -1863,6 +1886,13 @@ export default function ProcurementInvoicesTab() {
           userId={user?.id || ""}
         />
       )}
+
+      <DeliveryCheckDialog
+        target={doorTap}
+        tenantId={tenantId || ""}
+        userId={user?.id || ""}
+        onClose={() => { setDoorTap(null); fetchAll(); }}
+      />
 
       <AlertDialog open={handoffConflict} onOpenChange={setHandoffConflict}>
         <AlertDialogContent>
@@ -2215,8 +2245,11 @@ function InvoiceTableSection({
       resultCount={<>Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span></>}
       toolbarRight={
         <>
+          <Button size="sm" onClick={onUploadClick} className="h-9 flex-1 sm:flex-none">
+            <ScanLine className="h-4 w-4 mr-1" />New delivery
+          </Button>
           <Button size="sm" variant="outline" onClick={onUploadClick} className="h-9">
-            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
+            Upload Invoice
           </Button>
           <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
             <Download className="h-4 w-4 mr-1" />Download

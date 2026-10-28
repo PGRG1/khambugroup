@@ -431,8 +431,8 @@ export default function ReceivingTab() {
         resultCount={<>Showing {filtered.length} of {grns.length} GRNs · Total: <span className="font-semibold">{fmtMoney(kpis.value)}</span></>}
         toolbarRight={
           <>
-            <Button size="sm" variant="outline" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9">
-              <ScanLine className="h-4 w-4 mr-1" /> Scan Invoice
+            <Button size="sm" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9 flex-1 sm:flex-none">
+              <ScanLine className="h-4 w-4 mr-1" /> New delivery
             </Button>
             <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
               <Download className="h-4 w-4 mr-1" /> Download

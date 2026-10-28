@@ -18,6 +18,8 @@ import { Plus, Trash2, ExternalLink, CheckCircle2, FileDown } from "lucide-react
 import { EmptyState, fmtHKWhole } from "@/components/expenses/shared";
 import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
 import { useTenantSession } from "@/hooks/useTenantSession";
+import { resolvePurchasingMode } from "@/utils/purchasingMode";
+import { resolveDeliveryCheckMode } from "@/utils/deliveryCheck";
 
 /**
  * Small helper: any deep-link out of the onboarding cockpit into a
@@ -603,13 +605,56 @@ export function StepCoA({ tenantId, onComplete }: StepProps) {
 // ---------- Phase 2: Suppliers ----------
 export function StepSuppliers({ tenantId, onComplete }: StepProps) {
   const [count, setCount] = useState<number | null>(null);
+  const [buyMode, setBuyMode] = useState<string>("by_venue");
+  const [checkMode, setCheckMode] = useState<string>("quick");
   useEffect(() => {
     supabase.from("suppliers").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).then(({ count }) => setCount(count ?? 0));
+    supabase.from("app_config").select("key, value").eq("tenant_id", tenantId).in("key", ["purchasing_mode", "delivery_check_mode"]).then(({ data }) => {
+      for (const row of (data ?? []) as any[]) {
+        if (row.key === "purchasing_mode") setBuyMode(resolvePurchasingMode(row.value));
+        if (row.key === "delivery_check_mode") setCheckMode(resolveDeliveryCheckMode(row.value));
+      }
+    });
   }, [tenantId]);
+  const saveMode = async (key: string, value: string) => {
+    const { error } = await supabase.from("app_config").upsert({ tenant_id: tenantId, key, value: value as any }, { onConflict: "tenant_id,key" });
+    if (error) toast({ title: "Could not save setting", description: error.message, variant: "destructive" });
+  };
+  const modeQuestion = (
+    label: string,
+    value: string,
+    options: { value: string; title: string; desc: string }[],
+    onPick: (v: string) => void,
+  ) => (
+    <div>
+      <div className="text-sm font-medium mb-2">{label}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onPick(opt.value)}
+            className={`text-left p-3 rounded-lg border transition-colors ${value === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+          >
+            <span className="block text-sm font-medium">{opt.title}</span>
+            <span className="block text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="text-sm">Current suppliers: <span className="font-medium">{count ?? "…"}</span></div>
       <div className="text-sm text-muted-foreground">Manage suppliers and bulk-import from the Procurement module.</div>
+      {modeQuestion("How do they buy?", buyMode, [
+        { value: "by_venue", title: "Each venue buys for itself", desc: "Purchasing is shown per venue, using the venue on each invoice." },
+        { value: "central", title: "Bought centrally", desc: "One kitchen or buying team supplies several venues. Purchasing is shown for the whole group." },
+      ], (v) => { setBuyMode(v); saveMode("purchasing_mode", resolvePurchasingMode(v)); })}
+      {modeQuestion("How do they check deliveries?", checkMode, [
+        { value: "quick", title: "Quick (default)", desc: "Photo of the invoice at the door, tap All good or Problem. Bani checks the rest." },
+        { value: "full", title: "Full", desc: "Purchase order → goods received → invoice, checked against each other." },
+      ], (v) => { setCheckMode(v); saveMode("delivery_check_mode", resolveDeliveryCheckMode(v)); })}
       <div className="flex gap-2">
         <EnterClientLink tenantId={tenantId} to="/procurement/suppliers"><ExternalLink className="h-4 w-4 mr-1"/>Open Suppliers</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={!count}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
