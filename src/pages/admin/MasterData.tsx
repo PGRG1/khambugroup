@@ -217,7 +217,7 @@ function ProcurementCard() {
               { value: "central", title: "Bought centrally", desc: "One kitchen or buying team supplies several venues (for example a restaurant group in one building). Purchasing is shown for the whole group." },
             ].map(opt => (
               <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${purchasing.mode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-                <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0 min-h-0 min-w-0 self-start" />
+                <RadioGroupItem value={opt.value} data-slot="icon-only" className="mt-0.5 shrink-0 self-start" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium">{opt.title}</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
