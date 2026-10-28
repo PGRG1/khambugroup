@@ -37,9 +37,10 @@ interface Props {
   /** Actual revenue for a month (yyyy-MM). */
   revenueFor: (month: string) => number;
   venueIds: string[];
+  initialSuggestions?: Map<string, number> | null;
 }
 
-export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scopeLabel, venueId, isAdmin, categories, spendFor, revenueFor, venueIds }: Props) {
+export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scopeLabel, venueId, isAdmin, categories, spendFor, revenueFor, venueIds, initialSuggestions }: Props) {
   const { budgets, changes, names, save } = usePurchasingBudgets();
   const [month, setMonth] = useState(defaultMonth);
   const forecastQuery = usePurchasingSalesForecast(month, venueIds, open);
@@ -73,12 +74,13 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
     if (!open) return;
     const base = new Map<string, number>();
     budgets.filter(row => row.venue_id === venueId && row.month.slice(0, 7) === month).forEach(row => base.set(row.category, Number(row.amount)));
-    setSuggested(null);
-    setAmounts(Object.fromEntries(categories.map(category => [category, base.has(category) ? String(base.get(category)) : ""])));
+    const prefill = month === defaultMonth ? initialSuggestions : null;
+    setSuggested(prefill ?? null);
+    setAmounts(Object.fromEntries(categories.map(category => [category, prefill?.has(category) ? String(prefill.get(category)) : base.has(category) ? String(base.get(category)) : ""])));
     setReason("");
     setHistoryCategory(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, month, budgets, venueId, categories.join("|")]);
+  }, [open, month, budgets, venueId, categories.join("|"), initialSuggestions, defaultMonth]);
 
   const previous = previousCalendarMonth(month);
   const last3 = useMemo(() => {
@@ -180,7 +182,7 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
             <div className="grid grid-cols-1 min-[480px]:grid-cols-3 gap-3 text-[13px]">
               <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Sales forecast</p><p className="td-num font-medium">{forecast != null ? money(forecast) : "—"}</p></div>
               <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Total budget{forecast ? ` (${pct(totalBudget / forecast * 100)} of forecast)` : ""}</p><p className="td-num font-medium">{money(totalBudget)}</p></div>
-              <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Last 3 months spend as % of revenue</p><p className="td-num font-medium">{last3.ratio != null ? pct(last3.ratio) : "—"}</p></div>
+              <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Last 3 months: % of sales</p><p className="td-num font-medium">{last3.ratio != null ? pct(last3.ratio) : "—"}</p></div>
             </div>
             {showSuggestion && salesDifference != null && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>Sales are {pct(Math.abs(salesDifference * 100))} {salesDifference > 0 ? "above" : "below"} forecast. Suggested total: {money(suggestedTotal)}</span><Button variant="outline" size="sm" className="h-7" onClick={useSuggestions}>Use</Button></div>}
             <div className="sm:hidden max-h-[45svh] overflow-y-auto overflow-x-hidden divide-y divide-border/40">{categories.map(category => <div key={category} className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-3 py-3"><div className="min-w-0"><Button variant="link" className="h-auto max-w-full p-0 text-left text-[13px] whitespace-normal justify-start hover:text-foreground" onClick={() => setHistoryCategory(category)}>{category}</Button><p className="mt-1 text-[11px] text-muted-foreground">{previous ? `${monthName(previous)} ${integer(spendFor(previous).get(category) ?? 0)}` : ""}</p></div>{budgetInput(category)}</div>)}</div>
