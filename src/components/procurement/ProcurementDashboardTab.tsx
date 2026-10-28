@@ -169,8 +169,14 @@ export default function ProcurementDashboardTab() {
       if (!row || row.pct == null || !xAxis || !moneyAxis || !ratioAxis || !bounds) return <g />;
       const text = pct(row.pct), width = text.length * 6.2 + 12;
       const pointX = xAxis.scale(row.label) + (xAxis.scale.bandwidth?.() ?? 0) / 2;
-      const pointY = ratioAxis.scale(row.pct), barTop = moneyAxis.scale(row.spend);
+      const pointY = ratioAxis.scale(row.pct);
       const tagX = Math.max(bounds.left + 2, Math.min(pointX - width / 2, bounds.left + bounds.width - width - 2));
+      const band = xAxis.scale.bandwidth?.() ?? 0;
+      const coveredBars = combinedRows.filter(candidate => {
+        const centre = xAxis.scale(candidate.label) + band / 2;
+        return centre + band * 0.4 >= tagX && centre - band * 0.4 <= tagX + width;
+      });
+      const barTop = Math.min(...coveredBars.map(candidate => moneyAxis.scale(candidate.spend)));
       const tagY = Math.max(2, Math.min(pointY - 26, barTop - 24));
       return <g data-percentage-tag><rect x={tagX} y={tagY} width={width} height={18} rx={5} fill="hsl(var(--card))" stroke={WARM} strokeOpacity={0.5} /><text x={tagX + width / 2} y={tagY + 12.5} textAnchor="middle" fontSize={11} fontWeight={600} fill="color-mix(in srgb, hsl(var(--chart-7)) 75%, hsl(var(--foreground)))">{text}</text></g>;
     }} /></ComposedChart></ResponsiveContainer> : <p className="py-12 text-sm text-muted-foreground">No data in this period.</p>}</div></OverviewChartShell>
