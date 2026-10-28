@@ -13,6 +13,7 @@ Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COG
 - [x] Five rule tests passed; signed-in settings save/readback and 1280px/375px Overview checked, selecting Assembly leaves central spend unchanged; build OK.
 
 ## Purchasing Overview redesign
+- [x] Applied dashboard-only header/KPI/list/table/legend styling, default September with October fallback pill, eight-month spend-only chart and bottom analysis links; signed-in 1280px/375px checks passed without page overflow or runtime errors, 35 tests passed, build OK.
 - [x] Replaced Overview with four KPIs, paired pace charts, spend/revenue chart, ranked suppliers/categories, Items table and Worth checking.
 - [x] Added centred supplier/item dialogs, calendar-month comparisons, search/sort and sticky item header; same-unit pricing and deposit exclusion tested.
 - [x] Signed-in 1280px/375px Overview, All time/September/October/Custom, dialogs and central venue selection verified; 31 related tests passed, build OK. Non-admin visibility covered by existing access tests, not live preview switching.

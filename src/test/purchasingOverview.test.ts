@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultInvoiceMonth, trailingMonths } from "@/components/procurement/purchasingOverviewPresentation";
 import { previousCalendarMonth, periodIncludes, itemRanking, categoryRanking, monthPace, type OverviewInvoice, type OverviewLine, type OverviewProduct } from "@/utils/purchasingOverview";
 const invoice = (id: string, date: string, amount = 100, discount = 0): OverviewInvoice => ({ id, invoice_date: date, total_amount: amount, discount, supplier_id: "supplier", venue: "Assembly", created_at: date, review_status: null, has_disputes: false });
 const line = (id: string, price: number, unit: string, total = 100): OverviewLine => ({ invoice_id: "invoice", product_master_id: id, total, unit_price: price, quantity: 1, unit });
@@ -7,6 +8,10 @@ const products = new Map<string, OverviewProduct>([
   ["deposit", { id: "deposit", internal_product_name: "Keg deposit", financial_treatment: "Asset - Deposit", level1_category: "Drinks", unit: "each" }],
 ]);
 describe("Purchasing Overview rules", () => {
+  it("defaults October without invoices to September 2026", () => { expect(defaultInvoiceMonth("2026-10", ["2026-08-15", "2026-09-30"])).toBe("2026-09"); });
+  it("defaults to the current month when it has invoices", () => { expect(defaultInvoiceMonth("2026-10", ["2026-09-30", "2026-10-01"])).toBe("2026-10"); });
+  it("keeps the current month when no invoices exist", () => { expect(defaultInvoiceMonth("2026-10", [])).toBe("2026-10"); });
+  it("shows eight calendar months ending at September", () => { expect(trailingMonths("2026-09")).toEqual(["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]); });
   it("uses the previous calendar month including year rollover", () => { expect(previousCalendarMonth("2026-01")).toBe("2025-12"); expect(previousCalendarMonth("2026-10")).toBe("2026-09"); });
   it("has no previous comparisons for All time or Custom", () => { expect(previousCalendarMonth("all")).toBeNull(); expect(previousCalendarMonth("custom")).toBeNull(); });
   it("includes the final custom day", () => { expect(periodIncludes("2026-10-28", "custom", "2026-10-01", "2026-10-28")).toBe(true); expect(periodIncludes("2026-10-29", "custom", "2026-10-01", "2026-10-28")).toBe(false); });
