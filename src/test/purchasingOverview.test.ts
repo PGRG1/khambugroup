@@ -36,8 +36,10 @@ describe("Purchasing budgets", () => {
     // Each month puts all spend on day 1, 15, 28, 15 respectively → median day-1 share 0, day-15 share 1.
     const rows = [invoice("a", "2026-06-01"), invoice("b", "2026-07-15"), invoice("c", "2026-08-28"), invoice("d", "2026-09-15")];
     const pace = usualPace("2026-10", rows);
-    expect(pace[0]).toBe(0);
-    expect(pace[14]).toBe(0.5);
+    expect(pace[0]).toBe(0); // day-1 shares [1,0,0,0] -> median 0
+    expect(pace[10]).toBe(0);
+    expect(pace[14]).toBe(1); // day-15 shares [1,1,0,1] -> median 1
+    expect(pace[27]).toBe(1);
     expect(pace[30]).toBe(1);
     expect(months.every(key => rows.some(row => row.invoice_date.startsWith(key)))).toBe(true);
   });
