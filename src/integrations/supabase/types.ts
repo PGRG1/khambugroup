@@ -8786,6 +8786,108 @@ export type Database = {
           },
         ]
       }
+      purchasing_budget_changes: {
+        Row: {
+          category: string
+          changed_at: string
+          changed_by: string
+          id: string
+          month: string
+          new_amount: number
+          old_amount: number | null
+          reason: string | null
+          tenant_id: string
+          venue_id: string | null
+        }
+        Insert: {
+          category: string
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          month: string
+          new_amount: number
+          old_amount?: number | null
+          reason?: string | null
+          tenant_id: string
+          venue_id?: string | null
+        }
+        Update: {
+          category?: string
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          month?: string
+          new_amount?: number
+          old_amount?: number | null
+          reason?: string | null
+          tenant_id?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchasing_budget_changes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchasing_budget_changes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchasing_budgets: {
+        Row: {
+          amount: number
+          category: string
+          id: string
+          month: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          amount?: number
+          category: string
+          id?: string
+          month: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          id?: string
+          month?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchasing_budgets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchasing_budgets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
