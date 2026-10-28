@@ -39,6 +39,9 @@ import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSource
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
+import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
+import { shouldOfferDoorTap } from "@/utils/deliveryCheck";
+import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
@@ -208,6 +211,8 @@ export default function ProcurementInvoicesTab() {
   const [scannerKey, setScannerKey] = useState(0);
   const [handoffConflict, setHandoffConflict] = useState(false);
   const [handoffTick, setHandoffTick] = useState(0);
+  const deliveryCheck = useDeliveryCheckMode();
+  const [doorTap, setDoorTap] = useState<DeliveryCheckTarget | null>(null);
   // Floating-Bani scanner handoff: open the scanner for a pending request, but
   // never destroy an unsaved review — ask first.
   useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
