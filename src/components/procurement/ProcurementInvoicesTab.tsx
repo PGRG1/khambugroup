@@ -1887,6 +1887,13 @@ export default function ProcurementInvoicesTab() {
         />
       )}
 
+      <DeliveryCheckDialog
+        target={doorTap}
+        tenantId={tenantId || ""}
+        userId={user?.id || ""}
+        onClose={() => { setDoorTap(null); fetchAll(); }}
+      />
+
       <AlertDialog open={handoffConflict} onOpenChange={setHandoffConflict}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2238,8 +2245,11 @@ function InvoiceTableSection({
       resultCount={<>Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span></>}
       toolbarRight={
         <>
+          <Button size="sm" onClick={onUploadClick} className="h-9 flex-1 sm:flex-none">
+            <ScanLine className="h-4 w-4 mr-1" />New delivery
+          </Button>
           <Button size="sm" variant="outline" onClick={onUploadClick} className="h-9">
-            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
+            Upload Invoice
           </Button>
           <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
             <Download className="h-4 w-4 mr-1" />Download
