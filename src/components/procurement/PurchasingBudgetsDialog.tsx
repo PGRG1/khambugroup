@@ -200,7 +200,7 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                     const categoryChanges = changesFor(month, category);
                     const last = categoryChanges[0];
                     const value = parsed(category);
-                                        return (
+                    return (
                       <tr key={category} className="border-b border-border/40 last:border-0">
                         <td className="px-1 py-2 sm:px-2 font-medium">{category}</td>
                         {last3.keys.map(key => <td key={key} className="px-1 py-2 sm:px-2 text-right td-num whitespace-nowrap">{integer(spendFor(key).get(category) ?? 0)}</td>)}
