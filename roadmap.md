@@ -26,6 +26,7 @@ Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COG
 - [x] Updated navigation tests: 16 passed in isolated node environment (default runner blocked by missing canvas binding); signed-in 1280px/375px section navigation and rail order verified without page errors. Previewed access covered by tests, not live switching.
 
 ## Purchasing budgets
+- [ ] Simplify budget box/category wording and mobile tables; use full-month daily sales forecasts for dialog-picked month; atomic RLS-backed saves; test HK day bucketing and suggestions; verify desktop/mobile and September no-budget state.
 - [x] purchasing_budgets + append-only purchasing_budget_changes (tenant RLS: members read, admins write), migration 0009 applied.
 - [x] Pure budget math in purchasingOverview.ts (budgetByDay steps on change day; suggestions scaled by actual/expected sales, rounded to 100); usual pace removed as misleading (venues pre-order for next month) — status line is now 'left of/over budget · N days to go', amber only when over; 40 tests pass, verified at 1280px/375px.
 - [x] Overview UI: admin Budgets button, status line, KPI progress, sales-vs-forecast note, stepped budget line in pace chart, Categories against budget, full edit/history dialog.
