@@ -143,44 +143,6 @@ export default function ProcurementDashboardTab() {
   });
   const toggleSort = (key: "name" | "value" | "change") => setSort(old => ({ key, desc: old.key === key ? !old.desc : key !== "name" }));
   const caption = previous ? `Day by day, ${monthName(period)} against ${monthName(previous)}.${latestDay ? ` By the ${integer(latestDay)}${latestDay % 100 >= 11 && latestDay % 100 <= 13 ? "th" : latestDay % 10 === 1 ? "st" : latestDay % 10 === 2 ? "nd" : latestDay % 10 === 3 ? "rd" : "th"}: ${money(byDayCurrent)} this month vs ${money(byDayPrevious)} in ${monthName(previous)}.` : " No invoices or sales in this month yet."}` : "All months comparison · day-of-month basis";
-  // ---- Purchasing budgets (single-month periods only) ----
-  const singleMonth = !!previous;
-  const [budgetYear, budgetMonthNum] = singleMonth ? period.split("-").map(Number) : [0, 0];
-  const scopeVenueIds = (purchasing.mode === "central" ? scope.venues : scope.selectedVenues).map(venue => venue.id);
-  const projections = useScopedProjections(scopeVenueIds, budgetYear, budgetMonthNum, singleMonth && scopeVenueIds.length > 0);
-  const { getTarget } = useRevenueTargets();
-  const budgetVenueId = purchasing.mode === "central" ? null : (!scope.isAll && scope.selectedVenues.length === 1 ? scope.selectedVenues[0].id : null);
-  const budgetRows = useMemo(() => singleMonth ? budgetsQuery.budgets.filter(row => row.month.slice(0, 7) === period && (budgetVenueId ? row.venue_id === budgetVenueId : purchasing.mode === "central" ? row.venue_id === null : true)) : [], [budgetsQuery.budgets, singleMonth, period, budgetVenueId, purchasing.mode]);
-  const budgetChanges = useMemo(() => singleMonth ? budgetsQuery.changes.filter(row => row.month.slice(0, 7) === period && (budgetVenueId ? row.venue_id === budgetVenueId : purchasing.mode === "central" ? row.venue_id === null : true)) : [], [budgetsQuery.changes, singleMonth, period, budgetVenueId, purchasing.mode]);
-  const budgetByCategory = useMemo(() => { const map = new Map<string, number>(); budgetRows.forEach(row => map.set(row.category, (map.get(row.category) ?? 0) + Number(row.amount))); return map; }, [budgetRows]);
-  const totalBudget = [...budgetByCategory.values()].reduce((a, b) => a + b, 0);
-  const budgetsExist = singleMonth && budgetRows.length > 0 && totalBudget > 0;
-  const budgetedSpend = categories.filter(row => budgetByCategory.has(row.name)).reduce((n, row) => n + row.value, 0);
-  const usual = singleMonth ? usualPace(period, invoices) : [];
-  const todayDay = isCurrent ? new Date().getDate() : singleMonth ? daysInMonth(period) : 0;
-  const pace = budgetsExist ? budgetPaceStatus(budgetedSpend, totalBudget, usual, todayDay) : null;
-  const projectionTarget = projections.hasManagerTarget ? projections.rows.reduce((n, row) => n + (row.projectedSales ?? 0), 0) : null;
-  const savedTarget = singleMonth ? getTarget(budgetYear, budgetMonthNum)?.targetAmount ?? null : null;
-  const monthTarget = projectionTarget ?? ((purchasing.mode === "central" || scope.isAll) ? savedTarget : null);
-  const expectedToDate = projectionTarget != null
-    ? projections.rows.filter(row => Number(row.date.slice(8, 10)) <= todayDay).reduce((n, row) => n + (row.projectedSales ?? 0), 0)
-    : monthTarget != null && singleMonth ? monthTarget * todayDay / daysInMonth(period) : null;
-  const actualToDate = currentSales.filter(row => Number(row.date.slice(8, 10)) <= todayDay).reduce((n, row) => n + Number(row.total_sales), 0);
-  const salesDiff = expectedToDate ? actualToDate / expectedToDate - 1 : null;
-  const showSalesNote = isAdmin && isCurrent && budgetsExist && salesDiff != null && Math.abs(salesDiff) >= 0.03;
-  const suggestedTotal = showSalesNote ? [...suggestBudgets(budgetByCategory, actualToDate, expectedToDate!).values()].reduce((a, b) => a + b, 0) : 0;
-  const budgetSeries = budgetsExist ? budgetByDay(period, budgetChanges, budgetByCategory) : [];
-  const budgetCategories = (data.data?.categoryRows ?? []).filter(row => row.level === 1 && row.is_active && isBudgetableCategory(row.name)).map(row => row.name);
-  const spendForMonth = (key: string) => {
-    const ids = new Set(invoices.filter(row => row.invoice_date.startsWith(key)).map(row => row.id));
-    const map = new Map<string, number>();
-    (data.data?.lines ?? []).filter(line => ids.has(line.invoice_id)).forEach(line => {
-      const name = line.product_master_id ? products.get(line.product_master_id)?.level1_category : null;
-      if (name) map.set(name, (map.get(name) ?? 0) + Number(line.total));
-    });
-    return map;
-  };
-  const revenueForMonth = (key: string) => sales.filter(row => row.date.startsWith(key)).reduce((n, row) => n + Number(row.total_sales), 0);
   const canPricing = access.canOpen({ title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true });
   const paceChart = (percent: boolean) => <div className="min-w-0"><div className="h-[200px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={previous ? pairRows : allRows} margin={{ top: 8, right: 12, left: -10, bottom: 5 }}><CartesianGrid {...chartGrid} /><XAxis dataKey="day" {...chartAxis} domain={percent ? [3, 31] : [1, 31]} type="number" allowDataOverflow /><YAxis {...chartAxis} tickFormatter={value => percent ? `${integer(Number(value))}%` : compactHK(Number(value))} /><Tooltip contentStyle={chartTooltipContentStyle} labelFormatter={label => `Day ${label}`} formatter={(value: number, name: string) => [percent ? pct(value) : money(value), name]} />{previous ? <><Line dataKey={percent ? "currentPct" : "current"} name={monthLabel(period)} stroke={percent ? WARM : PRIMARY} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} /><Line dataKey={percent ? "priorPct" : "prior"} name={monthLabel(previous)} stroke={percent ? WARM : PRIMARY} strokeOpacity={0.45} strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} /></> : allMonthKeys.map((month, i) => <Line key={month} dataKey={`${percent ? "pct" : "spend"}_${month}`} name={monthLabel(month)} stroke={percent ? WARM : PRIMARY} strokeOpacity={monthOpacity(i)} strokeWidth={2} dot={false} hide={hiddenMonths.has(month)} connectNulls={false} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div><p className="mt-3 text-xs text-muted-foreground">{percent ? previous ? `From day 3 · ${pct(finalPct)} ${isCurrent ? "so far" : "by month end"}` : "From day 3 · cumulative spend as % of revenue" : "Cumulative spend"}</p></div>;
 
