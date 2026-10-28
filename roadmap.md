@@ -8,6 +8,6 @@
 Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COGS tracking, auto-saved operational memory notes.
 
 ## Purchasing navigation
-- [ ] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
-- [ ] Add shared access-aware URL tabs and admin-only Overview analysis links.
-- [ ] Verify navigation, preview access and desktop/mobile presentation.
+- [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
+- [x] Add shared access-aware URL tabs and admin-only Overview analysis links.
+- [x] Verify live navigation at 1280px/375px and rail highlighting; 20 route/access tests pass, including previewed admin/non-admin rules (preview switching not exercised live).
