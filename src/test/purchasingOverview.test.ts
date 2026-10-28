@@ -26,7 +26,7 @@ describe("Purchasing Overview rules", () => {
 describe("Purchasing budgets", () => {
   const change = (category: string, oldAmount: number | null, newAmount: number, at: string): BudgetChangeRow => ({ id: at, venue_id: null, month: "2026-10-01", category, old_amount: oldAmount, new_amount: newAmount, reason: null, changed_by: null, changed_at: at });
   it("steps the budget line on the day a change was made", () => {
-    const current = new Map([["Food", 20000]]);
+    const current = new Map([["Food", 26000]]);
     const changes = [change("Food", 20000, 26000, "2026-10-15T09:30:00+00:00")];
     const series = budgetByDay("2026-10", changes, current);
     expect(series[13]).toBe(20000);
@@ -57,9 +57,32 @@ describe("Purchasing budgets", () => {
     expect(series[13]).toBe(20000);
     expect(series[14]).toBe(26000);
   });
-  it("keeps a first-time budget unset before its Hong Kong set date", () => {
-    const series = budgetByDay("2026-10", [change("Food", null, 55000, "2026-09-30T16:30:00Z")], new Map([["Food", 55000]]));
-    expect(series[0]).toBe(55000);
+  it("applies first-time sets from day 1 even when set during the month", () => {
+    const series = budgetByDay("2026-10", [change("Food", null, 55000, "2026-10-28T01:00:00Z")], new Map([["Food", 55000]]));
+    expect(series).toEqual(Array(31).fill(55000));
+  });
+  it("shows September's 105,000 budget every day when first saved on 28 October", () => {
+    const changes = [change("Food", null, 55000, "2026-10-28T01:00:00Z"), change("Beverages", null, 50000, "2026-10-28T01:00:00Z")].map(row => ({ ...row, month: "2026-09-01" }));
+    expect(budgetByDay("2026-09", changes, new Map([["Food", 55000], ["Beverages", 50000]]))).toEqual(Array(30).fill(105000));
+  });
+  it("applies a change made before the month to the whole month", () => {
+    expect(budgetByDay("2026-10", [change("Food", 20000, 26000, "2026-09-29T01:00:00Z")], new Map([["Food", 26000]]))).toEqual(Array(31).fill(26000));
+  });
+  it("applies a change made after the month to the whole month", () => {
+    expect(budgetByDay("2026-10", [change("Food", 20000, 18000, "2026-11-02T01:00:00Z")], new Map([["Food", 18000]]))).toEqual(Array(31).fill(18000));
+  });
+  it("coerces database amounts with Number", () => {
+    const row = { ...change("Food", null, 55000, "2026-10-28T01:00:00Z"), new_amount: "55000" } as unknown as BudgetChangeRow;
+    expect(budgetByDay("2026-10", [row], new Map([["Food", Number("55000")], ["Beverages", Number("50000")]]))).toEqual(Array(31).fill(105000));
+  });
+  it("keeps untouched venue contributions in the same category", () => {
+    const row = { ...change("Food", 100, 200, "2026-10-03T01:00:00Z"), venue_id: "a" };
+    const series = budgetByDay("2026-10", [row], new Map([["Food", 700]]));
+    expect(series[0]).toBe(600); expect(series[2]).toBe(700);
+  });
+  it("steps later in-month changes after a first set", () => {
+    const series = budgetByDay("2026-10", [change("Food", null, 50000, "2026-10-05T01:00:00Z"), change("Food", 50000, 55000, "2026-10-15T01:00:00Z")], new Map([["Food", 55000]]));
+    expect(series[0]).toBe(50000); expect(series[13]).toBe(50000); expect(series[14]).toBe(55000);
   });
   it("sums separate venue budget histories without conflating their category", () => {
     const a = { ...change("Food", 100, 200, "2026-10-03T01:00:00Z"), venue_id: "a" };
