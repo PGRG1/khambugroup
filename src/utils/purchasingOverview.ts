@@ -42,7 +42,9 @@ export function itemRanking(lines: OverviewLine[], previous: OverviewLine[], pro
       if (!row.product_master_id) return;
       const product = products.get(row.product_master_id);
       if (!product || (product.financial_treatment ?? "").startsWith("Asset")) return;
-      map.set(product.id, [...(map.get(product.id) ?? []), row]);
+      const grouped = map.get(product.id) ?? [];
+      grouped.push(row);
+      map.set(product.id, grouped);
     });
     return map;
   };
@@ -53,9 +55,9 @@ export function itemRanking(lines: OverviewLine[], previous: OverviewLine[], pro
     const units = new Set(rows.map(row => (row.unit ?? "").trim()));
     const oldUnits = new Set(old.map(row => (row.unit ?? "").trim()));
     const unit = units.size === 1 ? [...units][0] : "Mixed units";
-    const validPrices = rows.filter(row => Number.isFinite(Number(row.unit_price)));
+    const validPrices = rows.filter(row => row.unit_price != null && Number.isFinite(Number(row.unit_price)));
     const avg = validPrices.length ? validPrices.reduce((n, row) => n + Number(row.unit_price), 0) / validPrices.length : null;
-    const oldPrices = old.filter(row => Number.isFinite(Number(row.unit_price)));
+    const oldPrices = old.filter(row => row.unit_price != null && Number.isFinite(Number(row.unit_price)));
     const oldAvg = oldPrices.length ? oldPrices.reduce((n, row) => n + Number(row.unit_price), 0) / oldPrices.length : null;
     const comparable = !!unit && units.size === 1 && oldUnits.size === 1 && oldUnits.has(unit) && avg != null && oldAvg != null;
     const value = rows.reduce((n, row) => n + Number(row.total), 0);

@@ -12,6 +12,10 @@ export function formatDecimal(value: number, digits = 2): string {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }
 
+export function formatCurrency(value: number): string {
+  return `${value < 0 ? "-" : ""}HK$ ${formatTableInteger(Math.abs(value))}`;
+}
+
 export function formatPercent(value: number | null): string {
   return value == null ? "—" : `${formatDecimal(value, 1)}%`;
 }
