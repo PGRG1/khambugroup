@@ -92,3 +92,101 @@ export function monthPace(month: string, invoices: OverviewInvoice[], sales: Ove
     return { day, spend: visible ? spend : null, pct: visible && day >= 3 ? percentage(spend, revenue) : null, latest };
   });
 }
+
+// ============= Purchasing budgets =============
+
+export interface BudgetRow {
+  id: string; venue_id: string | null; month: string; category: string; amount: number;
+  updated_at: string; updated_by: string | null;
+}
+export interface BudgetChangeRow {
+  id: string; venue_id: string | null; month: string; category: string;
+  old_amount: number | null; new_amount: number; reason: string | null;
+  changed_by: string | null; changed_at: string;
+}
+
+export const daysInMonth = (month: string) => { const [y, m] = month.split("-").map(Number); return new Date(y, m, 0).getDate(); };
+
+/** Categories never budgeted: deposits and adjustments pass through. */
+export function isBudgetableCategory(name: string): boolean {
+  const lower = name.trim().toLowerCase();
+  return !!lower && !lower.includes("deposit") && !lower.includes("adjustement") && !lower.includes("adjustment");
+}
+
+/**
+ * Usual pace: cumulative share of a month's invoice spend done by each day,
+ * the median across up to the last 6 complete months with invoices.
+ * Fewer than 3 such months → even pace (day / days in month).
+ */
+export function usualPace(month: string, invoices: OverviewInvoice[], maxMonths = 6): number[] {
+  const days = daysInMonth(month);
+  const even = Array.from({ length: days }, (_, i) => (i + 1) / days);
+  const earliest = invoices.reduce((min, row) => { const key = row.invoice_date.slice(0, 7); return key < min ? key : min; }, month);
+  const prior: string[] = [];
+  let cursor = previousCalendarMonth(month);
+  while (cursor && cursor >= earliest && prior.length < maxMonths) {
+    if (invoices.some(row => row.invoice_date.startsWith(cursor))) prior.push(cursor);
+    cursor = previousCalendarMonth(cursor);
+  }
+  if (prior.length < 3) return even;
+  const shares = prior.map(key => {
+    const rows = invoices.filter(row => row.invoice_date.startsWith(key));
+    const total = sumSpend(rows);
+    const monthDays = daysInMonth(key);
+    let cumulative = 0;
+    return Array.from({ length: monthDays }, (_, i) => {
+      cumulative += rows.filter(row => Number(row.invoice_date.slice(8, 10)) === i + 1).reduce((n, row) => n + Number(row.total_amount), 0);
+      return total > 0 ? cumulative / total : (i + 1) / monthDays;
+    });
+  });
+  return Array.from({ length: days }, (_, i) => {
+    const values = shares.map(monthShares => monthShares[Math.min(i, monthShares.length - 1)]).sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  });
+}
+
+/**
+ * Total budget in force at the end of each day of `month`, rebuilt from the
+ * change log so the chart steps on the day a budget was raised or lowered.
+ * Categories with no change this month use their current amount; categories
+ * first changed this month use the earliest change's old_amount before it.
+ */
+export function budgetByDay(month: string, changes: BudgetChangeRow[], current: Map<string, number>): number[] {
+  const days = daysInMonth(month);
+  const byCategory = new Map<string, BudgetChangeRow[]>();
+  changes.filter(row => row.month.slice(0, 7) === month).forEach(row => {
+    const list = byCategory.get(row.category) ?? [];
+    list.push(row);
+    byCategory.set(row.category, list);
+  });
+  byCategory.forEach(list => list.sort((a, b) => a.changed_at.localeCompare(b.changed_at)));
+  const categories = new Set([...current.keys(), ...byCategory.keys()]);
+  return Array.from({ length: days }, (_, i) => {
+    const nextDay = i + 1 < days ? `${month}-${String(i + 2).padStart(2, "0")}T00:00:00` : null;
+    let total = 0;
+    categories.forEach(category => {
+      const list = byCategory.get(category);
+      if (!list) { total += current.get(category) ?? 0; return; }
+      const inForce = nextDay ? list.filter(row => row.changed_at < nextDay) : list;
+      total += inForce.length ? inForce[inForce.length - 1].new_amount : (list[0].old_amount ?? 0);
+    });
+    return total;
+  });
+}
+
+/** Suggested budgets: scale current amounts by actual/expected sales, rounded to 100. */
+export function suggestBudgets(current: Map<string, number>, actualSales: number, expectedSales: number): Map<string, number> {
+  const ratio = expectedSales > 0 ? actualSales / expectedSales : 1;
+  return new Map([...current].map(([category, amount]) => [category, Math.round(amount * ratio / 100) * 100]));
+}
+
+export interface PaceStatus {
+  spentPct: number | null; usualPct: number; delta: number; ahead: boolean;
+}
+/** Compare spend so far with the usual pace share of the budget at `day`. */
+export function budgetPaceStatus(spent: number, budget: number, usual: number[], day: number): PaceStatus {
+  const usualPct = usual[Math.min(Math.max(day, 1), usual.length) - 1] ?? 0;
+  const expected = budget * usualPct;
+  return { spentPct: budget > 0 ? spent / budget * 100 : null, usualPct, delta: expected - spent, ahead: spent > expected };
+}
