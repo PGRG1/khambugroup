@@ -134,11 +134,12 @@ export function budgetByDay(month: string, changes: BudgetChangeRow[], current: 
   byCategory.forEach(list => list.sort((a, b) => a.changed_at.localeCompare(b.changed_at)));
   return Array.from({ length: days }, (_, i) => {
     const date = `${month}-${String(i + 1).padStart(2, "0")}`;
-    let total = [...current.values()].reduce((sum, amount) => sum + amount, 0);
+    const changedCategories = new Set([...byCategory.values()].map(list => list[0].category));
+    let total = [...current].filter(([category]) => !changedCategories.has(category)).reduce((sum, [, amount]) => sum + amount, 0);
     byCategory.forEach(list => {
       const inForce = list.filter(row => hongKongDate(row.changed_at) <= date);
       const amount = inForce.length ? Number(inForce[inForce.length - 1].new_amount) : Number(list[0].old_amount ?? 0);
-      total += amount - Number(list[list.length - 1].new_amount);
+      total += amount;
     });
     return total;
   });
