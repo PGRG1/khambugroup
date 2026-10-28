@@ -12,3 +12,16 @@ export function trailingMonths(selected: string): string[] {
     return date.toISOString().slice(0, 7);
   });
 }
+
+/** Spend and budget use the same money axis, with headroom for the marker. */
+export function budgetBarScale(amounts: number[]): number {
+  return Math.max(1, ...amounts.map(amount => Math.max(0, Number(amount)))) * 1.1;
+}
+
+export function rankedBudgetCategories(spend: { name: string; value: number }[], budgets: Map<string, number>) {
+  const names = new Set([...spend.map(row => row.name), ...budgets.keys()]);
+  return [...names].filter(name => name !== "Discount / Refund").map(name => ({
+    name, value: spend.find(row => row.name === name)?.value ?? 0,
+    budget: budgets.has(name) ? Number(budgets.get(name)) : null,
+  })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+}

@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency as money, formatTableInteger as integer, formatPercent as pct, formatDecimal, formatDate } from "@/utils/format";
 import { categoryRanking, itemRanking, supplierRanking, monthPace, previousCalendarMonth, periodIncludes, sumSpend, sumRevenue, percentage, changePercent, budgetByDay, isBudgetableCategory, hongKongDate, daysInMonth, suggestBudgets, type OverviewInvoice, type OverviewLine, type OverviewProduct, type OverviewSale } from "@/utils/purchasingOverview";
 import { purchasingAnalysisPages } from "@/utils/purchasingNavigation";
-import { defaultInvoiceMonth, trailingMonths } from "./purchasingOverviewPresentation";
+import { budgetBarScale, rankedBudgetCategories, defaultInvoiceMonth, trailingMonths } from "./purchasingOverviewPresentation";
 import { PurchasingBudgetsDialog } from "./PurchasingBudgetsDialog";
 import { cn } from "@/lib/utils";
 
@@ -138,8 +138,9 @@ export default function ProcurementDashboardTab() {
   const suggestedTotal = [...suggestions.values()].reduce((sum, amount) => sum + amount, 0);
   const showSalesNote = budgetsExist && isAdmin && isCurrent && salesForecast != null && salesDifference != null && Math.abs(salesDifference) >= 0.03;
   const daysLeft = singleMonth ? daysInMonth(period) - Number(hongKongDate().slice(8, 10)) : 0;
-  const monthGoneShare = budgetsExist ? (isCurrent ? Math.min(100, Number(hongKongDate().slice(8, 10)) / daysInMonth(period) * 100) : 100) : null;
-  const unbudgetedCategories = categories.filter(row => !budgetByCategory.has(row.name) && row.name !== "Discount / Refund");
+  const spendBarMaximum = budgetBarScale([budgetedSpend, totalBudget]);
+  const categoryBudgetRows = rankedBudgetCategories(categories, budgetByCategory);
+  const categoryBarMaximum = budgetBarScale(categoryBudgetRows.flatMap(row => [row.value, row.budget ?? 0]));
   const budgetSeries = budgetsExist ? budgetByDay(period, budgetChanges, budgetByCategory) : [];
   const budgetCategories = (data.data?.categoryRows ?? []).filter(row => row.level === 1 && row.is_active && isBudgetableCategory(row.name)).map(row => row.name);
   const spendForMonth = (key: string) => {
