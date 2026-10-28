@@ -114,9 +114,47 @@ export default function ProcurementDashboardTab() {
   const latestUpload = currentInvoices.map(row => row.created_at).filter(Boolean).sort().at(-1);
   const latestDay = Math.max(0, ...currentInvoices.map(row => Number(row.invoice_date.slice(8, 10))), ...currentSales.map(row => Number(row.date.slice(8, 10))));
   const isCurrent = period === currentMonth;
+  // ---- Purchasing budgets (single-month periods only) ----
+  const singleMonth = !!previous;
+  const [budgetYear, budgetMonthNum] = singleMonth ? period.split("-").map(Number) : [0, 0];
+  const scopeVenueIds = (purchasing.mode === "central" ? scope.venues : scope.selectedVenues).map(venue => venue.id);
+  const projections = useScopedProjections(scopeVenueIds, budgetYear, budgetMonthNum, singleMonth && scopeVenueIds.length > 0);
+  const { getTarget } = useRevenueTargets();
+  const budgetVenueId = purchasing.mode === "central" ? null : (!scope.isAll && scope.selectedVenues.length === 1 ? scope.selectedVenues[0].id : null);
+  const budgetRows = useMemo(() => singleMonth ? budgetsQuery.budgets.filter(row => row.month.slice(0, 7) === period && (budgetVenueId ? row.venue_id === budgetVenueId : purchasing.mode === "central" ? row.venue_id === null : true)) : [], [budgetsQuery.budgets, singleMonth, period, budgetVenueId, purchasing.mode]);
+  const budgetChanges = useMemo(() => singleMonth ? budgetsQuery.changes.filter(row => row.month.slice(0, 7) === period && (budgetVenueId ? row.venue_id === budgetVenueId : purchasing.mode === "central" ? row.venue_id === null : true)) : [], [budgetsQuery.changes, singleMonth, period, budgetVenueId, purchasing.mode]);
+  const budgetByCategory = useMemo(() => { const map = new Map<string, number>(); budgetRows.forEach(row => map.set(row.category, (map.get(row.category) ?? 0) + Number(row.amount))); return map; }, [budgetRows]);
+  const totalBudget = [...budgetByCategory.values()].reduce((a, b) => a + b, 0);
+  const budgetsExist = singleMonth && budgetRows.length > 0 && totalBudget > 0;
+  const budgetedSpend = categories.filter(row => budgetByCategory.has(row.name)).reduce((n, row) => n + row.value, 0);
+  const usual = singleMonth ? usualPace(period, invoices) : [];
+  const todayDay = isCurrent ? new Date().getDate() : singleMonth ? daysInMonth(period) : 0;
+  const pace = budgetsExist ? budgetPaceStatus(budgetedSpend, totalBudget, usual, todayDay) : null;
+  const projectionTarget = projections.hasManagerTarget ? projections.rows.reduce((n, row) => n + (row.projectedSales ?? 0), 0) : null;
+  const savedTarget = singleMonth ? getTarget(budgetYear, budgetMonthNum)?.targetAmount ?? null : null;
+  const monthTarget = projectionTarget ?? ((purchasing.mode === "central" || scope.isAll) ? savedTarget : null);
+  const expectedToDate = projectionTarget != null
+    ? projections.rows.filter(row => Number(row.date.slice(8, 10)) <= todayDay).reduce((n, row) => n + (row.projectedSales ?? 0), 0)
+    : monthTarget != null && singleMonth ? monthTarget * todayDay / daysInMonth(period) : null;
+  const actualToDate = currentSales.filter(row => Number(row.date.slice(8, 10)) <= todayDay).reduce((n, row) => n + Number(row.total_sales), 0);
+  const salesDiff = expectedToDate ? actualToDate / expectedToDate - 1 : null;
+  const showSalesNote = isAdmin && isCurrent && budgetsExist && salesDiff != null && Math.abs(salesDiff) >= 0.03;
+  const suggestedTotal = showSalesNote ? [...suggestBudgets(budgetByCategory, actualToDate, expectedToDate!).values()].reduce((a, b) => a + b, 0) : 0;
+  const budgetSeries = budgetsExist ? budgetByDay(period, budgetChanges, budgetByCategory) : [];
+  const budgetCategories = (data.data?.categoryRows ?? []).filter(row => row.level === 1 && row.is_active && isBudgetableCategory(row.name)).map(row => row.name);
+  const spendForMonth = (key: string) => {
+    const ids = new Set(invoices.filter(row => row.invoice_date.startsWith(key)).map(row => row.id));
+    const map = new Map<string, number>();
+    (data.data?.lines ?? []).filter(line => ids.has(line.invoice_id)).forEach(line => {
+      const name = line.product_master_id ? products.get(line.product_master_id)?.level1_category : null;
+      if (name) map.set(name, (map.get(name) ?? 0) + Number(line.total));
+    });
+    return map;
+  };
+  const revenueForMonth = (key: string) => sales.filter(row => row.date.startsWith(key)).reduce((n, row) => n + Number(row.total_sales), 0);
   const currentPace = previous ? monthPace(period, invoices, sales, isCurrent ? latestDay : undefined) : [];
   const previousPace = previous ? monthPace(previous, invoices, sales) : [];
-  const pairRows = Array.from({ length: Math.max(currentPace.length, previousPace.length) }, (_, i) => ({ day: i + 1, current: currentPace[i]?.spend ?? null, prior: previousPace[i]?.spend ?? null, currentPct: currentPace[i]?.pct ?? null, priorPct: previousPace[i]?.pct ?? null }));
+  const pairRows = Array.from({ length: Math.max(currentPace.length, previousPace.length) }, (_, i) => ({ day: i + 1, current: currentPace[i]?.spend ?? null, prior: previousPace[i]?.spend ?? null, currentPct: currentPace[i]?.pct ?? null, priorPct: previousPace[i]?.pct ?? null, budget: budgetSeries[i] ?? null }));
   const byDayCurrent = currentPace[Math.max(0, latestDay - 1)]?.spend ?? 0;
   const byDayPrevious = previousPace[Math.min(Math.max(0, latestDay - 1), previousPace.length - 1)]?.spend ?? 0;
   const finalPct = percentage(spend, revenue);
