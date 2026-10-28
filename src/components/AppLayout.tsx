@@ -8,6 +8,7 @@ import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
 import { KpiNavigation } from "@/components/kpi/KpiNavigation";
 import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
+import { PurchasingNavigation } from "@/components/procurement/PurchasingNavigation";
 import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
 import { FloatingBani } from "@/components/assistant/FloatingBani";
 import { VenueScopeProvider } from "@/hooks/useVenueScope";
@@ -50,6 +51,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             </div>
+            {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {children}
           </div>
         </main>
