@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { resolvePurchasingMode } from "@/utils/purchasingMode";
+import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
+import { resolveDeliveryCheckMode } from "@/utils/deliveryCheck";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Navigate } from "react-router-dom";
 import { Sparkles, Plus, Pencil, Trash2, Check, X, ClipboardCheck, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
@@ -121,8 +123,10 @@ const REF_MODES = [
 function ProcurementCard() {
   const { tenantId } = useActiveTenant();
   const purchasing = usePurchasingMode();
+  const deliveryCheck = useDeliveryCheckMode();
   const queryClient = useQueryClient();
   const [savingPurchasing, setSavingPurchasing] = useState(false);
+  const [savingDeliveryCheck, setSavingDeliveryCheck] = useState(false);
   const [refMode, setRefMode] = useState<string>("last_count");
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [activeVenue, setActiveVenue] = useState<string>("Assembly");
