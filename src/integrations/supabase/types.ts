@@ -3777,6 +3777,7 @@ export type Database = {
           grn_id: string
           id: string
           invoice_line_item_id: string | null
+          issue: string | null
           po_item_id: string | null
           product_master_id: string | null
           qty_difference: number | null
@@ -3798,6 +3799,7 @@ export type Database = {
           grn_id: string
           id?: string
           invoice_line_item_id?: string | null
+          issue?: string | null
           po_item_id?: string | null
           product_master_id?: string | null
           qty_difference?: number | null
@@ -3819,6 +3821,7 @@ export type Database = {
           grn_id?: string
           id?: string
           invoice_line_item_id?: string | null
+          issue?: string | null
           po_item_id?: string | null
           product_master_id?: string | null
           qty_difference?: number | null
@@ -10264,6 +10267,7 @@ export type Database = {
           is_active: boolean
           moq: number
           name: string
+          needs_po: boolean
           notes: string | null
           payment_terms: string | null
           payment_terms_id: string | null
@@ -10288,6 +10292,7 @@ export type Database = {
           is_active?: boolean
           moq?: number
           name: string
+          needs_po?: boolean
           notes?: string | null
           payment_terms?: string | null
           payment_terms_id?: string | null
@@ -10312,6 +10317,7 @@ export type Database = {
           is_active?: boolean
           moq?: number
           name?: string
+          needs_po?: boolean
           notes?: string | null
           payment_terms?: string | null
           payment_terms_id?: string | null
