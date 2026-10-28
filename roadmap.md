@@ -12,6 +12,11 @@ Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COG
 - [x] Only Purchasing Overview uses whole-group purchasing and revenue for central buying, with a light note; other pages and permissions unchanged.
 - [x] Five rule tests passed; signed-in settings save/readback and 1280px/375px Overview checked, selecting Assembly leaves central spend unchanged; build OK.
 
+## Purchasing Overview redesign
+- [x] Replaced Overview with four KPIs, paired pace charts, spend/revenue chart, ranked suppliers/categories, Items table and Worth checking.
+- [x] Added centred supplier/item dialogs, calendar-month comparisons, search/sort and sticky item header; same-unit pricing and deposit exclusion tested.
+- [x] Signed-in 1280px/375px Overview, All time/September/October/Custom, dialogs and central venue selection verified; 31 related tests passed, build OK. Non-admin visibility covered by existing access tests, not live preview switching.
+
 ## Purchasing navigation
 - [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
 - [x] Add shared access-aware URL tabs and admin-only Overview analysis links.
