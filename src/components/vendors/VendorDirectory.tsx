@@ -55,6 +55,7 @@ import {
   Users,
 } from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
@@ -78,6 +79,7 @@ interface Vendor {
   payment_terms: string | null;
   account_number: string | null;
   is_active: boolean;
+  needs_po?: boolean;
 }
 
 const PAYMENT_TERMS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60", "Due on presentation"];
@@ -94,6 +96,7 @@ const emptyForm = {
   account_number: "",
   notes: "",
   is_active: true,
+  needs_po: false,
 };
 
 function generateCodeSuggestion(name: string, existingCodes: string[]): string {
