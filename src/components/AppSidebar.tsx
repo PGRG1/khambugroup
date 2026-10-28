@@ -36,7 +36,8 @@ import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueN
 import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
-import { isStockMenuRoute, matchesPurchasingPath, purchasingParentPath } from "@/utils/purchasingNavigation";
+import { isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
+import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 
 function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -144,23 +145,6 @@ const expensesFinance: Item[] = [
   { title: "Open Payables", url: "/expenses/finance/payables" },
 ];
 
-const procurementOverview: Item = { title: "Overview", url: "/procurement/dashboard" };
-const procurementMasterData: Item[] = [
-  { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
-  { title: "Items Master", url: "/procurement/products" },
-  { title: "Supplier Pricing", url: "/procurement/supplier-pricing" },
-];
-const procurementPurchasing: Item[] = [
-  { title: "Purchase Orders", url: "/procurement/purchase-orders" },
-  { title: "Goods Receipts / GRNs", url: "/procurement/receiving" },
-  { title: "Invoices", url: "/procurement/invoices" },
-  { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
-];
-const procurementInventory: Item[] = [
-  { title: "Inventory", url: "/procurement/inventory" },
-  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing" },
-];
-
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
 const bankAccounts: Item[] = [
   { title: "Bank Accounts", url: "/bank/accounts" },
@@ -208,12 +192,15 @@ const pettyCashMaster: Item[] = [
 
 
 const STORAGE_KEY = "khambu.sidebar.groups";
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "stockmenu" | "bank" | "payments" | "pettycash" | "staffreimb" | "hr" | "admin" | "platform";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "bank" | "payments" | "pettycash" | "staffreimb" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
-  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, stockmenu: true, bank: true, payments: true, pettycash: true, staffreimb: true, hr: true, admin: true, platform: true };
+  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, bank: true, payments: true, pettycash: true, staffreimb: true, hr: true, admin: true, platform: true };
   if (typeof window === "undefined") return def;
-  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return { ...def, ...JSON.parse(raw) }; } catch { /* */ }
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) {
+    const saved = JSON.parse(raw);
+    return Object.fromEntries(Object.entries(def).map(([key, value]) => [key, typeof saved?.[key] === "boolean" ? saved[key] : value])) as Record<GroupKey, boolean>;
+  } } catch { /* */ }
   return def;
 }
 
@@ -339,6 +326,12 @@ function CollapsibleNavGroup({
 export function AppSidebar() {
   const { pathname, search } = useLocation();
   const revenueAccess = useRevenueNavigationAccess();
+  const purchasingAccess = usePurchasingNavigationAccess();
+  const stockMenuActive = isStockMenuRoute(pathname);
+  const purchasingActive = pathname.startsWith("/procurement/") && !stockMenuActive;
+  const purchasingChildren = purchasingSectionPages.filter(purchasingAccess.canOpen);
+  const stockMenuChildren = stockMenuSectionPages.filter(purchasingAccess.canOpen);
+  const purchasingChildActive = (url: string) => matchesPurchasingPath(purchasingParentPath(pathname), url);
   const revenueDestination = revenueLanding(revenueAccess.sidebarRevenue, revenueAccess.sidebarForecast);
   const revenueActive = isRevenueRoute(pathname) && revenueSection(pathname) !== "setup";
   const { user, isAdmin, signOut } = useAuth();
@@ -463,13 +456,13 @@ export function AppSidebar() {
         <CollapsedRail onExpand={() => setOpen(true)} items={[
           ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
           ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
+          ...(showProcurement ? [
+            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
+            { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
+          ] : []),
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance/dashboard", icon: Scale, active: pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
-          ...(showProcurement ? [
-            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: pathname.startsWith("/procurement/") && !isStockMenuRoute(pathname) },
-            { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: isStockMenuRoute(pathname) },
-          ] : []),
           ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
@@ -503,6 +496,43 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {showSubPages && revenueActive && revenueChildren.map((c) => <FlagChildLink key={c.key} title={c.title} to={c.to} active={revSection === c.key} />)}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
+        {showProcurement && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to="/procurement/dashboard" aria-current={purchasingActive ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", purchasingActive && "glass-active !text-sidebar-primary font-medium")}>
+                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {showSubPages && purchasingActive && purchasingChildren.map((item) => <React.Fragment key={item.url}>
+                {["/procurement/purchase-orders", "/procurement/suppliers"].includes(item.url) && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
+                <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
+              </React.Fragment>)}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
+        {showProcurement && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to="/procurement/inventory" aria-current={stockMenuActive ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", stockMenuActive && "glass-active !text-sidebar-primary font-medium")}>
+                    <Package className="h-4 w-4 shrink-0" /><span>Stock & menu</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {showSubPages && stockMenuActive && stockMenuChildren.map((item) => <React.Fragment key={item.url}>
+                <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
+              </React.Fragment>)}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -554,29 +584,6 @@ export function AppSidebar() {
             <SubSection label="Approvals" items={expensesApprovals} />
             <SubSection label="Analytics" items={expensesAnalytics} />
             <SubSection label="Finance" items={expensesFinance} />
-          </CollapsibleNavGroup>
-        )}
-
-        {showProcurement && (
-          <CollapsibleNavGroup
-            label="Purchasing"
-            icon={ShoppingCart}
-            defaultOpen={groupState.procurement}
-            onOpenChange={(o) => setGroup("procurement", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={procurementOverview} />
-            </SidebarMenu>
-            <div className="mx-3 my-2 h-px bg-sidebar-border/60" />
-            <SidebarMenu className="gap-1">{procurementPurchasing.map(item => <ChildLink key={item.url} item={item} />)}</SidebarMenu>
-            <div className="mx-3 my-2 h-px bg-sidebar-border/60" />
-            <SidebarMenu className="gap-1">{procurementMasterData.map(item => <ChildLink key={item.url} item={item} />)}</SidebarMenu>
-          </CollapsibleNavGroup>
-        )}
-
-        {showProcurement && (
-          <CollapsibleNavGroup label="Stock & menu" icon={Package} defaultOpen={groupState.stockmenu} onOpenChange={o => setGroup("stockmenu", o)}>
-            <SidebarMenu className="gap-1 pt-1">{procurementInventory.map(item => <ChildLink key={item.url} item={item} />)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
