@@ -113,38 +113,6 @@ export function isBudgetableCategory(name: string): boolean {
   return !!lower && !lower.includes("deposit") && !lower.includes("adjustement") && !lower.includes("adjustment");
 }
 
-/**
- * Usual pace: cumulative share of a month's invoice spend done by each day,
- * the median across up to the last 6 complete months with invoices.
- * Fewer than 3 such months → even pace (day / days in month).
- */
-export function usualPace(month: string, invoices: OverviewInvoice[], maxMonths = 6): number[] {
-  const days = daysInMonth(month);
-  const even = Array.from({ length: days }, (_, i) => (i + 1) / days);
-  const earliest = invoices.reduce((min, row) => { const key = row.invoice_date.slice(0, 7); return key < min ? key : min; }, month);
-  const prior: string[] = [];
-  let cursor = previousCalendarMonth(month);
-  while (cursor && cursor >= earliest && prior.length < maxMonths) {
-    if (invoices.some(row => row.invoice_date.startsWith(cursor))) prior.push(cursor);
-    cursor = previousCalendarMonth(cursor);
-  }
-  if (prior.length < 3) return even;
-  const shares = prior.map(key => {
-    const rows = invoices.filter(row => row.invoice_date.startsWith(key));
-    const total = sumSpend(rows);
-    const monthDays = daysInMonth(key);
-    let cumulative = 0;
-    return Array.from({ length: monthDays }, (_, i) => {
-      cumulative += rows.filter(row => Number(row.invoice_date.slice(8, 10)) === i + 1).reduce((n, row) => n + Number(row.total_amount), 0);
-      return total > 0 ? cumulative / total : (i + 1) / monthDays;
-    });
-  });
-  return Array.from({ length: days }, (_, i) => {
-    const values = shares.map(monthShares => monthShares[Math.min(i, monthShares.length - 1)]).sort((a, b) => a - b);
-    const mid = Math.floor(values.length / 2);
-    return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
-  });
-}
 
 /**
  * Total budget in force at the end of each day of `month`, rebuilt from the
@@ -179,14 +147,4 @@ export function budgetByDay(month: string, changes: BudgetChangeRow[], current: 
 export function suggestBudgets(current: Map<string, number>, actualSales: number, expectedSales: number): Map<string, number> {
   const ratio = expectedSales > 0 ? actualSales / expectedSales : 1;
   return new Map([...current].map(([category, amount]) => [category, Math.round(amount * ratio / 100) * 100]));
-}
-
-export interface PaceStatus {
-  spentPct: number | null; usualPct: number; delta: number; ahead: boolean;
-}
-/** Compare spend so far with the usual pace share of the budget at `day`. */
-export function budgetPaceStatus(spent: number, budget: number, usual: number[], day: number): PaceStatus {
-  const usualPct = usual[Math.min(Math.max(day, 1), usual.length) - 1] ?? 0;
-  const expected = budget * usualPct;
-  return { spentPct: budget > 0 ? spent / budget * 100 : null, usualPct, delta: expected - spent, ahead: spent > expected };
 }
