@@ -170,6 +170,20 @@ function ProcurementCard() {
     }
   };
 
+  const saveDeliveryCheckMode = async (value: string) => {
+    if (!tenantId) return;
+    setSavingDeliveryCheck(true);
+    try {
+      const { error } = await supabase.from("app_config").upsert({ tenant_id: tenantId, key: "delivery_check_mode", value: resolveDeliveryCheckMode(value) }, { onConflict: "tenant_id,key" });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["delivery-check-mode", tenantId] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save How you check deliveries");
+    } finally {
+      setSavingDeliveryCheck(false);
+    }
+  };
+
   const venueLocations = locations.filter((l) => l.venue === activeVenue).sort((a, b) => a.sort_order - b.sort_order);
 
   const move = async (idx: number, dir: -1 | 1) => {
