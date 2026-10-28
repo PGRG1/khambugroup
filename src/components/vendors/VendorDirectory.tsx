@@ -201,6 +201,7 @@ export default function VendorDirectory({
   defaultTypeFilter = "all",
 }: Props) {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { isAdmin } = useAuth();
   const isMobile = useIsMobile();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -337,6 +338,7 @@ export default function VendorDirectory({
       account_number: v.account_number || "",
       notes: v.notes || "",
       is_active: v.is_active,
+      needs_po: v.needs_po ?? false,
     });
     setCodeManuallyEdited(true);
     setSheetOpen(true);
@@ -369,6 +371,7 @@ export default function VendorDirectory({
       notes: form.notes || null,
       is_active: form.is_active,
     };
+    if (isAdmin) basePayload.needs_po = form.needs_po;
     let error;
     if (editingId) {
       ({ error } = await supabase
