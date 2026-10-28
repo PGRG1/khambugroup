@@ -8,14 +8,14 @@
 Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COGS tracking, auto-saved operational memory notes.
 
 ## How you buy
- 
-## Purchasing Overview redesign
-- [ ] Replace Overview with four KPIs, paired pace charts, spend/revenue chart, ranked suppliers/categories, Items table and Worth checking.
-- [ ] Add centred supplier/item dialogs, period-aware comparisons and same-unit item pricing tests.
-- [ ] Verify signed-in desktop/phone Overview, periods, dialogs and central venue scope; run related tests.
 - [x] Used app_config purchasing_mode because platform ClientDetail already uses cost_reporting_mode; KHAMBU set centrally, existing combined value untouched.
 - [x] Only Purchasing Overview uses whole-group purchasing and revenue for central buying, with a light note; other pages and permissions unchanged.
 - [x] Five rule tests passed; signed-in settings save/readback and 1280px/375px Overview checked, selecting Assembly leaves central spend unchanged; build OK.
+
+## Purchasing Overview redesign
+- [x] Replaced Overview with four KPIs, paired pace charts, spend/revenue chart, ranked suppliers/categories, Items table and Worth checking.
+- [x] Added centred supplier/item dialogs, calendar-month comparisons, search/sort and sticky item header; same-unit pricing and deposit exclusion tested.
+- [x] Signed-in 1280px/375px Overview, All time/September/October/Custom, dialogs and central venue selection verified; 31 related tests passed, build OK. Non-admin visibility covered by existing access tests, not live preview switching.
 
 ## Purchasing navigation
 - [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
