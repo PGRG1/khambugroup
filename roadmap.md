@@ -7,6 +7,11 @@
 
 Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COGS tracking, auto-saved operational memory notes.
 
+## How you buy
+- [ ] Check storage usage; add admin purchasing choice and set KHAMBU centrally without changing cost reporting.
+- [ ] Scope only Purchasing Overview to group-wide purchasing and revenue for central buying, with a light explanatory note.
+- [ ] Test default/per-venue/central rules and verify signed-in settings and Overview.
+
 ## Purchasing navigation
 - [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
 - [x] Add shared access-aware URL tabs and admin-only Overview analysis links.
