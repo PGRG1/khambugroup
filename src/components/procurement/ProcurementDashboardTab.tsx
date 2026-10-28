@@ -2,20 +2,19 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { CalendarIcon, ArrowUpDown, Search } from "lucide-react";
+import { ArrowUpDown, Search } from "lucide-react";
 import { Bar, ComposedChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, LabelList } from "recharts";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 import { purchasingOverviewRows } from "@/utils/purchasingMode";
-import { KpiCard, PageHeader } from "@/components/expenses/shared";
+import { KpiCard } from "@/components/expenses/shared";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import { PRIMARY, chartAxis, chartGrid, chartTooltipContentStyle, chartLegendStyle, compactHK, monthOpacity } from "@/components/revenue-overview/chartTheme";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageTop } from "@/components/kit/PageTop";
+import DateFilter from "@/components/dashboard/DateFilter";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -61,8 +60,6 @@ export default function ProcurementDashboardTab() {
   const [chosenPeriod, setPeriod] = useState<string | null>(null);
   const [from, setFrom] = useState<Date>();
   const [to, setTo] = useState<Date>();
-  const [fromOpen, setFromOpen] = useState(false);
-  const [toOpen, setToOpen] = useState(false);
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -143,7 +140,22 @@ export default function ProcurementDashboardTab() {
   if (!data.isSuccess || !purchasing.isSuccess) return <div className="space-y-4 py-4" aria-label="Loading purchasing overview"><div className="h-10 w-44 animate-pulse rounded-lg bg-muted/40" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(n => <div key={n} className="h-28 rounded-xl bg-card/40 animate-pulse" />)}</div><div className="h-80 rounded-xl bg-card/40 animate-pulse" /></div>;
   return <div data-purchasing-overview className="space-y-5 min-w-0 td-num">
     <style>{`body:has([data-purchasing-overview]) nav[aria-label="Purchasing analysis"] { display: none; }`}</style>
-    <div className="[&>div>div]:flex-row [&>div>div]:items-center [&_h1]:text-[22px]"><PageHeader title="Overview" actions={<div className="flex flex-wrap justify-end gap-2"><Select value={period} onValueChange={value => { setPeriod(value); if(value !== "custom") { setFrom(undefined); setTo(undefined); } }}><SelectTrigger className="w-[180px] h-9" aria-label="Period"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Time</SelectItem>{months.map(month => <SelectItem key={month} value={month}>{monthLabel(month)}</SelectItem>)}<SelectItem value="custom">Custom Range</SelectItem></SelectContent></Select>{period === "custom" && <div className="flex flex-wrap items-center gap-2">{[{ label: "From", date: from, set: setFrom, open: fromOpen, setOpen: setFromOpen }, { label: "To", date: to, set: setTo, open: toOpen, setOpen: setToOpen }].map(field => <Popover key={field.label} open={field.open} onOpenChange={field.setOpen}><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-9 text-xs"><CalendarIcon className="h-3 w-3 mr-1" />{field.date ? formatDate(field.date.toISOString()) : field.label}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="end"><Calendar mode="single" selected={field.date} onSelect={date => { field.set(date); field.setOpen(false); }} /></PopoverContent></Popover>)}{(from || to) && <Button variant="ghost" size="sm" onClick={() => { setFrom(undefined); setTo(undefined); }}>Clear</Button>}</div>}</div>} /></div>
+    <PageTop title="Purchasing overview" period={<DateFilter
+      from={from}
+      to={to}
+      onFromChange={date => { setPeriod("custom"); setFrom(date); }}
+      onToChange={date => { setPeriod("custom"); setTo(date); }}
+      months={months.filter(month => month !== currentMonth).map(monthLabel)}
+      onPeriodSelect={selection => {
+        const next = selection === "MTD" ? currentMonth : selection === "All Time" ? "all" : selection === "Custom" ? "custom" : months.find(month => monthLabel(month) === selection);
+        if (!next) return;
+        setPeriod(next);
+        if (next !== "custom") { setFrom(undefined); setTo(undefined); }
+      }}
+      initialPeriod={period === currentMonth ? "MTD" : period === "all" ? "All Time" : period === "custom" ? "Custom" : monthLabel(period)}
+      labelled
+      includeMtd
+    />} />
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{purchasing.mode === "central" ? "Whole group" : scope.label} · {integer(currentInvoices.length)} invoices · last invoice uploaded <span className="whitespace-nowrap">{latestUpload ? formatDate(latestUpload) : "—"}</span></span>{(fallback || (isCurrent && !currentInvoices.length)) && <span className="rounded-full bg-warning/10 text-warning border border-warning/30 px-2 py-1">No {monthName(currentMonth)} invoices yet{fallback ? ` · showing ${monthName(period)}` : ""}</span>}</div>
     {purchasing.mode === "central" && <Alert className="border-info/40 bg-info/5"><AlertDescription>{purchasing.tenantName} buys centrally. Figures are for the whole group; picking a venue in the top bar doesn't split purchasing.</AlertDescription></Alert>}
     <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-3"><OverviewKpi label="Spend" value={money(spend)} hint={previous ? <span className="whitespace-nowrap">{delta(changePercent(spend, previousSpend))} vs {monthLabel(previous)}</span> : undefined} /><OverviewKpi label="Spend as % of revenue" value={pct(finalPct)} hint={previous ? <span className="whitespace-nowrap">{monthLabel(previous)} {pct(percentage(previousSpend, sumRevenue(previousSales)))}</span> : undefined} /><OverviewKpi label="Top 3 suppliers" value={pct(percentage(suppliers.slice(0,3).reduce((n,row)=>n+row.value,0), spend))} hint="of spend" /><OverviewKpi label="Invoices" value={integer(currentInvoices.length)} hint={`${integer(currentInvoices.filter(row => row.has_disputes || row.review_status === "Disputed").length)} disputed`} /></div>
