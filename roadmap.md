@@ -8,9 +8,9 @@
 Deferred (discussed, not built): labor-vs-revenue (SPLH) insights, real-time COGS tracking, auto-saved operational memory notes.
 
 ## How you buy
-- [ ] Check storage usage; add admin purchasing choice and set KHAMBU centrally without changing cost reporting.
-- [ ] Scope only Purchasing Overview to group-wide purchasing and revenue for central buying, with a light explanatory note.
-- [ ] Test default/per-venue/central rules and verify signed-in settings and Overview.
+- [x] Used app_config purchasing_mode because platform ClientDetail already uses cost_reporting_mode; KHAMBU set centrally, existing combined value untouched.
+- [x] Only Purchasing Overview uses whole-group purchasing and revenue for central buying, with a light note; other pages and permissions unchanged.
+- [x] Five rule tests passed; signed-in settings save/readback and 1280px/375px Overview checked, selecting Assembly leaves central spend unchanged; build OK.
 
 ## Purchasing navigation
 - [x] Reorganise Purchasing, Stock & menu, Settings and collapsed rail without changing routes or permissions.
