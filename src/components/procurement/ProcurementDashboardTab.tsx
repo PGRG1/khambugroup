@@ -62,11 +62,15 @@ export default function ProcurementDashboardTab() {
   const purchasing = usePurchasingMode();
   const scope = useVenueScope();
   const access = usePurchasingNavigationAccess();
+  const { isAdmin } = useAuth();
+  const budgetsQuery = usePurchasingBudgets();
   const [chosenPeriod, setPeriod] = useState<string | null>(null);
   const [from, setFrom] = useState<Date>();
   const [to, setTo] = useState<Date>();
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
+  const [budgetsOpen, setBudgetsOpen] = useState(false);
+  const [budgetSuggest, setBudgetSuggest] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: "name" | "value" | "change"; desc: boolean }>({ key: "value", desc: true });
   const [hiddenMonths, setHiddenMonths] = useState<Set<string>>(new Set());
@@ -74,14 +78,15 @@ export default function ProcurementDashboardTab() {
     queryKey: ["proc-dash", "overview-redesign", purchasing.tenantId], enabled: !!purchasing.tenantId, staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const id = purchasing.tenantId;
-      const [invoices, suppliers, sales, lines, products] = await Promise.all([
+      const [invoices, suppliers, sales, lines, products, categoryRows] = await Promise.all([
         fetchAllRows("invoices", "id,supplier_id,invoice_date,total_amount,discount,venue,created_at,review_status,has_disputes", { col: "invoice_date", asc: false }, id),
         fetchAllRows("suppliers", "id,name", undefined, id),
         fetchAllRows("sales_records", "date,total_sales,venue", undefined, id),
         fetchAllRows("invoice_line_items", "invoice_id,product_master_id,total,unit_price,unit,quantity", undefined, id),
         fetchAllRows("product_master", "id,internal_product_name,financial_treatment,level1_category,unit", undefined, id),
+        fetchAllRows("product_categories", "name,level,is_active", undefined, id),
       ]);
-      return { invoices: invoices as OverviewInvoice[], suppliers: suppliers as { id: string; name: string }[], sales: sales as OverviewSale[], lines: lines as OverviewLine[], products: products as OverviewProduct[] };
+      return { invoices: invoices as OverviewInvoice[], suppliers: suppliers as { id: string; name: string }[], sales: sales as OverviewSale[], lines: lines as OverviewLine[], products: products as OverviewProduct[], categoryRows: categoryRows as { name: string; level: number; is_active: boolean }[] };
     },
   });
   const invoices = useMemo(() => purchasingOverviewRows(data.data?.invoices ?? [], purchasing.mode, scope.includesName), [data.data, purchasing.mode, scope.includesName]);
