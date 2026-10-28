@@ -1,3 +1,5 @@
+import { aggregateActualsByDate, buildProjectionRows } from "@/utils/dailyProjections";
+
 export interface OverviewInvoice {
   id: string; supplier_id: string; invoice_date: string; total_amount: number;
   discount: number | null; venue: string | null; created_at: string;
@@ -124,20 +126,20 @@ export function budgetByDay(month: string, changes: BudgetChangeRow[], current: 
   const days = daysInMonth(month);
   const byCategory = new Map<string, BudgetChangeRow[]>();
   changes.filter(row => row.month.slice(0, 7) === month).forEach(row => {
-    const list = byCategory.get(row.category) ?? [];
+    const key = `${row.venue_id ?? "group"}|${row.category}`;
+    const list = byCategory.get(key) ?? [];
     list.push(row);
-    byCategory.set(row.category, list);
+    byCategory.set(key, list);
   });
   byCategory.forEach(list => list.sort((a, b) => a.changed_at.localeCompare(b.changed_at)));
-  const categories = new Set([...current.keys(), ...byCategory.keys()]);
   return Array.from({ length: days }, (_, i) => {
-    const nextDay = i + 1 < days ? `${month}-${String(i + 2).padStart(2, "0")}T00:00:00` : null;
-    let total = 0;
-    categories.forEach(category => {
-      const list = byCategory.get(category);
-      if (!list) { total += current.get(category) ?? 0; return; }
-      const inForce = nextDay ? list.filter(row => row.changed_at < nextDay) : list;
-      total += inForce.length ? inForce[inForce.length - 1].new_amount : (list[0].old_amount ?? 0);
+    const date = `${month}-${String(i + 1).padStart(2, "0")}`;
+    const changedCategories = new Set([...byCategory.values()].map(list => list[0].category));
+    let total = [...current].filter(([category]) => !changedCategories.has(category)).reduce((sum, [, amount]) => sum + amount, 0);
+    byCategory.forEach(list => {
+      const inForce = list.filter(row => hongKongDate(row.changed_at) <= date);
+      const amount = inForce.length ? Number(inForce[inForce.length - 1].new_amount) : Number(list[0].old_amount ?? 0);
+      total += amount;
     });
     return total;
   });
@@ -147,4 +149,32 @@ export function budgetByDay(month: string, changes: BudgetChangeRow[], current: 
 export function suggestBudgets(current: Map<string, number>, actualSales: number, expectedSales: number): Map<string, number> {
   const ratio = expectedSales > 0 ? actualSales / expectedSales : 1;
   return new Map([...current].map(([category, amount]) => [category, Math.round(amount * ratio / 100) * 100]));
+}
+
+/** ISO calendar date at the budget's Hong Kong day boundary, never UTC slicing. */
+export function hongKongDate(at: string | Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(at));
+  const part = (type: string) => parts.find(value => value.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export interface BudgetForecastSale { venue_id: string | null; date: string; total_sales: number | string | null; }
+export interface BudgetForecastOverride { venue_id: string; target_date: string; projected_sales: number | null; }
+/** Full calendar-month forecast. Each venue uses Revenue's exact daily engine. */
+export function purchasingSalesForecast(month: string, venueIds: string[], sales: BudgetForecastSale[], overrides: BudgetForecastOverride[], today = hongKongDate()) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const perVenue = venueIds.map(id => {
+    const history = aggregateActualsByDate(sales.filter(row => row.venue_id === id));
+    const actuals = new Map([...history].filter(([date]) => date.startsWith(month)));
+    const projections = new Map(overrides.filter(row => row.venue_id === id && row.target_date.startsWith(month) && row.projected_sales != null).map(row => [row.target_date, Number(row.projected_sales)]));
+    return buildProjectionRows(year, monthNumber, projections, actuals, history);
+  });
+  const rows = perVenue.flat();
+  const available = rows.some(row => row.effectiveForecast != null);
+  const elapsed = rows.filter(row => row.date <= today);
+  return {
+    forecast: available ? rows.reduce((sum, row) => sum + (row.effectiveForecast ?? 0), 0) : null,
+    expected: elapsed.some(row => row.effectiveForecast != null) ? elapsed.reduce((sum, row) => sum + (row.effectiveForecast ?? 0), 0) : null,
+    actual: elapsed.reduce((sum, row) => sum + (row.actualSales ?? 0), 0),
+  };
 }

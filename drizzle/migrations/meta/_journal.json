@@ -71,6 +71,13 @@
       "when": 1793161837409,
       "tag": "0009_purchasing_budgets",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793165894534,
+      "tag": "0010_atomic_purchasing_budget_save",
+      "breakpoints": true
     }
   ]
 }

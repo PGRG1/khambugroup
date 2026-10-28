@@ -12089,6 +12089,16 @@ export type Database = {
           line_id: string
         }[]
       }
+      save_purchasing_budgets: {
+        Args: {
+          p_amounts: Json
+          p_month: string
+          p_note?: string
+          p_tenant_id: string
+          p_venue_id: string
+        }
+        Returns: undefined
+      }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json

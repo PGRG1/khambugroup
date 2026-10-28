@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { addMonths, format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -7,8 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { usePurchasingBudgets } from "@/hooks/usePurchasingBudgets";
-import { previousCalendarMonth, suggestBudgets, type BudgetChangeRow } from "@/utils/purchasingOverview";
+import { usePurchasingBudgets, usePurchasingSalesForecast } from "@/hooks/usePurchasingBudgets";
+import { previousCalendarMonth, suggestBudgets, hongKongDate, type BudgetChangeRow } from "@/utils/purchasingOverview";
 import { formatCurrency as money, formatPercent as pct, formatTableInteger as integer } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +15,7 @@ const monthKey = (date: Date) => format(date, "yyyy-MM");
 const monthName = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMMM");
 const monthLabel = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMM yyyy");
 const changeLabel = (row: BudgetChangeRow) => {
-  const when = format(new Date(row.changed_at), "d MMM, HH:mm");
+  const when = format(new Date(`${hongKongDate(row.changed_at)}T12:00:00`), "d MMM");
   if (row.old_amount == null) return `Set ${when}`;
   return `${row.new_amount > row.old_amount ? "Raised" : "Lowered"} ${when}`;
 };
@@ -37,18 +36,17 @@ interface Props {
   spendFor: (month: string) => Map<string, number>;
   /** Actual revenue for a month (yyyy-MM). */
   revenueFor: (month: string) => number;
-  /** Revenue target for the viewed month; null when none. */
-  forecast: number | null;
-  /** Sales so far and expected so far, for "Update budgets" suggestions. */
-  actualSales: number;
-  expectedSales: number;
-  /** Open with every amount scaled by actual/expected sales. */
-  suggest: boolean;
+  venueIds: string[];
 }
 
-export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scopeLabel, venueId, isAdmin, categories, spendFor, revenueFor, forecast, actualSales, expectedSales, suggest }: Props) {
+export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scopeLabel, venueId, isAdmin, categories, spendFor, revenueFor, venueIds }: Props) {
   const { budgets, changes, names, save } = usePurchasingBudgets();
   const [month, setMonth] = useState(defaultMonth);
+  const forecastQuery = usePurchasingSalesForecast(month, venueIds, open);
+  const forecast = forecastQuery.data?.forecast ?? null;
+  const expectedSales = forecastQuery.data?.expected ?? 0;
+  const actualSales = forecastQuery.data?.actual ?? 0;
+  useEffect(() => { if (open) setMonth(defaultMonth); }, [open, defaultMonth]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [suggested, setSuggested] = useState<Map<string, number> | null>(null);
   const [reason, setReason] = useState("");
@@ -75,18 +73,12 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
     if (!open) return;
     const base = new Map<string, number>();
     budgets.filter(row => row.venue_id === venueId && row.month.slice(0, 7) === month).forEach(row => base.set(row.category, Number(row.amount)));
-    if (suggest && expectedSales > 0) {
-      const next = suggestBudgets(base, actualSales, expectedSales);
-      setSuggested(next);
-      setAmounts(Object.fromEntries(categories.map(category => [category, String(next.get(category) ?? base.get(category) ?? "")])));
-    } else {
-      setSuggested(null);
-      setAmounts(Object.fromEntries(categories.map(category => [category, base.has(category) ? String(base.get(category)) : ""])));
-    }
+    setSuggested(null);
+    setAmounts(Object.fromEntries(categories.map(category => [category, base.has(category) ? String(base.get(category)) : ""])));
     setReason("");
     setHistoryCategory(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, month, suggest, budgets, venueId, categories]);
+  }, [open, month, budgets, venueId, categories.join("|")]);
 
   const previous = previousCalendarMonth(month);
   const last3 = useMemo(() => {
@@ -119,6 +111,7 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
       const value = parsed(category);
       if (value != null) next.set(category, value);
     }
+    if (categories.some(category => (amounts[category] ?? "").trim() && parsed(category) == null)) { toast.error("Enter a budget of 0 or more"); return; }
     setSaving(true);
     try {
       await save({ venueId, month, reason: reason.trim(), amounts: next });
@@ -131,11 +124,24 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
     }
   };
 
+  const salesDifference = expectedSales > 0 ? actualSales / expectedSales - 1 : null;
+  const suggestions = suggestBudgets(currentAmounts, actualSales, expectedSales);
+  const suggestedTotal = [...suggestions.values()].reduce((sum, amount) => sum + amount, 0);
+  const showSuggestion = isAdmin && month === hongKongDate().slice(0, 7) && salesDifference != null && Math.abs(salesDifference) >= 0.03;
+  const useSuggestions = () => {
+    setSuggested(suggestions);
+    setAmounts(Object.fromEntries(categories.map(category => [category, suggestions.has(category) ? String(suggestions.get(category)) : amounts[category] ?? ""])));
+  };
+  const budgetInput = (category: string) => {
+    const was = currentAmounts.get(category);
+    const changed = suggested?.has(category) && Number(amounts[category]) !== was;
+    return <div><Input type="number" min={0} step={100} inputMode="numeric" aria-label={`${category} budget`} className={cn("h-8 w-full text-right td-num", changed && "border-warning bg-warning/10")} value={amounts[category] ?? ""} disabled={!isAdmin} onChange={event => setAmounts(old => ({ ...old, [category]: event.target.value }))} />{changed && was != null && <p className="mt-0.5 text-right text-[11px] text-muted-foreground td-num">was {integer(was)}</p>}</div>;
+  };
   const historyRows = historyCategory ? changesFor(month, historyCategory) : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[900px] overflow-hidden">
+      <DialogContent className="max-w-[900px] max-h-[90svh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="text-left pr-8">
           <DialogTitle>{historyCategory ? `${historyCategory} history` : "Budgets"}</DialogTitle>
           <DialogDescription>{scopeLabel}</DialogDescription>
@@ -150,7 +156,7 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                   <div key={row.id} className="border-b border-border/40 last:border-0 py-3 text-sm">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-medium">{names.get(row.changed_by ?? "") ?? "Someone"}</span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(row.changed_at), "d MMM yyyy, HH:mm")}</span>
+                      <span className="text-xs text-muted-foreground break-words">{new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Hong_Kong", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(row.changed_at))}</span>
                     </div>
                     <div className="mt-1 td-num text-[13px]">
                       {row.old_amount == null ? "Not set" : money(row.old_amount)} → {money(row.new_amount)}
@@ -169,21 +175,22 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                 <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{monthOptions.map(key => <SelectItem key={key} value={key}>{monthLabel(key)}</SelectItem>)}</SelectContent>
               </Select>
-              {!forecast && <p className="text-xs text-muted-foreground">No revenue target for {monthName(month)} yet · <Link to="/revenue/targets-new" className="underline underline-offset-4 hover:text-foreground" onClick={() => onOpenChange(false)}>Revenue targets</Link></p>}
+
             </div>
             <div className="grid grid-cols-1 min-[480px]:grid-cols-3 gap-3 text-[13px]">
-              <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Revenue forecast</p><p className="td-num font-medium">{forecast != null ? money(forecast) : "—"}</p></div>
+              <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Sales forecast</p><p className="td-num font-medium">{forecast != null ? money(forecast) : "—"}</p></div>
               <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Total budget{forecast ? ` (${pct(totalBudget / forecast * 100)} of forecast)` : ""}</p><p className="td-num font-medium">{money(totalBudget)}</p></div>
               <div className="rounded-lg border border-border/60 px-3 py-2"><p className="text-xs text-muted-foreground">Last 3 months spend as % of revenue</p><p className="td-num font-medium">{last3.ratio != null ? pct(last3.ratio) : "—"}</p></div>
             </div>
-            {suggested && <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">These are suggestions based on sales so far — check them before saving.</p>}
-            <div className="max-h-[50svh] overflow-auto">
-              <table className="w-full min-w-[640px] text-[13px]">
+            {showSuggestion && salesDifference != null && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>Sales are {pct(Math.abs(salesDifference * 100))} {salesDifference > 0 ? "above" : "below"} forecast. Suggested total: {money(suggestedTotal)}</span><Button variant="outline" size="sm" className="h-7" onClick={useSuggestions}>Use</Button></div>}
+            <div className="sm:hidden max-h-[45svh] overflow-y-auto overflow-x-hidden divide-y divide-border/40">{categories.map(category => <div key={category} className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-3 py-3"><div className="min-w-0"><Button variant="link" className="h-auto max-w-full p-0 text-left text-[13px] whitespace-normal justify-start hover:text-foreground" onClick={() => setHistoryCategory(category)}>{category}</Button><p className="mt-1 text-[11px] text-muted-foreground">{previous ? `${monthName(previous)} ${integer(spendFor(previous).get(category) ?? 0)}` : ""}</p></div>{budgetInput(category)}</div>)}</div>
+            <div className="hidden sm:block max-h-[50svh] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed text-[12px]">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border text-xs text-muted-foreground">
                     <th className="px-1 py-2 sm:px-2 text-left font-medium">Category</th>
-                    {last3.keys.map(key => <th key={key} className="px-1 py-2 sm:px-2 text-right font-medium whitespace-nowrap">{monthLabel(key)}</th>)}
-                    <th className="px-1 py-2 sm:px-2 text-right font-medium whitespace-nowrap">Budget (HK$)</th>
+                    {last3.keys.map(key => <th key={key} className="px-1 py-2 sm:px-2 text-right font-medium ">{monthLabel(key)}</th>)}
+                    <th className="px-1 py-2 sm:px-2 text-right font-medium">Budget (HK$)</th>
                     <th className="px-1 py-2 sm:px-2 text-right font-medium">% of forecast</th>
                     <th className="px-1 py-2 sm:px-2 text-left font-medium">Last change</th>
                   </tr>
@@ -193,23 +200,15 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                     const categoryChanges = changesFor(month, category);
                     const last = categoryChanges[0];
                     const value = parsed(category);
-                    const was = currentAmounts.get(category);
-                    const isSuggested = suggested != null && suggested.get(category) != null && suggested.get(category) !== was;
                     return (
                       <tr key={category} className="border-b border-border/40 last:border-0">
                         <td className="px-1 py-2 sm:px-2 font-medium">{category}</td>
                         {last3.keys.map(key => <td key={key} className="px-1 py-2 sm:px-2 text-right td-num whitespace-nowrap">{integer(spendFor(key).get(category) ?? 0)}</td>)}
                         <td className="px-1 py-2 sm:px-2 text-right">
-                          <Input
-                            type="number" min={0} step={100} inputMode="numeric" aria-label={`${category} budget`}
-                            className={cn("h-8 w-28 ml-auto text-right td-num", isSuggested && "border-warning bg-warning/10")}
-                            value={amounts[category] ?? ""} disabled={!isAdmin}
-                            onChange={event => setAmounts(old => ({ ...old, [category]: event.target.value }))}
-                          />
-                          {isSuggested && was != null && <p className="mt-0.5 text-[11px] text-muted-foreground td-num">was {integer(was)}</p>}
+                          {budgetInput(category)}
                         </td>
                         <td className="px-1 py-2 sm:px-2 text-right td-num whitespace-nowrap">{forecast && value != null ? pct(value / forecast * 100) : "—"}</td>
-                        <td className="px-1 py-2 sm:px-2 text-xs text-muted-foreground whitespace-nowrap">
+                        <td className="px-1 py-2 sm:px-2 text-xs text-muted-foreground break-words">
                           {last ? changeLabel(last) : "Not set"}
                           {categoryChanges.length > 1 && <Button variant="link" className="h-auto px-1 py-0 text-xs hover:text-foreground" onClick={() => setHistoryCategory(category)}>History</Button>}
                         </td>
@@ -219,13 +218,14 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                 </tbody>
               </table>
             </div>
-            {isAdmin && <Input aria-label="Reason" placeholder="Reason (optional)" value={reason} onChange={event => setReason(event.target.value)} className="h-9" />}
+            {isAdmin && <Input aria-label="Note (optional)" placeholder="Note (optional)" value={reason} onChange={event => setReason(event.target.value)} className="h-9" />}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              {isAdmin && previous ? <Button variant="link" className="h-9 px-0 text-xs hover:text-foreground" onClick={copyPrevious}>Copy {monthName(previous)}'s budgets</Button> : <span />}
+              {isAdmin && previous ? <Button variant="link" className="h-9 px-0 text-xs hover:text-foreground" onClick={copyPrevious}>Copy {monthName(previous)}</Button> : <span />}
               {isAdmin && <Button onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>}
             </div>
           </div>
         )}
+        <p className="text-[11px] text-muted-foreground">Every change is saved with the date, time and who made it.</p>
       </DialogContent>
     </Dialog>
   );

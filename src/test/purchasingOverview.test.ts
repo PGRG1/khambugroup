@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultInvoiceMonth, trailingMonths } from "@/components/procurement/purchasingOverviewPresentation";
-import { previousCalendarMonth, periodIncludes, itemRanking, categoryRanking, monthPace, budgetByDay, suggestBudgets, isBudgetableCategory, type OverviewInvoice, type OverviewLine, type OverviewProduct, type BudgetChangeRow } from "@/utils/purchasingOverview";
+import { previousCalendarMonth, periodIncludes, itemRanking, categoryRanking, monthPace, budgetByDay, suggestBudgets, isBudgetableCategory, hongKongDate, purchasingSalesForecast, type OverviewInvoice, type OverviewLine, type OverviewProduct, type BudgetChangeRow } from "@/utils/purchasingOverview";
 const invoice = (id: string, date: string, amount = 100, discount = 0): OverviewInvoice => ({ id, invoice_date: date, total_amount: amount, discount, supplier_id: "supplier", venue: "Assembly", created_at: date, review_status: null, has_disputes: false });
 const line = (id: string, price: number, unit: string, total = 100): OverviewLine => ({ invoice_id: "invoice", product_master_id: id, total, unit_price: price, quantity: 1, unit });
 const products = new Map<string, OverviewProduct>([
@@ -45,6 +45,28 @@ describe("Purchasing budgets", () => {
     expect(suggested.get("Food")).toBe(18100);
     expect(suggested.get("Beverages")).toBe(7200);
   });
+  it("raises suggested total using actual divided by forecast, not the swapped ratio", () => {
+    const amounts = suggestBudgets(new Map([["Food", 55000], ["Supplies", 1050]]), 120000, 100000);
+    expect(amounts.get("Food")).toBe(66000);
+    expect(amounts.get("Supplies")).toBe(1300);
+    expect([...amounts.values()].reduce((a, b) => a + b, 0)).toBe(67300);
+  });
+  it("buckets a change after 16:00 UTC into the next Hong Kong day", () => {
+    expect(hongKongDate("2026-10-14T16:00:00Z")).toBe("2026-10-15");
+    const series = budgetByDay("2026-10", [change("Food", 20000, 26000, "2026-10-14T16:30:00Z")], new Map([["Food", 26000]]));
+    expect(series[13]).toBe(20000);
+    expect(series[14]).toBe(26000);
+  });
+  it("keeps a first-time budget unset before its Hong Kong set date", () => {
+    const series = budgetByDay("2026-10", [change("Food", null, 55000, "2026-09-30T16:30:00Z")], new Map([["Food", 55000]]));
+    expect(series[0]).toBe(55000);
+  });
+  it("sums separate venue budget histories without conflating their category", () => {
+    const a = { ...change("Food", 100, 200, "2026-10-03T01:00:00Z"), venue_id: "a" };
+    const b = { ...change("Food", 300, 500, "2026-10-05T01:00:00Z"), venue_id: "b" };
+    const series = budgetByDay("2026-10", [a, b], new Map([["Food", 700]]));
+    expect(series[0]).toBe(400); expect(series[2]).toBe(500); expect(series[4]).toBe(700);
+  });
   it("keeps amounts when there is no expected sales figure", () => {
     expect(suggestBudgets(new Map([["Food", 20000]]), 5000, 0).get("Food")).toBe(20000);
   });
@@ -53,5 +75,24 @@ describe("Purchasing budgets", () => {
     expect(isBudgetableCategory("Deposits")).toBe(false);
     expect(isBudgetableCategory("Adjustements")).toBe(false);
     expect(isBudgetableCategory("Adjustment")).toBe(false);
+  });
+});
+
+describe("Purchasing Sales forecast", () => {
+  const history = Array.from({ length: 70 }, (_, i) => ({ venue_id: "a", date: new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10), total_sales: 100 }));
+  it("sums every day of October including days after today, with manager override", () => {
+    const result = purchasingSalesForecast("2026-10", ["a"], history, [{ venue_id: "a", target_date: "2026-10-31", projected_sales: 500 }], "2026-10-28");
+    expect(result.forecast).toBe(3500); expect(result.expected).toBe(2800);
+  });
+  it("sums effective forecasts per venue, not a group-average weekday forecast", () => {
+    const sales = [...history, ...history.map(row => ({ ...row, venue_id: "b", total_sales: 200 }))];
+    expect(purchasingSalesForecast("2026-10", ["a", "b"], sales, [], "2026-10-28").forecast).toBe(9300);
+  });
+  it("recalculates the month picked in the dialog", () => {
+    const result = purchasingSalesForecast("2026-11", ["a"], history, [], "2026-10-28");
+    expect(result.forecast).toBe(3000); expect(result.expected).toBeNull();
+  });
+  it("shows no forecast when history and overrides cannot supply any daily forecast", () => {
+    expect(purchasingSalesForecast("2026-10", ["a"], [], [], "2026-10-28").forecast).toBeNull();
   });
 });
