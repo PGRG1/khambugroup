@@ -1859,6 +1859,24 @@ export default function ProcurementInvoicesTab() {
                   );
                 }
               }
+
+              // Quick-mode door tap: confirm the delivery right at the door.
+              // Full mode and PO suppliers keep the existing PO / GRN flow.
+              const supplier = suppliers.find((s: any) => s.id === inv.supplier_id) as any;
+              if (shouldOfferDoorTap(deliveryCheck.mode, !!supplier?.needs_po)) {
+                const savedLines = await fetchLineItems(created.id);
+                setDoorTap({
+                  invoiceId: created.id,
+                  supplierName: supplier?.name || "Supplier",
+                  total: lines.reduce((sum, line) => sum + line.total, 0),
+                  lines: savedLines.map((l) => ({
+                    invoice_line_item_id: l.id,
+                    description: l.description || "(no description)",
+                    unit: l.unit || "each",
+                    quantity_invoiced: Number(l.quantity) || 0,
+                  })),
+                });
+              }
             }
           }}
           onClose={() => {
