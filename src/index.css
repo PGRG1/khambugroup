@@ -667,3 +667,7 @@ html:not(.dark) .bani-rail-tip { background: #1F3F3B; color: #F5F4F0; font-size:
 .venue-note { padding: 8px 10px 4px; font-size: 12px; color: #55605A; }
 .venue-done { background: #1F3F3B; color: #F5F4F0; }
 .venue-done:hover { background: #2a524d; }
+
+/* Purchasing bars: petrol fill on a solid light track so progress always reads. */
+.purchasing-track { background: #E3E9E5; }
+.purchasing-bar { background: #2F5E5A; }
