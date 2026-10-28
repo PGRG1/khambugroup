@@ -37,7 +37,7 @@ function OverviewChartShell({ children, className, ...props }: Parameters<typeof
   return <ChartShell {...props} className={cn("[&>div:first-child>div:first-child>div:first-child]:text-[15px] [&>div:first-child>div:first-child>div:first-child]:font-semibold [&>p]:text-[12.5px] [&>div:first-child]:flex-wrap [&>div:first-child>div:last-child]:max-w-full [&>div:first-child>div:last-child]:shrink [&>div:first-child>div:last-child]:min-w-0 max-sm:[&>div:first-child>div:last-child]:basis-full", className)}>{children}</ChartShell>;
 }
 function OverviewKpi(props: Parameters<typeof KpiCard>[0]) {
-  return <div className="min-w-0 [&>div]:h-full [&>div]:p-[18px] [&>div>span]:hidden [&>div>div:first-of-type]:normal-case [&>div>div:first-of-type]:tracking-normal [&>div>div:first-of-type]:text-[13px] [&>div>div:nth-of-type(2)]:text-[26px] [&>div>div:nth-of-type(2)]:font-medium [&>div>div:nth-of-type(3)]:text-[12px]"><KpiCard {...props} /></div>;
+  return <div className="min-w-0 [&>div]:h-full [&>div]:p-[18px] [&>div>span]:hidden [&>div>div:first-of-type]:normal-case [&>div>div:first-of-type]:tracking-normal [&>div>div:first-of-type]:text-[13px] [&>div>div:nth-of-type(2)]:text-[26px] [&>div>div:nth-of-type(2)]:font-medium [&>div>div:nth-of-type(3)]:min-h-[26px] [&>div>div:nth-of-type(3)]:text-[12px]"><KpiCard {...props} /></div>;
 }
 type Ranked = { id: string; name: string; value: number; share: number | null };
 
