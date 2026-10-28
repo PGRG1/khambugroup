@@ -671,3 +671,6 @@ html:not(.dark) .bani-rail-tip { background: #1F3F3B; color: #F5F4F0; font-size:
 /* Purchasing bars: petrol fill on a solid light track so progress always reads. */
 .purchasing-track { background: #E3E9E5; }
 .purchasing-bar { background: #2F5E5A; }
+
+/* Plain "today" marker on budget bars: a thin dark line straddling the bar, never affecting row height. */
+.purchasing-tick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: #1F3F3B; opacity: 0.55; }
