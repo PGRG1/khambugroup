@@ -2256,10 +2256,7 @@ function InvoiceTableSection({
       toolbarRight={
         <>
           <Button size="sm" onClick={onUploadClick} className="h-9 flex-1 sm:flex-none">
-            <ScanLine className="h-4 w-4 mr-1" />New delivery
-          </Button>
-          <Button size="sm" variant="outline" onClick={onUploadClick} className="h-9">
-            Upload Invoice
+            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
           </Button>
           <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
             <Download className="h-4 w-4 mr-1" />Download
