@@ -732,7 +732,7 @@ export default function SupplierAccountPage() {
                   </thead>
                   <tbody>
                     {openInvoicesList.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center text-muted-foreground py-6">No unpaid invoices.</td></tr>
+                      <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No unpaid invoices.</td></tr>
                     ) : openInvoicesList.map((inv) => (
                       <tr key={inv.id} className="border-b border-border/30">
                         <td className="py-2 pr-4 font-mono text-xs">
