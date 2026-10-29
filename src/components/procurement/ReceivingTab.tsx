@@ -775,6 +775,17 @@ export default function ReceivingTab() {
           </div>
         </div>
       )}
+
+      <DeliveryCheckDialog
+        target={problemTarget}
+        tenantId={tenantId || ""}
+        userId={user?.id || ""}
+        onClose={() => {
+          setProblemTarget(null);
+          loadAll();
+          if (selected) openDetail(selected);
+        }}
+      />
     </div>
   );
 }
