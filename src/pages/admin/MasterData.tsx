@@ -229,24 +229,6 @@ function ProcurementCard() {
           </RadioGroup>
           {purchasing.isError && <div className="text-xs text-destructive mt-2">Could not load How you buy. Please reload to try again.</div>}
         </div>
-        <div>
-          <div id="delivery-check-mode-label" className="text-sm font-medium mb-3">How you check deliveries</div>
-          <RadioGroup aria-labelledby="delivery-check-mode-label" value={deliveryCheck.mode} onValueChange={saveDeliveryCheckMode} disabled={savingDeliveryCheck || !deliveryCheck.isSuccess}>
-            {[
-              { value: "quick", title: "Quick (default)", desc: "Photo of the invoice at the door, tap All good or Problem. Bani checks the rest." },
-              { value: "full", title: "Full", desc: "Purchase order → goods received → invoice, checked against each other." },
-            ].map(opt => (
-              <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${deliveryCheck.mode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-                <RadioGroupItem value={opt.value} data-slot="icon-only" className="mt-0.5 shrink-0 self-start" />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium">{opt.title}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
-                </span>
-              </label>
-            ))}
-          </RadioGroup>
-          {deliveryCheck.isError && <div className="text-xs text-destructive mt-2">Could not load How you check deliveries. Please reload to try again.</div>}
-        </div>
         <Separator/>
         <div>
           <div className="text-sm font-medium">Stock count reference quantity</div>
