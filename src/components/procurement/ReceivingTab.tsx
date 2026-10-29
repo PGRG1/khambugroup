@@ -22,6 +22,8 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { downloadCSV } from "@/utils/csvDownload";
 import { useVenues } from "@/hooks/useVenues";
+import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
+import { AlertTriangle } from "lucide-react";
 
 type GrnStatus = "draft" | "confirmed";
 
@@ -115,6 +117,7 @@ export default function ReceivingTab() {
   // detail panel
   const [selected, setSelected] = useState<GRN | null>(null);
   const [selectedItems, setSelectedItems] = useState<GRNItem[]>([]);
+  const [problemTarget, setProblemTarget] = useState<DeliveryCheckTarget | null>(null);
 
   const loadAll = async () => {
     if (!tenantId) return;
