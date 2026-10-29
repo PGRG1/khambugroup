@@ -61,8 +61,16 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
         .eq("tenant_id", effectiveTenantId)
         .order("name");
       setVenues((data as VenueRow[]) || []);
+      const { data: member } = await supabase
+        .from("tenant_members")
+        .select("purchasing_role")
+        .eq("tenant_id", effectiveTenantId)
+        .eq("user_id", user.user_id)
+        .maybeSingle();
+      const pr = (member as any)?.purchasing_role;
+      setPurchasingRole(PURCHASING_ROLES.includes(pr) ? pr : "none");
     })();
-  }, [effectiveTenantId]);
+  }, [effectiveTenantId, user.user_id]);
 
   const updatePage = (pageKey: string, field: string, value: any) => {
     setPages(prev => prev.map(p => p.page_key === pageKey ? { ...p, [field]: value } : p));
@@ -99,6 +107,13 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
         .update({ position, status })
         .eq("user_id", user.user_id)
         .eq("tenant_id", effectiveTenantId);
+
+      if (isAdmin) {
+        await supabase.from("tenant_members")
+          .update({ purchasing_role: purchasingRole === "none" ? null : purchasingRole } as any)
+          .eq("user_id", user.user_id)
+          .eq("tenant_id", effectiveTenantId);
+      }
 
       for (const p of pages) {
         await supabase.from("user_page_permissions").upsert({
