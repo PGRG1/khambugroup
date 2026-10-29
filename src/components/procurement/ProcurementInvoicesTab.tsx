@@ -39,18 +39,18 @@ import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSource
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
-import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
-import { shouldOfferDoorTap } from "@/utils/deliveryCheck";
 import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
-
-
-const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
+import { REVIEW_STATUSES, mapScannerReviewStatus, computeHeldAmount } from "@/utils/invoiceStatus";
 
 
 const REVIEW_BADGE: Record<string, string> = {
+  "Draft": "bg-muted text-muted-foreground border border-border",
+  "To approve": "bg-info/10 text-info border border-info/30",
   "Approved": "bg-primary/10 text-primary border border-primary/25",
   "Disputed": "bg-warning/10 text-warning border border-warning/30",
   "Voided": "bg-muted text-muted-foreground border border-border",
+  // Legacy value, kept readable:
+  "Under Review": "bg-muted text-muted-foreground border border-border",
 };
 
 
