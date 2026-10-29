@@ -1,6 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { autoCreateGrnFromInvoice } from "@/utils/autoCreateGrnFromInvoice";
-import { hongKongDate } from "@/utils/purchasingOverview";
 
 export type DeliveryCheckMode = "quick" | "full";
 
@@ -9,38 +7,20 @@ export function resolveDeliveryCheckMode(value: unknown): DeliveryCheckMode {
   return value === "full" ? "full" : "quick";
 }
 
-/**
- * Nav rule: Purchase Orders stay visible in Full mode; in Quick mode they only
- * appear once at least one supplier is flagged as needing a PO.
- */
-export function showPurchaseOrdersInNav(mode: DeliveryCheckMode, anySupplierNeedsPo: boolean): boolean {
-  return mode === "full" || anySupplierNeedsPo;
-}
-
-/** The door tap only applies in Quick mode for suppliers that don't need a PO. */
-export function shouldOfferDoorTap(mode: DeliveryCheckMode, supplierNeedsPo: boolean): boolean {
-  return mode === "quick" && !supplierNeedsPo;
-}
-
-/**
- * No-duplicate rule: reuse the GRN that already exists for the invoice
- * (auto-creation or a manual one); only create when there is none.
- */
-export function planDeliveryGrn(existingGrnId: string | null): { create: boolean } {
-  return { create: !existingGrnId };
-}
-
 export type DeliveryIssue = "short" | "damaged" | "wrong_item";
 
 export interface DeliveryLineInput {
   invoice_line_item_id: string;
   quantity_invoiced: number;
+  /** Current received quantity on the GRN (kept for unaffected lines). */
+  quantity_received: number;
+  unit_price: number;
 }
 
 export interface DeliveryIssueInput {
   issue: DeliveryIssue;
-  /** Arrived quantity — only meaningful for "short". */
-  receivedQty?: number;
+  /** How many units are affected (short / damaged / wrong). */
+  affectedQty?: number;
 }
 
 export interface DeliveryItemUpdate {
@@ -50,24 +30,41 @@ export interface DeliveryItemUpdate {
 }
 
 /**
- * Map invoice lines to grn_items updates. Unaffected lines keep the invoiced
- * quantity; "short" uses the arrived quantity, damaged/wrong keep the invoiced
- * quantity (the goods arrived, they're just not usable).
+ * Map lines to grn_items updates for a problem report. Every issue type asks
+ * "how many affected": quantity_received = current received − affected.
+ * Unaffected lines keep their current quantity_received (never reset to
+ * invoiced, so scanner shortages are kept).
  */
-export function deliveryGrnItemUpdates(
+export function deliveryProblemUpdates(
   lines: DeliveryLineInput[],
   issues: Record<string, DeliveryIssueInput>,
 ): DeliveryItemUpdate[] {
   return lines.map((line) => {
     const hit = issues[line.invoice_line_item_id];
     if (!hit) {
-      return { invoice_line_item_id: line.invoice_line_item_id, quantity_received: line.quantity_invoiced, issue: null };
+      return { invoice_line_item_id: line.invoice_line_item_id, quantity_received: line.quantity_received, issue: null };
     }
-    const received = hit.issue === "short" && hit.receivedQty != null
-      ? Math.max(0, Math.min(Number(hit.receivedQty) || 0, line.quantity_invoiced))
-      : line.quantity_invoiced;
-    return { invoice_line_item_id: line.invoice_line_item_id, quantity_received: received, issue: hit.issue };
+    const affected = Math.max(0, Math.min(Number(hit.affectedQty) || 0, line.quantity_received));
+    return {
+      invoice_line_item_id: line.invoice_line_item_id,
+      quantity_received: line.quantity_received - affected,
+      issue: hit.issue,
+    };
   });
+}
+
+/** Extra held amount: affected qty × unit price, summed over flagged lines. */
+export function deliveryHeldDelta(
+  lines: DeliveryLineInput[],
+  issues: Record<string, DeliveryIssueInput>,
+): number {
+  const delta = lines.reduce((sum, line) => {
+    const hit = issues[line.invoice_line_item_id];
+    if (!hit) return sum;
+    const affected = Math.max(0, Math.min(Number(hit.affectedQty) || 0, line.quantity_received));
+    return sum + affected * (Number(line.unit_price) || 0);
+  }, 0);
+  return Math.round(delta * 100) / 100;
 }
 
 async function findGrnForInvoice(invoiceId: string, tenantId: string) {
@@ -78,16 +75,6 @@ async function findGrnForInvoice(invoiceId: string, tenantId: string) {
     .eq("tenant_id", tenantId)
     .maybeSingle();
   return (data as any) ?? null;
-}
-
-/** Reuse the existing GRN or let idempotent auto-creation make one. */
-async function ensureGrnForInvoice(invoiceId: string, tenantId: string, userId: string) {
-  const existing = await findGrnForInvoice(invoiceId, tenantId);
-  if (!planDeliveryGrn(existing?.id ?? null).create) return { grn: existing, error: undefined as string | undefined };
-  const res = await autoCreateGrnFromInvoice(invoiceId, { tenantId, userId });
-  if (res.error) return { grn: null, error: res.error };
-  const grn = res.grn ?? (await findGrnForInvoice(invoiceId, tenantId));
-  return { grn, error: grn ? undefined : "Could not create the goods received note" };
 }
 
 async function applyItemUpdates(grnId: string, tenantId: string, updates: DeliveryItemUpdate[]) {
@@ -130,58 +117,49 @@ async function applyItemUpdates(grnId: string, tenantId: string, updates: Delive
   return undefined;
 }
 
-/** "All good": exactly one GRN for the invoice, confirmed, received today (HK). */
-export async function confirmDeliveryGrn(
-  invoiceId: string,
-  opts: { tenantId: string; userId: string },
-): Promise<{ grnNumber?: string; error?: string }> {
-  const { tenantId, userId } = opts;
-  const { grn, error } = await ensureGrnForInvoice(invoiceId, tenantId, userId);
-  if (!grn) return { error };
-  const today = hongKongDate();
-  const { error: upErr } = await supabase
-    .from("goods_received_notes" as any)
-    .update({ status: "confirmed", received_date: today, received_by: userId } as any)
-    .eq("id", grn.id)
-    .eq("tenant_id", tenantId);
-  if (upErr) return { error: upErr.message };
-
-  const { data: items } = await supabase
-    .from("grn_items" as any)
-    .select("id, quantity_invoiced")
-    .eq("grn_id", grnId(grn))
-    .eq("tenant_id", tenantId);
-  for (const item of (items as any[]) ?? []) {
-    await supabase
-      .from("grn_items" as any)
-      .update({ quantity_received: Number(item.quantity_invoiced) || 0, issue: null } as any)
-      .eq("id", item.id);
-  }
-  return { grnNumber: grn.grn_number };
-}
-
-function grnId(grn: any): string {
-  return grn.id;
-}
-
-/** "Problem": mark the GRN disputed and record per-line issues. */
-export async function disputeDeliveryGrn(
+/**
+ * "Report a problem": mark the GRN disputed, record per-line issues, set the
+ * invoice to Disputed and add affected qty × unit price to held_amount.
+ * received_date is the invoice date (a Hong Kong calendar date string).
+ */
+export async function reportDeliveryProblem(
   invoiceId: string,
   lines: DeliveryLineInput[],
   issues: Record<string, DeliveryIssueInput>,
-  opts: { tenantId: string; userId: string },
+  opts: { tenantId: string; userId: string; invoiceDate: string },
 ): Promise<{ grnNumber?: string; error?: string }> {
-  const { tenantId, userId } = opts;
-  const { grn, error } = await ensureGrnForInvoice(invoiceId, tenantId, userId);
-  if (!grn) return { error };
-  const today = hongKongDate();
+  const { tenantId, userId, invoiceDate } = opts;
+  const grn = await findGrnForInvoice(invoiceId, tenantId);
+  if (!grn) return { error: "No goods received note exists for this invoice yet." };
+
   const { error: upErr } = await supabase
     .from("goods_received_notes" as any)
-    .update({ status: "disputed", received_date: today, received_by: userId } as any)
+    .update({ status: "disputed", received_date: invoiceDate, received_by: userId } as any)
     .eq("id", grn.id)
     .eq("tenant_id", tenantId);
   if (upErr) return { error: upErr.message };
-  const itemErr = await applyItemUpdates(grn.id, tenantId, deliveryGrnItemUpdates(lines, issues));
+
+  const itemErr = await applyItemUpdates(grn.id, tenantId, deliveryProblemUpdates(lines, issues));
   if (itemErr) return { error: itemErr };
+
+  const heldDelta = deliveryHeldDelta(lines, issues);
+  const { data: inv } = await supabase
+    .from("invoices")
+    .select("held_amount")
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const { error: invErr } = await supabase
+    .from("invoices")
+    .update({
+      review_status: "Disputed",
+      has_disputes: true,
+      held_amount: Math.round(((Number((inv as any)?.held_amount) || 0) + heldDelta) * 100) / 100,
+      updated_at: new Date().toISOString(),
+    } as any)
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId);
+  if (invErr) return { error: invErr.message };
+
   return { grnNumber: grn.grn_number };
 }
