@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { bucketOf } from "./useReceivables";
+import { outstandingAfterHold } from "@/utils/invoiceStatus";
 
 export type APInvoice = {
   id: string;
@@ -261,10 +262,10 @@ export function usePayables() {
         );
         const total = Number(i.total_amount) || 0;
         const paid = Number(i.amount_paid) || 0;
-        // Always compute from total - paid; the stored remaining_balance column can be stale.
-        const computed = Math.max(0, total - paid);
-        const stored = i.remaining_balance != null ? Number(i.remaining_balance) : null;
-        const remaining = stored != null && stored > 0 ? stored : computed;
+        const held = Number(i.held_amount) || 0;
+        // Outstanding excludes held dispute amounts; the stored
+        // remaining_balance column can be stale.
+        const remaining = outstandingAfterHold(total, paid, held);
         const raw = (i.payment_status || "unpaid") as string;
         let derived = raw;
         if (raw === "unpaid" && i.due_date && i.due_date < todayStr) derived = "overdue";
@@ -285,6 +286,7 @@ export function usePayables() {
           venue: i.venue,
           total_amount: total,
           amount_paid: paid,
+          held_amount: Math.round(held * 100) / 100,
           outstanding_amount: Math.round(remaining * 100) / 100,
           age_days: ageDays,
           bucket: bucketOf(ageDays),
