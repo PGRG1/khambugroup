@@ -9,6 +9,8 @@ import { X, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
+import { PURCHASING_ROLES, type PurchasingRole } from "@/utils/invoiceStatus";
 import {
   ALL_PAGES, PAGE_ACTIONS, POSITIONS, AUTHORITIES,
   type UserAccessRecord, type UserPosition, type UserStatus, type Authority, type PageKey,
@@ -26,11 +28,13 @@ type VenueRow = { id: string; name: string };
 
 export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
   const { tenantId: activeTenantId } = useActiveTenant();
+  const { isAdmin } = useAuth();
   const effectiveTenantId = tenantId || activeTenantId || null;
 
   const [displayName, setDisplayName] = useState(user.display_name || "");
   const [position, setPosition] = useState<UserPosition>(user.position);
   const [status, setStatus] = useState<UserStatus>(user.status);
+  const [purchasingRole, setPurchasingRole] = useState<PurchasingRole | "none">("none");
   const [isApprover, setIsApprover] = useState(user.is_approver);
   const [pages, setPages] = useState(
     ALL_PAGES.map(p => {
