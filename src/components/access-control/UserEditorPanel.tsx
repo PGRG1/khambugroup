@@ -206,6 +206,20 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              {isAdmin && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Purchasing role</label>
+                  <Select value={purchasingRole} onValueChange={v => setPurchasingRole(v as PurchasingRole | "none")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex items-center gap-3 pt-5">
                 <Switch checked={isApprover} onCheckedChange={setIsApprover} />
                 <span className="text-sm">Forecast Approver</span>
