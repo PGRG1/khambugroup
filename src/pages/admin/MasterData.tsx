@@ -9,9 +9,6 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { resolvePurchasingMode } from "@/utils/purchasingMode";
-import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
-import { resolveDeliveryCheckMode } from "@/utils/deliveryCheck";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Navigate } from "react-router-dom";
