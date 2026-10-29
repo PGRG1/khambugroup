@@ -14,6 +14,8 @@ export type APInvoice = {
   venue: string;
   total_amount: number;
   amount_paid: number;
+  /** Amount held back while the invoice is disputed. */
+  held_amount: number;
   outstanding_amount: number;
   age_days: number;
   bucket: string;
@@ -131,7 +133,7 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, dispute_notes, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, held_amount, remaining_balance, payment_status, payment_method, status, review_status, dispute_notes, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
         undefined,
         tenantId,
       );
