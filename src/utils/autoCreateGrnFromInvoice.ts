@@ -39,7 +39,7 @@ export async function autoCreateGrnFromInvoice(
     // 2. Load invoice + lines
     const { data: invoice, error: invErr } = await supabase
       .from("invoices")
-      .select("id, supplier_id, venue")
+      .select("id, supplier_id, venue, invoice_date")
       .eq("id", invoiceId)
       .eq("tenant_id", tenantId)
       .single();
@@ -77,17 +77,18 @@ export async function autoCreateGrnFromInvoice(
       }
     }
 
-    // 3. Create GRN header
-    const today = new Date().toISOString().slice(0, 10);
+    // 3. Create GRN header — received_date is the invoice date (a Hong Kong
+    //    calendar date string), never the UTC "today".
+    const receivedDate = (invoice as any).invoice_date || new Date().toISOString().slice(0, 10);
     const { data: grn, error: grnErr } = await supabase
       .from("goods_received_notes" as any)
       .insert({
         invoice_id: invoiceId,
         supplier_id: (invoice as any).supplier_id,
         venue: (invoice as any).venue,
-        
+
         status: "confirmed",
-        received_date: today,
+        received_date: receivedDate,
         received_by: userId,
         notes: "",
         tenant_id: tenantId,
