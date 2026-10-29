@@ -102,14 +102,15 @@ export default function OpenPayablesPage() {
   }), [withAging, bucket, todayStr]);
 
   const totals = useMemo(() => {
-    let outstanding = 0, overdue = 0, dueWeek = 0;
+    let outstanding = 0, overdue = 0, dueWeek = 0, held = 0;
     for (const i of openInvoices) {
       outstanding += i.outstanding_amount;
+      held += i.held_amount;
       if (i.due_date && i.due_date < todayStr) overdue += i.outstanding_amount;
       if (i.due_date && i.due_date >= todayStr && i.due_date <= inSevenDays) dueWeek += i.outstanding_amount;
     }
     const credits = creditNotesAvailable.reduce((s, c) => s + c.remaining_balance, 0);
-    return { outstanding, overdue, dueWeek, credits };
+    return { outstanding, overdue, dueWeek, credits, held };
   }, [openInvoices, creditNotesAvailable, todayStr, inSevenDays]);
 
   return (
@@ -131,10 +132,11 @@ export default function OpenPayablesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
         <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone="amber" />
         <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
         <KCard label="Due this week" value={fmtMoney(totals.dueWeek)} tone="sky" />
+        <KCard label="Held in disputes" value={fmtMoney(totals.held)} tone="default" />
         <KCard label="Available credits to apply" value={fmtMoney(totals.credits)} tone="green" />
       </div>
 
