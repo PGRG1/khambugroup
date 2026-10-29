@@ -1,5 +1,3 @@
-import { showPurchaseOrdersInNav, type DeliveryCheckMode } from "@/utils/deliveryCheck";
-
 export type PurchasingTab = { title: string; url: string; adminOnly?: boolean };
 
 export const PURCHASE_ORDERS_URL = "/procurement/purchase-orders";
@@ -14,16 +12,6 @@ export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Items Master", url: "/procurement/products" },
   { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
 ];
-
-/** Quick delivery checking hides Purchase Orders unless a supplier needs one. */
-export function purchasingSectionPagesForDelivery(
-  pages: PurchasingTab[],
-  mode: DeliveryCheckMode,
-  anySupplierNeedsPo: boolean,
-): PurchasingTab[] {
-  if (showPurchaseOrdersInNav(mode, anySupplierNeedsPo)) return pages;
-  return pages.filter((p) => p.url !== PURCHASE_ORDERS_URL);
-}
 
 export const stockMenuSectionPages: PurchasingTab[] = [
   { title: "Inventory", url: "/procurement/inventory" },

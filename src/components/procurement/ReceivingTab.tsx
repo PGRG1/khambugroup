@@ -22,6 +22,8 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { downloadCSV } from "@/utils/csvDownload";
 import { useVenues } from "@/hooks/useVenues";
+import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
+import { AlertTriangle } from "lucide-react";
 
 type GrnStatus = "draft" | "confirmed";
 
@@ -39,7 +41,7 @@ interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
 interface PORow { id: string; po_number: string; supplier_id: string; venue: string; status: string }
 interface POItem { id: string; po_id: string; product_master_id: string | null; description: string; quantity_ordered: number; unit: string; unit_price: number }
-interface InvoiceRow { id: string; invoice_number: string; supplier_id: string; supplier_name: string; venue: string }
+interface InvoiceRow { id: string; invoice_number: string; supplier_id: string; supplier_name: string; venue: string; invoice_date: string }
 interface InvoiceLine { id: string; invoice_id: string; product_master_id: string | null; description: string; quantity: number; unit: string; unit_price: number }
 
 interface GRN {
@@ -115,6 +117,7 @@ export default function ReceivingTab() {
   // detail panel
   const [selected, setSelected] = useState<GRN | null>(null);
   const [selectedItems, setSelectedItems] = useState<GRNItem[]>([]);
+  const [problemTarget, setProblemTarget] = useState<DeliveryCheckTarget | null>(null);
 
   const loadAll = async () => {
     if (!tenantId) return;
@@ -125,7 +128,7 @@ export default function ReceivingTab() {
       supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").eq("tenant_id", tenantId).in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
-      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, created_at", { col: "created_at", asc: false }, tenantId),
+      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, invoice_date, created_at", { col: "created_at", asc: false }, tenantId),
     ]);
     setGrns((grnRows ?? []) as any);
     const totals: Record<string, number> = {};
@@ -141,6 +144,7 @@ export default function ReceivingTab() {
     setInvoices(((invRows ?? []) as any[]).map((i) => ({
       id: i.id, invoice_number: i.invoice_number, supplier_id: i.supplier_id,
       supplier_name: supMap.get(i.supplier_id) || "—", venue: i.venue,
+      invoice_date: i.invoice_date,
     })));
     setLoading(false);
   };
@@ -431,8 +435,8 @@ export default function ReceivingTab() {
         resultCount={<>Showing {filtered.length} of {grns.length} GRNs · Total: <span className="font-semibold">{fmtMoney(kpis.value)}</span></>}
         toolbarRight={
           <>
-            <Button size="sm" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9 flex-1 sm:flex-none">
-              <ScanLine className="h-4 w-4 mr-1" /> New delivery
+            <Button size="sm" variant="outline" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9 flex-1 sm:flex-none">
+              <ScanLine className="h-4 w-4 mr-1" /> Scan Invoice
             </Button>
             <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
               <Download className="h-4 w-4 mr-1" /> Download
@@ -706,9 +710,38 @@ export default function ReceivingTab() {
                 {selected.notes && <div className="col-span-2"><span className="text-xs uppercase text-muted-foreground">Notes</span><div>{selected.notes}</div></div>}
               </div>
 
-              {selected.status === "draft" && canManage && (
-                <Button size="sm" onClick={confirmReceiptFromPanel}>Confirm Receipt</Button>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {selected.status === "draft" && canManage && (
+                  <Button size="sm" onClick={confirmReceiptFromPanel}>Confirm Receipt</Button>
+                )}
+                {selected.invoice_id && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-warning/50 text-warning hover:text-warning"
+                    onClick={() =>
+                      setProblemTarget({
+                        invoiceId: selected.invoice_id!,
+                        supplierName: selected.suppliers?.name ?? supplierName(selected.supplier_id),
+                        total: grnTotals[selected.id] || 0,
+                        invoiceDate: invoices.find((i) => i.id === selected.invoice_id)?.invoice_date || selected.received_date || "",
+                        lines: selectedItems
+                          .filter((it) => it.invoice_line_item_id)
+                          .map((it) => ({
+                            invoice_line_item_id: it.invoice_line_item_id!,
+                            description: it.description || "(no description)",
+                            unit: it.unit || "each",
+                            quantity_invoiced: Number(it.quantity_invoiced) || 0,
+                            quantity_received: Number(it.quantity_received) || 0,
+                            unit_price: Number(it.unit_cost) || 0,
+                          })),
+                      })
+                    }
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem
+                  </Button>
+                )}
+              </div>
 
               <div>
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Items</Label>
@@ -742,6 +775,17 @@ export default function ReceivingTab() {
           </div>
         </div>
       )}
+
+      <DeliveryCheckDialog
+        target={problemTarget}
+        tenantId={tenantId || ""}
+        userId={user?.id || ""}
+        onClose={() => {
+          setProblemTarget(null);
+          loadAll();
+          if (selected) openDetail(selected);
+        }}
+      />
     </div>
   );
 }

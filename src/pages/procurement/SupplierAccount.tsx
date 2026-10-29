@@ -265,6 +265,7 @@ export default function SupplierAccountPage() {
 
   const outstanding = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.payment_status !== "voided").reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices]);
   const overdue = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.due_date && i.due_date < todayStr).reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices, todayStr]);
+  const heldInDisputes = useMemo(() => supplierInvoices.filter((i) => i.payment_status !== "voided").reduce((s, i) => s + (Number(i.held_amount) || 0), 0), [supplierInvoices]);
   const availableCreditsTotal = useMemo(() => supplierAvailableCNs.reduce((s, c) => s + c.remaining_balance, 0), [supplierAvailableCNs]);
 
   const allocSumByPayment = useMemo(() => {
@@ -606,9 +607,10 @@ export default function SupplierAccountPage() {
         onChanged={() => setRefreshKey((k) => k + 1)}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KCard label="Outstanding" value={fmtMoney(outstanding)} tone={outstanding > 0 ? "amber" : "default"} />
         <KCard label="Overdue" value={fmtMoney(overdue)} tone="red" />
+        <KCard label="Held in disputes" value={fmtMoney(heldInDisputes)} tone="default" />
         <KCard label="Available credits" value={fmtMoney(availableCreditsTotal)} tone="green" />
         <KCard label="Unallocated payments" value={fmtMoney(unallocatedPayments)} tone={unallocatedPayments > 0 ? "amber" : "default"} />
         <KCard label="Deposits outstanding" value={fmtMoney(depositsOutstanding)} tone="sky" />
@@ -722,6 +724,7 @@ export default function SupplierAccountPage() {
                       <th className="text-left py-2 pr-4">Due</th>
                       <th className="text-right py-2 pr-4">Total</th>
                       <th className="text-right py-2 pr-4">Paid</th>
+                      <th className="text-right py-2 pr-4">Held</th>
                       <th className="text-right py-2 pr-4">Outstanding</th>
                       <th className="text-right py-2 pr-4">Age</th>
                       <th className="text-right py-2">Action</th>
@@ -729,7 +732,7 @@ export default function SupplierAccountPage() {
                   </thead>
                   <tbody>
                     {openInvoicesList.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center text-muted-foreground py-6">No unpaid invoices.</td></tr>
+                      <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No unpaid invoices.</td></tr>
                     ) : openInvoicesList.map((inv) => (
                       <tr key={inv.id} className="border-b border-border/30">
                         <td className="py-2 pr-4 font-mono text-xs">
@@ -742,6 +745,7 @@ export default function SupplierAccountPage() {
                         <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmt(inv.held_amount) : ""}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(inv.outstanding_amount)}</td>
                         <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-red-400" : ""}`}>{inv.age_days}d</td>
                         <td className="py-2 text-right whitespace-nowrap">

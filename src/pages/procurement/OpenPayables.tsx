@@ -102,14 +102,15 @@ export default function OpenPayablesPage() {
   }), [withAging, bucket, todayStr]);
 
   const totals = useMemo(() => {
-    let outstanding = 0, overdue = 0, dueWeek = 0;
+    let outstanding = 0, overdue = 0, dueWeek = 0, held = 0;
     for (const i of openInvoices) {
       outstanding += i.outstanding_amount;
+      held += i.held_amount;
       if (i.due_date && i.due_date < todayStr) overdue += i.outstanding_amount;
       if (i.due_date && i.due_date >= todayStr && i.due_date <= inSevenDays) dueWeek += i.outstanding_amount;
     }
     const credits = creditNotesAvailable.reduce((s, c) => s + c.remaining_balance, 0);
-    return { outstanding, overdue, dueWeek, credits };
+    return { outstanding, overdue, dueWeek, credits, held };
   }, [openInvoices, creditNotesAvailable, todayStr, inSevenDays]);
 
   return (
@@ -131,10 +132,11 @@ export default function OpenPayablesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
         <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone="amber" />
         <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
         <KCard label="Due this week" value={fmtMoney(totals.dueWeek)} tone="sky" />
+        <KCard label="Held in disputes" value={fmtMoney(totals.held)} tone="default" />
         <KCard label="Available credits to apply" value={fmtMoney(totals.credits)} tone="green" />
       </div>
 
@@ -172,6 +174,7 @@ export default function OpenPayablesPage() {
                     <th className="text-left py-2 pr-4">Due date</th>
                     <th className="text-right py-2 pr-4">Total</th>
                     <th className="text-right py-2 pr-4">Paid</th>
+                    <th className="text-right py-2 pr-4">Held</th>
                     <th className="text-right py-2 pr-4">Outstanding</th>
                     <th className="text-right py-2 pr-4">Days overdue</th>
                     <th className="text-left py-2 pr-4">Status</th>
@@ -195,6 +198,7 @@ export default function OpenPayablesPage() {
                       <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums">{fmtMoney(inv.total_amount)}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmtMoney(inv.amount_paid)}</td>
+                      <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmtMoney(inv.held_amount) : ""}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmtMoney(inv.outstanding_amount)}</td>
                       <td className={`py-2 pr-4 text-right td-num tabular-nums ${daysOverdue > 60 ? "text-red-400" : daysOverdue > 0 ? "text-amber-400" : "text-muted-foreground/60"}`}>{daysOverdue > 0 ? `${daysOverdue}d` : "—"}</td>
                       <td className="py-2 pr-4">

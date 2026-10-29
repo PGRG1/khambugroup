@@ -92,7 +92,8 @@ export default function ProcurementDashboardTab() {
       return { invoices: invoices as OverviewInvoice[], suppliers: suppliers as { id: string; name: string }[], sales: sales as OverviewSale[], lines: lines as OverviewLine[], products: products as OverviewProduct[], categoryRows: categoryRows as { name: string; level: number; is_active: boolean }[] };
     },
   });
-  const invoices = useMemo(() => purchasingOverviewRows(data.data?.invoices ?? [], purchasing.mode, scope.includesName), [data.data, purchasing.mode, scope.includesName]);
+  // Draft invoices are not spend: excluded from every Overview/budgets figure.
+  const invoices = useMemo(() => purchasingOverviewRows(data.data?.invoices ?? [], purchasing.mode, scope.includesName).filter(row => row.review_status !== "Draft"), [data.data, purchasing.mode, scope.includesName]);
   const sales = useMemo(() => purchasingOverviewRows(data.data?.sales ?? [], purchasing.mode, scope.includesName), [data.data, purchasing.mode, scope.includesName]);
   const products = useMemo(() => new Map((data.data?.products ?? []).map(row => [row.id, row])), [data.data]);
   const names = useMemo(() => new Map((data.data?.suppliers ?? []).map(row => [row.id, row.name])), [data.data]);

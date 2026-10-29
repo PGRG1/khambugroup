@@ -9,6 +9,8 @@ import { X, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
+import { PURCHASING_ROLES, type PurchasingRole } from "@/utils/invoiceStatus";
 import {
   ALL_PAGES, PAGE_ACTIONS, POSITIONS, AUTHORITIES,
   type UserAccessRecord, type UserPosition, type UserStatus, type Authority, type PageKey,
@@ -26,11 +28,13 @@ type VenueRow = { id: string; name: string };
 
 export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
   const { tenantId: activeTenantId } = useActiveTenant();
+  const { isAdmin } = useAuth();
   const effectiveTenantId = tenantId || activeTenantId || null;
 
   const [displayName, setDisplayName] = useState(user.display_name || "");
   const [position, setPosition] = useState<UserPosition>(user.position);
   const [status, setStatus] = useState<UserStatus>(user.status);
+  const [purchasingRole, setPurchasingRole] = useState<PurchasingRole | "none">("none");
   const [isApprover, setIsApprover] = useState(user.is_approver);
   const [pages, setPages] = useState(
     ALL_PAGES.map(p => {
@@ -57,8 +61,16 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
         .eq("tenant_id", effectiveTenantId)
         .order("name");
       setVenues((data as VenueRow[]) || []);
+      const { data: member } = await supabase
+        .from("tenant_members")
+        .select("purchasing_role")
+        .eq("tenant_id", effectiveTenantId)
+        .eq("user_id", user.user_id)
+        .maybeSingle();
+      const pr = (member as any)?.purchasing_role;
+      setPurchasingRole(PURCHASING_ROLES.includes(pr) ? pr : "none");
     })();
-  }, [effectiveTenantId]);
+  }, [effectiveTenantId, user.user_id]);
 
   const updatePage = (pageKey: string, field: string, value: any) => {
     setPages(prev => prev.map(p => p.page_key === pageKey ? { ...p, [field]: value } : p));
@@ -95,6 +107,13 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
         .update({ position, status })
         .eq("user_id", user.user_id)
         .eq("tenant_id", effectiveTenantId);
+
+      if (isAdmin) {
+        await supabase.from("tenant_members")
+          .update({ purchasing_role: purchasingRole === "none" ? null : purchasingRole } as any)
+          .eq("user_id", user.user_id)
+          .eq("tenant_id", effectiveTenantId);
+      }
 
       for (const p of pages) {
         await supabase.from("user_page_permissions").upsert({
@@ -187,6 +206,20 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              {isAdmin && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Purchasing role</label>
+                  <Select value={purchasingRole} onValueChange={v => setPurchasingRole(v as PurchasingRole | "none")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex items-center gap-3 pt-5">
                 <Switch checked={isApprover} onCheckedChange={setIsApprover} />
                 <span className="text-sm">Forecast Approver</span>

@@ -9,8 +9,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { resolvePurchasingMode } from "@/utils/purchasingMode";
-import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
-import { resolveDeliveryCheckMode } from "@/utils/deliveryCheck";
+
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Navigate } from "react-router-dom";
 import { Sparkles, Plus, Pencil, Trash2, Check, X, ClipboardCheck, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
@@ -123,10 +122,8 @@ const REF_MODES = [
 function ProcurementCard() {
   const { tenantId } = useActiveTenant();
   const purchasing = usePurchasingMode();
-  const deliveryCheck = useDeliveryCheckMode();
   const queryClient = useQueryClient();
   const [savingPurchasing, setSavingPurchasing] = useState(false);
-  const [savingDeliveryCheck, setSavingDeliveryCheck] = useState(false);
   const [refMode, setRefMode] = useState<string>("last_count");
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [activeVenue, setActiveVenue] = useState<string>("Assembly");
@@ -170,19 +167,6 @@ function ProcurementCard() {
     }
   };
 
-  const saveDeliveryCheckMode = async (value: string) => {
-    if (!tenantId) return;
-    setSavingDeliveryCheck(true);
-    try {
-      const { error } = await supabase.from("app_config").upsert({ tenant_id: tenantId, key: "delivery_check_mode", value: resolveDeliveryCheckMode(value) }, { onConflict: "tenant_id,key" });
-      if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ["delivery-check-mode", tenantId] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save How you check deliveries");
-    } finally {
-      setSavingDeliveryCheck(false);
-    }
-  };
 
   const venueLocations = locations.filter((l) => l.venue === activeVenue).sort((a, b) => a.sort_order - b.sort_order);
 
@@ -244,24 +228,6 @@ function ProcurementCard() {
             ))}
           </RadioGroup>
           {purchasing.isError && <div className="text-xs text-destructive mt-2">Could not load How you buy. Please reload to try again.</div>}
-        </div>
-        <div>
-          <div id="delivery-check-mode-label" className="text-sm font-medium mb-3">How you check deliveries</div>
-          <RadioGroup aria-labelledby="delivery-check-mode-label" value={deliveryCheck.mode} onValueChange={saveDeliveryCheckMode} disabled={savingDeliveryCheck || !deliveryCheck.isSuccess}>
-            {[
-              { value: "quick", title: "Quick (default)", desc: "Photo of the invoice at the door, tap All good or Problem. Bani checks the rest." },
-              { value: "full", title: "Full", desc: "Purchase order → goods received → invoice, checked against each other." },
-            ].map(opt => (
-              <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${deliveryCheck.mode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-                <RadioGroupItem value={opt.value} data-slot="icon-only" className="mt-0.5 shrink-0 self-start" />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium">{opt.title}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
-                </span>
-              </label>
-            ))}
-          </RadioGroup>
-          {deliveryCheck.isError && <div className="text-xs text-destructive mt-2">Could not load How you check deliveries. Please reload to try again.</div>}
         </div>
         <Separator/>
         <div>

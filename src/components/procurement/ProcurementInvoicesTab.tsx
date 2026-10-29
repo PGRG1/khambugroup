@@ -39,18 +39,18 @@ import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSource
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { consumeScannerHandoff, peekScannerHandoff, subscribeScannerHandoff } from "@/utils/scannerHandoff";
 import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
-import { useDeliveryCheckMode } from "@/hooks/useDeliveryCheckMode";
-import { shouldOfferDoorTap } from "@/utils/deliveryCheck";
 import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
-
-
-const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
+import { REVIEW_STATUSES, mapScannerReviewStatus, computeHeldAmount } from "@/utils/invoiceStatus";
 
 
 const REVIEW_BADGE: Record<string, string> = {
+  "Draft": "bg-muted text-muted-foreground border border-border",
+  "To approve": "bg-info/10 text-info border border-info/30",
   "Approved": "bg-primary/10 text-primary border border-primary/25",
   "Disputed": "bg-warning/10 text-warning border border-warning/30",
   "Voided": "bg-muted text-muted-foreground border border-border",
+  // Legacy value, kept readable:
+  "Under Review": "bg-muted text-muted-foreground border border-border",
 };
 
 
@@ -211,8 +211,7 @@ export default function ProcurementInvoicesTab() {
   const [scannerKey, setScannerKey] = useState(0);
   const [handoffConflict, setHandoffConflict] = useState(false);
   const [handoffTick, setHandoffTick] = useState(0);
-  const deliveryCheck = useDeliveryCheckMode();
-  const [doorTap, setDoorTap] = useState<DeliveryCheckTarget | null>(null);
+  const [problemTarget, setProblemTarget] = useState<DeliveryCheckTarget | null>(null);
   // Floating-Bani scanner handoff: open the scanner for a pending request, but
   // never destroy an unsaved review — ask first.
   useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
@@ -1802,7 +1801,8 @@ export default function ProcurementInvoicesTab() {
                   discount: inv.discount ?? 0,
                   discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
                   status: inv.status === "paid" ? "paid" : "unpaid",
-                  review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved",
+                  review_status: mapScannerReviewStatus((inv as any).status),
+                  held_amount: (inv as any).status === "disputed" ? computeHeldAmount(lines as any) : 0,
                   subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
                   tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                   total_amount: lines.reduce((sum, line) => sum + line.total, 0),
@@ -1859,24 +1859,6 @@ export default function ProcurementInvoicesTab() {
                   );
                 }
               }
-
-              // Quick-mode door tap: confirm the delivery right at the door.
-              // Full mode and PO suppliers keep the existing PO / GRN flow.
-              const supplier = suppliers.find((s: any) => s.id === inv.supplier_id) as any;
-              if (shouldOfferDoorTap(deliveryCheck.mode, !!supplier?.needs_po)) {
-                const savedLines = await fetchLineItems(created.id);
-                setDoorTap({
-                  invoiceId: created.id,
-                  supplierName: supplier?.name || "Supplier",
-                  total: lines.reduce((sum, line) => sum + line.total, 0),
-                  lines: savedLines.map((l) => ({
-                    invoice_line_item_id: l.id,
-                    description: l.description || "(no description)",
-                    unit: l.unit || "each",
-                    quantity_invoiced: Number(l.quantity) || 0,
-                  })),
-                });
-              }
             }
           }}
           onClose={() => {
@@ -1888,10 +1870,10 @@ export default function ProcurementInvoicesTab() {
       )}
 
       <DeliveryCheckDialog
-        target={doorTap}
+        target={problemTarget}
         tenantId={tenantId || ""}
         userId={user?.id || ""}
-        onClose={() => { setDoorTap(null); fetchAll(); }}
+        onClose={() => { setProblemTarget(null); fetchAll(); }}
       />
 
       <AlertDialog open={handoffConflict} onOpenChange={setHandoffConflict}>
@@ -1991,6 +1973,34 @@ export default function ProcurementInvoicesTab() {
                     <Button size="sm" variant="outline" onClick={startEditing}>
                       <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                     </Button>
+                    {rs !== "Voided" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning hover:text-warning"
+                        onClick={() =>
+                          setProblemTarget({
+                            invoiceId: selectedInvoice.id,
+                            supplierName: selectedInvoice.supplier_name || "Supplier",
+                            total: Number(selectedInvoice.total_amount) || 0,
+                            invoiceDate: selectedInvoice.invoice_date,
+                            lines: lineItems.map((line) => {
+                              const gi = giByLine.get(line.id);
+                              return {
+                                invoice_line_item_id: line.id,
+                                description: line.description || "(no description)",
+                                unit: line.unit || "each",
+                                quantity_invoiced: Number(line.quantity) || 0,
+                                quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0,
+                                unit_price: Number(line.unit_price) || 0,
+                              };
+                            }),
+                          })
+                        }
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem
+                      </Button>
+                    )}
                     {hasDurableAttachment(selectedInvoice.file_url) ? (
                       <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
                         <Eye className="h-3.5 w-3.5 mr-1" />
@@ -2246,10 +2256,7 @@ function InvoiceTableSection({
       toolbarRight={
         <>
           <Button size="sm" onClick={onUploadClick} className="h-9 flex-1 sm:flex-none">
-            <ScanLine className="h-4 w-4 mr-1" />New delivery
-          </Button>
-          <Button size="sm" variant="outline" onClick={onUploadClick} className="h-9">
-            Upload Invoice
+            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
           </Button>
           <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
             <Download className="h-4 w-4 mr-1" />Download

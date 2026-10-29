@@ -5566,6 +5566,7 @@ export type Database = {
           file_url: string | null
           grn_id: string | null
           has_disputes: boolean
+          held_amount: number
           id: string
           invoice_date: string
           invoice_number: string
@@ -5617,6 +5618,7 @@ export type Database = {
           file_url?: string | null
           grn_id?: string | null
           has_disputes?: boolean
+          held_amount?: number
           id?: string
           invoice_date: string
           invoice_number: string
@@ -5668,6 +5670,7 @@ export type Database = {
           file_url?: string | null
           grn_id?: string | null
           has_disputes?: boolean
+          held_amount?: number
           id?: string
           invoice_date?: string
           invoice_number?: string
@@ -10349,6 +10352,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          purchasing_role: string | null
           role: string
           tenant_id: string
           user_id: string
@@ -10356,6 +10360,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          purchasing_role?: string | null
           role: string
           tenant_id: string
           user_id: string
@@ -10363,6 +10368,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          purchasing_role?: string | null
           role?: string
           tenant_id?: string
           user_id?: string
