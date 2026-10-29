@@ -724,6 +724,7 @@ export default function SupplierAccountPage() {
                       <th className="text-left py-2 pr-4">Due</th>
                       <th className="text-right py-2 pr-4">Total</th>
                       <th className="text-right py-2 pr-4">Paid</th>
+                      <th className="text-right py-2 pr-4">Held</th>
                       <th className="text-right py-2 pr-4">Outstanding</th>
                       <th className="text-right py-2 pr-4">Age</th>
                       <th className="text-right py-2">Action</th>
@@ -744,6 +745,7 @@ export default function SupplierAccountPage() {
                         <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmt(inv.held_amount) : ""}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(inv.outstanding_amount)}</td>
                         <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-red-400" : ""}`}>{inv.age_days}d</td>
                         <td className="py-2 text-right whitespace-nowrap">
