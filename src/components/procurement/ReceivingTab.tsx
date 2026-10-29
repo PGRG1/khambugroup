@@ -41,7 +41,7 @@ interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
 interface PORow { id: string; po_number: string; supplier_id: string; venue: string; status: string }
 interface POItem { id: string; po_id: string; product_master_id: string | null; description: string; quantity_ordered: number; unit: string; unit_price: number }
-interface InvoiceRow { id: string; invoice_number: string; supplier_id: string; supplier_name: string; venue: string }
+interface InvoiceRow { id: string; invoice_number: string; supplier_id: string; supplier_name: string; venue: string; invoice_date: string }
 interface InvoiceLine { id: string; invoice_id: string; product_master_id: string | null; description: string; quantity: number; unit: string; unit_price: number }
 
 interface GRN {
@@ -128,7 +128,7 @@ export default function ReceivingTab() {
       supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").eq("tenant_id", tenantId).in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
-      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, created_at", { col: "created_at", asc: false }, tenantId),
+      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, invoice_date, created_at", { col: "created_at", asc: false }, tenantId),
     ]);
     setGrns((grnRows ?? []) as any);
     const totals: Record<string, number> = {};
@@ -144,6 +144,7 @@ export default function ReceivingTab() {
     setInvoices(((invRows ?? []) as any[]).map((i) => ({
       id: i.id, invoice_number: i.invoice_number, supplier_id: i.supplier_id,
       supplier_name: supMap.get(i.supplier_id) || "—", venue: i.venue,
+      invoice_date: i.invoice_date,
     })));
     setLoading(false);
   };
@@ -723,9 +724,7 @@ export default function ReceivingTab() {
                         invoiceId: selected.invoice_id!,
                         supplierName: selected.suppliers?.name ?? supplierName(selected.supplier_id),
                         total: grnTotals[selected.id] || 0,
-                        invoiceDate: invoices.find((i) => i.id === selected.invoice_id)?.invoice_number
-                          ? (selected.received_date || "")
-                          : (selected.received_date || ""),
+                        invoiceDate: invoices.find((i) => i.id === selected.invoice_id)?.invoice_date || selected.received_date || "",
                         lines: selectedItems
                           .filter((it) => it.invoice_line_item_id)
                           .map((it) => ({
