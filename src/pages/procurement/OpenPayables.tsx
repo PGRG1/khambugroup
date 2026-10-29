@@ -174,6 +174,7 @@ export default function OpenPayablesPage() {
                     <th className="text-left py-2 pr-4">Due date</th>
                     <th className="text-right py-2 pr-4">Total</th>
                     <th className="text-right py-2 pr-4">Paid</th>
+                    <th className="text-right py-2 pr-4">Held</th>
                     <th className="text-right py-2 pr-4">Outstanding</th>
                     <th className="text-right py-2 pr-4">Days overdue</th>
                     <th className="text-left py-2 pr-4">Status</th>
@@ -197,6 +198,7 @@ export default function OpenPayablesPage() {
                       <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums">{fmtMoney(inv.total_amount)}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmtMoney(inv.amount_paid)}</td>
+                      <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmtMoney(inv.held_amount) : ""}</td>
                       <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmtMoney(inv.outstanding_amount)}</td>
                       <td className={`py-2 pr-4 text-right td-num tabular-nums ${daysOverdue > 60 ? "text-red-400" : daysOverdue > 0 ? "text-amber-400" : "text-muted-foreground/60"}`}>{daysOverdue > 0 ? `${daysOverdue}d` : "—"}</td>
                       <td className="py-2 pr-4">
