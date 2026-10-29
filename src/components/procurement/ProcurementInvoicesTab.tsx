@@ -211,8 +211,7 @@ export default function ProcurementInvoicesTab() {
   const [scannerKey, setScannerKey] = useState(0);
   const [handoffConflict, setHandoffConflict] = useState(false);
   const [handoffTick, setHandoffTick] = useState(0);
-  const deliveryCheck = useDeliveryCheckMode();
-  const [doorTap, setDoorTap] = useState<DeliveryCheckTarget | null>(null);
+  const [problemTarget, setProblemTarget] = useState<DeliveryCheckTarget | null>(null);
   // Floating-Bani scanner handoff: open the scanner for a pending request, but
   // never destroy an unsaved review — ask first.
   useEffect(() => subscribeScannerHandoff(() => setHandoffTick((t) => t + 1)), []);
