@@ -1973,6 +1973,34 @@ export default function ProcurementInvoicesTab() {
                     <Button size="sm" variant="outline" onClick={startEditing}>
                       <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                     </Button>
+                    {rs !== "Voided" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning hover:text-warning"
+                        onClick={() =>
+                          setProblemTarget({
+                            invoiceId: selectedInvoice.id,
+                            supplierName: selectedInvoice.supplier_name || "Supplier",
+                            total: Number(selectedInvoice.total_amount) || 0,
+                            invoiceDate: selectedInvoice.invoice_date,
+                            lines: lineItems.map((line) => {
+                              const gi = giByLine.get(line.id);
+                              return {
+                                invoice_line_item_id: line.id,
+                                description: line.description || "(no description)",
+                                unit: line.unit || "each",
+                                quantity_invoiced: Number(line.quantity) || 0,
+                                quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0,
+                                unit_price: Number(line.unit_price) || 0,
+                              };
+                            }),
+                          })
+                        }
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem
+                      </Button>
+                    )}
                     {hasDurableAttachment(selectedInvoice.file_url) ? (
                       <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
                         <Eye className="h-3.5 w-3.5 mr-1" />
