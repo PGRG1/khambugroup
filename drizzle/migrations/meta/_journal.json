@@ -120,6 +120,13 @@
       "when": 1793326982131,
       "tag": "0016_sales_receipt_intake_auto_posted",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793330340009,
+      "tag": "0017_migration",
+      "breakpoints": true
     }
   ]
 }
