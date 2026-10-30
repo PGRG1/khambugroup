@@ -191,7 +191,7 @@ export default function CreditNotes() {
 
   const missing = (c: CN) => {
     const parts: string[] = [];
-    if ((c.status || "draft") === "draft") parts.push("still a draft");
+    if ((c.status || "draft") === "draft") parts.push("is still a draft");
     if (!c.credit_note_number) parts.push("has no credit note number");
     if (!c.source_invoice_id) parts.push("isn't linked to an invoice");
     if (!parts.length) return null;
