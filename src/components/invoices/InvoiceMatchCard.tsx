@@ -4,8 +4,8 @@ import type { MatcherAnswer, MatcherOption } from "@/utils/scannerMatcher";
 import type { ReactNode } from "react";
 
 export default function InvoiceMatchCard({ answer, options, printed, name, onPick, onSearch, quickAdd, editFirst, existingAdd }: { answer: MatcherAnswer; options: MatcherOption[]; printed: string; name?: string; onPick: (id: string) => void; onSearch: () => void; quickAdd: ReactNode; editFirst?: ReactNode; existingAdd?: ReactNode }) {
-  if (answer.decision === "sure") return <div className="flex flex-wrap items-center gap-2 text-muted-foreground"><span title={answer.reason}>{answer.reason}</span><Button variant="link" size="sm" onClick={onSearch}>Change item</Button></div>;
-  if (answer.decision === "not_a_product") return <div className="text-muted-foreground" title={answer.reason}>Charge, not an item</div>;
+  if (answer.decision === "sure") return <div className="flex flex-wrap items-center gap-2 text-muted-foreground"><details><summary className="cursor-pointer" title={answer.reason}>Matched item</summary><p>{answer.reason}</p></details><Button variant="link" size="sm" onClick={onSearch}>Change item</Button></div>;
+  if (answer.decision === "not_a_product") return <div className="flex flex-wrap items-center gap-2 text-muted-foreground" title={answer.reason}>Charge, not an item<Button variant="link" size="sm" onClick={onSearch}>Change item</Button></div>;
   return <div className="space-y-2 rounded-md border border-warning/30 bg-warning/5 p-2 break-words">
     <p className="text-muted-foreground">Invoice reads: {printed}</p>
     <p className="font-medium">{answer.decision === "probably" ? `Probably ${name || "an existing item"}` : answer.decision === "new" ? answer.draft?.name || "New item" : "Couldn't tell which item this is"}</p>
