@@ -175,7 +175,7 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
 
 Rules:
 - All number fields should be numeric (no currency symbols)
-- If a field is not found in the receipt, use 0 for numbers and "" for strings
+- If a field is not found or unclear in the receipt, return null. Only return zero when explicitly printed; missing is not zero. Never invent components to force arithmetic balance.
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
 - Venue: infer from any branding/headers on the document. ${
@@ -184,7 +184,7 @@ Rules:
         : `Return the venue name as printed, or "" if none is shown.`
     }
 - IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
-- Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use 0 when not printed.
+- Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use null when not printed.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation${hints}`;
 

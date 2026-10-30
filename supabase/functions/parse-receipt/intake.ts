@@ -1,6 +1,7 @@
 import { z } from "npm:zod@3";
 import { sha256 } from "../_shared/salesEvidence.ts";
 import { resolveTenant } from "../_shared/auth.ts";
+import { receiptReviewReasons } from "../_shared/receiptIntakePolicy.ts";
 
 const schema = z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid().nullable(),
   imageBase64: z.string().min(1).max(14_000_000), mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]),
@@ -30,7 +31,7 @@ export async function receiptIntake(admin: any, userId: string, body: unknown) {
     if (!scan || scan.source_sha256 !== hash) throw new Error("Extraction source mismatch");
     original = scan.original_values;
   }
-  const reasons = ["Independent source verification unavailable: balance is not proof of extraction accuracy", ...(!venue ? ["Venue missing or unmatched"] : []), ...(!input.scanId ? ["Original extraction audit unavailable"] : [])];
+  const reasons = receiptReviewReasons(original, input.tentative, !!venue, !!input.scanId);
   const { data: previous, error: lookupError } = await admin.from("sales_receipt_intakes").select("id,venue_id").eq("tenant_id", tenant.tenant_id).eq("source_sha256", hash).maybeSingle();
   if (lookupError) throw lookupError;
   if (previous) {

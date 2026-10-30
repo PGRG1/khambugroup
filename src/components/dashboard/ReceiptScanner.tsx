@@ -168,12 +168,18 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
       if (error) {
         toast({ title: "Scan failed", description: error.message, variant: "destructive" });
+        const result = await onSave({ ...emptyRecord }, file, null, null);
+        setOutcome(result); setExtractedData({ ...emptyRecord });
+        baniSay(salesOutcomeMessage(result));
         setScanning(false);
         return;
       }
 
       if (!data?.success) {
         toast({ title: "Scan failed", description: data?.error || "Could not extract data.", variant: "destructive" });
+        const result = await onSave({ ...emptyRecord }, file, null, null);
+        setOutcome(result); setExtractedData({ ...emptyRecord });
+        baniSay(salesOutcomeMessage(result));
         setScanning(false);
         return;
       }
@@ -233,6 +239,9 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
+      const result = await onSave(scannedRef.current ?? { ...emptyRecord }, file, null, evidenceScanRef.current).catch(() => ({ status: "failed" as const, error: "Receipt was not saved" }));
+      setOutcome(result); setExtractedData(scannedRef.current ?? { ...emptyRecord });
+      baniSay(salesOutcomeMessage(result));
     } finally {
       setScanning(false);
       setSaving(false);
