@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Receipt, AlertTriangle, Paperclip, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, Paperclip, Download, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +12,12 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import type { APInvoice } from "@/hooks/usePayables";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
+import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { usePagination } from "@/components/common/data-table";
+import { downloadCSV } from "@/utils/csvDownload";
+import { formatDate, formatTableCurrency, formatTableInteger } from "@/utils/format";
 
 type CN = {
   id: string;
@@ -31,40 +34,10 @@ type CN = {
   created_at: string | null;
 };
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function fmtDate(d?: string | null) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return d;
-  return `${String(dt.getDate()).padStart(2, "0")} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
-}
-function fmtMoney(n?: number | null) {
-  const v = Number(n || 0);
-  return v.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  const map: Record<string, string> = {
-    draft: "bg-secondary text-secondary-foreground",
-    approved: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
-    fully_applied: "bg-green-500/15 text-green-400 border border-green-500/30",
-    needs_review: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
-    voided: "bg-red-500/15 text-red-400 border border-red-500/30",
-  };
-  const label: Record<string, string> = {
-    draft: "Draft",
-    approved: "Approved",
-    fully_applied: "Fully applied",
-    needs_review: "Needs review",
-    voided: "Voided",
-  };
-  const k = status || "draft";
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${map[k] || map.draft}`}>
-      {label[k] || k}
-    </span>
-  );
-}
+const STATUS_LABEL: Record<string, string> = { draft: "Draft", approved: "Approved", fully_applied: "Fully applied", needs_review: "Needs review", voided: "Voided" };
+const STATUS_TONE: Record<string, string> = { draft: "text-muted-foreground", approved: "text-primary", fully_applied: "text-muted-foreground", needs_review: "text-warning", voided: "text-destructive" };
+const statusWord = (s: string | null) => STATUS_LABEL[s || "draft"] || s || "Draft";
+const isImage = (url: string) => /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
 
 export default function CreditNotes() {
   const { tenantId } = useActiveTenant();
@@ -80,8 +53,9 @@ export default function CreditNotes() {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sort, setSort] = useState("newest");
+  const [kind, setKind] = useState<"credit" | "debit">("credit");
   const venueScope = useVenueScope();
-  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
 
   const [cnDialogOpen, setCnDialogOpen] = useState(false);
   const [selectedCn, setSelectedCn] = useState<CN | null>(null);
@@ -174,9 +148,13 @@ export default function CreditNotes() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const period = usePeriodFilter(creditNotes.map(c => c.credit_note_date || ""), "all");
+  // Debit notes are not stored yet; the switch appears only once any exist.
+  const debitNotes: CN[] = [];
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return creditNotes.filter((cn) => {
+    const list = creditNotes.filter((cn) => {
       const supplierName = supplierMap.get(cn.supplier_id || "") || "";
       const invNum = linkedInvoiceMap.get(cn.source_invoice_id || "") || "";
       const matchesSearch = !q ||
@@ -186,291 +164,184 @@ export default function CreditNotes() {
       const matchesSupplier = supplierFilter === "all" || cn.supplier_id === supplierFilter;
       const matchesStatus = statusFilter === "all" || cn.status === statusFilter;
       const matchesVenue = venueScope.includesName(cn.venue);
-      return matchesSearch && matchesSupplier && matchesStatus && matchesVenue;
+      return matchesSearch && matchesSupplier && matchesStatus && matchesVenue && period.inPeriod(cn.credit_note_date);
     });
-  }, [creditNotes, search, supplierFilter, statusFilter, venueScope.includesName, supplierMap, linkedInvoiceMap]);
+    const name = (c: CN) => supplierMap.get(c.supplier_id || "") || "";
+    return list.sort((a, b) => sort === "oldest" ? (a.credit_note_date || "").localeCompare(b.credit_note_date || "")
+      : sort === "amount" ? Number(b.original_amount || 0) - Number(a.original_amount || 0)
+      : sort === "left" ? Number(b.remaining_balance || 0) - Number(a.remaining_balance || 0)
+      : sort === "supplier" ? name(a).localeCompare(name(b))
+      : (b.credit_note_date || "").localeCompare(a.credit_note_date || ""));
+  }, [creditNotes, search, supplierFilter, statusFilter, venueScope.includesName, supplierMap, linkedInvoiceMap, period.inPeriod, sort]);
 
-  const summary = useMemo(() => {
-    const available = creditNotes
-      .filter((c) => c.status === "approved")
-      .reduce((s, c) => s + Number(c.remaining_balance || 0), 0);
-    const pending = creditNotes.filter((c) => c.status === "draft" || c.status === "needs_review").length;
-    const now = new Date();
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const appliedThisMonth = creditNotes
-      .filter((c) => c.status === "fully_applied" && (c.created_at || "").startsWith(ym))
-      .reduce((s, c) => s + (Number(c.original_amount || 0) - Number(c.remaining_balance || 0)), 0);
-    return { available, pending, appliedThisMonth };
-  }, [creditNotes]);
+  const leftToUse = filtered.filter(c => c.status === "approved").reduce((s, c) => s + Number(c.remaining_balance || 0), 0);
+  const pag = usePagination(filtered, 25);
+  useEffect(() => { pag.setPage(1); }, [search, supplierFilter, statusFilter, sort, period.label, venueScope.label]);
+
+  const supplierOf = (c: CN) => supplierMap.get(c.supplier_id || "") || "—";
+  const invoiceOf = (c: CN) => (c.source_invoice_id && linkedInvoiceMap.get(c.source_invoice_id)) || "";
+
+  const download = () => downloadCSV(filtered.map(c => ({
+    date: c.credit_note_date ? formatDate(c.credit_note_date) : "", supplier: supplierOf(c), number: c.credit_note_number || "",
+    invoice: invoiceOf(c), venue: c.venue || "", amount: Number(c.original_amount || 0).toFixed(2), left: Number(c.remaining_balance || 0).toFixed(2), status: statusWord(c.status),
+  })), [
+    { key: "date", label: "Date" }, { key: "supplier", label: "Supplier" }, { key: "number", label: "Note #" }, { key: "invoice", label: "For invoice" },
+    { key: "venue", label: "Venue" }, { key: "amount", label: "Amount" }, { key: "left", label: "Left" }, { key: "status", label: "Status" },
+  ], "credit_notes");
+
+  const missing = (c: CN) => {
+    const parts: string[] = [];
+    if ((c.status || "draft") === "draft") parts.push("still a draft");
+    if (!c.credit_note_number) parts.push("has no credit note number");
+    if (!c.source_invoice_id) parts.push("isn't linked to an invoice");
+    if (!parts.length) return null;
+    return `This note ${parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0]}.`;
+  };
+
+  const sortOptions = [{ key: "newest", label: "Newest first", compactLabel: "Newest" }, { key: "oldest", label: "Oldest first", compactLabel: "Oldest" }, { key: "amount", label: "Highest amount", compactLabel: "Amount" }, { key: "left", label: "Most left to use", compactLabel: "Left" }, { key: "supplier", label: "Supplier A–Z", compactLabel: "A–Z" }];
+  const activeFilters = Number(supplierFilter !== "all") + Number(statusFilter !== "all");
+  const filter = (
+    <FilterPanel activeCount={activeFilters} onReset={() => { setSupplierFilter("all"); setStatusFilter("all"); }} width={320}>
+      <FilterGroup title="Supplier">
+        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+          <SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All suppliers</SelectItem>{supplierTuples.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent>
+        </Select>
+      </FilterGroup>
+      <FilterGroup title="Status">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger aria-label="Status"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All statuses</SelectItem>{Object.entries(STATUS_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+        </Select>
+      </FilterGroup>
+      <FilterGroup title="Venue">
+        <p className="text-[13px] text-muted-foreground">{venueScope.label}</p>
+        <div className="flex flex-wrap gap-1.5">{venueScope.venues.map(v => <Button key={v.id} variant="outline" size="sm" aria-pressed={venueScope.includesId(v.id)} onClick={() => venueScope.toggleVenue(v.id)}>{v.name}</Button>)}</div>
+      </FilterGroup>
+      <div className="min-[641px]:hidden"><FilterGroup title="Sort"><SortMenu value={sort} onChange={setSort} options={sortOptions} /></FilterGroup></div>
+    </FilterPanel>
+  );
+  const segmented = debitNotes.length > 0 && (
+    <div className="kit-seg shrink-0" aria-label="Note type">
+      {([["credit", "Credit notes"], ["debit", "Debit notes"]] as const).map(([k, l]) => <Button key={k} variant="ghost" className="!h-8 !min-h-8 !px-2" aria-pressed={kind === k} onClick={() => setKind(k)}>{l}</Button>)}
+    </div>
+  );
+  const rowKeys = (open: () => void) => ({ tabIndex: 0, onClick: open, onKeyDown: (e: React.KeyboardEvent) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(); } } });
+  const muted = (text: string) => <span className="text-muted-foreground">{text}</span>;
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold font-display">
-            <span className="text-gradient-gold">Credit & Debit Notes</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track formal supplier credit notes and debit notes.
-          </p>
-        </div>
-        <Button
-          onClick={() => setCnDialogOpen(true)}
-          className="bg-amber-500 hover:bg-amber-600 text-black"
-        >
-          <Plus className="h-4 w-4 mr-1" /> New credit note
-        </Button>
-      </div>
-
+    <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
+      <RevenuePageTop title="Credit & Debit Notes" actionsBesideTitle
+        actions={<Button onClick={() => setCnDialogOpen(true)} className="h-9 px-3 min-[641px]:h-10"><Plus className="h-4 w-4 mr-1.5" /><span className="min-[641px]:hidden">Add</span><span className="max-[640px]:hidden">Add credit note</span></Button>}
+        period={period.control} />
       <div data-invoice-tabs-host />
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="p-4">
-            <div className="text-xs text-amber-400/80 uppercase tracking-wide">Available credits</div>
-            <div className="text-2xl font-bold text-amber-400 mt-1 td-num">${fmtMoney(summary.available)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">ready to apply</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Pending review</div>
-            <div className="text-2xl font-bold mt-1 td-num">{summary.pending}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">awaiting approval</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Applied this month</div>
-            <div className="text-2xl font-bold mt-1 td-num">${fmtMoney(summary.appliedThisMonth)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">fully applied</div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Disputed banner */}
-      {disputedCount > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-amber-300">
-            <AlertTriangle className="h-4 w-4" />
-            <span>
-              {disputedCount} disputed invoice{disputedCount === 1 ? "" : "s"} may require a credit note from the supplier.
-            </span>
-          </div>
-          <Link
-            to="/procurement/invoices?status=disputed"
-            className="text-sm text-amber-400 hover:text-amber-300 font-medium whitespace-nowrap"
-          >
-            View disputed invoices →
-          </Link>
-        </div>
-      )}
+      <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Credit notes">
+        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5">
+          <span>{period.label}</span>
+          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(filtered.length)} credit note{filtered.length === 1 ? "" : "s"} · {formatTableCurrency(leftToUse)} left to use</span>
+        </h2>
+        {disputedCount > 0 && (
+          <p className="px-1 text-[13px] text-warning">
+            {disputedCount} disputed invoice{disputedCount === 1 ? "" : "s"} may need a credit note from the supplier ·{" "}
+            <Link to="/procurement/invoices?status=disputed" className="underline underline-offset-2 font-medium">View</Link>
+          </p>
+        )}
+        <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search note #, supplier or invoice #"
+          filter={<>{segmented}{filter}</>}
+          sort={<div className="max-[640px]:hidden"><SortMenu value={sort} onChange={setSort} options={sortOptions} /></div>}
+          downloadControl={<Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download credit notes" title="Download CSV" onClick={download}><Download className="h-4 w-4" /></Button>} />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search CN#, supplier, invoice..."
-            className="pl-8 h-9"
-          />
-        </div>
-        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="All suppliers" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All suppliers</SelectItem>
-            {supplierTuples.map(([id, name]) => (
-              <SelectItem key={id} value={id}>{name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="All statuses" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="fully_applied">Fully applied</SelectItem>
-            <SelectItem value="needs_review">Needs review</SelectItem>
-            <SelectItem value="voided">Voided</SelectItem>
-          </SelectContent>
-        </Select>
-        
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="credit">
-        <TabsList>
-          <TabsTrigger value="credit">Credit Notes ({filtered.length})</TabsTrigger>
-          <TabsTrigger value="debit">Debit Notes (0)</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="credit" className="mt-3">
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
-              ) : filtered.length === 0 ? (
-                <div className="p-12 text-center space-y-3">
-                  <Receipt className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <div className="text-base font-medium">No credit notes yet</div>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    Credit notes are created when suppliers issue a formal credit document outside of an invoice.
-                  </p>
-                  <Button
-                    onClick={() => setCnDialogOpen(true)}
-                    className="bg-amber-500 hover:bg-amber-600 text-black"
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> New credit note
+        {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading credit notes…</p>
+          : !filtered.length ? (
+            <div className="p-10 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">No credit notes match this period and filters.</p>
+              <Button variant="outline" onClick={() => setCnDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Add credit note</Button>
+            </div>
+          ) : <>
+            <ul className="min-[641px]:hidden divide-y divide-border/60" aria-label="Credit note list">
+              {pag.pageItems.map(c => (
+                <li key={c.id} className="px-2 py-3">
+                  <Button variant="ghost" className="block w-full h-auto p-0 text-left font-normal hover:bg-transparent" onClick={() => setSelectedCn(c)}>
+                    <span className="flex justify-between gap-2 text-[13px]"><span className="min-w-0 whitespace-normal">{supplierOf(c)}</span><span className="td-num shrink-0">{formatTableCurrency(Number(c.original_amount || 0))}</span></span>
+                    <span className="block mt-1 text-xs text-muted-foreground whitespace-normal">{c.credit_note_date ? formatDate(c.credit_note_date) : "—"} · {c.credit_note_number || "No number"} · <span className={STATUS_TONE[c.status || "draft"]}>{statusWord(c.status)}</span></span>
                   </Button>
+                </li>
+              ))}
+            </ul>
+            <div className="kit hidden min-[641px]:block">
+              <table className="sales-table !w-full !table-fixed" aria-label="Credit notes table">
+                <thead><tr>
+                  <th className="sales-cell-left w-[12%]">Date</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left w-[14%]">Note #</th>
+                  <th className="sales-cell-left w-[14%]">For invoice</th><th className="sales-cell-right w-[12%]">Amount</th><th className="sales-cell-right w-[12%]">Left</th><th className="sales-cell-left w-[12%]">Status</th>
+                </tr></thead>
+                <tbody>
+                  {pag.pageItems.map(c => (
+                    <tr key={c.id} className="sales-record-row" {...rowKeys(() => setSelectedCn(c))}>
+                      <td className="sales-cell-left">{c.credit_note_date ? formatDate(c.credit_note_date) : "—"}</td>
+                      <td className="sales-cell-left !whitespace-normal break-words">{supplierOf(c)}</td>
+                      <td className="sales-cell-left td-num break-all !whitespace-normal">{c.credit_note_number || muted("No number")}</td>
+                      <td className="sales-cell-left td-num break-all !whitespace-normal">{invoiceOf(c) || muted("Not linked")}</td>
+                      <td className="td-num">{formatTableCurrency(Number(c.original_amount || 0))}</td>
+                      <td className="td-num">{formatTableCurrency(Number(c.remaining_balance || 0))}</td>
+                      <td className={`sales-cell-left ${STATUS_TONE[c.status || "draft"]}`}>{statusWord(c.status)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>}
+        {pag.totalPages > 1 && (
+          <div className="flex justify-between items-center gap-2 kit-divider pt-2 text-xs text-muted-foreground">
+            <span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" aria-label="Previous page" className="h-8 w-8" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" aria-label="Next page" className="h-8 w-8" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <Dialog open={!!selectedCn} onOpenChange={(o) => !o && setSelectedCn(null)}>
+        <DialogContent className="kit sales-day-dialog bg-background max-w-[640px] grid-cols-[minmax(0,1fr)] p-0 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto">
+          {selectedCn && (() => {
+            const note = missing(selectedCn);
+            return (
+              <div className="min-w-0 p-5 sm:p-7 space-y-5">
+                <div className="pr-8 space-y-1.5">
+                  <DialogTitle className="text-[16px] break-words">{supplierOf(selectedCn)}</DialogTitle>
+                  <DialogDescription className="text-[13px]">Credit note · {selectedCn.credit_note_number || "no number"} · {statusWord(selectedCn.status)}</DialogDescription>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 100 }}>CN #</th>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 80 }}>Date</th>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 120 }}>Supplier</th>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 70 }}>Venue</th>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 100 }}>Linked invoice</th>
-                        <th className="text-right px-3 py-2 font-medium" style={{ width: 70 }}>Original</th>
-                        <th className="text-right px-3 py-2 font-medium" style={{ width: 70 }}>Applied</th>
-                        <th className="text-right px-3 py-2 font-medium" style={{ width: 70 }}>Remaining</th>
-                        <th className="text-left px-3 py-2 font-medium" style={{ width: 90 }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((cn) => {
-                        const supplierName = supplierMap.get(cn.supplier_id || "") || "—";
-                        const invNum = linkedInvoiceMap.get(cn.source_invoice_id || "") || "—";
-                        const applied = Number(cn.original_amount || 0) - Number(cn.remaining_balance || 0);
-                        const remaining = Number(cn.remaining_balance || 0);
-                        return (
-                          <tr
-                            key={cn.id}
-                            onClick={() => setSelectedCn(cn)}
-                            className="border-t border-border/40 cursor-pointer hover:bg-muted/40 hover:border-l-[3px] hover:border-l-amber-500 transition-colors"
-                          >
-                            <td className="px-3 py-2 font-mono font-semibold">{cn.credit_note_number || "—"}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{fmtDate(cn.credit_note_date)}</td>
-                            <td className="px-3 py-2 truncate" title={supplierName}>{supplierName}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{cn.venue || "—"}</td>
-                            <td className="px-3 py-2 font-mono text-xs">{invNum}</td>
-                            <td className="px-3 py-2 text-right td-num">${fmtMoney(cn.original_amount)}</td>
-                            <td className="px-3 py-2 text-right td-num text-muted-foreground">${fmtMoney(applied)}</td>
-                            <td className={`px-3 py-2 text-right td-num ${remaining > 0 ? "text-amber-400 font-semibold" : "text-muted-foreground"}`}>
-                              ${fmtMoney(remaining)}
-                            </td>
-                            <td className="px-3 py-2"><StatusBadge status={cn.status} /></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
+                  {[["Date", selectedCn.credit_note_date ? formatDate(selectedCn.credit_note_date) : "—"], ["Venue", selectedCn.venue || "—"], ["Amount", formatTableCurrency(Number(selectedCn.original_amount || 0))], ["Left to use", formatTableCurrency(Number(selectedCn.remaining_balance || 0))]].map(([l, v]) => (
+                    <div key={l} className="min-w-0"><p className="kit-group-h mb-1">{l}</p><p className="td-num break-words">{v}</p></div>
+                  ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="debit" className="mt-3">
-          <Card>
-            <CardContent className="p-12 text-center space-y-2">
-              <div className="text-base font-medium">Debit notes coming soon</div>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Used when you need to formally notify a supplier of an amount they owe you.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Detail Sheet */}
-      <Sheet open={!!selectedCn} onOpenChange={(o) => !o && setSelectedCn(null)}>
-        <SheetContent className="sm:max-w-[560px] overflow-y-auto">
-          {selectedCn && (
-            <>
-              <SheetHeader>
-                <SheetTitle className="font-mono">{selectedCn.credit_note_number || "(no number)"}</SheetTitle>
-                <SheetDescription>
-                  {(supplierMap.get(selectedCn.supplier_id || "") || "—")} · {fmtDate(selectedCn.credit_note_date)}
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-4 mt-4">
-                <Card>
-                  <CardContent className="p-4 space-y-2 text-sm">
-                    <Row label="Supplier" value={supplierMap.get(selectedCn.supplier_id || "") || "—"} />
-                    <Row label="Date" value={fmtDate(selectedCn.credit_note_date)} />
-                    <Row label="Venue" value={selectedCn.venue || "—"} />
-                    <Row
-                      label="Linked invoice"
-                      value={
-                        selectedCn.source_invoice_id
-                          ? (linkedInvoiceMap.get(selectedCn.source_invoice_id) || "—")
-                          : "—"
-                      }
-                      mono
-                    />
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Status</span>
-                      <StatusBadge status={selectedCn.status} />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4 space-y-2 text-sm">
-                    <Row label="Original amount" value={`$${fmtMoney(selectedCn.original_amount)}`} num />
-                    <Row
-                      label="Applied"
-                      value={`$${fmtMoney(Number(selectedCn.original_amount || 0) - Number(selectedCn.remaining_balance || 0))}`}
-                      num
-                    />
-                    <Row
-                      label="Remaining balance"
-                      value={`$${fmtMoney(selectedCn.remaining_balance)}`}
-                      num
-                      highlight={Number(selectedCn.remaining_balance || 0) > 0}
-                    />
-                  </CardContent>
-                </Card>
-
-                {selectedCn.notes && (
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Notes</div>
-                    <p className="text-sm whitespace-pre-wrap rounded-md border border-border/50 bg-muted/20 p-3">
-                      {selectedCn.notes}
-                    </p>
-                  </div>
-                )}
-
-                {selectedCn.attachment_url && (
-                  <a
-                    href={selectedCn.attachment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                    View attachment →
-                  </a>
-                )}
+                {note && <p className="text-[13px] text-warning">{note}</p>}
+                <div>
+                  <p className="kit-group-h mb-2">Attachment</p>
+                  {selectedCn.attachment_url ? (
+                    <a href={selectedCn.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[13px] text-primary">
+                      {isImage(selectedCn.attachment_url) ? <img src={selectedCn.attachment_url} alt="Credit note attachment" className="h-24 w-auto rounded-md border border-border object-cover" /> : <><Paperclip className="h-4 w-4" />Open attachment</>}
+                    </a>
+                  ) : <p className="text-[13px] text-muted-foreground">No attachment</p>}
+                </div>
+                {selectedCn.notes && <div><p className="kit-group-h mb-1">Notes</p><p className="text-[13px] whitespace-pre-wrap">{selectedCn.notes}</p></div>}
+                <div className="flex items-center justify-between gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem disabled={!selectedCn.attachment_url} onSelect={() => selectedCn.attachment_url && window.open(selectedCn.attachment_url, "_blank", "noopener")}>Open attachment</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button className="kit-btn kit-btn-primary" onClick={() => setSelectedCn(null)}>Close</Button>
+                </div>
               </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
-              <SheetFooter className="mt-6">
-                <Button variant="ghost" onClick={() => setSelectedCn(null)}>Close</Button>
-              </SheetFooter>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* New CN dialog */}
       <BookCreditNoteDialog
         open={cnDialogOpen}
         onOpenChange={setCnDialogOpen}
@@ -482,35 +353,6 @@ export default function CreditNotes() {
           fetchData();
         }}
       />
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  mono,
-  num,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  num?: boolean;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex justify-between items-center gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={[
-          mono ? "font-mono text-xs" : "",
-          num ? "td-num" : "",
-          highlight ? "text-amber-400 font-semibold" : "",
-        ].join(" ")}
-      >
-        {value}
-      </span>
     </div>
   );
 }
