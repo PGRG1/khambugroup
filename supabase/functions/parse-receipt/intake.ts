@@ -17,7 +17,7 @@ async function independentRead(imageBase64: string, mimeType: string, venues: st
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-pro", messages: [
+      body: JSON.stringify({ model: "google/gemini-3.8-flash", messages: [
         { role: "system", content: `You verify restaurant end-of-day sales reports. Read ONLY what is printed. Return JSON with keys: date (YYYY-MM-DD trading date), venue (one of: ${venues.join(", ")}; null if unsure), subtotal, serviceCharge, discount, totalSales, ${TENDERS.join(", ")}. totalSales = subtotal + serviceCharge - discount. Use null for anything not printed or unreadable. Never guess. JSON only.` },
         { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: "Read this report." }] },
       ] }),
@@ -113,7 +113,6 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
     return { ...data, reasons: [why] };
   }
   await admin.from("sales_receipt_intakes").update({ status: "posted", posted_record_id: inserted.id, verification: second, reasons: [] }).eq("id", data.intakeId);
-  if (input.scanId) await admin.rpc("capture_sales_scan_example", {}).then(() => undefined, () => undefined);
   const { error: jErr } = await user.rpc("rebuild_journal_from_operations", { p_tenant_id: tenant.tenant_id });
   return { status: "saved", recordId: inserted.id, intakeId: data.intakeId, journal: jErr ? "failed" : "completed" };
 }
