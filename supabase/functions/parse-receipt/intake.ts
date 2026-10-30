@@ -1,5 +1,4 @@
 import { z } from "npm:zod@3";
-import { createClient } from "npm:@supabase/supabase-js@2";
 import { sha256 } from "../_shared/salesEvidence.ts";
 import { resolveTenant } from "../_shared/auth.ts";
 import { receiptReviewReasons } from "../_shared/receiptIntakePolicy.ts";
@@ -12,7 +11,7 @@ const schema = z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid()
 
 /** A second, independent read of the receipt with a different model; never sees the first read. */
 async function independentRead(imageBase64: string, mimeType: string, venues: string[]): Promise<Record<string, unknown> | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
+  const key = (globalThis as any).Deno?.env.get("LOVABLE_API_KEY");
   if (!key) return null;
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -92,6 +91,7 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
   if (data?.repeated || problems.length) return { ...data, reasons: problems };
 
   // Verified and clean: record it as the user (their permissions apply).
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
   const user = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
   const ext = input.mimeType === "application/pdf" ? "pdf" : "jpg";
   const safeReport = String(t.reportNumber || "norpt").replace(/[^a-zA-Z0-9_-]/g, "_");
