@@ -1,5 +1,5 @@
 import {
-  LogOut, FileText, Users, Building2, BrainCircuit,
+  LogOut, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
   Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, UserRound, Package,
@@ -94,7 +94,6 @@ const navItems: (Item & { icon: any })[] = [
   { title: "Your team", url: "/", icon: Users, pageKey: "home", end: true },
 
   { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
-  { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 
 const financeItems: Item[] = [
@@ -460,15 +459,15 @@ export function AppSidebar() {
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
             { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
           ] : []),
+          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance/dashboard", icon: Scale, active: pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
-          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
           ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
-          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
-          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
@@ -537,6 +536,40 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {showFinance && (
+          <CollapsibleNavGroup
+            label="Expenses"
+            icon={ReceiptText}
+            defaultOpen={groupState.expenses}
+            onOpenChange={(o) => setGroup("expenses", o)}
+          >
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={expensesOverview} />
+            </SidebarMenu>
+            <SubSection label="Master Data" items={expensesMasterData} />
+            <SubSection label="Bills & Vendors" items={expensesBillsVendors} />
+            <SubSection label="Approvals" items={expensesApprovals} />
+            <SubSection label="Analytics" items={expensesAnalytics} />
+            <SubSection label="Finance" items={expensesFinance} />
+          </CollapsibleNavGroup>
+        )}
+
+        {showHR && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
+                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
         {showKpi && (
           <SidebarGroup className="py-0 px-2">
             <SidebarMenu>
@@ -569,23 +602,6 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
-        {showFinance && (
-          <CollapsibleNavGroup
-            label="Expenses"
-            icon={ReceiptText}
-            defaultOpen={groupState.expenses}
-            onOpenChange={(o) => setGroup("expenses", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={expensesOverview} />
-            </SidebarMenu>
-            <SubSection label="Master Data" items={expensesMasterData} />
-            <SubSection label="Bills & Vendors" items={expensesBillsVendors} />
-            <SubSection label="Approvals" items={expensesApprovals} />
-            <SubSection label="Analytics" items={expensesAnalytics} />
-            <SubSection label="Finance" items={expensesFinance} />
-          </CollapsibleNavGroup>
-        )}
 
         {showBank && (
           <CollapsibleNavGroup
@@ -651,21 +667,6 @@ export function AppSidebar() {
 
 
 
-        {showHR && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
-                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
 
         {showAdmin && (
           <CollapsibleNavGroup
@@ -684,6 +685,7 @@ export function AppSidebar() {
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
                 
                 { title: "Preferences", url: "/admin/preferences" },
+                { title: "Activity Log", url: "/activity-log" },
                 { title: "Opening Balances", url: "/procurement/finance/onboarding" },
               ].map((it) => <ChildLink key={it.url} item={it} />)}
             </SidebarMenu>
