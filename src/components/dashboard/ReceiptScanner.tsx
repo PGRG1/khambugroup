@@ -16,6 +16,7 @@ import { classifySalesFile } from "@/utils/salesFileIntake";
 import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
 import { collectScanLearning, diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { associateSalesScan } from "@/utils/salesScanEvidence";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -95,6 +96,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const { tenantId } = useActiveTenant();
   /** The reader's untouched output, compared on save so corrections are learned silently. */
   const scannedRef = useRef<SalesRecord | null>(null);
+  const evidenceScanRef = useRef<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
@@ -147,6 +149,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     }
 
     setExtractedData(null);
+    evidenceScanRef.current = null;
     setOriginalFile(file);
 
     try {
@@ -175,6 +178,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
       // Normalize the extracted data
       const raw = data.data;
+      evidenceScanRef.current = typeof data.scanEvidenceId === "string" ? data.scanEvidenceId : null;
       const dateStr = raw.date || "";
       let dayStr = "";
       if (dateStr) {
@@ -326,6 +330,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     }
     setSaving(true);
     try {
+      associateSalesScan(extractedData, evidenceScanRef.current);
       await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null);
       setNoteBody(""); setNoteTag(null);
       // Learn from corrections in the background — never blocks or prompts.

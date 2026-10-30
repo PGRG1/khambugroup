@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
+import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from "../_shared/salesEvidence.ts";
+import { z } from "npm:zod@3";
 
 const WORKFLOW = "sales_receipt_extract";
 const FIELDS = new Set(["orders","guests","subtotal","serviceCharge","discount","visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","deliveroo","foodpanda","keeta","cardTips"]);
@@ -83,9 +85,29 @@ Deno.serve(async (req) => {
 
   const auth = await requireAuth(req, corsHeaders);
   if (auth.response) return auth.response;
+  if (!auth.user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
 
   try {
     const body = await req.json();
+    if (body?.op === "capture_evidence" || body?.op === "retrieve_evidence") {
+      const schema = body.op === "capture_evidence"
+        ? z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid(), salesRecordId: z.string().uuid() }).strict()
+        : z.object({ tenantId: z.string().uuid(), venueId: z.string().uuid(), reportStructure: z.string().max(120).optional() }).strict();
+      const { op, ...input } = body;
+      const parsed = schema.safeParse(input);
+      if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid evidence request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const admin = adminClient();
+      const tenant = await resolveTenant(admin, auth.user.id, input.tenantId);
+      if (!tenant) return new Response(JSON.stringify({ error: "Evidence scope denied" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      try {
+        const result = op === "capture_evidence"
+          ? { exampleId: await captureSavedExample(admin, auth.user.id, tenant.tenant_id, input.scanId, input.salesRecordId) }
+          : { examples: await retrieveSalesEvidence(admin, auth.user.id, tenant.tenant_id, input.venueId, input.reportStructure) };
+        return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch {
+        return new Response(JSON.stringify({ error: "Evidence capture or retrieval unavailable" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
     const { imageBase64, mimeType, venues } = body;
     const venueList: string[] = Array.isArray(venues)
       ? venues.map((v: unknown) => String(v ?? "").trim()).filter(Boolean).slice(0, 50)
@@ -230,8 +252,14 @@ Rules:
       );
     }
 
+    let scanEvidenceId: string | null = null;
+    try {
+      const admin = adminClient();
+      const tenant = await resolveTenant(admin, auth.user.id, body?.tenantId ?? null);
+      if (tenant) scanEvidenceId = await captureExtraction(admin, tenant.tenant_id, auth.user.id, extractedData, imageBase64, mimeType || "image/jpeg");
+    } catch { console.warn("Receipt evidence capture unavailable; scan result preserved"); }
     return new Response(
-      JSON.stringify({ success: true, data: extractedData }),
+      JSON.stringify({ success: true, data: extractedData, scanEvidenceId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
