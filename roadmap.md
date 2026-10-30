@@ -1,5 +1,11 @@
 # Roadmap
 
+## Receipt safety and contextual Bani
+- [ ] Explicit save outcomes, upload failures and journal outcome propagation
+- [ ] Non-posting, idempotent receipt exceptions with scoped source and comparison UI
+- [ ] Contextual chat, anti-introduction and honest supported action outcomes
+- [ ] Focused tests, read-only live verification; document autonomous verification limitations
+
 ## Sales receipt evidence memory — Step 1
 - [x] Audit scan/save, schema and access paths
 - [x] Add immutable extraction and saved correction evidence, scoped retrieval
