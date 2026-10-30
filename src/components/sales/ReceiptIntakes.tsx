@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatCurrency, formatDate, formatNumber } from "@/utils/format";
+import { formatCurrency, formatDate, formatTableInteger } from "@/utils/format";
 
 const counts = ["orders", "guests"];
 const texts = ["date", "day", "venue", "reportNumber", "servicePeriodId"];
@@ -14,7 +14,7 @@ function receiptValue(key: string, value: unknown) {
   if (texts.includes(key)) return String(value);
   const amount = Number(value);
   if (!Number.isFinite(amount)) return "Unknown";
-  return counts.includes(key) ? formatNumber(amount) : formatCurrency(amount);
+  return counts.includes(key) ? formatTableInteger(amount) : formatCurrency(amount);
 }
 
 export function ReceiptIntakes({ revision, venueIds }: { revision: number; venueIds: string[] }) {
