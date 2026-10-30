@@ -262,6 +262,7 @@ export default function PurchaseOrdersTab() {
   };
 
   const activeSuppliers = suppliers.filter((s) => s.is_active);
+  const next = selectedPo ? STATUS_FLOW[selectedPo.status] : undefined;
 
   const { mode } = usePurchasingMode();
   const byVenue = mode === "by_venue";
