@@ -232,11 +232,14 @@ const DataPage = () => {
             <ReceiptScanner
               initialFile={scanFile}
               history={openHistory}
-              onSave={async (record, file, _note, scanId) => {
+              onSave={async (record, file, note, scanId) => {
                 if (!tenantId || isPreviewActive) return { status: "failed", error: "Receipt saves are unavailable in preview mode" };
                 const result = await saveReceiptIntake(record, file, scanId, tenantId);
                 if (result.status === "flagged") setIntakeRevision(r => r + 1);
-                if (result.status === "saved") void refetch();
+                if (result.status === "saved") {
+                  if (note?.body?.trim()) await saveNote(record, note).catch(() => toast({ title: "Sales saved, but note could not be saved", variant: "destructive" }));
+                  await refetch();
+                }
                 return result;
               }}
               onClose={() => { setShowScanner(false); setScanFile(null); }}

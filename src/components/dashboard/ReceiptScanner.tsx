@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/utils/format";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
@@ -101,11 +102,13 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const [outcome, setOutcome] = useState<SalesSaveResult | null>(null);
   const [stage, setStage] = useState("Reading receipt…");
   const [savedRecord, setSavedRecord] = useState<SalesRecord | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!savedRecord) return;
-    const t = window.setTimeout(() => onClose?.(), 1800);
+    const t = window.setTimeout(() => onCloseRef.current?.(), 1800);
     return () => window.clearTimeout(t);
-  }, [savedRecord, onClose]);
+  }, [savedRecord]);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -386,7 +389,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       )}
 
       {/* Drop zone */}
-      {!extractedData && !scanning && !showCamera && (
+      {!extractedData && !savedRecord && !scanning && !showCamera && (
         <div className="space-y-3">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
