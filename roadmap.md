@@ -1,3 +1,7 @@
+## Invoice phone layout correction
+- [ ] Correct mobile Purchasing menu, title action, single tab strip and toolbar
+- [ ] Correct centred mobile details and verify screenshots at 375px/1280px
+
 ## Scanner matcher Part B
 - [x] Finish decision cards and remove obsolete suggestion controls without changing financial workflow
 - [x] Verify approved-document scan and human feedback without saving; desktop/mobile and real 2/10-line timings (10.4s / 18.0s)

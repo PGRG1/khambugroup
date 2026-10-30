@@ -5,12 +5,13 @@ import "./kit.css";
 export interface ActiveChip { key: string; label: string; onRemove: () => void }
 
 /** One row: search, Filter, Sort, download (far right). Active filters below as mint chips. */
-export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, columns, onDownload, downloadControl, searchAfterControls = false, downloadLabel = "Download", chips = [], onClear }: {
+export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, columns, onDownload, downloadControl, searchAfterControls = false, mobileSearchBelow = false, downloadLabel = "Download", chips = [], onClear }: {
   search?: string; onSearch?: (v: string) => void; placeholder?: string;
   filter?: ReactNode; sort?: ReactNode; columns?: ReactNode; onDownload?: () => void; downloadLabel?: string;
   chips?: ActiveChip[]; onClear?: () => void;
   downloadControl?: ReactNode;
   searchAfterControls?: boolean;
+  mobileSearchBelow?: boolean;
 }) {
   const searchControl = onSearch && <label className="kit-search">
     <Search className="h-4 w-4 shrink-0" aria-hidden />
@@ -19,7 +20,7 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
   </label>;
   return (
     <div className="kit space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={mobileSearchBelow ? "flex flex-wrap min-[641px]:flex-nowrap items-center gap-2 [&>.kit-search]:min-w-0 [&>.kit-search]:min-[641px]:flex-1 [&>.kit-search]:max-[640px]:order-last [&>.kit-search]:max-[640px]:basis-full [&>.kit-search]:max-[640px]:w-full" : "flex flex-wrap items-center gap-2"}>
         {!searchAfterControls && searchControl}
         {filter}
         {sort}
