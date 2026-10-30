@@ -109,6 +109,26 @@ export function useSalesData() {
     fetchData();
   }, [fetchData]);
 
+  // Keep the table live: refetch when sales rows change anywhere (scanner, Bani, other tabs) or the tab regains focus.
+  useEffect(() => {
+    if (!tenantId) return;
+    let timer: number | undefined;
+    const soon = () => { window.clearTimeout(timer); timer = window.setTimeout(() => { void fetchData(); }, 400); };
+    const channel = supabase
+      .channel(`sales-records-${tenantId}-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sales_records", filter: `tenant_id=eq.${tenantId}` }, soon)
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") soon(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("sales-records-changed", soon);
+    return () => {
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("sales-records-changed", soon);
+    };
+  }, [tenantId, fetchData]);
+
   const rebuildJournalSilently = useCallback(async () => {
     if (!tenantId) return;
     try {
