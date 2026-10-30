@@ -10,7 +10,7 @@ export const SALES_NUMBER_FIELDS = [
   "orders", "guests", "subtotal", "serviceCharge", "discount", "totalSales",
   "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "payme", "cash", "cardTips",
 ] as const;
-export const SALES_TEXT_FIELDS = ["date", "venue", "reportNumber"] as const;
+export const SALES_TEXT_FIELDS = ["date", "venue", "reportNumber", "note"] as const;
 export type SalesField = (typeof SALES_NUMBER_FIELDS)[number] | (typeof SALES_TEXT_FIELDS)[number];
 export type SalesChange = { field: SalesField; value: string | number };
 
@@ -37,6 +37,10 @@ export function sanitizeSalesChanges(raw: unknown, venues: string[]): SalesChang
       const match = venues.find((v) => v.toLowerCase() === String(value ?? "").trim().toLowerCase());
       if (!match) return null;
       out.push({ field, value: match });
+    } else if (field === "note") {
+      const s = String(value ?? "").trim();
+      if (!s || s.length > 500) return null;
+      out.push({ field, value: s });
     } else if (field === "reportNumber") {
       const s = String(value ?? "").trim();
       if (s.length > 60) return null;
@@ -51,6 +55,7 @@ export function applySalesChanges(record: SalesRecord, changes: SalesChange[]): 
   let next = { ...record };
   let totalTouched = false, totalInputs = false;
   for (const { field, value } of changes) {
+    if (field === "note") continue; // day notes live beside the record, applied by the scanner
     if (isNumberField(field)) {
       let n = Number(value) || 0;
       if (field === "discount" || field === "cardTips") n = -Math.abs(n);
@@ -83,6 +88,6 @@ export function auditSalesRecord(r: SalesRecord, venues: string[]): { ok: boolea
   const gap = Math.round((r.totalSales - paid) * 100) / 100;
   if (Math.abs(gap) > 0.01) issues.push(`payments add up to ${money(paid)}, ${money(Math.abs(gap))} ${gap > 0 ? "short of" : "more than"} Total Sales`);
   if (r.totalSales > 0 && r.guests === 0) issues.push("guests is 0");
-  if (!issues.length) return { ok: true, message: `Everything looks good — Total Sales ${money(r.totalSales)} and the payments balance exactly. Check it over and press Save when ready.` };
+  if (!issues.length) return { ok: true, message: `Everything looks good — Total Sales ${money(r.totalSales)} and the payments balance exactly. Nothing needs fixing.` };
   return { ok: false, message: `I checked this receipt and found ${issues.length === 1 ? "one thing" : `${issues.length} things`} to look at:\n- ${issues.join("\n- ")}\n\nTell me what's right (e.g. "the rest is Visa") and I'll suggest the fix.` };
 }

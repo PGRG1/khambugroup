@@ -5,7 +5,7 @@ import type { SalesRecord } from "@/types/sales";
 import type { SalesChange } from "@/utils/salesReceiptCorrections";
 
 /** The unsaved Scan Receipt draft Bani may propose corrections for (Apply only; Save stays manual). */
-export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: SalesRecord) => void };
+export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: SalesRecord) => void; note?: string; applyNote?: (body: string) => void };
 
 type Host = { token: string; node: HTMLElement };
 export type BaniAttachment = { id: string; file: File; name: string; type: string; size: number; url?: string };

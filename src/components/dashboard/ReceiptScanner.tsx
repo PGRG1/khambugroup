@@ -87,8 +87,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const setBaniSales = useFloatingBaniSales();
   const baniSay = useFloatingBaniSay();
   useEffect(() => {
-    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData } : null);
-  }, [extractedData, activeVenueNames, setBaniSales]);
+    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData, note: noteBody, applyNote: setNoteBody } : null);
+  }, [extractedData, activeVenueNames, setBaniSales, noteBody]);
   useEffect(() => () => setBaniSales(null), [setBaniSales]);
   const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);

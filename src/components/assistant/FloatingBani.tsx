@@ -280,10 +280,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const sales = salesRef.current;
       if (sales && !attachments && !turn) {
         const base = sales.record;
+        setStepLabel("Checking the receipt");
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
           method: "POST", signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, messages: history, sales_review: { record: base } }),
+          body: JSON.stringify({ tenant_id: tenantId, messages: history, sales_review: { record: base, note: sales.note ?? "" } }),
         });
         const body = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(body.error || "Bani could not review this receipt.");
@@ -466,12 +467,16 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               const stale = !salesDraft || JSON.stringify(salesDraft.record) !== JSON.stringify(base);
               return <div className="floating-bani-change">
                 <p className="floating-bani-change-target">{message.target}</p>
-                {message.salesChanges.map((c, i) => <p key={i} className="floating-bani-change-value td-num">{SALES_LABELS[c.field] ?? c.field}: {showSales(c.field, base[c.field as keyof typeof base])} → {showSales(c.field, preview[c.field as keyof typeof preview])}</p>)}
+                {message.salesChanges.map((c, i) => c.field === "note" ? <p key={i} className="floating-bani-change-value">Note: {String(c.value)}</p> : <p key={i} className="floating-bani-change-value td-num">{SALES_LABELS[c.field] ?? c.field}: {showSales(c.field, base[c.field as keyof typeof base])} → {showSales(c.field, preview[c.field as keyof typeof preview])}</p>)}
                 {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
                   <button type="button" className="floating-bani-apply" disabled={stale} onClick={() => {
                     const live = salesRef.current;
                     const ok = Boolean(live && JSON.stringify(live.record) === JSON.stringify(base));
-                    if (ok && live) live.apply(applySalesChanges(live.record, message.salesChanges!));
+                    if (ok && live) {
+                      live.apply(applySalesChanges(live.record, message.salesChanges!));
+                      const note = message.salesChanges!.find((c) => c.field === "note");
+                      if (note) live.applyNote?.(String(note.value));
+                    }
                     setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: ok ? "Applied to receipt — not saved" : "Receipt changed — ask Bani again" } : m));
                   }}>Apply</button>
                   <button type="button" className="floating-bani-dismiss" onClick={() => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: "Dismissed" } : m))}>Dismiss</button>
