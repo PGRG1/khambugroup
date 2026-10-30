@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { useFloatingBaniSales, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
-import { auditSalesRecord } from "@/utils/salesReceiptCorrections";
+import { salesOutcomeMessage, type SalesSaveResult } from "@/utils/salesSaveResult";
 
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,14 +14,14 @@ import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { classifySalesFile } from "@/utils/salesFileIntake";
 import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
-import { collectScanLearning, diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
+import { diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { associateSalesScan } from "@/utils/salesScanEvidence";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface ReceiptScannerProps {
-  onSave: (record: SalesRecord, file?: File | null, note?: DayNote | null) => Promise<void>;
+  onSave: (record: SalesRecord, file: File | null, note: DayNote | null, scanId: string | null) => Promise<SalesSaveResult>;
   /** Earlier records, used to spot unusual days. */
   history?: SalesRecord[];
   onClose: () => void;
@@ -98,6 +98,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const scannedRef = useRef<SalesRecord | null>(null);
   const evidenceScanRef = useRef<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [outcome, setOutcome] = useState<SalesSaveResult | null>(null);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -149,6 +150,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     }
 
     setExtractedData(null);
+    setOutcome(null);
     evidenceScanRef.current = null;
     setOriginalFile(file);
 
@@ -222,16 +224,20 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       scannedRef.current = record;
       setShowDetails(false);
       setExtractedData(record);
-      const verdict = auditSalesRecord(record, activeVenueNames);
-      baniSay(verdict.message);
-      toast({ title: verdict.ok ? "Receipt scanned — looks good" : "Receipt scanned — check flagged items", description: "Bani has reviewed it." });
+      setSaving(true);
+      const result = await onSave(record, file, null, evidenceScanRef.current);
+      setOutcome(result);
+      setShowDetails(true);
+      baniSay(salesOutcomeMessage(result));
+      toast({ title: result.status === "failed" ? "Receipt not saved" : "Receipt flagged for review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setScanning(false);
+      setSaving(false);
     }
-  }, [activeVenueNames, venuesLoading, baniSay, tenantId]);
+  }, [activeVenueNames, venuesLoading, baniSay, tenantId, onSave]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
@@ -315,38 +321,18 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const diagnosis = extractedData ? diagnoseSalesScan(extractedData) : null;
   const flagged = new Set<string>(diagnosis?.fields ?? []);
   const ready = !!extractedData && !!diagnosis?.balanced && !venueUnmatched && !!extractedData.date;
-  const compact = ready && !showDetails;
+  const compact = false;
   const flagCls = (f: string) => (flagged.has(f) ? " ring-2 ring-warning/60 border-warning/60" : "");
 
   const handleSave = async () => {
     if (!extractedData) return;
-    if (!extractedData.date) {
-      toast({ title: "Date required", description: "Please enter a date before saving.", variant: "destructive" });
-      return;
-    }
-    if (venueUnmatched) {
-      toast({ title: "Venue required", description: "Select a venue from the master list before saving.", variant: "destructive" });
-      return;
-    }
     setSaving(true);
     try {
       associateSalesScan(extractedData, evidenceScanRef.current);
-      await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null);
-      setNoteBody(""); setNoteTag(null);
-      // Learn from corrections in the background — never blocks or prompts.
-      const learning = scannedRef.current ? collectScanLearning(scannedRef.current, extractedData, scannedVenueRaw) : null;
-      if (learning) {
-        void supabase.functions.invoke("parse-receipt", {
-          body: { op: "learn", tenantId, venues: activeVenueNames, ...learning },
-        }).catch(() => undefined);
-      }
-      scannedRef.current = null;
-      toast({ title: "Record saved successfully!", description: originalFile ? "Receipt file attached." : undefined });
-      setExtractedData(null);
-      setPreviewUrl(null);
-      setOriginalFile(null);
-      setScannedVenueRaw("");
-      setTimeout(onClose, 800);
+      const result = await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null, evidenceScanRef.current);
+      setOutcome(result);
+      baniSay(salesOutcomeMessage(result));
+      toast({ title: result.status === "failed" ? "Receipt not saved" : "Receipt flagged for review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
     } finally {
@@ -437,7 +423,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
               <img src={previewUrl} alt="Receipt" className="h-20 w-auto rounded-lg border border-border object-cover" />
             )}
             <p className="text-sm text-muted-foreground">
-              {compact ? "Everything on this slip balances." : "Check the highlighted lines against the slip, then save."}
+              {outcome ? salesOutcomeMessage(outcome) : "Source verification is incomplete. These figures are tentative, not recorded sales."}
             </p>
           </div>
 
@@ -633,17 +619,18 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
           <DayNoteField prompt={notePrompt(extractedData, history)} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
 
           <div className="flex items-center gap-3 pt-2">
-            <button
+            <Button
               onClick={handleSave}
-              disabled={saving || venueUnmatched}
+              disabled={saving || outcome?.status === "flagged"}
               className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               title={venueUnmatched ? "Select a venue from the master list first" : undefined}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {saving ? "Saving..." : venueUnmatched ? "Select venue to save" : ready ? "Confirm & Save" : "Save Record"}
-            </button>
+              {saving ? "Saving receipt for review…" : outcome?.status === "flagged" ? "Flagged · no sales posted" : "Retry saving receipt"}
+            </Button>
             <button
-              onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); scannedRef.current = null; }}
+              disabled={saving}
+              onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); scannedRef.current = null; setOutcome(null); }}
               className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
             >
               Scan Another
