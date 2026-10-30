@@ -459,8 +459,8 @@ export function AppSidebar() {
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
             { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
           ] : []),
-          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
+          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance/dashboard", icon: Scale, active: pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
           ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
@@ -536,6 +536,22 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {showHR && (
+          <SidebarGroup className="py-0 px-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
+                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
+                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
         {showFinance && (
           <CollapsibleNavGroup
             label="Expenses"
@@ -552,22 +568,6 @@ export function AppSidebar() {
             <SubSection label="Analytics" items={expensesAnalytics} />
             <SubSection label="Finance" items={expensesFinance} />
           </CollapsibleNavGroup>
-        )}
-
-        {showHR && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
-                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
-            </SidebarMenu>
-          </SidebarGroup>
         )}
 
         {showKpi && (
