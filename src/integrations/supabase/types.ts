@@ -6599,6 +6599,51 @@ export type Database = {
           },
         ]
       }
+      match_backtest_results: {
+        Row: {
+          alternatives: string[]
+          correct: boolean
+          created_at: string
+          decision: string
+          expected_product_id: string | null
+          id: string
+          invoice_id: string
+          line_id: string
+          predicted_product_id: string | null
+          reason: string
+          run_id: string
+          tenant_id: string
+        }
+        Insert: {
+          alternatives?: string[]
+          correct: boolean
+          created_at?: string
+          decision: string
+          expected_product_id?: string | null
+          id?: string
+          invoice_id: string
+          line_id: string
+          predicted_product_id?: string | null
+          reason: string
+          run_id: string
+          tenant_id: string
+        }
+        Update: {
+          alternatives?: string[]
+          correct?: boolean
+          created_at?: string
+          decision?: string
+          expected_product_id?: string | null
+          id?: string
+          invoice_id?: string
+          line_id?: string
+          predicted_product_id?: string | null
+          reason?: string
+          run_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       menu_item_ingredients: {
         Row: {
           created_at: string
