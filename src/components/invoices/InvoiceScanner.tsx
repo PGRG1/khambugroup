@@ -2239,6 +2239,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const displayInvoice = displayReview?.invoice;
   const displayIssues = useMemo(() => {
     const issues = buildReviewIssues(displayInvoice);
+    displayInvoice?.line_items.forEach((line, lineIdx) => {
+      const status = getLineStatus(line);
+      if (["warn", "review", "new", "dispute", "qtyprice"].includes(status.variant) && !issues.some(issue => issue.lineIdx === lineIdx)) {
+        issues.push({ id: `line-${lineIdx}-status`, severity: "review", scope: "line", lineIdx, label: `Line ${lineIdx + 1}`, field: `line-${lineIdx}-description`, message: status.label });
+      }
+    });
     if (totalMismatchBlocking) issues.unshift({ id: "header-total-mismatch", severity: "blocking", scope: "header", message: totalMismatchMessage, label: "Header", field: "total_amount" });
     return issues;
   }, [displayInvoice, totalMismatchBlocking, totalMismatchMessage]);
@@ -2652,7 +2658,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
             {!!displayReview?.accepted.length && <div className="text-xs text-muted-foreground">
               <p className="font-medium">Small rounding differences accepted (under HK$ 1)</p>
-              <ul className="mt-1 space-y-1">{displayReview.accepted.map((entry, index) => <li key={index}>{entry.lineIdx === undefined ? "Invoice total" : `Line ${entry.lineIdx + 1}`} · {formatCurrency(entry.difference)} ({formatDecimal(entry.difference)}){entry.messages.length ? ` — ${entry.messages.join("; ")}` : ""}</li>)}</ul>
+              <ul className="mt-1 space-y-1">{displayReview.accepted.map((entry, index) => <li key={index}>{entry.lineIdx === undefined ? "Invoice total" : `Line ${entry.lineIdx + 1}`} · HK$ {formatDecimal(entry.difference)}{entry.messages.length ? ` — ${entry.messages.join("; ")}` : ""}</li>)}</ul>
             </div>}
             <div className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>
@@ -2801,8 +2807,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   <tr id={`inv-line-row-${index}`} className={cn("border-b border-border/50", highlightLineIdx === index && "ring-2 ring-destructive/60")}>
                     <td className="break-words px-1 py-2 align-top"><div className="font-medium">{name}</div>{printedName !== name && <div className="mt-0.5 text-[10px] text-muted-foreground">{printedName}</div>}</td>
                     <td className="break-words px-1 py-2 text-right align-top td-num">{line.quantity} <span className="font-sans text-muted-foreground">{line.matched_purchase_uom || line.unit}</span></td>
-                    <td className="px-1 py-2 align-top"><Input aria-label={`Received quantity line ${index + 1}`} type="number" step="any" value={line.accepted_qty ?? line.quantity} onChange={event => updateLineReceiving(index, "accepted_qty", event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs" /></td>
-                    <td className="px-1 py-2 align-top"><Input aria-label={`Accepted price line ${index + 1}`} type="number" step="0.01" value={line.accepted_price || ""} readOnly={line.is_free_unit_line} onChange={event => updateLineAcceptedPrice(index, event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs" placeholder="—" /></td>
+                    <td className="px-1 py-2 align-top"><Input aria-label={`Received quantity line ${index + 1}`} type="number" step="any" value={line.accepted_qty ?? line.quantity} onChange={event => updateLineReceiving(index, "accepted_qty", event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></td>
+                    <td className="px-1 py-2 align-top"><Input aria-label={`Accepted price line ${index + 1}`} type="number" step="0.01" value={line.accepted_price || ""} readOnly={line.is_free_unit_line} onChange={event => updateLineAcceptedPrice(index, event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" placeholder="—" /></td>
                     <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={message || "OK"} className={cn("block h-2 w-2 rounded-full", blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
                   </tr>
                   {message && <tr><td colSpan={5} className={cn("px-1 pb-2 text-[11px]", blocking ? "text-destructive" : "text-warning")}><div className="flex min-w-0 flex-wrap items-center gap-x-2"><span className="min-w-0 flex-1 truncate" title={message}>{message}</span><Button variant="link" size="sm" className="h-auto p-0 text-[11px]" onClick={() => openFullLine(index)}>Open in full table</Button></div></td></tr>}
@@ -3768,13 +3774,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {reviewIssueTargets.length > 0 && (
+              {displayIssues.length > 0 && (
                 <div>
                   <div className="font-medium mb-1">Findings</div>
                   <table className="w-full text-xs border" data-testid="review-summary-table">
                     <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Where</th><th className="text-left p-1.5">Severity</th><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Message</th></tr></thead>
                     <tbody>
-                      {reviewIssueTargets.map((issue) => (
+                      {displayIssues.map((issue) => (
                         <tr key={issue.id} className="border-t align-top">
                           <td className="p-1.5 whitespace-nowrap">{issue.label}</td>
                           <td className={cn("p-1.5 capitalize", issue.severity === "blocking" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{issue.severity}</td>
@@ -3786,7 +3792,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {(!current.review_corrections?.length && reviewIssueTargets.length === 0) && (
+              {(!current.review_corrections?.length && displayIssues.length === 0) && (
                 <div className="text-muted-foreground">No findings.</div>
               )}
             </div>
