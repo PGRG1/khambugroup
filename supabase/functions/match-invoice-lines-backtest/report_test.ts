@@ -1,0 +1,7 @@
+import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+import { summarize, randomSample, type ResultRow } from './report.ts';
+const row: ResultRow = { invoice_id: 'invoice', line_id: 'line', expected_product_id: 'a', predicted_product_id: 'a', alternatives: [], decision: 'sure', reason: 'Evidence', correct: true };
+Deno.test('report counts sure right and wrong separately', () => assertEquals(summarize([row, { ...row, correct: false }]).sure, { right: 1, wrong: 1 }));
+Deno.test('probably counts right item in alternatives only for wrong primary', () => assertEquals(summarize([{ ...row, decision: 'probably', correct: false, predicted_product_id: 'b', alternatives: ['a'] }]).probably, { right: 0, wrong: 1, right_item_in_alternatives: 1 }));
+Deno.test('new reports actually existing expected items', () => assertEquals(summarize([{ ...row, decision: 'new', predicted_product_id: null, correct: false }]).new, { total: 1, actually_had_existing_item: 1 }));
+Deno.test('random sample chooses 50 unique invoices without mutating input', () => { const input = Array.from({ length: 281 }, (_, i) => i); const sample = randomSample(input, 50); assertEquals(sample.length, 50); assertEquals(new Set(sample).size, 50); assertEquals(input[0], 0); });

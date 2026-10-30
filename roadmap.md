@@ -1,5 +1,10 @@
 # Roadmap
 
+## Isolated invoice matcher
+- [ ] Separate tenant-checked matcher, pre-date evidence and deterministic hard checks
+- [ ] Admin-only backtest results storage and 50-invoice random KHAMBU run
+- [ ] Tests, access validation, results/cost report and created-file inventory
+
 ## Receipt safety and contextual Bani
 - [x] Explicit save outcomes, upload failures and journal outcome propagation
 - [x] Non-posting, idempotent receipt exceptions with scoped source and comparison UI
