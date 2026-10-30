@@ -23,3 +23,7 @@ export function formatPercent(value: number | null): string {
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
+
+export function formatMonthLabel(value: string): string {
+  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`));
+}
