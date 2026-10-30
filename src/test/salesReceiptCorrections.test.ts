@@ -23,3 +23,17 @@ describe("sales receipt corrections", () => {
     expect(sanitizeSalesChanges([{ field: "cash", value: "HK$ 1,450" }], [])).toEqual([{ field: "cash", value: 1450 }]);
   });
 });
+
+describe("Bani day notes on a receipt draft", () => {
+  it("accepts a note change and leaves the figures untouched", async () => {
+    const { sanitizeSalesChanges, applySalesChanges } = await import("@/utils/salesReceiptCorrections");
+    const changes = sanitizeSalesChanges([{ field: "note", value: "Busy till dinner, late night slow" }], ["Assembly"]);
+    expect(changes).toEqual([{ field: "note", value: "Busy till dinner, late night slow" }]);
+    const rec = { date: "2026-10-29", day: "Thu", venue: "Assembly", reportNumber: "", orders: 1, guests: 1, subtotal: 100, serviceCharge: 10, discount: 0, totalSales: 110, visa: 110, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, deliveroo: 0, foodpanda: 0, keeta: 0, cardTips: 0 };
+    expect(applySalesChanges(rec, changes!)).toEqual(rec);
+  });
+  it("rejects an empty note", async () => {
+    const { sanitizeSalesChanges } = await import("@/utils/salesReceiptCorrections");
+    expect(sanitizeSalesChanges([{ field: "note", value: "  " }], [])).toBeNull();
+  });
+});
