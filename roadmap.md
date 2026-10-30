@@ -1,5 +1,9 @@
 # Roadmap
 
+## Invoice review display clean-up
+- [x] Compact summary, folded details/status, simple/full lines and optional notes; no operational changes
+- [x] 55 focused tests; 1280/375 browser checks using unsaved two-line rounding fixture (real HK$1,020 source example unavailable)
+
 ## Isolated invoice matcher
 - [ ] Separate tenant-checked matcher, pre-date evidence and deterministic hard checks
 - [ ] Admin-only backtest results storage and 50-invoice random KHAMBU run

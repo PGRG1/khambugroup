@@ -37,6 +37,8 @@ import { buildBaniSuggestions, rawOptionsOf, BANI_FULL_CATALOGUE_LIMIT, BANI_MAX
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
+import { invoiceReviewDisplay } from "@/utils/invoiceReviewDisplay";
+import { formatCurrency, formatDecimal } from "@/utils/format";
 import { pruneStaleLineMathFlags } from "@/utils/invoiceLineMath";
 
 import { useProductMaster } from "@/hooks/useProductMaster";
@@ -332,6 +334,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [detailsLineIdx, setDetailsLineIdx] = useState<number | null>(null);
+  const [reviewDetailsOpen, setReviewDetailsOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [lineView, setLineView] = useState<"simple" | "full">(() => {
+    try { return localStorage.getItem("bani.invoiceReview.lineView") === "full" ? "full" : "simple"; } catch { return "simple"; }
+  });
+  useEffect(() => { try { localStorage.setItem("bani.invoiceReview.lineView", lineView); } catch { /* Storage may be disabled. */ } }, [lineView]);
+  useEffect(() => { setReviewDetailsOpen(false); setNoteOpen(false); }, [currentIdx]);
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showBlockingIssues, setShowBlockingIssues] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
@@ -2226,16 +2235,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     return issues;
   }, [current, totalMismatchBlocking, totalMismatchMessage]);
 
+  const displayReview = useMemo(() => current ? invoiceReviewDisplay(current, displayTotal) : null, [current, displayTotal]);
+  const displayInvoice = displayReview?.invoice;
+  const displayIssues = useMemo(() => {
+    const issues = buildReviewIssues(displayInvoice);
+    displayInvoice?.line_items.forEach((line, lineIdx) => {
+      const status = getLineStatus(line);
+      if (["warn", "review", "new", "dispute", "qtyprice"].includes(status.variant) && !issues.some(issue => issue.lineIdx === lineIdx)) {
+        issues.push({ id: `line-${lineIdx}-status`, severity: "review", scope: "line", lineIdx, label: `Line ${lineIdx + 1}`, field: `line-${lineIdx}-description`, message: status.label });
+      }
+    });
+    if (totalMismatchBlocking) issues.unshift({ id: "header-total-mismatch", severity: "blocking", scope: "header", message: totalMismatchMessage, label: "Header", field: "total_amount" });
+    return issues;
+  }, [displayInvoice, totalMismatchBlocking, totalMismatchMessage]);
+  const displayStats = displayInvoice ? computeReviewStats(displayInvoice, { totalMismatch: totalMismatchBlocking }) : null;
+  const openFullLine = (index: number) => { setLineView("full"); requestAnimationFrame(() => goToLine(index)); };
+
   // Keep the position honest when findings are resolved or removed.
   useEffect(() => {
-    if (nextIssueIndex >= reviewIssueTargets.length) setNextIssueIndex(0);
-  }, [reviewIssueTargets.length, nextIssueIndex]);
+    if (nextIssueIndex >= displayIssues.length) setNextIssueIndex(0);
+  }, [displayIssues.length, nextIssueIndex]);
 
   const focusIssue = useCallback((index: number) => {
-    const total = reviewIssueTargets.length;
+    const total = displayIssues.length;
     if (!total) return;
     const safe = ((index % total) + total) % total;
-    const target = reviewIssueTargets[safe];
+    const target = displayIssues[safe];
     setNextIssueIndex(safe);
     if (target.scope === "line" && target.lineIdx !== undefined) {
       goToLine(target.lineIdx);
@@ -2246,9 +2271,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         .querySelector<HTMLElement>(`[data-review-field="${target.field}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     });
-  }, [reviewIssueTargets, goToLine]);
+  }, [displayIssues, goToLine]);
 
-  const currentIssue = reviewIssueTargets[Math.min(nextIssueIndex, Math.max(reviewIssueTargets.length - 1, 0))] || null;
+  const currentIssue = displayIssues[Math.min(nextIssueIndex, Math.max(displayIssues.length - 1, 0))] || null;
   const goToNextIssue = () => focusIssue(nextIssueIndex + 1);
   const goToPrevIssue = () => focusIssue(nextIssueIndex - 1);
 
@@ -2543,9 +2568,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
 
+          <div className="flex min-w-0 items-start justify-between gap-2 py-1 text-xs" data-testid="review-summary-line">
+            <span className="flex min-w-0 items-start gap-2">
+              <span aria-label={displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "Blocking" : displayIssues.length ? "Warning" : "Checked"} className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "bg-destructive" : displayIssues.length ? "bg-warning" : "bg-success")} />
+              <span className="min-w-0 break-words">{displayIssues.length || current.is_duplicate ? `${displayIssues.length + (current.is_duplicate ? 1 : 0)} to check · ${current.line_items.length} items · ${formatCurrency(displayTotal)}` : `Checked · ${displayStats?.matched || 0} items matched · nothing to fix · ${formatCurrency(displayTotal)}`}</span>
+            </span>
+            <Button variant="link" size="sm" className="h-auto shrink-0 p-0 text-xs" aria-expanded={reviewDetailsOpen} onClick={() => setReviewDetailsOpen(open => !open)}>Review details</Button>
+          </div>
+          {reviewDetailsOpen && <div className="max-h-[35dvh] space-y-2 overflow-y-auto rounded-md border border-border p-2" data-testid="review-details-panel">
           {/* ───── Review header: workflow strip + check cards + KPI strip ───── */}
           {(() => {
-            const stats = computeReviewStats(current, { totalMismatch: totalMismatchBlocking });
+            const stats = computeReviewStats(displayInvoice || current, { totalMismatch: totalMismatchBlocking });
             return (
               <div className="space-y-1.5">
                 <div className="grid gap-1.5 xl:grid-cols-[minmax(0,1fr)_auto]">
@@ -2574,12 +2607,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     <span>
                       Invoice Review:{" "}
                       <span className="text-sky-600 dark:text-sky-400 font-medium">{stats.autoCorrections} auto-corrections</span> ·{" "}
-                      <span className="text-amber-600 dark:text-amber-400 font-medium">{stats.warnings} warnings</span> ·{" "}
+                      <span className={cn("font-medium", stats.warnings > 0 && "text-warning")}>{stats.warnings} warnings</span> ·{" "}
                       <span className="text-destructive font-medium">{stats.blocking} blocking</span> ·{" "}
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.matched} matched</span> ·{" "}
                       <span className="text-indigo-600 dark:text-indigo-400 font-medium">{stats.newItems} new</span>
                     </span>
-                    {((current.review_corrections?.length || 0) + reviewIssueTargets.length) > 0 && (
+                    {((current.review_corrections?.length || 0) + displayIssues.length) > 0 && (
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowInvoiceDetails(true)}>
                         View review summary
                       </Button>
@@ -2596,7 +2629,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               className={cn("flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-xs", issueToneClasses(currentIssue.severity))}
             >
               <span className="min-w-0 whitespace-normal break-words">
-                <span className="font-medium">Issue {nextIssueIndex + 1} of {reviewIssueTargets.length}</span>
+                <span className="font-medium">Issue {nextIssueIndex + 1} of {displayIssues.length}</span>
                 {" · "}
                 <span className="font-medium">{currentIssue.label}</span>
                 {" — "}
@@ -2623,12 +2656,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             </div>
           )}
 
+            {!!displayReview?.accepted.length && <div className="text-xs text-muted-foreground">
+              <p className="font-medium">Small rounding differences accepted (under HK$ 1)</p>
+              <ul className="mt-1 space-y-1">{displayReview.accepted.map((entry, index) => <li key={index}>{entry.lineIdx === undefined ? "Invoice total" : `Line ${entry.lineIdx + 1}`} · HK$ {formatDecimal(entry.difference)}{entry.messages.length ? ` — ${entry.messages.join("; ")}` : ""}</li>)}</ul>
+            </div>}
+            <div className="min-w-0 space-y-1">
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>
+              <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
+                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="outstanding">Outstanding</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="under_review">Under review</SelectItem><SelectItem value="disputed">Disputed</SelectItem></SelectContent>
+              </Select>
+              {disputeStats.hasDispute && <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-700 dark:text-amber-400"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /><span>{isSavingAsDisputed ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving." : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}</span></div>}
+            </div>
+          </div>}
+
           {/* Header fields */}
           <div className="grid grid-cols-2 items-start gap-x-2 gap-y-2 sm:grid-cols-[1.5fr_1fr_1fr_1fr]">
             <div data-review-field="supplier_name" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-[11px] font-medium text-muted-foreground">Supplier</Label>
-                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["supplier_name", "supplier"]} />
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["supplier_name", "supplier"]} />
               </div>
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
                 <SelectTrigger
@@ -2652,7 +2699,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             <div data-review-field="venue" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-[11px] font-medium text-muted-foreground">Venue</Label>
-                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["venue"]} />
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["venue"]} />
               </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
                 <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
@@ -2662,36 +2709,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             <div data-review-field="invoice_number" tabIndex={-1} className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5">
                 <Label className="text-[11px] font-medium text-muted-foreground">Invoice #</Label>
-                <CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_number"]} />
+                <CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_number"]} />
               </div>
               <Input className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs" value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
-            <div className="min-w-0 space-y-1">
-              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>
-              <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
-                <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="outstanding">Outstanding</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="under_review">Under review</SelectItem><SelectItem value="disputed">Disputed</SelectItem></SelectContent>
-              </Select>
-              {disputeStats.hasDispute && <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-700 dark:text-amber-400"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /><span>{isSavingAsDisputed ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving." : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}</span></div>}
-            </div>
             <div data-review-field="invoice_date" tabIndex={-1} className="min-w-0 space-y-1">
-              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Invoice date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_date"]} /></div>
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Invoice date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["invoice_date"]} /></div>
               <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
             </div>
             <div data-review-field="due_date" tabIndex={-1} className="min-w-0 space-y-1">
-              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Due date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={current.review_warnings} blocking={current.review_blocking} fieldAliases={["due_date"]} /></div>
+              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Due date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["due_date"]} /></div>
               <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
             <div className="col-span-2 min-w-0 space-y-1">
-              <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Notes</Label></div>
-              <Textarea className="min-h-8 px-2.5 py-[7px] font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
+              {!(noteOpen || current.notes) ? <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setNoteOpen(true)}>+ Add note</Button> : <Label className="text-[11px] font-medium text-muted-foreground">Notes</Label>}
+              {(noteOpen || current.notes) && <Textarea aria-label="Invoice notes" className="min-h-8 px-2.5 py-[7px] font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />}
             </div>
           </div>
           </div>
 
           {/* Line Items table */}
           <div data-testid="line-items-toolbar" className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-border pb-1">
-            <h4 className="text-sm font-semibold">Line items ({current.line_items.length})</h4>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-semibold">Line items ({current.line_items.length})</h4>
+              <div className="inline-flex items-center gap-1" role="group" aria-label="Line items view">
+                <Button variant={lineView === "simple" ? "secondary" : "ghost"} size="sm" className="h-7 px-2 text-xs" aria-pressed={lineView === "simple"} onClick={() => setLineView("simple")}>Simple</Button>
+                <span className="text-muted-foreground">|</span>
+                <Button variant={lineView === "full" ? "secondary" : "ghost"} size="sm" className="h-7 px-2 text-xs" aria-pressed={lineView === "full"} onClick={() => setLineView("full")}>Full table</Button>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={addLine}><Plus className="h-3 w-3" />Add line</Button>
               <button
@@ -2745,6 +2791,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           {/* Line items: own bounded scroll viewport (both axes in one container) */}
           <div data-testid="line-items-scroll" className="bani-visible-scrollbar w-full min-w-0 max-lg:max-h-[65dvh] max-lg:min-h-[200px] max-lg:shrink-0 lg:flex-1 lg:min-h-[240px] overflow-auto">
 
+            {lineView === "simple" ? <table className="w-full table-fixed border-collapse text-xs" aria-label="Simple line items">
+              <colgroup><col className="w-[34%]" /><col className="w-[20%]" /><col className="w-[21%]" /><col className="w-[21%]" /><col className="w-[4%]" /></colgroup>
+              <thead className="sticky top-0 z-20 bg-card"><tr className="border-b border-border">{["Item", "Invoiced", "Received", "Price", ""].map((title, index) => <th key={index} scope="col" className={cn("px-1 py-2 font-medium text-muted-foreground", index === 0 ? "text-left" : "text-right")}>{title}</th>)}</tr></thead>
+              <tbody>{current.line_items.map((line, index) => {
+                const issues = displayIssues.filter(issue => issue.lineIdx === index);
+                const status = getLineStatus(displayInvoice?.line_items[index] || line);
+                const qtyDifference = Number(line.accepted_qty ?? line.quantity) !== Number(line.quantity);
+                const blocking = issues.some(issue => issue.severity === "blocking");
+                const warning = issues.length > 0 || qtyDifference || ["warn", "review", "new", "dispute", "qtyprice"].includes(status.variant);
+                const printedName = line.scanned_description || line.description;
+                const name = line.matched_internal_name || line.description || "Unmatched item";
+                const message = issues.map(issue => issue.message).join(" · ") || (warning ? status.label : "");
+                return <React.Fragment key={line._baniLineId || index}>
+                  <tr id={`inv-line-row-${index}`} className={cn("border-b border-border/50", highlightLineIdx === index && "ring-2 ring-destructive/60")}>
+                    <td className="break-words px-1 py-2 align-top"><div className="font-medium">{name}</div>{printedName !== name && <div className="mt-0.5 text-[10px] text-muted-foreground">{printedName}</div>}</td>
+                    <td className="break-words px-1 py-2 text-right align-top td-num">{line.quantity} <span className="font-sans text-muted-foreground">{line.matched_purchase_uom || line.unit}</span></td>
+                    <td className="px-1 py-2 align-top"><Input aria-label={`Received quantity line ${index + 1}`} type="number" step="any" value={line.accepted_qty ?? line.quantity} onChange={event => updateLineReceiving(index, "accepted_qty", event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></td>
+                    <td className="px-1 py-2 align-top"><Input aria-label={`Accepted price line ${index + 1}`} type="number" step="0.01" value={line.accepted_price || ""} readOnly={line.is_free_unit_line} onChange={event => updateLineAcceptedPrice(index, event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" placeholder="—" /></td>
+                    <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={message || "OK"} className={cn("block h-2 w-2 rounded-full", blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
+                  </tr>
+                  {message && <tr><td colSpan={5} className={cn("px-1 pb-2 text-[11px]", blocking ? "text-destructive" : "text-warning")}><div className="flex min-w-0 flex-wrap items-center gap-x-2"><span className="min-w-0 flex-1 truncate" title={message}>{message}</span><Button variant="link" size="sm" className="h-auto p-0 text-[11px]" onClick={() => openFullLine(index)}>Open in full table</Button></div></td></tr>}
+                </React.Fragment>;
+              })}</tbody>
+            </table> : (
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border">
@@ -3325,7 +3395,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                       {/* Status */}
                       <td className="px-1 py-0.5 align-top">
                         {(() => {
-                          const s = getLineStatus(line);
+                          const s = getLineStatus(displayInvoice?.line_items[i] || line);
                           return <LineStatusChip variant={s.variant} label={s.label} />;
                         })()}
                       </td>
@@ -3408,6 +3478,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 })()}
               </tbody>
             </table>
+            )}
           </div>
 
           {/* Fixed footer region: totals + actions stay out of the line-item scroll */}
@@ -3703,13 +3774,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {reviewIssueTargets.length > 0 && (
+              {displayIssues.length > 0 && (
                 <div>
                   <div className="font-medium mb-1">Findings</div>
                   <table className="w-full text-xs border" data-testid="review-summary-table">
                     <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Where</th><th className="text-left p-1.5">Severity</th><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Message</th></tr></thead>
                     <tbody>
-                      {reviewIssueTargets.map((issue) => (
+                      {displayIssues.map((issue) => (
                         <tr key={issue.id} className="border-t align-top">
                           <td className="p-1.5 whitespace-nowrap">{issue.label}</td>
                           <td className={cn("p-1.5 capitalize", issue.severity === "blocking" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{issue.severity}</td>
@@ -3721,7 +3792,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                   </table>
                 </div>
               )}
-              {(!current.review_corrections?.length && reviewIssueTargets.length === 0) && (
+              {(!current.review_corrections?.length && displayIssues.length === 0) && (
                 <div className="text-muted-foreground">No findings.</div>
               )}
             </div>

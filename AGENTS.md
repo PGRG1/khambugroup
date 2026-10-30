@@ -3,7 +3,7 @@ Read nested AGENTS.md rules for shared functions.
 
 - ThemeProvider enforces fixed light resolution without profile or OS hydration; AppLayout mounts one pointer-inert viewport-fixed atmosphere as the first tenant wrapper child behind the floating sidebar and main content, with tenant-scoped glass tokens (including mobile portals), preserving platform styles and overlay stacking.
 
-- All invoice-scanner product links must use `buildMatchLinkPatch`; this keeps supplier-specific Items Master display/save fields atomic while preserving scanned matching evidence.
+- Scanner links use `buildMatchLinkPatch` for atomic supplier fields; review display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Later mutable master fields use earlier invoice evidence or are omitted (no snapshots).
 - Finance team review snapshots are written only by the `finance-team` function (service role) and are locked by a trigger once finished; history must never be edited.

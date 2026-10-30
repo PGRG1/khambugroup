@@ -575,7 +575,7 @@ export function KpiStrip({ stats, compact = false }: { stats: ReviewStats; compa
     tone?: "neutral" | "good" | "warn" | "bad" | "info";
   }) => {
     const toneClass =
-      tone === "good"
+      compact && value === 0 ? "text-muted-foreground" : tone === "good"
         ? "text-emerald-600 dark:text-emerald-400"
         : tone === "warn"
         ? "text-amber-600 dark:text-amber-400"
@@ -593,7 +593,7 @@ export function KpiStrip({ stats, compact = false }: { stats: ReviewStats; compa
   };
 
   return (
-    <div className="flex items-center divide-x divide-border rounded-lg border border-border bg-card overflow-x-auto">
+    <div className={compact ? "grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card" : "flex items-center divide-x divide-border rounded-lg border border-border bg-card overflow-x-auto"}>
       <Item label="Total Items" value={stats.totalLines} />
       <Item label="Matched" value={stats.matched} tone="good" />
       <Item label="Auto-corrected" value={stats.autoCorrections} tone="info" />
