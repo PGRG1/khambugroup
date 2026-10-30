@@ -111,7 +111,11 @@ export async function matchInvoice(db: SupabaseClient, input: MatchInput, signal
   const text = await result.text;
   try {
     const value = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
-    const parsed = OutputSchema.safeParse(Array.isArray(value) ? { lines: value } : value);
+    // Some compatible responses use a different root key despite the explicit contract.
+    // Accept only a single array root and still validate every exact per-line field.
+    const arrays = value && typeof value === 'object' && !Array.isArray(value) ? Object.values(value).filter(Array.isArray) : [];
+    const normalized = Array.isArray(value) ? { lines: value } : value?.lines ? value : arrays.length === 1 ? { lines: arrays[0] } : value;
+    const parsed = OutputSchema.safeParse(normalized);
     if (!parsed.success) {
       console.error('Matcher schema issues', JSON.stringify(parsed.error.issues.map(i => ({ path: i.path, code: i.code }))));
       throw new RequestError(502, `AI returned invalid structured line decisions (${parsed.error.issues.map(i => i.path.join('.') + ':' + i.code).join(', ')}); evaluation stopped.`);
