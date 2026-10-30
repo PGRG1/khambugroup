@@ -9399,6 +9399,79 @@ export type Database = {
           },
         ]
       }
+      sales_receipt_intakes: {
+        Row: {
+          created_at: string
+          existing_record_ids: string[]
+          id: string
+          original_values: Json
+          reasons: Json
+          scan_id: string | null
+          source_name: string
+          source_path: string
+          source_sha256: string
+          status: string
+          tenant_id: string
+          tentative_values: Json
+          uploaded_by: string
+          venue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          existing_record_ids?: string[]
+          id?: string
+          original_values: Json
+          reasons: Json
+          scan_id?: string | null
+          source_name: string
+          source_path: string
+          source_sha256: string
+          status?: string
+          tenant_id: string
+          tentative_values: Json
+          uploaded_by: string
+          venue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          existing_record_ids?: string[]
+          id?: string
+          original_values?: Json
+          reasons?: Json
+          scan_id?: string | null
+          source_name?: string
+          source_path?: string
+          source_sha256?: string
+          status?: string
+          tenant_id?: string
+          tentative_values?: Json
+          uploaded_by?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_receipt_intakes_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "sales_scan_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_receipt_intakes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_receipt_intakes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_record_notes: {
         Row: {
           author_id: string
@@ -12249,6 +12322,21 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      register_sales_receipt_intake: {
+        Args: {
+          p_hash: string
+          p_name: string
+          p_original: Json
+          p_path: string
+          p_reasons: Json
+          p_scan: string
+          p_tenant: string
+          p_tentative: Json
+          p_user: string
+          p_venue: string
+        }
+        Returns: Json
       }
       reverse_and_regenerate_sales_journal: {
         Args: { p_entry_id: string }
