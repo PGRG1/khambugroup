@@ -1,5 +1,9 @@
 # Roadmap
 
+## Invoice review display clean-up
+- [ ] Compact summary, folded details/status, simple/full lines and optional notes; no operational changes
+- [ ] Display-only rounding tests and desktop/phone Beverage World verification
+
 ## Isolated invoice matcher
 - [ ] Separate tenant-checked matcher, pre-date evidence and deterministic hard checks
 - [ ] Admin-only backtest results storage and 50-invoice random KHAMBU run
