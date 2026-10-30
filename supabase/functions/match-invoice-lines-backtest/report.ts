@@ -1,4 +1,4 @@
-import type { Decision } from '../match-invoice-lines/policy.ts';
+import type { Decision } from '../_shared/matchInvoiceLines/policy.ts';
 export type ResultRow = { invoice_id: string; line_id: string; expected_product_id: string | null; predicted_product_id: string | null; alternatives: string[]; decision: Decision; reason: string; correct: boolean };
 export function summarize(rows: ResultRow[]) {
   const of = (d: Decision) => rows.filter(r => r.decision === d);

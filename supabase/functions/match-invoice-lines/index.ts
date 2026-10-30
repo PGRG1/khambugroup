@@ -1,6 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { getLovableAiGatewayResponseHeaders } from './run-id.ts';
-import { authorize, InputSchema, matchInvoice, safeError } from './service.ts';
+import { getLovableAiGatewayResponseHeaders } from '../_shared/matchInvoiceLines/run-id.ts';
+import { authorize, InputSchema, matchInvoice, safeError } from '../_shared/matchInvoiceLines/service.ts';
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
