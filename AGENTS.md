@@ -1,4 +1,5 @@
 # Project Architecture Rules
+Read nested AGENTS.md rules for shared functions.
 
 - ThemeProvider enforces fixed light resolution without profile or OS hydration; AppLayout mounts one pointer-inert viewport-fixed atmosphere as the first tenant wrapper child behind the floating sidebar and main content, with tenant-scoped glass tokens (including mobile portals), preserving platform styles and overlay stacking.
 
@@ -18,7 +19,7 @@
 - Sales receipt corrections (Scan Receipt's Fix with Bani) go through chat-assistant `salesReview.ts` and `src/utils/salesReceiptCorrections.ts`: field whitelist + tenant venues validated on server and client, applied only on user Apply against the same draft; Save stays manual.
 - Bani contextual memory lives in chat-assistant `contextMemory.ts`: past record notes plus `bani_memory_notes` (server-written, venue/supplier scoped) are injected as untrusted background, never as rules; post-scan verdicts come from deterministic scanner checks, not extra model calls.
 - Unmatched invoice lines get up to 3 Bani suggestions (`src/utils/baniLineSuggestions.ts`) auto-requested once per draft+supplier, strictly supplier-scoped and never auto-linked; saving invoice code/wording to Items Master happens only on the user's explicit "Save to master" tap
-- Sales receipt scans learn silently: on save, `collectScanLearning` (src/utils/salesScanLearning.ts) diffs reader output vs saved record and `parse-receipt` (op "learn", service role, field whitelist) upserts venue-scoped `ai_learned_rules`; later scans inject them as untrusted background notes. No Accept & Teach prompts
+- Sales receipt learning remains unchanged; `salesScanEvidence.ts` carries ephemeral scan IDs through manual Save to server audit capture, never into financial payloads. Shared function rules govern evidence trust.
 - The Launchpad (`/`) is the single tenant front door; its drop zone stages files into the shared Floating Bani composer (`useFloatingBaniAttach`) so classification/routing stays in one place. `/assistant` and `/finance-team` remain routable but are not top-level sidebar links.
 - Venue filtering is one portal-wide scope (`useVenueScope` in `src/hooks/useVenueScope.tsx`, pure rules in `src/utils/venueScope.ts`) mounted once in AppLayout with the top-bar picker and page reminder; pages must not add their own venue view filters (data-entry venue fields are separate), so every page agrees on which venues are shown.
 - Venue seats come only from `venue_seat_history` (via `useSeatHistory` + `src/utils/seatHistory.ts`); every seat-based number uses the count that applied on each day, and `venues.seats` is a trigger-maintained mirror of the latest row, so seat history is never lost.
