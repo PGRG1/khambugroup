@@ -317,7 +317,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
           const event = JSON.parse(line.slice(6));
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
-          if (event.status && typeof event.status.label === "string") turn?.opts.onStatus?.(event.status.label);
+          if (event.status && typeof event.status.label === "string") { setStepLabel(event.status.label); turn?.opts.onStatus?.(event.status.label); }
           if (event.speak && typeof event.speak.text === "string") turn?.opts.onSpeak?.(event.speak as SpeakEvent);
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
@@ -500,7 +500,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               </div>}
             </div>}
           </div>)}
-          {busy && <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>}
+          {busy && (stepLabel
+            ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel}…</div>
+            : <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>)}
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
         </div>
