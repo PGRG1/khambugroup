@@ -18,14 +18,21 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useVenues } from "@/hooks/useVenues";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { usePurchasingMode } from "@/hooks/usePurchasingMode";
+import { format, parseISO } from "date-fns";
+
+const STATUS_LABEL: Record<Status, string> = { draft: "Draft", approved: "Approved", sent: "Sent", partial: "Partly received", received: "Received", cancelled: "Cancelled" };
+const STATUS_TONE: Record<Status, string> = { draft: "text-muted-foreground", approved: "text-warning", sent: "text-warning", partial: "text-warning", received: "text-success", cancelled: "text-muted-foreground" };
+const PROGRESS = ["Draft", "Approved", "Sent", "Received"] as const;
+const progressIndex = (st: Status) => ({ draft: 0, approved: 1, sent: 2, partial: 3, received: 3, cancelled: 0 } as Record<Status, number>)[st];
 
 type Status = "draft" | "approved" | "sent" | "partial" | "received" | "cancelled";
 
 const STATUS_FLOW: Record<Status, { next?: Status; label?: string }> = {
   draft: { next: "approved", label: "Approve" },
-  approved: { next: "sent", label: "Mark as Sent" },
-  sent: { next: "received", label: "Mark Received" },
-  partial: { next: "received", label: "Mark Received" },
+  approved: { next: "sent", label: "Mark as sent" },
+  sent: { next: "received", label: "Mark received" },
+  partial: { next: "received", label: "Mark received" },
   received: {},
   cancelled: {},
 };
@@ -256,363 +263,252 @@ export default function PurchaseOrdersTab() {
   const activeSuppliers = suppliers.filter((s) => s.is_active);
   const next = selectedPo ? STATUS_FLOW[selectedPo.status] : undefined;
 
-  const stats = useMemo(() => {
-    const by = (s: Status) => pos.filter(p => p.status === s).length;
-    return {
-      total: pos.length,
-      draft: by("draft"),
-      sent: by("sent") + by("approved") + by("partial"),
-      received: by("received"),
-      cancelled: by("cancelled"),
-    };
+  const { mode } = usePurchasingMode();
+  const byVenue = mode === "by_venue";
+  const [venuePick, setVenuePick] = useState("all");
+  const [page, setPage] = useState(0);
+  const [received, setReceived] = useState<Record<string, number> | null>(null);
+
+  const tabCounts = useMemo(() => {
+    const by = (...st: Status[]) => pos.filter((p) => st.includes(p.status)).length;
+    return { all: pos.length, draft: by("draft"), approved: by("approved"), sent: by("sent", "partial"), received: by("received"), cancelled: by("cancelled") };
   }, [pos]);
+  const tabs: { key: string; label: string; count: number }[] = [
+    { key: "all", label: "All", count: tabCounts.all },
+    { key: "draft", label: "Draft", count: tabCounts.draft },
+    { key: "approved", label: "Approved", count: tabCounts.approved },
+    { key: "sent", label: "Sent", count: tabCounts.sent },
+    { key: "received", label: "Received", count: tabCounts.received },
+    ...(tabCounts.cancelled ? [{ key: "cancelled", label: "Cancelled", count: tabCounts.cancelled }] : []),
+  ];
 
-  const toggleStatusFilter = (v: string) => setStatusFilter(prev => prev === v ? "all" : v);
+  const rows = useMemo(() => filtered.filter((p) => {
+    if (statusFilter === "sent" && !["sent", "partial"].includes(p.status)) return false;
+    if (byVenue && venuePick !== "all" && p.venue !== venuePick) return false;
+    return true;
+  }), [filtered, statusFilter, byVenue, venuePick]);
+  useEffect(() => setPage(0), [statusFilter, search, supplierFilter, venuePick]);
+  const PAGE = 25;
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE));
+  const pageRows = rows.slice(page * PAGE, page * PAGE + PAGE);
 
-  const scopeLabel = useMemo(() => {
-    const parts: string[] = [];
-    parts.push(supplierFilter === "all" ? "All suppliers" : supplierName(supplierFilter));
-    parts.push(venueFilter === "all" ? "All venues" : venueFilter);
-    parts.push(statusFilter === "all" ? "All statuses" : statusFilter);
-    return parts.join(" · ");
-  }, [supplierFilter, venueScope.includesName, statusFilter, suppliers]);
+  useEffect(() => {
+    if (!selectedItems.length) { setReceived(null); return; }
+    let live = true;
+    supabase.from("grn_items").select("po_item_id, quantity_received").in("po_item_id", selectedItems.map((i) => i.id)).then(({ data }) => {
+      if (!live) return;
+      const m: Record<string, number> = {};
+      (data ?? []).forEach((r: any) => { if (r.po_item_id) m[r.po_item_id] = (m[r.po_item_id] ?? 0) + (Number(r.quantity_received) || 0); });
+      setReceived(m);
+    });
+    return () => { live = false; };
+  }, [selectedItems]);
 
-  const StatTile = ({ label, value, tone, filterValue }: { label: string; value: number; tone?: "warn" | "primary" | "danger"; filterValue?: string }) => {
-    const active = filterValue && statusFilter === filterValue;
-    const toneCls = tone === "warn" ? "text-warning" : tone === "primary" ? "text-primary" : tone === "danger" ? "text-destructive" : "text-foreground";
-    return (
-      <button
-        type="button"
-        onClick={filterValue ? () => toggleStatusFilter(filterValue) : undefined}
-        disabled={!filterValue}
-        className={cn(
-          "text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors",
-          filterValue ? "hover:border-border cursor-pointer" : "cursor-default",
-          active && "ring-2 ring-primary/60 bg-primary/5",
-        )}
-      >
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
-        <div className={`text-lg font-semibold tabular-nums mt-0.5 ${toneCls}`}>{value.toLocaleString()}</div>
-      </button>
-    );
-  };
+  const shortDate = (d: string | null) => (d ? format(parseISO(d), "d MMM") : "—");
+  const newPoButton = canManage ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> New PO</Button> : null;
+  const supName = suppliers.find((s) => s.id === supplierId)?.name;
+  const statusText = (st: Status) => <span className={cn("text-xs font-medium", STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>;
 
   return (
     <div className="space-y-4">
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2">
-        {loading ? (
-          Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />)
-        ) : (
-          <>
-            <StatTile label="Total" value={stats.total} />
-            <StatTile label="Draft" value={stats.draft} filterValue="draft" />
-            <StatTile label="Sent / Pending" value={stats.sent} tone="warn" filterValue="sent" />
-            <StatTile label="Received" value={stats.received} tone="primary" filterValue="received" />
-            <StatTile label="Cancelled" value={stats.cancelled} tone="danger" filterValue="cancelled" />
-          </>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
+        {newPoButton}
       </div>
 
-      <div className="flex flex-wrap gap-2 items-end justify-between">
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="w-48">
-            <Label className="text-xs">Supplier</Label>
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All suppliers</SelectItem>
-                {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-40">
-            <Label className="text-xs">Venue</Label>
-            
-          </div>
-          <div className="w-40">
-            <Label className="text-xs">Status</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {(["draft","approved","sent","partial","received","cancelled"] as Status[]).map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-56">
-            <Label className="text-xs">Search</Label>
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="PO# or supplier" className="pl-7 h-9" />
-            </div>
-          </div>
+      {!loading && pos.length === 0 ? (
+        <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
+          <p className="font-display text-base font-semibold text-foreground">No purchase orders yet</p>
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">Purchase orders are optional. Use one when you want to agree quantities and prices before the delivery; Bani then checks the delivery and invoice against it.</p>
+          {newPoButton}
         </div>
-        <Button onClick={() => setCreateOpen(true)} disabled={!canManage} className="h-9">
-          <Plus className="h-4 w-4 mr-1" /> New PO
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Showing {scopeLabel} · <span className="tabular-nums">{filtered.length.toLocaleString()}</span> of <span className="tabular-nums">{pos.length.toLocaleString()}</span> POs
-      </p>
-
-      {loading ? (
-        <div className="space-y-1.5">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-11 rounded-md border border-border/60 bg-card/40 animate-pulse" />)}
-        </div>
-      ) : isMobile ? (
-        <div className="space-y-2">
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm rounded-xl border border-border/60 bg-card/40">No purchase orders</div>
-          ) : filtered.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => openDetail(p)}
-              className="w-full text-left rounded-lg border border-border/60 bg-card/50 p-3 hover:border-border transition-colors min-h-[64px]"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-mono text-sm font-medium">{p.po_number}</div>
-                  <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name ?? supplierName(p.supplier_id)} · {p.venue}</div>
-                </div>
-                <Badge variant="outline" className={cn("capitalize shrink-0", statusBadge(p.status))}>{p.status}</Badge>
-              </div>
-              <div className="flex items-center justify-between mt-2 text-xs">
-                <span className="text-muted-foreground">Exp: {fmtDate(p.expected_date)}</span>
-                <span className="font-semibold tabular-nums">{fmtMoney(Number(p.total_amount))}</span>
-              </div>
+      ) : (<>
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Status">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={statusFilter === t.key} onClick={() => setStatusFilter(t.key)}
+              className={cn("rounded-full border px-3 py-1 text-xs transition-colors", statusFilter === t.key ? "border-primary bg-primary text-primary-foreground" : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground")}>
+              {t.label} <span className="td-num ml-1 opacity-80">{t.count}</span>
             </button>
           ))}
         </div>
-      ) : (
-        <div className="border border-border rounded-md overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>PO Number</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Expected Date</TableHead>
-                <TableHead className="text-right">Total Amount</TableHead>
-                <TableHead>Created At</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No purchase orders</TableCell></TableRow>
-              ) : filtered.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(p)}>
-                  <TableCell className="font-mono">{p.po_number}</TableCell>
-                  <TableCell>{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
-                  <TableCell>{p.venue}</TableCell>
-                  <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(p.status))}>{p.status}</Badge></TableCell>
-                  <TableCell>{fmtDate(p.expected_date)}</TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">{fmtMoney(Number(p.total_amount))}</TableCell>
-                  <TableCell>{fmtDate(p.created_at)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
 
-
-      {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetCreate(); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Supplier</Label>
-              <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); setLines([]); }}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+        <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
+          <div className="flex flex-col gap-2 border-b border-border/60 p-3 sm:flex-row">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search PO # or supplier" className="h-9 pl-8" />
+            </div>
+            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+              <SelectTrigger className="h-9 sm:w-48" aria-label="Supplier"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All suppliers</SelectItem>
+                {suppliers.filter((s) => s.id).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {byVenue && (
+              <Select value={venuePick} onValueChange={setVenuePick}>
+                <SelectTrigger className="h-9 sm:w-40" aria-label="Venue"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {activeSuppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  <SelectItem value="all">All venues</SelectItem>
+                  {activeVenueNames.filter(Boolean).map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Venue</Label>
-              <Select value={venue} onValueChange={setVenue}>
-                <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
-                <SelectContent>
-                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Expected Date</Label>
-              <Input type="date" value={expected} onChange={(e) => setExpected(e.target.value)} />
-            </div>
-            <div className="col-span-2">
-              <Label>Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-            </div>
+            )}
           </div>
+
+          {loading ? <div className="h-40 animate-pulse bg-card/40" /> : rows.length === 0 ? (
+            <p className="p-8 text-center text-sm text-muted-foreground">No purchase orders match.</p>
+          ) : isMobile ? (
+            <ul className="divide-y divide-border/60">
+              {pageRows.map((p) => (
+                <li key={p.id}>
+                  <button type="button" onClick={() => openDetail(p)} className="w-full px-3 py-2.5 text-left hover:bg-muted/40">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm font-medium">{p.suppliers?.name ?? supplierName(p.supplier_id)}</span>
+                      <span className="td-num shrink-0 text-sm">{fmtMoney(p.total_amount)}</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{p.po_number} · {shortDate(p.expected_date)} · {statusText(p.status)}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>PO #</TableHead><TableHead>Supplier</TableHead>{byVenue && <TableHead>Venue</TableHead>}
+                <TableHead>Delivery</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Status</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {pageRows.map((p) => (
+                  <TableRow key={p.id} className="cursor-pointer" onClick={() => openDetail(p)}>
+                    <TableCell className="td-num text-sm">{p.po_number}</TableCell>
+                    <TableCell className="text-sm">{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
+                    {byVenue && <TableCell className="text-sm">{p.venue}</TableCell>}
+                    <TableCell className="text-sm">{shortDate(p.expected_date)}</TableCell>
+                    <TableCell className="td-num text-right text-sm">{fmtMoney(p.total_amount)}</TableCell>
+                    <TableCell>{statusText(p.status)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {pageCount > 1 && (
+            <div className="flex items-center justify-end gap-2 border-t border-border/60 p-2 text-xs text-muted-foreground">
+              <Button size="sm" variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</Button>
+              <span>Page {page + 1} of {pageCount}</span>
+              <Button size="sm" variant="ghost" disabled={page >= pageCount - 1} onClick={() => setPage(page + 1)}>Next</Button>
+            </div>
+          )}
+        </div>
+      </>)}
+
+      {/* New PO */}
+      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetCreate(); }}>
+        <DialogContent className="max-w-[720px] w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>New purchase order</DialogTitle></DialogHeader>
+          <div className={cn("grid gap-3", byVenue ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+            <div><Label className="text-xs">Supplier</Label>
+              <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); setLines([]); }}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Pick supplier" /></SelectTrigger>
+                <SelectContent>{activeSuppliers.filter((s) => s.id).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Delivery date</Label><Input type="date" className="h-9" value={expected} onChange={(e) => setExpected(e.target.value)} /></div>
+            {byVenue && <div><Label className="text-xs">Venue</Label>
+              <Select value={venue} onValueChange={setVenue}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Pick venue" /></SelectTrigger>
+                <SelectContent>{activeVenueNames.filter(Boolean).map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>}
+          </div>
+          <div><Label className="text-xs">Note to supplier</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Line Items</Label>
-              <Button size="sm" variant="outline" onClick={addLine} disabled={!supplierId}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add line
-              </Button>
-            </div>
-            <div className="border border-border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40%]">Product</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="w-8"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-4">No lines yet</TableCell></TableRow>
-                  ) : lines.map((l) => (
-                    <TableRow key={l.key}>
-                      <TableCell>
-                        <ProductPicker
-                          products={supplierProducts}
-                          value={l.product_master_id}
-                          onChange={(id) => onPickProduct(l.key, id)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input value={l.unit} onChange={(e) => updateLine(l.key, { unit: e.target.value })} className="h-8 w-20" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input type="number" step="0.01" value={l.quantity_ordered}
-                          onChange={(e) => updateLine(l.key, { quantity_ordered: parseFloat(e.target.value) || 0 })}
-                          className="h-8 w-24 text-right td-num ml-auto" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input type="number" step="0.01" value={l.unit_price}
-                          onChange={(e) => updateLine(l.key, { unit_price: parseFloat(e.target.value) || 0 })}
-                          className="h-8 w-28 text-right td-num ml-auto" />
-                      </TableCell>
-                      <TableCell className="text-right td-num">
-                        {fmtMoney((Number(l.quantity_ordered) || 0) * (Number(l.unit_price) || 0))}
-                      </TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost" onClick={() => removeLine(l.key)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="flex justify-end items-baseline gap-3 pr-2">
-              <span className="text-sm text-muted-foreground">Running total</span>
-              <span className="text-lg font-semibold td-num">{fmtMoney(draftTotal)}</span>
-            </div>
+            {lines.length > 0 && (
+              <div className="space-y-2">
+                <div className="hidden sm:grid grid-cols-[1fr_70px_60px_90px_90px_28px] gap-2 text-xs text-muted-foreground">
+                  <span>Item</span><span>Qty</span><span>Unit</span><span>Price</span><span className="text-right">Amount</span><span />
+                </div>
+                {lines.map((l) => (
+                  <div key={l.key} className="grid grid-cols-[1fr_28px] sm:grid-cols-[1fr_70px_60px_90px_90px_28px] gap-2 items-center rounded-lg border border-border/50 p-2 sm:border-0 sm:p-0">
+                    <div className="min-w-0"><ProductPicker products={supplierProducts} value={l.product_master_id} onChange={(id) => onPickProduct(l.key, id)} /></div>
+                    <button type="button" aria-label="Remove line" onClick={() => removeLine(l.key)} className="sm:order-last text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    <div className="col-span-2 grid grid-cols-4 gap-2 items-center sm:contents">
+                      <Input type="number" aria-label="Quantity" className="h-8 td-num" value={l.quantity_ordered} onChange={(e) => updateLine(l.key, { quantity_ordered: Number(e.target.value) })} />
+                      <span className="text-xs text-muted-foreground truncate">{l.unit}</span>
+                      <Input type="number" aria-label="Price" className="h-8 td-num" value={l.unit_price} onChange={(e) => updateLine(l.key, { unit_price: Number(e.target.value) })} />
+                      <span className="td-num text-right text-sm">{fmtPrice((Number(l.quantity_ordered) || 0) * (Number(l.unit_price) || 0))}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {supplierId ? (
+              <button type="button" onClick={addLine} className="text-sm text-primary hover:underline">+ Add item from {supName}'s list</button>
+            ) : <p className="text-xs text-muted-foreground">Pick a supplier to add items.</p>}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create PO"}</Button>
+          <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between border-t border-border/60 pt-3">
+            <span className="text-sm">Total <span className="td-num font-semibold">{fmtPrice(draftTotal)}</span></span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={saving} onClick={handleCreate}>Save draft</Button>
+              <Button size="sm" disabled={saving} onClick={handleCreate}>Create PO</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Slide-over detail */}
-      {selectedPo && (
-        <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setSelectedPo(null)}>
-          <div
-            className="absolute right-0 top-0 h-full w-full max-w-2xl bg-background border-l border-border shadow-xl overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between p-5 border-b border-border">
-              <div>
-                <h2 className="text-xl font-display font-semibold">{selectedPo.po_number}</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedPo.suppliers?.name ?? supplierName(selectedPo.supplier_id)} · {selectedPo.venue}
-                </p>
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => setSelectedPo(null)}><X className="h-4 w-4" /></Button>
-            </div>
-
-            <div className="p-5 space-y-5">
-              {/* Status workflow strip */}
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Workflow</Label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(["draft","approved","sent","received"] as Status[]).map((s, i, arr) => {
-                    const active = selectedPo.status === s;
-                    const past = arr.indexOf(selectedPo.status as Status) > i;
-                    return (
-                      <React.Fragment key={s}>
-                        <div className={cn(
-                          "px-3 py-1 rounded-md text-xs border capitalize",
-                          active ? statusBadge(s) : past ? "bg-primary/10 text-primary/80 border-primary/25" : "bg-muted text-muted-foreground border-border"
-                        )}>
-                          {past && <Check className="h-3 w-3 inline mr-1" />}{s}
-                        </div>
-                        {i < arr.length - 1 && <span className="text-muted-foreground">→</span>}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  {next?.next && selectedPo.status !== "cancelled" && (
-                    <Button size="sm" disabled={!canManage} onClick={() => advanceStatus(next.next!)}>{next.label}</Button>
-                  )}
-                  {selectedPo.status !== "received" && selectedPo.status !== "cancelled" && (
-                    <Button size="sm" variant="destructive" disabled={!canManage} onClick={cancelPo}>Cancel PO</Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field label="Status"><Badge variant="outline" className={cn("capitalize", statusBadge(selectedPo.status))}>{selectedPo.status}</Badge></Field>
-                <Field label="Total"><span className="td-num font-semibold">{fmtMoney(Number(selectedPo.total_amount))}</span></Field>
-                <Field label="Requested">{fmtDate(selectedPo.requested_date)}</Field>
-                <Field label="Expected">{fmtDate(selectedPo.expected_date)}</Field>
-                <Field label="Created">{fmtDate(selectedPo.created_at)}</Field>
-                <Field label="Updated">{fmtDate(selectedPo.updated_at)}</Field>
-                {selectedPo.notes && <div className="col-span-2"><Field label="Notes">{selectedPo.notes}</Field></div>}
-              </div>
-
-              <div>
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Line Items</Label>
-                <div className="border border-border rounded-md mt-2">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedItems.map((it) => (
-                        <TableRow key={it.id}>
-                          <TableCell>{it.description}</TableCell>
-                          <TableCell>{it.unit}</TableCell>
-                          <TableCell className="text-right td-num">{Number(it.quantity_ordered)}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number(it.unit_price))}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number(it.total))}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Open a PO */}
+      <Dialog open={!!selectedPo} onOpenChange={(o) => { if (!o) { setSelectedPo(null); setSelectedItems([]); } }}>
+        <DialogContent className="max-w-[640px] w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto">
+          {selectedPo && (<>
+            <DialogHeader>
+              <DialogTitle>{selectedPo.po_number} · {selectedPo.suppliers?.name ?? supplierName(selectedPo.supplier_id)}</DialogTitle>
+              <p className="text-sm text-muted-foreground">Delivery {fmtDate(selectedPo.expected_date)} · <span className="td-num">{fmtMoney(selectedPo.total_amount)}</span></p>
+            </DialogHeader>
+            {selectedPo.status === "cancelled" ? (
+              <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">Cancelled</span>
+            ) : (
+              <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                {PROGRESS.map((step, i) => {
+                  const cur = progressIndex(selectedPo.status);
+                  const done = i < cur || (i === cur && selectedPo.status === "received");
+                  const current = i === cur && !done;
+                  return <li key={step} className="flex items-center gap-2">
+                    {i > 0 && <span className="text-muted-foreground">→</span>}
+                    <span className={cn("flex items-center gap-1", done ? "text-success" : current ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                      {done && <Check className="h-3.5 w-3.5" />}{step === "Received" && selectedPo.status === "partial" ? "Partly received" : step}
+                    </span>
+                  </li>;
+                })}
+              </ol>
+            )}
+            <Table>
+              <TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">Ordered</TableHead><TableHead className="text-right">Received</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {selectedItems.map((it) => {
+                  const got = received?.[it.id];
+                  const short = got !== undefined ? Math.max(0, Number(it.quantity_ordered) - got) : 0;
+                  return <TableRow key={it.id}>
+                    <TableCell className="text-sm">{it.description}</TableCell>
+                    <TableCell className="td-num text-right text-sm">{it.quantity_ordered} {it.unit}</TableCell>
+                    <TableCell className={cn("td-num text-right text-sm", short > 0 && "text-warning")}>
+                      {got === undefined ? "—" : got}{short > 0 && <span className="ml-1 text-xs">({short} short)</span>}
+                    </TableCell>
+                  </TableRow>;
+                })}
+              </TableBody>
+            </Table>
+            {selectedPo.notes && <p className="text-sm text-muted-foreground">Note: {selectedPo.notes}</p>}
+            {canManage && selectedPo.status !== "received" && selectedPo.status !== "cancelled" && (
+              <DialogFooter className="flex-row justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={cancelPo}>Cancel PO</Button>
+                {next?.next && <Button size="sm" onClick={() => advanceStatus(next.next!)}>{next.label}</Button>}
+              </DialogFooter>
+            )}
+          </>)}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
