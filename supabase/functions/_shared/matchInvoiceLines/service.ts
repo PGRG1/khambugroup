@@ -118,7 +118,7 @@ export async function matchInvoice(db: SupabaseClient, input: MatchInput, signal
     const parsed = OutputSchema.safeParse(normalized);
     if (!parsed.success) {
       console.error('Matcher schema issues', JSON.stringify(parsed.error.issues.map(i => ({ path: i.path, code: i.code }))));
-      throw new RequestError(502, `AI returned invalid structured line decisions (${parsed.error.issues.map(i => i.path.join('.') + ':' + i.code).join(', ')}); evaluation stopped.`);
+      throw new RequestError(502, `AI returned invalid structured line decisions (${parsed.error.issues.map(i => i.path.join('.') + ':' + i.code).join(', ')}; root keys: ${Object.keys(value ?? {}).join(', ')}); evaluation stopped.`);
     }
     raw = parsed.data;
   } catch (error) {
