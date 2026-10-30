@@ -14,6 +14,8 @@ import { useManualRevenue } from "@/hooks/useManualRevenue";
 import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
+import { saveReceiptIntake } from "@/utils/salesReceiptIntake";
+import { ReceiptIntakes } from "@/components/sales/ReceiptIntakes";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { DailyRecords, itemKey, type DayItem } from "@/components/sales/DailyRecords";
 import { SalesDayDialog } from "@/components/sales/SalesDayDialog";
@@ -72,6 +74,7 @@ const DataPage = () => {
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanFile, setScanFile] = useState<File | null>(null);
+  const [intakeRevision, setIntakeRevision] = useState(0);
 
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
@@ -229,17 +232,23 @@ const DataPage = () => {
             <ReceiptScanner
               initialFile={scanFile}
               history={openHistory}
-              onSave={async (record, file, note) => { const ok = await addRecord(record, file); if (ok) await saveNote(record, note); }}
+              onSave={async (record, file, _note, scanId) => {
+                if (!tenantId || isPreviewActive) return { status: "failed", error: "Receipt saves are unavailable in preview mode" };
+                const result = await saveReceiptIntake(record, file, scanId, tenantId);
+                if (result.status === "flagged") setIntakeRevision(r => r + 1);
+                return result;
+              }}
               onClose={() => { setShowScanner(false); setScanFile(null); }}
             />
           )}
           {isAdmin && !hideManualEntry && showManual && (
             <ManualInput key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} initial={prefill} history={openHistory}
-              onAdd={async (record, file, note) => { const ok = await addRecord(record, file); if (ok) { await saveNote(record, note); setPrefill(null); } }}
+              onAdd={async (record, file, note) => { const result = await addRecord(record, file); if (result.status === "saved") { await saveNote(record, note).catch(() => { toast({ title: "Sales saved, but note could not be saved", variant: "destructive" }); }); setPrefill(null); if (result.journal === "failed") toast({ title: "Sales recorded, but journal rebuild failed", description: "Do not submit this day again.", variant: "destructive" }); } else toast({ title: "Sales not saved", description: result.status === "failed" ? result.error : "Receipt needs review", variant: "destructive" }); return result; }}
               onClose={() => { setShowManual(false); setPrefill(null); }} />
           )}
 
           <div ref={dailyRef} className="scroll-mt-16">
+            <ReceiptIntakes revision={intakeRevision} venueIds={vs.selectedVenues.map(v => v.id)} />
             <DailyRecords
               key={`${tenantId}:${user?.id}`}
               records={periodRecords}

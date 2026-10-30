@@ -5,6 +5,7 @@ import { SalesRecord } from "@/types/sales";
 import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { captureSavedSalesScan } from "@/utils/salesScanEvidence";
+import type { SalesSaveResult } from "@/utils/salesSaveResult";
 
 function toDbRecord(r: SalesRecord, tenantId?: string | null) {
   return {
@@ -136,8 +137,8 @@ export function useSalesData() {
     return !error;
   }, [fetchData, rebuildJournalSilently, tenantId]);
 
-  const addRecord = useCallback(async (record: SalesRecord, file?: File | null) => {
-    if (!tenantId) return false;
+  const addRecord = useCallback(async (record: SalesRecord, file?: File | null): Promise<SalesSaveResult> => {
+    if (!tenantId) return { status: "failed", error: "No company selected" };
     let finalRecord = record;
 
     if (file) {
@@ -147,6 +148,7 @@ export function useSalesData() {
       const { error: upErr } = await supabase.storage
         .from("sales-receipts")
         .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) return { status: "failed", error: "Receipt upload failed; no sales saved" };
       if (!upErr) {
         finalRecord = { ...record, receiptFileUrl: path, receiptFileName: file.name };
       }
@@ -156,6 +158,8 @@ export function useSalesData() {
       .from("sales_records")
       .insert(toDbRecord(finalRecord, tenantId)).select("id").single();
 
+    if (error || !inserted?.id) return { status: "failed", error: error?.code === "23505" ? "Conflicting sales already exist; no additional sales saved" : "Sales could not be saved" };
+    let journal: "completed" | "failed" = "failed";
     if (!error) {
       if (inserted?.id) void captureSavedSalesScan(record, inserted.id, tenantId,
         async (body) => { await supabase.functions.invoke("parse-receipt", { body }); });
@@ -163,12 +167,15 @@ export function useSalesData() {
         action: "insert",
         entityType: "sales_record",
         entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
-      });
-      await fetchData();
-      rebuildJournalSilently();
+      }).catch(() => undefined);
+      await fetchData().catch(() => undefined);
+      try {
+        const { error: journalError } = await supabase.rpc("rebuild_journal_from_operations", { p_tenant_id: tenantId });
+        if (!journalError) journal = "completed";
+      } catch { /* A committed sale is never retried because accounting failed. */ }
     }
-    return !error;
-  }, [fetchData, rebuildJournalSilently, tenantId]);
+    return { status: "saved", recordId: inserted.id, journal };
+  }, [fetchData, tenantId]);
 
   const updateRecord = useCallback(async (oldRecord: SalesRecord, newRecord: SalesRecord) => {
     if (!tenantId) return false;

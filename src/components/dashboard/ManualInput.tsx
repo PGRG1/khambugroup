@@ -6,11 +6,13 @@ import { useVenues } from "@/hooks/useVenues";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { DayNoteField } from "@/components/sales/NoteComposer";
 import { notePrompt } from "@/utils/salesRecordChecks";
+import type { SalesSaveResult } from "@/utils/salesSaveResult";
+import { Button } from "@/components/ui/button";
 
 export interface DayNote { body: string; tag: string | null }
 
 interface ManualInputProps {
-  onAdd: (record: SalesRecord, file?: File | null, note?: DayNote | null) => void;
+  onAdd: (record: SalesRecord, file?: File | null, note?: DayNote | null) => Promise<SalesSaveResult>;
   onClose: () => void;
   /** Earlier records, used to spot unusual days. */
   history?: SalesRecord[];
@@ -35,6 +37,7 @@ const ManualInput = ({ onAdd, onClose, history = [], initial }: ManualInputProps
   const [noteBody, setNoteBody] = useState("");
   const [noteTag, setNoteTag] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const { venues } = useVenues();
   const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
@@ -93,21 +96,26 @@ const ManualInput = ({ onAdd, onClose, history = [], initial }: ManualInputProps
   const periodRequired = periods.length >= 2;
   const periodMissing = periodRequired && !form.servicePeriodId;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
     if (periodMissing) return;
+    if (saving) return;
     // Resolve auto-tag at submit as a safety net (state already reflects it for 1-period).
     let servicePeriodId = form.servicePeriodId ?? null;
     if (!servicePeriodId && periods.length === 1) servicePeriodId = periods[0].id;
-    onAdd(
+    setSaving(true);
+    try {
+    const result = await onAdd(
       { ...form, discount: normalizedDiscount, cardTips: normalizedCardTips, servicePeriodId },
       file,
       noteBody.trim() ? { body: noteBody, tag: noteTag } : null,
     );
+    if (result.status !== "saved") return;
     setForm(emptyRecord);
     setFile(null);
     setNoteBody(""); setNoteTag(null);
+    } finally { setSaving(false); }
   };
 
   const numField = (label: string, key: keyof SalesRecord) => (
@@ -258,13 +266,13 @@ const ManualInput = ({ onAdd, onClose, history = [], initial }: ManualInputProps
             </div>
           )}
         </div>
-        <button
+        <Button
           type="submit"
-          disabled={periodMissing}
+          disabled={periodMissing || saving}
           className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {periodMissing ? "Select a service period" : "Add Record"}
-        </button>
+          {saving ? "Saving…" : periodMissing ? "Select a service period" : "Add Record"}
+        </Button>
       </form>
     </div>
   );

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from "../_shared/salesEvidence.ts";
 import { z } from "npm:zod@3";
+import { receiptIntake } from "./intake.ts";
 
 const WORKFLOW = "sales_receipt_extract";
 const FIELDS = new Set(["orders","guests","subtotal","serviceCharge","discount","visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","deliveroo","foodpanda","keeta","cardTips"]);
@@ -89,6 +90,15 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    if (body?.op === "receipt_intake") {
+      const { op, ...input } = body;
+      try {
+        const result = await receiptIntake(adminClient(), auth.user.id, input);
+        return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (error) {
+        return new Response(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "Receipt intake failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
     if (body?.op === "capture_evidence" || body?.op === "retrieve_evidence") {
       const schema = body.op === "capture_evidence"
         ? z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid(), salesRecordId: z.string().uuid() }).strict()
@@ -165,7 +175,7 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
 
 Rules:
 - All number fields should be numeric (no currency symbols)
-- If a field is not found in the receipt, use 0 for numbers and "" for strings
+- If a field is not found or unclear in the receipt, return null. Only return zero when explicitly printed; missing is not zero. Never invent components to force arithmetic balance.
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
 - Venue: infer from any branding/headers on the document. ${
@@ -174,7 +184,7 @@ Rules:
         : `Return the venue name as printed, or "" if none is shown.`
     }
 - IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
-- Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use 0 when not printed.
+- Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use null when not printed.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation${hints}`;
 
