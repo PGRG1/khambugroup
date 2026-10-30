@@ -25,7 +25,15 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { usePagination } from "@/components/common/data-table";
+import DateFilter from "@/components/dashboard/DateFilter";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { formatCurrency, formatDate, formatTableInteger } from "@/utils/format";
+import { invoiceDownloadFiles } from "@/utils/invoiceListDownloads";
+import { format } from "date-fns";
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
 import { runBaniScan } from "@/lib/baniRunScan";
@@ -204,6 +212,8 @@ export default function ProcurementInvoicesTab() {
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   
   const [monthFilter, setMonthFilter] = useState<string>("__latest__");
+  const [periodFrom, setPeriodFrom] = useState<Date | undefined>();
+  const [periodTo, setPeriodTo] = useState<Date | undefined>();
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -380,7 +390,11 @@ export default function ProcurementInvoicesTab() {
       
       if (reviewStatusFilter !== "all" && (inv.review_status || "Approved") !== reviewStatusFilter) return false;
       
-      if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
+      if (monthFilter === "custom") {
+        if (!inv.invoice_date) return false;
+        if (periodFrom && inv.invoice_date < format(periodFrom, "yyyy-MM-dd")) return false;
+        if (periodTo && inv.invoice_date > format(periodTo, "yyyy-MM-dd")) return false;
+      } else if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
       const q = search.toLowerCase();
@@ -388,7 +402,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueScope.includesName, reviewStatusFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueScope.includesName, reviewStatusFilter, monthFilter, periodFrom, periodTo, search, sortColumns]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
@@ -1900,6 +1914,11 @@ export default function ProcurementInvoicesTab() {
         invoices={invoices}
         suppliers={suppliers}
         kpis={kpis}
+        loading={loading}
+        periodFrom={periodFrom}
+        periodTo={periodTo}
+        setPeriodFrom={setPeriodFrom}
+        setPeriodTo={setPeriodTo}
         totalAmount={totalAmount}
         columns={columns}
         sortColumns={sortColumns}
@@ -2153,6 +2172,11 @@ interface InvoiceTableSectionProps {
   invoices: Invoice[];
   suppliers: { id: string; name: string }[];
   kpis: InvoiceKpis;
+  loading: boolean;
+  periodFrom: Date | undefined;
+  periodTo: Date | undefined;
+  setPeriodFrom: (value: Date | undefined) => void;
+  setPeriodTo: (value: Date | undefined) => void;
   totalAmount: number;
   columns: { key: string; label: string; align?: "right" }[];
   sortColumns: SortColumn[];
@@ -2181,194 +2205,105 @@ interface InvoiceTableSectionProps {
 }
 
 function InvoiceTableSection({
-  filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
-  search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter,
-  reviewStatusFilter, setReviewStatusFilter,
-  monthFilter, setMonthFilter, months, fmtMonth,
-  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
-  invoiceVarianceMap, onAttachSource,
+  filtered, suppliers, kpis, columns, toggleSort, SortIcon,
+  search, setSearch, supplierFilter, setSupplierFilter,
+  reviewStatusFilter, setReviewStatusFilter, monthFilter, setMonthFilter, months, fmtMonth,
+  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
+  invoiceVarianceMap, onAttachSource, loading, periodFrom, periodTo, setPeriodFrom, setPeriodTo,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
-  const { venues: dbVenues } = useVenues();
-  const activeVenueNames = React.useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
-
-  const filterFields: FilterField[] = [
-    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
-      options: suppliers.map(s => ({ value: s.id, label: s.name })),
-      allLabel: "All Suppliers" },
-    { type: "select", key: "review_status", label: "Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
-      options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
-      allLabel: "All Statuses" },
-    { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
-      options: months.map(m => ({ value: m, label: fmtMonth(m) })),
-      allLabel: "All Months" },
-  ];
-
-  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setReviewStatusFilter("all"); setMonthFilter("all"); };
-
+  const isMobile = useIsMobile();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
+  useEffect(() => { setSelectedIds(new Set()); pag.setPage(1); }, [search, supplierFilter, reviewStatusFilter, monthFilter, periodFrom, periodTo]);
+  const selected = filtered.filter(inv => selectedIds.has(inv.id));
+  const allSelected = filtered.length > 0 && selected.length === filtered.length;
+  const toggleOne = (id: string) => setSelectedIds(old => {
+    const next = new Set(old);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const handleDownload = () => downloadCSV(
-    filtered.map((inv) => ({
-      invoice_date: fmtDate(inv.invoice_date),
-      invoice_number: inv.invoice_number,
-      supplier_name: inv.supplier_name,
-      venue: inv.venue,
-      due_date: fmtDate(inv.due_date || ""),
-      total_amount: Number(inv.total_amount).toFixed(2),
-      review_status: inv.review_status || "Approved",
-      
+    filtered.map(inv => ({
+      invoice_date: fmtDate(inv.invoice_date), invoice_number: inv.invoice_number,
+      supplier_name: inv.supplier_name, venue: inv.venue, due_date: fmtDate(inv.due_date || ""),
+      total_amount: Number(inv.total_amount).toFixed(2), review_status: inv.review_status || "Approved",
     })),
-    columns.map((column) => ({ key: column.key, label: column.label })),
-    "invoices",
+    columns.map(column => ({ key: column.key, label: column.label })), "invoices",
   );
-
-  const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
-    { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-primary", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
-    { label: "Total Value", value: `HK$ ${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-muted-foreground", icon: <Ban className="h-4 w-4" />, tone: "text-muted-foreground" },
-    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-warning", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-warning" },
-    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-info", icon: <CopyIcon className="h-4 w-4" />, tone: "text-info" },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {kpiCards.map((k) => (
-          <div key={k.label} className="glass-surface rounded-lg border border-border/60 p-3 sm:p-4 flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
-              <div className="td-num text-base sm:text-lg lg:text-xl font-bold mt-1 whitespace-nowrap">{k.value}</div>
-              <div className={`text-[10px] mt-0.5 ${k.subTone || "text-muted-foreground"}`}>{k.sub}</div>
-            </div>
-            <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
-          </div>
-        ))}
-      </div>
-
-    <DataTableShell
-      search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier..." }}
-      filters={{ fields: filterFields, onReset: resetFilters }}
-      resultCount={<>Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span></>}
-      toolbarRight={
-        <>
-          <Button size="sm" onClick={onUploadClick} className="h-9 flex-1 sm:flex-none">
-            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
-            <Download className="h-4 w-4 mr-1" />Download
-          </Button>
-        </>
+  const files = invoiceDownloadFiles(filtered, selectedIds);
+  const downloadFiles = async () => {
+    setDownloading(true);
+    let success = 0;
+    try {
+      for (const file of files) {
+        const { data, error } = await supabase.storage.from("invoice-files").createSignedUrl(file.path, 300, { download: file.name });
+        if (error || !data?.signedUrl) continue;
+        const a = document.createElement("a");
+        a.href = data.signedUrl; a.download = file.name; a.target = "_blank"; a.rel = "noopener noreferrer";
+        document.body.appendChild(a); a.click(); a.remove(); success++;
+        if (files.length > 1) await new Promise(resolve => setTimeout(resolve, 350));
       }
-      pagination={{
-        page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
-        rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
-        onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
-        pageSizeOptions: [10, 25, 50, 100, "all"],
-      }}
-    >
-      <Table>
-        <TableHeader className="bg-primary">
-          <TableRow className="hover:bg-primary">
-            {columns.map((column) => (
-              <TableHead
-                key={column.key}
-                onClick={(e) => toggleSort(column.key, (e as any).shiftKey)}
-                className={`cursor-pointer select-none text-primary-foreground font-semibold ${column.align === "right" ? "text-right" : ""}`}
-                title="Click to sort. Shift+click for multi-column sort."
-              >
-                <span className={`inline-flex items-center gap-1 ${column.align === "right" ? "justify-end w-full" : ""}`}>
-                  {column.label}<SortIcon col={column.key} />
-                </span>
-              </TableHead>
-            ))}
-            <TableHead className="bg-primary text-primary-foreground w-[80px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pag.pageItems.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length + 1} className="py-12 text-center text-muted-foreground">
-                No invoices found. Upload your first invoice above.
-              </TableCell>
-            </TableRow>
-          ) : (
-            pag.pageItems.map((inv) => (
-              <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
-                <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
-                <TableCell className="py-2 font-mono font-medium text-primary">
-                  <span className="inline-flex items-center gap-1.5">
-                    {(() => {
-                      const anomaly = (inv as any).ai_anomaly;
-                      const flags: any[] = anomaly?.flags ?? [];
-                      if (flags.length === 0) return null;
-                      const summary = flags.map((f) => `${f.type}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
-                      return (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center text-warning" onClick={(e) => e.stopPropagation()}>
-                                <AlertTriangle className="h-3.5 w-3.5" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
-                              <div className="font-medium mb-0.5 flex items-center gap-1">
-                                <Sparkles className="h-3 w-3" /> Bani flagged {flags.length} issue{flags.length === 1 ? "" : "s"}
-                              </div>
-                              {summary}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      );
-                    })()}
-                    {inv.invoice_number}
-                    {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-warning/10 text-warning border border-warning/30 text-[10px] px-1.5 py-0">GRN variance</Badge>
-                    )}
-                  </span>
-                </TableCell>
-
-                <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
-                <TableCell className="py-2">{inv.venue}</TableCell>
-                <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
-                <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2">
-                  {(() => {
-                    const rs = inv.review_status || "Approved";
-                    return (
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
-                        {rs}
-                      </span>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="py-2">
-                  <div className="flex gap-1">
-                    {hasDurableAttachment(inv.file_url) ? (
-                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title={`View attachments (${inv.file_url!.split(",").length})`}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
-                    ) : (
-                      <button onClick={(e) => { e.stopPropagation(); onAttachSource(inv); }} className="rounded p-1 text-amber-500 hover:bg-amber-500/10" title="Attachment missing — attach source">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-
-                    <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </DataTableShell>
+      if (success < files.length) toast.warning(`Downloaded ${success} of ${files.length} files. Some attachments could not be downloaded.`);
+      else toast.success(`Downloaded ${success} file${success === 1 ? "" : "s"}`);
+    } catch { toast.error("Could not download invoice files. Please try again."); }
+    finally { setDownloading(false); }
+  };
+  const statusText = (inv: Invoice) => {
+    const status = inv.review_status || "Approved";
+    // Reuse the existing review-status palette, without badge framing.
+    const tone = (REVIEW_BADGE[status] || REVIEW_BADGE["Under Review"]).split(" ").filter(token => token.startsWith("text-")).join(" ");
+    return <span className={`text-xs font-medium ${tone}`}>{status}</span>;
+  };
+  const rowActions = (inv: Invoice) => <DropdownMenu>
+    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Actions for invoice ${inv.invoice_number}`} onClick={e => e.stopPropagation()}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+      <DropdownMenuItem onClick={() => openDetail(inv)}>Open invoice</DropdownMenuItem>
+      {inv.file_url && hasDurableAttachment(inv.file_url)
+        ? <DropdownMenuItem onClick={() => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); }}>View attachments</DropdownMenuItem>
+        : <DropdownMenuItem onClick={() => onAttachSource(inv)}>Attach source</DropdownMenuItem>}
+      <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+  const flags = (inv: Invoice) => {
+    const issues = (inv as any).ai_anomaly?.flags || [];
+    const hasVariance = invoiceVarianceMap[inv.id];
+    if (!issues.length && !hasVariance) return null;
+    const text = [...issues.map((issue: any) => `${issue.type}${issue.reason ? ` — ${issue.reason}` : ""}`), ...(hasVariance ? ["GRN variance"] : [])].join("; ");
+    return <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="text-warning" tabIndex={0} aria-label={text}><AlertTriangle className="h-3.5 w-3.5" /></span></TooltipTrigger><TooltipContent className="max-w-xs text-xs">{text}</TooltipContent></Tooltip></TooltipProvider>;
+  };
+  const upload = <Button onClick={onUploadClick} className="h-10 shrink-0 px-3"><ScanLine className="h-4 w-4 mr-1.5" />Upload invoice</Button>;
+  const download = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="h-10" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}Download<ChevronDown className="h-3.5 w-3.5 ml-2" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  const tableColumns = [
+    { key: "invoice_date", label: "Date" }, { key: "supplier_name", label: "Supplier" },
+    { key: "invoice_number", label: "Invoice #" }, { key: "total_amount", label: "Amount (HK$)" },
+    { key: "review_status", label: "Status" },
+  ];
+  return <div className="space-y-4 min-w-0">
+    <div className="flex items-center justify-between gap-2"><h1 className="text-xl sm:text-2xl font-display font-semibold">Invoices</h1><div className="flex gap-2">{download}{!isMobile && upload}</div></div>
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <DateFilter key={months.join(",")} from={periodFrom} to={periodTo}
+        onFromChange={date => { setMonthFilter("custom"); setPeriodFrom(date); }}
+        onToChange={date => { setMonthFilter("custom"); setPeriodTo(date); }}
+        months={months.map(fmtMonth)} initialPeriod={monthFilter === "all" ? "All Time" : monthFilter === "custom" ? "Custom" : fmtMonth(monthFilter)} labelled
+        onPeriodSelect={selection => { const next = selection === "All Time" ? "all" : months.find(month => fmtMonth(month) === selection); if (next) { setMonthFilter(next); setPeriodFrom(undefined); setPeriodTo(undefined); } }} />
+      {isMobile && upload}
     </div>
-  );
+    <p className="text-xs sm:text-sm text-muted-foreground td-num" aria-label="Invoice summary">{formatTableInteger(kpis.total)} invoices · {formatCurrency(kpis.totalValue)} · {formatTableInteger(kpis.disputed)} disputed · {formatTableInteger(kpis.duplicates)} duplicates</p>
+    <div className="card-glass rounded-xl border border-border/60 overflow-hidden min-w-0">
+      <div className="flex flex-col sm:flex-row gap-2 border-b border-border/60 p-3">
+        <div className="relative flex-1 min-w-0"><Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice # or supplier" className="h-9 pl-8" /></div>
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger className="h-9 sm:w-48 min-w-0 [&>span]:truncate" aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
+          <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}><SelectTrigger className="h-9 sm:w-36 min-w-0" aria-label="Status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{Array.from(new Set([...REVIEW_STATUSES, "Under Review"])).map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
+        </div>
+        {(search || supplierFilter !== "all" || reviewStatusFilter !== "all") && <Button variant="ghost" size="icon" aria-label="Clear filters" className="h-9 w-9" onClick={() => { setSearch(""); setSupplierFilter("all"); setReviewStatusFilter("all"); }}><X className="h-4 w-4" /></Button>}
+      </div>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 text-xs text-muted-foreground"><Checkbox aria-label="Select all filtered invoices" checked={allSelected} onCheckedChange={() => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(inv => inv.id)))} /><span>{selected.length ? `${formatTableInteger(selected.length)} selected` : "Select invoices"}</span>{selected.length > 0 && <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds(new Set())}>Clear selection</Button>}</div>
+      {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading invoices…</p> : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : isMobile ? <ul className="divide-y divide-border/60">
+        {pag.pageItems.map(inv => <li key={inv.id} className="flex items-center gap-2 px-3 py-3"><Checkbox aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /><Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-sm font-medium">{inv.supplier_name || "—"}</span><span className="td-num shrink-0 text-sm">{formatCurrency(Number(inv.total_amount))}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><span>{inv.invoice_date ? formatDate(inv.invoice_date) : "—"} ·</span><span className="break-all">{inv.invoice_number} ·</span>{statusText(inv)}{flags(inv)}</span></Button>{rowActions(inv)}</li>)}
+      </ul> : <Table className="table-fixed w-full"><TableHeader><TableRow><TableHead className="w-10" />{tableColumns.map(column => <TableHead key={column.key} className={column.key === "supplier_name" ? "w-[28%]" : column.key === "total_amount" ? "text-right w-[19%]" : "w-[16%]"}><Button variant="ghost" onClick={e => toggleSort(column.key, e.shiftKey)} className={`h-auto p-0 text-xs font-medium text-muted-foreground hover:bg-transparent ${column.key === "total_amount" ? "w-full justify-end" : ""}`}>{column.label}<SortIcon col={column.key} /></Button></TableHead>)}<TableHead className="w-10" /></TableRow></TableHeader><TableBody>{pag.pageItems.map(inv => <TableRow key={inv.id} tabIndex={0} onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }} className="cursor-pointer text-sm"><TableCell onClick={e => e.stopPropagation()}><Checkbox aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></TableCell><TableCell className="text-xs text-muted-foreground">{inv.invoice_date ? formatDate(inv.invoice_date) : "—"}</TableCell><TableCell className="break-words font-medium">{inv.supplier_name || "—"}</TableCell><TableCell className="td-num text-xs break-all"><span className="inline-flex flex-wrap items-center gap-1">{inv.invoice_number}{flags(inv)}</span></TableCell><TableCell className="td-num text-right whitespace-nowrap">{formatCurrency(Number(inv.total_amount))}</TableCell><TableCell>{statusText(inv)}</TableCell><TableCell onClick={e => e.stopPropagation()}>{rowActions(inv)}</TableCell></TableRow>)}</TableBody></Table>}
+      <div className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-2 text-xs text-muted-foreground"><span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
+    </div>
+  </div>;
 }
-
