@@ -59,8 +59,7 @@ export const purchasingTabGroups: PurchasingTab[][] = [
 ];
 
 export function matchesPurchasingPath(pathname: string, url: string) {
-  return
-  pathname === url || pathname.startsWith(`${url}/`);
+  return pathname === url || pathname.startsWith(`${url}/`);
 }
 
 export function purchasingTabsForPath(pathname: string) {
