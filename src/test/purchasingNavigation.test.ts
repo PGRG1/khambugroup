@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPages, purchasingSectionPagesForPath, purchasingTabsForPath, stockMenuSectionPages } from "@/utils/purchasingNavigation";
+import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPages, purchasingSectionPagesForPath, purchasingTabsForPath, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 
 describe("Purchasing route families", () => {
   it("keeps Invoices highlighted for all invoice tabs", () => {
@@ -11,11 +11,11 @@ describe("Purchasing route families", () => {
   it("keeps Inventory highlighted across stock tabs", () => {
     for (const path of ["inventory", "stock-counts", "transfers", "waste"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/inventory");
   });
-  it("keeps Items Master highlighted on Categories & Units", () => {
+  it("keeps Products & Consumables highlighted on Categories & Units", () => {
     expect(purchasingParentPath("/procurement/categories")).toBe("/procurement/products");
   });
-  it("selects Stock & menu only for the five stock and menu route families", () => {
-    for (const path of ["inventory", "stock-counts", "transfers", "waste", "menu-costing"]) expect(isStockMenuRoute(`/procurement/${path}`)).toBe(true);
+  it("selects Stock & menu for stock, menu and product route families", () => {
+    for (const path of ["inventory", "stock-counts", "transfers", "waste", "menu-costing", "products", "categories"]) expect(isStockMenuRoute(`/procurement/${path}`)).toBe(true);
     for (const path of ["invoices", "suppliers", "dashboard", "inventory-other"]) expect(isStockMenuRoute(`/procurement/${path}`)).toBe(false);
   });
   it("does not add tabs to unrelated pages or similar prefixes", () => {
@@ -52,8 +52,10 @@ describe("Purchasing navigation access", () => {
     expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, access)).map(tab => tab.url)).toEqual(["/procurement/finance/spend"]);
     expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, { ...access, canAccessInvoices: false }))).toEqual([]);
   });
-  it("keeps Supplier Pricing admin-only in shared sidebar and mobile entries", () => {
-    const pricing = purchasingSectionPages.find(tab => tab.url === "/procurement/supplier-pricing");
+  it("keeps Supplier Pricing admin-only and reachable from the Purchasing Analysis tab row", () => {
+    expect(purchasingSectionPages.some(tab => tab.url === "/procurement/supplier-pricing")).toBe(false);
+    expect(purchasingParentPath("/procurement/supplier-pricing")).toBe("/procurement/purchase-analysis");
+    const pricing = purchasingTabsForPath("/procurement/supplier-pricing")?.find(tab => tab.url === "/procurement/supplier-pricing");
     expect(pricing).toBeDefined();
     if (!pricing) return;
     expect(canOpenPurchasingTab(pricing, access)).toBe(false);
@@ -69,14 +71,32 @@ describe("Purchasing navigation access", () => {
 });
 
 describe("Purchasing section destinations", () => {
-  it("preserves the seven Purchasing links in the requested order", () => {
+  it("lists the five Purchasing links in the approved order", () => {
     expect(purchasingSectionPages.map(page => page.url)).toEqual([
       "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/invoices",
-      "/procurement/finance/suppliers", "/procurement/suppliers", "/procurement/products", "/procurement/supplier-pricing",
+      "/procurement/finance/suppliers", "/procurement/purchase-analysis",
     ]);
   });
-  it("keeps the Stock & menu links separate", () => {
-    expect(stockMenuSectionPages.map(page => page.url)).toEqual(["/procurement/inventory", "/procurement/menu-costing"]);
+  it("keeps Purchasing Analysis admin-only while Spend Summary stays open to invoice users", () => {
+    const access = { isAdmin: false, isPreviewActive: false, previewIsAdmin: false, canAccessInvoices: true };
+    const analysis = purchasingSectionPages.find(p => p.url === "/procurement/purchase-analysis")!;
+    expect(canOpenPurchasingTab(analysis, access)).toBe(false);
+    expect(canOpenPurchasingTab(analysis, { ...access, isAdmin: true, isPreviewActive: true })).toBe(false);
+    expect(canOpenPurchasingTab(analysis, { ...access, isAdmin: true })).toBe(true);
+    const spend = purchasingTabsForPath("/procurement/finance/spend")!.find(t => t.url === "/procurement/finance/spend")!;
+    expect(canOpenPurchasingTab(spend, access)).toBe(true);
+  });
+  it("keeps the supplier directory route and its non-admin invoice access unchanged", () => {
+    expect(SUPPLIER_DIRECTORY_TAB.url).toBe("/procurement/suppliers");
+    expect(SUPPLIER_DIRECTORY_TAB.adminOnly).toBeUndefined();
+    expect(isSupplierDirectoryRoute("/procurement/suppliers")).toBe(true);
+    expect(isStockMenuRoute("/procurement/suppliers")).toBe(false);
+    expect(canOpenPurchasingTab(SUPPLIER_DIRECTORY_TAB, { isAdmin: false, isPreviewActive: false, previewIsAdmin: false, canAccessInvoices: true })).toBe(true);
+    expect(canOpenPurchasingTab(SUPPLIER_DIRECTORY_TAB, { isAdmin: true, isPreviewActive: true, previewIsAdmin: false, canAccessInvoices: false })).toBe(false);
+  });
+  it("orders the Stock & menu links with Products & Consumables in the middle", () => {
+    expect(stockMenuSectionPages.map(page => page.title)).toEqual(["Inventory", "Products & Consumables", "Recipes & Menu Costing"]);
+    expect(purchasingSectionPagesForPath("/procurement/categories")).toBe(stockMenuSectionPages);
     expect(purchasingSectionPagesForPath("/procurement/waste")).toBe(stockMenuSectionPages);
     expect(purchasingSectionPagesForPath("/procurement/finance/suppliers/123")).toBe(purchasingSectionPages);
   });
