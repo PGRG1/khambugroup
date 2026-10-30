@@ -751,9 +751,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const rawLineTotals: unknown[] = (raw?.line_items || []).map((li: any) => li?.total);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
-            const matchedSku = li?.matched_sku || "";
+            const matchedSku = "";
             const itemCode = li?.item_code || "";
-            const pmData = resolvePMData(itemCode, matchedSku, productMaster, canonicalSupplierName);
+            const pmData = { entry: null as ProductMasterEntry | null, internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1 };
             const supplierObj = suppliers.find((s) => s.id === supplierId) ?? { name: supplierName };
             const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
@@ -1198,6 +1198,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     });
   };
 
+  const writeMatchFeedback = (line: ScannedLineItem, chosenId: string | null) => {
+    if (!tenantId || !current?.supplier_id || !baniEditable) return;
+    void supabase.from("match_feedback").insert({ tenant_id: tenantId, supplier_id: current.supplier_id, printed_description: line.scanned_description ?? line.description, item_code: line.scanned_item_code ?? line.item_code ?? null, unit: line.scanned_unit ?? line.unit ?? null, unit_price: Number(line.scanned_unit_price ?? line.unit_price) || 0, bani_decision: line.matcher_answer?.decision ?? "cant_tell", bani_product_id: line.matcher_answer?.product_master_id ?? null, chosen_product_id: chosenId, user_id: userId }).then(({ error }) => {
+      if (error) toast({ title: "Item linked, learning wasn't saved", description: "The invoice draft is unchanged; Bani couldn't remember this choice." });
+    });
+  };
+
   const selectProduct = (i: number, product: ProductMasterEntry) => {
     // Supplier-facing master data may never come from another supplier's entry.
     if (!isEntryForActiveSupplier(product)) {
@@ -1210,6 +1217,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
       return;
     }
+    const feedbackLine = current?.line_items[i];
+    if (feedbackLine) writeMatchFeedback(feedbackLine, product.id);
     if (product.supplier_entry_id) linkedEntryOverridesRef.current.set(product.supplier_entry_id, product);
     setInvoices((prev) => {
       const copy = [...prev];
@@ -1295,6 +1304,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   /** Remove the Product Master link only — invoice evidence and records are preserved. */
   const removeMatch = (i: number) => {
+    const feedbackLine = current?.line_items[i];
+    if (feedbackLine) writeMatchFeedback(feedbackLine, null);
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -2537,7 +2548,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     <td className="break-words px-1 py-2 text-right align-top td-num">{line.quantity} <span className="font-sans text-muted-foreground">{line.matched_purchase_uom || line.unit}</span></td>
                     <td className="px-1 py-2 align-top"><Input aria-label={`Received quantity line ${index + 1}`} type="number" step="any" value={line.accepted_qty ?? line.quantity} onChange={event => updateLineReceiving(index, "accepted_qty", event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></td>
                     <td className="px-1 py-2 align-top"><Input aria-label={`Accepted price line ${index + 1}`} type="number" step="0.01" value={line.accepted_price || ""} readOnly={line.is_free_unit_line} onChange={event => updateLineAcceptedPrice(index, event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" placeholder="—" /></td>
-                    <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={line.matcher_answer?.reason || message || "OK"} className={cn("block h-2 w-2 rounded-full", blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
+                    <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={line.matcher_answer?.reason || message || "OK"} className={cn("block h-2 w-2 rounded-full", line.matcher_answer?.decision === "not_a_product" ? "bg-muted-foreground" : blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
                   </tr>
                   {(line.matcher_answer || line.matcher_pending) && <tr><td colSpan={5} className="px-1 py-2 text-[11px]">{renderMatcherCard(line, index)}</td></tr>}
                   {!line.matcher_answer && !line.matcher_pending && line.unmatched && <tr><td colSpan={5} className="px-1 pb-2"><Button size="sm" variant="outline" onClick={() => openFullLine(index)}>Pick item</Button></td></tr>}
@@ -2610,7 +2621,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                    // Score the linked master against the immutable scanned text.
                    // Only real conflicts (size / unit / pack / brand) raise a flag —
                    // longer supplier wording or a reference number is not a conflict.
-                   const linkedConflict = undefined;
+                   const linkedMatch = line.product_master_id && line.scanned_description
+                     ? scoreCandidates({ description: line.scanned_description }, (productMaster || []).filter(product => product.id === line.product_master_id), current.supplier_name, 1)[0] : undefined;
+                   const linkedConflict = linkedMatch?.blockingReasons?.[0];
                    
                   return (
                     <tr
