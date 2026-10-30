@@ -60,7 +60,7 @@ export function BaniScanSummary({ invoiceId, compact, deliverySummary, deliveryP
     return <>
       <p className={`flex items-start gap-2 text-[13px] ${deliveryProblem || flags.length ? "text-warning" : checked ? "text-success" : "text-muted-foreground"}`}>
         {deliveryProblem || flags.length ? <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> : checked ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : null}
-        <span>{running ? "Bani is checking…" : deliveryProblem ? deliverySummary : issues || (checked ? `Checked by Bani${deliverySummary ? ` · ${deliverySummary}` : ""} · price as usual".replace(/\"$/, "") : "Not checked by Bani yet")}</span>
+        <span>{running ? "Bani is checking…" : deliveryProblem ? deliverySummary : issues || (checked ? `Checked by Bani${deliverySummary ? ` · ${deliverySummary}` : ""} · price as usual` : "Not checked by Bani yet")}</span>
       </p>
       {children}
       <div className="kit-divider pt-4 flex flex-wrap items-center justify-between gap-2">
