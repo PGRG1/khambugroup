@@ -11,7 +11,7 @@ import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { resolvePurchasingMode } from "@/utils/purchasingMode";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Sparkles, Plus, Pencil, Trash2, Check, X, ClipboardCheck, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -316,6 +316,13 @@ export default function MasterData() {
       />
       <RevenueSourcesCard/>
       <ProcurementCard/>
+      <Link to="/procurement/suppliers" className="card-glass flex items-center justify-between rounded-xl border p-4 hover:bg-accent/40 transition-colors">
+        <div>
+          <div className="font-medium">Suppliers & Vendors</div>
+          <div className="text-sm text-muted-foreground">Open the supplier directory used by purchasing and invoices.</div>
+        </div>
+        <span className="text-sm text-primary">Open →</span>
+      </Link>
     </div>
   );
 }

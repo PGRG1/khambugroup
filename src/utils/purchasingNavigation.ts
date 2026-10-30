@@ -7,13 +7,16 @@ export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Purchase Orders", url: PURCHASE_ORDERS_URL },
   { title: "Invoices", url: "/procurement/invoices" },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
-  { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
-  { title: "Items Master", url: "/procurement/products" },
-  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
+  { title: "Purchasing Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
 ];
+
+/** Supplier directory: listed under Settings → Master Data for admins; non-admins keep it in Purchasing. */
+export const SUPPLIER_DIRECTORY_TAB: PurchasingTab = { title: "Suppliers & Vendors", url: "/procurement/suppliers" };
+export const isSupplierDirectoryRoute = (pathname: string) => matchesPurchasingPath(pathname, SUPPLIER_DIRECTORY_TAB.url);
 
 export const stockMenuSectionPages: PurchasingTab[] = [
   { title: "Inventory", url: "/procurement/inventory" },
+  { title: "Products & Consumables", url: "/procurement/products" },
   { title: "Recipes & Menu Costing", url: "/procurement/menu-costing" },
 ];
 
@@ -39,19 +42,26 @@ export const purchasingTabGroups: PurchasingTab[][] = [
     { title: "Deposit Ledger", url: "/procurement/deposit-ledger" },
   ],
   [
+    { title: "Purchase Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
+    { title: "Spend Summary", url: "/procurement/finance/spend" },
+    { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
+  ],
+  [
     { title: "Stock on Hand", url: "/procurement/inventory" },
     { title: "Stock Counts", url: "/procurement/stock-counts", adminOnly: true },
     { title: "Transfers", url: "/procurement/transfers", adminOnly: true },
     { title: "Waste & Adjustments", url: "/procurement/waste", adminOnly: true },
   ],
   [
-    { title: "Items Master", url: "/procurement/products" },
+    { title: "Products & Consumables", url: "/procurement/products" },
     { title: "Categories & Units", url: "/procurement/categories" },
   ],
 ];
 
-export const matchesPurchasingPath = (pathname: string, url: string) =>
+export function matchesPurchasingPath(pathname: string, url: string) {
+  return
   pathname === url || pathname.startsWith(`${url}/`);
+}
 
 export function purchasingTabsForPath(pathname: string) {
   return purchasingTabGroups.find(group => group.some(tab => matchesPurchasingPath(pathname, tab.url)));
@@ -62,7 +72,7 @@ export function purchasingParentPath(pathname: string) {
 }
 
 export function isStockMenuRoute(pathname: string) {
-  return ["inventory", "stock-counts", "transfers", "waste", "menu-costing"]
+  return ["inventory", "stock-counts", "transfers", "waste", "menu-costing", "products", "categories"]
     .some(path => matchesPurchasingPath(pathname, `/procurement/${path}`));
 }
 

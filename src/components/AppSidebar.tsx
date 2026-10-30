@@ -36,7 +36,7 @@ import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueN
 import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
-import { isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
+import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 
 function initialsOf(name: string): string {
@@ -327,8 +327,11 @@ export function AppSidebar() {
   const revenueAccess = useRevenueNavigationAccess();
   const purchasingAccess = usePurchasingNavigationAccess();
   const stockMenuActive = isStockMenuRoute(pathname);
-  const purchasingActive = pathname.startsWith("/procurement/") && !stockMenuActive;
-  const purchasingChildren = purchasingSectionPages.filter(purchasingAccess.canOpen);
+  const { isAdmin: authIsAdmin } = useAuth();
+  const { isPreviewActive: previewActive } = usePreviewMode();
+  const supplierDirectoryInSettings = authIsAdmin && !previewActive;
+  const purchasingActive = pathname.startsWith("/procurement/") && !stockMenuActive && !(supplierDirectoryInSettings && isSupplierDirectoryRoute(pathname));
+  const purchasingChildren = [...purchasingSectionPages, ...(supplierDirectoryInSettings ? [] : [SUPPLIER_DIRECTORY_TAB])].filter(purchasingAccess.canOpen);
   const stockMenuChildren = stockMenuSectionPages.filter(purchasingAccess.canOpen);
   const purchasingChildActive = (url: string) => matchesPurchasingPath(purchasingParentPath(pathname), url);
   const revenueDestination = revenueLanding(revenueAccess.sidebarRevenue, revenueAccess.sidebarForecast);
@@ -467,7 +470,7 @@ export function AppSidebar() {
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
           ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
-          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log", "/procurement/suppliers"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
@@ -511,7 +514,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {showSubPages && purchasingActive && purchasingChildren.map((item) => <React.Fragment key={item.url}>
-                {["/procurement/purchase-orders", "/procurement/suppliers"].includes(item.url) && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
+                {["/procurement/purchase-orders", "/procurement/purchase-analysis", "/procurement/suppliers"].includes(item.url) && !(item.url === "/procurement/suppliers" && purchasingChildren.some(c => c.url === "/procurement/purchase-analysis")) && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
                 <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
               </React.Fragment>)}
             </SidebarMenu>
@@ -682,6 +685,7 @@ export function AppSidebar() {
                 { title: "Business & venues", url: "/admin/structure" },
                 { title: "Revenue setup", url: "/revenue/setup" },
                 { title: "Master Data", url: "/admin/master-data" },
+                { title: "↳ Suppliers & Vendors", url: "/procurement/suppliers" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
                 
                 { title: "Preferences", url: "/admin/preferences" },
