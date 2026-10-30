@@ -1,7 +1,7 @@
 ## Purchase Register redesign
-- [ ] Match Invoices layout, reuse scanner/detail workflow, scope by invoice venue and preserve realtime/export/attachments
-- [ ] Add 50-line pagination, optional columns and By item summaries/dialog with previous-90-day median and free-unit math
-- [ ] Test concrete calculations and verify September KHAMBU at 1280px/375px without saving
+- [x] Match Invoices layout, reuse scanner/detail workflow, scope by invoice venue and preserve realtime/export/attachments
+- [x] Add 50-line pagination, optional columns and By item summaries/dialog with previous-90-day median and free-unit math
+- [x] 30 focused tests and build OK. Signed-in 1280px/375px checks: September 427 lines/HK$96,912/12 suppliers; Hoegaarden 6 kegs/HK$4,302/717.00 overall, two free units. Venue picker reduced Caliente to 288 lines/HK$53,865; CSV BOM, pagination, optional column, scanner and loaded attachments verified without uploading/saving.
 
 ## Purchasing phone navigation consistency
 - [x] Reuse Revenue section pills for Purchasing; keep active pills and underline tabs visible
