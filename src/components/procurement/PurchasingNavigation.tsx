@@ -1,3 +1,5 @@
+import { useAuth } from "@/hooks/useAuth";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { Link, useLocation } from "react-router-dom";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -5,13 +7,15 @@ import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { SectionPillRow, useActiveNavigationScroll } from "@/components/kit/SectionPillRow";
-import { isStockMenuRoute, matchesPurchasingPath, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
+import { SUPPLIER_DIRECTORY_TAB, isStockMenuRoute, matchesPurchasingPath, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
 
 /** URL-only navigation; existing page guards and content remain independent. */
 export function PurchasingNavigation() {
   const { pathname } = useLocation();
   const { isMobile } = useSidebar();
   const { canOpen, loading } = usePurchasingNavigationAccess();
+  const { isAdmin } = useAuth();
+  const { isPreviewActive } = usePreviewMode();
   const [tabHost, setTabHost] = useState<Element | null>(null);
   const invoiceTabsRef = useActiveNavigationScroll(pathname, tabHost);
   const invoiceFamily = purchasingParentPath(pathname) === "/procurement/invoices";
@@ -23,7 +27,9 @@ export function PurchasingNavigation() {
     return () => observer.disconnect();
   }, [pathname]);
   if (loading) return null;
-  const pages = purchasingSectionPagesForPath(pathname).filter(canOpen);
+  const sectionPages = purchasingSectionPagesForPath(pathname);
+  // Admins find the supplier directory under Settings; everyone else keeps it in Purchasing.
+  const pages = (isStockMenuRoute(pathname) || (isAdmin && !isPreviewActive) ? sectionPages : [...sectionPages, SUPPLIER_DIRECTORY_TAB]).filter(canOpen);
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
   const analysis = pathname === "/procurement/dashboard" ? purchasingAnalysisPages.filter(canOpen) : [];
   const parentPath = purchasingParentPath(pathname);

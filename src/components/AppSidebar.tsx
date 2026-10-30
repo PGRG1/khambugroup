@@ -685,7 +685,7 @@ export function AppSidebar() {
                 { title: "Business & venues", url: "/admin/structure" },
                 { title: "Revenue setup", url: "/revenue/setup" },
                 { title: "Master Data", url: "/admin/master-data" },
-                { title: "↳ Suppliers & Vendors", url: "/procurement/suppliers" },
+                { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
                 
                 { title: "Preferences", url: "/admin/preferences" },
