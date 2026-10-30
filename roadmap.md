@@ -1,6 +1,6 @@
 ## Invoices layout and Documents navigation
-- [ ] A: Invoices layout, period picker, summary, selection and attachment downloads; preserve all operational handlers
-- [ ] B: Remove Documents page/tab and redirect old URL without deleting stored data
+- [x] A: Invoices layout, period picker, summary, selection and attachment downloads; preserve all operational handlers
+- [x] B: Remove Documents page/tab and redirect old URL without deleting stored data
 - [ ] Verify September 2026 at 1280px/375px and run focused existing tests
 
 ## Active scanner matcher recovery

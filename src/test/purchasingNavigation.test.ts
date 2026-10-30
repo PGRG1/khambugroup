@@ -3,7 +3,7 @@ import { canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purcha
 
 describe("Purchasing route families", () => {
   it("keeps Invoices highlighted for all invoice tabs", () => {
-    for (const path of ["invoices", "documents", "line-items", "credit-notes"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/invoices");
+    for (const path of ["invoices", "line-items", "credit-notes", "receiving"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/invoices");
   });
   it("keeps Supplier Accounts highlighted on its detail, payables and deposit pages", () => {
     for (const path of ["finance/suppliers/123", "finance/payables", "deposit-ledger"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/finance/suppliers");
@@ -69,9 +69,9 @@ describe("Purchasing navigation access", () => {
 });
 
 describe("Purchasing section destinations", () => {
-  it("preserves the eight Purchasing links in the requested order", () => {
+  it("preserves the seven Purchasing links in the requested order", () => {
     expect(purchasingSectionPages.map(page => page.url)).toEqual([
-      "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/receiving", "/procurement/invoices",
+      "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/invoices",
       "/procurement/finance/suppliers", "/procurement/suppliers", "/procurement/products", "/procurement/supplier-pricing",
     ]);
   });

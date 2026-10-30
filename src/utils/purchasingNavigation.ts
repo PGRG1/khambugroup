@@ -29,7 +29,6 @@ export function purchasingSectionPagesForPath(pathname: string) {
 export const purchasingTabGroups: PurchasingTab[][] = [
   [
     { title: "Invoices", url: "/procurement/invoices" },
-    { title: "Documents", url: "/procurement/documents" },
     { title: "Purchase Register", url: "/procurement/line-items" },
     { title: "Credit & Debit Notes", url: "/procurement/credit-notes", adminOnly: true },
     { title: "Goods received", url: "/procurement/receiving" },
