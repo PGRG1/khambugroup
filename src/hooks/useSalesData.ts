@@ -175,7 +175,7 @@ export function useSalesData() {
       } catch { /* A committed sale is never retried because accounting failed. */ }
     }
     return { status: "saved", recordId: inserted.id, journal };
-  }, [fetchData, rebuildJournalSilently, tenantId]);
+  }, [fetchData, tenantId]);
 
   const updateRecord = useCallback(async (oldRecord: SalesRecord, newRecord: SalesRecord) => {
     if (!tenantId) return false;

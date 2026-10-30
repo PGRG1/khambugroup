@@ -243,7 +243,7 @@ const DataPage = () => {
           )}
           {isAdmin && !hideManualEntry && showManual && (
             <ManualInput key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} initial={prefill} history={openHistory}
-              onAdd={async (record, file, note) => { const result = await addRecord(record, file); if (result.status === "saved") { await saveNote(record, note); setPrefill(null); if (result.journal === "failed") toast({ title: "Sales recorded, but journal rebuild failed", description: "Do not submit this day again.", variant: "destructive" }); } else toast({ title: "Sales not saved", description: result.status === "failed" ? result.error : "Receipt needs review", variant: "destructive" }); }}
+              onAdd={async (record, file, note) => { const result = await addRecord(record, file); if (result.status === "saved") { await saveNote(record, note).catch(() => { toast({ title: "Sales saved, but note could not be saved", variant: "destructive" }); }); setPrefill(null); if (result.journal === "failed") toast({ title: "Sales recorded, but journal rebuild failed", description: "Do not submit this day again.", variant: "destructive" }); } else toast({ title: "Sales not saved", description: result.status === "failed" ? result.error : "Receipt needs review", variant: "destructive" }); return result; }}
               onClose={() => { setShowManual(false); setPrefill(null); }} />
           )}
 
