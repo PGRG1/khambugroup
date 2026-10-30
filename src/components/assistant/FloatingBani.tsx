@@ -65,6 +65,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const effectiveId = isAdmin && isPreviewActive ? previewUserId : user?.id;
   const { canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveId || undefined);
   const [busy, setBusy] = useState(false);
+  const [stepLabel, setStepLabel] = useState("");
   const [error, setError] = useState("");
   const [dropping, setDropping] = useState(false);
   const [drag, setDrag] = useState<Point | null>(null);
@@ -268,7 +269,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setStepLabel("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
       const attachments = attached.length ? await Promise.all(attached.map(async f => {
@@ -501,7 +502,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             </div>}
           </div>)}
           {busy && (stepLabel
-            ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel}…</div>
+            ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel.replace(/[.…]+$/, "")}…</div>
             : <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>)}
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
