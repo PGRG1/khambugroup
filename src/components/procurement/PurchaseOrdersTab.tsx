@@ -145,7 +145,8 @@ export default function PurchaseOrdersTab() {
     return pos.filter((p) => {
       if (supplierFilter !== "all" && p.supplier_id !== supplierFilter) return false;
       if (!venueScope.includesName(p.venue)) return false;
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (statusFilter === "sent") { if (!["sent", "partial"].includes(p.status)) return false; }
+      else if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!p.po_number.toLowerCase().includes(q) && !supplierName(p.supplier_id).toLowerCase().includes(q)) return false;

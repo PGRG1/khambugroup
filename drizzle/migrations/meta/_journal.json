@@ -141,6 +141,13 @@
       "when": 1793338523335,
       "tag": "0019_recover_match_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793369944008,
+      "tag": "0020_scanner_invoice_held_amount",
+      "breakpoints": true
     }
   ]
 }
