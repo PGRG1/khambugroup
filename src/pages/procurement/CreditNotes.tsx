@@ -223,6 +223,7 @@ export default function CreditNotes() {
         </Button>
       </div>
 
+      <div data-invoice-tabs-host />
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="border-amber-500/30 bg-amber-500/5">

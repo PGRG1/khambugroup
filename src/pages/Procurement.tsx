@@ -56,6 +56,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
       {activeTab !== "dashboard" && activeTab !== "purchase-orders" && activeTab !== "invoices" && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
+      {["receiving", "line-items"].includes(activeTab) && <div data-invoice-tabs-host />}
 
 
       <Tabs value={activeTab}>

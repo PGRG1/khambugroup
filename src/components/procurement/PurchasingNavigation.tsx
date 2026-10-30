@@ -2,6 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { isStockMenuRoute, matchesPurchasingPath, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
 
 /** URL-only navigation; existing page guards and content remain independent. */
@@ -9,6 +11,15 @@ export function PurchasingNavigation() {
   const { pathname } = useLocation();
   const { isMobile } = useSidebar();
   const { canOpen, loading } = usePurchasingNavigationAccess();
+  const [tabHost, setTabHost] = useState<Element | null>(null);
+  const invoiceFamily = purchasingParentPath(pathname) === "/procurement/invoices";
+  useEffect(() => {
+    const locate = () => setTabHost(document.querySelector('[data-invoice-tabs-host]'));
+    locate();
+    const observer = new MutationObserver(locate);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname]);
   if (loading) return null;
   const pages = purchasingSectionPagesForPath(pathname).filter(canOpen);
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
@@ -31,7 +42,8 @@ export function PurchasingNavigation() {
     {analysis.length > 0 && <nav aria-label="Purchasing analysis" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
       {analysis.map(page => <Link key={page.url} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={page.url}>{page.title}</Link>)}
     </nav>}
-    {!!tabs?.length && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
+    {!!tabs?.length && invoiceFamily && tabHost && createPortal(<nav aria-label="Purchasing pages" className="max-w-full overflow-x-auto border-b border-border"><div className="flex w-max gap-5">{tabs.map(tab => <Link key={tab.url} to={tab.url} aria-current={matchesPurchasingPath(pathname, tab.url) ? "page" : undefined} className={cn("py-3 text-[13px] font-medium whitespace-nowrap border-b-2", matchesPurchasingPath(pathname, tab.url) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab.title}</Link>)}</div></nav>, tabHost)}
+    {!!tabs?.length && !invoiceFamily && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
     <div className="inline-flex w-max items-center gap-1 rounded-lg bg-muted/40 p-1 border border-border/50">
       {tabs.map(tab => {
         const active = matchesPurchasingPath(pathname, tab.url);

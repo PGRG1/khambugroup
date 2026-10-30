@@ -1,3 +1,8 @@
+## Invoices matched to Sales records
+- [ ] Reuse page top/period, kit toolbar/table and below-header underline purchasing tabs
+- [ ] Centre invoice details with compact factual review, attachments and preserved actions
+- [ ] Verify real October invoices alongside Sales records at 1280px/375px; run focused tests
+
 ## Invoices layout and Documents navigation
 - [x] A: Invoices layout, period picker, summary, selection and attachment downloads; preserve all operational handlers
 - [x] B: Remove Documents page/tab and redirect old URL without deleting stored data
