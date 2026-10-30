@@ -1305,17 +1305,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         ...buildRemoveMatchPatch(line as unknown as MatchableLine),
       };
       lines[i] = { ...restored, suggestions: undefined, suggestion_source: undefined, matcher_confirmed: false, matcher_pending: false, matcher_answer: null };
-      copy[currentIdx].supplier_name,
-      );
-      const classified = classifyCandidates(candidates);
-      lines[i] = {
-        ...restored,
-        suggestions: classified.suggestions,
-        suggestion_source: "local",
-        match_hold_reason: classified.ambiguous
-          ? "Close alternatives"
-          : classified.top?.blockingReasons[0] || (classified.top ? "Name differs" : undefined),
-      };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
