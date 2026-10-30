@@ -8,7 +8,7 @@ export type MatcherOption = z.infer<typeof matcherResponseSchema>["options"][num
 export const needsMatcherReview = (answer?: MatcherAnswer | null) => !!answer && ["probably", "cant_tell", "new"].includes(answer.decision);
 export const matcherSnapshot = (line: object) => {
   const value = line as Record<string, unknown>;
-  const fields = ["description", "item_code", "quantity", "unit_price", "unit", "total", "printed_amount", "pack_size", "product_master_id", "supplier_entry_id", "matcher_confirmed"];
+  const fields = ["description", "item_code", "quantity", "unit_price", "unit", "total", "printed_amount", "pack_size", "product_master_id", "supplier_entry_id", "matcher_confirmed", "matcher_edit_revision"];
   return JSON.stringify(fields.map(key => value[key] ?? null));
 };
 export const matcherCanApply = (before: string, line: object, originalSupplier: string, supplier: string, saved?: boolean) => !saved && originalSupplier === supplier && before === matcherSnapshot(line);

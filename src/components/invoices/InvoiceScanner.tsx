@@ -110,6 +110,7 @@ interface ScannedLineItem {
   matcher_confirmed?: boolean;
   matcher_pending?: boolean;
   matcher_options?: MatcherOption[];
+  matcher_edit_revision?: number;
   item_code: string;
   description: string;
   /** Immutable OCR evidence used for matching and unlinking. */
@@ -1098,7 +1099,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
-      let line = { ...lines[i], [field]: value };
+      let line = { ...lines[i], [field]: value, matcher_edit_revision: (lines[i].matcher_edit_revision || 0) + 1 };
 
       // When item_code or description changes manually, treat as free text.
       // Clear any prior PM linkage so edits stick. Re-linking happens at save time
