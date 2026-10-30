@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../../supabase/functions/_shared/auth.ts", () => ({ resolveTenant: async (_db: unknown, _user: string, tenant: string) => tenant === "11111111-1111-4111-8111-111111111111" ? { tenant_id: tenant } : null }));
-import { receiptIntake } from "../../supabase/functions/parse-receipt/intake";
+// Runtime-only import keeps Deno's npm specifiers outside the browser type graph.
+const intakeModule = "../../supabase/functions/parse-receipt/intake.ts";
+const { receiptIntake } = await import(intakeModule);
 import { sha256 } from "../../supabase/functions/_shared/salesEvidence";
 const tenant = "11111111-1111-4111-8111-111111111111";
 const scanId = "22222222-2222-4222-8222-222222222222";
