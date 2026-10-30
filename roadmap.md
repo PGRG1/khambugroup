@@ -1,3 +1,9 @@
+## Active scanner matcher recovery
+- [ ] A: reconcile and test existing-master fallback and new-item drafts
+- [ ] B: invoice-wide scanner matching and decision cards, preserving financial workflow
+- [ ] C: recover migration record and integrate tenant-scoped human feedback
+- [ ] Verify approved-document scan without saving, desktop/mobile, and timing
+
 # Roadmap
 
 ## Invoice review display clean-up
