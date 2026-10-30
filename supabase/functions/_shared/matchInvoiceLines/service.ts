@@ -138,7 +138,7 @@ export async function matchInvoice(db: SupabaseClient, input: MatchInput, signal
   for (const line of raw.lines) if (line.draft && !context.categories.includes(line.draft.category)) line.draft.category = null;
   const usage = await result.usage;
   const response = await result.response;
-  return { lines: applyChecks(input.lines, raw.lines as Prediction[], context.candidates, context.fullMaster), options: context.candidates.map(c => ({ id: c.id, name: c.name, last_paid: c.prices[0]?.price ?? null, times_bought: c.times_bought })), usage, gateway_run_id: gateway.getRunId(), gateway_headers: response.headers, context_counts: { supplier_candidates: context.candidates.length, tenant_items: context.fullMaster.length }, temporal_policy: context.temporal_policy };
+  return { lines: applyChecks(input.lines, raw.lines as Prediction[], context.candidates, context.fullMaster), options: context.fullMaster.map(m => { const c = context.candidates.find(c => c.id === m.id); return { id: m.id, name: m.name, last_paid: c?.prices[0]?.price ?? null, times_bought: c?.times_bought ?? 0 }; }), usage, gateway_run_id: gateway.getRunId(), gateway_headers: response.headers, context_counts: { supplier_candidates: context.candidates.length, tenant_items: context.fullMaster.length }, temporal_policy: context.temporal_policy };
 }
 export function safeError(error: unknown) {
   if (error instanceof RequestError) return { status: error.status, error: error.message };

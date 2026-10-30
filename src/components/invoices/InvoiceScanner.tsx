@@ -31,11 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
-import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
+import { scoreCandidates, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
 import InvoiceMatchCard from "./InvoiceMatchCard";
 import { matcherResponseSchema, matcherCanApply, matcherSnapshot, matcherToday, needsMatcherReview, type MatcherAnswer, type MatcherOption } from "@/utils/scannerMatcher";
-import { buildBaniSuggestions, rawOptionsOf, BANI_FULL_CATALOGUE_LIMIT, BANI_MAX_OPTIONS } from "@/utils/baniLineSuggestions";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
@@ -78,7 +77,7 @@ import { buildMatchLinkPatch, buildRemoveMatchPatch, canonicalizeMatchedLinesFor
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
-import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
+import { scopePMToSupplier } from "@/utils/invoiceAiMatching";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
@@ -357,7 +356,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  const { createProduct, fetchProducts } = useProductMaster();
+  const { createProduct, fetchProducts, products: tenantMaster } = useProductMaster();
   const [creatingLineIdx, setCreatingLineIdx] = useState<number | null>(null);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -2123,13 +2122,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         if (!line) return previous;
         let corrected = entry ? linkEntryToLine(line, entry) : correctDraftLine(line as unknown as Record<string, unknown>, proposal, currentMode) as unknown as ScannedLineItem;
         // Matching must not dismiss independent reviewer blockers.
-        if (entry) corrected = { ...corrected, review_blocking: line.review_blocking, auto_matched: false };
+        if (entry) corrected = { ...corrected, review_blocking: line.review_blocking, auto_matched: false, matcher_confirmed: true, matcher_pending: false };
         if (corrected.is_free_unit_line && corrected.product_master_id) corrected.deal_id = findDealForProduct(activeDeals, corrected.product_master_id, invoice.invoice_date)?.id ?? null;
         const lines = [...invoice.line_items]; lines[lineIndex] = corrected;
         const copy = [...previous]; copy[draftIndex] = { ...invoice, line_items: lines };
         changed = true; return copy;
       }));
-      if (changed) baniApplied.current.add(proposal.id);
+      if (changed) { baniApplied.current.add(proposal.id); if (entry && baniSelectedLine) writeMatchFeedback(baniSelectedLine, entry.id); }
       return changed;
     },
   } : undefined;
@@ -2140,12 +2139,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     if (line.matcher_pending) return <span className="text-muted-foreground">Bani is matching…</span>;
     if (!line.matcher_answer || line.matcher_confirmed) return null;
     const answer = line.matcher_answer;
-    const product = productMaster?.find(product => product.id === answer.product_master_id);
+    const masterCatalogue: ProductMasterEntry[] = [...(productMaster || []), ...tenantMaster.map(item => ({ id: item.id, internal_sku: item.internal_sku, internal_product_name: item.internal_product_name, external_sku: "", supplier_product_name: "" }))];
+    const product = masterCatalogue.find(product => product.id === answer.product_master_id);
     const scoped = scopePMToSupplier(productMaster, current?.supplier_name);
     const pick = (id: string) => { const entry = scoped.find(entry => entry.id === id); if (entry) selectProduct(index, entry); else openFullLine(index); };
-    const quickAdd = <QuickAddProductPopover products={productMaster || []} supplierName={current?.supplier_name} line={{ item_code: line.scanned_item_code ?? line.item_code, description: line.scanned_description ?? line.description, unit: line.unit, unit_price: line.unit_price }} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel={answer.decision === "cant_tell" ? "None of these: add as new item" : "Add item / Edit first"} onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} />;
-    const existingAdd = product && !scoped.some(entry => entry.id === product.id) ? <QuickAddProductPopover products={productMaster || []} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="existing" initialProductId={product.id} triggerLabel="Yes · add this supplier" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined;
-    return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => openFullLine(index)} quickAdd={quickAdd} existingAdd={existingAdd} />;
+    const quickAdd = <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={{ item_code: line.scanned_item_code ?? line.item_code, description: line.scanned_description ?? line.description, unit: line.unit, unit_price: line.unit_price }} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel={answer.decision === "cant_tell" ? "None of these: add as new item" : "Add item"} onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} />;
+    const existingAdd = product && !scoped.some(entry => entry.id === product.id) ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="existing" initialProductId={product.id} triggerLabel="Yes · add this supplier" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined;
+    return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => openFullLine(index)} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
   };
 
   return (
