@@ -9603,6 +9603,157 @@ export type Database = {
           },
         ]
       }
+      sales_scan_examples: {
+        Row: {
+          captured_at: string
+          field_differences: Json
+          id: string
+          original_values: Json
+          receipt_bucket: string
+          receipt_file_name: string | null
+          receipt_path: string | null
+          sales_created_at: string
+          sales_record_id: string
+          saved_by: string
+          saved_values: Json
+          scan_id: string
+          source_link_state: string
+          tenant_id: string
+          value_provenance: string
+          venue_id: string
+        }
+        Insert: {
+          captured_at?: string
+          field_differences: Json
+          id?: string
+          original_values: Json
+          receipt_bucket?: string
+          receipt_file_name?: string | null
+          receipt_path?: string | null
+          sales_created_at: string
+          sales_record_id: string
+          saved_by: string
+          saved_values: Json
+          scan_id: string
+          source_link_state: string
+          tenant_id: string
+          value_provenance?: string
+          venue_id: string
+        }
+        Update: {
+          captured_at?: string
+          field_differences?: Json
+          id?: string
+          original_values?: Json
+          receipt_bucket?: string
+          receipt_file_name?: string | null
+          receipt_path?: string | null
+          sales_created_at?: string
+          sales_record_id?: string
+          saved_by?: string
+          saved_values?: Json
+          scan_id?: string
+          source_link_state?: string
+          tenant_id?: string
+          value_provenance?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_scan_examples_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "sales_scan_extractions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_scan_extractions: {
+        Row: {
+          extracted_at: string
+          extractor_model: string
+          extractor_version: string
+          id: string
+          original_values: Json
+          report_structure: string | null
+          scanned_by: string
+          source_mime_type: string
+          source_sha256: string
+          tenant_id: string
+        }
+        Insert: {
+          extracted_at?: string
+          extractor_model: string
+          extractor_version: string
+          id?: string
+          original_values: Json
+          report_structure?: string | null
+          scanned_by: string
+          source_mime_type: string
+          source_sha256: string
+          tenant_id: string
+        }
+        Update: {
+          extracted_at?: string
+          extractor_model?: string
+          extractor_version?: string
+          id?: string
+          original_values?: Json
+          report_structure?: string | null
+          scanned_by?: string
+          source_mime_type?: string
+          source_sha256?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      sales_scan_verifications: {
+        Row: {
+          example_id: string
+          field_evidence: Json
+          id: string
+          source_sha256: string
+          tenant_id: string
+          verification_method: string
+          verification_reference: string
+          verified_at: string
+          verified_by: string
+          verified_values: Json
+        }
+        Insert: {
+          example_id: string
+          field_evidence: Json
+          id?: string
+          source_sha256: string
+          tenant_id: string
+          verification_method: string
+          verification_reference: string
+          verified_at?: string
+          verified_by: string
+          verified_values: Json
+        }
+        Update: {
+          example_id?: string
+          field_evidence?: Json
+          id?: string
+          source_sha256?: string
+          tenant_id?: string
+          verification_method?: string
+          verification_reference?: string
+          verified_at?: string
+          verified_by?: string
+          verified_values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_scan_verifications_example_id_fkey"
+            columns: ["example_id"]
+            isOneToOne: false
+            referencedRelation: "sales_scan_examples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_periods: {
         Row: {
           created_at: string
@@ -11769,6 +11920,16 @@ export type Database = {
       }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
+        Returns: string
+      }
+      capture_sales_scan_example: {
+        Args: {
+          p_sales_record_id: string
+          p_scan_id: string
+          p_source_link_state: string
+          p_tenant_id: string
+          p_user_id: string
+        }
         Returns: string
       }
       compute_ai_rule_key: {

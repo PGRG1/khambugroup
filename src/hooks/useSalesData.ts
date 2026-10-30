@@ -4,6 +4,7 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { SalesRecord } from "@/types/sales";
 import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { captureSavedSalesScan } from "@/utils/salesScanEvidence";
 
 function toDbRecord(r: SalesRecord, tenantId?: string | null) {
   return {
@@ -151,11 +152,13 @@ export function useSalesData() {
       }
     }
 
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("sales_records")
-      .insert(toDbRecord(finalRecord, tenantId));
+      .insert(toDbRecord(finalRecord, tenantId)).select("id").single();
 
     if (!error) {
+      if (inserted?.id) void captureSavedSalesScan(record, inserted.id, tenantId,
+        async (body) => { await supabase.functions.invoke("parse-receipt", { body }); });
       await logAuditEvent({
         action: "insert",
         entityType: "sales_record",

@@ -1,5 +1,11 @@
 # Roadmap
 
+## Sales receipt evidence memory — Step 1
+- [x] Audit scan/save, schema and access paths
+- [x] Add immutable extraction and saved correction evidence, scoped retrieval
+- [x] Integrate non-blocking capture without changing UI or financial saves
+- [x] Run 28 focused tests; validate schema/deployment and signed-in retrieval/access rejection (no production financial writes)
+
 ## Purchasing foundation — build 1 (done; browser check pending)
 - [x] Migration: invoices.held_amount, tenant_members.purchasing_role (+backfills), unique GRN-per-invoice index
 - [x] Invoice statuses: Draft/To approve badges + filters; scanner onSave mapping fix (under_review→Draft)
