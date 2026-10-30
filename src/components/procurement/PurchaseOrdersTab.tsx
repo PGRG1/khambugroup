@@ -19,7 +19,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useVenues } from "@/hooks/useVenues";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
-import { PageTop } from "@/components/kit/PageTop";
 import { format, parseISO } from "date-fns";
 
 const STATUS_LABEL: Record<Status, string> = { draft: "Draft", approved: "Approved", sent: "Sent", partial: "Partly received", received: "Received", cancelled: "Cancelled" };
@@ -312,7 +311,10 @@ export default function PurchaseOrdersTab() {
 
   return (
     <div className="space-y-4">
-      <PageTop title="Purchase Orders" actions={newPoButton} />
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
+        {newPoButton}
+      </div>
 
       {!loading && pos.length === 0 ? (
         <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
