@@ -1,3 +1,8 @@
+## Scanner matcher Part B
+- [ ] Finish decision cards and remove obsolete suggestion controls without changing financial workflow
+- [ ] Verify approved-document scan and human feedback without saving; desktop/mobile and 2/10-line timings
+- [ ] Run focused regressions and report changed files
+
 ## Invoices matched to Sales records
 - [x] Reuse page top/period, kit toolbar/table and below-header underline purchasing tabs
 - [x] Centre invoice details with compact factual review, attachments and preserved actions
