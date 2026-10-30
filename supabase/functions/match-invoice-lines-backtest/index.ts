@@ -1,6 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
-import { allRows, authorize, InputSchema, matchInvoice, RequestError, safeError, MATCHER_MODEL } from '../match-invoice-lines/service.ts';
+import { allRows, authorize, InputSchema, matchInvoice, RequestError, safeError, MATCHER_MODEL } from '../_shared/matchInvoiceLines/service.ts';
 import { randomSample, summarize, type ResultRow } from './report.ts';
 
 const Body = z.object({ tenant_id: z.string().uuid(), sample_size: z.number().int().min(1).max(50).default(50) }).strict();
