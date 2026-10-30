@@ -5,23 +5,26 @@ import "./kit.css";
 export interface ActiveChip { key: string; label: string; onRemove: () => void }
 
 /** One row: search, Filter, Sort, download (far right). Active filters below as mint chips. */
-export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, columns, onDownload, downloadControl, downloadLabel = "Download", chips = [], onClear }: {
+export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort, columns, onDownload, downloadControl, searchAfterControls = false, downloadLabel = "Download", chips = [], onClear }: {
   search?: string; onSearch?: (v: string) => void; placeholder?: string;
   filter?: ReactNode; sort?: ReactNode; columns?: ReactNode; onDownload?: () => void; downloadLabel?: string;
   chips?: ActiveChip[]; onClear?: () => void;
   downloadControl?: ReactNode;
+  searchAfterControls?: boolean;
 }) {
+  const searchControl = onSearch && <label className="kit-search">
+    <Search className="h-4 w-4 shrink-0" aria-hidden />
+    <input value={search ?? ""} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+    {search && <button type="button" onClick={() => onSearch("")} aria-label="Clear search"><X className="h-3.5 w-3.5" /></button>}
+  </label>;
   return (
     <div className="kit space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        {onSearch && <label className="kit-search">
-          <Search className="h-4 w-4 shrink-0" aria-hidden />
-          <input value={search ?? ""} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-          {search && <button type="button" onClick={() => onSearch("")} aria-label="Clear search"><X className="h-3.5 w-3.5" /></button>}
-        </label>}
+        {!searchAfterControls && searchControl}
         {filter}
         {sort}
         {columns}
+        {searchAfterControls && searchControl}
         {downloadControl && <div className="ml-auto">{downloadControl}</div>}
         {onDownload && (
           <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
