@@ -1,3 +1,7 @@
+## Purchasing phone navigation consistency
+- [ ] Reuse Revenue section pills for Purchasing; keep active pills and underline tabs visible
+- [ ] Verify signed-in Invoices and Revenue at 375px and desktop unchanged; run navigation regressions
+
 ## Invoice phone layout correction
 - [x] Correct mobile Purchasing menu, title action, single tab strip and toolbar
 - [x] Verify real October record at 375px/1280px: screenshots, centred details, aligned controls and no horizontal overflow; 37 regression tests passed
