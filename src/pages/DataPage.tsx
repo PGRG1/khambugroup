@@ -45,7 +45,7 @@ import { TableSkeleton } from "@/components/expenses/shared";
 type ViewKey = "daily" | "other";
 
 const DataPage = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord } = useSalesData();
+  const { data, loading, uploadRecords, addRecord, updateRecord, refetch } = useSalesData();
   const { isAdmin, user, roleLoading } = useAuth();
   const { tenantId } = useActiveTenant();
   const [tenantZone, setTenantZone] = useState<{ id: string; zone: string } | null>(null);
@@ -236,6 +236,7 @@ const DataPage = () => {
                 if (!tenantId || isPreviewActive) return { status: "failed", error: "Receipt saves are unavailable in preview mode" };
                 const result = await saveReceiptIntake(record, file, scanId, tenantId);
                 if (result.status === "flagged") setIntakeRevision(r => r + 1);
+                if (result.status === "saved") void refetch();
                 return result;
               }}
               onClose={() => { setShowScanner(false); setScanFile(null); }}

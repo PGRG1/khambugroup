@@ -9405,6 +9405,7 @@ export type Database = {
           existing_record_ids: string[]
           id: string
           original_values: Json
+          posted_record_id: string | null
           reasons: Json
           scan_id: string | null
           source_name: string
@@ -9415,12 +9416,14 @@ export type Database = {
           tentative_values: Json
           uploaded_by: string
           venue_id: string | null
+          verification: Json | null
         }
         Insert: {
           created_at?: string
           existing_record_ids?: string[]
           id?: string
           original_values: Json
+          posted_record_id?: string | null
           reasons: Json
           scan_id?: string | null
           source_name: string
@@ -9431,12 +9434,14 @@ export type Database = {
           tentative_values: Json
           uploaded_by: string
           venue_id?: string | null
+          verification?: Json | null
         }
         Update: {
           created_at?: string
           existing_record_ids?: string[]
           id?: string
           original_values?: Json
+          posted_record_id?: string | null
           reasons?: Json
           scan_id?: string | null
           source_name?: string
@@ -9447,8 +9452,23 @@ export type Database = {
           tentative_values?: Json
           uploaded_by?: string
           venue_id?: string | null
+          verification?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_receipt_intakes_posted_record_id_fkey"
+            columns: ["posted_record_id"]
+            isOneToOne: false
+            referencedRelation: "sales_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_receipt_intakes_posted_record_id_fkey"
+            columns: ["posted_record_id"]
+            isOneToOne: false
+            referencedRelation: "sales_records"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_receipt_intakes_scan_id_fkey"
             columns: ["scan_id"]

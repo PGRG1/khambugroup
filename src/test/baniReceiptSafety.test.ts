@@ -28,7 +28,7 @@ describe("receipt outcomes never imply posting", () => {
     const reasons = receiptReviewReasons(row, { ...row, totalSales: 100, discount: 5 }, true, true);
     expect(reasons).toContain("Sales arithmetic does not balance"); expect(reasons).toContain("Tender components do not match total sales"); expect(reasons).toContain("Discount or tip deduction sign needs review");
   });
-  it("repeated source does not imply additional revenue", () => expect(salesOutcomeMessage({ status: "flagged", intakeId: "i", repeated: true })).toContain("No additional sales recorded"));
+  it("repeated source does not imply additional revenue", () => expect(salesOutcomeMessage({ status: "flagged", intakeId: "i", repeated: true })).toContain("nothing added again"));
   it("intake failure cannot claim saved", () => expect(salesOutcomeMessage({ status: "failed", error: "Upload failed" })).toBe("Upload failed"));
   it("committed sale with journal failure warns against resubmission", () => expect(salesOutcomeMessage({ status: "saved", recordId: "r", journal: "failed" })).toContain("Do not submit"));
 });

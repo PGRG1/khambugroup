@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     if (body?.op === "receipt_intake") {
       const { op, ...input } = body;
       try {
-        const result = await receiptIntake(adminClient(), auth.user.id, input);
+        const result = await receiptIntake(adminClient(), auth.user.id, input, req.headers.get("Authorization") ?? "");
         return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error) {
         return new Response(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "Receipt intake failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

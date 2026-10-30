@@ -236,7 +236,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       setOutcome(result);
       setShowDetails(true);
       baniSay(salesOutcomeMessage(result));
-      toast({ title: result.status === "failed" ? "Receipt not saved" : "Receipt flagged for review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
+      toast({ title: result.status === "failed" ? "Receipt not saved" : result.status === "saved" ? "Sales recorded" : "Receipt needs your review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
@@ -342,7 +342,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       const result = await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null, evidenceScanRef.current);
       setOutcome(result);
       baniSay(salesOutcomeMessage(result));
-      toast({ title: result.status === "failed" ? "Receipt not saved" : "Receipt flagged for review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
+      toast({ title: result.status === "failed" ? "Receipt not saved" : result.status === "saved" ? "Sales recorded" : "Receipt needs your review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
     } finally {
