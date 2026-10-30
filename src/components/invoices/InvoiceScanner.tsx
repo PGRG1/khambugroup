@@ -19,7 +19,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { computeAcceptedAmount, amountsEqual } from "@/utils/invoiceAcceptedAmount";
 import { isReturnedKegLine, getMatchIdentity, resolveReturnedKegEntry } from "@/utils/returnedKegs";
 import { toast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +31,6 @@ import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { scoreCandidates, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
-import ProductSuggestionChip from "./ProductSuggestionChip";
 import InvoiceMatchCard from "./InvoiceMatchCard";
 import { matcherResponseSchema, matcherCanApply, matcherSnapshot, matcherToday, needsMatcherReview, type MatcherAnswer, type MatcherOption } from "@/utils/scannerMatcher";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
@@ -578,7 +576,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const acceptedPrice = isFreeUnit
       ? "0"
       : (Number.isFinite(existingAcc) && (line.accepted_price || "").trim() !== ""
-        ? line.accepted_price!
+        ? line.accepted_price || ""
         : (masterPrice != null ? String(masterPrice) : ""));
     const accNum = parseFloat(acceptedPrice);
     const scannedCode = line.scanned_item_code ?? line.item_code;
@@ -1260,36 +1258,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   };
 
 
-  // ---- Fuzzy "did you mean?" suggestions ----
-  const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
+  // Invoice-wide matching activity; manual search remains independent.
   const [aiMatchingAll, setAiMatchingAll] = useState(false);
   const [bulkQuickAddOpen, setBulkQuickAddOpen] = useState(false);
-
-  /** Save the invoice's own code (or wording) onto the supplier's Items Master entry so it matches next time. */
-  const rememberInvoiceWording = async (entry: ProductMasterEntry, code: string, wording: string) => {
-    if (!entry.supplier_entry_id || !tenantId) return;
-    const patch = code ? { external_sku: code } : { supplier_product_name: wording };
-    const { error } = await supabase.from("product_suppliers" as any).update(patch as any).eq("id", entry.supplier_entry_id).eq("tenant_id", tenantId);
-    if (error) { toast({ title: "Couldn't update Items Master", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Items Master updated", description: code ? `Code ${code} will match ${entry.internal_product_name} next time.` : `"${wording}" will match ${entry.internal_product_name} next time.` });
-    onProductMasterChanged?.();
-  };
-
-  const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
-    const line = current?.line_items[i];
-    const entry = candidate.entry as ProductMasterEntry;
-    selectProduct(i, entry);
-    if (!line || !isEntryForActiveSupplier(entry)) return;
-    const code = String(line.scanned_item_code || line.item_code || "").trim();
-    const wording = String(line.scanned_description || line.description || "").trim();
-    const differs = code ? normalizeText(code) !== normalizeText(entry.external_sku || "") : !!wording && normalizeText(wording) !== normalizeText(entry.supplier_product_name || "");
-    if (!differs || !baniEditable) return;
-    toast({
-      title: `Linked to ${entry.internal_product_name || entry.supplier_product_name}`,
-      description: code ? `Save invoice code ${code} to this item so it matches automatically next time?` : `Save the invoice wording to this item so it matches automatically next time?`,
-      action: <ToastAction altText="Save to Items Master" onClick={() => void rememberInvoiceWording(entry, code, wording)}>Save to master</ToastAction>,
-    });
-  };
 
   /** Open the existing product search on a line without touching any extracted field. */
   const openProductSearch = (i: number) => {
@@ -1315,7 +1286,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         ...line,
         ...buildRemoveMatchPatch(line as unknown as MatchableLine),
       };
-      lines[i] = { ...restored, suggestions: undefined, suggestion_source: undefined, matcher_confirmed: false, matcher_pending: false, matcher_answer: null };
+      lines[i] = { ...restored, suggestions: undefined, suggestion_source: undefined, matcher_confirmed: false, matcher_pending: false };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
@@ -1374,8 +1345,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   }, [tenantId, userId, linkEntryToLine, setInvoices]);
   useEffect(() => { for (const invoice of invoices) void runInvoiceMatcher(invoice); }, [invoices, runInvoiceMatcher]);
-  const askAiForLine = async (_i: number) => { if (current) await runInvoiceMatcher(current); };
-  const resolveAllWithAi = async (_silent = false) => { if (current) await runInvoiceMatcher(current); };
 
   // Editable Accepted Price (Items Master baseline)
   const updateLineAcceptedPrice = (i: number, value: string) => {
@@ -2146,7 +2115,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const pick = (id: string) => { const entry = scoped.find(entry => entry.id === id); if (entry) selectProduct(index, entry); else openFullLine(index); };
     const quickAdd = <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={{ item_code: line.scanned_item_code ?? line.item_code, description: line.scanned_description ?? line.description, unit: line.unit, unit_price: line.unit_price }} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel={answer.decision === "cant_tell" ? "None of these: add as new item" : "Add item"} onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} />;
     const existingAdd = product && !scoped.some(entry => entry.id === product.id) ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="existing" initialProductId={product.id} triggerLabel="Yes · add this supplier" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined;
-    return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => openFullLine(index)} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
+    return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => { openFullLine(index); requestAnimationFrame(() => openProductSearch(index)); }} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
   };
 
   return (
@@ -2489,10 +2458,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </button>
             {hasUnmatchedItems && (
               <>
-                <Button size="sm" variant="outline" onClick={() => resolveAllWithAi()} disabled={aiMatchingAll}>
-                  {aiMatchingAll ? <BaniProcessingMark size={18} /> : <Sparkles className="h-3.5 w-3.5" />}
-                  <span>Resolve {unmatchedItems.length} unmatched with AI</span>
-                </Button>
+                {aiMatchingAll && <span className="text-xs text-muted-foreground">Bani is matching…</span>}
                 {unmatchedBulkLines.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => setBulkQuickAddOpen(true)}>
                     <Plus className="h-3.5 w-3.5 mr-1" />
@@ -2759,15 +2725,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             </Button>
                           </div>
                         )}
-                        {!line.unmatched && line.product_master_id && (
-                          <ProductSuggestionChip
-                            mode="change"
-                            linkedProductId={line.product_master_id}
-                            candidates={line.suggestions || []}
-                            source={line.suggestion_source || "local"}
-                            onApply={(c) => applySuggestion(i, c)}
-                          />
-                        )}
+                        {!line.unmatched && line.product_master_id && <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => { removeMatch(i); openProductSearch(i); }}>Change match</Button>}
 
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
@@ -2787,13 +2745,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             >
                               Select item
                             </Button>
-                            <ProductSuggestionChip
-                              candidates={line.suggestions || []}
-                              source={line.suggestion_source || "local"}
-                              onApply={(c) => applySuggestion(i, c)}
-                              onAskAi={() => askAiForLine(i)}
-                              aiLoading={aiMatchingIdx === i || aiMatchingAll}
-                            />
+
 
                             <QuickAddProductPopover disableSuggestions
                               products={(productMaster || []) as any}
