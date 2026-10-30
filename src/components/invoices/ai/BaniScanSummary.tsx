@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Sparkles, AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,13 +11,19 @@ import { toast } from "sonner";
 
 interface Props {
   invoiceId: string;
+  compact?: boolean;
+  deliverySummary?: string;
+  deliveryProblem?: boolean;
+  moreActions?: ReactNode;
+  footerActions?: ReactNode;
+  children?: ReactNode;
 }
 
 /**
  * Bani — scan analysis card. Reads cached ai_suggestions + ai_anomaly from
  * the invoice row. Never calls AI on mount; "Re-run" is the only manual trigger.
  */
-export function BaniScanSummary({ invoiceId }: Props) {
+export function BaniScanSummary({ invoiceId, compact, deliverySummary, deliveryProblem, moreActions, footerActions, children }: Props) {
   const { tenantId } = useActiveTenant();
   const [data, setData] = useState<{ ai_suggestions: any; ai_anomaly: any; ai_extract_meta: any } | null>(null);
   const [running, setRunning] = useState(false);
@@ -45,6 +53,24 @@ export function BaniScanSummary({ invoiceId }: Props) {
   const flags: any[] = anomaly?.flags ?? [];
   const model = anomaly?.model_used ?? data?.ai_extract_meta?.model_used ?? "—";
   const proUsed = data?.ai_extract_meta?.pro_used === true;
+
+  if (compact) {
+    const issues = flags.map(f => f.reason || f.type).filter(Boolean).join(" · ");
+    const checked = Boolean(data?.ai_suggestions || anomaly);
+    return <>
+      <p className={`flex items-start gap-2 text-[13px] ${deliveryProblem || flags.length ? "text-warning" : checked ? "text-success" : "text-muted-foreground"}`}>
+        {deliveryProblem || flags.length ? <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> : checked ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : null}
+        <span>{running ? "Bani is checking…" : deliveryProblem ? deliverySummary : issues || (checked ? `Checked by Bani${deliverySummary ? ` · ${deliverySummary}` : ""} · price as usual".replace(/\"$/, "") : "Not checked by Bani yet")}</span>
+      </p>
+      {children}
+      <div className="kit-divider pt-4 flex flex-wrap items-center justify-between gap-2">
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="kit-btn"><MoreHorizontal className="h-4 w-4" />More</Button></DropdownMenuTrigger><DropdownMenuContent align="start">
+          <DropdownMenuItem disabled={running} onClick={rerun}>Re-run check</DropdownMenuItem>{moreActions}
+        </DropdownMenuContent></DropdownMenu>
+        <div className="flex flex-wrap gap-2">{footerActions}</div>
+      </div>
+    </>;
+  }
 
   return (
     <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] p-3 text-sm">
