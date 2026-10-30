@@ -1,3 +1,8 @@
+## Invoices matched to Sales records
+- [x] Reuse page top/period, kit toolbar/table and below-header underline purchasing tabs
+- [x] Centre invoice details with compact factual review, attachments and preserved actions
+- [x] Verify real October invoice (HK$616) alongside Sales records at 1280px/375px; all four tabs, selection and More menu checked; 46 focused tests passed
+
 ## Invoices layout and Documents navigation
 - [x] A: Invoices layout, period picker, summary, selection and attachment downloads; preserve all operational handlers
 - [x] B: Remove Documents page/tab and redirect old URL without deleting stored data
