@@ -1,6 +1,6 @@
 export const SALES_EVIDENCE_FIELDS = ["date", "venue", "reportNumber", "orders", "guests", "subtotal", "serviceCharge", "discount", "totalSales", "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "payme", "cash", "deliveroo", "foodpanda", "keeta", "cardTips"] as const;
 export function extractionSnapshot(raw: Record<string, unknown>) {
-  return Object.fromEntries(SALES_EVIDENCE_FIELDS.filter((field) => Object.hasOwn(raw, field)).map((field) => [field, raw[field]]));
+  return Object.fromEntries(SALES_EVIDENCE_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(raw, field)).map((field) => [field, raw[field]]));
 }
 export function fieldDifferences(original: Record<string, unknown>, saved: Record<string, unknown>) {
   return Object.fromEntries(SALES_EVIDENCE_FIELDS.filter((f) => JSON.stringify(original[f]) !== JSON.stringify(saved[f]))

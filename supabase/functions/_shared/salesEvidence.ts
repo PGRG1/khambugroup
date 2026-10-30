@@ -1,7 +1,7 @@
 import { extractionSnapshot, trustedExample } from "./salesEvidencePolicy.ts";
 
 export async function sha256(bytes: Uint8Array) {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes).buffer);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 export async function captureExtraction(admin: any, tenantId: string, userId: string, raw: Record<string, unknown>, base64: string, mime: string) {
