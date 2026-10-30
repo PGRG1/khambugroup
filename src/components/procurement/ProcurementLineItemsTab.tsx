@@ -16,7 +16,7 @@ import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
 import { mtdRange } from "@/components/revenue-overview/utils";
 import { monthSoFarLabel, iso } from "@/utils/revenueOverview";
 import { shortDay } from "@/utils/salesRecordChecks";
-import { formatDate, formatDecimal, formatTableInteger, formatTableCurrency } from "@/utils/format";
+import { formatDate, formatDecimal, formatTableInteger, formatTableCurrency, formatMonthLabel } from "@/utils/format";
 import { downloadCSV } from "@/utils/csvDownload";
 import { usePagination } from "@/components/common/data-table";
 import ProcurementInvoicesTab, { type InvoiceWorkflowControls } from "./ProcurementInvoicesTab";
@@ -50,7 +50,7 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
         fetchAllRows("invoice_line_items","*",{col:"created_at",asc:false},tenantId),
         fetchAllRows("invoices","id, invoice_number, invoice_date, supplier_id, venue, file_url",undefined,tenantId),
         fetchAllRows("suppliers","id, name",undefined,tenantId),
-        fetchAllRows("product_master","id, internal_product_name, internal_sku, external_sku",undefined,tenantId),
+        fetchAllRows("product_master","id, internal_product_name, internal_sku, external_sku, purchase_unit",undefined,tenantId),
       ]);
       const invoiceMap = new Map(invoices.map((invoice:any)=>[invoice.id,invoice]));
       const supplierMap = new Map(suppliers.map((entry:any)=>[entry.id,entry.name]));
@@ -60,7 +60,7 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
         if (!invoice) return [];
         const productId = line.product_master_id || line.standard_product_id || null;
         const product:any = productId ? productMap.get(productId) : null;
-        return [{id:line.id,invoice_id:line.invoice_id,invoice_number:invoice.invoice_number || "",invoice_date:invoice.invoice_date || "",venue:invoice.venue || "",supplier_name:String(supplierMap.get(invoice.supplier_id) || "Unknown"),description:line.description || "",quantity:Number(line.quantity)||0,unit:line.unit || "",unit_price:Number(line.unit_price)||0,total:Number(line.total)||0,product_id:productId,master_name:product?.internal_product_name || "",internal_sku:product?.internal_sku || "",external_sku:line.item_code?.trim() || product?.external_sku || "",file_url:invoice.file_url || ""}];
+        return [{id:line.id,invoice_id:line.invoice_id,invoice_number:invoice.invoice_number || "",invoice_date:invoice.invoice_date || "",venue:invoice.venue || "",supplier_name:String(supplierMap.get(invoice.supplier_id) || "Unknown"),description:line.description || "",quantity:Number(line.quantity)||0,unit:line.unit || "",purchase_unit:product?.purchase_unit || "",unit_price:Number(line.unit_price)||0,total:Number(line.total)||0,product_id:productId,master_name:product?.internal_product_name || "",internal_sku:product?.internal_sku || "",external_sku:line.item_code?.trim() || product?.external_sku || "",file_url:invoice.file_url || ""}];
       }));
     } finally { setLoading(false); }
   },[tenantId]);
@@ -75,7 +75,7 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
     return ()=>{if(timer) clearTimeout(timer); void supabase.removeChannel(channel);};
   },[tenantId,fetchRows]);
   const months = useMemo(()=>[...new Set(rows.map(row=>row.invoice_date.slice(0,7)).filter(Boolean))].sort().reverse(),[rows]);
-  const monthName = (month:string) => new Intl.DateTimeFormat("en-GB",{month:"short",year:"numeric"}).format(new Date(`${month}-01T00:00:00`));
+  const monthName = formatMonthLabel;
   const periodName = period === "MTD" ? monthSoFarLabel() : period === "all" ? "All time" : period === "custom" ? "Selected dates" : monthName(period);
   const filtered = useMemo(()=>filterRegisterLines(rows,{from:from ? iso(from):undefined,to:to ? iso(to):undefined,supplier,notLinked,search,includesVenue:scope.includesName}),[rows,from,to,supplier,notLinked,search,scope.includesName]);
   const history = useMemo(()=>rows.filter(row=>scope.includesName(row.venue)),[rows,scope.includesName]);

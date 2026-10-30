@@ -2,7 +2,7 @@ export interface PurchaseRegisterLine {
   id: string; invoice_id: string; invoice_number: string; invoice_date: string;
   venue: string; supplier_name: string; description: string; quantity: number;
   unit: string; unit_price: number; total: number; product_id: string | null;
-  master_name: string; internal_sku: string; external_sku: string; file_url: string;
+  master_name: string; internal_sku: string; external_sku: string; file_url: string; purchase_unit?: string;
 }
 export interface PurchaseRegisterItem {
   key: string; productId: string; name: string; supplier: string; unit: string;
@@ -28,7 +28,7 @@ export function median(values: number[]): number | null {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
 }
-/** Different invoice units remain separate so unlike quantities/prices are never combined. */
+/** One row per linked item; purchase-unit labels come from Items Master, without changing invoice evidence. */
 export function buildRegisterItems(lines: PurchaseRegisterLine[], history: PurchaseRegisterLine[], periodStart?: string): PurchaseRegisterItem[] {
   const start = periodStart ? new Date(`${periodStart}T00:00:00Z`) : null;
   if (start) start.setUTCDate(start.getUTCDate() - 90);
@@ -36,7 +36,7 @@ export function buildRegisterItems(lines: PurchaseRegisterLine[], history: Purch
   const grouped = new Map<string, PurchaseRegisterLine[]>();
   for (const line of lines) {
     if (!line.product_id) continue;
-    const key = `${line.product_id}|${line.unit.trim().toLowerCase()}`;
+    const key = line.product_id;
     grouped.set(key, [...(grouped.get(key) ?? []),line]);
   }
   return [...grouped].map(([key,group]) => {
@@ -47,12 +47,11 @@ export function buildRegisterItems(lines: PurchaseRegisterLine[], history: Purch
     const paid = group.filter(line => line.unit_price !== 0);
     const paidQuantity = paid.reduce((sum,line) => sum+line.quantity,0);
     const usualPrice = periodStart && historyFrom ? median(history.filter(line => line.product_id === latest.product_id
-      && line.unit.trim().toLowerCase() === latest.unit.trim().toLowerCase()
       && line.invoice_date >= historyFrom && line.invoice_date < periodStart).map(line => line.unit_price)) : null;
     return {
       key, productId: latest.product_id ?? "", name: latest.master_name || latest.description,
       supplier: [...new Set(group.map(line => line.supplier_name))].sort().join(" · "),
-      unit: latest.unit, lines: ordered, quantity, spent, lastPrice: latest.unit_price,
+      unit: latest.purchase_unit || latest.unit, lines: ordered, quantity, spent, lastPrice: latest.unit_price,
       usualPrice, change: usualPrice && usualPrice > 0 ? (latest.unit_price-usualPrice)/usualPrice*100 : null,
       freeQuantity: group.filter(line => line.unit_price === 0 && line.quantity > 0).reduce((sum,line) => sum+line.quantity,0),
       paidPrice: paidQuantity ? paid.reduce((sum,line) => sum+line.quantity*line.unit_price,0)/paidQuantity : null,

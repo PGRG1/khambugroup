@@ -24,6 +24,9 @@ describe("Purchase Register rules", () => {
     expect(item.freeQuantity).toBe(2); expect(item.quantity).toBe(6); expect(item.paidPrice).toBe(100); expect(item.overallPrice).toBeCloseTo(400/6);
   });
   it("returns no usual price without earlier evidence", () => { expect(buildRegisterItems([line()],[],"2026-09-01")[0].usualPrice).toBeNull(); });
-  it("keeps different invoice units separate", () => { expect(buildRegisterItems([line(),line({unit:"bottle"})],[],"2026-09-01")).toHaveLength(2); });
+  it("groups one row per linked item using its purchase-unit label", () => {
+    const items=buildRegisterItems([line({unit:"KG",purchase_unit:"keg",quantity:2,total:2151}),line({unit:"Keg",purchase_unit:"keg",quantity:4,total:2151})],[],"2026-09-01");
+    expect(items).toHaveLength(1); expect(items[0].unit).toBe("keg"); expect(items[0].quantity).toBe(6); expect(items[0].overallPrice).toBe(717);
+  });
   it("keeps unlinked lines available for the explicit exception filter", () => { expect(filterRegisterLines([line(),line({id:"free",product_id:null})],{notLinked:true,includesVenue:()=>true}).map(row=>row.id)).toEqual(["free"]); });
 });
