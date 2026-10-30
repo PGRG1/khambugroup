@@ -107,7 +107,20 @@ export async function matchInvoice(db: SupabaseClient, input: MatchInput, signal
     prompt: JSON.stringify({ as_of_date: input.as_of_date, context, lines: input.lines }),
   });
   // Streaming gateway leg consumed server-side; no timeout or billed retry wrapper.
-  const raw = await result.output;
+  let raw: z.infer<typeof OutputSchema> | undefined;
+  try {
+    raw = await result.output;
+  } catch (error) {
+    // Compatible Gemini responses may wrap otherwise valid JSON in a code fence.
+    // Parse the same completed response once; never bill a recovery model call.
+    const text = await result.text;
+    try {
+      raw = OutputSchema.parse(JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')));
+    } catch {
+      console.error('Matcher output validation failed', error instanceof Error ? error.name : 'unknown', 'response_chars', text.length);
+      throw new RequestError(502, 'AI returned invalid structured line decisions; evaluation stopped.');
+    }
+  }
   if (!raw) throw new RequestError(502, 'AI did not return valid line decisions.');
   const usage = await result.usage;
   const response = await result.response;
