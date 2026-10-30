@@ -1,6 +1,6 @@
 ## Invoice phone layout correction
-- [ ] Correct mobile Purchasing menu, title action, single tab strip and toolbar
-- [ ] Correct centred mobile details and verify screenshots at 375px/1280px
+- [x] Correct mobile Purchasing menu, title action, single tab strip and toolbar
+- [x] Verify real October record at 375px/1280px: screenshots, centred details, aligned controls and no horizontal overflow; 37 regression tests passed
 
 ## Scanner matcher Part B
 - [x] Finish decision cards and remove obsolete suggestion controls without changing financial workflow
