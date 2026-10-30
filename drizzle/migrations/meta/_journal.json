@@ -92,6 +92,13 @@
       "when": 1793254168910,
       "tag": "0012_purchasing_foundation_held_amount_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793323824446,
+      "tag": "0013_sales_receipt_evidence_foundation",
+      "breakpoints": true
     }
   ]
 }
