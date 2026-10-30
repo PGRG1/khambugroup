@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from "../_shared/salesEvidence.ts";
 import { z } from "npm:zod@3";
+import { receiptIntake } from "./intake.ts";
 
 const WORKFLOW = "sales_receipt_extract";
 const FIELDS = new Set(["orders","guests","subtotal","serviceCharge","discount","visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash","deliveroo","foodpanda","keeta","cardTips"]);
@@ -89,6 +90,15 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    if (body?.op === "receipt_intake") {
+      const { op, ...input } = body;
+      try {
+        const result = await receiptIntake(adminClient(), auth.user.id, input);
+        return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (error) {
+        return new Response(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "Receipt intake failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
     if (body?.op === "capture_evidence" || body?.op === "retrieve_evidence") {
       const schema = body.op === "capture_evidence"
         ? z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid(), salesRecordId: z.string().uuid() }).strict()
