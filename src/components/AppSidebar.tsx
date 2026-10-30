@@ -1,5 +1,5 @@
 import {
-  LogOut, FileText, Users, Building2, BrainCircuit,
+  LogOut, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
   Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, UserRound, Package,
@@ -467,7 +467,7 @@ export function AppSidebar() {
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
           ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
-          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
