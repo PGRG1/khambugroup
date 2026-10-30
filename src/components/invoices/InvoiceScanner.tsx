@@ -31,9 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
-import { scoreCandidates, classifyCandidates, isSuggestable, FUZZY, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
+import { scoreCandidates, normalizeText, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
 import ProductSuggestionChip from "./ProductSuggestionChip";
-import { buildBaniSuggestions, rawOptionsOf, BANI_FULL_CATALOGUE_LIMIT, BANI_MAX_OPTIONS } from "@/utils/baniLineSuggestions";
+import InvoiceMatchCard from "./InvoiceMatchCard";
+import { matcherResponseSchema, matcherCanApply, matcherSnapshot, matcherToday, needsMatcherReview, type MatcherAnswer, type MatcherOption } from "@/utils/scannerMatcher";
 import { buildReviewIssues, issueToneClasses } from "@/utils/invoiceReviewIssues";
 
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
@@ -76,7 +77,7 @@ import { buildMatchLinkPatch, buildRemoveMatchPatch, canonicalizeMatchedLinesFor
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
-import { scopePMToSupplier, resolveAiMatchScope } from "@/utils/invoiceAiMatching";
+import { scopePMToSupplier } from "@/utils/invoiceAiMatching";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
@@ -105,6 +106,11 @@ interface ProductMasterEntry {
 
 interface ScannedLineItem {
   _baniLineId?: string;
+  matcher_answer?: MatcherAnswer | null;
+  matcher_confirmed?: boolean;
+  matcher_pending?: boolean;
+  matcher_options?: MatcherOption[];
+  matcher_edit_revision?: number;
   item_code: string;
   description: string;
   /** Immutable OCR evidence used for matching and unlinking. */
@@ -351,7 +357,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  const { createProduct, fetchProducts } = useProductMaster();
+  const { createProduct, fetchProducts, products: tenantMaster } = useProductMaster();
   const [creatingLineIdx, setCreatingLineIdx] = useState<number | null>(null);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -484,13 +490,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       const others = (productMaster || []).filter((entry) => !isEntryForActiveSupplier(entry));
       if (!others.length) return null;
       if (isReturnedKegLine(line)) return null;
-      const [top] = scoreCandidates(
-        getMatchIdentity(line),
-        others,
-        undefined,
-        1,
-      );
-      return top && isSuggestable(top) ? (top.entry as ProductMasterEntry) : null;
+      const id = line.matcher_answer?.product_master_id;
+      return others.find(entry => entry.id === id) || null;
     },
     [activeSupplierName, productMaster, isEntryForActiveSupplier],
   );
@@ -600,200 +601,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     };
   }, []);
 
-  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], rawPm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
-    // Only the selected supplier's entries may match or supply master data.
-    const pm = scopePMToSupplier(rawPm, supplierName);
-    if (!pm.length) {
-      return lines.map(line => ({
-        ...line,
-        scanned_item_code: line.scanned_item_code ?? line.item_code,
-        scanned_description: line.scanned_description ?? line.description,
-        unmatched: true,
-        matched_sku: "",
-        matched_internal_name: "",
-        matched_stock_uom: "",
-        matched_purchase_uom: "",
-        matched_stock_qty_ratio: 1,
-        product_master_id: null,
-        supplier_entry_id: null,
-        sku_mismatch: false,
-        price_changed: false,
-        pm_unit_price: undefined,
-        suggestions: undefined,
-        suggestion_source: undefined,
-        auto_matched: false,
-        match_hold_reason: supplierName ? undefined : "Select a supplier first",
-      }));
-    }
-
-    return lines.map(line => {
-      let workingLine = {
-        ...line,
-        scanned_item_code: line.scanned_item_code ?? line.item_code,
-        scanned_description: line.scanned_description ?? line.description,
-      };
-      const matchInput = getMatchIdentity(workingLine);
-
-      // Returned/empty keg deposit lines may only bind to their dedicated
-      // empty-deposit product — never to the filled, stock-bearing keg.
-      if (isReturnedKegLine(workingLine)) {
-        const kegEntry = resolveReturnedKegEntry(workingLine, pm as any[]);
-        if (kegEntry) return linkEntryToLine(workingLine, kegEntry as ProductMasterEntry);
-        return {
-          ...workingLine,
-          matched_sku: "",
-          matched_internal_name: "",
-          matched_stock_uom: "",
-          matched_purchase_uom: "",
-          matched_stock_qty_ratio: 1,
-          product_master_id: null,
-          supplier_entry_id: null,
-          sku_mismatch: false,
-          unmatched: true,
-          price_changed: false,
-          pm_unit_price: undefined,
-          suggestions: undefined,
-          suggestion_source: undefined,
-          auto_matched: false,
-          review_status: "needs_review" as const,
-          match_hold_reason: "Returned keg — dedicated empty-deposit product required",
-        };
-      }
-
-      // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
-      // new/ambiguous/needs review, do not let the local fuzzy resolver silently
-      // re-match it and make the row look approved.
-      const reviewerRequiresManualAction =
-        workingLine.review_status === "needs_review" ||
-        workingLine.review_status === "possible_match" ||
-        workingLine.review_status === "new_item" ||
-        (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
-
-      if (reviewerRequiresManualAction) {
-        // Never auto-link these, but still offer "did you mean?" candidates.
-        const cands = scoreCandidates(
-          matchInput,
-          pm,
-          supplierName,
-        );
-        const cls = classifyCandidates(cands);
-        return {
-          ...workingLine,
-          matched_sku: "",
-          matched_internal_name: "",
-          matched_stock_uom: "",
-          matched_purchase_uom: "",
-          matched_stock_qty_ratio: 1,
-          sku_mismatch: false,
-          unmatched: true,
-          price_changed: false,
-          pm_unit_price: undefined,
-          suggestions: cls.suggestions,
-          suggestion_source: "local",
-          auto_matched: false,
-          match_hold_reason: cls.ambiguous
-            ? "Close alternatives"
-            : cls.top?.blockingReasons[0] || (cls.top ? "Name differs" : undefined),
-        };
-      }
-
-      // Use shared resolver to find the best match
-      const resolved = resolveExactMatch(
-        {
-          itemCode: matchInput.itemCode,
-          description: matchInput.description,
-          internalSku: workingLine.review_status === "matched" ? workingLine.matched_sku || undefined : undefined,
-        },
-        pm,
-        supplierName,
-      );
-
-      if (resolved) {
-        // Product Master is the source of truth for External SKU.
-        // When the matched supplier-scoped PM entry has empty external_sku,
-        // force the line's item_code to empty (e.g. Ming Kee has no SKUs).
-      }
-
-      if (!resolved) {
-        // No exact match — fall back to the fuzzy layer.
-        const cands = scoreCandidates(
-          matchInput,
-          pm,
-          supplierName,
-        );
-        const cls = classifyCandidates(cands);
-        if (cls.action === "auto_link" && cls.top) {
-          return linkEntryToLine(workingLine, cls.top.entry as ProductMasterEntry, cls.top.rawNameScore);
-        }
-        return {
-          ...workingLine,
-          sku_mismatch: false,
-          unmatched: true,
-          price_changed: false,
-          matched_sku: "",
-          matched_internal_name: "",
-          matched_stock_uom: "",
-          matched_purchase_uom: "",
-          matched_stock_qty_ratio: 1,
-          product_master_id: null,
-          master_price: undefined,
-          accepted_price: workingLine.accepted_price ?? "",
-          suggestions: cls.suggestions,
-          suggestion_source: "local",
-          auto_matched: false,
-          match_hold_reason: cls.ambiguous
-            ? "Close alternatives"
-            : cls.top?.blockingReasons[0] || (cls.top ? "Name differs" : undefined),
-        };
-      }
-
-
-      // SKU mismatch check
-      const scannedCode = (workingLine.scanned_item_code || workingLine.item_code || "").trim().toLowerCase();
-      const allExtSkus = pm
-        .filter(p => p.internal_sku === resolved.internal_sku)
-        .map(p => (p.external_sku || "").trim().toLowerCase())
-        .filter(Boolean);
-      const skuMatches = !scannedCode || allExtSkus.length === 0
-        || allExtSkus.some(sku =>
-          scannedCode === sku || sku.includes(scannedCode) || scannedCode.includes(sku)
-          || sku.split("|").some(seg => seg.trim() === scannedCode)
-        );
-      const skuMismatch = !!(scannedCode && allExtSkus.length > 0 && !skuMatches);
-
-      const scannedPrice = parseFloat(workingLine.unit_price) || 0;
-      const pmPrice = resolved.purchase_unit_cost ?? 0;
-      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > PRICE_VARIANCE_EPSILON;
-
-      // Seed accepted_price from master if empty/not yet set
-      const masterPrice = pmPrice > 0 ? pmPrice : undefined;
-      const existingAcc = parseFloat(workingLine.accepted_price || "");
-      const isFreeUnit = scannedPrice === 0 && (parseFloat(workingLine.quantity) || 0) > 0;
-      // Free goods must never acquire the master purchase cost.
-      const acceptedPrice = isFreeUnit
-        ? "0"
-        : (Number.isFinite(existingAcc) && (workingLine.accepted_price || "").trim() !== ""
-          ? workingLine.accepted_price!
-          : (masterPrice != null ? String(masterPrice) : ""));
-      const accNum = parseFloat(acceptedPrice);
-      const priceDisputed = !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100);
-
-      return {
-        ...linkEntryToLine(workingLine, resolved as ProductMasterEntry),
-        sku_mismatch: skuMismatch,
-        price_changed: priceChanged,
-        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
-        master_price: masterPrice,
-        accepted_price: acceptedPrice,
-        price_disputed: priceDisputed,
-        is_free_unit_line: isFreeUnit,
-        suggestions: undefined,
-        suggestion_source: undefined,
-        auto_matched: false,
-        match_hold_reason: undefined,
-      };
-    });
-  }, [linkEntryToLine]);
+  // Matching is exclusively invoice-wide; extraction and financial checks stay independent.
+  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], _pm?: ProductMasterEntry[], _supplier?: string): ScannedLineItem[] => lines.map(line => ({
+    ...line, ...buildRemoveMatchPatch(line as unknown as MatchableLine),
+    scanned_quantity: line.scanned_quantity ?? line.quantity,
+    scanned_unit_price: line.scanned_unit_price ?? line.unit_price,
+    scanned_unit: line.scanned_unit ?? line.unit,
+    suggestions: undefined, suggestion_source: undefined, auto_matched: false,
+    matcher_answer: null, matcher_confirmed: false, matcher_pending: false,
+    review_status: "needs_review" as const,
+  })), []);
 
 
   const processFile = useCallback(async (file: File) => {
@@ -934,9 +751,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const rawLineTotals: unknown[] = (raw?.line_items || []).map((li: any) => li?.total);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any, lineIdx: number) => {
-            const matchedSku = li?.matched_sku || "";
+            const matchedSku = "";
             const itemCode = li?.item_code || "";
-            const pmData = resolvePMData(itemCode, matchedSku, productMaster, canonicalSupplierName);
+            const pmData = { entry: null as ProductMasterEntry | null, internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1 };
             const supplierObj = suppliers.find((s) => s.id === supplierId) ?? { name: supplierName };
             const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
@@ -1282,7 +1099,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
-      let line = { ...lines[i], [field]: value };
+      let line = { ...lines[i], [field]: value, matcher_edit_revision: (lines[i].matcher_edit_revision || 0) + 1 };
 
       // When item_code or description changes manually, treat as free text.
       // Clear any prior PM linkage so edits stick. Re-linking happens at save time
@@ -1338,7 +1155,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         }
       }
       if (["item_code", "description", "unit_price", "matched_sku", "quantity"].includes(field)) {
-        const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
+        const flagged = [line];
         lines[i] = flagged[0];
         // Re-link deal for newly-detected free unit
         if (lines[i].is_free_unit_line && lines[i].product_master_id) {
@@ -1381,6 +1198,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     });
   };
 
+  const writeMatchFeedback = (line: ScannedLineItem, chosenId: string | null) => {
+    if (!tenantId || !current?.supplier_id || !baniEditable) return;
+    void supabase.from("match_feedback").insert({ tenant_id: tenantId, supplier_id: current.supplier_id, printed_description: line.scanned_description ?? line.description, item_code: line.scanned_item_code ?? line.item_code ?? null, unit: line.scanned_unit ?? line.unit ?? null, unit_price: Number(line.scanned_unit_price ?? line.unit_price) || 0, bani_decision: line.matcher_answer?.decision ?? "cant_tell", bani_product_id: line.matcher_answer?.product_master_id ?? null, chosen_product_id: chosenId, user_id: userId }).then(({ error }) => {
+      if (error) toast({ title: "Item linked, learning wasn't saved", description: "The invoice draft is unchanged; Bani couldn't remember this choice." });
+    });
+  };
+
   const selectProduct = (i: number, product: ProductMasterEntry) => {
     // Supplier-facing master data may never come from another supplier's entry.
     if (!isEntryForActiveSupplier(product)) {
@@ -1393,6 +1217,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       });
       return;
     }
+    const feedbackLine = current?.line_items[i];
+    if (feedbackLine) writeMatchFeedback(feedbackLine, product.id);
     if (product.supplier_entry_id) linkedEntryOverridesRef.current.set(product.supplier_entry_id, product);
     setInvoices((prev) => {
       const copy = [...prev];
@@ -1403,14 +1229,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       // Keep alternative candidates around so a wrong pick can be changed later.
       const scannedDesc = currentLine.scanned_description ?? currentLine.description;
       const scannedCode = currentLine.scanned_item_code ?? currentLine.item_code;
-      const altCandidates =
-        currentLine.suggestions && currentLine.suggestions.length
-          ? currentLine.suggestions
-          : scoreCandidates(
-              { itemCode: scannedCode, description: scannedDesc },
-              scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
-              copy[currentIdx].supplier_name,
-            ).filter((c) => !c.disqualified).slice(0, FUZZY.MAX_SUGGESTIONS);
+      const altCandidates = undefined;
       // Atomic link replacement — every link field is written in one object so the
       // extracted external name/SKU is never briefly blanked while changing match.
       lines[i] = {
@@ -1428,6 +1247,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
+        matcher_confirmed: true,
+        matcher_pending: false,
         suggestions: altCandidates,
         suggestion_source: currentLine.suggestion_source ?? "local",
         auto_matched: false,
@@ -1483,6 +1304,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   /** Remove the Product Master link only — invoice evidence and records are preserved. */
   const removeMatch = (i: number) => {
+    const feedbackLine = current?.line_items[i];
+    if (feedbackLine) writeMatchFeedback(feedbackLine, null);
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -1492,165 +1315,67 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         ...line,
         ...buildRemoveMatchPatch(line as unknown as MatchableLine),
       };
-      const candidates = scoreCandidates(
-        { itemCode: restored.scanned_item_code, description: restored.scanned_description },
-        scopePMToSupplier(productMaster, copy[currentIdx].supplier_name),
-        copy[currentIdx].supplier_name,
-      );
-      const classified = classifyCandidates(candidates);
-      lines[i] = {
-        ...restored,
-        suggestions: classified.suggestions,
-        suggestion_source: "local",
-        match_hold_reason: classified.ambiguous
-          ? "Close alternatives"
-          : classified.top?.blockingReasons[0] || (classified.top ? "Name differs" : undefined),
-      };
+      lines[i] = { ...restored, suggestions: undefined, suggestion_source: undefined, matcher_confirmed: false, matcher_pending: false, matcher_answer: null };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
   };
 
-  /** Ask the AI to match the given line indexes against a shortlist of candidates. */
-  const askAiToMatch = useCallback(async (indexes: number[], silent = false) => {
-    const inv = invoices[currentIdx];
-    if (!inv || indexes.length === 0 || !productMaster?.length) return;
-    // supplier_id is mandatory; scope by the canonical supplier record's name,
-    // never the raw OCR supplier_name.
-    const scope = resolveAiMatchScope(allSuppliers, inv, productMaster);
-    if (scope.status === "no_supplier") {
-      if (!silent) toast({ title: "No supplier selected", description: "Select the invoice supplier before AI matching.", variant: "destructive" });
-      return;
-    }
-    if (scope.status === "no_products") {
-      if (!silent) toast({ title: "No products for this supplier", description: "Add this supplier's products to Items Master before using AI matching.", variant: "destructive" });
-      return;
-    }
-    const supplierName = scope.supplierName;
-    // Strict supplier scope — the AI may only ever pick this supplier's entries.
-    const scopedPM = scope.scopedPM;
+  const matcherAttempted = useRef(new Set<string>());
+  const matcherControllers = useRef(new Set<AbortController>());
+  const matcherLive = useRef({ tenantId, userId, productMaster });
+  matcherLive.current = { tenantId, userId, productMaster };
+  useEffect(() => () => { matcherControllers.current.forEach(controller => controller.abort()); }, []);
 
-    // Small supplier catalogues go to Bani whole so abbreviations ("PS RIB",
-    // "HEIN BTL 24S") can be reasoned about; large ones get a per-line shortlist.
-    const pool = new Map<string, ProductMasterEntry>();
-    const fullCatalogue = scopedPM.length <= BANI_FULL_CATALOGUE_LIMIT;
-    if (fullCatalogue) scopedPM.forEach((p) => pool.set(p.internal_sku + "|" + (p.supplier_entry_id || p.id), p as ProductMasterEntry));
-    const items = indexes.map((idx) => {
-      const l = inv.line_items[idx];
-      if (!fullCatalogue) scoreCandidates({ itemCode: l.scanned_item_code || l.item_code, description: l.scanned_description || l.description }, scopedPM, supplierName, FUZZY.AI_SHORTLIST)
-        .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
-      return {
-        source_index: idx,
-        description: l.scanned_description || l.description,
-        item_code: l.scanned_item_code || l.item_code,
-        pack_size: l.pack_size,
-        unit: l.unit,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        supplier_name: supplierName,
-      };
-    });
-
-    const candidates = Array.from(pool.values()).map((p) => ({
-      id: p.id,
-      internal_sku: p.internal_sku,
-      internal_product_name: p.internal_product_name,
-      supplier_product_name: p.supplier_product_name,
-      item_code: p.external_sku,
-      supplier: p.supplier,
-      pack_size_norm: p.purchase_unit,
-      unit_norm: p.stock_uom,
-      stock_qty: p.stock_qty,
-      last_unit_cost: p.purchase_unit_cost,
-    }));
-    if (candidates.length === 0) {
-      if (!silent) toast({ title: "No candidates", description: "Nothing similar exists in the Items Master yet.", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke("ai-classify", {
-        body: {
-          op: "suggest_batch",
-          domain: "procurement",
-          workflow: "line_to_product",
-          tenant_id: tenantId,
-          items,
-          context: { candidates, supplier_name: supplierName },
-        },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-
-      const results: any[] = (data as any)?.results ?? [];
-      setInvoices((prev) => {
-        const copy = [...prev];
-        const lines = [...copy[currentIdx].line_items];
-        let hits = 0;
-        results.forEach((r, batchIdx) => {
-          if (!r) return;
-          const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
-          if (lineIdx == null || !lines[lineIdx]) return;
-          const line = lines[lineIdx];
-          if (!line.unmatched) return; // user already picked meanwhile
-          const raw = rawOptionsOf(r.suggestion).map((o) => ({ ...o, confidence: o.confidence ?? r.confidence }));
-          const bani = buildBaniSuggestions(raw, scopedPM as any, {
-            description: (line as any).scanned_description || line.description || "",
-            itemCode: (line as any).scanned_item_code || line.item_code,
-          }, supplierName);
-          if (!bani.length) return;
-          hits++;
-          const keys = new Set(bani.map((c) => c.entry.supplier_entry_id || c.entry.id));
-          const local = (line.suggestions || []).filter((c) => !keys.has(c.entry.supplier_entry_id || c.entry.id));
-          lines[lineIdx] = {
-            ...line,
-            suggestions: [...bani, ...local].slice(0, BANI_MAX_OPTIONS),
-            suggestion_source: "ai",
-          };
-        });
-        if (hits === 0 && !silent) toast({ title: "No likely items found", description: "Bani couldn't find a likely Items Master item. Pick one manually or add it as a new item." });
-        copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
-        return copy;
-      });
-    } catch (e: any) {
-      const msg = e?.message || String(e);
-      if (silent) return;
-      if (msg.includes("rate_limited")) toast({ title: "AI busy", description: "Rate limit reached, try again shortly.", variant: "destructive" });
-      else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
-      else toast({ title: "AI error", description: msg, variant: "destructive" });
-    }
-  }, [invoices, currentIdx, productMaster, tenantId, allSuppliers]);
-
-  const askAiForLine = async (i: number) => {
-    setAiMatchingIdx(i);
-    try { await askAiToMatch([i]); } finally { setAiMatchingIdx(null); }
-  };
-
-  const resolveAllWithAi = async (silent = false) => {
-    const inv = invoices[currentIdx];
-    if (!inv) return;
-    const idxs = inv.line_items
-      .map((l, i) => ({ l, i }))
-      .filter(({ l }) => l.unmatched && (l.description || "").trim())
-      .map(({ i }) => i);
-    if (idxs.length === 0) return;
+  const runInvoiceMatcher = useCallback(async (inv: ScannedInvoice) => {
+    if (!tenantId || !inv._baniDraftId || !inv.supplier_id || inv.saved) return;
+    const requestKey = `${tenantId}:${userId}:${inv._baniDraftId}:${inv.supplier_id}`;
+    if (matcherAttempted.current.has(requestKey)) return;
+    matcherAttempted.current.add(requestKey);
+    const originals = inv.line_items.map(line => ({ id: line._baniLineId, snapshot: matcherSnapshot(line) }));
+    const controller = new AbortController();
+    matcherControllers.current.add(controller);
+    const deadline = setTimeout(() => controller.abort(), 60000);
     setAiMatchingAll(true);
-    try { await askAiToMatch(idxs, silent); } finally { setAiMatchingAll(false); }
-  };
-
-  // After a scan, Bani looks for likely items for unmatched lines automatically
-  // (once per draft + supplier). Nothing is linked until the user picks.
-  const autoSuggestedRef = useRef(new Set<string>());
-  const currentDraftKey = current?._baniDraftId && current?.supplier_id ? `${current._baniDraftId}|${current.supplier_id}` : "";
-  const currentHasUnmatched = !!current?.line_items.some((l) => l.unmatched && (l.description || "").trim());
-  useEffect(() => {
-    if (!currentDraftKey || !currentHasUnmatched || !productMaster?.length || aiMatchingAll) return;
-    if (autoSuggestedRef.current.has(currentDraftKey)) return;
-    autoSuggestedRef.current.add(currentDraftKey);
-    void resolveAllWithAi(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDraftKey, currentHasUnmatched, productMaster?.length]);
-
+    setInvoices(previous => previous.map(invoice => invoice._baniDraftId === inv._baniDraftId ? { ...invoice, line_items: invoice.line_items.map(line => ({ ...line, matcher_pending: !line.product_master_id })) } : invoice));
+    try {
+      const { data, error } = await supabase.functions.invoke("match-invoice-lines", { signal: controller.signal, body: {
+        tenant_id: tenantId, supplier_id: inv.supplier_id, as_of_date: matcherToday(),
+        lines: inv.line_items.map((line, line_index) => ({ line_index, description: line.scanned_description ?? line.description, item_code: line.scanned_item_code ?? line.item_code ?? null, unit: line.scanned_unit ?? line.unit ?? null, quantity: Number(line.scanned_quantity ?? line.quantity) || 0, unit_price: Number(line.scanned_unit_price ?? line.unit_price) || 0, amount: Number(line.printed_amount ?? line.total) || 0 })),
+      }});
+      if (error || data?.error) throw error || new Error(data.error);
+      const response = matcherResponseSchema.parse(data);
+      if (controller.signal.aborted || matcherLive.current.tenantId !== tenantId || matcherLive.current.userId !== userId) return;
+      setInvoices(previous => previous.map(invoice => {
+        if (invoice._baniDraftId !== inv._baniDraftId || invoice.supplier_id !== inv.supplier_id || invoice.saved) return invoice;
+        return { ...invoice, line_items: invoice.line_items.map(line => {
+          const index = originals.findIndex(original => original.id === line._baniLineId);
+          if (index < 0) return line;
+          const original = originals[index];
+          const { matcher_pending: _pending, ...withoutPending } = line;
+          const baseline = { ...inv.line_items[index] };
+          delete baseline.matcher_pending;
+          if (!matcherCanApply(matcherSnapshot(baseline), withoutPending, inv.supplier_id, invoice.supplier_id, invoice.saved) || line.product_master_id) return { ...line, matcher_pending: false };
+          const answer = response.lines.find(answer => answer.line_index === index);
+          if (!answer) return { ...line, matcher_pending: false };
+          const entry = scopePMToSupplier(matcherLive.current.productMaster, invoice.supplier_name).find(entry => entry.id === answer.product_master_id);
+          const linked = answer.decision === "sure" && entry?.supplier_entry_id ? linkEntryToLine(line, entry as ProductMasterEntry) : line;
+          const effective = answer.decision === "sure" && !entry?.supplier_entry_id ? { ...answer, decision: "probably" as const, reason: "Already in Items Master, not yet linked to this supplier" } : answer;
+          return { ...linked, matcher_answer: effective, matcher_options: response.options, matcher_pending: false, matcher_confirmed: false };
+        }) };
+      }));
+    } catch {
+      if (matcherLive.current.tenantId === tenantId && matcherLive.current.userId === userId) toast({ title: "Bani couldn't finish matching", description: "Your scanned lines are unchanged. Pick items with the existing search." });
+    } finally {
+      clearTimeout(deadline);
+      matcherControllers.current.delete(controller);
+      setAiMatchingAll(false);
+      setInvoices(previous => previous.map(invoice => invoice._baniDraftId === inv._baniDraftId ? { ...invoice, line_items: invoice.line_items.map(line => ({ ...line, matcher_pending: false })) } : invoice));
+    }
+  }, [tenantId, userId, linkEntryToLine, setInvoices]);
+  useEffect(() => { for (const invoice of invoices) void runInvoiceMatcher(invoice); }, [invoices, runInvoiceMatcher]);
+  const askAiForLine = async (_i: number) => { if (current) await runInvoiceMatcher(current); };
+  const resolveAllWithAi = async (_silent = false) => { if (current) await runInvoiceMatcher(current); };
 
   // Editable Accepted Price (Items Master baseline)
   const updateLineAcceptedPrice = (i: number, value: string) => {
@@ -2398,16 +2123,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         if (!line) return previous;
         let corrected = entry ? linkEntryToLine(line, entry) : correctDraftLine(line as unknown as Record<string, unknown>, proposal, currentMode) as unknown as ScannedLineItem;
         // Matching must not dismiss independent reviewer blockers.
-        if (entry) corrected = { ...corrected, review_blocking: line.review_blocking, auto_matched: false };
+        if (entry) corrected = { ...corrected, review_blocking: line.review_blocking, auto_matched: false, matcher_confirmed: true, matcher_pending: false };
         if (corrected.is_free_unit_line && corrected.product_master_id) corrected.deal_id = findDealForProduct(activeDeals, corrected.product_master_id, invoice.invoice_date)?.id ?? null;
         const lines = [...invoice.line_items]; lines[lineIndex] = corrected;
         const copy = [...previous]; copy[draftIndex] = { ...invoice, line_items: lines };
         changed = true; return copy;
       }));
-      if (changed) baniApplied.current.add(proposal.id);
+      if (changed) { baniApplied.current.add(proposal.id); if (entry && baniSelectedLine) writeMatchFeedback(baniSelectedLine, entry.id); }
       return changed;
     },
   } : undefined;
+
+  const matcherReviewIndexes = new Set(current?.line_items.flatMap((line, index) => !line.matcher_confirmed && needsMatcherReview(line.matcher_answer) ? [index] : []) || []);
+  const matcherCheckCount = displayIssues.length + [...matcherReviewIndexes].filter(index => !displayIssues.some(issue => issue.lineIdx === index)).length + (current?.is_duplicate ? 1 : 0);
+  const renderMatcherCard = (line: ScannedLineItem, index: number) => {
+    if (line.matcher_pending) return <span className="text-muted-foreground">Bani is matching…</span>;
+    if (!line.matcher_answer || line.matcher_confirmed) return null;
+    const answer = line.matcher_answer;
+    const masterCatalogue: ProductMasterEntry[] = [...(productMaster || []), ...tenantMaster.map(item => ({ id: item.id, internal_sku: item.internal_sku, internal_product_name: item.internal_product_name, external_sku: "", supplier_product_name: "" }))];
+    const product = masterCatalogue.find(product => product.id === answer.product_master_id);
+    const scoped = scopePMToSupplier(productMaster, current?.supplier_name);
+    const pick = (id: string) => { const entry = scoped.find(entry => entry.id === id); if (entry) selectProduct(index, entry); else openFullLine(index); };
+    const quickAdd = <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={{ item_code: line.scanned_item_code ?? line.item_code, description: line.scanned_description ?? line.description, unit: line.unit, unit_price: line.unit_price }} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel={answer.decision === "cant_tell" ? "None of these: add as new item" : "Add item"} onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} />;
+    const existingAdd = product && !scoped.some(entry => entry.id === product.id) ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="existing" initialProductId={product.id} triggerLabel="Yes · add this supplier" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined;
+    return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => openFullLine(index)} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
+  };
 
   return (
     <div
@@ -2570,8 +2310,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
           <div className="flex min-w-0 items-start justify-between gap-2 py-1 text-xs" data-testid="review-summary-line">
             <span className="flex min-w-0 items-start gap-2">
-              <span aria-label={displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "Blocking" : displayIssues.length ? "Warning" : "Checked"} className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "bg-destructive" : displayIssues.length ? "bg-warning" : "bg-success")} />
-              <span className="min-w-0 break-words">{displayIssues.length || current.is_duplicate ? `${displayIssues.length + (current.is_duplicate ? 1 : 0)} to check · ${current.line_items.length} items · ${formatCurrency(displayTotal)}` : `Checked · ${displayStats?.matched || 0} items matched · nothing to fix · ${formatCurrency(displayTotal)}`}</span>
+              <span aria-label={displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "Blocking" : matcherCheckCount ? "Warning" : "Checked"} className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", displayIssues.some(issue => issue.severity === "blocking") || current.is_duplicate ? "bg-destructive" : matcherCheckCount ? "bg-warning" : "bg-success")} />
+              <span className="min-w-0 break-words">{matcherCheckCount ? `${matcherCheckCount} to check · ${current.line_items.length} items · ${formatCurrency(displayTotal)}` : `Checked · ${displayStats?.matched || 0} items matched · nothing to fix · ${formatCurrency(displayTotal)}`}</span>
             </span>
             <Button variant="link" size="sm" className="h-auto shrink-0 p-0 text-xs" aria-expanded={reviewDetailsOpen} onClick={() => setReviewDetailsOpen(open => !open)}>Review details</Button>
           </div>
@@ -2799,7 +2539,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 const status = getLineStatus(displayInvoice?.line_items[index] || line);
                 const qtyDifference = Number(line.accepted_qty ?? line.quantity) !== Number(line.quantity);
                 const blocking = issues.some(issue => issue.severity === "blocking");
-                const warning = issues.length > 0 || qtyDifference || ["warn", "review", "new", "dispute", "qtyprice"].includes(status.variant);
+                const warning = (!line.matcher_confirmed && needsMatcherReview(line.matcher_answer)) || issues.length > 0 || qtyDifference || ["warn", "review", "new", "dispute", "qtyprice"].includes(status.variant);
                 const printedName = line.scanned_description || line.description;
                 const name = line.matched_internal_name || line.description || "Unmatched item";
                 const message = issues.map(issue => issue.message).join(" · ") || (warning ? status.label : "");
@@ -2809,8 +2549,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                     <td className="break-words px-1 py-2 text-right align-top td-num">{line.quantity} <span className="font-sans text-muted-foreground">{line.matched_purchase_uom || line.unit}</span></td>
                     <td className="px-1 py-2 align-top"><Input aria-label={`Received quantity line ${index + 1}`} type="number" step="any" value={line.accepted_qty ?? line.quantity} onChange={event => updateLineReceiving(index, "accepted_qty", event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></td>
                     <td className="px-1 py-2 align-top"><Input aria-label={`Accepted price line ${index + 1}`} type="number" step="0.01" value={line.accepted_price || ""} readOnly={line.is_free_unit_line} onChange={event => updateLineAcceptedPrice(index, event.target.value)} className="h-7 min-w-0 w-full px-1 text-right text-xs td-num md:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" placeholder="—" /></td>
-                    <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={message || "OK"} className={cn("block h-2 w-2 rounded-full", blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
+                    <td className="px-0 py-3 align-top"><span aria-label={blocking ? "Blocking" : warning ? "Warning" : "OK"} title={line.matcher_answer?.reason || message || "OK"} className={cn("block h-2 w-2 rounded-full", line.matcher_answer?.decision === "not_a_product" ? "bg-muted-foreground" : blocking ? "bg-destructive" : warning ? "bg-warning" : "bg-success")} /></td>
                   </tr>
+                  {(line.matcher_answer || line.matcher_pending) && <tr><td colSpan={5} className="px-1 py-2 text-[11px]">{renderMatcherCard(line, index)}</td></tr>}
+                  {!line.matcher_answer && !line.matcher_pending && line.unmatched && <tr><td colSpan={5} className="px-1 pb-2"><Button size="sm" variant="outline" onClick={() => openFullLine(index)}>Pick item</Button></td></tr>}
                   {message && <tr><td colSpan={5} className={cn("px-1 pb-2 text-[11px]", blocking ? "text-destructive" : "text-warning")}><div className="flex min-w-0 flex-wrap items-center gap-x-2"><span className="min-w-0 flex-1 truncate" title={message}>{message}</span><Button variant="link" size="sm" className="h-auto p-0 text-[11px]" onClick={() => openFullLine(index)}>Open in full table</Button></div></td></tr>}
                 </React.Fragment>;
               })}</tbody>
@@ -2881,13 +2623,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                    // Only real conflicts (size / unit / pack / brand) raise a flag —
                    // longer supplier wording or a reference number is not a conflict.
                    const linkedMatch = line.product_master_id && line.scanned_description
-                     ? scoreCandidates(
-                         { description: line.scanned_description },
-                         (productMaster || []).filter((product) => product.id === line.product_master_id),
-                         current.supplier_name,
-                         1,
-                       )[0]
-                     : undefined;
+                     ? scoreCandidates({ description: line.scanned_description }, (productMaster || []).filter(product => product.id === line.product_master_id), current.supplier_name, 1)[0] : undefined;
                    const linkedConflict = linkedMatch?.blockingReasons?.[0];
                    
                   return (
@@ -3059,7 +2795,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               aiLoading={aiMatchingIdx === i || aiMatchingAll}
                             />
 
-                            <QuickAddProductPopover
+                            <QuickAddProductPopover disableSuggestions
                               products={(productMaster || []) as any}
                               supplierName={current?.supplier_name}
                               line={{
@@ -3075,7 +2811,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                               const crossMatch = findCrossSupplierInternal(line);
                               if (!crossMatch) return null;
                               return (
-                                <QuickAddProductPopover
+                                <QuickAddProductPopover disableSuggestions
                                   products={(productMaster || []) as any}
                                   supplierName={activeSupplierName}
                                   initialMode="existing"

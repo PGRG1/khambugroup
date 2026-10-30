@@ -52,6 +52,8 @@ interface SupplierRecord {
   is_active: boolean;
 }
 
+import type { MatcherDraft } from "@/utils/scannerMatcher";
+
 interface Props {
   products: QuickAddEntry[];
   supplierName?: string;
@@ -65,6 +67,8 @@ interface Props {
   initialProductId?: string;
   /** Optional trigger override; falls back to the default Quick add button. */
   triggerLabel?: string;
+  initialDraft?: MatcherDraft | null;
+  disableSuggestions?: boolean;
 }
 
 const productSchema = z.object({
@@ -117,6 +121,8 @@ export default function QuickAddProductPopover({
   initialMode,
   initialProductId,
   triggerLabel,
+  initialDraft,
+  disableSuggestions = false,
 }: Props) {
   const { tenantId } = useActiveTenant();
   const { items: coaAccounts } = useChartOfAccounts();
@@ -166,13 +172,14 @@ export default function QuickAddProductPopover({
   }, [products]);
 
   const bestCandidate = useMemo(() => {
+    if (disableSuggestions) return undefined;
     const candidates = scoreCandidates(
       { itemCode: line.item_code, description: line.description }, products as any, supplierName, 1,
     );
     const top = candidates[0];
     return top && top.rawNameScore >= FUZZY.SUGGEST && top.blockingReasons.length === 0
       ? top.entry as QuickAddEntry : undefined;
-  }, [products, line.item_code, line.description, supplierName]);
+  }, [products, line.item_code, line.description, supplierName, disableSuggestions]);
 
   const picked = uniqueProducts.find((product) => product.id === pickedId);
   const selectedSupplier = suppliers.find((supplier) => supplier.id === supplierId);
@@ -202,17 +209,17 @@ export default function QuickAddProductPopover({
     setCreatingSupplier(false);
     setSupplierCodeEdited(false);
     setInternalSku(nextQuickSku(products));
-    setInternalName(line.description || "");
-    setExternalSku(line.item_code || "");
+    setInternalName(initialDraft?.name || line.description || "");
+    setExternalSku(initialDraft?.supplier_code || line.item_code || "");
     setExternalName(line.description || "");
-    setPurchaseUnit(line.unit || "");
-    setPurchaseCost(line.unit_price || "");
-    setStockUom("");
-    setStockQty("1");
+    setPurchaseUnit(initialDraft?.purchase_unit || line.unit || "");
+    setPurchaseCost(initialDraft?.unit_price != null ? String(initialDraft.unit_price) : line.unit_price || "");
+    setStockUom(initialDraft?.stock_unit || "");
+    setStockQty(String(initialDraft?.units_per_purchase_unit || 1));
     setBaseUnit("g");
     setBaseQty("1");
     setPickedStockUom("");
-    setLevel1(""); setLevel2(""); setLevel3("");
+    setLevel1(initialDraft?.category || ""); setLevel2(""); setLevel3("");
     setAccountingCategory("purchases"); setFinancialTreatment("");
     setCoaId(""); setCreatesStock(true);
     setPurchaseYield("100"); setCookingYield("100");

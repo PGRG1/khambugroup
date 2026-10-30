@@ -6644,6 +6644,94 @@ export type Database = {
         }
         Relationships: []
       }
+      match_feedback: {
+        Row: {
+          bani_decision: string | null
+          bani_product_id: string | null
+          chosen_product_id: string | null
+          created_at: string
+          id: string
+          item_code: string | null
+          printed_description: string
+          supplier_id: string
+          tenant_id: string
+          unit: string | null
+          unit_price: number | null
+          user_id: string
+        }
+        Insert: {
+          bani_decision?: string | null
+          bani_product_id?: string | null
+          chosen_product_id?: string | null
+          created_at?: string
+          id?: string
+          item_code?: string | null
+          printed_description?: string
+          supplier_id: string
+          tenant_id: string
+          unit?: string | null
+          unit_price?: number | null
+          user_id: string
+        }
+        Update: {
+          bani_decision?: string | null
+          bani_product_id?: string | null
+          chosen_product_id?: string | null
+          created_at?: string
+          id?: string
+          item_code?: string | null
+          printed_description?: string
+          supplier_id?: string
+          tenant_id?: string
+          unit?: string | null
+          unit_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_feedback_bani_product_id_fkey"
+            columns: ["bani_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_feedback_bani_product_id_fkey"
+            columns: ["bani_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_feedback_chosen_product_id_fkey"
+            columns: ["chosen_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_feedback_chosen_product_id_fkey"
+            columns: ["chosen_product_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_feedback_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_item_ingredients: {
         Row: {
           created_at: string

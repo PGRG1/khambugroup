@@ -1,3 +1,10 @@
+## Active scanner matcher recovery
+- [x] A: reconcile and test existing-master fallback and new-item drafts
+- [x] B: invoice-wide scanner matching and decision cards, preserving financial workflow
+- [x] C: recover migration record and integrate tenant-scoped human feedback
+- [x] Verify approved-document scan without saving, desktop/mobile, and timing (16.6s / 34.4s)
+- [ ] Verify human feedback write/read end-to-end: manual-picker browser selector failed; no invoice saved
+
 # Roadmap
 
 ## Invoice review display clean-up

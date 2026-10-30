@@ -34,3 +34,12 @@ Deno.test('ordinary member cannot run backtest', () => assertEquals(canAdmin([{ 
 Deno.test('platform admin can run other tenant', () => assertEquals(canAdmin([{ tenant_id: 'a', role: 'platform_admin' }], 'b'), true));
 Deno.test('median uses all historical prices', () => assertEquals(median([100, 500, 105, 90, 110, 95]), 102.5));
 Deno.test('negative returned quantity is not a full product', () => assertEquals(kindOf('Guinness', -1), 'return'));
+Deno.test('Corona in master without supplier link is probably, never new', () => {
+  for (const decision of ['sure', 'probably', 'new'] as const) {
+    const result = applyChecks([{ ...line, description: 'Corona Extra' }], [{ ...prediction, decision, product_master_id: 'corona' }], [], [{ id: 'corona', name: 'Corona Extra' }])[0];
+    assertEquals(result.decision, 'probably');
+    assertEquals(result.product_master_id, 'corona');
+    assertEquals(result.reason, 'Already in Items Master, not yet linked to this supplier');
+  }
+});
+Deno.test('tenant-only deposit never maps full product', () => assertEquals(applyChecks([line], [{ ...prediction, product_master_id: 'deposit' }], [], [{ id: 'deposit', name: 'Keg deposit' }])[0].product_master_id, null));
