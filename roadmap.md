@@ -1,3 +1,7 @@
+## Purchasing phone navigation consistency
+- [x] Reuse Revenue section pills for Purchasing; keep active pills and underline tabs visible
+- [x] Signed-in 375px screenshots and computed styles match; Invoices starts active, last pill scrolls into view, no overflow, desktop row hidden. 21 navigation regressions passed with isolated Node setup (default canvas setup remains broken); build OK.
+
 ## Invoice phone layout correction
 - [x] Correct mobile Purchasing menu, title action, single tab strip and toolbar
 - [x] Verify real October record at 375px/1280px: screenshots, centred details, aligned controls and no horizontal overflow; 37 regression tests passed

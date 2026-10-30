@@ -579,7 +579,7 @@ html:not(.dark) .tenant-portal .app-atmosphere :is(.card-glass, .glass-surface, 
   -webkit-text-fill-color: hsl(var(--card-foreground));
 }
 
-html:not(.dark) .tenant-portal .app-atmosphere :is(nav[aria-label="Revenue"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
+html:not(.dark) .tenant-portal .app-atmosphere :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
 html:not(.dark) .tenant-portal .app-atmosphere .home-venue-filters button {
   background: hsl(var(--tenant-white) / 0.35);
   border: 1px solid var(--tenant-glass-border);
@@ -632,7 +632,7 @@ html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [data-sidebar="trigge
 html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [aria-label="User menu"] svg {
   color: hsl(var(--foreground));
 }
-html:not(.dark) .tenant-portal .app-bg-sage :is(nav[aria-label="Revenue"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
+html:not(.dark) .tenant-portal .app-bg-sage :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
 html:not(.dark) .tenant-portal .app-bg-sage .home-venue-filters button,
 html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-muted {
   background: hsl(var(--tenant-white) / 0.55);
