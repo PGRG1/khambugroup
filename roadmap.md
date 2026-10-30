@@ -1,3 +1,8 @@
+## Scanner matcher Part B
+- [x] Finish decision cards and remove obsolete suggestion controls without changing financial workflow
+- [x] Verify approved-document scan and human feedback without saving; desktop/mobile and real 2/10-line timings (10.4s / 18.0s)
+- [x] Run 46 focused regressions; preview checks passed
+
 ## Invoices matched to Sales records
 - [x] Reuse page top/period, kit toolbar/table and below-header underline purchasing tabs
 - [x] Centre invoice details with compact factual review, attachments and preserved actions
@@ -13,7 +18,7 @@
 - [x] B: invoice-wide scanner matching and decision cards, preserving financial workflow
 - [x] C: recover migration record and integrate tenant-scoped human feedback
 - [x] Verify approved-document scan without saving, desktop/mobile, and timing (16.6s / 34.4s)
-- [ ] Verify human feedback write/read end-to-end: manual-picker browser selector failed; no invoice saved
+- [x] Verify human feedback write/read end-to-end: manual picker linked Jim Beam and saved its original sure prediction and chosen item to match_feedback; no invoice saved
 
 # Roadmap
 
