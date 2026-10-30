@@ -200,7 +200,12 @@ function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; bord
 }
 
 
-export default function ProcurementInvoicesTab() {
+export interface InvoiceWorkflowControls {
+  upload: () => void;
+  openInvoice: (id: string) => void;
+}
+
+export default function ProcurementInvoicesTab({ renderRegister }: { renderRegister?: (controls: InvoiceWorkflowControls) => React.ReactNode } = {}) {
   const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
@@ -1914,7 +1919,7 @@ export default function ProcurementInvoicesTab() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <InvoiceTableSection
+      {renderRegister ? renderRegister({ upload: () => setScannerOpen(true), openInvoice: id => { const invoice = invoices.find(inv => inv.id === id); if (invoice) void openDetail(invoice); } }) : <InvoiceTableSection
         filtered={filtered}
         invoices={invoices}
         suppliers={suppliers}
@@ -1950,7 +1955,7 @@ export default function ProcurementInvoicesTab() {
         onUploadClick={() => setScannerOpen(true)}
         invoiceVarianceMap={invoiceVarianceMap}
         onAttachSource={(inv) => setAttachTarget(inv)}
-      />
+      />}
 
       <InvoiceAttachSourceDialog
         open={!!attachTarget}
