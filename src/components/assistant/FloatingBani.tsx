@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { recentBaniTurns } from "../../../supabase/functions/_shared/baniConversation";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";

@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
+import { baniModel, honestBaniAnswer } from "../_shared/baniConversation.ts";
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
@@ -1464,12 +1465,12 @@ Deno.serve(async (req) => {
       const toolCache = new Map<string, any>();
 
       // Models: try the primary first for better reasoning, fall back if it is rate-limited / out of credits / down
-      const PRIMARY_MODEL = "google/gemini-3.1-flash-lite";
-      const FALLBACK_MODEL = "openai/gpt-6-luna";
-      let currentModel = PRIMARY_MODEL;
+      const currentModel = baniModel(messages, !!body.attachments?.length);
+      let cardEmitted = false;
+      let writeCompleted = false;
 
       const streamContent = async (raw: string) => {
-        const content = stripToolNames(raw);
+        const content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted });
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
@@ -1521,24 +1522,18 @@ Deno.serve(async (req) => {
           if (resp.ok) break;
           lastStatus = resp.status;
           lastText = await resp.text();
-          // If Pro fails with rate-limit / credits / server error, fall back to Flash and retry once
-          if (
-            currentModel === PRIMARY_MODEL &&
-            (lastStatus === 429 || lastStatus === 402 || (lastStatus >= 500 && lastStatus <= 504))
-          ) {
-            console.warn(`Primary model failed (${lastStatus}), falling back to ${FALLBACK_MODEL}`);
-            currentModel = FALLBACK_MODEL;
-            continue;
-          }
-          if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
+          // Preserve the selected model; credits and access denials are terminal.
+          if (lastStatus !== 429 && !(lastStatus >= 500 && lastStatus <= 599)) break;
           console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
-          await sleep(600 * (attempt + 1));
+          if (attempt < 2) await sleep(Number(resp.headers.get("Retry-After")) * 1000 || 600 * 2 ** attempt);
         }
 
         if (!resp || !resp.ok) {
           const status = lastStatus || 500;
           console.error("Gateway error", status, lastText);
-          const msg =
+          let safeMessage = "";
+          try { const upstream = JSON.parse(lastText); safeMessage = upstream.message || upstream.error?.message || ""; } catch { /* Keep status-specific fallback. */ }
+          const msg = safeMessage ||
             status === 429
               ? "Rate limit hit — please wait a moment and try again."
               : status === 402
@@ -1593,8 +1588,8 @@ Deno.serve(async (req) => {
                   : tc.function.name === "propose_action"
                     ? await proposeAction(args, tenantId, user!.id)
                     : await runTool(tc.function.name, args, tenantId);
-                if (tc.function.name === "mark_venue_closed" && result?.ok) emit({ action: { type: "closures_changed" } });
-                if (tc.function.name === "propose_action" && result?.ok) emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } });
+                if (tc.function.name === "mark_venue_closed" && result?.ok) { writeCompleted = true; emit({ action: { type: "closures_changed" } }); }
+                if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
