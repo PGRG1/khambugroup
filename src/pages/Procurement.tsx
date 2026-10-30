@@ -13,7 +13,6 @@ const ProcurementLineItemsTab = lazy(() => import("@/components/procurement/Proc
 const DepositLedgerTab = lazy(() => import("@/components/procurement/DepositLedgerTab"));
 const InventoryOnHandTab = lazy(() => import("@/components/procurement/InventoryOnHandTab"));
 const MenuCostingTab = lazy(() => import("@/components/procurement/MenuCostingTab"));
-const DocumentsTab = lazy(() => import("@/components/procurement/DocumentsTab"));
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
@@ -27,7 +26,6 @@ const tabTitles: Record<string, string> = {
   "deposit-ledger": "Deposit Ledger",
   inventory: "Stock on Hand",
   "menu-costing": "Recipes & Menu Costing",
-  documents: "Documents",
 };
 
 interface ProcurementProps {
@@ -57,7 +55,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      {activeTab !== "dashboard" && activeTab !== "purchase-orders" && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
+      {activeTab !== "dashboard" && activeTab !== "purchase-orders" && activeTab !== "invoices" && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
 
 
       <Tabs value={activeTab}>
@@ -73,7 +71,6 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
           <TabsContent value="deposit-ledger"><DepositLedgerTab /></TabsContent>
           <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
           <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
-          <TabsContent value="documents"><DocumentsTab /></TabsContent>
         </Suspense>
       </Tabs>
     </div>

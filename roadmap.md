@@ -1,3 +1,8 @@
+## Invoices layout and Documents navigation
+- [x] A: Invoices layout, period picker, summary, selection and attachment downloads; preserve all operational handlers
+- [x] B: Remove Documents page/tab and redirect old URL without deleting stored data
+- [x] Verify September 2026 at 1280px/375px, detail/empty states, selected attachment download and Documents redirect; 46 focused tests passed using isolated Node setup (default suite blocked by existing canvas dependency)
+
 ## Active scanner matcher recovery
 - [x] A: reconcile and test existing-master fallback and new-item drafts
 - [x] B: invoice-wide scanner matching and decision cards, preserving financial workflow

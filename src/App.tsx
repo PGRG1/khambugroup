@@ -326,7 +326,7 @@ function App() {
                 <Route path="/procurement/deposit-ledger" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="deposit-ledger" /></ProtectedRoute>} />
                 <Route path="/procurement/inventory" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="inventory" /></ProtectedRoute>} />
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
-                <Route path="/procurement/documents" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="documents" /></ProtectedRoute>} />
+                <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
