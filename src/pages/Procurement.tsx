@@ -22,7 +22,7 @@ const tabTitles: Record<string, string> = {
   categories: "Categories & Units",
   invoices: "Invoices",
   "purchase-orders": "Purchase Orders",
-  receiving: "Goods Receipts / GRNs",
+  receiving: "Goods received",
   "line-items": "Purchase Register",
   "deposit-ledger": "Deposit Ledger",
   inventory: "Stock on Hand",
