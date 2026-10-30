@@ -15,27 +15,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Trash2, ChevronsUpDown, Database, ScanLine, Download, PackageCheck, FileText, CheckCircle2, Clock, DollarSign } from "lucide-react";
+import { Plus, X, Trash2, ChevronsUpDown, Download, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
+import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { shortDay } from "@/utils/salesRecordChecks";
+import { formatDate, formatTableCurrency, formatTableInteger, formatDecimal } from "@/utils/format";
+import ProcurementInvoicesTab, { type InvoiceWorkflowControls } from "./ProcurementInvoicesTab";
 import { cn } from "@/lib/utils";
 import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
 import { fetchAllRows } from "@/utils/fetchAllRows";
-import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { usePagination } from "@/components/common/data-table";
 import { downloadCSV } from "@/utils/csvDownload";
 import { useVenues } from "@/hooks/useVenues";
 import { DeliveryCheckDialog, type DeliveryCheckTarget } from "@/components/procurement/DeliveryCheckDialog";
 import { AlertTriangle } from "lucide-react";
 
-type GrnStatus = "draft" | "confirmed";
+type GrnStatus = "draft" | "confirmed" | "disputed";
 
 const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
 const fmtMoney = fmtMoneyWhole;
 const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
-const statusBadge = (s: GrnStatus) =>
-  s === "confirmed"
-    ? "bg-primary/10 text-primary border-primary/25"
-    : "bg-muted text-muted-foreground border-border";
+interface GrnStat { total: number; lines: number; short: number }
+const receivedQty = (r: any) => Number(r.accepted_qty ?? r.quantity_received ?? 0);
+const lineDiffers = (r: any) => r.quantity_invoiced != null && Math.abs(receivedQty(r) - Number(r.quantity_invoiced)) > 1e-9;
+/** Plain-word delivery status and its tone. */
+export function grnStatusWords(status: string, short: number): { label: string; tone: string } {
+  if (status === "draft") return { label: "Draft", tone: "text-muted-foreground" };
+  if (status === "disputed") return { label: "Disputed", tone: "text-warning" };
+  if (short > 0) return { label: `${short} line${short === 1 ? "" : "s"} short`, tone: "text-warning" };
+  return { label: "Received", tone: "text-primary" };
+}
 
 interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
@@ -76,6 +89,10 @@ interface GRNItem {
 }
 
 export default function ReceivingTab() {
+  return <ProcurementInvoicesTab renderRegister={controls => <GoodsReceived controls={controls} />} />;
+}
+
+function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
   const { user, isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
@@ -84,6 +101,8 @@ export default function ReceivingTab() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [grnTotals, setGrnTotals] = useState<Record<string, number>>({});
+  const [grnStats, setGrnStats] = useState<Record<string, GrnStat>>({});
+  const [sort, setSort] = useState("newest");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [pos, setPos] = useState<PORow[]>([]);
@@ -93,11 +112,7 @@ export default function ReceivingTab() {
 
   const [supplierFilter, setSupplierFilter] = useState("all");
   const venueScope = useVenueScope();
-  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -124,7 +139,7 @@ export default function ReceivingTab() {
     setLoading(true);
     const [grnRows, allItems, supRes, prodRes, poRes, invRows] = await Promise.all([
       fetchAllRows("goods_received_notes", "*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)", { col: "created_at", asc: false }, tenantId),
-      fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
+      fetchAllRows("grn_items", "grn_id, total, quantity_invoiced, quantity_received, accepted_qty", undefined, tenantId),
       supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").eq("tenant_id", tenantId).in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
@@ -132,10 +147,14 @@ export default function ReceivingTab() {
     ]);
     setGrns((grnRows ?? []) as any);
     const totals: Record<string, number> = {};
+    const stats: Record<string, GrnStat> = {};
     for (const r of (allItems ?? []) as any[]) {
       totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
+      const st = stats[r.grn_id] ??= { total: 0, lines: 0, short: 0 };
+      st.total += Number(r.total || 0); st.lines += 1; if (lineDiffers(r)) st.short += 1;
     }
     setGrnTotals(totals);
+    setGrnStats(stats);
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
     setProducts((prodRes.data ?? []) as Product[]);
@@ -163,15 +182,7 @@ export default function ReceivingTab() {
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? "—";
 
-  const months = useMemo(() => {
-    const set = new Set<string>();
-    grns.forEach((g) => { if (g.received_date) set.add(g.received_date.slice(0, 7)); });
-    return Array.from(set).sort().reverse();
-  }, [grns]);
-  const fmtMonth = (m: string) => {
-    const [y, mo] = m.split("-");
-    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  };
+  const period = usePeriodFilter(grns.map((g) => g.received_date || ""), "MTD");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -179,9 +190,7 @@ export default function ReceivingTab() {
       if (supplierFilter !== "all" && g.supplier_id !== supplierFilter) return false;
       if (!venueScope.includesName(g.venue)) return false;
       if (statusFilter !== "all" && g.status !== statusFilter) return false;
-      if (monthFilter !== "all" && (!g.received_date || g.received_date.slice(0, 7) !== monthFilter)) return false;
-      if (dateFrom && (!g.received_date || g.received_date < dateFrom)) return false;
-      if (dateTo && (!g.received_date || g.received_date > dateTo)) return false;
+      if (!period.inPeriod(g.received_date)) return false;
       if (q) {
         const hay = [
           g.grn_number,
@@ -193,16 +202,22 @@ export default function ReceivingTab() {
         if (!hay.includes(q)) return false;
       }
       return true;
+    }).sort((a, b) => {
+      const name = (g: GRN) => g.suppliers?.name ?? supplierName(g.supplier_id);
+      if (sort === "oldest") return (a.received_date || "").localeCompare(b.received_date || "");
+      if (sort === "value") return (grnTotals[b.id] || 0) - (grnTotals[a.id] || 0);
+      if (sort === "supplier") return name(a).localeCompare(name(b));
+      return (b.received_date || "").localeCompare(a.received_date || "") || (b.created_at || "").localeCompare(a.created_at || "");
     });
-  }, [grns, suppliers, supplierFilter, venueScope.includesName, statusFilter, monthFilter, dateFrom, dateTo, search]);
+  }, [grns, suppliers, supplierFilter, venueScope.includesName, statusFilter, period.inPeriod, search, sort, grnTotals]);
 
-  const kpis = useMemo(() => {
-    const total = filtered.length;
-    const confirmed = filtered.filter((g) => g.status === "confirmed").length;
-    const draft = filtered.filter((g) => g.status === "draft").length;
-    const value = filtered.reduce((s, g) => s + (grnTotals[g.id] || 0), 0);
-    return { total, confirmed, draft, value };
-  }, [filtered, grnTotals]);
+  const shortOf = (g: GRN) => grnStats[g.id]?.short || 0;
+  const isShort = (g: GRN) => g.status === "disputed" || shortOf(g) > 0;
+  const kpis = useMemo(() => ({
+    total: filtered.length,
+    value: filtered.reduce((s, g) => s + (grnTotals[g.id] || 0), 0),
+    short: filtered.filter(isShort).length,
+  }), [filtered, grnTotals, grnStats]);
 
   const resetForm = () => {
     setLinkedPoId(null);
@@ -363,23 +378,31 @@ export default function ReceivingTab() {
     loadAll();
   };
 
-  const filterFields: FilterField[] = [
-    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
-      options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
-    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
-      options: [
-        { value: "draft", label: "Draft" },
-        { value: "confirmed", label: "Confirmed" },
-        { value: "disputed", label: "Disputed" },
-      ], allLabel: "All Statuses" },
-    { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
-      options: months.map((m) => ({ value: m, label: fmtMonth(m) })), allLabel: "All Months" },
-    { type: "date", key: "dateFrom", label: "From", value: dateFrom, onChange: setDateFrom },
-    { type: "date", key: "dateTo", label: "To", value: dateTo, onChange: setDateTo },
-  ];
-  const resetFilters = () => {
-    setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all");
-    setMonthFilter("all"); setDateFrom(""); setDateTo("");
+  const resetFilters = () => { setSupplierFilter("all"); setStatusFilter("all"); };
+
+  const runBackfill = async () => {
+    if (!tenantId || !user) return;
+    if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
+    setBackfilling(true);
+    setBackfillProgress({ done: 0, total: 0 });
+    try {
+      const summary = await backfillGrnsFromInvoices({
+        tenantId, userId: user.id,
+        onProgress: (done, total) => setBackfillProgress({ done, total }),
+      });
+      toast.success(
+        `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
+        `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
+        { duration: 10000 },
+      );
+      if (summary.failed > 0) console.error("Backfill failures:", summary.failures);
+      loadAll();
+    } catch (e: any) {
+      toast.error(`Backfill failed: ${e?.message || String(e)}`);
+    } finally {
+      setBackfilling(false);
+      setBackfillProgress(null);
+    }
   };
 
   const handleDownload = () => downloadCSV(
@@ -408,124 +431,102 @@ export default function ReceivingTab() {
 
   const pag = usePagination(filtered, 25);
 
-  const kpiCards = [
-    { label: "Total GRNs", value: kpis.total.toLocaleString(), icon: <PackageCheck className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
-    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-warning" },
-    { label: "Total Value", value: fmtMoney(kpis.value), icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
-  ];
+  const sortOptions = [{ key: "newest", label: "Newest first", compactLabel: "Newest" }, { key: "oldest", label: "Oldest first", compactLabel: "Oldest" }, { key: "value", label: "Highest value", compactLabel: "Value" }, { key: "supplier", label: "Supplier A–Z", compactLabel: "A–Z" }];
+  const filterPanel = (
+    <FilterPanel activeCount={Number(supplierFilter !== "all") + Number(statusFilter !== "all")} onReset={resetFilters} width={320}>
+      <FilterGroup title="Supplier">
+        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+          <SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+        </Select>
+      </FilterGroup>
+      <FilterGroup title="Status">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger aria-label="Status"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="draft">Draft</SelectItem><SelectItem value="confirmed">Confirmed</SelectItem><SelectItem value="disputed">Disputed</SelectItem></SelectContent>
+        </Select>
+      </FilterGroup>
+      <FilterGroup title="Venue">
+        <p className="text-[13px] text-muted-foreground">{venueScope.label}</p>
+        <div className="flex flex-wrap gap-1.5">{venueScope.venues.map((v) => <Button key={v.id} variant="outline" size="sm" aria-pressed={venueScope.includesId(v.id)} onClick={() => venueScope.toggleVenue(v.id)}>{v.name}</Button>)}</div>
+      </FilterGroup>
+      <div className="min-[641px]:hidden"><FilterGroup title="Sort"><SortMenu value={sort} onChange={setSort} options={sortOptions} /></FilterGroup></div>
+    </FilterPanel>
+  );
+  useEffect(() => { pag.setPage(1); }, [search, supplierFilter, statusFilter, sort, period.label, venueScope.label]);
+  const rowKeys = (open: () => void) => ({ tabIndex: 0, onClick: open, onKeyDown: (e: React.KeyboardEvent) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(); } } });
+  const nameOf = (g: GRN) => g.suppliers?.name ?? supplierName(g.supplier_id);
+  const showMore = canManage || isAdmin;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpiCards.map((k) => (
-          <div key={k.label} className="glass-surface rounded-lg border border-border/60 p-3 flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
-              <div className="td-num text-xl font-bold mt-1 truncate">{k.value}</div>
+    <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
+      <RevenuePageTop title="Goods received" actionsBesideTitle period={period.control}
+        actions={showMore ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary h-9" aria-label="More"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canManage && <DropdownMenuItem onSelect={() => { resetForm(); setCreateOpen(true); }}><Plus className="h-4 w-4 mr-2" />New GRN</DropdownMenuItem>}
+              {isAdmin && <DropdownMenuItem disabled={backfilling || !tenantId || !user} onSelect={() => void runBackfill()}>
+                {backfilling ? backfillProgress && backfillProgress.total > 0 ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…` : "Backfilling…" : "Backfill"}
+              </DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : undefined} />
+      <div data-invoice-tabs-host />
+
+      <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Goods received records">
+        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">
+          <span>{period.label}</span>
+          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} deliveries · {formatTableCurrency(kpis.value)} ·</span>
+          <span className={`text-[13px] font-normal ${kpis.short > 0 ? "text-warning" : "text-muted-foreground"}`}>{formatTableInteger(kpis.short)} short</span>
+        </h2>
+        <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search supplier, invoice # or GRN #"
+          filter={filterPanel}
+          sort={<div className="max-[640px]:hidden"><SortMenu value={sort} onChange={setSort} options={sortOptions} /></div>}
+          downloadControl={<Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download goods received" title="Download CSV" onClick={handleDownload}><Download className="h-4 w-4" /></Button>} />
+
+        {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading deliveries…</p>
+          : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No deliveries match this period and filters.</p>
+          : <>
+            <ul className="min-[641px]:hidden divide-y divide-border/60" aria-label="Deliveries">
+              {pag.pageItems.map((g) => { const st = grnStatusWords(g.status, shortOf(g)); return (
+                <li key={g.id} className="px-2 py-3">
+                  <Button variant="ghost" className="block w-full h-auto p-0 text-left font-normal hover:bg-transparent" onClick={() => openDetail(g)}>
+                    <span className="flex justify-between gap-2 text-[13px]"><span className="min-w-0 whitespace-normal">{nameOf(g)}</span><span className="td-num shrink-0">{formatTableCurrency(grnTotals[g.id] || 0)}</span></span>
+                    <span className="block mt-1 text-xs text-muted-foreground whitespace-normal">{g.received_date ? shortDay(g.received_date) : "—"} · {g.invoices?.invoice_number || "No invoice"} · <span className={st.tone}>{st.label}</span></span>
+                  </Button>
+                </li>); })}
+            </ul>
+            <div className="kit hidden min-[641px]:block">
+              <table className="sales-table !w-full !table-fixed" aria-label="Deliveries table">
+                <thead><tr>
+                  <th className="sales-cell-left w-[13%]">Received</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left w-[17%]">Invoice #</th>
+                  <th className="sales-cell-right w-[9%]">Items</th><th className="sales-cell-right w-[14%]">Value</th><th className="sales-cell-left w-[14%]">Status</th>
+                </tr></thead>
+                <tbody>
+                  {pag.pageItems.map((g) => { const st = grnStatusWords(g.status, shortOf(g)); return (
+                    <tr key={g.id} className="sales-record-row" {...rowKeys(() => openDetail(g))}>
+                      <td className="sales-cell-left">{g.received_date ? shortDay(g.received_date) : "—"}</td>
+                      <td className="sales-cell-left !whitespace-normal break-words">{nameOf(g)}</td>
+                      <td className="sales-cell-left td-num !whitespace-normal break-all">{g.invoices?.invoice_number || <span className="text-muted-foreground">No invoice</span>}</td>
+                      <td className="td-num">{formatTableInteger(grnStats[g.id]?.lines || 0)}</td>
+                      <td className="td-num">{formatTableCurrency(grnTotals[g.id] || 0)}</td>
+                      <td className={`sales-cell-left ${st.tone}`}>{st.label}</td>
+                    </tr>); })}
+                </tbody>
+              </table>
             </div>
-            <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
+          </>}
+        {pag.totalPages > 1 && (
+          <div className="flex justify-between items-center gap-2 kit-divider pt-2 text-xs text-muted-foreground">
+            <span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" aria-label="Previous page" className="h-8 w-8" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" aria-label="Next page" className="h-8 w-8" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
           </div>
-        ))}
-      </div>
-
-      <DataTableShell
-        search={{ value: search, onChange: setSearch, placeholder: "Search GRN #, supplier, PO #, invoice #..." }}
-        filters={{ fields: filterFields, onReset: resetFilters }}
-        resultCount={<>Showing {filtered.length} of {grns.length} GRNs · Total: <span className="font-semibold">{fmtMoney(kpis.value)}</span></>}
-        toolbarRight={
-          <>
-            <Button size="sm" variant="outline" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9 flex-1 sm:flex-none">
-              <ScanLine className="h-4 w-4 mr-1" /> Scan Invoice
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
-              <Download className="h-4 w-4 mr-1" /> Download
-            </Button>
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-9"
-                disabled={backfilling || !tenantId || !user}
-                onClick={async () => {
-                  if (!tenantId || !user) return;
-                  if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
-                  setBackfilling(true);
-                  setBackfillProgress({ done: 0, total: 0 });
-                  try {
-                    const summary = await backfillGrnsFromInvoices({
-                      tenantId, userId: user.id,
-                      onProgress: (done, total) => setBackfillProgress({ done, total }),
-                    });
-                    toast.success(
-                      `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
-                      `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
-                      { duration: 10000 },
-                    );
-                    if (summary.failed > 0) console.error("Backfill failures:", summary.failures);
-                    loadAll();
-                  } catch (e: any) {
-                    toast.error(`Backfill failed: ${e?.message || String(e)}`);
-                  } finally {
-                    setBackfilling(false);
-                    setBackfillProgress(null);
-                  }
-                }}
-              >
-                <Database className="h-4 w-4 mr-1" />
-                {backfilling
-                  ? backfillProgress && backfillProgress.total > 0
-                    ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…`
-                    : "Backfilling…"
-                  : "Backfill"}
-              </Button>
-            )}
-            <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage} className="h-9">
-              <Plus className="h-4 w-4 mr-1" /> New GRN
-            </Button>
-          </>
-        }
-        pagination={{
-          page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
-          rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
-          onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
-          pageSizeOptions: [10, 25, 50, 100, "all"],
-        }}
-      >
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>GRN Number</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Linked PO</TableHead>
-              <TableHead>Linked Invoice</TableHead>
-              <TableHead>Received Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Total Value</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-            ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No goods received notes</TableCell></TableRow>
-            ) : pag.pageItems.map((g) => (
-              <TableRow key={g.id} className="cursor-pointer" onClick={() => openDetail(g)}>
-                <TableCell className="font-mono">{g.grn_number}</TableCell>
-                <TableCell>{g.suppliers?.name ?? supplierName(g.supplier_id)}</TableCell>
-                <TableCell>{g.venue}</TableCell>
-                <TableCell className="font-mono text-xs">{g.purchase_orders?.po_number ?? "—"}</TableCell>
-                <TableCell className="font-mono text-xs">{g.invoices?.invoice_number ?? "—"}</TableCell>
-                <TableCell>{fmtDate(g.received_date)}</TableCell>
-                <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(g.status))}>{g.status}</Badge></TableCell>
-                <TableCell className="text-right td-num">{fmtMoney(grnTotals[g.id] || 0)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </DataTableShell>
-
+        )}
+      </section>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetForm(); }}>
@@ -690,91 +691,87 @@ export default function ReceivingTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail slide-over */}
-      {selected && (
-        <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setSelected(null)}>
-          <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-background border-l border-border shadow-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between p-5 border-b border-border">
-              <div>
-                <h2 className="text-xl font-display font-semibold">{selected.grn_number}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{selected.suppliers?.name ?? supplierName(selected.supplier_id)} · {selected.venue}</p>
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => setSelected(null)}><X className="h-4 w-4" /></Button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-xs uppercase text-muted-foreground">Status</span><div><Badge variant="outline" className={cn("capitalize", statusBadge(selected.status))}>{selected.status}</Badge></div></div>
-                <div><span className="text-xs uppercase text-muted-foreground">Received</span><div>{fmtDate(selected.received_date)}</div></div>
-                <div><span className="text-xs uppercase text-muted-foreground">Linked PO</span><div className="font-mono text-xs">{selected.purchase_orders?.po_number ?? "—"}</div></div>
-                <div><span className="text-xs uppercase text-muted-foreground">Linked Invoice</span><div className="font-mono text-xs">{selected.invoices?.invoice_number ?? "—"}</div></div>
-                {selected.notes && <div className="col-span-2"><span className="text-xs uppercase text-muted-foreground">Notes</span><div>{selected.notes}</div></div>}
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {selected.status === "draft" && canManage && (
-                  <Button size="sm" onClick={confirmReceiptFromPanel}>Confirm Receipt</Button>
-                )}
-                {selected.invoice_id && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-warning/50 text-warning hover:text-warning"
-                    onClick={() =>
-                      setProblemTarget({
-                        invoiceId: selected.invoice_id!,
-                        supplierName: selected.suppliers?.name ?? supplierName(selected.supplier_id),
-                        total: grnTotals[selected.id] || 0,
-                        invoiceDate: invoices.find((i) => i.id === selected.invoice_id)?.invoice_date || selected.received_date || "",
-                        lines: selectedItems
-                          .filter((it) => it.invoice_line_item_id)
-                          .map((it) => ({
-                            invoice_line_item_id: it.invoice_line_item_id!,
-                            description: it.description || "(no description)",
-                            unit: it.unit || "each",
-                            quantity_invoiced: Number(it.quantity_invoiced) || 0,
-                            quantity_received: Number(it.quantity_received) || 0,
-                            unit_price: Number(it.unit_cost) || 0,
-                          })),
-                      })
-                    }
-                  >
-                    <AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem
-                  </Button>
-                )}
-              </div>
-
-              <div>
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Items</Label>
-                <div className="border border-border rounded-md mt-2">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Received</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead className="text-right">Unit Cost</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedItems.map((it) => (
-                        <TableRow key={it.key}>
-                          <TableCell>{it.description}</TableCell>
-                          <TableCell className="text-right td-num">{Number((it as any).accepted_qty ?? it.quantity_received)}</TableCell>
-
-                          <TableCell>{it.unit}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number((it as any).accepted_price > 0 ? (it as any).accepted_price : it.unit_cost))}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number((it as any).accepted_qty ?? it.quantity_received) * Number((it as any).accepted_price > 0 ? (it as any).accepted_price : it.unit_cost))}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+      {/* Detail dialog */}
+      <Dialog open={!!selected} onOpenChange={(o) => { if (!o) setSelected(null); }}>
+        <DialogContent className="kit sales-day-dialog bg-background max-w-[760px] grid-cols-[minmax(0,1fr)] p-0 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto">
+          {selected && (() => {
+            const diffs = selectedItems.filter(lineDiffers);
+            const st = grnStatusWords(selected.status, diffs.length);
+            const anyDiff = diffs.length > 0;
+            const price = (it: any) => Number(it.accepted_price > 0 ? it.accepted_price : it.unit_cost);
+            const qtyText = (n: number, unit: string) => `${formatDecimal(n, Number.isInteger(n) ? 0 : 2)} ${unit || ""}`.trim();
+            const diffWords = diffs.map((it: any) => {
+              const d = receivedQty(it) - Number(it.quantity_invoiced);
+              return `${it.description}: ${qtyText(Math.abs(d), it.unit)} ${d < 0 ? "short" : "extra"}`;
+            }).join(" · ");
+            return (
+              <div className="min-w-0 p-5 sm:p-7 space-y-5">
+                <div className="pr-8 space-y-1.5">
+                  <DialogTitle className="text-[16px] break-words">{nameOf(selected)}</DialogTitle>
+                  <DialogDescription className="text-[13px]">Received {selected.received_date ? formatDate(selected.received_date) : "—"} · invoice {selected.invoices?.invoice_number || "none"} · <span className={st.tone}>{st.label}</span></DialogDescription>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
+                  {[["Received", selected.received_date ? formatDate(selected.received_date) : "—"], ["Venue", selected.venue || "—"], ["Items", formatTableInteger(selectedItems.length)], ["Value", formatTableCurrency(grnTotals[selected.id] || 0)]].map(([l, v]) => (
+                    <div key={l} className="min-w-0"><p className="kit-group-h mb-1">{l}</p><p className="td-num break-words">{v}</p></div>
+                  ))}
+                </div>
+                <p className={`text-[13px] ${anyDiff ? "text-warning" : "text-primary"}`}>{anyDiff ? diffWords : "✓ Everything received as invoiced"}</p>
+                {selected.notes && <p className="text-[13px] text-muted-foreground whitespace-pre-wrap">{selected.notes}</p>}
+                <table className="w-full table-fixed text-[11px] sm:text-[12px]" aria-label="Delivery items">
+                  <thead><tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-3">Item</th>
+                    {anyDiff && <th className="text-right w-[16%]">Invoiced</th>}
+                    <th className="text-right w-[16%]">Received</th><th className="text-right w-[16%]">Price</th><th className="text-right w-[18%]">Total</th>
+                  </tr></thead>
+                  <tbody>
+                    {selectedItems.map((it: any) => (
+                      <tr key={it.key} className={`border-b border-border/50 ${lineDiffers(it) ? "text-warning" : ""}`}>
+                        <td className="py-3 pr-2 break-words">{it.description}</td>
+                        {anyDiff && <td className="text-right td-num">{it.quantity_invoiced == null ? "—" : qtyText(Number(it.quantity_invoiced), it.unit)}</td>}
+                        <td className="text-right td-num">{qtyText(receivedQty(it), it.unit)}</td>
+                        <td className="text-right td-num">{formatDecimal(price(it))}</td>
+                        <td className="text-right td-num">{formatDecimal(receivedQty(it) * price(it))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem disabled>{selected.grn_number}{selected.purchase_orders?.po_number ? ` · PO ${selected.purchase_orders.po_number}` : ""}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {selected.status === "draft" && canManage && <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={confirmReceiptFromPanel}>Confirm receipt</Button>}
+                    {selected.invoice_id && (
+                      <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={() =>
+                        setProblemTarget({
+                          invoiceId: selected.invoice_id!,
+                          supplierName: nameOf(selected),
+                          total: grnTotals[selected.id] || 0,
+                          invoiceDate: invoices.find((i) => i.id === selected.invoice_id)?.invoice_date || selected.received_date || "",
+                          lines: selectedItems
+                            .filter((it) => it.invoice_line_item_id)
+                            .map((it) => ({
+                              invoice_line_item_id: it.invoice_line_item_id!,
+                              description: it.description || "(no description)",
+                              unit: it.unit || "each",
+                              quantity_invoiced: Number(it.quantity_invoiced) || 0,
+                              quantity_received: Number(it.quantity_received) || 0,
+                              unit_price: Number(it.unit_cost) || 0,
+                            })),
+                        })
+                      }><AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem</Button>
+                    )}
+                    {selected.invoice_id && <Button className="kit-btn kit-btn-primary" onClick={() => { const id = selected.invoice_id!; setSelected(null); controls.openInvoice(id); }}>Open invoice</Button>}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <DeliveryCheckDialog
         target={problemTarget}
