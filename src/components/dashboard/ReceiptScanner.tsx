@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/utils/format";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
@@ -86,8 +87,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const setBaniSales = useFloatingBaniSales();
   const baniSay = useFloatingBaniSay();
   useEffect(() => {
-    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData } : null);
-  }, [extractedData, activeVenueNames, setBaniSales]);
+    setBaniSales(extractedData ? { record: extractedData, venues: activeVenueNames, apply: setExtractedData, note: noteBody, applyNote: setNoteBody } : null);
+  }, [extractedData, activeVenueNames, setBaniSales, noteBody]);
   useEffect(() => () => setBaniSales(null), [setBaniSales]);
   const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -99,6 +100,15 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const evidenceScanRef = useRef<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [outcome, setOutcome] = useState<SalesSaveResult | null>(null);
+  const [stage, setStage] = useState("Reading receipt…");
+  const [savedRecord, setSavedRecord] = useState<SalesRecord | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (!savedRecord) return;
+    const t = window.setTimeout(() => onCloseRef.current?.(), 1800);
+    return () => window.clearTimeout(t);
+  }, [savedRecord]);
 
   /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -124,6 +134,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
   const processFile = useCallback(async (file: File) => {
     setScanning(true);
+    setStage("Reading receipt…");
+    setSavedRecord(null);
     if (venuesLoading) {
       setPendingFile(file);
       return;
@@ -230,11 +242,13 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
       scannedRef.current = record;
       setShowDetails(false);
-      setExtractedData(record);
       setSaving(true);
-      const result = await onSave(record, file, null, evidenceScanRef.current);
+      setStage("Cross-verifying figures…");
+      const stageTimer = window.setTimeout(() => setStage(`Checking ${record.venue || "venue"} ${record.date || ""} records…`.replace("  ", " ")), 3500);
+      const result = await onSave(record, file, null, evidenceScanRef.current).finally(() => window.clearTimeout(stageTimer));
       setOutcome(result);
-      setShowDetails(true);
+      if (result.status === "saved") { setBaniSales(null); setSavedRecord(record); }
+      else { setExtractedData(record); setShowDetails(true); }
       baniSay(salesOutcomeMessage(result));
       toast({ title: result.status === "failed" ? "Receipt not saved" : result.status === "saved" ? "Sales recorded" : "Receipt needs your review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch (err) {
@@ -247,7 +261,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       setScanning(false);
       setSaving(false);
     }
-  }, [activeVenueNames, venuesLoading, baniSay, tenantId, onSave]);
+  }, [activeVenueNames, venuesLoading, baniSay, tenantId, onSave, setBaniSales]);
 
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
@@ -341,6 +355,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       associateSalesScan(extractedData, evidenceScanRef.current);
       const result = await onSave(extractedData, originalFile, noteBody.trim() ? { body: noteBody, tag: noteTag } : null, evidenceScanRef.current);
       setOutcome(result);
+      if (result.status === "saved") { setBaniSales(null); setSavedRecord(extractedData); setExtractedData(null); }
       baniSay(salesOutcomeMessage(result));
       toast({ title: result.status === "failed" ? "Receipt not saved" : result.status === "saved" ? "Sales recorded" : "Receipt needs your review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch {
@@ -374,7 +389,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       )}
 
       {/* Drop zone */}
-      {!extractedData && !scanning && !showCamera && (
+      {!extractedData && !savedRecord && !scanning && !showCamera && (
         <div className="space-y-3">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -420,7 +435,17 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       {scanning && (
         <div className="flex min-h-[320px] flex-col items-center justify-center gap-2">
           <BaniProcessingMark size={32} />
-          <p className="text-xs text-muted-foreground">Reading your receipt…</p>
+          <p className="text-xs text-muted-foreground" aria-live="polite">{stage}</p>
+        </div>
+      )}
+
+      {savedRecord && !scanning && (
+        <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-center" role="status">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success/15 text-success"><Check className="h-5 w-5" /></span>
+          <p className="text-sm font-medium text-foreground">Recorded · {savedRecord.venue} {savedRecord.date}</p>
+          <p className="td-num text-sm text-muted-foreground">{formatCurrency(savedRecord.totalSales)}</p>
+          <p className="text-xs text-muted-foreground">Verified twice and added to your sales. Nothing needed from you.</p>
+          <Button size="sm" variant="outline" onClick={() => onClose?.()}>Done</Button>
         </div>
       )}
 

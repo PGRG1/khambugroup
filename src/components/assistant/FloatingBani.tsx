@@ -65,6 +65,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const effectiveId = isAdmin && isPreviewActive ? previewUserId : user?.id;
   const { canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveId || undefined);
   const [busy, setBusy] = useState(false);
+  const [stepLabel, setStepLabel] = useState("");
   const [error, setError] = useState("");
   const [dropping, setDropping] = useState(false);
   const [drag, setDrag] = useState<Point | null>(null);
@@ -268,7 +269,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setStepLabel("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
       const attachments = attached.length ? await Promise.all(attached.map(async f => {
@@ -279,10 +280,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const sales = salesRef.current;
       if (sales && !attachments && !turn) {
         const base = sales.record;
+        setStepLabel("Checking the receipt");
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
           method: "POST", signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, messages: history, sales_review: { record: base } }),
+          body: JSON.stringify({ tenant_id: tenantId, messages: history, sales_review: { record: base, note: sales.note ?? "" } }),
         });
         const body = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(body.error || "Bani could not review this receipt.");
@@ -317,7 +319,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
           const event = JSON.parse(line.slice(6));
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
-          if (event.status && typeof event.status.label === "string") turn?.opts.onStatus?.(event.status.label);
+          if (event.status && typeof event.status.label === "string") { setStepLabel(event.status.label); turn?.opts.onStatus?.(event.status.label); }
           if (event.speak && typeof event.speak.text === "string") turn?.opts.onSpeak?.(event.speak as SpeakEvent);
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
@@ -465,12 +467,16 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               const stale = !salesDraft || JSON.stringify(salesDraft.record) !== JSON.stringify(base);
               return <div className="floating-bani-change">
                 <p className="floating-bani-change-target">{message.target}</p>
-                {message.salesChanges.map((c, i) => <p key={i} className="floating-bani-change-value td-num">{SALES_LABELS[c.field] ?? c.field}: {showSales(c.field, base[c.field as keyof typeof base])} → {showSales(c.field, preview[c.field as keyof typeof preview])}</p>)}
+                {message.salesChanges.map((c, i) => c.field === "note" ? <p key={i} className="floating-bani-change-value">Note: {String(c.value)}</p> : <p key={i} className="floating-bani-change-value td-num">{SALES_LABELS[c.field] ?? c.field}: {showSales(c.field, base[c.field as keyof typeof base])} → {showSales(c.field, preview[c.field as keyof typeof preview])}</p>)}
                 {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
                   <button type="button" className="floating-bani-apply" disabled={stale} onClick={() => {
                     const live = salesRef.current;
                     const ok = Boolean(live && JSON.stringify(live.record) === JSON.stringify(base));
-                    if (ok && live) live.apply(applySalesChanges(live.record, message.salesChanges!));
+                    if (ok && live) {
+                      live.apply(applySalesChanges(live.record, message.salesChanges!));
+                      const note = message.salesChanges!.find((c) => c.field === "note");
+                      if (note) live.applyNote?.(String(note.value));
+                    }
                     setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: ok ? "Applied to receipt — not saved" : "Receipt changed — ask Bani again" } : m));
                   }}>Apply</button>
                   <button type="button" className="floating-bani-dismiss" onClick={() => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: "Dismissed" } : m))}>Dismiss</button>
@@ -500,7 +506,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               </div>}
             </div>}
           </div>)}
-          {busy && <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>}
+          {busy && (stepLabel
+            ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel.replace(/[.…]+$/, "")}…</div>
+            : <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>)}
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
         </div>

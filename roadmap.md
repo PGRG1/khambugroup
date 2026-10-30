@@ -26,3 +26,10 @@
 - [x] received_date = invoice date (HK) for auto-GRN + problem reports
 - [x] Tests: statuses, held maths, role backfill mapping, problem quantities, nav rule
 - [x] Browser check: Invoices, Open Payables, Goods Receipts, User Access, Purchasing Overview @1280/375
+
+## Bani doing the work, live
+- [x] Live step labels in Floating Bani chat (replaces dots)
+- [x] Scanner: live steps, "Recorded" card on auto-save, auto-close, Bani draft cleared
+- [x] Sales table refreshes live (realtime + tab focus)
+- [x] Bani can propose a day note on receipt drafts; no more "press Save" prompts
+- [x] Sidebar: People before Expenses; Activity Log only under Settings
