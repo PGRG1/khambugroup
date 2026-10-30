@@ -13,7 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
+import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
+import { mtdRange } from "@/components/revenue-overview/utils";
+import { monthSoFarLabel } from "@/utils/revenueOverview";
+import { shortDay } from "@/utils/salesRecordChecks";
 import { Label } from "@/components/ui/label";
 import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning, Ban, ArrowRight } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
@@ -30,7 +35,7 @@ import DateFilter from "@/components/dashboard/DateFilter";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatCurrency, formatDate, formatTableInteger } from "@/utils/format";
+import { formatCurrency, formatDate, formatTableInteger, formatTableCurrency, formatDecimal } from "@/utils/format";
 import { invoiceDownloadFiles } from "@/utils/invoiceListDownloads";
 import { format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -41,7 +46,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
-import { uploadInvoiceSources, hasDurableAttachment, newlyCreatedPaths } from "@/utils/invoiceAttachments";
+import { uploadInvoiceSources, hasDurableAttachment, newlyCreatedPaths, parseAttachmentPaths } from "@/utils/invoiceAttachments";
 import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import InvoiceAttachSourceDialog from "@/components/invoices/InvoiceAttachSourceDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -211,9 +216,9 @@ export default function ProcurementInvoicesTab() {
   
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   
-  const [monthFilter, setMonthFilter] = useState<string>("__latest__");
-  const [periodFrom, setPeriodFrom] = useState<Date | undefined>();
-  const [periodTo, setPeriodTo] = useState<Date | undefined>();
+  const [monthFilter, setMonthFilter] = useState<string>("MTD");
+  const [periodFrom, setPeriodFrom] = useState<Date | undefined>(() => mtdRange().from);
+  const [periodTo, setPeriodTo] = useState<Date | undefined>(() => mtdRange().to);
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -390,7 +395,7 @@ export default function ProcurementInvoicesTab() {
       
       if (reviewStatusFilter !== "all" && (inv.review_status || "Approved") !== reviewStatusFilter) return false;
       
-      if (monthFilter === "custom") {
+      if (monthFilter === "custom" || monthFilter === "MTD") {
         if (!inv.invoice_date) return false;
         if (periodFrom && inv.invoice_date < format(periodFrom, "yyyy-MM-dd")) return false;
         if (periodTo && inv.invoice_date > format(periodTo, "yyyy-MM-dd")) return false;
@@ -1924,6 +1929,7 @@ export default function ProcurementInvoicesTab() {
         sortColumns={sortColumns}
         toggleSort={toggleSort}
         SortIcon={SortIcon}
+        setSortColumns={setSortColumns}
         search={search}
         setSearch={setSearch}
         supplierFilter={supplierFilter}
@@ -1954,200 +1960,44 @@ export default function ProcurementInvoicesTab() {
         onAttached={() => { setAttachTarget(null); fetchAll(); }}
       />
 
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DialogContent className="kit sales-day-dialog max-w-[760px] grid-cols-[minmax(0,1fr)] p-0 gap-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 overflow-y-auto">
           {selectedInvoice && (() => {
-            const rs = selectedInvoice.review_status || "Approved";
+            const inv = selectedInvoice;
+            const rs = inv.review_status || "Approved";
             const giByLine = new Map<string, any>();
-            for (const gi of grnItemsForInvoice) {
-              if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
-            }
-            const hasGrn = grnItemsForInvoice.length > 0;
-            let totalInv = 0, totalRecv = 0;
-            const rows = lineItems.map((line) => {
+            for (const gi of grnItemsForInvoice) if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
+            const rows = lineItems.map(line => {
               const gi = giByLine.get(line.id);
               const recvQty = gi ? Number(gi.quantity_received) : null;
-              const recvPrice = gi ? Number((gi as any).accepted_price ?? gi.unit_cost ?? line.unit_price) : null;
               const invQty = Number(line.quantity);
-              const invTotal = invQty * Number(line.unit_price);
-              const recvTotal = recvQty != null && recvPrice != null ? recvQty * recvPrice : null;
-              const variance = recvQty != null ? recvQty - invQty : null;
-              totalInv += invTotal;
-              if (recvTotal != null) totalRecv += recvTotal;
-              return { line, gi, recvQty, invQty, variance, recvTotal };
+              return { line, recvQty, invQty, variance: recvQty != null ? recvQty - invQty : null };
             });
-            const diff = totalRecv - totalInv;
-            return (
-              <>
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2 flex-wrap">
-                    <span>Invoice {selectedInvoice.invoice_number}</span>
-                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
-                      {rs}
-                    </span>
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 space-y-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={startEditing}>
-                      <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
-                    </Button>
-                    {rs !== "Voided" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-warning/50 text-warning hover:text-warning"
-                        onClick={() =>
-                          setProblemTarget({
-                            invoiceId: selectedInvoice.id,
-                            supplierName: selectedInvoice.supplier_name || "Supplier",
-                            total: Number(selectedInvoice.total_amount) || 0,
-                            invoiceDate: selectedInvoice.invoice_date,
-                            lines: lineItems.map((line) => {
-                              const gi = giByLine.get(line.id);
-                              return {
-                                invoice_line_item_id: line.id,
-                                description: line.description || "(no description)",
-                                unit: line.unit || "each",
-                                quantity_invoiced: Number(line.quantity) || 0,
-                                quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0,
-                                unit_price: Number(line.unit_price) || 0,
-                              };
-                            }),
-                          })
-                        }
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />Report a problem
-                      </Button>
-                    )}
-                    {hasDurableAttachment(selectedInvoice.file_url) ? (
-                      <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
-                        <Eye className="h-3.5 w-3.5 mr-1" />
-                        View Attachments ({selectedInvoice.file_url!.split(",").length} {selectedInvoice.file_url!.split(",").length === 1 ? "page" : "pages"})
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="border-amber-500/40 text-amber-500 hover:text-amber-400" onClick={() => setAttachTarget(selectedInvoice)}>
-                        <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                        Attachment missing — Attach source
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
-                    <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
-                    <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
-                    <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
-                    <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
-                    <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
-                  </div>
-
-                  {selectedInvoice.verified_at && (
-                    <div className="text-xs text-muted-foreground">Verified: {new Date(selectedInvoice.verified_at).toLocaleString()}</div>
-                  )}
-                  {selectedInvoice.approved_at && (
-                    <div className="text-xs text-muted-foreground">Approved: {new Date(selectedInvoice.approved_at).toLocaleString()}</div>
-                  )}
-
-                  {selectedInvoice.notes && (
-                    <div className="text-sm"><span className="text-muted-foreground">Notes:</span> {selectedInvoice.notes}</div>
-                  )}
-
-                  <BaniScanSummary invoiceId={selectedInvoice.id} />
-
-                  <div className="pt-2 space-y-2">
-                    <h4 className="text-sm font-semibold">Line Items ({lineItems.length}){hasGrn ? " + GRN" : ""}</h4>
-                    <div className="border border-border rounded overflow-hidden">
-                      <table className="table-fixed w-full text-xs">
-                        <colgroup>
-                          {hasGrn ? (
-                            <>
-                              <col className="w-[45%]" />
-                              <col className="w-[8%]" />
-                              <col className="w-[12%]" />
-                              <col className="w-[12%]" />
-                              <col className="w-[8%]" />
-                              <col className="w-[8%]" />
-                              <col className="w-[12%]" />
-                            </>
-                          ) : (
-                            <>
-                              <col className="w-[70%]" />
-                              <col className="w-[10%]" />
-                              <col className="w-[10%]" />
-                              <col className="w-[10%]" />
-                            </>
-                          )}
-                        </colgroup>
-                        <thead className="bg-muted/40">
-                          <tr className="text-left">
-                            <th className="p-1.5">Item</th>
-                            <th className="p-1.5 text-right">Qty</th>
-                            <th className="p-1.5 text-right">Unit Price</th>
-                            <th className="p-1.5 text-right">Total</th>
-                            {hasGrn && <th className="p-1.5 text-right">Recv Qty</th>}
-                            {hasGrn && <th className="p-1.5 text-right">Variance</th>}
-                            {hasGrn && <th className="p-1.5 text-right">Recv Total</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map(({ line, recvQty, invQty, variance, recvTotal }, index) => (
-                            <tr key={line.id} className={index % 2 === 0 ? "bg-muted/30" : ""}>
-                              <td className="p-1.5 truncate" title={line.description}>{line.description}</td>
-                              <td className="p-1.5 text-right tabular-nums">{invQty}</td>
-                              <td className="p-1.5 text-right tabular-nums">{fmt(line.unit_price)}</td>
-                              <td className="p-1.5 text-right tabular-nums font-medium">{fmt(invQty * line.unit_price)}</td>
-                              {hasGrn && (
-                                <td className="p-1.5 text-right tabular-nums">{recvQty ?? "—"}</td>
-                              )}
-                              {hasGrn && (
-                                <td className="p-1.5 text-right">
-                                  {variance == null ? "—" : Math.abs(variance) < 0.001 ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
-                                  ) : variance < 0 ? (
-                                    <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">{variance.toFixed(2)}</Badge>
-                                  ) : (
-                                    <Badge className="bg-red-500/20 text-red-300 border border-red-500/40 text-[10px]">+{variance.toFixed(2)}</Badge>
-                                  )}
-                                </td>
-                              )}
-                              {hasGrn && (
-                                <td className="p-1.5 text-right tabular-nums">{recvTotal != null ? fmt(recvTotal) : "—"}</td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                        {hasGrn && (
-                          <tfoot className="bg-muted/30 font-medium">
-                            <tr>
-                              <td colSpan={3} className="p-1.5 text-right">Invoiced total</td>
-                              <td className="p-1.5 text-right tabular-nums">{fmt(totalInv)}</td>
-                              <td /><td /><td />
-                            </tr>
-                            <tr>
-                              <td colSpan={3} className="p-1.5 text-right">Received total</td>
-                              <td /><td /><td />
-                              <td className="p-1.5 text-right tabular-nums">{fmt(totalRecv)}</td>
-                            </tr>
-                            <tr>
-                              <td colSpan={3} className="p-1.5 text-right">Difference</td>
-                              <td /><td /><td />
-                              <td className={`p-1.5 text-right tabular-nums ${diff < 0 ? "text-red-400" : Math.abs(diff) < 0.001 ? "text-emerald-400" : ""}`}>{fmt(diff)}</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </>
-            );
+            const changed = rows.filter(row => row.variance != null && Math.abs(row.variance) > 0.001);
+            const short = changed.filter(row => (row.variance ?? 0) < 0);
+            const held = Number((inv as any).held_amount) || 0;
+            const deliverySummary = changed.length ? changed.map(row => `${row.line.description}: ${formatDecimal(row.invQty, 0)} ${row.line.unit || ""} invoiced, ${formatDecimal(row.recvQty ?? 0, 0)} received`).join(" · ") + (held ? ` · ${formatCurrency(held)} held` : "") : grnItemsForInvoice.length ? "received as invoiced" : "delivery not recorded";
+            const statusTone = (REVIEW_BADGE[rs] || REVIEW_BADGE["Under Review"]).split(" ").filter(token => token.startsWith("text-")).join(" ");
+            return <div className="min-w-0 p-5 sm:p-7 space-y-5 text-foreground">
+              <div className="space-y-1.5 pr-8"><DialogTitle className="text-[16px] font-semibold break-words">{inv.supplier_name || "Supplier"}</DialogTitle><DialogDescription className="text-[13px]">{inv.invoice_number} · <span className={statusTone}>{rs}</span></DialogDescription></div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">{[["Date",formatDate(inv.invoice_date)],["Venue",inv.venue],["Due",inv.due_date ? formatDate(inv.due_date) : "Not set"],["Total",formatTableCurrency(Number(inv.total_amount))]].map(([label,value]) => <div key={label} className="min-w-0"><p className="kit-group-h mb-1">{label}</p><p className={label === "Total" ? "td-num font-semibold" : "break-words"}>{value}</p></div>)}</div>
+              <BaniScanSummary invoiceId={inv.id} compact deliverySummary={short.length ? `${short.length} line${short.length === 1 ? "" : "s"} short: ${deliverySummary}` : deliverySummary} deliveryProblem={changed.length > 0}
+                moreActions={<>
+                  {!hasDurableAttachment(inv.file_url) && <DropdownMenuItem onClick={() => setAttachTarget(inv)}>Attach source</DropdownMenuItem>}
+                  <DropdownMenuItem className="text-destructive" onClick={() => { setDrawerOpen(false); setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
+                </>}
+                footerActions={<>
+                  {rs !== "Voided" && <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={() => setProblemTarget({ invoiceId: inv.id, supplierName: inv.supplier_name || "Supplier", total: Number(inv.total_amount) || 0, invoiceDate: inv.invoice_date, lines: lineItems.map(line => { const gi = giByLine.get(line.id); return { invoice_line_item_id: line.id, description: line.description || "(no description)", unit: line.unit || "each", quantity_invoiced: Number(line.quantity) || 0, quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0, unit_price: Number(line.unit_price) || 0 }; }) })}>Report a problem</Button>}
+                  <Button className="kit-btn kit-btn-primary" onClick={startEditing}><Pencil className="h-4 w-4" />Edit</Button>
+                </>}>
+                <div className="overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}</td><td className="td-num text-right px-1">{formatDecimal(invQty, 0)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty, 0)}</td>}<td className="td-num text-right px-1">{formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
+                {inv.notes && <p className="text-[13px] whitespace-pre-wrap"><span className="kit-group-h">Notes</span><br />{inv.notes}</p>}
+                <InvoiceAttachmentPreview invoice={inv} onView={() => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); }} onAttach={() => setAttachTarget(inv)} />
+              </BaniScanSummary>
+            </div>;
           })()}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Invoice" description="This will permanently delete this invoice and all its line items." />
       <AttachmentViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} fileUrl={viewerFileUrl} title={viewerTitle} />
@@ -2182,6 +2032,7 @@ interface InvoiceTableSectionProps {
   sortColumns: SortColumn[];
   toggleSort: (key: string, additive: boolean) => void;
   SortIcon: React.FC<{ col: string }>;
+  setSortColumns: (value: SortColumn[]) => void;
   search: string;
   setSearch: (v: string) => void;
   supplierFilter: string;
@@ -2205,7 +2056,7 @@ interface InvoiceTableSectionProps {
 }
 
 function InvoiceTableSection({
-  filtered, suppliers, kpis, columns, toggleSort, SortIcon,
+  filtered, suppliers, kpis, columns, sortColumns, setSortColumns,
   search, setSearch, supplierFilter, setSupplierFilter,
   reviewStatusFilter, setReviewStatusFilter, monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
@@ -2215,6 +2066,8 @@ function InvoiceTableSection({
   const isMobile = useIsMobile();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const scope = useVenueScope();
   useEffect(() => { setSelectedIds(new Set()); pag.setPage(1); }, [search, supplierFilter, reviewStatusFilter, monthFilter, periodFrom, periodTo]);
   const selected = filtered.filter(inv => selectedIds.has(inv.id));
   const allSelected = filtered.length > 0 && selected.length === filtered.length;
@@ -2255,16 +2108,6 @@ function InvoiceTableSection({
     const tone = (REVIEW_BADGE[status] || REVIEW_BADGE["Under Review"]).split(" ").filter(token => token.startsWith("text-")).join(" ");
     return <span className={`text-xs font-medium ${tone}`}>{status}</span>;
   };
-  const rowActions = (inv: Invoice) => <DropdownMenu>
-    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Actions for invoice ${inv.invoice_number}`} onClick={e => e.stopPropagation()}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
-    <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-      <DropdownMenuItem onClick={() => openDetail(inv)}>Open invoice</DropdownMenuItem>
-      {inv.file_url && hasDurableAttachment(inv.file_url)
-        ? <DropdownMenuItem onClick={() => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); }}>View attachments</DropdownMenuItem>
-        : <DropdownMenuItem onClick={() => onAttachSource(inv)}>Attach source</DropdownMenuItem>}
-      <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>;
   const flags = (inv: Invoice) => {
     const issues = (inv as any).ai_anomaly?.flags || [];
     const hasVariance = invoiceVarianceMap[inv.id];
@@ -2272,38 +2115,43 @@ function InvoiceTableSection({
     const text = [...issues.map((issue: any) => `${issue.type}${issue.reason ? ` — ${issue.reason}` : ""}`), ...(hasVariance ? ["GRN variance"] : [])].join("; ");
     return <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="text-warning" tabIndex={0} aria-label={text}><AlertTriangle className="h-3.5 w-3.5" /></span></TooltipTrigger><TooltipContent className="max-w-xs text-xs">{text}</TooltipContent></Tooltip></TooltipProvider>;
   };
-  const upload = <Button onClick={onUploadClick} className="h-10 shrink-0 px-3"><ScanLine className="h-4 w-4 mr-1.5" />Upload invoice</Button>;
-  const download = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="h-10" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}Download<ChevronDown className="h-3.5 w-3.5 ml-2" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
-  const tableColumns = [
-    { key: "invoice_date", label: "Date" }, { key: "supplier_name", label: "Supplier" },
-    { key: "invoice_number", label: "Invoice #" }, { key: "total_amount", label: "Amount (HK$)" },
-    { key: "review_status", label: "Status" },
-  ];
-  return <div className="space-y-4 min-w-0">
-    <div className="flex items-center justify-between gap-2"><h1 className="text-xl sm:text-2xl font-display font-semibold">Invoices</h1><div className="flex gap-2">{download}{!isMobile && upload}</div></div>
-    <div className="flex flex-wrap items-start justify-between gap-2">
-      <DateFilter key={months.join(",")} from={periodFrom} to={periodTo}
-        onFromChange={date => { setMonthFilter("custom"); setPeriodFrom(date); }}
-        onToChange={date => { setMonthFilter("custom"); setPeriodTo(date); }}
-        months={months.map(fmtMonth)} initialPeriod={monthFilter === "all" ? "All Time" : monthFilter === "custom" ? "Custom" : fmtMonth(monthFilter)} labelled
-        onPeriodSelect={selection => { const next = selection === "All Time" ? "all" : months.find(month => fmtMonth(month) === selection); if (next) { setMonthFilter(next); setPeriodFrom(undefined); setPeriodTo(undefined); } }} />
-      {isMobile && upload}
-    </div>
-    <p className="text-xs sm:text-sm text-muted-foreground td-num" aria-label="Invoice summary">{formatTableInteger(kpis.total)} invoices · {formatCurrency(kpis.totalValue)} · {formatTableInteger(kpis.disputed)} disputed · {formatTableInteger(kpis.duplicates)} duplicates</p>
-    <div className="card-glass rounded-xl border border-border/60 overflow-hidden min-w-0">
-      <div className="flex flex-col sm:flex-row gap-2 border-b border-border/60 p-3">
-        <div className="relative flex-1 min-w-0"><Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice # or supplier" className="h-9 pl-8" /></div>
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          <Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger className="h-9 sm:w-48 min-w-0 [&>span]:truncate" aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
-          <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}><SelectTrigger className="h-9 sm:w-36 min-w-0" aria-label="Status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{Array.from(new Set([...REVIEW_STATUSES, "Under Review"])).map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select>
-        </div>
-        {(search || supplierFilter !== "all" || reviewStatusFilter !== "all") && <Button variant="ghost" size="icon" aria-label="Clear filters" className="h-9 w-9" onClick={() => { setSearch(""); setSupplierFilter("all"); setReviewStatusFilter("all"); }}><X className="h-4 w-4" /></Button>}
-      </div>
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 text-xs text-muted-foreground"><Checkbox className="!min-h-0 !h-4 w-4 shrink-0" aria-label="Select all filtered invoices" checked={allSelected} onCheckedChange={() => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(inv => inv.id)))} /><span>{selected.length ? `${formatTableInteger(selected.length)} selected` : "Select invoices"}</span>{selected.length > 0 && <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={() => setSelectedIds(new Set())}>Clear selection</Button>}</div>
+  const upload = <Button onClick={onUploadClick} className="h-10"><ScanLine className="h-4 w-4 mr-1.5" />Upload invoice</Button>;
+  const download = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download invoices" title="Download invoices" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  const periodName = monthFilter === "MTD" ? monthSoFarLabel() : monthFilter === "all" ? "All time" : monthFilter === "custom" ? "Selected dates" : fmtMonth(monthFilter);
+  const checkCount = filtered.filter(inv => inv.review_status === "Disputed" || (inv as any).ai_anomaly?.flags?.length || invoiceVarianceMap[inv.id]).length;
+  const sortKey = `${sortColumns[0]?.key || "invoice_date"}:${sortColumns[0]?.dir || "desc"}`;
+  const sortOptions = [{key:"invoice_date:desc",label:"Newest first"},{key:"invoice_date:asc",label:"Oldest first"},{key:"supplier_name:asc",label:"Supplier A–Z"},{key:"total_amount:desc",label:"Amount: highest first"},{key:"total_amount:asc",label:"Amount: lowest first"},{key:"review_status:asc",label:"Status"}];
+  return <div className="space-y-6 min-w-0">
+    <RevenuePageTop title="Invoices" period={<DateFilter from={periodFrom} to={periodTo}
+      onFromChange={date => { setMonthFilter("custom"); setPeriodFrom(date); }} onToChange={date => { setMonthFilter("custom"); setPeriodTo(date); }}
+      months={months.map(fmtMonth)} labelled includeMtd initialPeriod="MTD"
+      onPeriodSelect={selection => { if (selection === "MTD") { const range = mtdRange(); setMonthFilter("MTD"); setPeriodFrom(range.from); setPeriodTo(range.to); return; } const next = selection === "All Time" ? "all" : months.find(month => fmtMonth(month) === selection); if (next) { setMonthFilter(next); setPeriodFrom(undefined); setPeriodTo(undefined); } }} />} actions={upload} />
+    <div data-invoice-tabs-host />
+    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Invoice records">
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></h2>
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
+        filter={<FilterPanel activeCount={Number(supplierFilter !== "all") + Number(reviewStatusFilter !== "all")} onReset={() => { setSupplierFilter("all"); setReviewStatusFilter("all"); }} width={340}>
+          <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup>
+          <FilterGroup title="Status"><Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}><SelectTrigger aria-label="Status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{Array.from(new Set([...REVIEW_STATUSES,"Under Review"])).map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select></FilterGroup>
+          <FilterGroup title="Venue"><p className="text-[13px] text-muted-foreground">{scope.label}</p><div className="flex flex-wrap gap-1.5">{scope.venues.map(venue => <Button key={venue.id} variant="outline" size="sm" aria-pressed={scope.includesId(venue.id)} onClick={() => scope.toggleVenue(venue.id)}>{venue.name}</Button>)}</div></FilterGroup>
+          <FilterGroup title="Bulk actions"><Button variant="outline" className="kit-btn kit-tool-btn" aria-pressed={selectMode} onClick={() => { setSelectMode(!selectMode); if (selectMode) setSelectedIds(new Set()); }}>{selectMode ? "Finish selecting" : "Select invoices"}</Button></FilterGroup>
+        </FilterPanel>}
+        sort={<SortMenu options={sortOptions} value={sortKey} onChange={value => { const [key,dir] = value.split(":"); setSortColumns([{key,dir:dir === "asc" ? "asc" : "desc"}]); }} />}
+        downloadControl={download} />
+      {selectMode && <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label="Select all filtered invoices" checked={allSelected} onCheckedChange={() => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(inv => inv.id)))} /><span>{selected.length ? `${formatTableInteger(selected.length)} selected` : "Select invoices"}</span><Button variant="ghost" size="sm" className="ml-auto" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>Done</Button></div>}
       {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading invoices…</p> : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : isMobile ? <ul className="divide-y divide-border/60">
-        {pag.pageItems.map(inv => <li key={inv.id} className="flex items-center gap-2 px-3 py-3"><Checkbox className="!min-h-0 !h-4 w-4 shrink-0" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /><Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-sm font-medium">{inv.supplier_name || "—"}</span><span className="td-num shrink-0 text-sm">{formatCurrency(Number(inv.total_amount))}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><span>{inv.invoice_date ? formatDate(inv.invoice_date) : "—"} ·</span><span className="break-all">{inv.invoice_number} ·</span>{statusText(inv)}{flags(inv)}</span></Button>{rowActions(inv)}</li>)}
-      </ul> : <Table className="table-fixed w-full"><TableHeader><TableRow><TableHead className="w-10" />{tableColumns.map(column => <TableHead key={column.key} className={column.key === "supplier_name" ? "w-[28%]" : column.key === "total_amount" ? "text-right w-[19%]" : "w-[16%]"}><Button variant="ghost" onClick={e => toggleSort(column.key, e.shiftKey)} className={`h-auto p-0 text-xs font-medium text-muted-foreground hover:bg-transparent ${column.key === "total_amount" ? "w-full justify-end" : ""}`}>{column.label}<SortIcon col={column.key} /></Button></TableHead>)}<TableHead className="w-10" /></TableRow></TableHeader><TableBody>{pag.pageItems.map(inv => <TableRow key={inv.id} tabIndex={0} onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }} className="cursor-pointer text-sm"><TableCell onClick={e => e.stopPropagation()}><Checkbox className="!min-h-0 !h-4 w-4 shrink-0" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></TableCell><TableCell className="text-xs text-muted-foreground">{inv.invoice_date ? formatDate(inv.invoice_date) : "—"}</TableCell><TableCell className="break-words font-medium">{inv.supplier_name || "—"}</TableCell><TableCell className="td-num text-xs break-all"><span className="inline-flex flex-wrap items-center gap-1">{inv.invoice_number}{flags(inv)}</span></TableCell><TableCell className="td-num text-right whitespace-nowrap">{formatCurrency(Number(inv.total_amount))}</TableCell><TableCell>{statusText(inv)}</TableCell><TableCell onClick={e => e.stopPropagation()}>{rowActions(inv)}</TableCell></TableRow>)}</TableBody></Table>}
-      <div className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-2 text-xs text-muted-foreground"><span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
-    </div>
+        {pag.pageItems.map(inv => <li key={inv.id} className="flex items-center gap-2 px-3 min-h-11 py-2">{selectMode && <Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} />}<Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-[13px]">{inv.supplier_name || "—"}</span><span className="td-num shrink-0 text-[13px]">{formatTableCurrency(Number(inv.total_amount))}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><span>{shortDay(inv.invoice_date)} ·</span><span className="break-all">{inv.invoice_number} ·</span>{statusText(inv)}{flags(inv)}</span></Button></li>)}
+      </ul> : <div className="kit sales-table-scroll"><table className="sales-table !w-full" aria-label="Invoices"><colgroup>{selectMode && <col className="w-10" />}<col className="w-[16%]" /><col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[20%]" /><col className="w-[14%]" /></colgroup><thead><tr>{selectMode && <th /> }<th className="sales-cell-left">Date</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left">Invoice #</th><th className="sales-cell-right">Amount (HK$)</th><th className="sales-cell-left">Status</th></tr></thead><tbody>{pag.pageItems.map(inv => <tr key={inv.id} tabIndex={0} className="sales-record-row" onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }}>{selectMode && <td onClick={e => e.stopPropagation()}><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></td>}<td className="sales-cell-left">{shortDay(inv.invoice_date)}</td><td className="sales-cell-left" title={inv.supplier_name}>{inv.supplier_name || "—"}</td><td className="sales-cell-left td-num"><span className="inline-flex items-center gap-1">{inv.invoice_number}{flags(inv)}</span></td><td className="td-num">{formatTableCurrency(Number(inv.total_amount))}</td><td className="sales-cell-left">{statusText(inv)}</td></tr>)}</tbody></table></div>}
+      <div className="flex items-center justify-between gap-2 kit-divider pt-2 text-xs text-muted-foreground"><span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
+    </section>
   </div>;
+}
+
+function InvoiceAttachmentPreview({invoice,onView,onAttach}:{invoice:Invoice;onView:()=>void;onAttach:()=>void}) {
+  const [thumbnail,setThumbnail] = useState<string | null>(null);
+  const paths = parseAttachmentPaths(invoice.file_url);
+  const path = paths[0];
+  useEffect(() => { let active = true; setThumbnail(null); if (path && /\.(jpe?g|png|webp)$/i.test(path)) supabase.storage.from("invoice-files").createSignedUrl(path,300).then(({data}) => { if (active) setThumbnail(data?.signedUrl || null); }); return () => {active=false;}; },[path]);
+  if (!paths.length) return <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={onAttach}>Attachment missing · Attach source</Button>;
+  return <div className="flex items-center gap-3 text-[13px]"><Button variant="ghost" className="h-14 w-12 shrink-0 overflow-hidden border border-border p-0" onClick={onView} aria-label="View invoice attachment">{thumbnail ? <img src={thumbnail} alt="Invoice thumbnail" className="h-full w-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground" />}</Button><span>{path && /\.pdf$/i.test(path) ? "Invoice PDF" : "Invoice photo"} · {formatTableInteger(paths.length)} {paths.length === 1 ? "page" : "pages"} · <Button variant="link" className="kit-link p-0 h-auto" onClick={onView}>View</Button></span></div>;
 }
