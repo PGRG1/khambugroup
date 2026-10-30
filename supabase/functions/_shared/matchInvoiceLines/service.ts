@@ -3,7 +3,7 @@ import { streamText } from 'npm:ai@6';
 import { z } from 'npm:zod@3';
 import { jsonrepair } from 'npm:jsonrepair@3';
 import { createLovableAiGatewayProvider } from './gateway-helpers.ts';
-import { applyChecks, beforeAsOf, canAdmin, kindOf, median, supplierKey, type Candidate, type Prediction } from './policy.ts';
+import { applyChecks, beforeAsOf, buildItemDraft, canAdmin, kindOf, median, supplierKey, type Candidate, type Prediction } from './policy.ts';
 
 // The only model selection point for this isolated matcher and its backtest.
 export const MATCHER_MODEL = 'google/gemini-3.1-pro-preview';
@@ -135,7 +135,11 @@ export async function matchInvoice(db: SupabaseClient, input: MatchInput, signal
     console.error('Matcher output validation failed', error instanceof Error ? error.name : 'unknown', 'response_chars', text.length);
     throw new RequestError(502, `AI returned invalid JSON (${text.length} characters); evaluation stopped.`);
   }
-  for (const line of raw.lines) if (line.draft && !context.categories.includes(line.draft.category)) line.draft.category = null;
+  for (const prediction of raw.lines) {
+    const line = input.lines.find(line => line.line_index === prediction.line_index);
+    if (prediction.decision === 'new' && line) prediction.draft = buildItemDraft(line, prediction.draft, context.categories);
+    else prediction.draft = null;
+  }
   const usage = await result.usage;
   const response = await result.response;
   return { lines: applyChecks(input.lines, raw.lines as Prediction[], context.candidates, context.fullMaster), options: context.fullMaster.map(m => { const c = context.candidates.find(c => c.id === m.id); return { id: m.id, name: m.name, last_paid: c?.prices[0]?.price ?? null, times_bought: c?.times_bought ?? 0 }; }), usage, gateway_run_id: gateway.getRunId(), gateway_headers: response.headers, context_counts: { supplier_candidates: context.candidates.length, tenant_items: context.fullMaster.length }, temporal_policy: context.temporal_policy };
