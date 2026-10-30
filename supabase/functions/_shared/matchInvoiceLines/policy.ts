@@ -5,6 +5,19 @@ export type ItemDraft = { name: string; category: string | null; purchase_unit: 
 export type MasterItem = { id: string; name: string };
 export type Prediction = { line_index: number; decision: Decision; product_master_id: string | null; alternatives: string[]; reason: string; draft?: ItemDraft | null };
 
+/** New-item drafts retain printed evidence; unknown pack conversions stay unknown. */
+export function buildItemDraft(line: Line, draft: ItemDraft | null | undefined, categories: string[]): ItemDraft {
+  return {
+    name: draft?.name.trim() || line.description.trim(),
+    category: draft?.category && categories.includes(draft.category) ? draft.category : null,
+    purchase_unit: draft?.purchase_unit || line.unit || null,
+    stock_unit: draft?.stock_unit || null,
+    units_per_purchase_unit: draft?.units_per_purchase_unit ?? null,
+    unit_price: draft?.unit_price ?? (line.unit_price >= 0 ? line.unit_price : null),
+    supplier_code: draft?.supplier_code || line.item_code || null,
+  };
+}
+
 export const normalizeUnit = (s: string | null | undefined) => (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 export const supplierKey = (s: string) => s.toLowerCase().replace(/[\r\n\t]+/g, ' ').replace(/[^a-z0-9\u4e00-\u9fff]+/g, ' ').replace(/\s+/g, ' ').trim();
 export function kindOf(description: string, quantity?: number): string {

@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { applyChecks, beforeAsOf, canAdmin, kindOf, median, type Candidate, type Line, type Prediction } from './policy.ts';
+import { applyChecks, beforeAsOf, buildItemDraft, canAdmin, kindOf, median, type Candidate, type Line, type Prediction } from './policy.ts';
 const candidate: Candidate = { id: 'item-a', name: 'Guinness', kind: 'product', units: ['case'], prices: [], median_price: 100, descriptions: [], codes: [], times_bought: 6, last_bought: '2026-01-01', pack: '24 cans' };
 const line: Line = { line_index: 0, description: 'Guinness', item_code: null, unit: 'case', quantity: 2, unit_price: 100, amount: 200 };
 const prediction: Prediction = { line_index: 0, decision: 'sure', product_master_id: 'item-a', alternatives: [], reason: 'Same unit and price as 6 previous lines.' };
@@ -43,3 +43,14 @@ Deno.test('Corona in master without supplier link is probably, never new', () =>
   }
 });
 Deno.test('tenant-only deposit never maps full product', () => assertEquals(applyChecks([line], [{ ...prediction, product_master_id: 'deposit' }], [], [{ id: 'deposit', name: 'Keg deposit' }])[0].product_master_id, null));
+Deno.test('new item always has a draft using printed unit price and supplier code', () => {
+  assertEquals(buildItemDraft({ ...line, item_code: 'NEW-24' }, null, ['Beverages']), {
+    name: 'Guinness', category: null, purchase_unit: 'case', stock_unit: null,
+    units_per_purchase_unit: null, unit_price: 100, supplier_code: 'NEW-24',
+  });
+});
+Deno.test('draft category must be an existing category and visible pack conversion is retained', () => {
+  const draft = { name: 'New lager', category: 'Beverages', purchase_unit: 'case', stock_unit: 'bottle', units_per_purchase_unit: 24, unit_price: 100, supplier_code: 'L24' };
+  assertEquals(buildItemDraft(line, draft, ['Beverages']), draft);
+  assertEquals(buildItemDraft(line, { ...draft, category: 'Invented' }, ['Beverages']).category, null);
+});
