@@ -5,7 +5,6 @@ export const PURCHASE_ORDERS_URL = "/procurement/purchase-orders";
 export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Overview", url: "/procurement/dashboard" },
   { title: "Purchase Orders", url: PURCHASE_ORDERS_URL },
-  { title: "Goods Receipts / GRNs", url: "/procurement/receiving" },
   { title: "Invoices", url: "/procurement/invoices" },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
   { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
@@ -33,6 +32,7 @@ export const purchasingTabGroups: PurchasingTab[][] = [
     { title: "Documents", url: "/procurement/documents" },
     { title: "Purchase Register", url: "/procurement/line-items" },
     { title: "Credit & Debit Notes", url: "/procurement/credit-notes", adminOnly: true },
+    { title: "Goods received", url: "/procurement/receiving" },
   ],
   [
     { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
