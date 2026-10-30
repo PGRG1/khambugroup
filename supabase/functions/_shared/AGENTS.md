@@ -1,3 +1,4 @@
 # Sales scan evidence
 - `salesEvidence.ts` stores server-original extractions and reads saved values through a service-only atomic RPC; callers cannot provide snapshots or promote trust, so corrections stay auditable rather than instructions.
 - Retrieval requires tenant/venue permissions, independent field evidence and the unchanged source hash; it is explicit opt-in and never wired into existing prompts in Step 1.
+- Receipt intake is service-written under revalidated tenant/venue roles, immutable source hashes and an atomic idempotent RPC; arithmetic/model confidence never authorise financial posting. Bani history is bounded by whole turns and final claims require actual card/write outcomes.
