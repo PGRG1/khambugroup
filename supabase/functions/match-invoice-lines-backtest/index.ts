@@ -3,7 +3,7 @@ import { z } from 'npm:zod@3';
 import { allRows, authorize, InputSchema, matchInvoice, RequestError, safeError, MATCHER_MODEL } from '../_shared/matchInvoiceLines/service.ts';
 import { randomSample, summarize, type ResultRow } from './report.ts';
 
-const Body = z.object({ tenant_id: z.string().uuid(), sample_size: z.number().int().min(1).max(50).default(50) }).strict();
+const Body = z.object({ tenant_id: z.string().uuid(), sample_size: z.number().int().min(1).max(50).default(50), resume: z.object({ run_id: z.string().uuid(), invoice_ids: z.array(z.string().uuid()).min(1).max(50) }).optional() }).strict();
 type Invoice = { id: string; supplier_id: string; invoice_date: string; invoice_number: string };
 type SavedLine = { id: string; description: string; scanned_description: string | null; item_code: string | null; scanned_item_code: string | null; unit: string | null; quantity: number; unit_price: number; total: number; printed_amount: number | null; product_master_id: string | null };
 
@@ -18,20 +18,29 @@ Deno.serve(async req => {
     const tenantId = parsed.data.tenant_id;
     const eligible = await allRows<Invoice>((a, b) => admin.from('invoices').select('id,supplier_id,invoice_date,invoice_number').eq('tenant_id', tenantId).in('review_status', ['Approved', 'Disputed']).order('id').range(a, b));
     if (eligible.length < parsed.data.sample_size) throw new RequestError(400, `Only ${eligible.length} eligible invoices exist.`);
-    const invoices = randomSample(eligible, parsed.data.sample_size);
+    const resume = parsed.data.resume;
+    const invoices = resume ? resume.invoice_ids.map(id => {
+      const invoice = eligible.find(i => i.id === id);
+      if (!invoice) throw new RequestError(400, 'Resume invoice is not eligible in this tenant.');
+      return invoice;
+    }) : randomSample(eligible, parsed.data.sample_size);
     // This is an evaluation identifier, not a gateway run ID. Gateway IDs are only gateway-issued.
-    const runId = crypto.randomUUID();
+    const runId = resume?.run_id ?? crypto.randomUUID();
+    const existing = await allRows<ResultRow>((a, b) => admin.from('match_backtest_results').select('invoice_id,line_id,expected_product_id,predicted_product_id,alternatives,decision,reason,correct').eq('tenant_id', tenantId).eq('run_id', runId).order('line_id').range(a, b));
+    const completedIds = new Set(existing.map(r => r.invoice_id));
+    const remaining = invoices.filter(i => !completedIds.has(i.id));
     const encoder = new TextEncoder();
     const body = new ReadableStream({
       async start(controller) {
         const emit = (data: unknown) => controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
-        const rows: ResultRow[] = [];
+        const rows: ResultRow[] = [...existing];
         const calls: unknown[] = [];
-        let completed = 0;
+        let completed = completedIds.size;
         emit({ event: 'started', run_id: runId, model: MATCHER_MODEL, eligible_invoices: eligible.length, invoice_ids: invoices.map(i => i.id) });
         try {
           // One invoice-wide call at a time; terminal failures stop the entire run, never substitute or retry.
-          for (const invoice of invoices) {
+          // Checkpoint after two invoices to stay within edge execution lifetime.
+          for (const invoice of remaining.slice(0, 2)) {
             if (req.signal.aborted) throw new RequestError(499, 'Backtest cancelled.');
             emit({ event: 'processing', invoice_id: invoice.id, invoice_number: invoice.invoice_number });
             const lines = await allRows<SavedLine>((a, b) => admin.from('invoice_line_items').select('id,description,scanned_description,item_code,scanned_item_code,unit,quantity,unit_price,total,printed_amount,product_master_id').eq('tenant_id', tenantId).eq('invoice_id', invoice.id).order('id').range(a, b));
@@ -53,7 +62,7 @@ Deno.serve(async req => {
           }
           // Read back persisted results rather than report a success inferred from model output.
           const persisted = await allRows<ResultRow>((a, b) => admin.from('match_backtest_results').select('invoice_id,line_id,expected_product_id,predicted_product_id,alternatives,decision,reason,correct').eq('tenant_id', tenantId).eq('run_id', runId).order('line_id').range(a, b));
-          emit({ event: 'complete', run_id: runId, invoices_completed: completed, ...summarize(persisted), calls, temporal_policy: 'Strictly pre-invoice-date evidence. Later mutable master fields reconstructed from earlier invoice lines or omitted; master rows created later are excluded.' });
+          emit({ event: completed < invoices.length ? 'checkpoint' : 'complete', run_id: runId, resume: { run_id: runId, invoice_ids: invoices.map(i => i.id) }, invoices_completed: completed, ...summarize(persisted), calls, temporal_policy: 'Strictly pre-invoice-date evidence. Later mutable master fields reconstructed from earlier invoice lines or omitted; master rows created later are excluded.' });
         } catch (error) {
           const failure = safeError(error);
           emit({ event: 'error', status: failure.status, error: failure.error, run_id: runId, invoices_completed: completed, partial_report: summarize(rows), calls });
