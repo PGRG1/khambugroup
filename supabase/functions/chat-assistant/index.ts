@@ -1533,14 +1533,14 @@ Deno.serve(async (req) => {
           console.error("Gateway error", status, lastText);
           let safeMessage = "";
           try { const upstream = JSON.parse(lastText); safeMessage = upstream.message || upstream.error?.message || ""; } catch { /* Keep status-specific fallback. */ }
-          const msg = safeMessage ||
+          const msg = safeMessage || (
             status === 429
               ? "Rate limit hit — please wait a moment and try again."
               : status === 402
                 ? "AI credits exhausted. Please add funds in Settings → Workspace → Usage."
                 : status >= 502 && status <= 504
                   ? "AI service is temporarily unavailable. Please try again in a moment."
-                  : "AI gateway error.";
+                  : "AI gateway error.");
           emit({ error: msg });
           finish();
           return;

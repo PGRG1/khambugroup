@@ -152,6 +152,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     setExtractedData(null);
     setOutcome(null);
     evidenceScanRef.current = null;
+    scannedRef.current = null;
     setOriginalFile(file);
 
     try {
@@ -251,8 +252,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const autoStarted = useRef<File | null>(null);
   useEffect(() => {
     const file = pendingFile ?? initialFile;
-    if (file && shouldAutoProcessInitialFile({ initialFile: file, venuesLoading, alreadyStarted: pendingFile ? null : autoStarted.current })) {
-      autoStarted.current = initialFile ?? null;
+    if (file && shouldAutoProcessInitialFile({ initialFile: file, venuesLoading, alreadyStarted: autoStarted.current })) {
+      autoStarted.current = file;
       setPendingFile(null);
       processFile(file);
     }
