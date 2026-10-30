@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { streamText, Output } from 'npm:ai@5';
+import { streamText, Output } from 'npm:ai@6';
 import { z } from 'npm:zod@3';
 import { createLovableAiGatewayProvider } from './gateway-helpers.ts';
 import { applyChecks, beforeAsOf, canAdmin, kindOf, median, supplierKey, type Candidate, type Prediction } from './policy.ts';
