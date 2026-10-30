@@ -1,3 +1,8 @@
+## Purchase Register redesign
+- [ ] Match Invoices layout, reuse scanner/detail workflow, scope by invoice venue and preserve realtime/export/attachments
+- [ ] Add 50-line pagination, optional columns and By item summaries/dialog with previous-90-day median and free-unit math
+- [ ] Test concrete calculations and verify September KHAMBU at 1280px/375px without saving
+
 ## Purchasing phone navigation consistency
 - [x] Reuse Revenue section pills for Purchasing; keep active pills and underline tabs visible
 - [x] Signed-in 375px screenshots and computed styles match; Invoices starts active, last pill scrolls into view, no overflow, desktop row hidden. 21 navigation regressions passed with isolated Node setup (default canvas setup remains broken); build OK.
