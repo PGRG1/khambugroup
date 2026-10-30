@@ -2725,7 +2725,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                             </Button>
                           </div>
                         )}
-                        {!line.unmatched && line.product_master_id && <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => { removeMatch(i); openProductSearch(i); }}>Change match</Button>}
+
 
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
