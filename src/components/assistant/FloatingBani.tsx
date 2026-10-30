@@ -263,7 +263,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     // procurement") can refer to an earlier turn's attachments.
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
-    const history = [...messages.map(m => withNames(m.role, m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))].slice(-12);
+    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))]);
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
@@ -281,7 +281,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
           method: "POST", signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, messages: history.slice(-8), sales_review: { record: base } }),
+          body: JSON.stringify({ tenant_id: tenantId, messages: history, sales_review: { record: base } }),
         });
         const body = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(body.error || "Bani could not review this receipt.");
