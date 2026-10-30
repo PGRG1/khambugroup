@@ -2129,7 +2129,7 @@ function InvoiceTableSection({
     <div data-invoice-tabs-host />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Invoice records">
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></h2>
-      <Toolbar search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
+      <Toolbar searchAfterControls search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
         filter={<FilterPanel activeCount={Number(supplierFilter !== "all") + Number(reviewStatusFilter !== "all")} onReset={() => { setSupplierFilter("all"); setReviewStatusFilter("all"); }} width={340}>
           <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup>
           <FilterGroup title="Status"><Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}><SelectTrigger aria-label="Status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{Array.from(new Set([...REVIEW_STATUSES,"Under Review"])).map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select></FilterGroup>
