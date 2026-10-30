@@ -1,10 +1,12 @@
 # Roadmap
 
 ## Receipt safety and contextual Bani
-- [ ] Explicit save outcomes, upload failures and journal outcome propagation
-- [ ] Non-posting, idempotent receipt exceptions with scoped source and comparison UI
-- [ ] Contextual chat, anti-introduction and honest supported action outcomes
-- [ ] Focused tests, read-only live verification; document autonomous verification limitations
+- [x] Explicit save outcomes, upload failures and journal outcome propagation
+- [x] Non-posting, idempotent receipt exceptions with scoped source and comparison UI
+- [x] Contextual chat, anti-introduction and honest supported action outcomes
+- [x] 50 focused tests; document scope in RECEIPT_SAFETY_SCOPE.md
+- [ ] Independently source-verified autonomous posting: not implemented; all scans safely flagged pending verifier/session/period evidence
+- [ ] Complete signed-in scanner/comparison browser verification: blocked by unstable loading transitions; no live financial writes permitted
 
 ## Sales receipt evidence memory — Step 1
 - [x] Audit scan/save, schema and access paths
