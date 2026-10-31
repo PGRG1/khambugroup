@@ -414,6 +414,13 @@
       "when": 1793464024242,
       "tag": "0058_finance_recorded_payment_validation",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793464681031,
+      "tag": "0059_finance_confirmed_book_corrections",
+      "breakpoints": true
     }
   ]
 }
