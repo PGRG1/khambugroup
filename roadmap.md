@@ -1,3 +1,9 @@
+## Menu costs — Part 3
+- [ ] Food cost period table, counts basis and missing-sales warnings
+- [ ] Recipes table, latest received ingredient costs, inline recipe/price editing
+- [ ] Tenant-validated menu drafting and selectable draft saving
+- [ ] Rule tests and signed-in phone/desktop verification; Stock unchanged
+
 ## Stock counting — Part 2
 - [x] Phone-first area count: photos, browser dictation/text, typed items and corrections
 - [x] Tenant-validated read-stock-count using the matcher model and recent delivered-item context
