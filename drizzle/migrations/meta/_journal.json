@@ -148,6 +148,13 @@
       "when": 1793369944008,
       "tag": "0020_scanner_invoice_held_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793442944052,
+      "tag": "0021_stock_count_capture_and_atomic_area_save",
+      "breakpoints": true
     }
   ]
 }

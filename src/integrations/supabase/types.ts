@@ -10210,6 +10210,8 @@ export type Database = {
       }
       stock_count_items: {
         Row: {
+          capture_source: string | null
+          confidence: string | null
           counted_at: string | null
           counted_by: string | null
           counted_qty: number | null
@@ -10226,6 +10228,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capture_source?: string | null
+          confidence?: string | null
           counted_at?: string | null
           counted_by?: string | null
           counted_qty?: number | null
@@ -10242,6 +10246,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capture_source?: string | null
+          confidence?: string | null
           counted_at?: string | null
           counted_by?: string | null
           counted_qty?: number | null
@@ -10297,6 +10303,9 @@ export type Database = {
       }
       stock_count_location_qtys: {
         Row: {
+          capture_note: string | null
+          capture_source: string | null
+          confidence: string | null
           count_item_id: string
           counted_at: string | null
           counted_by: string | null
@@ -10307,6 +10316,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capture_note?: string | null
+          capture_source?: string | null
+          confidence?: string | null
           count_item_id: string
           counted_at?: string | null
           counted_by?: string | null
@@ -10317,6 +10329,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capture_note?: string | null
+          capture_source?: string | null
+          confidence?: string | null
           count_item_id?: string
           counted_at?: string | null
           counted_by?: string | null
@@ -10347,6 +10362,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          capture_state: Json
           count_date: string
           count_type: string
           created_at: string
@@ -10363,6 +10379,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          capture_state?: Json
           count_date?: string
           count_type?: string
           created_at?: string
@@ -10379,6 +10396,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          capture_state?: Json
           count_date?: string
           count_type?: string
           created_at?: string
@@ -12513,6 +12531,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_stock_count_area: {
+        Args: {
+          p_area: string
+          p_done?: boolean
+          p_lines?: Json
+          p_remove_product?: string
+          p_remove_unknown?: string
+          p_session: string
+        }
+        Returns: undefined
+      }
+      stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json
