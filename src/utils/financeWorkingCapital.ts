@@ -41,6 +41,11 @@ export function expectedTenderDays(sales:Record<string,unknown>[]){
 export function cashDepositChecked(salesId:string,bank:{id:string;money_in:number;status:string;matched_record_id:string|null;matched_record_type:string|null}[],matches:{txn_id:string;matched_id:string;matched_type:string}[]){
   return bank.some(t=>Number(t.money_in)>0&&['matched','cleared','posted'].includes(t.status)&&((t.matched_record_id===salesId&&['sales_record','cash_deposit','sales'].includes(t.matched_record_type??''))||matches.some(m=>m.txn_id===t.id&&m.matched_id===salesId&&['sales_record','cash_deposit','sales'].includes(m.matched_type))));
 }
+export function walletDayChecked(day:{date:string;venue:string;method:string;amount:number},batches:{id:string;transaction_date:string;merchant_id:string;bank_transaction_id:string|null}[],merchants:{id:string;venue:string|null;shared_venues:string[]}[],lines:{batch_id:string;payment_type:string;gross_amount:number}[],bank:{id:string;status:string}[]){
+  const ids=new Set(batches.filter(b=>b.transaction_date===day.date&&!!b.bank_transaction_id&&bank.some(t=>t.id===b.bank_transaction_id&&['matched','cleared','posted'].includes(t.status))&&merchants.some(m=>m.id===b.merchant_id&&m.venue===day.venue&&!(m.shared_venues?.length))).map(b=>b.id));
+  const gross=lines.filter(l=>ids.has(l.batch_id)&&l.payment_type.toLowerCase().replace(/_foreign$/,'')===day.method).reduce((s,l)=>s+Number(l.gross_amount),0);
+  return ids.size>0&&Math.abs(gross-day.amount)<=.005;
+}
 export function legacyFinanceDestination(path:string){
   if(path.startsWith('/payments')){const key=path.split('/')[2];return ['processors','merchants','fee-rates'].includes(key)?`/admin/accounting/card-processors?view=${key}`:`/finance/receivables?view=payouts${key?`&payout=${key}`:''}`;}
   if(path.startsWith('/petty-cash')){const key=path.split('/')[2];return key==='receipts'?'/expenses?source=cash-box':key==='classifications'?'/admin/accounting?view=cash-categories':key==='replenishments'?'/finance/cash?view=transactions&type=top-ups':'/finance/cash?view=accounts';}
