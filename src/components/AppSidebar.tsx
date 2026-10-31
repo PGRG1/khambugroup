@@ -592,6 +592,7 @@ export function AppSidebar() {
                 { title: "Business & venues", url: "/admin/structure" },
                 { title: "Revenue setup", url: "/revenue/setup" },
                 { title: "People", url: "/admin/people" },
+                { title: "Accounting", url: "/admin/accounting" },
                 { title: "Master Data", url: "/admin/master-data" },
                 { title: "Expense categories", url: "/expenses/categories" },
                 { title: "Expense mapping", url: "/expenses/mapping" },

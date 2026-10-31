@@ -34,7 +34,10 @@ import {
   type MonthCheck,
 } from "@/utils/financeClose";
 import { toast } from "sonner";
+import { BaniAccountingReview } from '@/components/finance/BaniAccountingReview';
+import { useBaniAccounting } from '@/hooks/useBaniAccounting';
 export default function FinanceDashboard() {
+  const bani = useBaniAccounting();
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong",
     year: "numeric",
@@ -183,6 +186,7 @@ export default function FinanceDashboard() {
           {books.error}
         </p>
       )}
+      <BaniAccountingReview />
       {needs.length > 0 && (
         <Card className="card-glass p-5">
           <h2 className="font-display text-lg">Needs you</h2>
@@ -293,6 +297,7 @@ export default function FinanceDashboard() {
                           : current
                             ? "In progress"
                             : c.missing.join(", ") || "Everything in"}
+                        <p className="text-xs text-muted-foreground mt-1">Bani posted {formatTableInteger(bani.reviews.filter(r=>r.source_date?.startsWith(c.month)&&r.posted_at).length)}, asked about {formatTableInteger(bani.reviews.filter(r=>r.source_date?.startsWith(c.month)&&r.checked_at&&!r.posted_at).length)}</p>
                       </td>
                       <td className="px-3 py-3">
                         {closed ? (
