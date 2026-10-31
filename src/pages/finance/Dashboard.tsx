@@ -36,7 +36,10 @@ import {
 import { toast } from "sonner";
 import { BaniAccountingReview } from '@/components/finance/BaniAccountingReview';
 import { useBaniAccounting } from '@/hooks/useBaniAccounting';
+import { useBookReview } from '@/hooks/useBookReview';
+import { unresolvedAccountLines, unresolvedDateEntries } from '@/utils/booksReview';
 export default function FinanceDashboard() {
+  const bookReview = useBookReview();
   const bani = useBaniAccounting();
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong",
@@ -75,19 +78,9 @@ export default function FinanceDashboard() {
         !bani.reviews.some(r=>r.source_id===b.id&&['asked','posted','reversed'].includes(r.status)) &&
         period.inPeriod(b.bill_date),
     );
-    const missing = books.lines.filter(
-      (l) =>
-        (l.mapping_status === "missing" || !l.account_id) &&
-        period.inPeriod(
-          books.entries.find((e) => e.id === l.entry_id)?.entry_date,
-        ),
-    );
+    const missing = unresolvedAccountLines(books.lines,bookReview.corrections,posted);
     const first = books.sales.map((s) => s.date).sort()[0];
-    const dates = books.entries.filter(
-      (e) =>
-        e.status === "posted" &&
-        probablyMisreadDate(e.entry_date, first, today),
-    );
+    const dates = unresolvedDateEntries(books.entries,bookReview.corrections,first,today);
     const unposted =
       books.invoices.filter(
         (i) =>
@@ -110,12 +103,12 @@ export default function FinanceDashboard() {
       {
         count: missing.length,
         label: `${formatTableInteger(missing.length)} journal lines with no account`,
-        link: "/finance/books?view=ledger",
+        link: "/finance/books?view=journal&issue=accounts",
       },
       {
         count: dates.length,
         label: `${formatTableInteger(dates.length)} posted entries with probably misread dates`,
-        link: "/finance/books?view=journal",
+        link: "/finance/books?view=journal&issue=dates",
       },
       {
         count: unposted,
@@ -123,7 +116,7 @@ export default function FinanceDashboard() {
         link: "/finance/payables",
       },
     ].filter((x) => x.count > 0);
-  }, [books, bani.reviews, period.fromIso, period.toIso, today]);
+  }, [books, bookReview.corrections, bani.reviews, period.fromIso, period.toIso, today]);
   async function ask() {
     if (!question.trim() || !books.tenantId) return;
     setAsking(true);

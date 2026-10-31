@@ -7,7 +7,7 @@ export const documentSources = [
   {table:'sales_receipt_intakes',type:'Sales scan',bucket:'sales-receipt-intake',paths:['source_path'],name:'source_name',date:'created_at',record:'status',link:(r:any)=>r.posted_record_id?`/sales-data/${r.posted_record_id}`:'/sales-data?view=daily'},
   {table:'bank_statement_imports',type:'Bank statement',bucket:'bank-statements',paths:['file_url'],name:'file_name',date:'uploaded_at',record:'period_start',link:()=>'/finance/cash?view=transactions'},
   {table:'payment_settlement_imports',type:'Settlement statement',bucket:'payment-statements',paths:['file_url'],name:'file_name',date:'uploaded_at',record:'period_start',link:()=>'/finance/receivables?view=payouts'},
-  {table:'staff_reimbursements',type:'Staff claim receipt',bucket:'staff-receipts',paths:['receipt_path','receipt_url'],name:'description',date:'created_at',record:'claimant_name',link:()=>'/expenses/claims'},
+  {table:'staff_reimbursements',type:'Staff claim receipt',bucket:'petty-cash-receipts',paths:['receipt_path','receipt_url'],name:'description',date:'created_at',record:'claimant_name',link:()=>'/expenses/claims'},
   {table:'petty_cash_receipts',type:'Cash-box receipt',bucket:'petty-cash-receipts',paths:['receipt_path','receipt_url'],name:'description',date:'created_at',record:'receipt_date',link:()=>'/expenses?type=cash'},
   {table:'hr_person_documents',type:'Contract',bucket:'hr-private-documents',paths:['storage_path'],name:'file_name',date:'created_at',record:'employee_id',link:(r:any)=>`/hr/employees/${r.employee_id}`},
 ];

@@ -53,8 +53,9 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
       tenantId,
     );
     let filtered = allEnts as JournalEntry[];
-    if (filters?.fromDate) filtered = filtered.filter((e) => e.entry_date >= filters.fromDate!);
-    if (filters?.toDate) filtered = filtered.filter((e) => e.entry_date <= filters.toDate!);
+    const from = filters?.fromDate, to = filters?.toDate;
+    if (from) filtered = filtered.filter((e) => e.entry_date >= from);
+    if (to) filtered = filtered.filter((e) => e.entry_date <= to);
     if (filters?.sourceType && filters.sourceType !== "all") filtered = filtered.filter((e) => e.source_type === filters.sourceType);
     setEntries(filtered);
     const ids = new Set(filtered.map((e) => e.id));
