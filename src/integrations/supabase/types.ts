@@ -12891,6 +12891,10 @@ export type Database = {
         }
         Returns: string
       }
+      payroll_approve: {
+        Args: { m: number; rev: number; t: string; y: number }
+        Returns: Json
+      }
       payroll_manager: { Args: { t: string; u: string }; Returns: boolean }
       payroll_override: {
         Args: {

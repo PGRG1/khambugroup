@@ -239,6 +239,13 @@
       "when": 1793454517176,
       "tag": "0033_people_payroll_preparation_and_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793454579574,
+      "tag": "0034_payroll_atomic_approval_and_accrual",
+      "breakpoints": true
     }
   ]
 }
