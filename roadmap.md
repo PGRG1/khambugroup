@@ -1,7 +1,8 @@
 ## People — Part 2
-- [ ] Settings-aware weekly/day rota, dated hours/cost/sales checks, confirmed edit/copy/cover/ask and sent status
-- [ ] Identity-bound phone clock-in/out and 150 m venue check; daily manager confirmation; leave/swap decisions
-- [ ] Focused rules tests and signed-in desktop/phone save/readback verification; Payroll unchanged
+- [x] Settings-aware weekly/day rota, dated hours/cost/sales checks, confirmed edit/copy/cover/ask and sent status
+- [x] Identity-bound phone clock-in/out and 150 m venue check; location fields in venue People settings; daily manager confirmation; grid/profile leave and swap decisions
+- [x] 36 focused rules/People/navigation tests and build OK; signed-in desktop/375px page checks without overflow, temporary 11–19 shift with 30-minute break saved/read back/removed; live Bani copy proposal verified. Payroll unchanged.
+- [ ] Real staff clock-in/out, physical 150 m enforcement and manager confirmation: no employee has a linked login and venues have no saved coordinates; account/location setup is required. Live leave balance approval, swap concurrency and separate non-admin manager access remain unverified; no test balances or permission changes were made.
 
 ## People — Part 1
 - [x] Team/Rota & hours/Payroll navigation and requested redirects; Company/active venue People settings
