@@ -25,7 +25,7 @@ export function FinanceNavigation() {
             key={t.path}
             variant="ghost"
             className={cn(
-              "rounded-none border-b-2 h-10",
+                "rounded-none border-b-2 h-10 bg-transparent shadow-none hover:bg-transparent",
               pathname === t.path
                 ? "border-primary"
                 : "border-transparent text-muted-foreground",

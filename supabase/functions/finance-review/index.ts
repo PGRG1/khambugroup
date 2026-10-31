@@ -9,7 +9,7 @@ import {
   getLovableAiGatewayResponseHeaders,
 } from "./run-id.ts";
 const bodySchema = z.object({
-  tenant_id: z.string().uuid(),
+  tenant_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
   instruction: z.string().max(2000),
   year: z.number().int().min(2000).max(2100),
   mode: z.enum(["question", "accounts"]),
