@@ -25,6 +25,7 @@ RULES:
 - description: short, concrete, in English (e.g. "Uber to supplier meeting", "Cleaning supplies for Hanabi bar").
 - suggested_category_id: MUST be one of the ids in the categories list below, or "" if none fit. Match by intent (COGS = food/beverage/ingredient purchases, Opex = operating expenses, Asset = deposits/refundable/equipment purchases).
 - confidence: "high" | "medium" | "low".
+- review_reasons: an array of short factual review flags for unreadable evidence, potentially personal purchases, or missing shop/time. Do not accuse or approve; describe visible evidence only.
 - source_hint: brief origin note ("Excel row 4", "PDF page 2 receipt", "image 1"), so the user can trace back.
 
 Categories available (id | name | financial_type):
@@ -197,6 +198,7 @@ Deno.serve(async (req) => {
         suggested_category_id: validIds.has(sid) ? sid : "",
         confidence: (["high", "medium", "low"].includes(c.confidence) ? c.confidence : "low") as string,
         source_hint: String(c.source_hint || "").trim(),
+        review_reasons: Array.isArray(c.review_reasons) ? c.review_reasons.filter((r: unknown) => typeof r === "string").slice(0,8) : [],
       };
     }).filter((c: any) => c.description || c.amount > 0);
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { claimChecks } from "@/utils/expenses";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type StaffReimbursement = {
@@ -15,6 +16,10 @@ export type StaffReimbursement = {
   receipt_url: string | null;
   receipt_path: string | null;
   status: "owing" | "paid";
+  approval_status: "pending_review" | "approved";
+  receipt_hash?: string | null;
+  review_reasons?: string[];
+  payout_method?: string | null;
   paid_date: string | null;
   paid_from: "bank" | "petty_cash" | "payroll" | null;
   paid_from_bank_account_id: string | null;
@@ -103,7 +108,7 @@ export function useStaffReimbursements() {
     return reimbursements
       .filter(r => r.status === "paid" && r.paid_date)
       .filter(r => {
-        const d = new Date(r.paid_date!);
+        const d = new Date(r.paid_date ?? r.claim_date);
         return d.getFullYear() === y && d.getMonth() === m;
       })
       .reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -168,6 +173,8 @@ export function useStaffReimbursements() {
     venue_id?: string | null;
     receipt_url?: string | null;
     receipt_path?: string | null;
+    receipt_hash?: string | null;
+    review_reasons?: string[];
   }) => {
     if (!tenantId) throw new Error("No active tenant");
     const cls = classifications.find(c => c.id === input.category_id);
@@ -189,39 +196,18 @@ export function useStaffReimbursements() {
         receipt_url: input.receipt_url ?? null,
         receipt_path: input.receipt_path ?? null,
         status: "owing",
+        approval_status: "pending_review",
+        receipt_hash: input.receipt_hash ?? null,
+        review_reasons: [...claimChecks(input,reimbursements,new Date().toISOString().slice(0,10)),...(input.review_reasons??[])],
         created_by: uid,
       } as any)
       .select("*")
       .single();
     if (insErr) throw insErr;
 
-    const payable = await ensurePayableAccount();
-    const amt = Number(input.amount);
-
-    const { data: je, error: jeErr } = await supabase.from("journal_entries").insert({
-      tenant_id: tenantId,
-      entry_date: input.claim_date,
-      memo: `Staff reimbursement — ${input.claimant_name.trim()} — ${input.description.trim()}`,
-      source_type: "staff_reimbursement",
-      source_id: claim.id,
-      status: "posted",
-      posted_at: new Date().toISOString(),
-    } as any).select("id").single();
-    if (jeErr) throw jeErr;
-
-    const { error: linesErr } = await supabase.from("journal_lines").insert([
-      { tenant_id: tenantId, entry_id: je.id, account_id: cls.gl_account_id, debit: amt, credit: 0, line_no: 1, memo: input.description.trim() },
-      { tenant_id: tenantId, entry_id: je.id, account_id: payable.id, debit: 0, credit: amt, line_no: 2, memo: `Owed to ${input.claimant_name.trim()}` },
-    ] as any);
-    if (linesErr) throw linesErr;
-
-    await supabase.from("staff_reimbursements")
-      .update({ journal_entry_id: je.id })
-      .eq("id", claim.id);
-
     await load();
     return claim.id as string;
-  }, [tenantId, classifications, ensurePayableAccount, load]);
+  }, [tenantId, classifications, reimbursements, load]);
 
   /**
    * Mark a claim paid and post the payment journal:
@@ -239,6 +225,7 @@ export function useStaffReimbursements() {
     }
   ) => {
     if (!tenantId) throw new Error("No active tenant");
+    if (claim.approval_status !== "approved") throw new Error("Approve the claim before paying");
     if (claim.status !== "owing") throw new Error("Only claims in 'owing' status can be paid");
 
     let creditAccountId: string | null = null;
@@ -307,5 +294,6 @@ export function useStaffReimbursements() {
     reload: load,
     createClaim,
     markAsPaid,
+    approveClaim: async (id: string, payout: string) => { const { error } = await supabase.rpc("approve_staff_expense_claim", {p_claim:id,p_payout:payout}); if(error)throw error; await load(); },
   };
 }
