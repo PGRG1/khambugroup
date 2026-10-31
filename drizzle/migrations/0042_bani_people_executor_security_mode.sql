@@ -1,0 +1,1 @@
+ALTER FUNCTION public.bani_people_execute(uuid,uuid,text) SECURITY DEFINER;

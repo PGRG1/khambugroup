@@ -295,6 +295,13 @@
       "when": 1793458070111,
       "tag": "0041_bani_people_executor_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793458455972,
+      "tag": "0042_bani_people_executor_security_mode",
+      "breakpoints": true
     }
   ]
 }
