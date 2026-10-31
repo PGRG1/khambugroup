@@ -36,11 +36,6 @@ export const purchasingTabGroups: PurchasingTab[][] = [
     { title: "Goods received", url: "/procurement/receiving" },
   ],
   [
-    { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
-    { title: "Open Payables", url: "/procurement/finance/payables" },
-    { title: "Deposit Ledger", url: "/procurement/deposit-ledger" },
-  ],
-  [
     { title: "Purchase Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
     { title: "Spend Summary", url: "/procurement/finance/spend" },
     { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
@@ -72,7 +67,14 @@ export function stockMovementRedirect(pathname: string) {
 }
 
 export function purchasingParentPath(pathname: string) {
+  if (matchesPurchasingPath(pathname, "/procurement/finance/suppliers") || supplierAccountsRedirect(pathname)) return "/procurement/finance/suppliers";
   return purchasingTabsForPath(pathname)?.[0].url ?? pathname;
+}
+
+export function supplierAccountsRedirect(pathname: string) {
+  if (pathname === "/procurement/finance/payables") return "/procurement/finance/suppliers?view=invoice";
+  if (pathname === "/procurement/deposit-ledger") return "/procurement/finance/suppliers";
+  return undefined;
 }
 
 export function isStockMenuRoute(pathname: string) {

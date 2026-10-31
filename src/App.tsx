@@ -59,7 +59,6 @@ import StockCounts from "./pages/procurement/StockCounts";
 import StockMovementsTab from "./components/procurement/StockMovementsTab";
 import SpendSummaryPage from "./pages/procurement/SpendSummary";
 import SupplierAccountsPage from "./pages/procurement/SupplierAccounts";
-import OpenPayablesPage from "./pages/procurement/OpenPayables";
 import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
@@ -322,7 +321,7 @@ function App() {
                 <Route path="/procurement/purchase-orders" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="purchase-orders" /></ProtectedRoute>} />
                 <Route path="/procurement/receiving" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="receiving" /></ProtectedRoute>} />
                 <Route path="/procurement/line-items" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="line-items" /></ProtectedRoute>} />
-                <Route path="/procurement/deposit-ledger" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="deposit-ledger" /></ProtectedRoute>} />
+                <Route path="/procurement/deposit-ledger" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/finance/suppliers" replace /></ProtectedRoute>} />
                 <Route path="/procurement/inventory" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="inventory" /></ProtectedRoute>} />
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
                 <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />
@@ -335,7 +334,7 @@ function App() {
                 <Route path="/procurement/finance" element={<Navigate to="/procurement/finance/spend" replace />} />
                 <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />
-                <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><OpenPayablesPage /></ProtectedRoute>} />
+                <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/finance/suppliers?view=invoice" replace /></ProtectedRoute>} />
                 <Route path="/procurement/finance/onboarding" element={<ProtectedRoute pageKey="invoices"><OpeningBalances /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
 
