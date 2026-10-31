@@ -3,7 +3,7 @@
 .supplier-detail [role=tab] { flex-shrink:0; border-radius:0; background:transparent; padding:12px 16px; border-bottom:2px solid transparent; color:hsl(var(--muted-foreground)); }
 .supplier-detail [role=tab][data-state=active] { border-color:hsl(var(--primary)); color:hsl(var(--foreground)); background:transparent; box-shadow:none; }
 .supplier-detail [role=tabpanel] { margin-top:0; padding:20px; border:1px solid hsl(var(--border)); border-top:0; border-radius:0 0 8px 8px; background:hsl(var(--card)); }
-.supplier-detail [role=tabpanel] .card-glass { background:transparent; border:0; box-shadow:none; border-radius:0; }
+.supplier-detail [role=tabpanel] .bg-card { background:transparent; border:0; box-shadow:none; border-radius:0; }
 .supplier-detail table { width:100%; border-collapse:collapse; font-size:13px; }
 .supplier-detail th { text-transform:none; font-weight:500; color:hsl(var(--muted-foreground)); text-align:left; }
 .supplier-detail td,.supplier-detail th { padding:12px 8px; border-bottom:1px solid hsl(var(--border)); overflow-wrap:anywhere; }
