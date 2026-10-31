@@ -10,7 +10,7 @@ export interface SupplierContainer {
 export function containerIdentity(name: string): string {
   return name.toLowerCase().replace(/\b(?:deposit|refund|returned?|empty|empties)\b/g, '')
     .replace(/\b(kegs?|bottles?|crates?)\b/g, word => word.replace(/s$/, ''))
-    .replace(/(\d)\s+(l|ml)\b/g, '$1$2').replace(/[^a-z0-9]+/g, ' ').trim();
+    .replace(/(\d)\s+(l|ml)\b/g, '$1$2').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\bkeg\s+keg\b/g, 'keg');
 }
 export function buildSupplierContainers(lines: DepositLine[]): SupplierContainer[] {
   const groups = new Map<string, SupplierContainer>();
