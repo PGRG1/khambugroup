@@ -1,3 +1,11 @@
+## Expenses simplify and fix
+- [ ] Four-page navigation/redirects, shared phone pills and centred page pattern
+- [ ] Bills extraction/review, immediate approval posting, bulk confirmation, category mapping and confirmed vendor relinking
+- [ ] Repair approved unposted Wah Mei bills when accounts are valid; eliminate invalid bank queries
+- [ ] Regular monthly history and confirmed additions; preserve rent rule
+- [ ] Move staff claims with existing import/journals, factual checks and approval gates; simplify Trends
+- [ ] Focused rules tests and signed-in desktop/phone verification; report limitations
+
 ## Bani People write actions
 - [x] Shared main/floating Confirm / Change / Cancel cards and server-validated People drafts; explicit identities and periods required
 - [x] Reuse rota/leave/Team/payroll RPCs with existing permissions, owner review and no chat payroll approval
