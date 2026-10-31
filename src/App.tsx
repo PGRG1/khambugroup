@@ -367,7 +367,7 @@ function App() {
                 <Route path="/hr/schedule" element={<ProtectedRoute pageKey="people"><HRSchedule /></ProtectedRoute>} />
                 <Route path="/hr/clock" element={<ProtectedRoute><HRClock /></ProtectedRoute>} />
                 <Route path="/hr/leave" element={<Navigate to="/hr/schedule" replace />} />
-                <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
+                <Route path="/hr/payroll" element={<ProtectedRoute pageKey="people"><HRPayroll /></ProtectedRoute>} />
                 <Route path="/hr/payroll/payables" element={<Navigate to="/finance/payables" replace />} />
 
 

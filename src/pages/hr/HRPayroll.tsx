@@ -1,52 +1,47 @@
-import { useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useHRData } from "@/hooks/useHRData";
-import { PayrollTab } from "@/components/hr/PayrollTab";
-import { PageHeader, TableSkeleton } from "@/components/expenses/shared";
-
-export default function HRPayroll() {
-  const hr = useHRData();
-  const [searchParams] = useSearchParams();
-  const yearParam = Number(searchParams.get("year"));
-  const monthParam = Number(searchParams.get("month"));
-  const initialYear = Number.isFinite(yearParam) && yearParam > 0 ? yearParam : undefined;
-  const initialMonth = Number.isFinite(monthParam) && monthParam >= 1 && monthParam <= 12 ? monthParam : undefined;
-
-  useEffect(() => {
-    const h = () => hr.refetch();
-    window.addEventListener("hr-data-refresh", h);
-    return () => window.removeEventListener("hr-data-refresh", h);
-  }, [hr]);
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <PageHeader
-          title="Payroll"
-          description="Compute monthly gross, MPF, and net; post accruals and settlements straight to the ledger."
-        />
-        <Link
-          to="/hr/payroll/payables"
-          className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-primary hover:text-primary transition-colors"
-        >
-          View Payroll Payables →
-        </Link>
-      </div>
-      {hr.loading ? (
-        <TableSkeleton rows={10} cols={10} />
-      ) : (
-        <PayrollTab
-          payroll={hr.payroll}
-          employees={hr.employees}
-          shifts={hr.shifts}
-          departments={hr.departments}
-          onSave={hr.upsertPayroll}
-          onSaveBatch={hr.upsertPayrollBatch}
-          onCreateEmployee={hr.createEmployee}
-          initialYear={initialYear}
-          initialMonth={initialMonth}
-        />
-      )}
-    </div>
-  );
+import {useState} from 'react';
+import {Link,useSearchParams} from 'react-router-dom';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter} from '@/components/ui/dialog';
+import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
+import {ChevronLeft,ChevronRight,Send,Check,Lock} from 'lucide-react';
+import {PageHeader} from '@/components/expenses/shared';
+import {StatusPill} from '@/components/kit/StatusPill';
+import {PayrollFullTable} from '@/components/hr/PayrollFullTable';
+import {usePeoplePayroll} from '@/hooks/usePeoplePayroll';
+import {usePeopleData} from '@/hooks/usePeopleData';
+import {usePeopleSettings} from '@/hooks/usePeopleSettings';
+import {useVenueScope} from '@/hooks/useVenueScope';
+import {payrollExceptions,payrollApprovalAllowed} from '@/utils/peoplePayroll';
+import {hongKongDay,type RotaRow} from '@/utils/peopleRota';
+import {formatCurrency,formatMonthLabel,formatPercent} from '@/utils/format';
+import {supabase} from '@/integrations/supabase/client';
+import {toast} from 'sonner';
+export default function HRPayroll(){
+ const [params]=useSearchParams();const today=hongKongDay();const [year,setYear]=useState(Number(params.get('year'))||Number(today.slice(0,4)));const [month,setMonth]=useState(Number(params.get('month'))>=1&&Number(params.get('month'))<=12?Number(params.get('month')):Number(today.slice(5,7)));
+ const data=usePeoplePayroll(year,month),people=usePeopleData(),settings=usePeopleSettings(),scope=useVenueScope();const [open,setOpen]=useState(false),[past,setPast]=useState(false),[full,setFull]=useState(false),[ask,setAsk]=useState(''),[busy,setBusy]=useState(false),[draft,setDraft]=useState<RotaRow|null>(null),[repeat,setRepeat]=useState('once');
+ const label=formatMonthLabel(`${year}-${String(month).padStart(2,'0')}`);const state=data.months.find(p=>p.year===year&&p.month===month);
+ const rows=data.rows.filter(p=>scope.includesId(p.venue_id));const prevMonth=month===1?12:month-1,prevYear=month===1?year-1:year;
+ const review=payrollExceptions(rows,data.payroll.filter(p=>p.year===prevYear&&p.month===prevMonth),data.audits.filter(a=>rows.some(p=>p.id===a.payroll_id)));
+ const changed=review.filter(r=>r.changed),same=review.length-changed.length;const missing=rows.flatMap(p=>(p.preparation?.missing??[]).map((m:string)=>`${p.name}: ${m}`));
+ const total=rows.reduce((n,p)=>n+Number(p.net_salary??0),0);const writable=data.manager&&!data.preview&&!busy&&state?.status!=='approved';const canApprove=data.owner&&!data.preview&&rows.length>0&&!missing.length&&data.rows.every(p=>payrollApprovalAllowed(settings.forVenue(p.venue_id).approvals,data.owner,state?.prepared_by??null,data.uid??''));
+ const move=(n:number)=>{const d=new Date(Date.UTC(year,month-1+n,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth()+1);setFull(false);};
+ const askBani=async()=>{if(!ask.trim()||!data.tenantId)return;setBusy(true);try{const {data:d,error}=await supabase.functions.invoke('people-payroll-draft',{body:{tenant_id:data.tenantId,year,month,text:ask}});if(error||d?.error)throw new Error(d?.error??error?.message);setDraft(d);setRepeat('once');}catch(e){toast.error((e as Error).message);}finally{setBusy(false);}};
+ const approve=async()=>{if(!data.tenantId||!state)return;setBusy(true);const {error}=await supabase.rpc('payroll_approve',{t:data.tenantId,y:year,m:month,rev:state.revision});setBusy(false);if(error)toast.error(error.message);else{toast.success('Payroll approved · payslips recorded · Finance amounts owed created');await data.reload();}};
+ const confirm=async()=>{if(!draft||!data.tenantId||!state)return;setBusy(true);try{const changes=(draft.changes??[]).map((c:RotaRow)=>{const p=data.rows.find(p=>p.employee_id===c.employee_id);if(!p?.id)throw new Error('Payroll is not prepared for this person');return {payroll_id:p.id,field:c.field,value:c.value,previous:Number(p[c.field]??0),reason:c.reason};});const {error}=await supabase.rpc('payroll_override_batch',{t:data.tenantId,changes,repeating:repeat==='repeat',rev:state.revision});if(error)throw error;setDraft(null);setAsk('');toast.success('Pay changes recorded for approval');}catch(e){toast.error((e as Error).message);}finally{setBusy(false);await data.reload();}};
+ const expected=rows.reduce((n,r)=>n+Number(r.preparation?.expected_days??0),0),confirmed=rows.reduce((n,r)=>n+Number(r.preparation?.confirmed_days??0),0);const sources=[...new Set(rows.map(p=>p.preparation?.source))].map(s=>s==='clock_ins'?'confirmed clock-ins':s==='typed_monthly'?'typed':'rota').join(' / ');
+ return <div className="kit p-4 sm:p-6 space-y-5 min-w-0"><PageHeader title="People" actions={<Button onClick={()=>{setYear(Number(today.slice(0,4)));setMonth(Number(today.slice(5,7)));setOpen(true);}} disabled={data.loading}><Lock className="h-4 w-4 mr-2"/>Open {formatMonthLabel(today.slice(0,7))}</Button>}/>
+ <section className="border border-border bg-card rounded-lg p-3 sm:p-4 min-w-0"><div className="flex justify-between items-center gap-2"><h2 className="font-display font-semibold">{label} · {state?.status==='approved'?'approved':'being prepared by Bani'}</h2><StatusPill tone={state?.status==='approved'?'ok':'neutral'}>{state?.status??'draft'}</StatusPill></div><div className="flex gap-1 my-3"><Button size="icon" variant="ghost" aria-label="Previous payroll month" onClick={()=>move(-1)}><ChevronLeft className="h-4 w-4"/></Button><span className="py-2 text-sm">{label}</span><Button size="icon" variant="ghost" aria-label="Next payroll month" onClick={()=>move(1)}><ChevronRight className="h-4 w-4"/></Button></div>
+ {data.loading?<p>Preparing payroll…</p>:<><table className="kit-table w-full table-fixed"><thead><tr><th className="w-1/2">What goes in</th><th>Ready</th></tr></thead><tbody><tr><td>Contracts and pay rates</td><td>{rows.filter(p=>!(p.preparation?.missing??[]).includes('Pay terms not recorded')).length} people <Check className="h-3 w-3 inline"/></td></tr><tr><td>Hours <div className="text-xs text-muted-foreground">from {sources||'People settings'}</div></td><td className={expected>confirmed?'text-warning':''}>{expected?`${confirmed} of ${expected} person-days confirmed`:'Per person, per setting'}{expected>confirmed&&<div>{expected-confirmed} days waiting for a manager</div>}</td></tr><tr><td>Leave and sick days</td><td>{missing.some(m=>m.includes('leave'))?'Needs a look':'Included'}</td></tr><tr><td>Joiners and leavers</td><td>{rows.filter(p=>(p.preparation?.reasons??[]).some((r:string)=>r.startsWith('Joined')||r.startsWith('Left'))).length} changes</td></tr><tr><td>Ready to approve</td><td>{missing.length?`${missing.length} missing inputs`:`${rows.length} people · ${formatCurrency(total)}`}</td></tr></tbody></table>
+ {missing.length>0&&<div className="kit-explain mt-3"><p className="font-medium">Payroll is not ready to approve</p>{missing.slice(0,6).map((m,i)=><p key={i}>{m}</p>)}{missing.length>6&&<p>And {missing.length-6} more · open payroll to review</p>}<Button asChild variant="link"><Link to="/hr/employees">Review people’s pay terms</Link></Button></div>}
+ <div className="flex gap-2 mt-4"><Input id="payroll-ask" aria-label="Ask Bani about payroll" placeholder="Why is Assembly staff cost up this month?" value={ask} onChange={e=>setAsk(e.target.value)} onKeyDown={e=>e.key==='Enter'&&askBani()}/><Button size="icon" aria-label="Ask Bani" onClick={askBani} disabled={busy||data.preview||!data.manager||!ask.trim()}><Send className="h-4 w-4"/></Button></div></>}
+ <div className="flex justify-between gap-2 mt-4 border-t border-border pt-3"><Button variant="link" onClick={()=>setPast(true)}>Past months ›</Button><Button asChild variant="link"><Link to="/finance/payables">Finance › Payables</Link></Button></div></section>
+ <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-w-4xl max-h-[85dvh] overflow-y-auto min-w-0"><DialogHeader><DialogTitle>{label} payroll</DialogTitle><p className="text-sm text-muted-foreground">{data.loading?'Preparing selected month…':`Prepared by Bani · ${rows.length} people · ${formatCurrency(total)}`}</p></DialogHeader>{state?.status==='approved'&&<p className="text-success">Approved · locked · payslips recorded</p>}{same>0&&!data.loading&&<p className="text-success">✓ {same} people paid the same as last month. Nothing to check.</p>}
+ <h3 className="font-medium">Needs a look</h3><table className="kit-table w-full table-fixed"><thead><tr><th className="w-1/4">Person</th><th>Why</th><th className="w-1/4 text-right">Net pay</th></tr></thead><tbody>{changed.map(p=><tr key={p.employee_id}><td>{p.name}</td><td className="break-words">{[...p.reasons,...(p.preparation?.missing??[])].join(' · ')}</td><td className="td-num text-right">{formatCurrency(Number(p.net_salary))}</td></tr>)}</tbody></table>{!changed.length&&<p className="text-sm text-muted-foreground">No changed pay to check.</p>}
+ <Button variant="link" onClick={()=>setFull(!full)}>{full?'Hide everyone':'See everyone (full table)'}</Button>{full&&<PayrollFullTable rows={rows} people={people.rawEmployees} venues={scope.venues}/>}
+ {missing.length>0&&<p className="kit-explain">{missing.length} missing inputs must be completed before approval.</p>}{!data.owner&&<p className="text-sm text-muted-foreground">An owner must approve payroll.</p>}{data.owner&&!canApprove&&!missing.length&&state?.status!=='approved'&&<p className="kit-explain">Strict approval needs a different owner.</p>}
+ <DialogFooter><Button variant="outline" onClick={()=>{setOpen(false);document.getElementById('payroll-ask')?.focus();}}>Ask Bani</Button><Button disabled={!canApprove||busy||data.loading||state?.status==='approved'} onClick={approve}>Approve payroll</Button></DialogFooter></DialogContent></Dialog>
+ <Dialog open={past} onOpenChange={setPast}><DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Past payroll months</DialogTitle></DialogHeader><table className="kit-table w-full table-fixed"><thead><tr><th>Month</th><th>Status</th><th>Staff cost</th><th>% of sales</th></tr></thead><tbody>{[...new Set(data.payroll.map(p=>`${p.year}-${String(p.month).padStart(2,'0')}`))].sort().reverse().map(key=>{const ps=data.payroll.filter(p=>`${p.year}-${String(p.month).padStart(2,'0')}`===key&&scope.includesId(people.rawEmployees.find(e=>e.id===p.employee_id)?.venue_id));const cost=ps.reduce((n,p)=>n+Number(p.gross_salary)+Number(p.mpf_employer),0);const sales=data.sales.filter(s=>s.date.startsWith(key)&&scope.includesId(s.venue_id)).reduce((n,s)=>n+Number(s.subtotal),0);const st=data.months.find(m=>`${m.year}-${String(m.month).padStart(2,'0')}`===key);return <tr key={key} className="cursor-pointer"><td><Button variant="link" className="whitespace-normal h-auto px-0" onClick={()=>{setYear(Number(key.slice(0,4)));setMonth(Number(key.slice(5,7)));setPast(false);setOpen(true);}}>{formatMonthLabel(key)}</Button></td><td><StatusPill tone={st?.status==='approved'||ps.every(p=>p.accrual_journal_entry_id)?'ok':'neutral'}>{st?.status??(ps.every(p=>p.accrual_journal_entry_id)?'posted':'draft')}</StatusPill></td><td className="td-num break-words">{formatCurrency(cost)}</td><td className="td-num">{formatPercent(sales>0?cost/sales*100:null)}</td></tr>;})}</tbody></table></DialogContent></Dialog>
+ <Dialog open={Boolean(draft)} onOpenChange={o=>!o&&!busy&&setDraft(null)}><DialogContent className="max-w-xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Review Bani’s payroll proposal</DialogTitle></DialogHeader><p>{draft?.answer}</p>{draft?.changes?.map((c:RotaRow)=>{const p=rows.find(p=>p.employee_id===c.employee_id);return <div key={`${c.employee_id}-${c.field}`} className="border-t border-border py-3"><p className="font-medium">{p?.name}</p><p>{c.reason}</p><p className="td-num">Formula figure {formatCurrency(Number(p?.[c.field]??0))} → {formatCurrency(c.value)}</p></div>;})}{draft?.changes?.length>0&&<><p>This month only or every month?</p><Select value={repeat} onValueChange={setRepeat}><SelectTrigger aria-label="Repeat pay change"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="once">This month only</SelectItem><SelectItem value="repeat">Every month</SelectItem></SelectContent></Select></>}<DialogFooter><Button variant="outline" disabled={busy} onClick={()=>setDraft(null)}>Cancel</Button>{draft?.changes?.length>0&&<Button disabled={!writable} onClick={confirm}>Confirm pay changes</Button>}</DialogFooter></DialogContent></Dialog>
+ </div>;
 }

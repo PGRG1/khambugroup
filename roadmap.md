@@ -1,3 +1,9 @@
+## People — Part 3
+- [x] Payroll checklist, past months and exception-only approval; retained 21-column read-only full table and existing payroll/MPF figures
+- [x] Settings-aware dated preparation, atomic confirmed audited/repeating overrides, owner/Strict approval, month locks/private payslips and tenant-scoped accrual using existing ledger mappings
+- [x] Factual settings-aware profile reliability; 49 focused tests and build OK; signed-in desktop/375px checklist, real May HK$239,747 readback, full table and centred dialogs without sideways page scroll
+- [ ] Live approval/locking/payslip/Finance and confirmed override roundtrip: current session is not an owner, existing October has no dated pay terms or clock-in evidence; no live pay amounts changed. Real sick/statutory entitlement and final-leave valuation need confirmed contract/balance data, not invented legal defaults.
+
 ## People — Part 2
 - [x] Settings-aware weekly/day rota, dated hours/cost/sales checks, confirmed edit/copy/cover/ask and sent status
 - [x] Identity-bound phone clock-in/out and 150 m venue check; location fields in venue People settings; daily manager confirmation; grid/profile leave and swap decisions

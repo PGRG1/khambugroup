@@ -232,6 +232,34 @@
       "when": 1793452968562,
       "tag": "0032_people_rota_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793454517176,
+      "tag": "0033_people_payroll_preparation_and_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793454579574,
+      "tag": "0034_payroll_atomic_approval_and_accrual",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793455071176,
+      "tag": "0035_payroll_preparation_alias_and_repeat_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793455194538,
+      "tag": "0036_payroll_batch_confirmation_and_approval_safety",
+      "breakpoints": true
     }
   ]
 }
