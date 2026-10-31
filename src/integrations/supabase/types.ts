@@ -12702,6 +12702,14 @@ export type Database = {
         }
         Returns: string
       }
+      approve_and_post_expense_bill: {
+        Args: { p_bill_id: string }
+        Returns: string
+      }
+      approve_expense_category_accounts: {
+        Args: { p_links: Json; p_tenant: string }
+        Returns: undefined
+      }
       approve_people_change: {
         Args: { c: string; yes: boolean }
         Returns: undefined
@@ -12917,6 +12925,10 @@ export type Database = {
           p_venue: string
         }
         Returns: string
+      }
+      merge_expense_vendor: {
+        Args: { p_from: string; p_into: string; p_tenant: string }
+        Returns: number
       }
       payroll_apply_repeats: {
         Args: { m: number; t: string; y: number }
