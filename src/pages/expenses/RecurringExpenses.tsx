@@ -6,7 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageTop } from "@/components/kit/PageTop";
+import { useExpenseBills } from "@/hooks/useExpenseBills";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { regularBillGroups, isWaitingBill } from "@/utils/expenses";
+import { formatCurrency, formatMonthLabel } from "@/utils/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, PlayCircle, Repeat, Search } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -62,8 +68,11 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 }
 
 export default function RecurringExpenses() {
+  const { bills, fetchAllocations } = useExpenseBills();
+  const scope=useVenueScope(), period=usePeriodFilter(bills.map(b=>b.bill_date),"all");
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
+  const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
@@ -112,12 +121,14 @@ export default function RecurringExpenses() {
     // orphan bills that stall in Pending Review.
     if (!editing.category_id) { toast.error("Category is required"); return; }
     if (!editing.account_id) { toast.error("Debit account is required"); return; }
+    const confirmed=await confirm({title:editing.id?"Confirm regular bill changes":"Add as regular bill",description:`${editing.vendor_name||"Vendor"} · ${editing.name} · ${formatCurrency(Number(editing.expected_amount||0))} · ${editing.cadence||"monthly"}`,confirmLabel:"Confirm"});
+    if(!confirmed)return;
     const ok = await save(editing);
     if (ok) setOpen(false);
   };
 
   const [search, setSearch] = useState("");
-  const activeCount = rules.filter((r) => r.status === "active").length;
+  const activeCount = rules.filter((r) => r.status === "active" && (!r.venue_id?scope.isAll:scope.includesId(r.venue_id))).length;
   const monthlyExpected = rules
     .filter((r) => r.status === "active")
     .reduce((s, r) => {
@@ -127,114 +138,45 @@ export default function RecurringExpenses() {
     }, 0);
   const filteredRules = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rules;
-    return rules.filter((r) =>
+    const scoped=rules.filter(r=>!r.venue_id?scope.isAll:scope.includesId(r.venue_id));
+    if (!q) return scoped;
+    return scoped.filter((r) =>
       [r.name, r.vendor_name, r.cadence, r.department].some((x) => (x || "").toLowerCase().includes(q))
     );
-  }, [rules, search]);
+  }, [rules, search,scope]);
 
+  const historyFor=(r:RecurringRule)=>bills.filter(b=>(b.recurring_rule_id===r.id||b.supplier_id===r.supplier_id)&&(r.combined_venues||b.venue_id===r.venue_id)&&!["void","reversed","rejected"].includes(b.approval_status)).sort((a,b)=>a.bill_date.localeCompare(b.bill_date));
+  const yearFacts=(r:RecurringRule)=>{
+    const year=period.fromIso?Number(period.fromIso.slice(0,4)):new Date().getFullYear(); const history=historyFor(r).filter(b=>b.bill_date.startsWith(String(year))); const months=[...new Set(history.map(b=>b.bill_date.slice(0,7)))]; const last=history.at(-1),previous=history.at(-2);
+    const facts=[months.length?`${months.map(m=>formatMonthLabel(m).split(' ')[0]).join(', ')} received`:'None received this year',`${history.filter(isWaitingBill).length} waiting for you`];
+    if(last&&last.bill_date.slice(0,7)<new Date().toISOString().slice(0,7))facts.push(`none since ${formatMonthLabel(last.bill_date.slice(0,7))}`);
+    if(last&&previous&&previous.total_amount>0&&last.total_amount>previous.total_amount)facts.push(`${formatMonthLabel(last.bill_date.slice(0,7))} ${formatCurrency(last.total_amount)}, ${Math.round((last.total_amount/previous.total_amount-1)*100)}% above ${formatMonthLabel(previous.bill_date.slice(0,7))}`);
+    return facts.join(' · ');
+  };
+  const usual=(r:RecurringRule)=>{const amounts=historyFor(r).map(b=>b.total_amount);return amounts.length?(Math.min(...amounts)===Math.max(...amounts)?formatCurrency(amounts[0]):`${formatCurrency(Math.min(...amounts))} – ${formatCurrency(Math.max(...amounts))}`):formatCurrency(r.expected_amount);};
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Recurring Expenses"
-        description="Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period."
-        actions={
-          <>
-            <Button variant="outline" size="sm" className="h-9" onClick={generateNow}>
-              <PlayCircle className="h-4 w-4 mr-1" /> Generate due now
-            </Button>
-            <Button size="sm" className="h-9" onClick={openNew}>
-              <Plus className="h-4 w-4 mr-1" /> New rule
-            </Button>
-          </>
-        }
-      />
-
-      {loading && rules.length === 0 ? (
-        <KpiSkeleton count={3} />
-      ) : (
-        <KpiGrid>
-          <KpiCard label="Rules" value={String(rules.length)} />
-          <KpiCard label="Active" value={String(activeCount)} tone={activeCount > 0 ? "success" : "default"} />
-          <KpiCard label="Expected / month" value={fmtHKWhole(monthlyExpected)} hint="Sum of active rules" tone="info" />
-        </KpiGrid>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-8 h-9"
-            placeholder="Search name, vendor, cadence…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <ScopeLine>
-          Showing {filteredRules.length} of {rules.length} · {activeCount} active
-        </ScopeLine>
-      </div>
-
-      <Card className="card-glass p-0 overflow-hidden">
+    <div className="w-full min-w-0 space-y-5 pb-24">
+      <PageTop title="Regular bills" period={period.control} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add regular bill</Button>}/>
+      <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">{period.label} · {filteredRules.length} regular bills</h2><p className="text-sm text-muted-foreground">{activeCount} active</p><div className="flex flex-wrap gap-2"><Input className="flex-1 min-w-0" placeholder="Search regular bills" value={search} onChange={e=>setSearch(e.target.value)}/><Button variant="outline" onClick={generateNow}><PlayCircle className="h-4 w-4"/>Generate due</Button></div>{detected.map(g=>{const latest=g.rows.at(-1);if(!latest)return null;return <div key={g.key} className="kit-explain">{latest.vendor_name} · {latest.venue||'Unassigned venue'} · received in {new Set(g.rows.map(b=>b.bill_date.slice(0,7))).size} months. <Button variant="link" className="text-warning p-0 h-auto" onClick={async()=>{const lines=await fetchAllocations(latest.id);const cat=categories.find(c=>c.name===lines[0]?.expense_category);setEditing({name:latest.notes||latest.vendor_name||'Regular bill',supplier_id:latest.supplier_id,vendor_name:latest.vendor_name,venue_id:latest.venue_id,category_id:cat?.id,account_id:lines[0]?.account_id,expected_amount:latest.total_amount,cadence:'monthly',status:'draft',auto_approve:false,effective_from:new Date().toISOString().slice(0,10),recognition_day:latest.bill_date.slice(8,10)});setOpen(true);}}>Add as regular bill</Button></div>;})}</div>
         {loading ? (
           <TableSkeleton rows={4} cols={7} />
         ) : (
           <div className="overflow-auto">
-            <Table>
+            <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Cadence</TableHead>
-                  <TableHead>Next generation</TableHead>
-                  <TableHead className="text-right">Expected</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="text-left">Bill</TableHead><TableHead className="text-left">Usually</TableHead><TableHead className="text-left">This year</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRules.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell>{r.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell><StatusPill variant="neutral">{r.cadence}</StatusPill></TableCell>
-                    <TableCell className="whitespace-nowrap">{fmtDate(r.next_generation_date)}</TableCell>
-                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(r.expected_amount)}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
-                        <SelectTrigger className="h-8 w-[120px]">
-                          <StatusPill variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</StatusPill>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="paused">Paused</SelectItem>
-                          <SelectItem value="ended">Ended</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: "Delete this rule?",
-                            description: `"${r.name}" will stop generating future bills. Already-generated bills are unaffected.`,
-                            confirmLabel: "Delete rule",
-                            tone: "destructive",
-                          });
-                          if (ok) remove(r.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
+                    <TableCell className="break-words">{r.vendor_name} · {r.name}<p className="text-xs text-muted-foreground">{venues.find(v=>v.id===r.venue_id)?.name||'Combined venues'} · {r.cadence}</p></TableCell><TableCell className="td-num break-words">{usual(r)}</TableCell><TableCell className="text-xs break-words">{yearFacts(r)}</TableCell>
                   </TableRow>
                 ))}
                 {!rules.length && (
                   <TableRow>
-                    <TableCell colSpan={7} className="p-0">
+                    <TableCell colSpan={3} className="p-0">
                       <EmptyState
                         icon={<Repeat className="h-6 w-6" />}
                         title="No recurring rules yet"
@@ -257,16 +199,16 @@ export default function RecurringExpenses() {
             </Table>
           </div>
         )}
-      </Card>
+      </section>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="w-[560px] sm:max-w-[560px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editing.id ? "Edit Rule" : "New Recurring Rule"}</SheetTitle>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing.id ? "Edit Rule" : "New Recurring Rule"}</DialogTitle>
             <p className="text-xs text-muted-foreground mt-1">
               This rule is a template. Edits only affect future generated bills — approved or posted bills are untouched.
             </p>
-          </SheetHeader>
+          </DialogHeader>
           <div className="space-y-3 mt-4">
             <div>
               <Label>Name</Label>
@@ -439,11 +381,11 @@ export default function RecurringExpenses() {
             </div>
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave}>Confirm</Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
       {confirmDialog}
     </div>
   );

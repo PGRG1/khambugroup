@@ -28,6 +28,10 @@ import {
 } from "@/components/expenses/shared";
 import { TrendingUp } from "lucide-react";
 
+import { PageTop } from "@/components/kit/PageTop";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { formatCurrency } from "@/utils/format";
+
 // Chart palette — semantic HSL tokens driven by the theme (primary/warning/etc),
 // never hardcoded hex.
 const CHART_COLORS = [
@@ -39,6 +43,7 @@ const CHART_COLORS = [
 ];
 
 export default function ExpenseAnalytics() {
+  const scope=useVenueScope();
   const { bills, loading: bLoad } = useExpenseBills();
   const { statements, loading: sLoad } = useVendorStatements();
   const loading = bLoad || sLoad;
@@ -55,12 +60,12 @@ export default function ExpenseAnalytics() {
   const sinceISO = since.toISOString().slice(0, 10);
 
   const scopedBills = useMemo(
-    () => bills.filter((b) => (b.bill_date || "") >= sinceISO && b.approval_status === "posted"),
-    [bills, sinceISO]
+    () => bills.filter((b) => (b.bill_date || "") >= sinceISO && b.approval_status === "posted" && scope.includesId(b.venue_id)),
+    [bills, sinceISO, scope]
   );
   const scopedStmts = useMemo(
-    () => statements.filter((s) => (s.statement_date || "") >= sinceISO),
-    [statements, sinceISO]
+    () => statements.filter((s) => (s.statement_date || "") >= sinceISO && s.approval_status === "posted" && scope.includesId(s.venue_id)),
+    [statements, sinceISO, scope]
   );
 
   const byMonth = useMemo(() => {
@@ -109,12 +114,9 @@ export default function ExpenseAnalytics() {
   const hasData = byMonth.length > 0 || byVendor.length > 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Expense Analytics"
-        description="Trends, vendor concentration, and avoidable costs across posted bills and vendor statements."
-      />
-
+    <div className="w-full min-w-0 space-y-5 pb-24">
+      <PageTop title="Trends"/>
+      <section className="kit card-glass p-4 sm:p-5 space-y-5"><h2 className="font-semibold">{sinceLabel} · Monthly trend and top vendors</h2><p className="text-sm text-muted-foreground">{formatCurrency(totals.grand)} booked</p>
       <div className="flex flex-wrap items-center gap-3">
         <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
@@ -130,29 +132,17 @@ export default function ExpenseAnalytics() {
         </ScopeLine>
       </div>
 
-      {loading && !bills.length ? (
-        <KpiSkeleton count={4} />
-      ) : (
-        <KpiGrid>
-          <KpiCard label="Total expenses" value={fmtHKWhole(totals.grand)} hint="Posted only" tone="success" />
-          <KpiCard label="Bills" value={fmtHKWhole(totals.billsTotal)} tone="info" />
-          <KpiCard label="Statement charges" value={fmtHKWhole(totals.stmtCharges)} tone="info" />
-          <KpiCard label="Late fees" value={fmtHKWhole(totals.lateFees)} hint="Avoidable" tone={totals.lateFees > 0 ? "destructive" : "default"} />
-          <KpiCard label="Avg / month" value={fmtHKWhole(totals.avgMonth)} tone="info" />
-        </KpiGrid>
-      )}
-
       {!hasData && !loading ? (
-        <Card className="card-glass p-0">
+        <div>
           <EmptyState
             icon={<TrendingUp className="h-6 w-6" />}
             title="No posted expenses in this period"
             description="Post a bill through Expenses → Bills or Approvals, then come back to see trends."
           />
-        </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="card-glass p-4 lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <div className="text-sm font-medium mb-3">Monthly trend</div>
             <div className="h-64">
               <ResponsiveContainer>
@@ -173,9 +163,9 @@ export default function ExpenseAnalytics() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </Card>
+          </div>
 
-          <Card className="card-glass p-4">
+          <div className="min-w-0">
             <div className="text-sm font-medium mb-3">Top vendors</div>
             <div className="h-64">
               {byVendor.length === 0 ? (
@@ -209,9 +199,10 @@ export default function ExpenseAnalytics() {
                 </ResponsiveContainer>
               )}
             </div>
-          </Card>
+          </div>
         </div>
       )}
+      </section>
     </div>
   );
 }

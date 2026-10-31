@@ -3,15 +3,15 @@ Read nested AGENTS.md.
 
 - ThemeProvider fixes light mode without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform styles/overlay stacking.
 
-- Scanner links use `buildMatchLinkPatch` for atomic supplier fields; review display copies never alter evidence, AI, validation or saves.
+- Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Later mutable master fields use earlier invoice evidence or are omitted (no snapshots).
-- Only Finance-team writes snapshots; finished history is trigger-locked.
+- Only Finance-team writes snapshots; finished history is locked.
 - Revenue, KPI, People and Purchasing navigation are each mounted once inside AppLayout; sidebar links, mobile bars and local tabs share route families and effective-user access (Purchasing via usePurchasingNavigationAccess with server-backed preview role lookup; People uses most-specific-path tab selection), leaving route guards and page content unchanged.
 - Purchasing mode is read through usePurchasingMode from tenant-scoped app_config; only ProcurementDashboardTab uses purchasingOverviewRows to bypass the venue picker for central buying, with explicit tenant-scoped reads for both invoices and revenue, so group figures never mix clients or change other pages' scope.
-- Purchasing Overview and centred dialogs share purchasingOverview.ts calculations; invoice creation time is the last-upload date (headers lack uploaded_at).
+- Purchasing Overview/dialogs share purchasingOverview.ts math; creation time is last upload (no uploaded_at).
 - Purchasing budgets use the SECURITY INVOKER save_purchasing_budgets RPC for atomic budget/history writes under RLS; purchasingOverview.ts owns pure budget math and full-month per-venue buildProjectionRows forecast aggregation, and usePurchasingBudgets loads each picked month independently. Page suggestions pass an unsaved initial map into the dialog's editor. Budget history replays per venue/category with Hong Kong day boundaries while preserving untouched venue contributions, so saves cannot split history and group charts do not conflate venues.
-- Dashboard helpers own month defaults, periods and budget scales.
+- Expenses shares nav/period/scope; confirmed postBill is atomic. Claims wait for server-gated review; vendor relinking preserves locked/Purchasing records.
 - People keeps dated terms/owner/payroll locks; rota/typed hours pay, never clock-ins. Bani shares People drafts/cards; one executor locks owned cards, delegates existing RPCs and audits results. Undo checks state/access/payroll and keeps IDs; posted pay stays fixed.
 - Voice routing uses the existing reasoning turn and full conversation, and acknowledgements originate only from confirmed tool work; bounded non-confidential session clips share one cancellable media element. Final speech extracts complete prose without a second model request, keeping text independent of audio.
 - Voice capture has one mobile microphone owner (MediaRecorder); wall-clock capture deadlines and abortable stage deadlines must remain independent of analyser levels and recorder start events, with an explicit orb send and recoverable notices instead of discarding quiet recordings.

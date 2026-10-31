@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,24 @@ import {
 } from "@/hooks/useStaffReimbursements";
 import ReimbursementAiImport from "@/components/staff-reimbursements/ReimbursementAiImport";
 
+import { PageTop } from "@/components/kit/PageTop";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useAuth } from "@/hooks/useAuth";
+import { claimChecks } from "@/utils/expenses";
+import { formatCurrency, formatDate } from "@/utils/format";
+import { QuickFilter } from "@/components/kit/QuickFilter";
+import { Toolbar } from "@/components/kit/Toolbar";
+
 type StatusFilter = "all" | "owing" | "paid";
 
 export default function StaffReimbursements() {
   const sr = useStaffReimbursements();
+  const period=usePeriodFilter(sr.reimbursements.map(r=>r.claim_date),"all"), scope=useVenueScope();
+  const {user}=useAuth(); const {isPreviewActive}=usePreviewMode();
+  const [owner,setOwner]=useState(false),[review,setReview]=useState<StaffReimbursement|null>(null),[payout,setPayout]=useState("bank"),[approving,setApproving]=useState(false);
+  useEffect(()=>{if(sr.tenantId&&user)supabase.rpc("people_owner",{t:sr.tenantId,u:user.id}).then(({data})=>setOwner(data===true));},[sr.tenantId,user]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -33,227 +47,19 @@ export default function StaffReimbursements() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return sr.reimbursements.filter(r => {
+      if (!period.inPeriod(r.claim_date)||!scope.includesId(r.venue_id)) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (!q) return true;
-      return (
-        r.claimant_name.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q) ||
-        String(r.amount).includes(q)
-      );
+      return `${r.claimant_name} ${r.description} ${r.amount}`.toLowerCase().includes(q);
     });
-  }, [sr.reimbursements, statusFilter, search]);
-
-  const categoryLabelById = useMemo(() => {
-    const m = new Map<string, { name: string; ftype: string }>();
-    for (const c of sr.classifications) m.set(c.id, { name: c.name, ftype: c.financial_type });
-    return m;
-  }, [sr.classifications]);
-
-  /** Current-month breakdown by classification.financial_type, using claim_date. */
-  const monthByFinancialType = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear(); const m = now.getMonth();
-    const buckets: Record<"cogs" | "opex" | "asset" | "other", { total: number; count: number }> = {
-      cogs: { total: 0, count: 0 },
-      opex: { total: 0, count: 0 },
-      asset: { total: 0, count: 0 },
-      other: { total: 0, count: 0 },
-    };
-    for (const r of sr.reimbursements) {
-      const d = new Date(r.claim_date);
-      if (d.getFullYear() !== y || d.getMonth() !== m) continue;
-      const ftype = (categoryLabelById.get(r.category_id)?.ftype ?? "other") as keyof typeof buckets;
-      const bucket = buckets[ftype] ?? buckets.other;
-      bucket.total += Number(r.amount || 0);
-      bucket.count += 1;
-    }
-    return buckets;
-  }, [sr.reimbursements, categoryLabelById]);
-
-  const paidFromLabel = (r: StaffReimbursement): string => {
-    if (r.status !== "paid" || !r.paid_from) return "—";
-    if (r.paid_from === "bank") {
-      const b = sr.bankAccounts.find(x => x.id === r.paid_from_bank_account_id);
-      return b ? `Bank · ${b.account_name}` : "Bank";
-    }
-    if (r.paid_from === "petty_cash") {
-      const f = sr.floats.find(x => x.id === r.paid_from_float_id);
-      return f ? `Petty Cash · ${f.name}` : "Petty Cash";
-    }
-    if (r.paid_from === "payroll") return "Payroll";
-    return "—";
-  };
-
+  }, [sr.reimbursements, statusFilter, search, period, scope]);
+  const statusWords=(r:StaffReimbursement)=>r.status==='paid'?'Paid':r.approval_status==='pending_review'?(r.amount>300?'Waiting for owner (over HK$300)':'Waiting for manager'):`Approved · pay with ${r.payout_method==='petty_cash'?'cash box':r.payout_method||'bank'}`;
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
-      <PageHeader
-        eyebrow="Staff Reimbursements"
-        title="Staff Reimbursements"
-        description="Money the business owes employees for work-related expenses they paid out of pocket."
-        actions={
-          <>
-            <Button variant="outline" onClick={() => setAiOpen(true)} className="gap-1.5">
-              <Sparkles className="h-4 w-4" /> AI Import
-            </Button>
-            <Button onClick={() => setAddOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Add Claim
-            </Button>
-          </>
-        }
-      />
-
-      {sr.loading ? (
-        <KpiGrid>
-          {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
-        </KpiGrid>
-      ) : (
-        <KpiGrid>
-          <KpiCard
-            label="Total Owing"
-            value={fmtHKWhole(sr.totalOwing)}
-            tone={sr.totalOwing > 0 ? "warning" : "default"}
-            hint={`${sr.reimbursements.filter(r => r.status === "owing").length} open claim(s)`}
-          />
-          <KpiCard
-            label="Paid This Month"
-            value={fmtHKWhole(sr.paidThisMonth)}
-            tone="success"
-          />
-          <KpiCard
-            label="COGS · This Month"
-            value={fmtHKWhole(monthByFinancialType.cogs.total)}
-            tone="warning"
-            hint={`${monthByFinancialType.cogs.count} claim(s)`}
-          />
-          <KpiCard
-            label="Opex · This Month"
-            value={fmtHKWhole(monthByFinancialType.opex.total)}
-            tone="info"
-            hint={`${monthByFinancialType.opex.count} claim(s)`}
-          />
-          <KpiCard
-            label="Assets · This Month"
-            value={fmtHKWhole(monthByFinancialType.asset.total)}
-            tone="success"
-            hint={`${monthByFinancialType.asset.count} claim(s)`}
-          />
-        </KpiGrid>
-      )}
-
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <div className="flex gap-1.5 flex-wrap">
-          {(["all", "owing", "paid"] as StatusFilter[]).map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={
-                "px-3 h-8 rounded-full text-xs font-medium capitalize border transition-colors " +
-                (statusFilter === s
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-transparent text-muted-foreground border-border/60 hover:text-foreground hover:border-border")
-              }
-            >
-              {s === "all" ? "All" : s}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search claimant, description, amount…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-8 text-xs"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <Card className="card-glass overflow-hidden">
-        {sr.loading ? (
-          <div className="p-6 space-y-2">
-            {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="p-12 text-center">
-            <Wallet className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
-            <div className="text-sm font-medium">No claims yet</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Record a claim when an employee has paid for a work expense from their own pocket.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/60">
-                  <th className="text-left font-medium px-4 py-2.5">Claimant</th>
-                  <th className="text-left font-medium px-4 py-2.5">Description</th>
-                  <th className="text-left font-medium px-4 py-2.5">Category</th>
-                  <th className="text-right font-medium px-4 py-2.5">Amount</th>
-                  <th className="text-left font-medium px-4 py-2.5">Date</th>
-                  <th className="text-left font-medium px-4 py-2.5">Status</th>
-                  <th className="text-left font-medium px-4 py-2.5">Paid From</th>
-                  <th className="text-right font-medium px-4 py-2.5"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{r.claimant_name}</td>
-                    <td className="px-4 py-3 max-w-xs">
-                      <div className="truncate" title={r.description}>{r.description}</div>
-                      {r.receipt_url && (
-                        <a
-                          href={r.receipt_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-primary mt-0.5 hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" /> receipt
-                        </a>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        const cat = categoryLabelById.get(r.category_id);
-                        if (!cat) return <span className="text-muted-foreground">—</span>;
-                        return (
-                          <div className="flex items-center gap-1.5">
-                            <StatusPill variant="neutral" dot={false} className="!py-1">
-                              {cat.name}
-                            </StatusPill>
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-                              {cat.ftype}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 text-right td-num tabular-nums">{fmtHK(Number(r.amount))}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.claim_date)}</td>
-                    <td className="px-4 py-3">
-                      <StatusPill variant={r.status === "paid" ? "success" : "warning"}>
-                        {r.status === "paid" ? "Paid" : "Owing"}
-                      </StatusPill>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{paidFromLabel(r)}</td>
-                    <td className="px-4 py-3 text-right">
-                      {r.status === "owing" && (
-                        <Button size="sm" variant="outline" onClick={() => setPayOpen(r)}>
-                          Mark as Paid
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+    <div className="w-full min-w-0 space-y-5 pb-24">
+      <PageTop title="Staff claims" period={period.control} actionsBesideTitle actions={<Button onClick={()=>setAiOpen(true)}><Sparkles className="h-4 w-4"/>Scan or upload</Button>}/>
+      <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">{period.label} · {rows.length} claims</h2><p className="text-sm text-muted-foreground">{formatCurrency(rows.reduce((n,r)=>n+r.amount,0))} · {rows.filter(r=>r.approval_status==='pending_review').length} waiting for approval</p><QuickFilter<StatusFilter> value={statusFilter} onChange={setStatusFilter} options={[{key:'all',label:'All'},{key:'owing',label:'To pay'},{key:'paid',label:'Paid'}]}/><Toolbar search={search} onSearch={setSearch} placeholder="Search claims" columns={<Button variant="outline" onClick={()=>setAddOpen(true)}><Plus className="h-4 w-4"/>Add claim</Button>}/></div>
+      <table className="hidden md:table w-full table-fixed text-sm"><thead className="border-y border-border text-muted-foreground text-xs"><tr><th className="px-5 py-3 text-left w-[20%]">Person</th><th className="text-left px-3 w-[35%]">What for</th><th className="text-right px-3 w-[18%]">Amount</th><th className="text-left px-5">Status</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-b border-border/50 cursor-pointer hover:bg-muted/30" onClick={()=>setReview(r)}><td className="px-5 py-3 break-words">{r.claimant_name}</td><td className="px-3 break-words">{r.description}<p className="text-xs text-muted-foreground">{formatDate(r.claim_date)}</p></td><td className="text-right px-3 td-num">{formatCurrency(r.amount)}</td><td className="px-5">{statusWords(r)}</td></tr>)}</tbody></table><div className="md:hidden divide-y divide-border">{rows.map(r=><Button key={r.id} variant="ghost" className="w-full h-auto block text-left whitespace-normal p-4 rounded-none" onClick={()=>setReview(r)}><div className="flex justify-between gap-3"><span>{r.claimant_name}</span><span className="td-num shrink-0">{formatCurrency(r.amount)}</span></div><p className="text-xs text-muted-foreground mt-1">{r.description} · {formatDate(r.claim_date)}</p><p className="text-xs mt-2">{statusWords(r)}</p></Button>)}</div>{!rows.length&&<p className="p-8 text-center text-muted-foreground">{sr.loading?'Loading claims…':'No claims in this view.'}</p>}</section>
+      <Dialog open={!!review} onOpenChange={o=>!o&&setReview(null)}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{review?.claimant_name} · Staff claim</DialogTitle></DialogHeader>{review&&<><p>{review.description} · {formatCurrency(review.amount)}</p><p className="text-sm">{statusWords(review)}</p>{[...new Set([...claimChecks(review,sr.reimbursements,new Date().toISOString().slice(0,10)),...(review.review_reasons??[])])].map(reason=><p key={reason} className="text-sm text-warning">{reason}</p>)}{review.receipt_url&&<a className="text-primary underline" href={review.receipt_url} target="_blank" rel="noreferrer">View receipt</a>}{review.approval_status==='pending_review'&&<><Label>Pay with</Label><Select value={payout} onValueChange={setPayout}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="bank">Bank</SelectItem><SelectItem value="payroll">Payroll</SelectItem><SelectItem value="petty_cash">Cash box</SelectItem></SelectContent></Select><DialogFooter><Button disabled={isPreviewActive||approving||(review.amount>300&&!owner)} onClick={async()=>{setApproving(true);try{await sr.approveClaim(review.id,payout);toast.success('Claim approved and booked');setReview(null);}catch(e){toast.error(e instanceof Error?e.message:'Approval failed');}finally{setApproving(false);}}}>Approve</Button></DialogFooter></>}{review.approval_status==='approved'&&review.status==='owing'&&<Button disabled={isPreviewActive} onClick={()=>{setPayOpen(review);setReview(null);}}>Mark as paid</Button>}</>}</DialogContent></Dialog>
 
       <AddClaimDialog
         open={addOpen}
@@ -320,6 +126,7 @@ function AddClaimDialog({
         }
       }
 
+      const receipt_hash = file ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await file.arrayBuffer()))).map(b=>b.toString(16).padStart(2,"0")).join("") : null;
       await sr.createClaim({
         claimant_name: claimant,
         description,
@@ -328,8 +135,9 @@ function AddClaimDialog({
         claim_date: date,
         receipt_url,
         receipt_path,
+        receipt_hash,
       });
-      toast.success("Claim recorded and posted to GL");
+      toast.success("Claim saved — waiting for approval");
       reset();
       onOpenChange(false);
     } catch (e: any) {
@@ -345,8 +153,7 @@ function AddClaimDialog({
         <DialogHeader>
           <DialogTitle>Add Reimbursement Claim</DialogTitle>
           <DialogDescription>
-            Records what an employee is owed. Posts a journal entry immediately
-            (Dr expense, Cr Staff Reimbursements Payable).
+            Saves the claim for review before approval and booking.
           </DialogDescription>
         </DialogHeader>
 

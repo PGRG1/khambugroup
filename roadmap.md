@@ -1,3 +1,13 @@
+## Expenses simplify and fix
+- [x] Four-page navigation/redirects, shared phone pills and centred page pattern; Settings keeps categories/mapping
+- [x] Bills extraction/review, atomic approval/posting, bulk confirm card, reviewed category mappings and expense-only vendor relinking
+- [x] Invalid bank queries removed; Wah Mei blockers exposed with Pick an account
+- [ ] Wah Mei posting waits on confirmed accounts; HK$336 bill also has HK$2,080 allocated, so evidence needs checking
+- [x] Monthly vendor/venue history and confirmed regular additions; existing rent rule preserved
+- [x] Staff claims moved with legacy data/payments retained, pending-review accrual, owner gate over HK$300 and factual receipt checks; Trends tiles removed
+- [x] 57 focused/regression tests and build OK; signed-in desktop/375px four-page checks without overflow; category suggestions, blocked Wah Mei approval, unsaved rent card and email extraction checked; real expense question returned Landlord HK$1,900,000
+- [ ] Live financial approval/claim owner/payout and concurrent confirmations not exercised on real records; merges deliberately refuse locked bills; direct email inbox forwarding, complex email attachments and automatic asset-threshold routing unavailable
+
 ## Bani People write actions
 - [x] Shared main/floating Confirm / Change / Cancel cards and server-validated People drafts; explicit identities and periods required
 - [x] Reuse rota/leave/Team/payroll RPCs with existing permissions, owner review and no chat payroll approval

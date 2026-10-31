@@ -206,7 +206,8 @@ export function useExpenseBills() {
           });
         }
 
-        await supabase.from("expense_bill_allocations").delete().eq("bill_id", billId).eq("tenant_id", tenantId);
+        const { error: deleteError } = await supabase.from("expense_bill_allocations").delete().eq("bill_id", billId).eq("tenant_id", tenantId);
+        if (deleteError) throw deleteError;
         if (allocations.length) {
           const payload = allocations.map((a, i) => ({
             bill_id: billId,
@@ -226,7 +227,7 @@ export function useExpenseBills() {
         }
 
         await refresh();
-        return billId!;
+        return billId ?? null;
       } catch (e: any) {
         if (isApprovalGateError(e) || (header.approval_status === "approved" && e?.message)) {
           showApprovalGateToast(e);
@@ -275,12 +276,12 @@ export function useExpenseBills() {
 
   const postBill = useCallback(
     async (billId: string) => {
-      const { data, error } = await supabase.rpc("post_expense_bill", { p_bill_id: billId });
+      const { data, error } = await supabase.rpc("approve_and_post_expense_bill", { p_bill_id: billId });
       if (error) {
         toast.error("Post failed: " + error.message);
         return false;
       }
-      toast.success("Bill posted to GL");
+      toast.success("Approved — bill booked");
       await refresh();
       return true;
     },

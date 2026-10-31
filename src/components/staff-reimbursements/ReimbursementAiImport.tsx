@@ -39,6 +39,9 @@ type ExtractedClaim = {
   suggested_category_id: string;
   confidence: "high" | "medium" | "low";
   source_hint: string;
+  review_reasons?: string[];
+  receipt_shop?: string | null;
+  receipt_time?: string | null;
 };
 
 type ReviewRow = ExtractedClaim & {
@@ -57,6 +60,7 @@ export default function ReimbursementAiImport({
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  const [receiptHash,setReceiptHash]=useState<string|null>(null);
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -114,6 +118,8 @@ export default function ReimbursementAiImport({
     if (files.length === 0 || !sr.tenantId) return;
     setScanning(true);
     try {
+      if(files.length===1)setReceiptHash(Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await files[0].arrayBuffer()))).map(b=>b.toString(16).padStart(2,"0")).join(""));
+      else setReceiptHash(null);
       // Upload first file as shared attachment (non-fatal on failure).
       let attachment_url: string | null = null;
       let attachment_path: string | null = null;
@@ -210,7 +216,11 @@ export default function ReimbursementAiImport({
         amount: row.amount,
         claim_date: row.claim_date,
         receipt_url: sharedAttachment.url,
-        receipt_path: sharedAttachment.path,
+        receipt_path: rows.length===1 ? sharedAttachment.path : null,
+        receipt_hash: rows.length===1 ? receiptHash : null,
+        review_reasons: row.review_reasons??[],
+        receipt_shop: row.receipt_shop??null,
+        receipt_time: row.receipt_time??null,
       });
       updateRow(idx, { status: "saved" });
     } catch (e: any) {
@@ -227,7 +237,7 @@ export default function ReimbursementAiImport({
     }
     setSavingAll(false);
     const stillPending = rows.some(r => r.status !== "saved");
-    if (!stillPending) toast.success("All claims saved and posted to GL.");
+    if (!stillPending) toast.success("All claims saved for approval.");
   };
 
   const allSaved = rows.length > 0 && rows.every(r => r.status === "saved");
@@ -243,7 +253,7 @@ export default function ReimbursementAiImport({
           <DialogDescription>
             {step === "upload"
               ? "Upload receipts, an expense sheet (Excel), a Word doc, or a PDF. AI will extract each claim for you to review."
-              : "Review each proposed claim. Edit anything before saving. Each saved row posts the accrual journal automatically."}
+              : "Review each proposed claim. Edit anything before saving. Each saved row waits for approval before booking."}
           </DialogDescription>
         </DialogHeader>
 
@@ -369,6 +379,7 @@ export default function ReimbursementAiImport({
                           </Button>
                         </div>
                       </div>
+                      {(r.review_reasons??[]).map(reason=><p key={reason} className="text-xs text-warning mb-2">{reason}</p>)}
                       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
                         <div className="sm:col-span-2">
                           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Claimant</Label>

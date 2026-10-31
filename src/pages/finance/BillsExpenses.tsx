@@ -7,7 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PageTop } from "@/components/kit/PageTop";
+import { Toolbar } from "@/components/kit/Toolbar";
+import { QuickFilter } from "@/components/kit/QuickFilter";
+import { FilterPanel, FilterGroup } from "@/components/kit/FilterPanel";
+import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { useVenueScope } from "@/hooks/useVenueScope";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { downloadCSV } from "@/utils/csvDownload";
+import { formatCurrency, formatDate } from "@/utils/format";
+import { isWaitingBill, expenseStatus, proposedCategoryAccount, similarVendors } from "@/utils/expenses";
+import { useVendorStatements } from "@/hooks/useVendorStatements";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle, Settings2, CheckCircle2, UserPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -107,7 +117,18 @@ export default function BillsExpenses() {
   const [supplierAccounts, setSupplierAccounts] = useState<Array<{ id: string; account_number: string; label: string | null; default_venue_id: string | null; default_gl_account_id: string | null; is_active: boolean }>>([]);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get("status") === "waiting" ? "waiting" : "all");
+  const scope = useVenueScope(); const period = usePeriodFilter(bills.map(b => b.bill_date), "all");
+  const { isPreviewActive } = usePreviewMode();
+  const canWrite = isAdmin && !isPreviewActive;
+  const statements = useVendorStatements();
+  const [scanOpen, setScanOpen] = useState(false);
+  const [vendorFilter, setVendorFilter] = useState("all"), [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryOpen, setCategoryOpen] = useState(false), [categoryLinks, setCategoryLinks] = useState<Record<string,string>>({});
+  const [ask, setAsk] = useState(""), [answer, setAnswer] = useState(""), [bulk, setBulk] = useState<ExpenseBill[] | null>(null), [busy, setBusy] = useState(false);
+  const [lookupRevision,setLookupRevision]=useState(0);
+  const [lineIndex, setLineIndex] = useState<Record<string,string[]>>({});
+  const [statementDoc, setStatementDoc] = useState<(typeof statements.statements)[number] | null>(null);
   const [paymentFilter, setPaymentFilter] = useState("all");
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -145,7 +166,7 @@ export default function BillsExpenses() {
       setBankAccounts((b.data || []) as BankAccount[]);
       setCategories((c.data || []) as Category[]);
     })();
-  }, [tenantId]);
+  }, [tenantId,lookupRevision]);
 
   // Load supplier accounts whenever selected vendor changes in the editor.
   useEffect(() => {
@@ -259,16 +280,19 @@ export default function BillsExpenses() {
   const supplierName = (id: string | null) =>
     suppliers.find((s) => s.id === id)?.name || "—";
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return bills.filter((b) => {
-      if (statusFilter !== "all" && b.approval_status !== statusFilter) return false;
-      if (paymentFilter !== "all" && b.payment_status !== paymentFilter) return false;
-      if (!q) return true;
-      const v = supplierName(b.supplier_id) + " " + (b.vendor_name || "") + " " + (b.bill_number || "") + " " + (b.notes || "");
-      return v.toLowerCase().includes(q);
-    });
-  }, [bills, search, statusFilter, paymentFilter, suppliers]);
+  const scopedBills = bills.filter(b => period.inPeriod(b.bill_date) && (b.venue_id ? scope.includesId(b.venue_id) : scope.includesName(b.venue)));
+  const filtered = scopedBills.filter(b => (statusFilter === "all" || statusFilter === "waiting" && isWaitingBill(b) || statusFilter === "to-pay" && b.approval_status === "posted" && b.payment_status !== "paid" || statusFilter === "paid" && b.payment_status === "paid") && (vendorFilter === "all" || b.supplier_id === vendorFilter) && (categoryFilter === "all" || lineIndex[b.id]?.includes(categoryFilter)) && `${supplierName(b.supplier_id)} ${b.vendor_name ?? ''} ${b.notes ?? ''} ${b.bill_number ?? ''}`.toLowerCase().includes(search.toLowerCase()));
+  const waiting = scopedBills.filter(isWaitingBill);
+  useEffect(() => { if (!tenantId) return; supabase.from('expense_bill_allocations').select('bill_id,expense_category').eq('tenant_id',tenantId).then(({data})=>{ const index:Record<string,string[]>={}; for(const a of data??[]) index[a.bill_id]=[...(index[a.bill_id]??[]),a.expense_category??'']; setLineIndex(index); }); },[tenantId,bills]);
+  const missingCategories = categories.filter(c=>!c.default_account_id);
+  const vendorPairs = similarVendors(suppliers.filter(s=>s.vendor_type==='expense'));
+  const askBani = async () => {
+    const command=ask.trim();
+    const match=command.match(/^approve all (.+?) bills[.!]?$/i);
+    if(match){ const term=match[1].toLowerCase(); const candidates=scopedBills.filter(b=>isWaitingBill(b)&&`${b.notes??''} ${b.vendor_name??''} ${(lineIndex[b.id]??[]).join(' ')}`.toLowerCase().includes(term)); if(!candidates.length){setAnswer('No matching waiting bills in this period.');return;} setBulk(candidates); setAnswer(''); return; }
+    setBusy(true);
+    try { const {data,error}=await supabase.functions.invoke('expense-ask',{body:{tenant_id:tenantId,instruction:command,bill_ids:scopedBills.map(b=>b.id)}}); if(error){const detail=await error.context?.json?.();throw new Error(detail?.error||error.message);} if(data?.bill_ids?.length){setBulk(scopedBills.filter(b=>data.bill_ids.includes(b.id)&&isWaitingBill(b)));setAnswer('');}else setAnswer(data?.answer||'Please specify the bills and instruction.'); } catch(e){setAnswer(e instanceof Error?e.message:'Could not read the instruction.');}finally{setBusy(false);}
+  };
 
   // KPIs
   const kpis = useMemo(() => {
@@ -294,7 +318,8 @@ export default function BillsExpenses() {
   const openEditor = async (bill: ExpenseBill | null) => {
     setEditing(bill);
     if (bill) {
-      setHeader({ ...bill });
+      const matches=suppliers.filter(s=>s.name.trim().toLowerCase()===(bill.vendor_name??'').trim().toLowerCase());
+      setHeader({ ...bill, supplier_id: bill.supplier_id || (matches.length===1?matches[0].id:null) });
       const [allocs, aud, pay] = await Promise.all([
         fetchAllocations(bill.id),
         fetchAudit(bill.id),
@@ -381,7 +406,7 @@ export default function BillsExpenses() {
       (s.allocations.length ? s.allocations : [{ expense_category: "Other Operating Expenses", amount: s.subtotal || s.total_amount, notes: "" }]).map((a, i) => ({
         line_no: i + 1,
         expense_category: a.expense_category,
-        account_id: null,
+        account_id: categories.find(c=>c.name.toLowerCase()===a.expense_category.toLowerCase())?.default_account_id || proposedCategoryAccount(a.expense_category,accounts) || null,
         venue: ven?.name || s.venue || null,
         department: null,
         amount: a.amount,
@@ -392,6 +417,7 @@ export default function BillsExpenses() {
     );
     setAudit([]);
     setPayments([]);
+    setScanOpen(false);
     setEditorOpen(true);
   };
 
@@ -433,15 +459,17 @@ export default function BillsExpenses() {
 
 
   const handlePost = async () => {
-    if (!editing) return;
-    if (!balanced) return;
-    const ok = await postBill(editing.id);
-    if (ok) {
-      const aud = await fetchAudit(editing.id);
-      setAudit(aud);
-      setEditing({ ...editing, approval_status: "posted" });
-      setHeader((h) => ({ ...h, approval_status: "posted" }));
-    }
+    if (!canWrite || busy || !balanced || !allocationsHaveAccount) return;
+    if (splitDraft.mode==='split'&&!splitDraft.balanced){toast.error('Venue split is not balanced');return;}
+    setBusy(true);
+    try {
+      // Save corrections first in review state; approval and posting are one transaction.
+      const id = await saveBill({...header, approval_status:'pending_review'}, allocations);
+      if (!id) return;
+      if (tenantId) await saveVenueSplit({tenantId,ownerType:'expense_bill',ownerId:id,mode:splitDraft.mode,lines:splitDraft.lines,baseAmount:Number(header.total_amount||0)});
+      const ok = await postBill(id);
+      if (ok) setEditorOpen(false);
+    } finally { setBusy(false); }
   };
 
   const handleRecordPayment = async () => {
@@ -525,162 +553,34 @@ export default function BillsExpenses() {
   const masterMissing = categories.length === 0 || suppliers.length === 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Bills & Expenses"
-        description="Non-inventory supplier bills — utilities, rent, services, professional fees, late charges."
-        actions={
-          <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
-            <Plus className="h-4 w-4 mr-1" /> New bill
-          </Button>
-        }
-      />
-
-      <BillDropZone onParsed={handleScanned} />
-
-
-      {/* Master-data prompt — surfaces when categories or vendors are empty. */}
-      {masterMissing && (
-        <div className="card-glass rounded-xl border border-warning/40 p-4">
-          <div className="flex items-start gap-3">
-            <div className="rounded-md bg-warning/10 p-2 text-warning shrink-0">
-              <ShieldAlert className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">Set up master data first</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {categories.length === 0 && "No expense categories exist yet. "}
-                {suppliers.length === 0 && "No active vendors exist yet. "}
-                Bills entered without master data become orphaned records that won't flow into P&amp;L correctly.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {categories.length === 0 && (
-                  <Link to="/expenses/categories"><Button size="sm" className="h-8">Add categories <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
-                )}
-                {suppliers.length === 0 && (
-                  <Link to="/expenses/vendors"><Button size="sm" className="h-8">Add vendors <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="w-full min-w-0 space-y-5 pb-24">
+      <PageTop title="Expenses" actionsBesideTitle actions={<Button onClick={()=>setScanOpen(true)}><FileText className="h-4 w-4"/>Scan or upload</Button>} period={period.control}/>
+      <section className="kit card-glass overflow-hidden">
+        <div className="p-4 sm:p-5 space-y-3">
+          <h2 className="text-base font-semibold break-words">{period.label} · {scopedBills.length} bills · {formatCurrency(scopedBills.reduce((n,b)=>n+b.total_amount,0))}</h2>
+          <p className="text-sm text-muted-foreground">{waiting.length} waiting for you ({formatCurrency(waiting.reduce((n,b)=>n+b.total_amount,0))})</p>
+          {missingCategories.length>0&&<div className="kit-explain">{missingCategories.length} categories aren't linked to an account. <Button variant="link" className="p-0 h-auto text-warning" onClick={()=>{setCategoryLinks(Object.fromEntries(missingCategories.map(c=>[c.id,proposedCategoryAccount(c.name,accounts)])));setCategoryOpen(true);}}>Check accounts</Button></div>}
+          {vendorPairs.length>0&&<div className="kit-explain">Merge? {vendorPairs.map(pair=><div key={pair.a.id+pair.b.id} className="flex flex-wrap gap-2 items-center"><span>{pair.a.name} / {pair.b.name}</span><Button variant="link" className="p-0 h-auto text-warning" disabled={!canWrite||busy} onClick={async()=>{if(!tenantId)return;const ok=await confirm({title:'Merge these expense vendors?',description:`Relink editable bills and regular rules from ${pair.a.name} to ${pair.b.name}. Booked bills and Purchasing records stay unchanged.`,confirmLabel:'Confirm merge'});if(!ok)return;setBusy(true);const {error}=await supabase.rpc('merge_expense_vendor',{p_tenant:tenantId,p_from:pair.a.id,p_into:pair.b.id});setBusy(false);if(error)toast.error(error.message);else{toast.success('Expense vendors linked');setLookupRevision(n=>n+1);}}}>Check merge</Button></div>)}</div>}
+          <QuickFilter label="Bills" value={statusFilter} onChange={setStatusFilter} options={[{key:'all',label:'All'},{key:'waiting',label:'Waiting for you'},{key:'to-pay',label:'To pay'},{key:'paid',label:'Paid'}]}/>
+          <Toolbar search={search} onSearch={setSearch} placeholder="Search bills" mobileSearchBelow searchAfterControls filter={<FilterPanel activeCount={Number(vendorFilter!=='all')+Number(categoryFilter!=='all')} onReset={()=>{setVendorFilter('all');setCategoryFilter('all');}} resultLabel={`Show ${filtered.length} bills`}><FilterGroup title="Venue"><span className="text-sm">{scope.label}</span></FilterGroup><FilterGroup title="Vendor"><Select value={vendorFilter} onValueChange={setVendorFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All vendors</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Category"><Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map(c=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></FilterGroup></FilterPanel>} onDownload={()=>downloadCSV(filtered.map(b=>({date:b.bill_date,vendor:b.vendor_name,amount:b.total_amount,status:expenseStatus(b)})),[{key:'date',label:'Date'},{key:'vendor',label:'From'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],'expenses')}/>
+          <form className="flex gap-2" onSubmit={e=>{e.preventDefault();void askBani();}}><Input aria-label="Ask Bani about expenses" placeholder="Ask Bani" value={ask} onChange={e=>setAsk(e.target.value)}/><Button variant="outline" type="submit">Ask</Button></form>
+          {answer&&<p className="text-sm">{answer}</p>}
+          {bulk&&<div className="border border-border rounded-lg p-3 space-y-2"><p className="font-medium">Approve {bulk.length} bills · {formatCurrency(bulk.reduce((n,b)=>n+b.total_amount,0))}</p>{bulk.map(b=><p key={b.id} className="text-sm">{b.vendor_name} · {formatDate(b.bill_date)} · {formatCurrency(b.total_amount)}</p>)}<div className="flex gap-2"><Button disabled={!canWrite||busy} onClick={async()=>{setBusy(true);let n=0;for(const b of bulk){if(await postBill(b.id))n++;else break;}setBusy(false);setBulk(null);setAnswer(`${n} bills booked.`);}}>Confirm</Button><Button variant="outline" onClick={()=>setBulk(null)}>Cancel</Button></div></div>}
         </div>
-      )}
+        {loading?<p className="p-5 text-muted-foreground">Loading bills…</p>:<><table className="hidden md:table w-full table-fixed text-sm"><thead className="border-y border-border text-muted-foreground text-xs"><tr><th className="text-left px-5 py-3 w-[18%]">Date</th><th className="text-left px-3 w-[42%]">From</th><th className="text-right px-3 w-[18%]">Amount</th><th className="text-left px-5">Status</th></tr></thead><tbody>{filtered.map(b=><tr key={b.id} className="border-b border-border/50 cursor-pointer hover:bg-muted/30" onClick={()=>openEditor(b)}><td className="px-5 py-3">{formatDate(b.bill_date)}</td><td className="px-3 break-words">{supplierName(b.supplier_id)!=='—'?supplierName(b.supplier_id):b.vendor_name}<p className="text-xs text-muted-foreground">{b.notes||lineIndex[b.id]?.join(', ')||b.bill_number||'Bill'} · {b.venue||'Unassigned venue'}</p></td><td className="px-3 td-num text-right">{formatCurrency(b.total_amount)}</td><td className="px-5">{expenseStatus(b)}</td></tr>)}</tbody></table><div className="md:hidden divide-y divide-border">{filtered.map(b=><Button key={b.id} variant="ghost" className="w-full h-auto block text-left whitespace-normal rounded-none p-4" onClick={()=>openEditor(b)}><div className="flex justify-between gap-3"><span className="min-w-0 break-words">{b.vendor_name||supplierName(b.supplier_id)}</span><span className="td-num shrink-0">{formatCurrency(b.total_amount)}</span></div><p className="text-xs text-muted-foreground mt-1">{b.notes||lineIndex[b.id]?.join(', ')||'Bill'} · {b.venue||'Unassigned venue'}</p><p className="text-xs mt-2">{formatDate(b.bill_date)} · {expenseStatus(b)}</p></Button>)}</div>{!filtered.length&&<p className="p-8 text-center text-muted-foreground">No bills in this view.</p>}</>}
+        {statements.statements.filter(s=>period.inPeriod(s.statement_date)&&scope.includesId(s.venue_id)&&(vendorFilter==='all'||s.supplier_id===vendorFilter)&&`${s.vendor_name} ${s.notes}`.toLowerCase().includes(search.toLowerCase())).map(s=><Button key={s.id} variant="ghost" className="w-full h-auto flex justify-between text-left whitespace-normal rounded-none p-4 border-t border-border" onClick={()=>setStatementDoc(s)}><span className="break-words">{s.vendor_name}<span className="block text-xs text-muted-foreground">Statement document · {formatDate(s.statement_date)}</span></span><span className="shrink-0 text-xs">Document</span></Button>)}
+      </section>
+      <Dialog open={scanOpen} onOpenChange={setScanOpen}><DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Scan or upload</DialogTitle></DialogHeader><BillDropZone onParsed={handleScanned}/><Button variant="outline" onClick={()=>{setScanOpen(false);void openEditor(null);}}>Type a bill</Button></DialogContent></Dialog>
+      <Dialog open={!!statementDoc} onOpenChange={o=>!o&&setStatementDoc(null)}><DialogContent><DialogHeader><DialogTitle>Statement · {statementDoc?.vendor_name}</DialogTitle></DialogHeader><p>{statementDoc?.notes||'Statement document'}</p>{statementDoc?.attachment_url&&<a className="text-primary underline" href={statementDoc.attachment_url} target="_blank" rel="noreferrer">View attachment</a>}<p className="text-xs text-muted-foreground">Statement balances are not counted as new bills.</p></DialogContent></Dialog>
+      <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Link categories to accounts</DialogTitle></DialogHeader>{missingCategories.map(c=><div key={c.id} className="space-y-1"><Label>{c.name}</Label><Select value={categoryLinks[c.id]||'none'} onValueChange={v=>setCategoryLinks(p=>({...p,[c.id]:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="none">Pick an account</SelectItem>{accounts.map(a=><SelectItem key={a.id} value={a.id}>{a.code} · {a.name}</SelectItem>)}</SelectContent></Select>{c.name==='Equipment'&&<p className="text-xs text-muted-foreground">Operating supplies by default. Choose 1520 Kitchen Equipment for a qualifying asset; the asset threshold has not been supplied.</p>}</div>)}<DialogFooter><Button variant="outline" onClick={()=>setCategoryOpen(false)}>Cancel</Button><Button disabled={!canWrite||busy||missingCategories.some(c=>!categoryLinks[c.id]||categoryLinks[c.id]==='none')} onClick={async()=>{if(!tenantId)return;setBusy(true);const {error}=await supabase.rpc('approve_expense_category_accounts',{p_tenant:tenantId,p_links:missingCategories.map(c=>({category_id:c.id,account_id:categoryLinks[c.id]}))});setBusy(false);if(error)toast.error(error.message);else{setCategories(p=>p.map(c=>({...c,default_account_id:categoryLinks[c.id]||c.default_account_id})));setCategoryOpen(false);toast.success('Category accounts linked');}}}>Approve</Button></DialogFooter></DialogContent></Dialog>
 
-      {loading && bills.length === 0 ? (
-        <KpiSkeleton count={4} />
-      ) : (
-        <KpiGrid>
-          <KpiCard label="Total outstanding" value={fmtHKWhole(kpis.outstanding)} tone={kpis.outstanding > 0 ? "warning" : "default"} />
-          <KpiCard label="Overdue" value={fmtHKWhole(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
-          <KpiCard label="Due in 7 days" value={fmtHKWhole(kpis.dueSoon)} tone={kpis.dueSoon > 0 ? "warning" : "default"} />
-          <KpiCard label="Posted MTD" value={fmtHKWhole(kpis.postedMtd)} tone="info" />
-        </KpiGrid>
-      )}
-
-      <Card className="card-glass p-0 overflow-hidden">
-        <div className="p-4 border-b border-border/60">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Approval status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All approval</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="pending_review">Pending review</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="posted">Posted</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="void">Void</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Payment" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All payment</SelectItem>
-                <SelectItem value="unpaid">Unpaid</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <ScopeLine>
-            <span className="mt-2 inline-block">
-              Showing {filtered.length} of {bills.length} bill{bills.length === 1 ? "" : "s"}
-              {statusFilter !== "all" && ` · approval: ${statusFilter}`}
-              {paymentFilter !== "all" && ` · payment: ${paymentFilter}`}
-            </span>
-          </ScopeLine>
-        </div>
-
-        {loading ? (
-          <TableSkeleton rows={6} cols={11} />
-        ) : (
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Bill #</TableHead>
-                  <TableHead>Bill date</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Venue</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead>Approval</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={11} className="p-0">
-                      <EmptyState
-                        icon={<FileText className="h-6 w-6" />}
-                        title={bills.length === 0 ? "No bills yet" : "No bills match the current filter"}
-                        description={bills.length === 0 ? "Scan a bill or create one manually to start tracking expenses." : "Try clearing the search or status filters."}
-                        action={bills.length === 0 ? (
-                          <Button size="sm" className="h-8" onClick={() => openEditor(null)}>
-                            <Plus className="h-3 w-3 mr-1" /> Create first bill
-                          </Button>
-                        ) : undefined}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filtered.map((b) => (
-                  <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
-                    <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-xs">{b.bill_number || "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{fmtDate(b.bill_date)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{fmtDate(b.due_date)}</TableCell>
-                    <TableCell>{b.venue || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>{b.department || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(b.total_amount)}</TableCell>
-                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap text-muted-foreground">{fmtHK(b.paid_amount)}</TableCell>
-                    <TableCell><StatusPill variant={approvalVariant(b.approval_status)}>{APPROVAL_LABEL[b.approval_status] || b.approval_status}</StatusPill></TableCell>
-                    <TableCell><StatusPill variant={paymentVariant(b.payment_status)}>{PAYMENT_LABEL[b.payment_status] || b.payment_status}</StatusPill></TableCell>
-                    <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Card>
-
-
-      <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="pr-8">
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader className="pr-8">
             <div className="flex items-center gap-3 flex-wrap">
-              <SheetTitle className="text-lg">
+              <DialogTitle className="text-lg">
                 {editing ? (editing.bill_number ? `Bill · ${editing.bill_number}` : "Bill") : "New Bill"}
-              </SheetTitle>
+              </DialogTitle>
               {editing && (
                 <>
                   <StatusPill variant={approvalVariant(editing.approval_status)}>
@@ -698,38 +598,11 @@ export default function BillsExpenses() {
                 {editing.due_date && ` · Due ${fmtDate(editing.due_date)}`}
               </p>
             )}
-          </SheetHeader>
+          </DialogHeader>
 
-          <div className="space-y-5 mt-5">
-            {/* Workflow pipeline — visible on every bill so users see where it stands. */}
-            {editing && (() => {
-              const status = editing.approval_status;
-              const paid = editing.payment_status === "paid";
-              const steps = ["Draft", "Pending review", "Approved", "Posted", "Paid"];
-              let idx = 0;
-              if (status === "pending_review") idx = 1;
-              else if (status === "approved") idx = 2;
-              else if (status === "posted") idx = paid ? 4 : 3;
-              if (status === "reversed" || status === "void" || status === "rejected") {
-                return (
-                  <StatusFlow
-                    steps={steps}
-                    currentIndex={0}
-                    terminal={{
-                      label:
-                        status === "reversed"
-                          ? "Reversed"
-                          : status === "void"
-                          ? "Void"
-                          : "Rejected",
-                      variant: status === "void" ? "muted" : "destructive",
-                    }}
-                  />
-                );
-              }
-              return <StatusFlow steps={steps} currentIndex={idx} />;
-            })()}
-
+          <div className="space-y-5 mt-5 [&_section]:rounded-none [&_section]:border-0 [&_section]:bg-transparent [&_section]:p-0">
+            <div className="grid grid-cols-2 gap-3 text-sm"><div><span className="text-muted-foreground">What for</span><p>{header.notes||allocations.map(a=>a.expense_category).join(", ")||"—"}</p></div><div><span className="text-muted-foreground">Account</span><p>{allocations.map(a=>accounts.find(ac=>ac.id===a.account_id)?.name||"Pick an account").join(", ")}</p></div><div><span className="text-muted-foreground">Due</span><p>{header.due_date?formatDate(header.due_date):"No due date"}</p></div><div><span className="text-muted-foreground">Paid from</span><p>{payments.map(p=>p.payment_method.replace(/_/g," ")).join(", ")||"Not paid"}</p></div></div>
+            <p className="text-sm text-muted-foreground">{header.attachment_path || header.attachment_url ? 'Read from the attached invoice · check against the original before approving' : 'No invoice attached — entered manually'}</p>
             {/* Statement bill notice — brought-forward is excluded from booking. */}
             {Number(header.brought_forward || 0) > 0 && (
               <div className="rounded-lg border border-info/40 bg-info/10 p-3 flex items-start gap-3">
@@ -747,8 +620,7 @@ export default function BillsExpenses() {
 
             {/* Bill identity */}
             <FormSection
-              title="Bill identity"
-              description="Who the bill is from and how it's referenced."
+              title="Bill details"
             >
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
@@ -806,7 +678,7 @@ export default function BillsExpenses() {
                   </Select>
                 </div>
                 {showCreateAcctBanner && (
-                  <div className="md:col-span-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
+                  <div className="md:col-span-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
                     <span>
                       Detected account <span className="font-mono font-medium">{extractedAcctNumber}</span> on the scan — no matching supplier account for this vendor.
                     </span>
@@ -951,7 +823,7 @@ export default function BillsExpenses() {
               const showTax = allocColPrefs.tax || hasTaxData;
               return (
             <FormSection
-              title="Expense allocation"
+              title="What for · Account"
               description="Distribute the subtotal across categories and GL accounts. Every line needs an account before posting."
               aside={
                 <div className="flex items-center gap-2">
@@ -991,7 +863,7 @@ export default function BillsExpenses() {
                 </div>
               }
             >
-              <div className="rounded-md border border-border/60">
+              <div className="rounded-md border border-border/60 overflow-x-auto">
                 <Table className="w-full table-fixed">
                   <colgroup>
                     <col className="w-[190px]" />
@@ -1073,7 +945,7 @@ export default function BillsExpenses() {
                               <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
                                 <SelectTrigger className="h-9 w-full" title={label}>
                                   <span className="truncate text-left">
-                                    <SelectValue placeholder="GL account" />
+                                    <SelectValue placeholder="Pick an account" />
                                   </span>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1321,25 +1193,11 @@ export default function BillsExpenses() {
                 </Button>
               )}
               <div className="flex-1" />
-              <Button variant="outline" onClick={() => handleSave()}>Save draft</Button>
-              {header.approval_status === "draft" && (
-                <Button variant="outline" onClick={() => handleSave("pending_review")}>Submit for review</Button>
-              )}
-              {header.approval_status === "pending_review" && isAdmin && (
-                <>
-                  <Button variant="outline" onClick={() => handleSave("rejected")}>Reject</Button>
-                  <Button variant="outline" onClick={() => handleSave("approved")}>Approve</Button>
-                </>
-              )}
-              {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
-                <Button onClick={handlePost}>
-                  Approve &amp; post to GL
-                </Button>
-              )}
+              {!['posted','reversed','void'].includes(header.approval_status||'')&&<><Button variant="outline" disabled={!canWrite||busy} onClick={() => handleSave()}>Change</Button><Button disabled={!canWrite||busy||!balanced||!allocationsHaveAccount} onClick={handlePost}>{busy?'Booking…':'Approve'}</Button></>}
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment dialog */}
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>

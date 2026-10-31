@@ -302,6 +302,34 @@
       "when": 1793458455972,
       "tag": "0042_bani_people_executor_security_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793458946423,
+      "tag": "0043_expenses_confirmed_booking_and_repairs",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793459015853,
+      "tag": "0044_expense_staff_claim_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793459555398,
+      "tag": "0045_expense_action_audit_contract",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793459737482,
+      "tag": "0046_staff_claim_receipt_facts",
+      "breakpoints": true
     }
   ]
 }

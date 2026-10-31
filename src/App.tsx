@@ -119,20 +119,13 @@ import HRClock from "./pages/hr/HRClock";
 import HRPayroll from "./pages/hr/HRPayroll";
 
 
-import ExpensesOverview from "./pages/expenses/Overview";
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
 
-import BankDetectedExpensesPage from "./pages/expenses/BankDetectedExpenses";
 import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
-import ExpenseVendorsPage from "./pages/expenses/ExpenseVendors";
 import ExpenseMappingPage from "./pages/expenses/Mapping";
-import ExpenseSpendSummaryPage from "./pages/expenses/SpendSummary";
-import ExpenseVendorAccountsPage from "./pages/expenses/VendorAccounts";
 import ExpenseVendorAccountPage from "./pages/expenses/VendorAccount";
-import ExpenseOpenPayablesPage from "./pages/expenses/OpenPayables";
 
-import ExpenseApprovalsPage from "./pages/expenses/Approvals";
 import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
 
 const queryClient = new QueryClient();
@@ -272,13 +265,13 @@ function App() {
                 <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
                 <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
-                <Route path="/staff-reimbursements" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
+                <Route path="/staff-reimbursements" element={<Navigate to="/expenses/claims" replace />} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
-                <Route path="/finance/bills-expenses" element={<Navigate to="/expenses/bills" replace />} />
+                <Route path="/finance/bills-expenses" element={<Navigate to="/expenses" replace />} />
                 <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
                 <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
                 <Route path="/payments/fee-audit" element={<AdminRoute><PaymentsFeeAuditPage /></AdminRoute>} />
@@ -371,22 +364,23 @@ function App() {
                 <Route path="/hr/payroll/payables" element={<Navigate to="/finance/payables" replace />} />
 
 
-                <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
-                <Route path="/expenses/bills" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
+                <Route path="/expenses" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
+                <Route path="/expenses/bills" element={<Navigate to="/expenses" replace />} />
+                <Route path="/expenses/claims" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
                 
-                <Route path="/expenses/bank-detected" element={<AdminRoute><BankDetectedExpensesPage /></AdminRoute>} />
+                <Route path="/expenses/bank-detected" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
-                <Route path="/expenses/vendors" element={<AdminRoute><ExpenseVendorsPage /></AdminRoute>} />
+                <Route path="/expenses/vendors" element={<Navigate to="/procurement/suppliers" replace />} />
                 <Route path="/expenses/mapping" element={<AdminRoute><ExpenseMappingPage /></AdminRoute>} />
                 
-                <Route path="/expenses/approvals" element={<AdminRoute><ExpenseApprovalsPage /></AdminRoute>} />
+                <Route path="/expenses/approvals" element={<Navigate to="/expenses?status=waiting" replace />} />
                 <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
                 <Route path="/expenses/finance" element={<Navigate to="/expenses/finance/spend" replace />} />
-                <Route path="/expenses/finance/spend" element={<AdminRoute><ExpenseSpendSummaryPage /></AdminRoute>} />
-                <Route path="/expenses/finance/vendors" element={<AdminRoute><ExpenseVendorAccountsPage /></AdminRoute>} />
+                <Route path="/expenses/finance/spend" element={<Navigate to="/expenses/analytics" replace />} />
+                <Route path="/expenses/finance/vendors" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/expenses/finance/vendors/:vendorId" element={<AdminRoute><ExpenseVendorAccountPage /></AdminRoute>} />
-                <Route path="/expenses/finance/payables" element={<AdminRoute><ExpenseOpenPayablesPage /></AdminRoute>} />
+                <Route path="/expenses/finance/payables" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/finance-team" element={<ProtectedRoute pageKey="finance"><FinanceTeam /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
