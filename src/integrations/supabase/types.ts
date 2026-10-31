@@ -12332,6 +12332,19 @@ export type Database = {
         }
         Returns: Json
       }
+      log_supplier_container_return: {
+        Args: {
+          p_cost: number
+          p_date: string
+          p_product: string
+          p_qty: number
+          p_request: string
+          p_supplier: string
+          p_tenant: string
+          p_venue: string
+        }
+        Returns: string
+      }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
         Returns: undefined

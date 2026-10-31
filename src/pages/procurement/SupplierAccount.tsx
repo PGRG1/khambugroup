@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
-import { ArrowLeft, Plus } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft, Plus, MoreHorizontal, ArrowUpRight } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,20 +24,18 @@ import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
 import { AllocateExistingPaymentDialog, type ExistingPayment } from "@/components/finance/payables/AllocateExistingPaymentDialog";
-import { isDisputedInvoice, splitLedgerByPeriod, supplierCreditFromBalance } from "@/utils/supplierPaymentAllocation";
+import { isDisputedInvoice, splitLedgerByPeriod } from "@/utils/supplierPaymentAllocation";
 import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
 import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
 import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmt = (n: number) => (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtDate = (d?: string | null) => {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return d;
-  return `${String(dt.getDate()).padStart(2, "0")} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
-};
+import { formatCurrency, formatDecimal, formatDate } from "@/utils/format";
+import { SupplierDepositsTab } from "@/components/procurement/SupplierDepositsTab";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import "./supplierDetail.css";
+const fmtMoney = formatCurrency;
+const fmt = (n: number) => formatDecimal(Number(n) || 0, 0);
+const fmtDate = (d?: string | null) => d && !isNaN(new Date(d).getTime()) ? formatDate(d) : "—";
 
 type LedgerType =
   | "opening_balance"
@@ -45,16 +43,16 @@ type LedgerType =
   | "refund" | "incentive" | "deposit" | "deposit_refund";
 
 const TYPE_CONFIG: Record<LedgerType, { label: string; className: string }> = {
-  opening_balance:{ label: "Opening bal",  className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" },
-  invoice:        { label: "Invoice",       className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  payment:        { label: "Payment",       className: "bg-green-500/15 text-green-400 border-green-500/30" },
-  credit_note:    { label: "Credit note",   className: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
-  credit_applied: { label: "CN applied",    className: "bg-green-500/15 text-green-400 border-green-500/30" },
-  charge:         { label: "Charge",        className: "bg-red-500/15 text-red-400 border-red-500/30" },
-  refund:         { label: "Refund",        className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  incentive:      { label: "Incentive",     className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  deposit:        { label: "Deposit",       className: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
-  deposit_refund: { label: "Deposit refund", className: "bg-teal-500/15 text-teal-400 border-teal-500/30" },
+  opening_balance:{ label: "Opening bal",  className: "bg-muted text-foreground border-border" },
+  invoice:        { label: "Invoice",       className: "bg-muted text-warning border-border" },
+  payment:        { label: "Payment",       className: "bg-muted text-foreground border-border" },
+  credit_note:    { label: "Credit note",   className: "bg-muted text-foreground border-border" },
+  credit_applied: { label: "CN applied",    className: "bg-muted text-foreground border-border" },
+  charge:         { label: "Charge",        className: "bg-muted text-destructive border-border" },
+  refund:         { label: "Refund",        className: "bg-muted text-foreground border-border" },
+  incentive:      { label: "Incentive",     className: "bg-muted text-foreground border-border" },
+  deposit:        { label: "Deposit",       className: "bg-muted text-warning border-border" },
+  deposit_refund: { label: "Deposit refund", className: "bg-muted text-foreground border-border" },
 };
 
 const PERIODS = [
@@ -72,29 +70,11 @@ function periodStart(value: string): string | null {
   return null;
 }
 
-function KCard({ label, value, tone = "default", sub }: { label: string; value: string; tone?: "default" | "amber" | "green" | "red" | "sky"; sub?: React.ReactNode }) {
-  const toneCls =
-    tone === "amber" ? "text-amber-400" :
-    tone === "green" ? "text-emerald-400" :
-    tone === "red" ? "text-red-400" :
-    tone === "sky" ? "text-sky-400" :
-    "text-foreground";
-  return (
-    <Card className="card-glass">
-      <CardContent className="p-4">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-        <div className={`mt-1 text-xl font-semibold td-num ${toneCls}`}>{value}</div>
-        {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function SupplierAccountPage() {
   const { supplierId = "" } = useParams<{ supplierId: string }>();
   const location = useLocation();
   const navState = (location.state || {}) as { openTab?: string; highlightInvoiceId?: string };
-  const [activeTab, setActiveTab] = useState<string>(navState.openTab || "statement");
+  const [activeTab, setActiveTab] = useState<string>(navState.openTab || "open");
   const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(navState.highlightInvoiceId || null);
   useEffect(() => {
     if (!highlightInvoiceId) return;
@@ -104,6 +84,7 @@ export default function SupplierAccountPage() {
   const { tenantId } = useActiveTenant();
   const { invoices, creditNotes, creditNotesAvailable, bankAccounts, loading: payLoading, refresh } = usePayables();
 
+  const [receivedDepositsHeld, setReceivedDepositsHeld] = useState(0);
   const [supplierName, setSupplierName] = useState("");
   const [venues, setVenues] = useState<string[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -199,10 +180,10 @@ export default function SupplierAccountPage() {
       for (const r of grnRows as any[]) if (r.venue) set.add(String(r.venue));
       setVenues(Array.from(set).sort());
 
-      // Payments + allocations (no tenant filter — these tables have none)
+      // Payments and allocations remain tenant scoped.
       const [pays, alcs] = await Promise.all([
-        fetchAllRows("payments", "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status"),
-        fetchAllRows("payment_allocations", "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied"),
+        fetchAllRows("payments", "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status", undefined, tenantId),
+        fetchAllRows("payment_allocations", "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied", undefined, tenantId),
       ]);
       setPayments(pays);
       setAllocs(alcs);
@@ -210,9 +191,9 @@ export default function SupplierAccountPage() {
       // Invoice lines joined with product_master + invoices (tenant-scoped on line items)
       const { data: lines } = await (supabase as any)
         .from("invoice_line_items")
-        .select("id, quantity, unit_price, total, invoice_id, product_master_id, description, product_master!product_master_id(name, financial_treatment), invoices!invoice_id(supplier_id, invoice_date, venue, discount_type, invoice_number)")
+        .select("id, quantity, unit_price, total, invoice_id, product_master_id, description, product_master!product_master_id(*), invoices!invoice_id(supplier_id, invoice_date, venue, discount_type, invoice_number)")
         .eq("tenant_id", tenantId);
-      const filtered = (lines || []).filter((l: any) => l.invoices?.supplier_id === supplierId);
+      const filtered = (lines || []).filter((l: any) => l.invoices?.supplier_id === supplierId).map((l:any)=>({...l,product_master:l.product_master?{...l.product_master,name:l.product_master.name||l.product_master.internal_product_name}:null}));
 
       const refunds = filtered.filter((l: any) => {
         const ft = l.product_master?.financial_treatment;
@@ -230,14 +211,14 @@ export default function SupplierAccountPage() {
       // Deals
       const { data: dealRows } = await (supabase as any)
         .from("item_supplier_deals")
-        .select("id, deal_type, product_id, buy_qty, free_qty, notes, is_active, product_master!product_id(name, internal_sku)")
+        .select("id, deal_type, product_id, buy_qty, free_qty, notes, is_active, product_master!product_id(*)")
         .eq("supplier_id", supplierId)
         .eq("tenant_id", tenantId);
-      setDeals(dealRows || []);
+      setDeals((dealRows || []).map((d:any)=>({...d,product_master:d.product_master?{...d.product_master,name:d.product_master.name||d.product_master.internal_product_name}:null})));
 
       // Products for deal picker
-      const prodRows = await fetchAllRows("product_master", "id, name, internal_sku", { col: "name", asc: true }, tenantId);
-      setProducts(prodRows as any[]);
+      const prodRows = await fetchAllRows("product_master", "*", undefined, tenantId);
+      setProducts(prodRows.map((p:any)=>({...p,name:p.name||p.internal_product_name})).sort((a,b)=>a.name.localeCompare(b.name)));
 
       // Opening balances (supplier payables + deposits)
       const [{ data: obRows }, { data: odRows }] = await Promise.all([
@@ -265,7 +246,6 @@ export default function SupplierAccountPage() {
 
   const outstanding = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.payment_status !== "voided").reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices]);
   const overdue = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.due_date && i.due_date < todayStr).reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices, todayStr]);
-  const heldInDisputes = useMemo(() => supplierInvoices.filter((i) => i.payment_status !== "voided").reduce((s, i) => s + (Number(i.held_amount) || 0), 0), [supplierInvoices]);
   const availableCreditsTotal = useMemo(() => supplierAvailableCNs.reduce((s, c) => s + c.remaining_balance, 0), [supplierAvailableCNs]);
 
   const allocSumByPayment = useMemo(() => {
@@ -303,15 +283,6 @@ export default function SupplierAccountPage() {
       : depositLines),
     [depositLines, selectedAccountId, invoiceAccountMap]
   );
-
-  const depositsOutstanding = useMemo(() => {
-    let paid = 0, returned = 0;
-    for (const l of scopedDepositLines) {
-      const t = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-      if (t >= 0) paid += t; else returned += Math.abs(t);
-    }
-    return paid - returned;
-  }, [scopedDepositLines]);
 
   // Ledger build
   type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number; unallocated?: boolean };
@@ -570,7 +541,7 @@ export default function SupplierAccountPage() {
   const historicalCNs = supplierCNs.filter((c) => c.status === "fully_applied" || c.status === "voided");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="supplier-detail kit p-4 sm:p-6 space-y-5">
       <AllocateExistingPaymentDialog
         open={!!matchPayment}
         onOpenChange={(o) => !o && setMatchPayment(null)}
@@ -579,58 +550,50 @@ export default function SupplierAccountPage() {
         onSaved={refetch}
       />
       <PaymentReceiptsDialog open={!!receiptPaymentId} onOpenChange={(o) => !o && setReceiptPaymentId(null)} paymentId={receiptPaymentId} />
-      <div>
-        <Link to="/procurement/finance/suppliers" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Supplier Accounts
-        </Link>
-        <div className="mt-2 flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight font-display">{supplierName || "—"}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5 font-mono">{supplierId}</p>
+      <header>
+        <Link to="/procurement/finance/suppliers" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5 mr-1" /> Supplier Accounts</Link>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0"><h1 className="text-2xl font-semibold font-display break-words">{supplierName || "—"}</h1>
+            <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+              {outstanding!==0&&<span>{fmtMoney(outstanding)} owed</span>}
+              {overdue!==0&&<span className="text-warning">· {fmtMoney(overdue)} overdue</span>}
+              {openInvoicesList.length>0&&<span>· {openInvoicesList.length} open invoices</span>}
+              {receivedDepositsHeld!==0&&<span>{outstanding!==0||overdue!==0||openInvoicesList.length>0?"· ":""}{fmtMoney(receivedDepositsHeld)} deposits held</span>}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleRecordPayment}>Record Payment</Button>
-            <Button size="sm" variant="outline" disabled={availableCreditsTotal === 0} onClick={() => setExerciseOpen(true)}>Apply Credit</Button>
-            <Button size="sm" variant="outline" onClick={() => setBookCNOpen(true)}>Book Credit Note</Button>
-            <Button size="sm" variant="outline" onClick={() => setAddChargeOpen(true)}>Add Charge</Button>
-            <Button size="sm" variant="outline" onClick={() => setBookCNOpen(true)}>Record Refund</Button>
-            <Button size="sm" variant="ghost" onClick={exportLedger}>Export</Button>
+          <div className="flex items-center gap-2"><Button variant="outline" size="sm" asChild><Link to="/finance/payables">Pay in Finance <ArrowUpRight className="h-4 w-4 ml-1"/></Link></Button>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><MoreHorizontal className="h-4 w-4 mr-1"/>More</Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={handleRecordPayment}>Record payment</DropdownMenuItem>
+              <DropdownMenuItem disabled={availableCreditsTotal===0} onSelect={()=>setExerciseOpen(true)}>Apply credit</DropdownMenuItem>
+              <DropdownMenuItem onSelect={()=>setBookCNOpen(true)}>Book credit note</DropdownMenuItem>
+              <DropdownMenuItem onSelect={()=>setAddChargeOpen(true)}>Add charge</DropdownMenuItem>
+              <DropdownMenuItem onSelect={()=>setBookCNOpen(true)}>Record refund</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportLedger}>Export</DropdownMenuItem>
+              <DropdownMenuItem onSelect={()=>setActiveTab("incentives")}>Deals</DropdownMenuItem>
+            </DropdownMenuContent></DropdownMenu>
           </div>
         </div>
-      </div>
+      </header>
 
-      <SupplierAccountsSection
+      <div className="supplier-detail-accounts"><SupplierAccountsSection
         supplierId={supplierId}
         selectedAccountId={selectedAccountId}
         onSelect={setSelectedAccountId}
         billCounts={billCountsByAccount}
         onChanged={() => setRefreshKey((k) => k + 1)}
-      />
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KCard label="Outstanding" value={fmtMoney(outstanding)} tone={outstanding > 0 ? "amber" : "default"} />
-        <KCard label="Overdue" value={fmtMoney(overdue)} tone="red" />
-        <KCard label="Held in disputes" value={fmtMoney(heldInDisputes)} tone="default" />
-        <KCard label="Available credits" value={fmtMoney(availableCreditsTotal)} tone="green" />
-        <KCard label="Unallocated payments" value={fmtMoney(unallocatedPayments)} tone={unallocatedPayments > 0 ? "amber" : "default"} />
-        <KCard label="Deposits outstanding" value={fmtMoney(depositsOutstanding)} tone="sky" />
-        {supplierCreditFromBalance(ledgerTotals.net) > 0 && (
-          <KCard label="Supplier credit" value={fmtMoney(supplierCreditFromBalance(ledgerTotals.net))} tone="green" />
-        )}
-      </div>
+      /></div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
           {[
-            { v: "statement", l: "Statement" },
-            { v: "open", l: "Open Documents" },
+            { v: "open", l: "Open invoices" },
             { v: "payments", l: "Payments" },
-            { v: "credits", l: "Credits & Adjustments" },
-            { v: "incentives", l: "Incentives" },
+            { v: "credits", l: "Credits" },
             { v: "deposits", l: "Deposits" },
+            { v: "statement", l: "Statement" },
           ].map((t) => (
             <TabsTrigger key={t.v} value={t.v}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-400 data-[state=active]:text-amber-400 data-[state=active]:bg-transparent px-4 py-2 text-sm">
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-400 data-[state=active]:text-warning data-[state=active]:bg-transparent px-4 py-2 text-sm">
               {t.l}
             </TabsTrigger>
           ))}
@@ -645,8 +608,8 @@ export default function SupplierAccountPage() {
             </Select>
             <div className="text-xs text-muted-foreground">{filteredLedger.length} entries</div>
           </div>
-          <Card className="card-glass">
-            <CardContent className="p-0">
+          <div className="supplier-detail-section">
+            <div className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20">
@@ -671,19 +634,19 @@ export default function SupplierAccountPage() {
                       const bal = e.balance || 0;
                       return (
                         <tr key={e.id} className="border-b border-border/30">
-                          <td className="py-2 px-3 td-num tabular-nums">{fmtDate(e.date)}</td>
+                          <td data-label="Date" className="py-2 px-3 td-num tabular-nums">{fmtDate(e.date)}</td>
                           <td className="py-2 px-3"><Badge variant="outline" className={`text-[10px] ${cfg.className}`}>{cfg.label}</Badge></td>
                           <td className="py-2 px-3 font-mono text-xs">{e.reference}</td>
                           <td className="py-2 px-3 truncate max-w-[320px]" title={e.description}>
                             {e.description}
                             {e.type === "payment" && e.unallocated ? (
-                              <Badge variant="outline" className="ml-2 text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">Unallocated</Badge>
+                              <Badge variant="outline" className="ml-2 text-[10px] bg-muted text-warning border-border">Unallocated</Badge>
                             ) : null}
                           </td>
                           <td className="py-2 px-3 text-muted-foreground">{e.venue || "—"}</td>
-                          <td className={`py-2 px-3 text-right td-num tabular-nums ${e.debit > 0 ? "text-amber-400" : "text-muted-foreground/40"}`}>{e.debit > 0 ? fmt(e.debit) : "—"}</td>
-                          <td className={`py-2 px-3 text-right td-num tabular-nums ${e.credit > 0 ? "text-emerald-400" : "text-muted-foreground/40"}`}>{e.credit > 0 ? fmt(e.credit) : "—"}</td>
-                          <td className={`py-2 px-3 text-right td-num tabular-nums ${bal > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(Math.abs(bal))} {bal >= 0 ? "Dr" : "Cr"}</td>
+                          <td className={`py-2 px-3 text-right td-num tabular-nums ${e.debit > 0 ? "text-warning" : "text-muted-foreground/40"}`}>{e.debit > 0 ? fmt(e.debit) : "—"}</td>
+                          <td className={`py-2 px-3 text-right td-num tabular-nums ${e.credit > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>{e.credit > 0 ? fmt(e.credit) : "—"}</td>
+                          <td className={`py-2 px-3 text-right td-num tabular-nums ${bal > 0 ? "text-warning" : "text-foreground"}`}>{fmt(Math.abs(bal))} {bal >= 0 ? "Dr" : "Cr"}</td>
                         </tr>
                       );
                     })}
@@ -692,29 +655,24 @@ export default function SupplierAccountPage() {
                     <tfoot>
                       <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
                         <td colSpan={5} className="py-2 px-3 text-right text-muted-foreground">Totals</td>
-                        <td className="py-2 px-3 text-right td-num tabular-nums text-amber-400">{fmt(ledgerTotals.dr)}</td>
-                        <td className="py-2 px-3 text-right td-num tabular-nums text-emerald-400">{fmt(ledgerTotals.cr)}</td>
-                        <td className={`py-2 px-3 text-right td-num tabular-nums ${ledgerTotals.net > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(Math.abs(ledgerTotals.net))} {ledgerTotals.net >= 0 ? "Dr" : "Cr"}</td>
+                        <td className="py-2 px-3 text-right td-num tabular-nums text-warning">{fmt(ledgerTotals.dr)}</td>
+                        <td className="py-2 px-3 text-right td-num tabular-nums text-foreground">{fmt(ledgerTotals.cr)}</td>
+                        <td className={`py-2 px-3 text-right td-num tabular-nums ${ledgerTotals.net > 0 ? "text-warning" : "text-foreground"}`}>{fmt(Math.abs(ledgerTotals.net))} {ledgerTotals.net >= 0 ? "Dr" : "Cr"}</td>
                       </tr>
                     </tfoot>
                   )}
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* OPEN DOCUMENTS */}
         <TabsContent value="open" className="mt-6 space-y-6">
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unpaid invoices ({openInvoicesList.length})</div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-xs">
-                <div><div className="text-muted-foreground">Gross open invoices</div><div className="td-num tabular-nums text-amber-400">{fmtMoney(outstanding)}</div></div>
-                <div><div className="text-muted-foreground">Disputed</div><div className="td-num tabular-nums text-red-400">{fmtMoney(disputedOutstanding)}</div></div>
-                <div><div className="text-muted-foreground">Unallocated payments</div><div className="td-num tabular-nums">{fmtMoney(unallocatedPayments)}</div></div>
-                <div><div className="text-muted-foreground">Net supplier balance</div><div className="td-num tabular-nums">{fmtMoney(ledgerTotals.net)}</div></div>
-              </div>
+              <p className="text-xs text-muted-foreground mb-4">{fmtMoney(outstanding)} open · {fmtMoney(disputedOutstanding)} disputed · {fmtMoney(unallocatedPayments)} unallocated · {fmtMoney(ledgerTotals.net)} supplier balance</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -738,16 +696,16 @@ export default function SupplierAccountPage() {
                         <td className="py-2 pr-4 font-mono text-xs">
                           {inv.invoice_number}
                           {isDisputedInvoice(inv) && (
-                            <Badge variant="outline" className="ml-2 text-[10px] bg-red-500/15 text-red-400 border-red-500/30" title={inv.dispute_notes || undefined}>Disputed</Badge>
+                            <Badge variant="outline" className="ml-2 text-[10px] bg-muted text-destructive border-border" title={inv.dispute_notes || undefined}>Disputed</Badge>
                           )}
                         </td>
-                        <td className="py-2 pr-4">{fmtDate(inv.invoice_date)}</td>
-                        <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
+                        <td data-label="Date" className="py-2 pr-4">{fmtDate(inv.invoice_date)}</td>
+                        <td data-label="Due" className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
+                        <td data-label="Total" className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
+                        <td data-label="Paid" className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmt(inv.held_amount) : ""}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(inv.outstanding_amount)}</td>
-                        <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-red-400" : ""}`}>{inv.age_days}d</td>
+                        <td data-label="Open" className="py-2 pr-4 text-right td-num tabular-nums text-warning">{fmt(inv.outstanding_amount)}</td>
+                        <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-destructive" : ""}`}>{inv.age_days}d</td>
                         <td className="py-2 text-right whitespace-nowrap">
                           <Button size="sm" variant="outline" onClick={() => handlePayInvoice(inv)}>Pay this</Button>
                           {isDisputedInvoice(inv) ? (
@@ -761,11 +719,11 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unapplied credits ({supplierAvailableCNs.length})</div>
               <CreditTable rows={supplierAvailableCNs} showRemaining actions={(cn) => (
                 <>
@@ -773,11 +731,11 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unallocated payments</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -804,12 +762,12 @@ export default function SupplierAccountPage() {
                       if (rows.length === 0) return <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No unallocated payments.</td></tr>;
                       return rows.map(({ p, amt, alloc, unalloc }) => (
                         <tr key={p.id} className="border-b border-border/30">
-                          <td className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(amt)}</td>
+                          <td data-label="Date" className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
+                          <td data-label="Amount" className="py-2 pr-4 text-right td-num tabular-nums text-foreground">{fmt(amt)}</td>
                           <td className="py-2 pr-4"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                           <td className="py-2 pr-4 font-mono text-xs">{p.reference_number || "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(alloc)}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmt(unalloc)}</td>
+                          <td data-label="Allocated" className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(alloc)}</td>
+                          <td data-label="Unallocated" className="py-2 pr-4 text-right td-num tabular-nums text-warning">{fmt(unalloc)}</td>
                           <td className="py-2 text-right">
                             <Button size="sm" variant="outline" onClick={() => openMatchDialog(p)}>Match to invoices</Button>
                           </td>
@@ -819,17 +777,14 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* PAYMENTS */}
         <TabsContent value="payments" className="mt-6">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={handleRecordPayment}>Record payment</Button>
-          </div>
-          <Card className="card-glass">
-            <CardContent className="p-0">
+          <div className="supplier-detail-section">
+            <div className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20">
@@ -852,13 +807,13 @@ export default function SupplierAccountPage() {
                       const cnApplied = palls.reduce((s, a) => s + (Number(a.credit_note_amount_applied) || 0), 0);
                       const ms = p.match_status || "awaiting_bank_match";
                       const msCfg =
-                        ms === "matched" ? { l: "Cleared", cls: "bg-green-500/15 text-green-400 border-green-500/30" } :
+                        ms === "matched" ? { l: "Cleared", cls: "bg-muted text-foreground border-border" } :
                         ms === "not_required" ? { l: "No bank match", cls: "bg-muted text-muted-foreground" } :
-                        { l: "Awaiting match", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
+                        { l: "Awaiting match", cls: "bg-muted text-warning border-border" };
                       return (
                         <tr key={p.id} className="border-b border-border/30">
-                          <td className="py-2 px-3">{fmtDate(p.payment_date)}</td>
-                          <td className="py-2 px-3 text-right td-num tabular-nums text-emerald-400">{fmt(Number(p.amount) || 0)}</td>
+                          <td data-label="Date" className="py-2 px-3">{fmtDate(p.payment_date)}</td>
+                          <td className="py-2 px-3 text-right td-num tabular-nums text-foreground">{fmt(Number(p.amount) || 0)}</td>
                           <td className="py-2 px-3"><span className="inline-flex items-center gap-1">{paymentMethodLabel(p.payment_method)}<ReceiptIndicator count={receiptCounts.get(p.id) || 0} onClick={() => setReceiptPaymentId(p.id)} /></span></td>
                           <td className="py-2 px-3 font-mono text-xs">{p.reference_number || "—"}</td>
                           <td className="py-2 px-3 text-right td-num tabular-nums">{invCount}</td>
@@ -870,17 +825,14 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* CREDITS & ADJUSTMENTS */}
         <TabsContent value="credits" className="mt-6 space-y-6">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setBookCNOpen(true)}>Book credit note</Button>
-          </div>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Available credits</div>
               <CreditTable rows={supplierAvailableCNs} showRemaining actions={(cn) => (
                 <>
@@ -888,10 +840,10 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Pending credits</div>
               <CreditTable rows={pendingCNs} showStatus actions={(cn) => (
                 <>
@@ -899,10 +851,10 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Refunds received</div>
               <div className="text-xs text-muted-foreground mb-2">Refunds settle existing credits — they do not reduce procurement cost.</div>
               <div className="overflow-x-auto">
@@ -927,7 +879,7 @@ export default function SupplierAccountPage() {
                           <td className="py-2 pr-4">{fmtDate(l.invoices?.invoice_date)}</td>
                           <td className="py-2 pr-4 font-mono text-xs">{l.invoices?.invoice_number || "—"}</td>
                           <td className="py-2 pr-4">{l.product_master?.name || l.description || "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(total)}</td>
+                          <td className="py-2 pr-4 text-right td-num tabular-nums text-foreground">{fmt(total)}</td>
                           <td className="py-2 pr-4 text-muted-foreground">—</td>
                           <td className="py-2"><Badge variant="outline" className="text-[10px]">Recorded</Badge></td>
                         </tr>
@@ -936,24 +888,24 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Historical</div>
               <CreditTable rows={historicalCNs} showStatus />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* INCENTIVES */}
         <TabsContent value="incentives" className="mt-6 space-y-6">
-          <div className="rounded-md border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+          <div className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground">
             Rebates, volume incentives, and milestone rewards are recorded manually. Use the Book Credit Note workflow to record an earned incentive when received from the supplier. Incentive tracking and auto-calculation are not yet available.
           </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy-X-Get-Y-Free Deals ({deals.length})</div>
                 <Button size="sm" onClick={() => setAddDealOpen(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Add deal</Button>
@@ -977,11 +929,11 @@ export default function SupplierAccountPage() {
                     ) : deals.map((d) => (
                       <tr key={d.id} className="border-b border-border/30">
                         <td className="py-2 pr-4">
-                          <Badge variant="outline" className="text-[10px] bg-teal-500/15 text-teal-400 border-teal-500/30">{d.deal_type}</Badge>
+                          <Badge variant="outline" className="text-[10px] bg-muted text-foreground border-border">{d.deal_type}</Badge>
                         </td>
                         <td className="py-2 pr-4">{d.product_master?.name || "—"} <span className="text-muted-foreground text-xs">{d.product_master?.internal_sku || ""}</span></td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums">{d.buy_qty}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{d.free_qty}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums text-foreground">{d.free_qty}</td>
                         <td className="py-2 pr-4 truncate max-w-[240px]" title={d.notes || ""}>{d.notes || "—"}</td>
                         <td className="py-2 pr-4"><Switch checked={!!d.is_active} onCheckedChange={(v) => handleToggleDeal(d.id, v)} /></td>
                         <td className="py-2 text-right">
@@ -992,120 +944,23 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Other Incentives & Rebates</div>
               <div className="text-sm text-muted-foreground py-6 text-center">
                 No manual incentive notes recorded.
                 <div className="text-xs mt-1">Earned incentives should be settled via a credit note booked in Credits & Adjustments.</div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
-        {/* DEPOSITS */}
-        <TabsContent value="deposits" className="mt-6">
-          <Card className="card-glass">
-            <CardContent className="p-5">
-              <div className="text-xs text-muted-foreground mb-3">Deposits are balance sheet items and do not affect procurement cost or inventory.</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                      <th className="text-left py-2 pr-4">Date</th>
-                      <th className="text-left py-2 pr-4">Invoice #</th>
-                      <th className="text-left py-2 pr-4">Description</th>
-                      <th className="text-right py-2 pr-4">Charged</th>
-                      <th className="text-right py-2 pr-4">Returned</th>
-                      <th className="text-right py-2 pr-4">Net</th>
-                      <th className="text-left py-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      type DRow = { key: string; date: string; invoiceNo: string; description: string; charged: number; returned: number; net: number; isOpening: boolean };
-                      const invRows: DRow[] = depositLines.map((l) => {
-                        const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-                        return {
-                          key: `dep-${l.id}`,
-                          date: l.invoices?.invoice_date || "",
-                          invoiceNo: l.invoices?.invoice_number || "—",
-                          description: l.product_master?.name || l.description || "—",
-                          charged: total >= 0 ? total : 0,
-                          returned: total < 0 ? Math.abs(total) : 0,
-                          net: total,
-                          isOpening: false,
-                        };
-                      });
-                      const obRows: DRow[] = openingDeposits.map((d) => {
-                        const total = Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0);
-                        return {
-                          key: `od-${d.id}`,
-                          date: d.as_of_date || "",
-                          invoiceNo: "Opening",
-                          description: d.description || "—",
-                          charged: total,
-                          returned: 0,
-                          net: total,
-                          isOpening: true,
-                        };
-                      });
-                      const rows = [...invRows, ...obRows].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-                      const totalCharged = rows.reduce((s, r) => s + r.charged, 0);
-                      const totalReturned = rows.reduce((s, r) => s + r.returned, 0);
-                      const totalNet = totalCharged - totalReturned;
-                      return (
-                        <>
-                          {rows.length === 0 ? (
-                            <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No deposit transactions.</td></tr>
-                          ) : rows.map((r) => (
-                            <tr key={r.key} className="border-b border-border/30">
-                              <td className="py-2 pr-4">{fmtDate(r.date)}</td>
-                              <td className="py-2 pr-4 font-mono text-xs">{r.invoiceNo}</td>
-                              <td className="py-2 pr-4">{r.description}</td>
-                              <td className="py-2 pr-4 text-right td-num tabular-nums">{r.charged > 0 ? fmt(r.charged) : "—"}</td>
-                              <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{r.returned > 0 ? fmt(r.returned) : "—"}</td>
-                              <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.net > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(r.net)}</td>
-                              <td className="py-2">
-                                {r.isOpening ? (
-                                  <Badge variant="outline" className="text-[10px] bg-zinc-500/15 text-zinc-300 border-zinc-500/30">Opening</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[10px]">{r.net > 0 ? "Outstanding" : "Returned"}</Badge>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </tbody>
-                  {(depositLines.length > 0 || openingDeposits.length > 0) && (() => {
-                    const invCharged = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t > 0 ? t : 0); }, 0);
-                    const invReturned = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t < 0 ? Math.abs(t) : 0); }, 0);
-                    const obCharged = openingDeposits.reduce((s, d) => s + (Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0)), 0);
-                    const tCharged = invCharged + obCharged;
-                    const tReturned = invReturned;
-                    const tNet = tCharged - tReturned;
-                    return (
-                      <tfoot>
-                        <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
-                          <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">Totals</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(tCharged)}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(tReturned)}</td>
-                          <td className={`py-2 pr-4 text-right td-num tabular-nums ${tNet > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(tNet)}</td>
-                          <td />
-                        </tr>
-                      </tfoot>
-                    );
-                  })()}
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <div hidden={activeTab!=="deposits"}><TabsContent forceMount value="deposits">
+          <SupplierDepositsTab supplierId={supplierId} tenantId={tenantId||""} refreshKey={refreshKey} onHeldChange={setReceivedDepositsHeld} onSaved={refetch} selectedInvoiceIds={selectedAccountId ? new Set(supplierInvoices.map(i=>i.id)) : null}/>
+        </TabsContent></div>
       </Tabs>
 
       {/* Dialogs */}
@@ -1170,8 +1025,8 @@ function CreditTable({
   if (rows.length === 0) return <div className="text-sm text-muted-foreground py-3">None.</div>;
   const statusBadge = (s: string) => {
     if (s === "draft") return <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">Draft</Badge>;
-    if (s === "needs_review") return <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">Needs review</Badge>;
-    if (s === "approved") return <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">Approved</Badge>;
+    if (s === "needs_review") return <Badge variant="outline" className="text-[10px] bg-muted text-warning border-border">Needs review</Badge>;
+    if (s === "approved") return <Badge variant="outline" className="text-[10px] bg-muted text-foreground border-border">Approved</Badge>;
     if (s === "fully_applied") return <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">Fully applied</Badge>;
     if (s === "voided") return <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground line-through">Voided</Badge>;
     return <Badge variant="outline" className="text-[10px]">{s}</Badge>;
@@ -1194,9 +1049,9 @@ function CreditTable({
           {rows.map((cn) => (
             <tr key={cn.id} className="border-b border-border/30">
               <td className="py-2 pr-4 font-mono text-xs">{cn.credit_note_number}</td>
-              <td className="py-2 pr-4">{fmtDate(cn.credit_note_date)}</td>
-              <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(cn.original_amount)}</td>
-              {showRemaining && <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400 font-semibold">{fmt(cn.remaining_balance)}</td>}
+              <td data-label="Date" className="py-2 pr-4">{fmtDate(cn.credit_note_date)}</td>
+              <td data-label="Original" className="py-2 pr-4 text-right td-num tabular-nums">{fmt(cn.original_amount)}</td>
+              {showRemaining && <td className="py-2 pr-4 text-right td-num tabular-nums text-foreground font-semibold">{fmt(cn.remaining_balance)}</td>}
               {showStatus && <td className="py-2 pr-4">{statusBadge(cn.status)}</td>}
               <td className="py-2 pr-4 truncate max-w-[260px]" title={cn.notes}>{cn.notes || "—"}</td>
               {actions && <td className="py-2 text-right space-x-1">{actions(cn)}</td>}
