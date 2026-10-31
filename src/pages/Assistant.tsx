@@ -651,7 +651,7 @@ export default function Assistant() {
               <div className="mx-auto w-full max-w-[720px] space-y-5">
                 {messages.map((m, i) => {
                   const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                  return inFlight ? null : <MessageBlock key={i} msg={m} voiceMode />;
+                  return inFlight ? null : <MessageBlock key={i} msg={m} voiceMode onOutcome={result => { if (active) patchActive(active.id, c => ({ ...c, messages: c.messages.map((item, index) => index === i ? { ...item, actionOutcome: result } : item) })); }} onChange={setInput} />;
                 })}
               </div>
             </div>
@@ -704,7 +704,7 @@ export default function Assistant() {
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
                 if (inFlight) return voiceMode ? null : <ThinkingLine key={i} />;
-                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} />;
+                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} onOutcome={result => { if (active) patchActive(active.id, c => ({ ...c, messages: c.messages.map((item, index) => index === i ? { ...item, actionOutcome: result } : item) })); }} onChange={setInput} />;
               })}
               {!voiceMode && loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
             </div>
@@ -726,8 +726,7 @@ export default function Assistant() {
   );
 }
 
-function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolean }) {
-  const [outcome, setOutcome] = useState<PeopleOutcome | undefined>(msg.actionOutcome);
+function MessageBlock({ msg, voiceMode = false, onOutcome, onChange }: { msg: Msg; voiceMode?: boolean; onOutcome: (result: PeopleOutcome) => void; onChange: (text: string) => void }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -778,7 +777,7 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
         {msg.charts?.map((c, ci) => (
           <AssistantChart key={ci} spec={c} />
         ))}
-        {msg.actionCard?.kind === "people" && <PeopleActionCard card={msg.actionCard} outcome={outcome} onOutcome={result => { msg.actionOutcome = result; setOutcome(result); }} onChange={text => window.dispatchEvent(new CustomEvent("bani-people-change", { detail: text }))} />}
+        {msg.actionCard?.kind === "people" && <PeopleActionCard card={msg.actionCard} outcome={msg.actionOutcome} onOutcome={onOutcome} onChange={onChange} />}
       </div>
     </div>
   );
