@@ -5232,6 +5232,9 @@ export type Database = {
           hours_confirmed_by: string | null
           id: string
           no_show: boolean
+          no_show_decided_at: string | null
+          no_show_decided_by: string | null
+          no_show_decision: string | null
           notes: string | null
           role: string | null
           shift_date: string
@@ -5257,6 +5260,9 @@ export type Database = {
           hours_confirmed_by?: string | null
           id?: string
           no_show?: boolean
+          no_show_decided_at?: string | null
+          no_show_decided_by?: string | null
+          no_show_decision?: string | null
           notes?: string | null
           role?: string | null
           shift_date: string
@@ -5282,6 +5288,9 @@ export type Database = {
           hours_confirmed_by?: string | null
           id?: string
           no_show?: boolean
+          no_show_decided_at?: string | null
+          no_show_decided_by?: string | null
+          no_show_decision?: string | null
           notes?: string | null
           role?: string | null
           shift_date?: string
@@ -12899,6 +12908,10 @@ export type Database = {
         Args: { m: number; rev: number; t: string; y: number }
         Returns: Json
       }
+      payroll_fill_terms: {
+        Args: { m: number; rows: Json; t: string; y: number }
+        Returns: Json
+      }
       payroll_manager: { Args: { t: string; u: string }; Returns: boolean }
       payroll_override: {
         Args: {
@@ -12922,6 +12935,10 @@ export type Database = {
         Returns: Json
       }
       payroll_preview: {
+        Args: { m: number; t: string; y: number }
+        Returns: Json
+      }
+      payroll_terms_candidates: {
         Args: { m: number; t: string; y: number }
         Returns: Json
       }
@@ -13187,6 +13204,16 @@ export type Database = {
       rota_manager: {
         Args: { t: string; u: string; v: string }
         Returns: boolean
+      }
+      rota_no_show_decision: {
+        Args: {
+          decision: string
+          leave_kind?: string
+          replacement?: string
+          sid: string
+          t: string
+        }
+        Returns: undefined
       }
       rota_request_swap: {
         Args: { replacement: string; sid: string; t: string }

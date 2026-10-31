@@ -1,6 +1,6 @@
-export const peopleDefaults = {rota:true,clock_in:'off',pay_hours:'rota',leave_requests:true,sick_notes:true,staff_app:false,payslips:false,managers_change_pay:true,reliability:true,approvals:'owner_run'};
+export const peopleDefaults = {rota:true,clock_in:'off',pay_hours:'rota',leave_requests:true,sick_notes:true,staff_app:false,payslips:false,managers_change_pay:true,reliability:true,approvals:'owner_run',flag_lateness:false,lateness_minutes:15,flag_extra_hours:false,extra_hours_minutes:30};
 export type PeopleSettings=typeof peopleDefaults;
-export function resolvePeopleSettings(company:Partial<PeopleSettings>={},venue:Partial<PeopleSettings>={}):PeopleSettings {const result={...peopleDefaults,...company,...venue};if(!result.staff_app)result.payslips=false;return result;}
+export function resolvePeopleSettings(company:Partial<PeopleSettings>={},venue:Partial<PeopleSettings>={}):PeopleSettings {const result={...peopleDefaults,...company,...venue};if(result.pay_hours==='clock_ins')result.pay_hours='rota';if(!result.staff_app)result.payslips=false;return result;}
 export interface EmploymentTerms {id?:string;effective_date:string;values:Record<string,unknown>;approved_at?:string|null}
 export function termsOnDate(rows:EmploymentTerms[],date:string):Record<string,unknown> {return rows.filter(r=>r.effective_date<=date).sort((a,b)=>a.effective_date.localeCompare(b.effective_date)||(a.approved_at??'').localeCompare(b.approved_at??'')||(a.id??'').localeCompare(b.id??'')).reduce((v,r)=>({...v,...r.values}),{});}
 export function needsOwnerApproval(mode:string,owner:boolean){return mode!=='owner_run'||!owner;}

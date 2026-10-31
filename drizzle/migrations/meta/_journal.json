@@ -260,6 +260,27 @@
       "when": 1793455194538,
       "tag": "0036_payroll_batch_confirmation_and_approval_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793456294630,
+      "tag": "0037_people_rota_pay_and_confirmed_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793456363670,
+      "tag": "0038_people_no_show_decision",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793456859425,
+      "tag": "0039_people_saved_pay_basis_safety",
+      "breakpoints": true
     }
   ]
 }

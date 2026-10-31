@@ -26,3 +26,18 @@ export function coverCandidates(people:RotaRow[],terms:RotaRow[],shifts:RotaRow[
 export function copyWeek(shifts:RotaRow[],current:RotaRow[],start:string) {return shifts.filter(s=>s.shift_date>=addDays(start,-7)&&s.shift_date<start).filter(s=>!current.some(c=>c.employee_id===s.employee_id&&c.shift_date===addDays(s.shift_date,7))).map(s=>({employee_id:s.employee_id,shift_date:addDays(s.shift_date,7),start_time:s.start_time,end_time:s.end_time,break_minutes:s.break_minutes,shift_type:s.shift_type,role:s.role}));}
 export function attendanceDifference(shift:RotaRow|undefined,records:RotaRow[],now=new Date()) {const complete=records.filter(a=>a.clock_in&&a.clock_out);const hours=complete.reduce((n,a)=>n+Number(a.hours_worked??0),0);const breaks=records.reduce((n,a)=>n+Number(a.break_minutes??0),0);const first=records.filter(a=>a.clock_in).sort((a,b)=>a.clock_in.localeCompare(b.clock_in))[0];const last=[...complete].sort((a,b)=>b.clock_out.localeCompare(a.clock_out))[0];const messages:string[]=[];if(!shift)return {hours,breaks,messages:hours>0?['Extra hours']:[],inAt:first?.clock_in};const plannedStart=Date.parse(`${shift.shift_date}T${shift.start_time.slice(0,5)}:00+08:00`);const endDay=minutes(shift.end_time)<minutes(shift.start_time)?addDays(shift.shift_date,1):shift.shift_date;const plannedEnd=Date.parse(`${endDay}T${shift.end_time.slice(0,5)}:00+08:00`);if(!first&&now.getTime()>plannedEnd)messages.push('No-show');else if(!first&&now.getTime()>plannedStart)messages.push('Late · not in');if(first&&Date.parse(first.clock_in)>plannedStart)messages.push('Late');if(last&&Date.parse(last.clock_out)<plannedEnd)messages.push('Early leave');if(hours>shiftHours(shift)+0.01)messages.push('Extra hours');return {hours,breaks,messages,inAt:first?.clock_in};}
 export function withinVenue(lat:number,lng:number,venueLat:number,venueLng:number,accuracy:number) {const rad=(x:number)=>x*Math.PI/180;const a=Math.sin(rad(lat-venueLat)/2)**2+Math.cos(rad(lat))*Math.cos(rad(venueLat))*Math.sin(rad(lng-venueLng)/2)**2;return Number.isFinite(accuracy)&&accuracy>=0&&accuracy<=150&&6371000*2*Math.asin(Math.sqrt(Math.min(1,a)))<=150;}
+export function punctualityFacts(shift:RotaRow,records:RotaRow[],now=new Date()) {
+ const diff=attendanceDifference(shift,records,now),start=Date.parse(`${shift.shift_date}T${shift.start_time.slice(0,5)}:00+08:00`);
+ const endDay=minutes(shift.end_time)<minutes(shift.start_time)?addDays(shift.shift_date,1):shift.shift_date;
+ const end=Date.parse(`${endDay}T${shift.end_time.slice(0,5)}:00+08:00`);
+ const last=records.filter(a=>a.clock_out).sort((a,b)=>b.clock_out.localeCompare(a.clock_out))[0];
+ return {...diff,lateMinutes:diff.inAt?Math.max(0,Math.round((Date.parse(diff.inAt)-start)/60000)):Math.max(0,Math.round((Math.min(now.getTime(),end)-start)/60000)),earlyMinutes:last?Math.max(0,Math.round((end-Date.parse(last.clock_out))/60000)):0,extraMinutes:Math.max(0,Math.round((diff.hours-shiftHours(shift))*60)),noShow:diff.messages.includes('No-show')};
+}
+export function managerClockFlags(shift:RotaRow|undefined,records:RotaRow[],settings:{flag_lateness:boolean;lateness_minutes:number;flag_extra_hours:boolean;extra_hours_minutes:number},now=new Date()) {
+ if(!shift||shift.shift_type&&shift.shift_type!=='regular')return [];
+ const facts=punctualityFacts(shift,records,now),flags:string[]=[];
+ if(facts.noShow&&!shift.no_show_decision)flags.push('No-show');
+ if(settings.flag_lateness&&facts.lateMinutes>settings.lateness_minutes&&!facts.noShow)flags.push(`Late ${facts.lateMinutes} min`);
+ if(settings.flag_extra_hours&&facts.extraMinutes>settings.extra_hours_minutes)flags.push(`Extra hours ${facts.extraMinutes} min`);
+ return flags;
+}
