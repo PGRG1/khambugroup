@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stockMovementRedirect, SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPages, purchasingSectionPagesForPath, purchasingTabsForPath, stockMenuSectionPages } from "@/utils/purchasingNavigation";
+import { supplierAccountsRedirect, stockMovementRedirect, SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, canOpenPurchasingTab, isStockMenuRoute, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPages, purchasingSectionPagesForPath, purchasingTabsForPath, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 
 describe("Purchasing route families", () => {
   it("keeps Invoices highlighted for all invoice tabs", () => {
@@ -7,6 +7,15 @@ describe("Purchasing route families", () => {
   });
   it("keeps Supplier Accounts highlighted on its detail, payables and deposit pages", () => {
     for (const path of ["finance/suppliers/123", "finance/payables", "deposit-ledger"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/finance/suppliers");
+  });
+  it("Supplier Accounts and its details have no Purchasing sub-tabs", () => {
+    expect(purchasingTabsForPath('/procurement/finance/suppliers')).toBeUndefined();
+    expect(purchasingTabsForPath('/procurement/finance/suppliers/123')).toBeUndefined();
+  });
+  it("redirects only buying-side payables and deposits", () => {
+    expect(supplierAccountsRedirect('/procurement/finance/payables')).toBe('/procurement/finance/suppliers?view=invoice');
+    expect(supplierAccountsRedirect('/procurement/deposit-ledger')).toBe('/procurement/finance/suppliers');
+    expect(supplierAccountsRedirect('/finance/payables')).toBeUndefined();
   });
   it("keeps Inventory highlighted across stock tabs", () => {
     for (const path of ["inventory", "stock-counts", "movements", "transfers", "waste"]) expect(purchasingParentPath(`/procurement/${path}`)).toBe("/procurement/inventory");
