@@ -18,5 +18,6 @@ describe('Expenses rules',()=>{
   it('60 days is not older than the limit',()=>expect(claimChecks({...claim,claim_date:'2026-09-01'},[],'2026-10-31')).not.toContain('Older than 60 days'));
   it('61 days flags old claim',()=>expect(claimChecks({...claim,claim_date:'2026-08-31'},[],'2026-10-31')).toContain('Older than 60 days'));
   it('same receipt hash flags duplicate',()=>expect(claimChecks({...claim,receipt_hash:'same'},[{...claim,id:'2',receipt_hash:'same'}],'2026-10-31')).toContain('Possible duplicate receipt or same description, date and amount'));
+  it('same shop time date and amount flags duplicate despite different descriptions',()=>expect(claimChecks({...claim,receipt_shop:'Shop',receipt_time:'12:30'},[{...claim,id:'2',description:'Different wording',receipt_shop:'Shop',receipt_time:'12:30'}],'2026-10-31')).toContain('Possible duplicate receipt or same description, date and amount'));
   it('detects three roughly monthly bills for same vendor and venue',()=>{const rows=['2026-08-01','2026-09-01','2026-10-01'].map(bill_date=>({supplier_id:'vendor',venue_id:'venue',bill_date,approval_status:'posted'} as ExpenseBill));expect(regularBillGroups(rows)).toHaveLength(1);expect(regularBillGroups(rows.map((b,i)=>({...b,venue_id:String(i)})))).toHaveLength(0);});
 });
