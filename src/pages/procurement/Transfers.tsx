@@ -537,14 +537,14 @@ export function NewTransferDialog({
                 <tbody>
                   {lines.map((l, idx) => (
                     <tr key={idx} className="border-t border-border/40">
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Item">
                         <ProductPicker
                           products={products}
                           value={l.product_name}
                           onPick={(p) => pickProduct(idx, p)}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Quantity">
                         <Input
                           type="number" inputMode="decimal" min={0}
                           className="h-8 text-right"
@@ -552,14 +552,14 @@ export function NewTransferDialog({
                           onChange={(e) => updateLine(idx, { quantity_sent: e.target.value })}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Unit">
                         <Input
                           className="h-8"
                           value={l.unit}
                           onChange={(e) => updateLine(idx, { unit: e.target.value })}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Unit cost">
                         <Input
                           type="number" inputMode="decimal" min={0}
                           className="h-8 text-right"
