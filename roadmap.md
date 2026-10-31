@@ -1,8 +1,9 @@
 ## Finance — Part 1
-- [ ] Unified navigation, redirects and Cash & bank links; keep Bank/Payments/Petty Cash
-- [ ] Needs you, shared month-close checks, persisted close/owner reopen and factual ask
-- [ ] Journal Reports, completeness, account/venue detail, preserved typed lines and confirmed conversion/PDF
-- [ ] Rules tests, signed-in desktop/phone verification and limitations
+- [x] Unified navigation, redirects and Cash & bank links; Bank/Payments/Petty Cash retained
+- [x] Needs you, shared month-close checks, persisted close/owner reopen and factual ask; posting calculations unchanged
+- [x] Journal Reports, completeness, account/venue detail, original typed lines and management PDF retained; confirmed atomic conversion with user-picked counterpart
+- [x] 27 rules/regression tests and build OK; signed-in September close counts, book figures, factual Bani answer, account expansion, management report/PDF and desktop/375px reports verified without page overflow
+- [ ] Account suggestions blocked by workspace AI spending limit; manual selection remains available. Live close/reopen, conversion posting and concurrency not exercised: no complete month available and production books deliberately unchanged. Books/Payables/Receivables retain existing page controls pending later parts.
 
 ## Expenses simplify and fix
 - [x] Four-page navigation/redirects, shared phone pills and centred page pattern; Settings keeps categories/mapping

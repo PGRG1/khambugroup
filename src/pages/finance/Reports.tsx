@@ -445,7 +445,7 @@ export default function Reports() {
           <Button
             key={key}
             variant="ghost"
-            className={`rounded-none border-b-2 bg-transparent shadow-none hover:bg-transparent ${view === key ? "border-primary" : "border-transparent"}`}
+            className={`rounded-none border-b-2 bg-transparent shadow-none hover:bg-transparent text-foreground ${view === key ? "border-primary" : "border-transparent"}`}
             onClick={() => {
               const next = new URLSearchParams(params);
               next.set("view", key);

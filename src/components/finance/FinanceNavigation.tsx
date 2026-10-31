@@ -31,7 +31,7 @@ export function FinanceNavigation() {
                 : "border-transparent text-muted-foreground",
             )}
           >
-            <Link to={t.path}>{t.label}</Link>
+            <Link to={t.path} aria-current={pathname === t.path ? "page" : undefined}>{t.label}</Link>
           </Button>
         ))}
       </nav>
