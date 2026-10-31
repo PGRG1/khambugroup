@@ -1,9 +1,11 @@
 ## Finance — Part 2
-- [ ] Unified Payables list and recorded-payment allocation with original workflows
-- [ ] Receivables expected sales, payout checks and processor settings
-- [ ] Cash & bank Accounts/Transactions/Close month and cash-box expense receipts
-- [ ] Legacy redirects, access preservation and sidebar cleanup
-- [ ] Focused tests and signed-in desktop/phone checks; AI remains paused until spending cap restored
+- [x] Unified Payables list, grouped payees, history, automatic credit preview and atomic recorded-payment delegates
+- [x] Derived daily tender expectations, evidence-only checks, Payouts and processor settings
+- [x] Combined Accounts/Transactions/Close month, hidden test accounts, transfer recording and cash-box expense receipts
+- [x] Legacy redirects retain AdminRoute; Bank/Payments/Petty Cash sidebar groups removed
+- [x] 56 rules/regression tests and build OK; signed-in real payable partial-payment preview cancelled, three real bank accounts/two hidden test accounts, loaded bank transactions and desktop/375px widths verified
+- [ ] Live payment/posting/close/transfer writes, concurrent and non-admin checks not exercised on production money records. AI auto-matching remains blocked by the existing spending cap; shared-venue/combined wallet payouts stay unchecked without unambiguous evidence. Cash-box data is empty.
+- [ ] Existing Bani invoice human-count/direct scan-to-post limitations remain. Cash staff claims still use Staff claims; this list records bank-paid staff claims in full. Existing processor tables retain their own internal scrolling.
 
 ## Bani automatic posting and learning
 - [x] Tenant Accounting defaults on, optional ask-above amount and audited settings
