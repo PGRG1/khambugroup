@@ -21,7 +21,7 @@ export function similarVendors(vendors: { id: string; name: string }[]) {
   const normalize = (s: string) => s.toLowerCase().replace(/\b(limited|ltd|hong kong|company|co)\b/g, '').replace(/[^a-z0-9]/g, '');
   return vendors.flatMap((a, i) => vendors.slice(i + 1).filter(b => {
     const x = normalize(a.name), y = normalize(b.name);
-    return x.length >= 3 && y.length >= 3 && (x === y || x.startsWith(y) || y.startsWith(x));
+    return x.length >= 3 && y.length >= 3 && (x === y || (x.startsWith(y) && !/\b(beer|wine)\b/i.test(a.name)) || (y.startsWith(x) && !/\b(beer|wine)\b/i.test(b.name)));
   }).map(b => ({ a, b })));
 }
 export function regularBillGroups(bills: ExpenseBill[]) {

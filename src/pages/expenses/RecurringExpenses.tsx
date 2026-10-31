@@ -121,12 +121,14 @@ export default function RecurringExpenses() {
     // orphan bills that stall in Pending Review.
     if (!editing.category_id) { toast.error("Category is required"); return; }
     if (!editing.account_id) { toast.error("Debit account is required"); return; }
+    const confirmed=await confirm({title:editing.id?"Confirm regular bill changes":"Add as regular bill",description:`${editing.vendor_name||"Vendor"} · ${editing.name} · ${formatCurrency(Number(editing.expected_amount||0))} · ${editing.cadence||"monthly"}`,confirmLabel:"Confirm"});
+    if(!confirmed)return;
     const ok = await save(editing);
     if (ok) setOpen(false);
   };
 
   const [search, setSearch] = useState("");
-  const activeCount = rules.filter((r) => r.status === "active").length;
+  const activeCount = rules.filter((r) => r.status === "active" && (!r.venue_id?scope.isAll:scope.includesId(r.venue_id))).length;
   const monthlyExpected = rules
     .filter((r) => r.status === "active")
     .reduce((s, r) => {
@@ -136,7 +138,7 @@ export default function RecurringExpenses() {
     }, 0);
   const filteredRules = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const scoped=rules.filter(r=>r.combined_venues?scope.isAll:scope.includesId(r.venue_id));
+    const scoped=rules.filter(r=>!r.venue_id?scope.isAll:scope.includesId(r.venue_id));
     if (!q) return scoped;
     return scoped.filter((r) =>
       [r.name, r.vendor_name, r.cadence, r.department].some((x) => (x || "").toLowerCase().includes(q))
@@ -174,7 +176,7 @@ export default function RecurringExpenses() {
                 ))}
                 {!rules.length && (
                   <TableRow>
-                    <TableCell colSpan={7} className="p-0">
+                    <TableCell colSpan={3} className="p-0">
                       <EmptyState
                         icon={<Repeat className="h-6 w-6" />}
                         title="No recurring rules yet"

@@ -285,7 +285,7 @@ export default function BillsExpenses() {
   const waiting = scopedBills.filter(isWaitingBill);
   useEffect(() => { if (!tenantId) return; supabase.from('expense_bill_allocations').select('bill_id,expense_category').eq('tenant_id',tenantId).then(({data})=>{ const index:Record<string,string[]>={}; for(const a of data??[]) index[a.bill_id]=[...(index[a.bill_id]??[]),a.expense_category??'']; setLineIndex(index); }); },[tenantId,bills]);
   const missingCategories = categories.filter(c=>!c.default_account_id);
-  const vendorPairs = similarVendors(suppliers);
+  const vendorPairs = similarVendors(suppliers.filter(s=>s.vendor_type==='expense'));
   const askBani = async () => {
     const command=ask.trim();
     const match=command.match(/^approve all (.+?) bills[.!]?$/i);
@@ -319,7 +319,8 @@ export default function BillsExpenses() {
   const openEditor = async (bill: ExpenseBill | null) => {
     setEditing(bill);
     if (bill) {
-      setHeader({ ...bill });
+      const matches=suppliers.filter(s=>s.name.trim().toLowerCase()===(bill.vendor_name??'').trim().toLowerCase());
+      setHeader({ ...bill, supplier_id: bill.supplier_id || (matches.length===1?matches[0].id:null) });
       const [allocs, aud, pay] = await Promise.all([
         fetchAllocations(bill.id),
         fetchAudit(bill.id),
@@ -600,7 +601,8 @@ export default function BillsExpenses() {
             )}
           </DialogHeader>
 
-          <div className="space-y-5 mt-5">
+          <div className="space-y-5 mt-5 [&_section]:rounded-none [&_section]:border-0 [&_section]:bg-transparent [&_section]:p-0">
+            <div className="grid grid-cols-2 gap-3 text-sm"><div><span className="text-muted-foreground">What for</span><p>{header.notes||allocations.map(a=>a.expense_category).join(", ")||"—"}</p></div><div><span className="text-muted-foreground">Account</span><p>{allocations.map(a=>accounts.find(ac=>ac.id===a.account_id)?.name||"Pick an account").join(", ")}</p></div><div><span className="text-muted-foreground">Due</span><p>{header.due_date?formatDate(header.due_date):"No due date"}</p></div><div><span className="text-muted-foreground">Paid from</span><p>{payments.map(p=>p.payment_method.replace(/_/g," ")).join(", ")||"Not paid"}</p></div></div>
             <p className="text-sm text-muted-foreground">{header.attachment_path || header.attachment_url ? 'Read from the attached invoice · check against the original before approving' : 'No invoice attached — entered manually'}</p>
             {/* Statement bill notice — brought-forward is excluded from booking. */}
             {Number(header.brought_forward || 0) > 0 && (
@@ -619,8 +621,7 @@ export default function BillsExpenses() {
 
             {/* Bill identity */}
             <FormSection
-              title="Bill identity"
-              description="Who the bill is from and how it's referenced."
+              title="Bill details"
             >
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
@@ -678,7 +679,7 @@ export default function BillsExpenses() {
                   </Select>
                 </div>
                 {showCreateAcctBanner && (
-                  <div className="md:col-span-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
+                  <div className="md:col-span-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
                     <span>
                       Detected account <span className="font-mono font-medium">{extractedAcctNumber}</span> on the scan — no matching supplier account for this vendor.
                     </span>
