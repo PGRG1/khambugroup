@@ -1,0 +1,15 @@
+import { describe, it, expect } from 'vitest';
+import { buildStockCountReview, needsStockLook } from '@/utils/stockCountReview';
+const session = { id:'now',venue:'Assembly',count_date:'2026-10-31',status:'in_progress' };
+const prior = { id:'old',venue:'Assembly',count_date:'2026-09-30',status:'approved' };
+describe('Stock count rules', () => {
+  it('flags strictly greater than 20 percent, not equal', () => { expect(needsStockLook(12,10)).toBe(false); expect(needsStockLook(12.01,10)).toBe(true); });
+  it('uses a one-unit minimum tolerance', () => { expect(needsStockLook(2,1)).toBe(false); expect(needsStockLook(2.01,1)).toBe(true); });
+  it('keeps expected unknown without a previous count', () => { const r=buildStockCountReview({session,sessions:[],counts:[],current:[{product_master_id:'p',counted_qty:100}],deliveries:[],movements:[]}); expect(r.gaps).toEqual([]); expect(r.previous).toBeUndefined(); });
+  it('adds confirmed deliveries and subtracts waste, consumption and transfers out, adding transfers in', () => {
+    const r=buildStockCountReview({session,sessions:[prior],counts:[{session_id:'old',product_master_id:'p',counted_qty:10}],current:[{product_master_id:'p',counted_qty:0}],deliveries:[{product_master_id:'p',venue:'Assembly',date:'2026-10-01',status:'confirmed',qty:6},{product_master_id:'p',venue:'Assembly',date:'2026-10-01',status:'draft',qty:100}],movements:[-2,-1,-4,3].map(qty=>({product_master_id:'p',venue:'Assembly',date:'2026-10-02',qty}))}); expect(r.gaps[0].expected).toBe(12);
+  });
+  it('flags items delivered within 30 days but not counted, even on first count', () => { const r=buildStockCountReview({session,sessions:[],counts:[],current:[],deliveries:[{product_master_id:'p',venue:'Assembly',date:'2026-10-02',status:'confirmed',qty:6},{product_master_id:'old',venue:'Assembly',date:'2026-10-01',status:'confirmed',qty:9}],movements:[]}); expect(r.gaps.map(g=>g.product_master_id)).toEqual(['p']); expect(r.gaps[0].expected).toBeNull(); });
+  it('never mixes venues or future movements', () => { const r=buildStockCountReview({session,sessions:[prior],counts:[{session_id:'old',product_master_id:'p',counted_qty:10}],current:[{product_master_id:'p',counted_qty:10}],deliveries:[{product_master_id:'p',venue:'Caliente',date:'2026-10-20',status:'confirmed',qty:200}],movements:[{product_master_id:'p',venue:'Assembly',date:'2026-11-01',qty:-10}]}); expect(r.gaps).toEqual([]); });
+  it('does not reuse an older product count when absent from latest approved count', () => { const r=buildStockCountReview({session,sessions:[prior,{...prior,id:'newer',count_date:'2026-10-20'}],counts:[{session_id:'old',product_master_id:'p',counted_qty:10}],current:[{product_master_id:'p',counted_qty:100}],deliveries:[],movements:[]}); expect(r.gaps).toEqual([]); expect(r.previous?.id).toBe('newer'); });
+});
