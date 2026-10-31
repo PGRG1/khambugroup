@@ -337,6 +337,13 @@
       "when": 1793460555275,
       "tag": "0047_finance_month_close_and_typed_adjustments",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793460951315,
+      "tag": "0048_finance_month_check_sales_date",
+      "breakpoints": true
     }
   ]
 }
