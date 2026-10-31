@@ -10565,6 +10565,9 @@ export type Database = {
       staff_reimbursements: {
         Row: {
           amount: number
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           category_id: string
           claim_date: string
           claimant_name: string
@@ -10578,8 +10581,11 @@ export type Database = {
           paid_from_bank_account_id: string | null
           paid_from_float_id: string | null
           payment_journal_entry_id: string | null
+          payout_method: string | null
+          receipt_hash: string | null
           receipt_path: string | null
           receipt_url: string | null
+          review_reasons: Json
           status: string
           tenant_id: string
           updated_at: string
@@ -10587,6 +10593,9 @@ export type Database = {
         }
         Insert: {
           amount: number
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           category_id: string
           claim_date: string
           claimant_name: string
@@ -10600,8 +10609,11 @@ export type Database = {
           paid_from_bank_account_id?: string | null
           paid_from_float_id?: string | null
           payment_journal_entry_id?: string | null
+          payout_method?: string | null
+          receipt_hash?: string | null
           receipt_path?: string | null
           receipt_url?: string | null
+          review_reasons?: Json
           status?: string
           tenant_id: string
           updated_at?: string
@@ -10609,6 +10621,9 @@ export type Database = {
         }
         Update: {
           amount?: number
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           category_id?: string
           claim_date?: string
           claimant_name?: string
@@ -10622,8 +10637,11 @@ export type Database = {
           paid_from_bank_account_id?: string | null
           paid_from_float_id?: string | null
           payment_journal_entry_id?: string | null
+          payout_method?: string | null
+          receipt_hash?: string | null
           receipt_path?: string | null
           receipt_url?: string | null
+          review_reasons?: Json
           status?: string
           tenant_id?: string
           updated_at?: string
@@ -12713,6 +12731,10 @@ export type Database = {
       approve_people_change: {
         Args: { c: string; yes: boolean }
         Returns: undefined
+      }
+      approve_staff_expense_claim: {
+        Args: { p_claim: string; p_payout: string }
+        Returns: string
       }
       approve_supplier_account_due_dates: {
         Args: { p_rows: Json; p_tenant: string }
