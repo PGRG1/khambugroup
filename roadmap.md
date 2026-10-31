@@ -1,3 +1,9 @@
+## Finance — Part 1
+- [ ] Unified navigation, redirects and Cash & bank links; keep Bank/Payments/Petty Cash
+- [ ] Needs you, shared month-close checks, persisted close/owner reopen and factual ask
+- [ ] Journal Reports, completeness, account/venue detail, preserved typed lines and confirmed conversion/PDF
+- [ ] Rules tests, signed-in desktop/phone verification and limitations
+
 ## Expenses simplify and fix
 - [x] Four-page navigation/redirects, shared phone pills and centred page pattern; Settings keeps categories/mapping
 - [x] Bills extraction/review, atomic approval/posting, bulk confirm card, reviewed category mappings and expense-only vendor relinking
