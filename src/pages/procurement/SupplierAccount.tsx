@@ -24,7 +24,7 @@ import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
 import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 import { paymentMethodLabel } from "@/utils/paymentMethods";
 import { AllocateExistingPaymentDialog, type ExistingPayment } from "@/components/finance/payables/AllocateExistingPaymentDialog";
-import { isDisputedInvoice, splitLedgerByPeriod, supplierCreditFromBalance } from "@/utils/supplierPaymentAllocation";
+import { isDisputedInvoice, splitLedgerByPeriod } from "@/utils/supplierPaymentAllocation";
 import { usePaymentReceiptCounts } from "@/hooks/usePaymentReceiptCounts";
 import { PaymentReceiptsDialog } from "@/components/finance/payables/PaymentReceiptsDialog";
 import { ReceiptIndicator } from "@/components/finance/payables/ReceiptIndicator";
@@ -191,9 +191,9 @@ export default function SupplierAccountPage() {
       // Invoice lines joined with product_master + invoices (tenant-scoped on line items)
       const { data: lines } = await (supabase as any)
         .from("invoice_line_items")
-        .select("id, quantity, unit_price, total, invoice_id, product_master_id, description, product_master!product_master_id(name, financial_treatment), invoices!invoice_id(supplier_id, invoice_date, venue, discount_type, invoice_number)")
+        .select("id, quantity, unit_price, total, invoice_id, product_master_id, description, product_master!product_master_id(*), invoices!invoice_id(supplier_id, invoice_date, venue, discount_type, invoice_number)")
         .eq("tenant_id", tenantId);
-      const filtered = (lines || []).filter((l: any) => l.invoices?.supplier_id === supplierId);
+      const filtered = (lines || []).filter((l: any) => l.invoices?.supplier_id === supplierId).map((l:any)=>({...l,product_master:l.product_master?{...l.product_master,name:l.product_master.name||l.product_master.internal_product_name}:null}));
 
       const refunds = filtered.filter((l: any) => {
         const ft = l.product_master?.financial_treatment;
@@ -211,14 +211,14 @@ export default function SupplierAccountPage() {
       // Deals
       const { data: dealRows } = await (supabase as any)
         .from("item_supplier_deals")
-        .select("id, deal_type, product_id, buy_qty, free_qty, notes, is_active, product_master!product_id(name, internal_sku)")
+        .select("id, deal_type, product_id, buy_qty, free_qty, notes, is_active, product_master!product_id(*)")
         .eq("supplier_id", supplierId)
         .eq("tenant_id", tenantId);
-      setDeals(dealRows || []);
+      setDeals((dealRows || []).map((d:any)=>({...d,product_master:d.product_master?{...d.product_master,name:d.product_master.name||d.product_master.internal_product_name}:null})));
 
       // Products for deal picker
-      const prodRows = await fetchAllRows("product_master", "id, name, internal_sku", { col: "name", asc: true }, tenantId);
-      setProducts(prodRows as any[]);
+      const prodRows = await fetchAllRows("product_master", "*", undefined, tenantId);
+      setProducts(prodRows.map((p:any)=>({...p,name:p.name||p.internal_product_name})).sort((a,b)=>a.name.localeCompare(b.name)));
 
       // Opening balances (supplier payables + deposits)
       const [{ data: obRows }, { data: odRows }] = await Promise.all([
@@ -246,7 +246,6 @@ export default function SupplierAccountPage() {
 
   const outstanding = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.payment_status !== "voided").reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices]);
   const overdue = useMemo(() => supplierInvoices.filter((i) => i.outstanding_amount > 0 && i.due_date && i.due_date < todayStr).reduce((s, i) => s + i.outstanding_amount, 0), [supplierInvoices, todayStr]);
-  const heldInDisputes = useMemo(() => supplierInvoices.filter((i) => i.payment_status !== "voided").reduce((s, i) => s + (Number(i.held_amount) || 0), 0), [supplierInvoices]);
   const availableCreditsTotal = useMemo(() => supplierAvailableCNs.reduce((s, c) => s + c.remaining_balance, 0), [supplierAvailableCNs]);
 
   const allocSumByPayment = useMemo(() => {
@@ -284,15 +283,6 @@ export default function SupplierAccountPage() {
       : depositLines),
     [depositLines, selectedAccountId, invoiceAccountMap]
   );
-
-  const depositsOutstanding = useMemo(() => {
-    let paid = 0, returned = 0;
-    for (const l of scopedDepositLines) {
-      const t = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-      if (t >= 0) paid += t; else returned += Math.abs(t);
-    }
-    return paid - returned;
-  }, [scopedDepositLines]);
 
   // Ledger build
   type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number; unallocated?: boolean };
@@ -568,7 +558,7 @@ export default function SupplierAccountPage() {
               {outstanding!==0&&<span>{fmtMoney(outstanding)} owed</span>}
               {overdue!==0&&<span className="text-warning">· {fmtMoney(overdue)} overdue</span>}
               {openInvoicesList.length>0&&<span>· {openInvoicesList.length} open invoices</span>}
-              {receivedDepositsHeld!==0&&<span>· {fmtMoney(receivedDepositsHeld)} deposits held</span>}
+              {receivedDepositsHeld!==0&&<span>{outstanding!==0||overdue!==0||openInvoicesList.length>0?"· ":""}{fmtMoney(receivedDepositsHeld)} deposits held</span>}
             </div>
           </div>
           <div className="flex items-center gap-2"><Button variant="outline" size="sm" asChild><Link to="/finance/payables">Pay in Finance <ArrowUpRight className="h-4 w-4 ml-1"/></Link></Button>
@@ -585,13 +575,13 @@ export default function SupplierAccountPage() {
         </div>
       </header>
 
-      <SupplierAccountsSection
+      <div className="supplier-detail-accounts"><SupplierAccountsSection
         supplierId={supplierId}
         selectedAccountId={selectedAccountId}
         onSelect={setSelectedAccountId}
         billCounts={billCountsByAccount}
         onChanged={() => setRefreshKey((k) => k + 1)}
-      />
+      /></div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">

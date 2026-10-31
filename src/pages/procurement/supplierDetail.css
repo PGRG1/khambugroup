@@ -26,3 +26,13 @@
  .supplier-detail .whitespace-nowrap { white-space:normal; }
  .supplier-detail-dialog table { table-layout:fixed; width:100%; }
 }.supplier-detail > .bg-card { background:transparent; border:0; box-shadow:none; }
+.supplier-detail-accounts > div { background:transparent; box-shadow:none; border:0; border-radius:0; }
+.supplier-detail-accounts > div > div { padding:0; }
+@media(max-width:640px) {
+ .supplier-detail .supplier-deposit-table th:first-child { width:28%; }
+ .supplier-detail .supplier-deposit-table th:nth-child(2) { width:12%; }
+ .supplier-detail .supplier-deposit-table th:nth-child(3) { width:21%; }
+ .supplier-detail .supplier-deposit-table th:nth-child(4) { width:12%; }
+ .supplier-detail .supplier-deposit-table th:last-child { width:27%; }
+ .supplier-detail .supplier-deposit-table th { white-space:nowrap; font-size:11px; }
+}
