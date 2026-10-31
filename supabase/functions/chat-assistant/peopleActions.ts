@@ -74,7 +74,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
         establishedScope(scopeText, s.person, "person");
         if (s.replacement) establishedScope(scopeText, s.replacement, "cover person");
         const e = exactPerson(s.person, ctx.people); const date = checkedDate(s.date);
-        const record = (awaitedPeople.get(e.id));
+        const record = ctx.people.find(p => p.id === e.id);
         if (record?.venue_id !== v.id) throw new Error(`${s.person} is not assigned to ${v.name}; specify their assigned venue or record a dated venue change first.`);
         if (date < w || date > end) throw new Error("A shift falls outside that week. Which week should change?");
         const candidates = own.filter(o => o.employee_id === e.id && o.shift_date === date && (!s.id || o.id === s.id));
