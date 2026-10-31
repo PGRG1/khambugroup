@@ -12891,6 +12891,10 @@ export type Database = {
         }
         Returns: string
       }
+      payroll_apply_repeats: {
+        Args: { m: number; t: string; y: number }
+        Returns: undefined
+      }
       payroll_approve: {
         Args: { m: number; rev: number; t: string; y: number }
         Returns: Json
