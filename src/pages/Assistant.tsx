@@ -95,6 +95,11 @@ export default function Assistant() {
   }, [scopeKey]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    const change = (event: Event) => { if (event instanceof CustomEvent && typeof event.detail === "string") setInput(event.detail); };
+    window.addEventListener("bani-people-change", change);
+    return () => window.removeEventListener("bani-people-change", change);
+  }, []);
 
   // Only auto-scroll when the user is already at the bottom.
   const onScroll = () => {
