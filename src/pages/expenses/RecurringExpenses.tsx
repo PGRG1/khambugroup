@@ -145,9 +145,9 @@ export default function RecurringExpenses() {
     );
   }, [rules, search,scope]);
 
-  const historyFor=(r:RecurringRule)=>bills.filter(b=>b.supplier_id===r.supplier_id&&(r.combined_venues||b.venue_id===r.venue_id)&&period.inPeriod(b.bill_date)).sort((a,b)=>a.bill_date.localeCompare(b.bill_date));
+  const historyFor=(r:RecurringRule)=>bills.filter(b=>(b.recurring_rule_id===r.id||b.supplier_id===r.supplier_id)&&(r.combined_venues||b.venue_id===r.venue_id)&&!["void","reversed","rejected"].includes(b.approval_status)).sort((a,b)=>a.bill_date.localeCompare(b.bill_date));
   const yearFacts=(r:RecurringRule)=>{
-    const year=new Date().getFullYear(); const history=historyFor(r).filter(b=>b.bill_date.startsWith(String(year))); const months=[...new Set(history.map(b=>b.bill_date.slice(0,7)))]; const last=history.at(-1),previous=history.at(-2);
+    const year=period.fromIso?Number(period.fromIso.slice(0,4)):new Date().getFullYear(); const history=historyFor(r).filter(b=>b.bill_date.startsWith(String(year))); const months=[...new Set(history.map(b=>b.bill_date.slice(0,7)))]; const last=history.at(-1),previous=history.at(-2);
     const facts=[months.length?`${months.map(m=>formatMonthLabel(m).split(' ')[0]).join(', ')} received`:'None received this year',`${history.filter(isWaitingBill).length} waiting for you`];
     if(last&&last.bill_date.slice(0,7)<new Date().toISOString().slice(0,7))facts.push(`none since ${formatMonthLabel(last.bill_date.slice(0,7))}`);
     if(last&&previous&&previous.total_amount>0&&last.total_amount>previous.total_amount)facts.push(`${formatMonthLabel(last.bill_date.slice(0,7))} ${formatCurrency(last.total_amount)}, ${Math.round((last.total_amount/previous.total_amount-1)*100)}% above ${formatMonthLabel(previous.bill_date.slice(0,7))}`);

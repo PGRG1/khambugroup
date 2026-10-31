@@ -72,7 +72,7 @@ export default function BillDropZone({ onParsed }: Props) {
       const payload = await Promise.all(
         list.map(async (f) => ({
           base64: await fileToBase64(f),
-          mimeType: f.type || "application/octet-stream",
+          mimeType: /\.eml$/i.test(f.name) ? "message/rfc822" : f.type || "application/octet-stream",
         }))
       );
 
@@ -145,7 +145,7 @@ export default function BillDropZone({ onParsed }: Props) {
   };
 
   return (
-    <div className="card-glass rounded-xl p-6 animate-fade-in">
+    <div className="space-y-3">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
           <ScanLine className="h-5 w-5 text-primary" />
@@ -185,14 +185,14 @@ export default function BillDropZone({ onParsed }: Props) {
             <p className="text-sm text-muted-foreground">
               Drop a bill here or <span className="text-primary font-medium">click to browse</span>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF (max 15MB)</p>
+            <p className="text-xs text-muted-foreground mt-1">JPG, PNG, PDF or forwarded email (.eml), max 15MB</p>
           </div>
 
           <input
             ref={inputRef}
             type="file"
             multiple
-            accept="image/*,application/pdf"
+            accept="image/*,application/pdf,.eml,message/rfc822"
             className="hidden"
             onChange={(e) => {
               const list = e.target.files;
