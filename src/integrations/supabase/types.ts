@@ -13066,6 +13066,10 @@ export type Database = {
         Args: { p_rows: Json; p_supplier: string; p_tenant: string }
         Returns: number
       }
+      bani_accounting_answer: {
+        Args: { p_answer: string; p_review: string }
+        Returns: undefined
+      }
       bani_accounting_commit: {
         Args: {
           p_fingerprint: string
@@ -13077,6 +13081,10 @@ export type Database = {
         }
         Returns: string
       }
+      bani_accounting_fingerprint: {
+        Args: { p_id: string; p_type: string }
+        Returns: string
+      }
       bani_accounting_lease: {
         Args: { p_lease: string; p_tenant: string }
         Returns: boolean
@@ -13084,6 +13092,10 @@ export type Database = {
       bani_accounting_resolve_example: {
         Args: { p_id: string; p_use_new: boolean }
         Returns: undefined
+      }
+      bani_accounting_reverse: {
+        Args: { p_reason?: string; p_review: string }
+        Returns: string
       }
       bani_accounting_save_settings: {
         Args: { p_ask_above: number; p_enabled: boolean; p_tenant: string }
