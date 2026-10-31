@@ -4,7 +4,8 @@ import {createOpenAI} from 'npm:@ai-sdk/openai@3';
 import {streamText,Output} from 'npm:ai@6';
 import {z} from 'npm:zod@4';
 import {createLovableAiGatewayRunIdFetch} from './run-id.ts';
-const Body=z.object({tenant_id:z.string().uuid(),text:z.string().max(5000),employee_id:z.string().uuid().nullable().optional(),file:z.object({data:z.string().max(14000000),mime:z.enum(['application/pdf','image/jpeg','image/png','image/webp']),name:z.string().max(255)}).optional()});
+const uuid=z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+const Body=z.object({tenant_id:uuid,text:z.string().max(5000),employee_id:uuid.nullable().optional(),file:z.object({data:z.string().max(14000000),mime:z.enum(['application/pdf','image/jpeg','image/png','image/webp']),name:z.string().max(255)}).optional()});
 const Draft=z.object({employee_id:z.string().nullable(),effective_date:z.string(),change_type:z.enum(['joined','promotion','pay_change','type_change','venue_move','details','contract']),first_name:z.string().nullable(),last_name:z.string().nullable(),job_title:z.string().nullable(),employment_type:z.enum(['full_time','part_time','casual']).nullable(),venue_id:z.string().nullable(),pay_amount:z.number().nullable(),pay_basis:z.enum(['month','hour']).nullable(),weekly_hours:z.number().nullable(),annual_leave:z.number().nullable(),probation_months:z.number().nullable(),notice_days:z.number().nullable(),note:z.string()});
 Deno.serve(async(req)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
