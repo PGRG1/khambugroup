@@ -14,7 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BottomSheetDialog } from "@/components/kpi/BottomSheetDialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {AccountReviewNote} from "@/components/finance/AccountReviewNote";
 import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -32,7 +33,7 @@ const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "c
 type ActiveFilter = "active" | "inactive" | "all";
 
 export default function ChartOfAccountsPage() {
-  const { items, loading, createAccount, updateAccount, deleteAccount, countJournalLines } = useChartOfAccounts();
+  const { items, loading, createAccount, updateAccount, deleteAccount, countJournalLines, fetchAll } = useChartOfAccounts();
   const { rebuildFromOperations } = useJournal();
   const { tenantId } = useActiveTenant();
   const isMobile = useIsMobile();
@@ -228,7 +229,7 @@ export default function ChartOfAccountsPage() {
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Chart of Accounts</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Chart of accounts</h1>
           <p className="text-sm text-muted-foreground mt-1">
             The complete list of accounts used in your books. Edit codes, names, and how they appear on your statements.
           </p>
@@ -257,6 +258,7 @@ export default function ChartOfAccountsPage() {
         </div>
       </header>
 
+      <AccountReviewNote accounts={items} onSaved={()=>void fetchAll()}/>
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
@@ -303,52 +305,6 @@ export default function ChartOfAccountsPage() {
             </div>
           </div>
 
-          {/* Type filter pills — live counts from actual accounts */}
-          {(() => {
-            const pills: { key: AccountType | "all" | "other"; label: string; match: (t: AccountType) => boolean }[] = [
-              { key: "all", label: "All", match: () => true },
-              { key: "asset", label: "Assets", match: (t) => t === "asset" },
-              { key: "liability", label: "Liabilities", match: (t) => t === "liability" },
-              { key: "equity", label: "Equity", match: (t) => t === "equity" },
-              { key: "revenue", label: "Revenue", match: (t) => t === "revenue" },
-              { key: "cogs", label: "Cost of sales", match: (t) => t === "cogs" },
-              { key: "opex", label: "Operating expenses", match: (t) => t === "opex" },
-              { key: "other", label: "Other", match: (t) => t === "other_income" || t === "other_expense" },
-            ];
-            const pool = items.filter((a) => {
-              if (activeFilter === "active") return a.is_active;
-              if (activeFilter === "inactive") return !a.is_active;
-              return true;
-            });
-            const activeKey: string =
-              typeFilter === "all" ? "all"
-              : (typeFilter === "other_income" || typeFilter === "other_expense") ? "other"
-              : typeFilter;
-            return (
-              <div className="flex flex-wrap gap-1.5">
-                {pills.map((p) => {
-                  const count = pool.filter((a) => p.match(a.account_type)).length;
-                  const isActive = activeKey === p.key;
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => setTypeFilter(p.key)}
-                      className={cn(
-                        "px-3 py-1 rounded-full text-xs transition-colors tabular-nums",
-                        isActive
-                          ? "bg-foreground text-background border border-foreground"
-                          : "bg-muted/40 text-muted-foreground border border-border/50 hover:bg-muted",
-                      )}
-                    >
-                      {p.label} <span className={cn("ml-1", isActive ? "opacity-80" : "opacity-70")}>({count})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
           {/* Counter strip + scope line */}
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground tabular-nums">
@@ -357,51 +313,8 @@ export default function ChartOfAccountsPage() {
             <p className="text-xs text-muted-foreground/80">{scopeLine}</p>
           </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="card-glass p-4"><Skeleton className="h-20 w-full" /></Card>
-              ))}
-            </div>
-          ) : groupedTree.groups.length === 0 ? (
-            <Card className="card-glass p-10 text-center">
-              <p className="text-sm text-muted-foreground">
-                {search.trim()
-                  ? <>No accounts match “{search.trim()}”</>
-                  : <>No accounts match the current filters.</>}
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-5">
-              {groupedTree.groups.map(({ type: t, nodes }) => (
-                <div key={t}>
-                  <div className="flex items-baseline justify-between px-1 mb-2">
-                    <h2 className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
-                      {ACCOUNT_TYPE_LABEL[t]}{" "}
-                      <span className="text-muted-foreground/60 tabular-nums">
-                        ({nodes.reduce((sum, n) => sum + 1 + n.children.length, 0)})
-                      </span>
-                    </h2>
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground/60">{ACCOUNT_TYPE_GROUP[t]}</span>
-                  </div>
-                  <Card className="card-glass p-0 overflow-hidden">
-                    <ul className="divide-y divide-border/40">
-                      {nodes.map(({ account, children }) => (
-                        <div key={account.id} className={cn(!account.is_active && "opacity-60")}>
-                          {renderRow(account, 0)}
-                          {children.map((c) => (
-                            <div key={c.id} className={cn(!c.is_active && "opacity-60")}>
-                              {renderRow(c, 1)}
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </ul>
-                  </Card>
-                </div>
-              ))}
-            </div>
-          )}
+          <section className="kit card-glass overflow-hidden"><div className="p-4"><h2 className="font-semibold">Chart of accounts</h2><p className="text-sm text-muted-foreground">{scopeLine}</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[20%] text-left">Code</th><th className="text-left">Account</th><th className="w-[25%] text-left">Type</th><th className="w-12"/></tr></thead><tbody>{filtered.map(a=><tr key={a.id} className="border-t border-border/50"><td className="p-4 font-mono">{a.code}</td><td className="break-words py-4 pr-2">{a.name}<p className="text-xs text-muted-foreground">{a.description}</p></td><td className="text-xs text-muted-foreground">{ACCOUNT_TYPE_LABEL[a.account_type]} · {a.is_active?'Active':'Inactive'}</td><td><Button variant="ghost" size="icon" aria-label={`Edit ${a.code}`} onClick={()=>openEdit(a)}><Pencil className="h-4 w-4"/></Button></td></tr>)}</tbody></table>{!filtered.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading accounts…':'No accounts found.'}</p>}</section>
+
         </TabsContent>
 
         <TabsContent value="mapping" className="mt-4">
@@ -433,7 +346,7 @@ export default function ChartOfAccountsPage() {
       </Tabs>
 
       {/* Editor */}
-      <BottomSheetDialog open={editorOpen} onOpenChange={setEditorOpen} className={isMobile ? undefined : "max-w-lg"}>
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}><DialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit account" : "Add account"}</DialogTitle>
         </DialogHeader>
@@ -543,7 +456,7 @@ export default function ChartOfAccountsPage() {
           <Button variant="ghost" onClick={() => setEditorOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!draft.code || !draft.name}>{editing ? "Save changes" : "Add account"}</Button>
         </DialogFooter>
-      </BottomSheetDialog>
+      </DialogContent></Dialog>
 
       {/* Delete confirm / blocked dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteUsage(null); } }}>
