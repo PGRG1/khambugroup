@@ -1,3 +1,8 @@
+## Supplier Accounts — Part 2
+- [ ] Restyle detail header, summary, More actions and five clean-table tabs; preserve tab workflows
+- [ ] Received-line container grouping, deposits summary and confirmed return dialog
+- [ ] Rule tests and signed-in desktop/phone checks; list, Finance, Stock and Menu costs unchanged
+
 ## Supplier Accounts — Part 1
 - [x] Remove Purchasing sub-tabs and redirect legacy buying-side payables/deposits; Finance Payables unchanged
 - [x] Supplier/invoice list, due-date ageing switches, scoped totals and filtered whole-dollar downloads
