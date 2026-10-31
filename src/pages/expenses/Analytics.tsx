@@ -61,11 +61,11 @@ export default function ExpenseAnalytics() {
 
   const scopedBills = useMemo(
     () => bills.filter((b) => (b.bill_date || "") >= sinceISO && b.approval_status === "posted" && scope.includesId(b.venue_id)),
-    [bills, sinceISO]
+    [bills, sinceISO, scope]
   );
   const scopedStmts = useMemo(
     () => statements.filter((s) => (s.statement_date || "") >= sinceISO && s.approval_status === "posted" && scope.includesId(s.venue_id)),
-    [statements, sinceISO]
+    [statements, sinceISO, scope]
   );
 
   const byMonth = useMemo(() => {

@@ -126,6 +126,7 @@ export default function BillsExpenses() {
   const [vendorFilter, setVendorFilter] = useState("all"), [categoryFilter, setCategoryFilter] = useState("all");
   const [categoryOpen, setCategoryOpen] = useState(false), [categoryLinks, setCategoryLinks] = useState<Record<string,string>>({});
   const [ask, setAsk] = useState(""), [answer, setAnswer] = useState(""), [bulk, setBulk] = useState<ExpenseBill[] | null>(null), [busy, setBusy] = useState(false);
+  const [lookupRevision,setLookupRevision]=useState(0);
   const [lineIndex, setLineIndex] = useState<Record<string,string[]>>({});
   const [statementDoc, setStatementDoc] = useState<(typeof statements.statements)[number] | null>(null);
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -165,7 +166,7 @@ export default function BillsExpenses() {
       setBankAccounts((b.data || []) as BankAccount[]);
       setCategories((c.data || []) as Category[]);
     })();
-  }, [tenantId]);
+  }, [tenantId,lookupRevision]);
 
   // Load supplier accounts whenever selected vendor changes in the editor.
   useEffect(() => {
@@ -290,7 +291,8 @@ export default function BillsExpenses() {
     const match=command.match(/^approve all (.+?) bills[.!]?$/i);
     if(match){ const term=match[1].toLowerCase(); const candidates=scopedBills.filter(b=>isWaitingBill(b)&&`${b.notes??''} ${b.vendor_name??''} ${(lineIndex[b.id]??[]).join(' ')}`.toLowerCase().includes(term)); if(!candidates.length){setAnswer('No matching waiting bills in this period.');return;} setBulk(candidates); setAnswer(''); return; }
     if (/how much|total|waiting|to pay/i.test(command)) { setAnswer(`${period.label}: ${formatCurrency(scopedBills.reduce((n,b)=>n+b.total_amount,0))} across ${scopedBills.length} bills; ${waiting.length} waiting for you (${formatCurrency(waiting.reduce((n,b)=>n+b.total_amount,0))}).`);return; }
-    setAnswer('Which bills? Include a vendor or category and the instruction, for example approve all rent bills.');
+    setBusy(true);
+    try { const {data,error}=await supabase.functions.invoke('expense-ask',{body:{tenant_id:tenantId,instruction:command,bill_ids:scopedBills.map(b=>b.id)}}); if(error)throw error; if(data?.bill_ids?.length){setBulk(scopedBills.filter(b=>data.bill_ids.includes(b.id)&&isWaitingBill(b)));setAnswer('');}else setAnswer(data?.answer||'Please specify the bills and instruction.'); } catch(e){setAnswer(e instanceof Error?e.message:'Could not read the instruction.');}finally{setBusy(false);}
   };
 
   // KPIs
@@ -458,6 +460,7 @@ export default function BillsExpenses() {
 
   const handlePost = async () => {
     if (!canWrite || busy || !balanced || !allocationsHaveAccount) return;
+    if (splitDraft.mode==='split'&&!splitDraft.balanced){toast.error('Venue split is not balanced');return;}
     setBusy(true);
     try {
       // Save corrections first in review state; approval and posting are one transaction.
@@ -557,7 +560,7 @@ export default function BillsExpenses() {
           <h2 className="text-base font-semibold break-words">{period.label} · {scopedBills.length} bills · {formatCurrency(scopedBills.reduce((n,b)=>n+b.total_amount,0))}</h2>
           <p className="text-sm text-muted-foreground">{waiting.length} waiting for you ({formatCurrency(waiting.reduce((n,b)=>n+b.total_amount,0))})</p>
           {missingCategories.length>0&&<div className="kit-explain">{missingCategories.length} categories aren't linked to an account. <Button variant="link" className="p-0 h-auto text-warning" onClick={()=>{setCategoryLinks(Object.fromEntries(missingCategories.map(c=>[c.id,proposedCategoryAccount(c.name,accounts)])));setCategoryOpen(true);}}>Check accounts</Button></div>}
-          {vendorPairs.length>0&&<div className="kit-explain">Merge? {vendorPairs.map(pair=><div key={pair.a.id+pair.b.id} className="flex flex-wrap gap-2 items-center"><span>{pair.a.name} / {pair.b.name}</span><Button variant="link" className="p-0 h-auto text-warning" disabled={!canWrite||busy} onClick={async()=>{if(!tenantId)return;const ok=await confirm({title:'Merge these expense vendors?',description:`Relink editable bills and regular rules from ${pair.a.name} to ${pair.b.name}. Booked bills and Purchasing records stay unchanged.`,confirmLabel:'Confirm merge'});if(!ok)return;setBusy(true);const {error}=await supabase.rpc('merge_expense_vendor',{p_tenant:tenantId,p_from:pair.a.id,p_into:pair.b.id});setBusy(false);if(error)toast.error(error.message);else{toast.success('Expense vendors linked');window.location.reload();}}}>Check merge</Button></div>)}</div>}
+          {vendorPairs.length>0&&<div className="kit-explain">Merge? {vendorPairs.map(pair=><div key={pair.a.id+pair.b.id} className="flex flex-wrap gap-2 items-center"><span>{pair.a.name} / {pair.b.name}</span><Button variant="link" className="p-0 h-auto text-warning" disabled={!canWrite||busy} onClick={async()=>{if(!tenantId)return;const ok=await confirm({title:'Merge these expense vendors?',description:`Relink editable bills and regular rules from ${pair.a.name} to ${pair.b.name}. Booked bills and Purchasing records stay unchanged.`,confirmLabel:'Confirm merge'});if(!ok)return;setBusy(true);const {error}=await supabase.rpc('merge_expense_vendor',{p_tenant:tenantId,p_from:pair.a.id,p_into:pair.b.id});setBusy(false);if(error)toast.error(error.message);else{toast.success('Expense vendors linked');setLookupRevision(n=>n+1);}}}>Check merge</Button></div>)}</div>}
           <QuickFilter label="Bills" value={statusFilter} onChange={setStatusFilter} options={[{key:'all',label:'All'},{key:'waiting',label:'Waiting for you'},{key:'to-pay',label:'To pay'},{key:'paid',label:'Paid'}]}/>
           <Toolbar search={search} onSearch={setSearch} placeholder="Search bills" mobileSearchBelow searchAfterControls filter={<FilterPanel activeCount={Number(vendorFilter!=='all')+Number(categoryFilter!=='all')} onReset={()=>{setVendorFilter('all');setCategoryFilter('all');}} resultLabel={`Show ${filtered.length} bills`}><FilterGroup title="Venue"><span className="text-sm">{scope.label}</span></FilterGroup><FilterGroup title="Vendor"><Select value={vendorFilter} onValueChange={setVendorFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All vendors</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Category"><Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map(c=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></FilterGroup></FilterPanel>} onDownload={()=>downloadCSV(filtered.map(b=>({date:b.bill_date,vendor:b.vendor_name,amount:b.total_amount,status:expenseStatus(b)})),[{key:'date',label:'Date'},{key:'vendor',label:'From'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],'expenses')}/>
           <form className="flex gap-2" onSubmit={e=>{e.preventDefault();void askBani();}}><Input aria-label="Ask Bani about expenses" placeholder="Ask Bani" value={ask} onChange={e=>setAsk(e.target.value)}/><Button variant="outline" type="submit">Ask</Button></form>
