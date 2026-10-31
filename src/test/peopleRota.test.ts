@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {shiftHours,expectedSales,daySummary,rotaIssues,coverCandidates,copyWeek,attendanceDifference,withinVenue,weekStart,personOnDate} from '@/utils/peopleRota';
+import {shiftHours,expectedSales,daySummary,rotaIssues,coverCandidates,copyWeek,attendanceDifference,withinVenue,weekStart,personOnDate,addDays} from '@/utils/peopleRota';
 const p={id:'a',first_name:'A',job_title:'Server',status:'active',hire_date:'2020-01-01',weekly_hours:45,pay_amount:75,pay_basis:'hour'};
 describe('Rota & hours rules',()=>{
  it('Monday begins the seven day week',()=>expect(weekStart('2026-10-31')).toBe('2026-10-26'));
@@ -9,7 +9,7 @@ describe('Rota & hours rules',()=>{
  it('no weekday sales evidence remains unknown',()=>expect(expectedSales([],{id:'v'},'2026-10-31')).toBeNull());
  it('cost uses the pay rate effective on the shift date',()=>expect(daySummary([{employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'11:00'}],[p],[{employee_id:'a',effective_date:'2026-10-31',values:{pay_amount:80}}],'2026-10-31',1000).percent).toBe(16));
  it('a missing monthly contract means cost is unknown',()=>expect(daySummary([{employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'11:00'}],[{...p,pay_basis:'month',weekly_hours:null}],[],'2026-10-31',1000).cost).toBeNull());
- it('seven worked days flags no rest day and hours above 45',()=>{const days=Array.from({length:7},(_,i)=>`2026-10-${26+i}`);const shifts=days.map(d=>({employee_id:'a',shift_date:d,start_time:'09:00',end_time:'17:00'}));expect(rotaIssues([p],[],shifts,[],days,[]).map(i=>i.kind)).toEqual(['contract','rest']);});
+ it('seven worked days flags no rest day and hours above 45',()=>{const days=Array.from({length:7},(_,i)=>addDays('2026-10-26',i));const shifts=days.map(d=>({employee_id:'a',shift_date:d,start_time:'09:00',end_time:'17:00'}));expect(rotaIssues([p],[],shifts,[],days,[]).map(i=>i.kind)).toEqual(['contract','rest']);});
  it('approved leave conflicts with scheduled work',()=>expect(rotaIssues([p],[],[{id:'s',employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'17:00'}],[{employee_id:'a',status:'approved',start_date:'2026-10-31',end_date:'2026-10-31'}],['2026-10-31'],[]).some(i=>i.kind==='leave')).toBe(true));
  it('cover is free, right-role, and cheaper first',()=>expect(coverCandidates([p,{...p,id:'b',pay_amount:60},{...p,id:'c',job_title:'Bar'}],[],[],[],'2026-10-31','Server').map(e=>e.id)).toEqual(['b','a']));
  it('leave excludes cover candidates',()=>expect(coverCandidates([p],[],[],[{employee_id:'a',status:'approved',start_date:'2026-10-31',end_date:'2026-10-31'}],'2026-10-31','Server')).toHaveLength(0));
