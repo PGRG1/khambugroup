@@ -211,6 +211,13 @@
       "when": 1793451727610,
       "tag": "0029_people_person_scope_and_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793452032521,
+      "tag": "0030_people_employee_delete_protection",
+      "breakpoints": true
     }
   ]
 }
