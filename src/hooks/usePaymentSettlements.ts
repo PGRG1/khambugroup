@@ -126,12 +126,12 @@ export function usePaymentSettlements() {
     setLoading(true);
     const [p, m, i, b, l, t, fr] = await Promise.all([
       fetchAllRows("payment_processors", "*", { col: "sort_order", asc: true }, tenantId),
-      fetchAllRows("payment_processor_merchants", "*", { col: "sort_order", asc: true }),
+      fetchAllRows("payment_processor_merchants", "*", { col: "sort_order", asc: true }, tenantId),
       fetchAllRows("payment_settlement_imports", "*", { col: "uploaded_at", asc: false }, tenantId),
       fetchAllRows("payment_settlement_batches", "*", { col: "settlement_date", asc: false }, tenantId),
-      fetchAllRows("payment_settlement_lines", "*"),
-      fetchAllRows("payment_settlement_transactions", "*", { col: "transaction_time", asc: false }),
-      fetchAllRows("payment_processor_fee_rates", "*"),
+      fetchAllRows("payment_settlement_lines", "*", undefined, tenantId),
+      fetchAllRows("payment_settlement_transactions", "*", { col: "transaction_time", asc: false }, tenantId),
+      fetchAllRows("payment_processor_fee_rates", "*", undefined, tenantId),
     ]);
     setProcessors(p as PaymentProcessor[]);
     setMerchants(m as ProcessorMerchant[]);
