@@ -8,6 +8,7 @@ import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
 import { KpiNavigation } from "@/components/kpi/KpiNavigation";
 import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
+import { ExpensesNavigation } from "@/components/expenses/ExpensesNavigation";
 import { PurchasingNavigation } from "@/components/procurement/PurchasingNavigation";
 import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
 import { FloatingBani } from "@/components/assistant/FloatingBani";
@@ -52,6 +53,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
+            {pathname.startsWith("/expenses") && <ExpensesNavigation />}
             {children}
           </div>
         </main>
