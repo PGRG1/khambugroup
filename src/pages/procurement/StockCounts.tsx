@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import StockCountScreen from "@/components/procurement/StockCountScreen";
 import { useSearchParams } from "react-router-dom";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
@@ -11,17 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { useVenues } from "@/hooks/useVenues";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { downloadCSV } from "@/utils/csvDownload";
-import { formatCurrency } from "@/utils/salesUtils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -31,11 +26,6 @@ import {
 } from "@/components/ui/select";
 import {
   Plus,
-  ChevronRight,
-  ArrowLeft,
-  StickyNote,
-  Download,
-  Check,
 } from "lucide-react";
 
 type Session = {
@@ -52,56 +42,11 @@ type Session = {
   approved_at: string | null;
 };
 
-type StockLocation = {
-  id: string;
-  venue: string;
-  name: string;
-  sort_order: number;
-  is_active: boolean;
-};
-
-type Item = {
-  id: string;
-  session_id: string;
-  product_master_id: string;
-  location_id: string | null;
-  last_count_qty: number | null;
-  counted_qty: number | null;
-  unit: string;
-  unit_cost: number;
-  notes: string | null;
-};
-
-type Product = {
-  id: string;
-  internal_sku: string;
-  internal_product_name: string;
-  level1_category: string;
-  stock_uom: string;
-  cost_per_stock_unit: number;
-  status: string;
-};
-
-// Venues are read from the master list via useVenues() — no hardcoded list.
-
-const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-  full: { label: "Full", cls: "bg-blue-50 text-blue-700 border-blue-200" },
-  category: { label: "Category", cls: "bg-gray-100 text-gray-600 border-gray-200" },
-  spot: { label: "Spot", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-};
-
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   in_progress: { label: "In Progress", cls: "bg-amber-50 text-amber-700 border-amber-200" },
   pending_review: { label: "Pending Review", cls: "bg-blue-50 text-blue-700 border-blue-200" },
   approved: { label: "Approved", cls: "bg-green-50 text-green-700 border-green-200" },
 };
-
-const LOC_COLORS = [
-  "bg-teal-50 text-teal-700 border-teal-200",
-  "bg-blue-50 text-blue-700 border-blue-200",
-  "bg-purple-50 text-purple-700 border-purple-200",
-  "bg-orange-50 text-orange-700 border-orange-200",
-];
 
 export default function StockCounts() {
   const [params, setParams] = useSearchParams();
@@ -118,12 +63,9 @@ export default function StockCounts() {
  * ============================================================ */
 function ListView({ onOpen, refreshKey }: { onOpen: (id: string) => void; refreshKey: string | null }) {
   const { tenantId } = useActiveTenant();
-  const { venues: dbVenues } = useVenues();
-  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [itemStats, setItemStats] = useState<Record<string, { total: number; counted: number; value: number }>>({});
   const venueScope = useVenueScope();
-  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -135,12 +77,7 @@ function ListView({ onOpen, refreshKey }: { onOpen: (id: string) => void; refres
     setSessions(sess);
 
     if (sess.length > 0) {
-      const ids = sess.map((s) => s.id);
-      const { data: items } = await supabase
-        .from("stock_count_items")
-        .select("session_id, counted_qty, unit_cost")
-        .eq("tenant_id", tenantId)
-        .in("session_id", ids);
+      const items = await fetchAllRows("stock_count_items","session_id, counted_qty, unit_cost",undefined,tenantId);
       const stats: Record<string, { total: number; counted: number; value: number }> = {};
       (items ?? []).forEach((it: any) => {
         const s = (stats[it.session_id] ??= { total: 0, counted: 0, value: 0 });
