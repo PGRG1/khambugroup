@@ -12576,6 +12576,10 @@ export type Database = {
         Returns: string
       }
       people_access: { Args: { t: string; u: string }; Returns: boolean }
+      people_change_scope: {
+        Args: { e: string; p: Json; t: string; u: string }
+        Returns: boolean
+      }
       people_documents_access: {
         Args: { t: string; u: string }
         Returns: boolean
@@ -12585,9 +12589,14 @@ export type Database = {
         Returns: Json
       }
       people_owner: { Args: { t: string; u: string }; Returns: boolean }
+      people_path_access: { Args: { p: string; u: string }; Returns: boolean }
       people_person_access: {
         Args: { e: string; t: string; u: string }
         Returns: boolean
+      }
+      people_terms_at: {
+        Args: { d: string; e: string; t: string }
+        Returns: Json
       }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
