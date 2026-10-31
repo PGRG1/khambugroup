@@ -13247,6 +13247,18 @@ export type Database = {
         Args: { p_month: string; p_tenant_id: string }
         Returns: Json
       }
+      finance_record_owed_payment: {
+        Args: {
+          p_account: string
+          p_amount: number
+          p_date: string
+          p_items: Json
+          p_method: string
+          p_reference: string
+          p_tenant: string
+        }
+        Returns: Json
+      }
       finance_set_month_closed: {
         Args: {
           p_close: boolean
