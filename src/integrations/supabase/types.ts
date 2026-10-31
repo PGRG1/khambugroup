@@ -4091,6 +4091,8 @@ export type Database = {
           created_at: string
           description: string
           grn_id: string
+          human_counted_at: string | null
+          human_counted_by: string | null
           id: string
           invoice_line_item_id: string | null
           issue: string | null
@@ -4113,6 +4115,8 @@ export type Database = {
           created_at?: string
           description: string
           grn_id: string
+          human_counted_at?: string | null
+          human_counted_by?: string | null
           id?: string
           invoice_line_item_id?: string | null
           issue?: string | null
@@ -4135,6 +4139,8 @@ export type Database = {
           created_at?: string
           description?: string
           grn_id?: string
+          human_counted_at?: string | null
+          human_counted_by?: string | null
           id?: string
           invoice_line_item_id?: string | null
           issue?: string | null
