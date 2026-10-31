@@ -1457,6 +1457,7 @@ Deno.serve(async (req) => {
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      conversation.splice(1, 0, { role: "system", content: "People drafts: emit at most ONE real People card per turn, then reply with one short line. Do not print fake Confirm/Cancel labels, card titles/details or pseudo-cards in prose. Use exact user instructions, never invented pay advice. Once a draft tool succeeds do not draft again in that turn." });
       if (body.floating === true) {
         const requestedVenue = typeof body.active_venue === "string" ? body.active_venue.trim() : "";
         const venueMatch = requestedVenue ? workspace.venues.find((v) => v.toLowerCase() === requestedVenue.toLowerCase()) : null;
