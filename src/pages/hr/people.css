@@ -1,0 +1,8 @@
+.people-page {min-width:0;max-width:100%;overflow-x:clip;}
+.people-page table,.people-profile table {width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;}
+.people-page td,.people-page th,.people-profile td,.people-profile th {padding:12px 8px;border-bottom:1px solid hsl(var(--border));text-align:left;overflow-wrap:anywhere;}
+.people-page th,.people-profile th {font-weight:500;color:hsl(var(--muted-foreground));}
+.people-page td:last-child {text-align:right;font-variant-numeric:tabular-nums;}
+.people-profile [role=tablist] {display:flex;max-width:100%;overflow-x:auto !important;justify-content:flex-start;}
+.people-profile [role=tab] {flex-shrink:0;}
+@media(max-width:640px){.people-profile table {font-size:12px;}.people-profile td,.people-profile th {padding:8px 4px;}}
