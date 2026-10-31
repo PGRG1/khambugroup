@@ -169,6 +169,13 @@
       "when": 1793445808046,
       "tag": "0023_supplier_account_review_helpers",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793446071810,
+      "tag": "0024_supplier_account_match_stale_guards",
+      "breakpoints": true
     }
   ]
 }
