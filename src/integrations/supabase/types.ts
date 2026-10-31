@@ -12162,6 +12162,14 @@ export type Database = {
         }
         Returns: string
       }
+      approve_supplier_account_due_dates: {
+        Args: { p_rows: Json; p_tenant: string }
+        Returns: number
+      }
+      approve_supplier_account_matches: {
+        Args: { p_rows: Json; p_supplier: string; p_tenant: string }
+        Returns: number
+      }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
         Returns: string
