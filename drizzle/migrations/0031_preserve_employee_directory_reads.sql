@@ -1,0 +1,1 @@
+DROP POLICY people_employees_scope ON public.hr_employees;
