@@ -9,7 +9,9 @@ import {
   getLovableAiGatewayResponseHeaders,
 } from "./run-id.ts";
 const bodySchema = z.object({
-  tenant_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+  tenant_id: z
+    .string()
+    .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
   instruction: z.string().max(2000),
   year: z.number().int().min(2000).max(2100),
   mode: z.enum(["question", "accounts"]),
@@ -24,8 +26,10 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   const auth = await requireAuth(req, corsHeaders);
   if (auth.response) return auth.response;
+  let tenantId: string | null = null;
   try {
     const body = bodySchema.parse(await req.json());
+    tenantId = body.tenant_id;
     const url = Deno.env.get("SUPABASE_URL"),
       key = Deno.env.get("SUPABASE_ANON_KEY"),
       aiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -56,6 +60,16 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    const { data: pause } = await client
+      .from("finance_ai_pause")
+      .select("reason")
+      .eq("tenant_id", body.tenant_id)
+      .maybeSingle();
+    if (pause)
+      return new Response(JSON.stringify({ error: pause.reason }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     async function all(table: string, select: string) {
       const rows: any[] = [];
       for (let offset = 0; ; offset += 1000) {
@@ -137,8 +151,8 @@ Deno.serve(async (req) => {
           content: JSON.stringify({
             mode: body.mode,
             instruction: body.instruction,
-            books: [...totals.values()],
-            checks,
+            books: body.mode === "question" ? [...totals.values()] : [],
+            checks: body.mode === "question" ? checks : [],
             typed: eligible,
             accounts,
           }),
@@ -170,6 +184,11 @@ Deno.serve(async (req) => {
         },
       },
     });
+    let gatewayError: unknown;
+    for await (const part of result.fullStream) {
+      if (part.type === "error") gatewayError = part.error;
+    }
+    if (gatewayError) throw gatewayError;
     const parsed = await result.output;
     if (!parsed) throw new Error("No Finance answer returned");
     const validLines = new Set(eligible.map((l) => l.id));
@@ -193,6 +212,22 @@ Deno.serve(async (req) => {
     );
   } catch (e) {
     const status = (e as { statusCode?: number }).statusCode ?? 400;
+    if ((status === 402 || status === 403) && tenantId) {
+      const url = Deno.env.get("SUPABASE_URL"),
+        key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (url && key) {
+        const admin = createClient(url, key);
+        await admin
+          .from("finance_ai_pause")
+          .upsert({
+            tenant_id: tenantId,
+            reason:
+              e instanceof Error
+                ? e.message
+                : "AI spending or access limit reached. Account selection remains available.",
+          });
+      }
+    }
     return new Response(
       JSON.stringify({
         error: e instanceof Error ? e.message : "Finance review failed",

@@ -150,7 +150,14 @@ export default function Reports() {
           },
         },
       );
-      if (error) throw error;
+      if (error) {
+        const context = (error as any).context;
+        if (context instanceof Response) {
+          const body = await context.json();
+          throw new Error(body.error ?? error.message);
+        }
+        throw error;
+      }
       if (data.error) throw new Error(data.error);
       setPicks(
         Object.fromEntries(
@@ -438,7 +445,7 @@ export default function Reports() {
           <Button
             key={key}
             variant="ghost"
-            className={`rounded-none border-b-2 ${view === key ? "border-primary" : "border-transparent"}`}
+            className={`rounded-none border-b-2 bg-transparent shadow-none hover:bg-transparent ${view === key ? "border-primary" : "border-transparent"}`}
             onClick={() => {
               const next = new URLSearchParams(params);
               next.set("view", key);
@@ -663,10 +670,11 @@ export default function Reports() {
                             {unconverted.some(
                               (l) =>
                                 `${l.year}-${String(l.month).padStart(2, "0")}` ===
-                                  m && l.amount !== 0,
+                                  m && Number(l.amount) !== 0,
                             ) && (
                               <Button
                                 size="sm"
+                                className="h-auto whitespace-normal text-left max-w-44"
                                 variant="outline"
                                 disabled={isPreviewActive}
                                 onClick={() => openConvert(m)}
