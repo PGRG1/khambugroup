@@ -1,7 +1,8 @@
 ## Supplier Accounts — Part 2
-- [ ] Restyle detail header, summary, More actions and five clean-table tabs; preserve tab workflows
-- [ ] Received-line container grouping, deposits summary and confirmed return dialog
-- [ ] Rule tests and signed-in desktop/phone checks; list, Finance, Stock and Menu costs unchanged
+- [x] Restyle detail header, nonzero summary, More actions/Deals and five clean-table tabs; preserve existing tab actions, default Open invoices
+- [x] Received Asset-line container grouping, deposits summary and centred confirmation dialog; standalone idempotent negative GRN return under existing user RLS, no invoice/PO/payment writes
+- [x] 69 tests and build OK. Signed-in 1280/375 checks on all tabs/Deals; tab bar scrolls independently, page has no sideways overflow. Real Telford 5 containers loaded. Temporary test confirmed -1 against paid 4 at HK$50, UI read returned 1/out 3/held HK$150; nothing before Confirm; test records removed. List, Finance, Stock and Menu costs unchanged.
+- [ ] Separate non-admin return permissions, concurrent confirmation and unrelated container aliases: not exercised; existing RLS and request idempotency retained, brand/size variants are not guessed together.
 
 ## Supplier Accounts — Part 1
 - [x] Remove Purchasing sub-tabs and redirect legacy buying-side payables/deposits; Finance Payables unchanged
