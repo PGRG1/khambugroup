@@ -12377,6 +12377,10 @@ export type Database = {
         }
         Returns: string
       }
+      approve_people_change: {
+        Args: { c: string; yes: boolean }
+        Returns: undefined
+      }
       approve_supplier_account_due_dates: {
         Args: { p_rows: Json; p_tenant: string }
         Returns: number
@@ -12410,6 +12414,17 @@ export type Database = {
           p_effective_from: string
           p_from?: string
           p_recognition_day: string
+        }
+        Returns: string
+      }
+      confirm_people_change: {
+        Args: {
+          d: string
+          doc?: string
+          e: string
+          kind: string
+          p: Json
+          t: string
         }
         Returns: string
       }
@@ -12737,6 +12752,18 @@ export type Database = {
           p_payment: Json
           p_receipts?: Json
           p_tenant_id: string
+        }
+        Returns: string
+      }
+      register_people_document: {
+        Args: {
+          e: string
+          expiry?: string
+          k: string
+          m: string
+          n: string
+          p: string
+          t: string
         }
         Returns: string
       }
