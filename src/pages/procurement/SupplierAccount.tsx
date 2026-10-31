@@ -682,12 +682,7 @@ export default function SupplierAccountPage() {
           <Card className="card-glass">
             <CardContent className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unpaid invoices ({openInvoicesList.length})</div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-xs">
-                <div><div className="text-muted-foreground">Gross open invoices</div><div className="td-num tabular-nums text-warning">{fmtMoney(outstanding)}</div></div>
-                <div><div className="text-muted-foreground">Disputed</div><div className="td-num tabular-nums text-destructive">{fmtMoney(disputedOutstanding)}</div></div>
-                <div><div className="text-muted-foreground">Unallocated payments</div><div className="td-num tabular-nums">{fmtMoney(unallocatedPayments)}</div></div>
-                <div><div className="text-muted-foreground">Net supplier balance</div><div className="td-num tabular-nums">{fmtMoney(ledgerTotals.net)}</div></div>
-              </div>
+              <p className="text-xs text-muted-foreground mb-4">{fmtMoney(outstanding)} open · {fmtMoney(disputedOutstanding)} disputed · {fmtMoney(unallocatedPayments)} unallocated · {fmtMoney(ledgerTotals.net)} supplier balance</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

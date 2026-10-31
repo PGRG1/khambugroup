@@ -25,4 +25,4 @@
  .supplier-detail .p-5 { padding:8px 0; }
  .supplier-detail .whitespace-nowrap { white-space:normal; }
  .supplier-detail-dialog table { table-layout:fixed; width:100%; }
-}
+}.supplier-detail > .bg-card { background:transparent; border:0; box-shadow:none; }
