@@ -506,7 +506,7 @@ function Kpi({ label, value, sub, Icon }: { label: string; value: string; sub?: 
 
 // ---------- entry dialog ----------
 export function EntryDialog({
-  open, onOpenChange, editing, products, venues, tenantId, userId, onSaved, initialType = "waste",
+  open, onOpenChange, editing, products, venues, tenantId, userId, onSaved, initialType = "waste", onDelete,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -517,6 +517,7 @@ export function EntryDialog({
   userId: string | null;
   onSaved: () => void;
   initialType?: EntryType;
+  onDelete?: () => void;
 }) {
   const blank = {
     venue: venues[0] || "",
@@ -719,6 +720,7 @@ export function EntryDialog({
         </div>
 
         <DialogFooter>
+          {editing && onDelete && <Button variant="destructive" onClick={onDelete}>Delete</Button>}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editing ? "Save" : "Record entry"}</Button>
         </DialogFooter>
