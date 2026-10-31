@@ -70,9 +70,9 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 export default function RecurringExpenses() {
   const { bills, fetchAllocations } = useExpenseBills();
   const scope=useVenueScope(), period=usePeriodFilter(bills.map(b=>b.bill_date),"all");
-  const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
+  const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});

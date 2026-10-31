@@ -50,7 +50,10 @@ export default function StaffReimbursements() {
       if (!period.inPeriod(r.claim_date)||!scope.includesId(r.venue_id)) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (!q) return true;
-      const statusWords=(r:StaffReimbursement)=>r.status==='paid'?'Paid':r.approval_status==='pending_review'?(r.amount>300?'Waiting for owner (over HK$300)':'Waiting for manager'):`Approved · pay with ${r.payout_method==='petty_cash'?'cash box':r.payout_method||'bank'}`;
+      return `${r.claimant_name} ${r.description} ${r.amount}`.toLowerCase().includes(q);
+    });
+  }, [sr.reimbursements, statusFilter, search, period, scope]);
+  const statusWords=(r:StaffReimbursement)=>r.status==='paid'?'Paid':r.approval_status==='pending_review'?(r.amount>300?'Waiting for owner (over HK$300)':'Waiting for manager'):`Approved · pay with ${r.payout_method==='petty_cash'?'cash box':r.payout_method||'bank'}`;
   return (
     <div className="w-full min-w-0 space-y-5 pb-24">
       <PageTop title="Staff claims" period={period.control} actionsBesideTitle actions={<Button onClick={()=>setAiOpen(true)}><Sparkles className="h-4 w-4"/>Scan or upload</Button>}/>
