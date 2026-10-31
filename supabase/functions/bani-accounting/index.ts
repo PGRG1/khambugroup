@@ -4,7 +4,7 @@ import { createOpenAI } from 'npm:@ai-sdk/openai@3';
 import { streamText, Output } from 'npm:ai@6';
 import { z } from 'npm:zod@4';
 import { requireAuth, resolveTenant } from '../_shared/auth.ts';
-import { createLovableAiGatewayRunIdFetch } from '../finance-review/run-id.ts';
+import { createLovableAiGatewayRunIdFetch } from './run-id.ts';
 import { postingReasons, usualAmountReason, AI_UNAVAILABLE } from '../_shared/autoPostingRules.ts';
 
 const schema=z.object({tenant_id:z.string().uuid().optional(),mode:z.enum(['run','scheduled','resume']).default('run'),source_id:z.string().uuid().optional()});
@@ -12,7 +12,7 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 const checkSchema=z.object({sure:z.boolean(),reason:z.string(),supplier_name:z.string().nullable(),date:z.string().nullable(),amount:z.number().nullable()}).strict();
 const BATCH=20;
 type Client=ReturnType<typeof createClient>;
-async function all(c:Client,table:string,tenant:string){const out:any[]=[];for(let i=0;;i+=1000){const {data,error}=await c.from(table).select('*').eq('tenant_id',tenant).order('id').range(i,i+999);if(error)throw error;out.push(...data??[]);if((data?.length??0)<1000)return out;}}
+async function all(c:Client,table:string,tenant:string){const out:any[]=[];for(let i=0;;i+=1000){const {data,error}=await c.from(table).select('*').eq('tenant_id',tenant).order('id').range(i,i+999);if(error)throw error;out.push(...(data??[]));if((data?.length??0)<1000)return out;}}
 async function checked(c:Client,table:string,patch:any,id:string){const {error}=await c.from(table).update(patch).eq('id',id);if(error)throw error;}
 
 async function verify(req:Request,payload:unknown,document?:{data:Uint8Array;mime:string}){
