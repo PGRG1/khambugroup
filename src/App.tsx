@@ -79,6 +79,9 @@ import Payables from "./pages/finance/Payables";
 import StaffReimbursements from "./pages/finance/StaffReimbursements";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
+import FinanceReports from "./pages/finance/Reports";
+import FinanceBooks from "./pages/finance/Books";
+import CashBank from "./pages/finance/CashBank";
 
 import BankDashboard from "./pages/bank/BankDashboard";
 import BankAccountsPage from "./pages/bank/BankAccountsPage";
@@ -250,27 +253,30 @@ function App() {
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
 
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
-                <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
+                <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><Navigate to="/finance/reports?view=pl" replace /></ProtectedRoute>} />
                 <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
-                <Route path="/finance/dashboard" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
+                <Route path="/finance/dashboard" element={<Navigate to="/finance" replace />} />
+                <Route path="/finance/reports" element={<AdminRoute><FinanceReports /></AdminRoute>} />
+                <Route path="/finance/books" element={<AdminRoute><FinanceBooks /></AdminRoute>} />
+                <Route path="/finance/cash" element={<AdminRoute><CashBank /></AdminRoute>} />
                 {/* Cashflow: CashflowCombined at /finance/cashflow-report is canonical. Legacy paths redirect. */}
                 <Route path="/finance/cashflow" element={<Navigate to="/finance/cashflow-report" replace />} />
-                <Route path="/finance/cashflow-ledger" element={<Navigate to="/finance/cashflow-report?view=ledger" replace />} />
-                <Route path="/finance/cashflow-statement" element={<Navigate to="/finance/cashflow-report?view=statement" replace />} />
-                <Route path="/finance/cashflow-report" element={<AdminRoute><CashflowCombined /></AdminRoute>} />
-                <Route path="/finance/balance-sheet" element={<AdminRoute><BalanceSheet /></AdminRoute>} />
-                <Route path="/finance/ledger" element={<AdminRoute><Ledger /></AdminRoute>} />
-                <Route path="/finance/journal" element={<AdminRoute><Journal /></AdminRoute>} />
-                <Route path="/finance/chart-of-accounts" element={<AdminRoute><ChartOfAccounts /></AdminRoute>} />
-                <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
-                <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
+                <Route path="/finance/cashflow-ledger" element={<Navigate to="/finance/reports?view=cash" replace />} />
+                <Route path="/finance/cashflow-statement" element={<Navigate to="/finance/reports?view=cash" replace />} />
+                <Route path="/finance/cashflow-report" element={<Navigate to="/finance/reports?view=cash" replace />} />
+                <Route path="/finance/balance-sheet" element={<Navigate to="/finance/reports?view=bs" replace />} />
+                <Route path="/finance/ledger" element={<Navigate to="/finance/books?view=ledger" replace />} />
+                <Route path="/finance/journal" element={<Navigate to="/finance/books?view=journal" replace />} />
+                <Route path="/finance/chart-of-accounts" element={<Navigate to="/finance/books?view=chart-of-accounts" replace />} />
+                <Route path="/finance/trial-balance" element={<Navigate to="/finance/books?view=trial-balance" replace />} />
+                <Route path="/finance/pl-ledger" element={<Navigate to="/finance/reports?view=pl" replace />} />
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
                 <Route path="/staff-reimbursements" element={<Navigate to="/expenses/claims" replace />} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
-                <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
+                <Route path="/finance/ledger-audit" element={<Navigate to="/finance/books?view=ledger-audit" replace />} />
                 
-                <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
-                <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
+                <Route path="/finance/document-centre" element={<Navigate to="/finance/books?view=documents" replace />} />
+                <Route path="/finance/documents-bills" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/finance/bills-expenses" element={<Navigate to="/expenses" replace />} />
                 <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
                 <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
