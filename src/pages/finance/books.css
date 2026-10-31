@@ -1,0 +1,14 @@
+.books-page { width: 100%; min-width: 0; }
+.books-page > div > .p-4 { padding: 0; }
+.books-page > div.p-4 { padding: 0; }
+.books-page [role="tablist"] { background: transparent; border-bottom: 1px solid hsl(var(--border)); border-radius: 0; }
+.books-page [role="tab"] { border-radius: 0; }
+.books-page [role="tab"][data-state="active"] { background: transparent; box-shadow: none; border-bottom: 2px solid hsl(var(--primary)); }
+.books-page table { width: 100%; }
+.books-page th { text-align: left; }
+.books-page h1:not(.books-page > h1) { font-size: 1.125rem; }
+.books-page .tracking-tight { letter-spacing: 0; }
+@media (max-width: 767px) {
+  .books-page { overflow-wrap: anywhere; }
+  .books-page table { table-layout: fixed; }
+}

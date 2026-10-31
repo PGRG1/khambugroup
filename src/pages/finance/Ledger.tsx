@@ -1,4 +1,4 @@
-import { kpiValueSizeClass } from "@/utils/kpiSize";
+import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
@@ -14,13 +14,9 @@ import { FileDown, BookOpen } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { cn } from "@/lib/utils";
 
-const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtWhole = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const fmtDate = (iso: string | null | undefined) => {
-  if (!iso) return "—";
-  try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
-  catch { return iso; }
-};
+const fmt = formatDecimal;
+const fmtWhole = (n:number) => formatDecimal(n,0);
+const fmtDate = (v:string|null|undefined) => v ? formatDate(v) : '—';
 
 interface GLRow {
   entry_date: string;
@@ -126,8 +122,8 @@ export default function Ledger() {
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="space-y-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">General Ledger</h1>
-          <p className="text-sm text-muted-foreground mt-1">All posted transactions for the selected account, with running balance.</p>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Ledger</h1>
+          <p className="text-sm text-muted-foreground mt-1">Posted entries · running balance</p>
         </div>
 
         {/* Primary control: account selector */}
@@ -155,14 +151,8 @@ export default function Ledger() {
           {account && <p className="text-xs text-muted-foreground mt-3">{scopeLabel} · Normal side <span className="uppercase">{account.normal_side}</span></p>}
         </Card>
 
-        {account && !loading && rows.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatTile label="Transactions" value={rows.length.toLocaleString()} />
-            <StatTile label="Total debits" value={`HK$ ${fmtWhole(totals.debit)}`} />
-            <StatTile label="Total credits" value={`HK$ ${fmtWhole(totals.credit)}`} />
-            <StatTile label="Closing balance" value={`HK$ ${fmtWhole(closing)}`} tone="primary" />
-          </div>
-        )}
+        {account && <p className="text-sm text-muted-foreground">{rows.length} lines · Debits {formatCurrency(totals.debit)} · Credits {formatCurrency(totals.credit)} · Closing {formatCurrency(closing)}</p>}
+
       </header>
 
       {!accountId ? (
@@ -249,14 +239,5 @@ export default function Ledger() {
         </>
       )}
     </div>
-  );
-}
-
-function StatTile({ label, value, tone }: { label: string; value: string; tone?: "primary" }) {
-  return (
-    <Card className="glass-surface border border-border/60 p-3 min-w-0 overflow-hidden">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground truncate">{label}</div>
-      <div className={cn("font-display font-semibold mt-1 tabular-nums whitespace-nowrap min-w-0", kpiValueSizeClass(value), tone === "primary" && "text-primary")} title={value}>{value}</div>
-    </Card>
   );
 }

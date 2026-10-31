@@ -3124,6 +3124,164 @@ export type Database = {
           },
         ]
       }
+      finance_book_corrections: {
+        Row: {
+          account_id: string | null
+          actor_id: string
+          corrected_date: string | null
+          created_at: string
+          id: string
+          kind: string
+          line_id: string | null
+          original_entry_id: string
+          reason: string
+          replacement_entry_id: string | null
+          reversal_entry_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          actor_id: string
+          corrected_date?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          line_id?: string | null
+          original_entry_id: string
+          reason: string
+          replacement_entry_id?: string | null
+          reversal_entry_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string | null
+          actor_id?: string
+          corrected_date?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          line_id?: string | null
+          original_entry_id?: string
+          reason?: string
+          replacement_entry_id?: string | null
+          reversal_entry_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_book_corrections_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "journal_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["line_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_book_corrections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_closed_periods: {
         Row: {
           closed_at: string
@@ -13230,6 +13388,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      finance_apply_account_review: {
+        Args: {
+          p_code: string
+          p_kind: string
+          p_name: string
+          p_reason: string
+          p_tenant: string
+        }
+        Returns: string
+      }
       finance_assert_open: {
         Args: { d: string; t: string }
         Returns: undefined
@@ -13254,6 +13422,18 @@ export type Database = {
           p_lines: Json
           p_month: string
           p_tenant_id: string
+        }
+        Returns: string
+      }
+      finance_correct_book: {
+        Args: {
+          p_account?: string
+          p_date?: string
+          p_entry: string
+          p_expected?: Json
+          p_kind: string
+          p_line?: string
+          p_reason: string
         }
         Returns: string
       }
