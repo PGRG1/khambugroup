@@ -1,0 +1,1 @@
+ALTER TABLE public.staff_reimbursements ADD COLUMN IF NOT EXISTS receipt_shop text, ADD COLUMN IF NOT EXISTS receipt_time text;

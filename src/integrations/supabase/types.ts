@@ -10584,6 +10584,8 @@ export type Database = {
           payout_method: string | null
           receipt_hash: string | null
           receipt_path: string | null
+          receipt_shop: string | null
+          receipt_time: string | null
           receipt_url: string | null
           review_reasons: Json
           status: string
@@ -10612,6 +10614,8 @@ export type Database = {
           payout_method?: string | null
           receipt_hash?: string | null
           receipt_path?: string | null
+          receipt_shop?: string | null
+          receipt_time?: string | null
           receipt_url?: string | null
           review_reasons?: Json
           status?: string
@@ -10640,6 +10644,8 @@ export type Database = {
           payout_method?: string | null
           receipt_hash?: string | null
           receipt_path?: string | null
+          receipt_shop?: string | null
+          receipt_time?: string | null
           receipt_url?: string | null
           review_reasons?: Json
           status?: string
