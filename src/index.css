@@ -640,6 +640,19 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 }
 
 /* Portal-wide venue scope pill (fixed tenant theme) */
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"] a {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: hsl(var(--muted-foreground));
+  backdrop-filter: none;
+}
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"] a[aria-current="page"] {
+  border-bottom-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
+}
+.payroll-page .kit-table td,.payroll-page .kit-table th { padding: 10px 8px; overflow-wrap: anywhere; }
 /* Reused Stock workflows keep all fields, stacked on phone rather than wide grids. */
 .stock-transfer-dialog > .flex { flex-wrap: wrap; }
 .stock-transfer-dialog .bg-primary { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
