@@ -23,6 +23,7 @@ import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCor
 import { fmtHK } from "@/components/expenses/shared";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
+import { PeopleActionCard } from "./PeopleActionCard";
 
 export type FloatingReview = {
   scope: string; binding: string; draftId: string; lineId: string; supplierId: string;
@@ -497,12 +498,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               </div>}
               {!message.outcome && message.proposal.binding !== binding && <p className="floating-bani-change-reason">Review changed — ask Bani again</p>}
             </div>}
-            {message.actionCard && <div className="floating-bani-change">
+            {message.actionCard?.kind === "people" ? <PeopleActionCard card={message.actionCard} outcome={message.actionOutcome} onOutcome={result => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: result.message, actionOutcome: result } : m))} onChange={text => { setDraft(text); input.current?.focus(); }} /> : message.actionCard && <div className="floating-bani-change">
               <p className="floating-bani-change-target">{message.actionCard.title}</p>
               {message.actionCard.detail && <p className="floating-bani-change-reason">{message.actionCard.detail}</p>}
               {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
-                <button type="button" className="floating-bani-apply" onClick={() => void confirmCard(index, message.actionCard!, "confirm")}>Confirm</button>
-                <button type="button" className="floating-bani-dismiss" onClick={() => void confirmCard(index, message.actionCard!, "cancel")}>Cancel</button>
+                <button type="button" className="floating-bani-apply" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "confirm"); }}>Confirm</button>
+                <button type="button" className="floating-bani-dismiss" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "cancel"); }}>Cancel</button>
               </div>}
             </div>}
           </div>)}

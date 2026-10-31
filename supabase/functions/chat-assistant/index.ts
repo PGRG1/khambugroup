@@ -11,6 +11,7 @@ import { confirmedWorkSpeech } from "../_shared/voiceWork.ts";
 import { draftReview } from "./draftReview.ts";
 import { salesReview } from "./salesReview.ts";
 import { analyzeFiles, openSalesScannerTool, validateFiles } from "./floatingFiles.ts";
+import { draftPeopleAction, peopleContext, peopleTool, peopleContextTool } from "./peopleActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -499,11 +500,17 @@ async function proposeAction(args: any, tenantId: string, userId: string) {
 // Confirm/cancel callback for action cards. Non-streaming JSON.
 async function confirmAction(body: any, tenantId: string, userId: string, authHeader: string) {
   const id = typeof body?.action_id === "string" ? body.action_id : "";
-  const decision = body?.decision === "cancel" ? "cancel" : body?.decision === "confirm" ? "confirm" : null;
+  const decision = ["confirm", "cancel", "change", "undo"].includes(body?.decision) ? body.decision : null;
   if (!/^[0-9a-f-]{36}$/i.test(id) || !decision) return { status: 400, body: { error: "action_id and decision (confirm|cancel) are required." } };
   const { data: row } = await admin.from("bani_pending_actions").select("*").eq("id", id).eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle();
   if (!row) return { status: 404, body: { error: "That action card is no longer available." } };
   const r = row as any;
+  if (r.kind === "people") {
+    const client = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authHeader } } });
+    const { data, error } = await client.rpc("bani_people_execute", { t: tenantId, a: id, decision });
+    return error ? { status: 409, body: { error: error.message } } : { status: 200, body: data };
+  }
+  if (decision !== "confirm" && decision !== "cancel") return { status: 400, body: { error: "Unsupported decision" } };
   if (r.status !== "pending") return { status: 409, body: { error: "That action was already handled." } };
   if (new Date(r.expires_at).getTime() < Date.now()) {
     await admin.from("bani_pending_actions").update({ status: "expired", resolved_at: new Date().toISOString() }).eq("id", id);
@@ -1513,7 +1520,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, proposeActionTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool, proposeActionTool], tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1583,13 +1590,19 @@ Deno.serve(async (req) => {
               emit({ status: step });
               speakFiller(tc.function.name);
               try {
-                result = tc.function.name === "mark_venue_closed"
+                const peopleClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+                result = tc.function.name === "draft_people_action"
+                  ? await draftPeopleAction(args, peopleClient, admin, tenantId, user?.id ?? "", messages.filter(m => m.role === "user").map(m => m.content).slice(-8).join("\n"))
+                  : tc.function.name === "get_people_action_context"
+                    ? await peopleContext(peopleClient, tenantId, user?.id ?? "", args)
+                    : tc.function.name === "mark_venue_closed"
                   ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
                   : tc.function.name === "propose_action"
                     ? await proposeAction(args, tenantId, user!.id)
                     : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) { writeCompleted = true; emit({ action: { type: "closures_changed" } }); }
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
+                if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });

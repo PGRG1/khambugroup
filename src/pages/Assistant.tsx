@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
 import { AssistantChart, type ChartSpec } from "@/components/assistant/AssistantChart";
+import { PeopleActionCard, type ChatActionCard, type PeopleOutcome } from "@/components/assistant/PeopleActionCard";
 import {
   assistantScopeKey,
   canSend as canSendFn,
@@ -147,7 +148,7 @@ export default function Assistant() {
     (convId: string) => {
       patchActive(convId, (c) => {
         const last = c.messages[c.messages.length - 1];
-        return last?.role === "assistant" && !last.content && !(last.charts?.length)
+        return last?.role === "assistant" && !last.content && !(last.charts?.length) && !last.actionCard
           ? { ...c, messages: c.messages.slice(0, -1) }
           : c;
       });
@@ -198,6 +199,7 @@ export default function Assistant() {
     let assistantSoFar = "";
     const collectedCharts: ChartSpec[] = [];
     const collectedSteps: AssistantStep[] = [];
+    let actionCard: ChatActionCard | undefined;
     const startedAt = Date.now();
     let durationMs: number | undefined;
     const stale = () => requestScopeRef.current !== sentScope || controller.signal.aborted;
@@ -212,6 +214,7 @@ export default function Assistant() {
           content: assistantSoFar,
           charts: [...collectedCharts],
           steps: [...collectedSteps],
+          ...(actionCard ? { actionCard } : {}),
           ...(durationMs !== undefined ? { durationMs } : {}),
         };
         const last = c.messages[c.messages.length - 1];
@@ -302,6 +305,9 @@ export default function Assistant() {
               opts?.onStatus?.(parsed.status.label);
             } else if (parsed.speak && typeof parsed.speak.text === "string") {
               opts?.onSpeak?.(parsed.speak as SpeakEvent);
+            } else if (parsed.action?.type === "action_card" && parsed.action.kind === "people") {
+              actionCard = { id: parsed.action.action_id, kind: "people", title: parsed.action.title, detail: parsed.action.detail };
+              upsert("");
             } else if (parsed.chart) {
               upsert("", parsed.chart as ChartSpec);
             } else {
@@ -716,6 +722,7 @@ export default function Assistant() {
 }
 
 function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolean }) {
+  const [outcome, setOutcome] = useState<PeopleOutcome | undefined>(msg.actionOutcome);
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -766,6 +773,7 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
         {msg.charts?.map((c, ci) => (
           <AssistantChart key={ci} spec={c} />
         ))}
+        {msg.actionCard?.kind === "people" && <PeopleActionCard card={msg.actionCard} outcome={outcome} onOutcome={result => { msg.actionOutcome = result; setOutcome(result); }} onChange={text => window.dispatchEvent(new CustomEvent("bani-people-change", { detail: text }))} />}
       </div>
     </div>
   );

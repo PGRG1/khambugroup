@@ -7,6 +7,8 @@ export type AssistantRole = "user" | "assistant";
 export type AssistantMessage<C = unknown> = {
   role: AssistantRole;
   content: string;
+  actionCard?: { id: string; kind: string; title: string; detail?: string | null };
+  actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string };
   charts?: C[];
   /** Live progress steps reported by the server for this turn (client-only). */
   steps?: AssistantStep[];
@@ -103,5 +105,5 @@ export function canSend(opts: {
 export function toRequestMessages<C = unknown>(messages: AssistantMessage<C>[]): { role: AssistantRole; content: string }[] {
   return messages
     .filter((m) => m.role === "user" || (m.role === "assistant" && !!m.content))
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => ({ role: m.role, content: m.actionOutcome ? `${m.content}\n[Actual action outcome: ${m.actionOutcome.message}]` : m.content }));
 }
