@@ -2918,6 +2918,32 @@ export type Database = {
           },
         ]
       }
+      finance_ai_pause: {
+        Row: {
+          paused_at: string
+          reason: string
+          tenant_id: string
+        }
+        Insert: {
+          paused_at?: string
+          reason: string
+          tenant_id: string
+        }
+        Update: {
+          paused_at?: string
+          reason?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_ai_pause_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_closed_periods: {
         Row: {
           closed_at: string

@@ -351,6 +351,13 @@
       "when": 1793461011860,
       "tag": "0049_finance_month_check_source_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793461411542,
+      "tag": "0050_finance_ai_pause_and_close_snapshot",
+      "breakpoints": true
     }
   ]
 }
