@@ -1,3 +1,10 @@
+## Supplier Accounts — Part 1
+- [x] Remove Purchasing sub-tabs and redirect legacy buying-side payables/deposits; Finance Payables unchanged
+- [x] Supplier/invoice list, due-date ageing switches, scoped totals and filtered whole-dollar downloads
+- [x] Approval-only oldest-invoice matching and median due-date suggestions using user-RLS atomic RPCs; matching keeps existing dispute/post-payment exclusions, median half-days round upward
+- [x] 64 tests and build OK; signed-in 1280/375 list/dialog/redirect checks, no overflow. Temporary supplier: HK$40 matched to HK$100 invoice, list read HK$60; unknown terms entered as 30 and due date read 31 Oct 2026; no writes before Approve; temporary supplier/invoice/payment removed. Supplier details, Finance, Stock and Menu costs untouched.
+- [ ] Separate non-admin approval/Preview As session and concurrent double-approval stress: not exercised; server RLS, locked balance rechecks and disabled preview approval remain in place.
+
 ## Menu costs — Part 3
 - [x] Food cost period table, approved-count basis and sales-day coverage through today
 - [x] Recipes table, latest confirmed received ingredient costs, inline recipe/price editing
