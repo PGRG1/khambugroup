@@ -15,7 +15,9 @@ export function expenseStatus(b: Pick<ExpenseBill, 'approval_status' | 'payment_
 }
 export const categoryAccountCodes: Record<string, string> = { Food: '5110', Beverages: '5100', Packaging: '5120', Cleaning: '6100', Equipment: '6110', Other: '6090' };
 export function proposedCategoryAccount(name: string, accounts: { id: string; code: string }[]): string {
-  return accounts.find(a => a.code === categoryAccountCodes[name])?.id ?? '';
+  const exact = categoryAccountCodes[name];
+  const alias = /clean|laundry|linen/i.test(name) ? '6100' : /beverage|beer|wine/i.test(name) ? '5100' : /food/i.test(name) ? '5110' : /packag/i.test(name) ? '5120' : /other operating/i.test(name) ? '6090' : undefined;
+  return accounts.find(a => a.code === (exact ?? alias))?.id ?? '';
 }
 export function similarVendors(vendors: { id: string; name: string }[]) {
   const normalize = (s: string) => s.toLowerCase().replace(/\b(limited|ltd|hong kong|company|co)\b/g, '').replace(/[^a-z0-9]/g, '');

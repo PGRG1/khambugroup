@@ -5,6 +5,7 @@ describe('Expenses rules',()=>{
   it('approved without posting remains waiting',()=>expect(expenseStatus({approval_status:'approved',payment_status:'unpaid',meta:null})).toBe('Waiting for you'));
   it('posted unpaid is booked to pay',()=>expect(expenseStatus({approval_status:'posted',payment_status:'unpaid',meta:null})).toBe('Booked · to pay'));
   it('suggests Cleaning account 6100',()=>expect(proposedCategoryAccount('Cleaning',[{id:'clean',code:'6100'},{id:'other',code:'6090'}])).toBe('clean'));
+  it('maps extracted Cleaning Services to the cleaning account',()=>expect(proposedCategoryAccount('Cleaning Services',[{id:'clean',code:'6100'}])).toBe('clean'));
   it('suggests Food account 5110',()=>expect(proposedCategoryAccount('Food',[{id:'food',code:'5110'}])).toBe('food'));
   it('suggests Beverages account 5100',()=>expect(proposedCategoryAccount('Beverages',[{id:'drink',code:'5100'}])).toBe('drink'));
   it('suggests Packaging account 5120',()=>expect(proposedCategoryAccount('Packaging',[{id:'pack',code:'5120'}])).toBe('pack'));
