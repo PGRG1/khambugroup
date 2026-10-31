@@ -1,3 +1,9 @@
+## Finance — Part 3
+- [ ] Books clean-table views, journal evidence and unified document search/upload routing
+- [ ] Confirmed date/account corrections retain originals, recheck closed periods and audit
+- [ ] Owner-confirmed chart review changes, without automatic account changes
+- [ ] Rules tests, signed-in desktop/phone checks and limitations report
+
 ## Finance — Part 2
 - [x] Unified Payables list, grouped payees, history, automatic credit preview and atomic recorded-payment delegates
 - [x] Derived daily tender expectations, evidence-only checks, Payouts and processor settings
