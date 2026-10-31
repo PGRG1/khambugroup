@@ -4,7 +4,7 @@ import {z} from 'npm:zod@4';
 import {createOpenAI} from 'npm:@ai-sdk/openai@3';
 import {streamText,Output} from 'npm:ai@6';
 import {createLovableAiGatewayRunIdFetch} from './run-id.ts';
-const Body=z.object({tenant_id:z.string().uuid(),year:z.number().int().min(2000).max(2200),month:z.number().int().min(1).max(12),text:z.string().min(1).max(3000)});
+const Body=z.object({tenant_id:z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),year:z.number().int().min(2000).max(2200),month:z.number().int().min(1).max(12),text:z.string().min(1).max(3000)});
 const Draft=z.object({answer:z.string(),changes:z.array(z.object({employee_id:z.string(),field:z.enum(['adjustments_override','earned_salary_override','actual_overtime','actual_bonus','forecast_allowances']),value:z.number(),reason:z.string()}))});
 Deno.serve(async(req)=>{const headers={...corsHeaders,'Content-Type':'application/json'};if(req.method==='OPTIONS')return new Response('ok',{headers});try{
  const auth=req.headers.get('authorization');if(!auth)throw new Error('Sign in required');const client=createClient(Deno.env.get('SUPABASE_URL')??'',Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:auth}}});const {data:{user}}=await client.auth.getUser();if(!user)throw new Error('Sign in required');const body=Body.parse(await req.json());const {data:allowed}=await client.rpc('payroll_manager',{t:body.tenant_id,u:user.id});if(!allowed)return new Response(JSON.stringify({error:'Payroll manager access required'}),{status:403,headers});
