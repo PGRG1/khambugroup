@@ -1,3 +1,9 @@
+## Bani People write actions
+- [ ] Shared main/floating Confirm / Change / Cancel cards and server-validated People drafts
+- [ ] Reuse rota/leave/Team/payroll RPCs with existing permissions, owner review and no chat payroll approval
+- [ ] Atomic confirmation audit, stale protection, safe rota/leave undo and linked results
+- [ ] Focused rules tests and signed-in end-to-end checks; report unavailable checks
+
 ## People fixes — payroll, hours, clock-in
 - [x] Explicit-only payroll instructions, selected-month/revision binding and factual confirmed net-pay dialog; no model-generated pay amounts
 - [x] Rota/typed pay hours, migrated clock-in settings, rota day confirmation and quiet punctuality with optional thresholds; explicit no-show decisions
