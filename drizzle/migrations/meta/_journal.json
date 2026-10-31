@@ -400,6 +400,13 @@
       "when": 1793463543674,
       "tag": "0056_finance_atomic_recorded_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793463649465,
+      "tag": "0057_finance_confirm_bank_matches_and_close",
+      "breakpoints": true
     }
   ]
 }
