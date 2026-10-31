@@ -1,0 +1,28 @@
+import {describe,it,expect} from 'vitest';
+import {payrollInstruction,payrollNetAfter,payrollRotaFact} from '../../supabase/functions/people-payroll-draft/instructions';
+import {managerClockFlags,punctualityFacts} from '@/utils/peopleRota';
+import {resolvePeopleSettings} from '@/utils/people';
+const p={id:'saved',employee_id:'a',name:'Asim Rana',net_salary:7040,earned_salary_override:7040,mpf_employee_override:0,adjustments_override:0,preparation:{source:'rota'}};
+describe('Explicit payroll instructions',()=>{
+ it('never recommends a bonus amount',()=>expect(payrollInstruction('What bonus should Asim Rana get?',[p],2026,5).changes).toEqual([]));
+ it('uses only the human HK$800 instruction',()=>{const d=payrollInstruction('Give Asim Rana HK$800 extra for Saturday cover',[p],2026,5);expect(d.changes[0]).toMatchObject({employee_id:'a',value:800,delta:800,reason:'Saturday cover'});expect(payrollNetAfter(p,d.changes[0])).toBe(7840);});
+ it('asks for ambiguous names rather than picking a person',()=>expect(payrollInstruction('Give Asim HK$800 extra',[p,{...p,employee_id:'b',name:'Asim Gurung'}],2026,5).changes).toEqual([]));
+ it('unknown person never receives a change',()=>expect(payrollInstruction('Give Nobody HK$800 extra',[p],2026,5).changes).toEqual([]));
+ it('requires an explicit amount',()=>expect(payrollInstruction('Give Asim Rana a bonus',[p],2026,5).changes).toEqual([]));
+ it('does not choose among two amounts',()=>expect(payrollInstruction('Give Asim Rana HK$800 or HK$900 extra',[p],2026,5).changes).toEqual([]));
+ it('selected May never silently changes October',()=>expect(payrollInstruction('Give Asim Rana HK$800 extra in October',[p],2026,5).changes).toEqual([]));
+ it('binds an implicit month to viewed May',()=>expect(payrollInstruction('Give Asim Rana HK$800 extra',[p],2026,5)).toMatchObject({year:2026,month:5}));
+ it('does not turn rota hours into extra pay',()=>expect(payrollInstruction('Give Asim Rana 8 extra hours',[p],2026,5).changes).toEqual([]));
+ it('allows exact typed monthly hours only',()=>expect(payrollInstruction('Set Asim Rana hours to 160',[{...p,preparation:{source:'typed_monthly'}}],2026,5).changes[0]).toMatchObject({field:'forecast_allowances',value:160}));
+ it('net after keeps existing MPF rules not a promised net raise',()=>expect(payrollNetAfter({...p,mpf_employee_override:null},{field:'adjustments_override',value:800})).toBe(7448));
+ it('states three Saturday shifts without advice',()=>expect(payrollRotaFact('Saturday cover',[2,9,16].map(d=>({employee_id:'a',shift_date:`2026-05-${String(d).padStart(2,'0')}`,shift_type:'regular'})),'a',2026,5)).toBe('Rota: 3 Saturday shifts in this month'));
+});
+describe('Punctuality never sets pay',()=>{
+ const s={shift_date:'2026-05-02',start_time:'09:00',end_time:'17:00',shift_type:'regular'},a=[{clock_in:'2026-05-02T01:20:00Z',clock_out:'2026-05-02T10:00:00Z',hours_worked:8.67}],now=new Date('2026-05-02T12:00:00Z');
+ it('default lateness and extra hours flags are off',()=>expect(managerClockFlags(s,a,resolvePeopleSettings(),now)).toEqual([]));
+ it('no-show is flagged only after rota shift ends',()=>{expect(managerClockFlags(s,[],resolvePeopleSettings(),now)).toEqual(['No-show']);expect(managerClockFlags(s,[],resolvePeopleSettings(),new Date('2026-05-02T02:00:00Z'))).toEqual([]);});
+ it('optional lateness flags strictly above N minutes',()=>{expect(managerClockFlags(s,a,resolvePeopleSettings({flag_lateness:true,lateness_minutes:20}),now)).toEqual([]);expect(managerClockFlags(s,a,resolvePeopleSettings({flag_lateness:true,lateness_minutes:19}),now)).toEqual(['Late 20 min']);});
+ it('optional extra time flags strictly above N minutes',()=>expect(managerClockFlags(s,a,resolvePeopleSettings({flag_extra_hours:true,extra_hours_minutes:30}),now)).toEqual(['Extra hours 40 min']));
+ it('early leave is a quiet fact',()=>expect(punctualityFacts(s,[{clock_in:'2026-05-02T01:00:00Z',clock_out:'2026-05-02T08:30:00Z',hours_worked:7.5}],now).earlyMinutes).toBe(30));
+ it('legacy clock-in pay settings resolve to rota',()=>expect(resolvePeopleSettings({pay_hours:'clock_ins'}).pay_hours).toBe('rota'));
+});
