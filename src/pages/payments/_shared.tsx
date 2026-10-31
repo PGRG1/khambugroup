@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePaymentSettlements } from "@/hooks/usePaymentSettlements";
@@ -132,10 +133,11 @@ export function PageHeader({
   subtitle?: string;
   right?: React.ReactNode;
 }) {
+  const {pathname}=useLocation();const nested=pathname.startsWith("/admin/accounting/");
   return (
     <div className="flex items-start justify-between flex-wrap gap-4">
       <div>
-        <h1 className="text-2xl font-display font-semibold tracking-tight">{title}</h1>
+        {nested?<h2 className="text-lg font-display font-semibold">{title}</h2>:<h1 className="text-2xl font-display font-semibold tracking-tight">{title}</h1>}
         {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {right && <div className="flex items-center gap-2">{right}</div>}

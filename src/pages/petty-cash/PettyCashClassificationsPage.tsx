@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -87,13 +87,13 @@ export default function PettyCashClassificationsPage() {
             </div>
           ) : (
             <div className="text-sm">
-              <div className="grid grid-cols-[24px_1fr_100px_1fr_80px_100px] gap-3 text-xs text-muted-foreground border-b border-border pb-2">
+              <div className="grid grid-cols-[24px_1fr] md:grid-cols-[24px_1fr_100px_1fr_80px_100px] gap-3 text-xs text-muted-foreground border-b border-border pb-2">
                 <span></span><span>Name</span><span>Type</span><span>GL account</span><span>Status</span><span className="text-right">Actions</span>
               </div>
               {pc.classifications.map((c) => {
                 const acc = pc.coa.find((a) => a.id === c.gl_account_id);
                 return (
-                  <div key={c.id} className="grid grid-cols-[24px_1fr_100px_1fr_80px_100px] gap-3 py-2 border-b border-border/50 items-center">
+                  <div key={c.id} className="grid grid-cols-[24px_1fr] md:grid-cols-[24px_1fr_100px_1fr_80px_100px] gap-3 py-2 border-b border-border/50 items-center">
                     <span className="h-4 w-4 rounded-full" style={{ background: c.color }} />
                     <span>{c.name}</span>
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">{c.financial_type}</span>
@@ -109,9 +109,9 @@ export default function PettyCashClassificationsPage() {
             </div>
           )}
 
-          <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-            <SheetContent side="right" className="w-full sm:max-w-md">
-              <SheetHeader><SheetTitle>{editing?.id ? "Edit classification" : "New classification"}</SheetTitle></SheetHeader>
+          <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+            <DialogContent className="w-full sm:max-w-md">
+              <DialogHeader><DialogTitle>{editing?.id ? "Edit classification" : "New classification"}</DialogTitle></DialogHeader>
               {editing && (
                 <div className="space-y-3 mt-4">
                   <div><Label className="text-xs">Name</Label><Input value={editing.name ?? ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
@@ -141,12 +141,12 @@ export default function PettyCashClassificationsPage() {
                   <div className="flex items-center gap-2"><Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} /><Label className="text-xs">Active</Label></div>
                 </div>
               )}
-              <SheetFooter className="mt-4">
+              <DialogFooter className="mt-4">
                 <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
                 <Button onClick={save}>Save</Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <DeleteConfirmDialog
             open={!!confirmDelete}
