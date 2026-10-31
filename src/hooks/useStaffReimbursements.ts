@@ -18,6 +18,8 @@ export type StaffReimbursement = {
   status: "owing" | "paid";
   approval_status: "pending_review" | "approved";
   receipt_hash?: string | null;
+  receipt_shop?: string | null;
+  receipt_time?: string | null;
   review_reasons?: string[];
   payout_method?: string | null;
   paid_date: string | null;
@@ -174,6 +176,8 @@ export function useStaffReimbursements() {
     receipt_url?: string | null;
     receipt_path?: string | null;
     receipt_hash?: string | null;
+  receipt_shop?: string | null;
+  receipt_time?: string | null;
     review_reasons?: string[];
   }) => {
     if (!tenantId) throw new Error("No active tenant");
@@ -198,6 +202,8 @@ export function useStaffReimbursements() {
         status: "owing",
         approval_status: "pending_review",
         receipt_hash: input.receipt_hash ?? null,
+        receipt_shop: input.receipt_shop ?? null,
+        receipt_time: input.receipt_time ?? null,
         review_reasons: [...claimChecks(input,reimbursements,new Date().toISOString().slice(0,10)),...(input.review_reasons??[])],
         created_by: uid,
       } as any)

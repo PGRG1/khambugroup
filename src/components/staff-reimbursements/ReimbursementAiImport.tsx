@@ -40,6 +40,8 @@ type ExtractedClaim = {
   confidence: "high" | "medium" | "low";
   source_hint: string;
   review_reasons?: string[];
+  receipt_shop?: string | null;
+  receipt_time?: string | null;
 };
 
 type ReviewRow = ExtractedClaim & {
@@ -214,9 +216,11 @@ export default function ReimbursementAiImport({
         amount: row.amount,
         claim_date: row.claim_date,
         receipt_url: sharedAttachment.url,
-        receipt_path: sharedAttachment.path,
-        receipt_hash: receiptHash,
+        receipt_path: rows.length===1 ? sharedAttachment.path : null,
+        receipt_hash: rows.length===1 ? receiptHash : null,
         review_reasons: row.review_reasons??[],
+        receipt_shop: row.receipt_shop??null,
+        receipt_time: row.receipt_time??null,
       });
       updateRow(idx, { status: "saved" });
     } catch (e: any) {
@@ -375,6 +379,7 @@ export default function ReimbursementAiImport({
                           </Button>
                         </div>
                       </div>
+                      {(r.review_reasons??[]).map(reason=><p key={reason} className="text-xs text-warning mb-2">{reason}</p>)}
                       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
                         <div className="sm:col-span-2">
                           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Claimant</Label>
