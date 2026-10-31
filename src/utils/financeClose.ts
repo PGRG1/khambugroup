@@ -40,6 +40,7 @@ export interface BookAccount {
   name: string;
   account_type: string;
   is_cash: boolean;
+  normal_side: string;
 }
 export interface TypedLine {
   id: string;

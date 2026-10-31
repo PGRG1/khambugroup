@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import type {
@@ -33,10 +34,27 @@ export function useFinanceBooks(year: number) {
     links: [],
     checks: [],
   });
+  const sequence = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const refetch = useCallback(async () => {
-    if (!tenantId) return;
+    const seq = ++sequence.current;
+    if (!tenantId) {
+      setData({
+        entries: [],
+        lines: [],
+        accounts: [],
+        typed: [],
+        sales: [],
+        bills: [],
+        invoices: [],
+        closed: [],
+        links: [],
+        checks: [],
+      });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -52,32 +70,30 @@ export function useFinanceBooks(year: number) {
         "finance_typed_adjustment_links",
       ];
       const rows = await Promise.all(
-        tables.map(async (table) => {
-          const all: any[] = [];
-          for (let offset = 0; ; offset += 1000) {
-            const { data, error } = await supabase
-              .from(table as any)
-              .select("*")
-              .eq("tenant_id", tenantId)
-              .order("id")
-              .range(offset, offset + 999);
-            if (error) throw error;
-            all.push(...(data ?? []));
-            if ((data?.length ?? 0) < 1000) break;
-          }
-          return all;
-        }),
+        tables.map((table) =>
+          fetchAllRows(table, "*", { col: "id", asc: true }, tenantId, true),
+        ),
       );
+      const years = [
+        ...new Set([
+          year,
+          ...rows[0].map((e) => Number(e.entry_date.slice(0, 4))),
+          ...rows[3].map((l) => Number(l.year)),
+        ]),
+      ];
       const checks = await Promise.all(
-        Array.from({ length: 12 }, async (_, i) => {
-          const { data, error } = await supabase.rpc("finance_month_checks", {
-            p_tenant_id: tenantId,
-            p_month: `${year}-${String(i + 1).padStart(2, "0")}-01`,
-          });
-          if (error) throw error;
-          return data as unknown as MonthCheck;
-        }),
+        years.flatMap((y) =>
+          Array.from({ length: 12 }, async (_, i) => {
+            const { data, error } = await supabase.rpc("finance_month_checks", {
+              p_tenant_id: tenantId,
+              p_month: `${y}-${String(i + 1).padStart(2, "0")}-01`,
+            });
+            if (error) throw error;
+            return data as unknown as MonthCheck;
+          }),
+        ),
       );
+      if (seq !== sequence.current) return;
       setData({
         entries: rows[0],
         lines: rows[1],
@@ -91,11 +107,12 @@ export function useFinanceBooks(year: number) {
         checks,
       });
     } catch (e) {
+      if (seq !== sequence.current) return;
       setError(
         e instanceof Error ? e.message : String((e as any)?.message ?? e),
       );
     } finally {
-      setLoading(false);
+      if (seq === sequence.current) setLoading(false);
     }
   }, [tenantId, year]);
   useEffect(() => {

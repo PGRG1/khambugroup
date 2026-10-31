@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { Fragment, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
 import { usePeriodFilter } from "@/hooks/usePeriodFilter";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -29,7 +29,6 @@ import {
   reportMonths,
   type BookAccount,
   type MonthCheck,
-  type TypedLine,
 } from "@/utils/financeClose";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -50,7 +49,7 @@ export default function Reports() {
   const [params, setParams] = useSearchParams();
   const view = params.get("view") ?? "pl";
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
+  const year = today.getFullYear();
   const books = useFinanceBooks(year);
   const scope = useVenueScope();
   const period = usePeriodFilter(
@@ -101,7 +100,7 @@ export default function Reports() {
         (l) =>
           l.account_id === a.id &&
           posted.get(l.entry_id)?.entry_date.startsWith(m) &&
-          (!venue || l.venue === venue),
+          (!venue || (l.venue ?? "Unassigned") === venue),
       )
       .reduce((s, l) => s + bookAmount(l, a), 0);
   const total = (group: string, m: string, venue?: string) =>
@@ -132,9 +131,6 @@ export default function Reports() {
       `${l.year}-${String(l.month).padStart(2, "0")}` === conversion &&
       Number(l.amount) !== 0,
   );
-  async function loadYear(y: number) {
-    setYear(y);
-  }
   async function openConvert(m: string) {
     setConversion(m);
     setPicks({});
@@ -207,7 +203,7 @@ export default function Reports() {
       .reduce(
         (s, l) =>
           s +
-          (a.account_type === "asset"
+          (a.normal_side === "debit"
             ? Number(l.debit) - Number(l.credit)
             : Number(l.credit) - Number(l.debit)),
         0,
@@ -503,7 +499,7 @@ export default function Reports() {
                       const key = venue + group;
                       const open = expanded.includes(key);
                       return (
-                        <tbody key={key}>
+                        <Fragment key={key}>
                           {venue && group === "Sales" && (
                             <tr>
                               <td
@@ -580,7 +576,7 @@ export default function Reports() {
                                   ))}
                                 </tr>
                               ))}
-                        </tbody>
+                        </Fragment>
                       );
                     },
                   ),
@@ -697,7 +693,7 @@ export default function Reports() {
             </thead>
             <tbody>
               {balanceSections.map((s) => (
-                <tbody key={s.type}>
+                <Fragment key={s.type}>
                   <tr className="border-t border-border font-semibold">
                     <td className="p-3">{s.label}</td>
                     <td className="p-3 td-num">
@@ -721,7 +717,7 @@ export default function Reports() {
                       <td className="p-3 td-num">{formatCurrency(retained)}</td>
                     </tr>
                   )}
-                </tbody>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -739,7 +735,7 @@ export default function Reports() {
                 <td className="p-3 td-num">{formatCurrency(cash.opening)}</td>
               </tr>
               {SECTION_ORDER.map((s) => (
-                <tbody key={s}>
+                <Fragment key={s}>
                   <tr className="border-t border-border font-semibold">
                     <td className="p-3">{SECTION_LABELS[s]}</td>
                     <td className="p-3 td-num">
@@ -760,7 +756,7 @@ export default function Reports() {
                         </td>
                       </tr>
                     ))}
-                </tbody>
+                </Fragment>
               ))}
               <tr className="border-t border-border font-semibold">
                 <td className="p-3">Closing cash</td>

@@ -208,7 +208,7 @@ export default function FinanceDashboard() {
             <p className="text-sm text-muted-foreground">
               {books.loading
                 ? "Loading books…"
-                : `${books.checks.filter((c) => c.complete).length} complete · ${books.closed.filter((c) => !c.reopened_at && c.month_start.startsWith(String(year))).length} closed`}
+                : `${books.checks.filter((c) => c.complete && c.month.startsWith(String(year))).length} complete · ${books.closed.filter((c) => !c.reopened_at && c.month_start.startsWith(String(year))).length} closed`}
             </p>
           </div>
           <Select
@@ -258,68 +258,72 @@ export default function FinanceDashboard() {
               </tr>
             </thead>
             <tbody>
-              {books.checks.map((c) => {
-                const closed = books.closed.some(
-                  (p) => p.month_start === `${c.month}-01` && !p.reopened_at,
-                );
-                const current = c.month >= today.slice(0, 7);
-                return (
-                  <tr key={c.month} className="border-t border-border">
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {formatMonthLabel(c.month)}
-                    </td>
-                    <td className="px-3 py-3 td-num">
-                      {formatTableInteger(c.sales_days)}
-                    </td>
-                    <td className="px-3 py-3 td-num">
-                      {formatTableInteger(c.invoices)}
-                    </td>
-                    <td className="px-3 py-3">{c.payroll ? "✓" : "missing"}</td>
-                    <td className="px-3 py-3">
-                      {c.rent === "complete" ? "✓" : c.rent}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {c.bank_lines
-                        ? `${formatTableInteger(c.bank_lines)} loaded`
-                        : "not loaded"}
-                    </td>
-                    <td className="px-3 py-3 min-w-40">
-                      {closed
-                        ? "Closed"
-                        : current
-                          ? "In progress"
-                          : c.missing.join(", ") || "Everything in"}
-                    </td>
-                    <td className="px-3 py-3">
-                      {closed ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isPreviewActive}
-                          onClick={() => {
-                            setReason("");
-                            setConfirm({ check: c, close: false });
-                          }}
-                        >
-                          Reopen
-                        </Button>
-                      ) : (
-                        canCloseMonth(c, today) && (
+              {books.checks
+                .filter((c) => c.month.startsWith(String(year)))
+                .map((c) => {
+                  const closed = books.closed.some(
+                    (p) => p.month_start === `${c.month}-01` && !p.reopened_at,
+                  );
+                  const current = c.month >= today.slice(0, 7);
+                  return (
+                    <tr key={c.month} className="border-t border-border">
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {formatMonthLabel(c.month)}
+                      </td>
+                      <td className="px-3 py-3 td-num">
+                        {formatTableInteger(c.sales_days)}
+                      </td>
+                      <td className="px-3 py-3 td-num">
+                        {formatTableInteger(c.invoices)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {c.payroll ? "✓" : "missing"}
+                      </td>
+                      <td className="px-3 py-3">
+                        {c.rent === "complete" ? "✓" : c.rent}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {c.bank_lines
+                          ? `${formatTableInteger(c.bank_lines)} loaded`
+                          : "not loaded"}
+                      </td>
+                      <td className="px-3 py-3 min-w-40">
+                        {closed
+                          ? "Closed"
+                          : current
+                            ? "In progress"
+                            : c.missing.join(", ") || "Everything in"}
+                      </td>
+                      <td className="px-3 py-3">
+                        {closed ? (
                           <Button
+                            variant="outline"
                             size="sm"
                             disabled={isPreviewActive}
-                            onClick={() =>
-                              setConfirm({ check: c, close: true })
-                            }
+                            onClick={() => {
+                              setReason("");
+                              setConfirm({ check: c, close: false });
+                            }}
                           >
-                            Close month
+                            Reopen
                           </Button>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                        ) : (
+                          canCloseMonth(c, today) && (
+                            <Button
+                              size="sm"
+                              disabled={isPreviewActive}
+                              onClick={() =>
+                                setConfirm({ check: c, close: true })
+                              }
+                            >
+                              Close month
+                            </Button>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
