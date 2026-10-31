@@ -330,6 +330,34 @@
       "when": 1793459737482,
       "tag": "0046_staff_claim_receipt_facts",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793460555275,
+      "tag": "0047_finance_month_close_and_typed_adjustments",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793460951315,
+      "tag": "0048_finance_month_check_sales_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793461011860,
+      "tag": "0049_finance_month_check_source_reference",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793461411542,
+      "tag": "0050_finance_ai_pause_and_close_snapshot",
+      "breakpoints": true
     }
   ]
 }

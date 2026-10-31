@@ -10,6 +10,7 @@ export async function fetchAllRows(
   select: string,
   order?: { col: string; asc: boolean },
   tenantId?: string | null,
+  throwOnError = false,
 ): Promise<any[]> {
   const PAGE = 1000;
   let all: any[] = [];
@@ -18,7 +19,8 @@ export async function fetchAllRows(
     let q: any = (supabase.from(table as any) as any).select(select).range(offset, offset + PAGE - 1);
     if (tenantId) q = q.eq("tenant_id", tenantId);
     if (order) q = q.order(order.col, { ascending: order.asc });
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error && throwOnError) throw error;
     if (!data || data.length === 0) break;
     all = all.concat(data);
     if (data.length < PAGE) break;

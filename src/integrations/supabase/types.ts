@@ -2918,6 +2918,73 @@ export type Database = {
           },
         ]
       }
+      finance_ai_pause: {
+        Row: {
+          paused_at: string
+          reason: string
+          tenant_id: string
+        }
+        Insert: {
+          paused_at?: string
+          reason: string
+          tenant_id: string
+        }
+        Update: {
+          paused_at?: string
+          reason?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_ai_pause_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_closed_periods: {
+        Row: {
+          closed_at: string
+          closed_by: string
+          id: string
+          month_start: string
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          closed_at?: string
+          closed_by: string
+          id?: string
+          month_start: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          closed_at?: string
+          closed_by?: string
+          id?: string
+          month_start?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_closed_periods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_team_action_events: {
         Row: {
           action_id: string
@@ -3208,6 +3275,75 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_typed_adjustment_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          journal_entry_id: string
+          manual_line_id: string
+          original_amount: number
+          original_name: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          journal_entry_id: string
+          manual_line_id: string
+          original_amount: number
+          original_name: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          journal_entry_id?: string
+          manual_line_id?: string
+          original_amount?: number
+          original_name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_typed_adjustment_links_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_typed_adjustment_links_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_typed_adjustment_links_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_typed_adjustment_links_manual_line_id_fkey"
+            columns: ["manual_line_id"]
+            isOneToOne: true
+            referencedRelation: "pl_manual_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_typed_adjustment_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -12868,6 +13004,32 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      finance_assert_open: {
+        Args: { d: string; t: string }
+        Returns: undefined
+      }
+      finance_convert_typed_month: {
+        Args: {
+          p_counter_account: string
+          p_lines: Json
+          p_month: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
+      finance_month_checks: {
+        Args: { p_month: string; p_tenant_id: string }
+        Returns: Json
+      }
+      finance_set_month_closed: {
+        Args: {
+          p_close: boolean
+          p_month: string
+          p_reason?: string
+          p_tenant_id: string
+        }
+        Returns: undefined
       }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {

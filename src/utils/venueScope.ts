@@ -55,7 +55,7 @@ export function scopeReminder(scope: VenueScope, venues: VenueLite[]): string {
 }
 
 const NO_SPLIT = [
-  "/bank", "/finance/journal", "/finance/ledger", "/finance/chart-of-accounts", "/finance/ledger-audit",
+  "/finance", "/finance/books", "/finance/cash", "/bank", "/finance/journal", "/finance/ledger", "/finance/chart-of-accounts", "/finance/ledger-audit",
   "/finance/balance-sheet", "/finance/trial-balance", "/finance/cashflow-report", "/finance/pl-ledger",
 ];
 const OFF = ["/assistant", "/activity-log", "/admin", "/user-access", "/notifications", "/platform", "/finance-team"];
@@ -63,6 +63,7 @@ const within = (p: string, r: string) => p === r || p.startsWith(`${r}/`);
 
 /** Whether the current page can be split by venue. */
 export function venueScopeMode(pathname: string): VenueScopeMode {
+  if (pathname === "/finance/reports") return "split";
   if (NO_SPLIT.some((r) => within(pathname, r))) return "none";
   if (OFF.some((r) => within(pathname, r))) return "off";
   return "split";
