@@ -115,6 +115,7 @@ import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassifica
 import HREmployees from "./pages/hr/HREmployees";
 import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
 import PeopleSettings from "./pages/admin/PeopleSettings";
+import AccountingSettings from "./pages/admin/Accounting";
 
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRClock from "./pages/hr/HRClock";
@@ -296,6 +297,7 @@ function App() {
                 <Route path="/admin/structure" element={<AdminRoute><BusinessStructure /></AdminRoute>} />
                 <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
                 <Route path="/admin/people" element={<AdminRoute><PeopleSettings /></AdminRoute>} />
+                <Route path="/admin/accounting" element={<AdminRoute><AccountingSettings /></AdminRoute>} />
                 <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
 

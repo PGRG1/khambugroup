@@ -1,15 +1,15 @@
 # Project Architecture Rules
-Read nested AGENTS.md.
+Subdirectories have AGENTS.md; read before editing.
 
 - ThemeProvider fixes light mode without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform styles/overlay stacking.
 
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Later mutable master fields use earlier invoice evidence or are omitted (no snapshots).
-- Finance-team alone writes immutable finished snapshots.
+- Finance-team owns finished snapshots; Bani accounting follows its nested AGENTS.md.
 - Section navigation mounts once in AppLayout; sidebar, mobile and local tabs share route families/effective-user access. Purchasing uses usePurchasingNavigationAccess with server-backed preview roles; People selects the most-specific path. Preserve route guards.
 - Purchasing mode is read through usePurchasingMode from tenant-scoped app_config; only ProcurementDashboardTab uses purchasingOverviewRows to bypass the venue picker for central buying, with explicit tenant-scoped reads for both invoices and revenue, so group figures never mix clients or change other pages' scope.
-- Purchasing Overview/dialogs share purchasingOverview.ts math; creation time is last upload (no uploaded_at).
+- Purchasing Overview/dialogs share purchasingOverview.ts; creation time is last upload.
 - Purchasing budgets use the SECURITY INVOKER save_purchasing_budgets RPC for atomic budget/history writes under RLS; purchasingOverview.ts owns pure budget math and full-month per-venue buildProjectionRows forecast aggregation, and usePurchasingBudgets loads each picked month independently. Page suggestions pass an unsaved initial map into the dialog's editor. Budget history replays per venue/category with Hong Kong day boundaries while preserving untouched venue contributions, so saves cannot split history and group charts do not conflate venues.
 - Expenses shares nav/period/scope; confirmed posting is atomic; claims require review and vendor merges preserve locked records.
 - Finance shares month checks for Overview/Reports/close; tenant advisory locks guard posted headers/lines, owner reopening is audited, and typed conversions retain sources with unique links to prevent double counting.
@@ -28,7 +28,7 @@ Read nested AGENTS.md.
 - Venue seats come only from `venue_seat_history` (via `useSeatHistory` + `src/utils/seatHistory.ts`); every seat-based number uses the count that applied on each day, and `venues.seats` is a trigger-maintained mirror of the latest row, so seat history is never lost.
 - Revenue/Purchasing/Stock share SectionPillRow/portaled tabs; Register/GRNs reuse Invoices; lists use usePeriodFilter. purchaseRegister owns item math; stockPresentation owns On hand. StockCountScreen/useStockCount use user-RLS save_stock_count_area for locked area totals/unknowns; stockCountReview owns gaps; read-stock-count reuses MATCHER_MODEL and validated candidates. Sent counts are immutable with whole-count approval; browser speech is stock-only. Downloads filtered; Documents redirects.
 - Lists use kit; salesRecordChecks owns Sales checks, menuCosts owns menu math with RLS refresh/bought drafts. supplierAccounts/supplierDeposits own lists/received Assets; invoker confirmations and idempotent returns never sync invoices/POs.
-- sales_record_notes stores explanations; Your team accepts Closed early / Weather / Private event / POS problem for drops.
+- Sales notes store Closed early / Weather / Private event / POS problem explanations for drops.
 - DailyRecords uses a fixed-column semantic table with optional user-keyed column preferences; missing runs derive from full scoped sales history and tenant-local dates through salesRecordChecks, so period filtering never invents trading start dates.
 - Closed days live in `venue_closures` (single days) and `venue_closure_rules` (every-weekday / ranges), resolved only through `src/utils/venueClosures.ts` (client) and the finance-team loader; `venue_closed_days` is deprecated and only kept in sync, so every check agrees on which days were closed.
 - Bani action cards: chat-assistant `propose_action` writes a row to `bani_pending_actions` (service-role only, no client grants) and streams an `action_card` event; FloatingBani renders Confirm/Cancel and calls back with `action_id`+`decision`, where the server re-validates ownership, expiry (30 min), single-use status, and re-checks sales conflicts before executing. Card titles for closed days are computed server-side from the validated venue/dates — never trust the model's title. Closed days are only markable for yesterday or earlier (Asia/Hong_Kong).

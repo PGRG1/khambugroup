@@ -1,0 +1,25 @@
+import { describe, it, expect } from 'vitest';
+import { postingReasons, usualAmountReason, median, AI_UNAVAILABLE } from '../../supabase/functions/_shared/autoPostingRules';
+const safe = {enabled:true,amount:100,limit:null,supplierKnown:true,documentRead:true,placed:true,balanced:true,duplicate:false,date:'2026-10-31',firstDate:'2026-01-01',today:'2026-10-31',closed:false,usualReason:null};
+describe('Bani automatic accounting rules',()=>{
+  it('defaults to posting only all-clear inputs',()=>expect(postingReasons(safe)).toEqual([]));
+  it('permits exactly forty percent above median',()=>expect(usualAmountReason(140,[100,100,100])).toBeNull());
+  it('permits exactly forty percent below median',()=>expect(usualAmountReason(60,[100,100,100])).toBeNull());
+  it('flags forty-four percent above usual',()=>expect(usualAmountReason(144,[100,100,100])).toBe('44% above usual'));
+  it('uses regular expected amount',()=>expect(usualAmountReason(380000,[],380000)).toBeNull());
+  it('cannot infer usual amounts from one bill',()=>expect(usualAmountReason(100,[100])).not.toBeNull());
+  it('computes even median',()=>expect(median([80,100,120,140])).toBe(110));
+  it('requires human delivery count',()=>expect(postingReasons({...safe,humanCount:false})).toContain('Delivery needs a human count'));
+  it('holds above tenant limit',()=>expect(postingReasons({...safe,limit:99})).toContain('Above your limit'));
+  it('does not hold equal limit',()=>expect(postingReasons({...safe,limit:100})).toEqual([]));
+  it('does not post without a source read',()=>expect(postingReasons({...safe,documentRead:false})).toContain('Document has not been read'));
+  it('blocks duplicates',()=>expect(postingReasons({...safe,duplicate:true})).toContain('Possible duplicate'));
+  it('blocks closed periods',()=>expect(postingReasons({...safe,closed:true})).toContain('Period is closed'));
+  it('blocks unmapped lines',()=>expect(postingReasons({...safe,placed:false})).toContain('Line not placed'));
+  it('blocks new suppliers',()=>expect(postingReasons({...safe,supplierKnown:false})).toContain('New supplier'));
+  it('blocks invalid calendar date',()=>expect(postingReasons({...safe,date:'2026-02-30'})).toContain('Date looks misread'));
+  it('permits exactly sixty days ahead',()=>expect(postingReasons({...safe,date:'2026-12-30'})).toEqual([]));
+  it('blocks sixty-one days ahead',()=>expect(postingReasons({...safe,date:'2026-12-31'})).toContain('Date looks misread'));
+  it('blocks earlier than business first sale',()=>expect(postingReasons({...safe,date:'2025-12-31'})).toContain('Date looks misread'));
+  it('holds unresolved conflicting corrections',()=>expect(postingReasons({...safe,conflict:true})).toContain('Which correction is right?'));
+});

@@ -1,0 +1,27 @@
+CREATE OR REPLACE FUNCTION public.bani_accounting_fingerprint(p_type text,p_id uuid) RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT md5(public.bani_accounting_snapshot(p_type,p_id)::text) $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_fingerprint(text,uuid) FROM PUBLIC,anon,authenticated;GRANT EXECUTE ON FUNCTION public.bani_accounting_fingerprint(text,uuid) TO service_role;
+CREATE OR REPLACE FUNCTION public.bani_accounting_reverse(p_review uuid,p_reason text DEFAULT NULL) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE r bani_accounting_reviews%ROWTYPE;j journal_entries%ROWTYPE;rev uuid;snap jsonb; BEGIN
+SELECT * INTO r FROM bani_accounting_reviews WHERE id=p_review FOR UPDATE;
+IF NOT public.user_has_tenant(auth.uid(),r.tenant_id) OR NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'Accounting administrator required';END IF;
+IF r.status='reversed' THEN RETURN r.reversal_entry_id;END IF;
+IF r.status<>'posted' OR r.journal_entry_id IS NULL THEN RAISE EXCEPTION 'Only a Bani posting can be reversed';END IF;
+SELECT * INTO j FROM journal_entries WHERE id=r.journal_entry_id AND tenant_id=r.tenant_id FOR UPDATE;
+IF j.status<>'posted' OR j.source_type LIKE 'payroll%' THEN RAISE EXCEPTION 'Posting cannot be reversed here';END IF;
+PERFORM finance_assert_open(r.tenant_id,(now() AT TIME ZONE 'Asia/Hong_Kong')::date);
+INSERT INTO journal_entries(tenant_id,entry_date,memo,source_type,source_id,status,manually_adjusted,posted_at,created_by) VALUES(r.tenant_id,(now() AT TIME ZONE 'Asia/Hong_Kong')::date,'Reversal · Posted by Bani · '||coalesce(p_reason,r.label),'adjustment','bani_reversal:'||r.id::text,'posted',true,now(),auth.uid()) RETURNING id INTO rev;
+INSERT INTO journal_lines(tenant_id,entry_id,account_id,debit,credit,venue,venue_id,line_no,memo,mapping_status) SELECT r.tenant_id,rev,account_id,credit,debit,venue,venue_id,line_no,'Reversal: '||coalesce(memo,''),mapping_status FROM journal_lines WHERE entry_id=j.id;
+UPDATE bani_accounting_reviews SET status='reversed',reversal_entry_id=rev,updated_at=now() WHERE id=r.id;
+IF r.source_type='expense_bill' THEN UPDATE expense_bills SET approval_status='reversed',reversed_by=auth.uid(),reversed_at=now() WHERE id=r.source_id AND tenant_id=r.tenant_id; END IF;
+snap:=public.bani_accounting_snapshot(r.source_type,r.source_id);
+INSERT INTO bani_accounting_examples(tenant_id,source_type,source_id,supplier_id,item_key,venue,field,before_value,after_value,reason,actor_id) VALUES(r.tenant_id,'reversal',r.source_id,(snap->>'supplier_id')::uuid,r.source_id::text,snap->>'venue','posting',jsonb_build_object('journal_entry_id',j.id),jsonb_build_object('reversal_entry_id',rev),p_reason,auth.uid());
+INSERT INTO audit_log(tenant_id,user_id,action,entity_type,entity_id,details) VALUES(r.tenant_id,auth.uid(),'bani_posting_reversed',r.source_type,r.source_id::text,jsonb_build_object('original',j.id,'reversal',rev,'reason',p_reason));RETURN rev; END $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_reverse(uuid,text) FROM PUBLIC,anon;GRANT EXECUTE ON FUNCTION public.bani_accounting_reverse(uuid,text) TO authenticated;
+CREATE OR REPLACE FUNCTION public.bani_accounting_answer(p_review uuid,p_answer text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE r bani_accounting_reviews%ROWTYPE;s jsonb;BEGIN SELECT * INTO r FROM bani_accounting_reviews WHERE id=p_review FOR UPDATE;
+IF NOT public.user_has_tenant(auth.uid(),r.tenant_id) OR NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'Accounting administrator required';END IF;
+IF length(btrim(p_answer))=0 OR length(p_answer)>2000 THEN RAISE EXCEPTION 'Answer must contain 1–2000 characters';END IF;
+s:=public.bani_accounting_snapshot(r.source_type,r.source_id);INSERT INTO bani_accounting_examples(tenant_id,source_type,source_id,supplier_id,item_key,venue,field,after_value,actor_id) VALUES(r.tenant_id,'answer',r.source_id,(s->>'supplier_id')::uuid,r.source_id::text,s->>'venue','question',jsonb_build_object('answer',p_answer,'question',r.reasons),auth.uid());END $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_answer(uuid,text) FROM PUBLIC,anon;GRANT EXECUTE ON FUNCTION public.bani_accounting_answer(uuid,text) TO authenticated;
+CREATE OR REPLACE FUNCTION public.bani_accounting_wake() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE tok text;BEGIN
+IF NEW.status<>'queued' OR (TG_OP='UPDATE' AND OLD.status='queued') OR EXISTS(SELECT 1 FROM bani_accounting_settings WHERE tenant_id=NEW.tenant_id AND (NOT enabled OR paused_reason IS NOT NULL OR lease_until>now())) THEN RETURN NEW;END IF;
+SELECT token INTO tok FROM public.finance_team_scheduler_tokens WHERE id=1;IF tok IS NOT NULL THEN PERFORM net.http_post(url:='https://pemqssrmtupznijyehzs.supabase.co/functions/v1/bani-accounting',headers:=jsonb_build_object('Content-Type','application/json','x-scheduler-token',tok),body:=jsonb_build_object('mode','scheduled','tenant_id',NEW.tenant_id));END IF;RETURN NEW;END $$;
+CREATE TRIGGER bani_accounting_wake_on_enqueue AFTER INSERT OR UPDATE OF status ON public.bani_accounting_reviews FOR EACH ROW EXECUTE FUNCTION public.bani_accounting_wake();

@@ -272,12 +272,16 @@ export function useInvoiceData() {
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
 
     if (lineItems !== undefined) {
-      await supabase.from("invoice_line_items").delete().eq("invoice_id", id).eq("tenant_id", tenantId);
+      const {data:before,error:beforeError}=await supabase.from('invoice_line_items').select('*').eq('invoice_id',id).eq('tenant_id',tenantId).order('created_at').order('id');
+      if(beforeError){toast({title:'Could not load invoice lines',description:beforeError.message,variant:'destructive'});return false;}
       if (lineItems.length > 0) {
-        const items = lineItems.map((li) => ({ ...li, invoice_id: id, tenant_id: tenantId }));
-        const { error: liErr } = await supabase.from("invoice_line_items").insert(items as any);
-        if (liErr) { toast({ title: "Error updating line items", description: liErr.message, variant: "destructive" }); return false; }
+        for(const [index,li] of lineItems.entries()){
+          const row={...li,invoice_id:id,tenant_id:tenantId};const old=before?.[index];
+          const result=old?await supabase.from('invoice_line_items').update(row as any).eq('id',old.id).eq('tenant_id',tenantId):await supabase.from('invoice_line_items').insert(row as any);
+          if(result.error){toast({title:'Error updating line items',description:result.error.message,variant:'destructive'});return false;}
+        }
       }
+      const removed=(before??[]).slice(lineItems.length).map(li=>li.id);if(removed.length){const {error}=await supabase.from('invoice_line_items').delete().in('id',removed).eq('tenant_id',tenantId);if(error){toast({title:'Error removing line items',description:error.message,variant:'destructive'});return false;}}
     }
     await fetchAll();
     return true;

@@ -1,0 +1,80 @@
+CREATE OR REPLACE FUNCTION public.bani_accounting_snapshot(p_type text,p_id uuid) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$ DECLARE s jsonb; t uuid; BEGIN
+IF p_type='expense_bill' THEN SELECT tenant_id,to_jsonb(b) INTO t,s FROM expense_bills b WHERE id=p_id; s:=s||jsonb_build_object('lines',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY line_no,id) FROM expense_bill_allocations a WHERE bill_id=p_id),'[]'));
+ELSIF p_type='invoice' THEN SELECT tenant_id,to_jsonb(i) INTO t,s FROM invoices i WHERE id=p_id;s:=s||jsonb_build_object('lines',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM invoice_line_items a WHERE invoice_id=p_id),'[]'),'deliveries',coalesce((SELECT jsonb_agg(to_jsonb(g) ORDER BY id) FROM goods_received_notes g WHERE invoice_id=p_id),'[]'),'counts',coalesce((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.id) FROM grn_items l JOIN goods_received_notes g ON g.id=l.grn_id WHERE g.invoice_id=p_id),'[]'));
+ELSIF p_type='bank_transaction' THEN SELECT tenant_id,to_jsonb(b) INTO t,s FROM bank_transactions b WHERE id=p_id; ELSE RAISE EXCEPTION 'Unsupported accounting source';END IF;
+IF coalesce(auth.role(),'')<>'service_role' AND NOT public.user_has_tenant(auth.uid(),t) THEN RAISE EXCEPTION 'Source unavailable';END IF; RETURN s; END $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_snapshot(text,uuid) FROM PUBLIC,anon;GRANT EXECUTE ON FUNCTION public.bani_accounting_snapshot(text,uuid) TO authenticated,service_role;
+CREATE OR REPLACE FUNCTION public.bani_accounting_capture_example() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE oldj jsonb;newj jsonb;t uuid;s uuid;v text;k text;typ text;fld text;beforej jsonb;afterj jsonb;prev uuid; BEGIN
+IF auth.uid() IS NULL OR coalesce(current_setting('bani.accounting.executing',true),'')<>'' THEN RETURN NEW; END IF;
+oldj:=to_jsonb(OLD);newj:=to_jsonb(NEW);t:=(newj->>'tenant_id')::uuid;
+IF TG_TABLE_NAME='expense_bill_allocations' THEN SELECT supplier_id,venue INTO s,v FROM expense_bills WHERE id=NEW.bill_id;typ:='expense_line';k:=coalesce(NEW.notes,NEW.expense_category,'');fld:='placement';beforej:=jsonb_build_object('account_id',OLD.account_id,'category',OLD.expense_category);afterj:=jsonb_build_object('account_id',NEW.account_id,'category',NEW.expense_category);
+ELSIF TG_TABLE_NAME='invoice_line_items' THEN SELECT supplier_id,venue INTO s,v FROM invoices WHERE id=NEW.invoice_id;typ:='invoice_line';k:=coalesce(NEW.scanned_item_code,NEW.item_code,NEW.scanned_description,NEW.description,'');fld:='placement';beforej:=jsonb_build_object('category_id',OLD.category_id,'product_master_id',OLD.product_master_id);afterj:=jsonb_build_object('category_id',NEW.category_id,'product_master_id',NEW.product_master_id);
+ELSIF TG_TABLE_NAME='bank_transaction_matches' THEN typ:='bank_match';k:=NEW.txn_id::text;fld:='match';beforej:=coalesce(oldj,'{}');afterj:=newj;
+ELSIF TG_TABLE_NAME='expense_bills' THEN IF OLD.supplier_id IS NOT DISTINCT FROM NEW.supplier_id THEN RETURN NEW;END IF;typ:='supplier_merge';s:=OLD.supplier_id;v:=NEW.venue;k:=coalesce(OLD.vendor_name,'');fld:='supplier';beforej:=to_jsonb(OLD.supplier_id);afterj:=to_jsonb(NEW.supplier_id);
+ELSE RETURN NEW;END IF;
+IF beforej IS NOT DISTINCT FROM afterj THEN RETURN NEW;END IF;
+SELECT id INTO prev FROM bani_accounting_examples WHERE tenant_id=t AND source_type=typ AND supplier_id IS NOT DISTINCT FROM s AND item_key=k AND venue IS NOT DISTINCT FROM v AND field=fld AND after_value IS DISTINCT FROM afterj ORDER BY created_at DESC LIMIT 1;
+INSERT INTO bani_accounting_examples(tenant_id,source_type,source_id,supplier_id,item_key,venue,field,before_value,after_value,actor_id,conflict_with) VALUES(t,typ,(newj->>'id')::uuid,s,k,v,fld,coalesce(beforej,'null'),coalesce(afterj,'null'),auth.uid(),prev);RETURN NEW; END $$;
+CREATE TRIGGER bani_learn_expense_line AFTER UPDATE ON public.expense_bill_allocations FOR EACH ROW EXECUTE FUNCTION public.bani_accounting_capture_example();
+CREATE TRIGGER bani_learn_invoice_line AFTER UPDATE ON public.invoice_line_items FOR EACH ROW EXECUTE FUNCTION public.bani_accounting_capture_example();
+CREATE TRIGGER bani_learn_bank_match AFTER INSERT OR UPDATE ON public.bank_transaction_matches FOR EACH ROW EXECUTE FUNCTION public.bani_accounting_capture_example();
+CREATE TRIGGER bani_learn_vendor AFTER UPDATE ON public.expense_bills FOR EACH ROW EXECUTE FUNCTION public.bani_accounting_capture_example();
+CREATE OR REPLACE FUNCTION public.bani_accounting_resolve_example(p_id uuid,p_use_new boolean) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE e bani_accounting_examples%ROWTYPE; BEGIN SELECT * INTO e FROM bani_accounting_examples WHERE id=p_id FOR UPDATE;
+IF NOT public.user_has_tenant(auth.uid(),e.tenant_id) OR NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'Accounting administrator required';END IF;
+IF e.conflict_with IS NULL OR e.resolved_at IS NOT NULL THEN RETURN; END IF;
+IF NOT p_use_new THEN UPDATE bani_accounting_examples SET after_value=(SELECT after_value FROM bani_accounting_examples WHERE id=e.conflict_with) WHERE id=e.id;END IF;
+UPDATE bani_accounting_examples SET resolved_at=now() WHERE tenant_id=e.tenant_id AND source_type=e.source_type AND supplier_id IS NOT DISTINCT FROM e.supplier_id AND item_key=e.item_key AND venue IS NOT DISTINCT FROM e.venue AND field=e.field AND conflict_with IS NOT NULL AND resolved_at IS NULL;
+INSERT INTO audit_log(tenant_id,user_id,action,entity_type,entity_id,details) VALUES(e.tenant_id,auth.uid(),'bani_learning_resolved','bani_accounting_examples',e.id::text,jsonb_build_object('use_new',p_use_new)); END $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_resolve_example(uuid,boolean) FROM PUBLIC,anon;GRANT EXECUTE ON FUNCTION public.bani_accounting_resolve_example(uuid,boolean) TO authenticated;
+DO $patch$ DECLARE d text; BEGIN
+SELECT pg_get_functiondef('public._rebuild_journal_from_operations_impl(uuid,uuid,text)'::regprocedure) INTO d;
+d:=replace(d,'WHERE s.tenant_id = p_tenant_id','WHERE s.tenant_id = p_tenant_id AND coalesce(current_setting(''bani.accounting.source_type'',true),'''')=''''');
+d:=replace(d,'WHERE i.tenant_id = p_tenant_id','WHERE i.tenant_id = p_tenant_id AND i.review_status=''Approved'' AND (coalesce(current_setting(''bani.accounting.source_type'',true),'''')='''' OR (current_setting(''bani.accounting.source_type'',true)=''invoice'' AND i.id::text=current_setting(''bani.accounting.source_id'',true)))');
+d:=replace(d,'WHERE p.tenant_id = p_tenant_id','WHERE p.tenant_id = p_tenant_id AND coalesce(current_setting(''bani.accounting.source_type'',true),'''')=''''');
+d:=replace(d,'WHERE b.tenant_id = p_tenant_id','WHERE b.tenant_id = p_tenant_id AND (coalesce(current_setting(''bani.accounting.source_type'',true),'''')='''' OR (current_setting(''bani.accounting.source_type'',true)=''settlement_clearing'' AND b.id::text=current_setting(''bani.accounting.source_id'',true)))');
+d:=replace(d,'WHERE bt.tenant_id = p_tenant_id','WHERE bt.tenant_id = p_tenant_id AND coalesce(current_setting(''bani.accounting.source_type'',true),'''')=''''');
+d:=replace(d,'WHERE tenant_id = p_tenant_id','WHERE tenant_id = p_tenant_id AND (coalesce(current_setting(''bani.accounting.source_type'',true),'''')='''' OR (source_type=current_setting(''bani.accounting.source_type'',true) AND source_id=current_setting(''bani.accounting.source_id'',true)))');
+EXECUTE d;
+SELECT pg_get_functiondef('public.auto_post_bank_fee()'::regprocedure) INTO d;
+d:=replace(d,'BEGIN','BEGIN IF coalesce(current_setting(''bani.accounting.verified_bank'',true),'''') IS DISTINCT FROM NEW.id::text THEN RETURN NEW; END IF;');EXECUTE d;
+END $patch$;
+CREATE OR REPLACE FUNCTION public.bani_accounting_commit(p_review uuid,p_lease uuid,p_fingerprint text,p_reason text,p_target_type text DEFAULT NULL,p_target_id uuid DEFAULT NULL) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE r bani_accounting_reviews%ROWTYPE;s bani_accounting_settings%ROWTYPE;snap jsonb;j uuid;u uuid;tid uuid;typ text;inv invoices%ROWTYPE;b bank_transactions%ROWTYPE;pay uuid;cnt int;due numeric; BEGIN
+IF coalesce(auth.role(),'')<>'service_role' THEN RAISE EXCEPTION 'Server verification required';END IF;
+SELECT * INTO r FROM bani_accounting_reviews WHERE id=p_review FOR UPDATE;SELECT * INTO s FROM bani_accounting_settings WHERE tenant_id=r.tenant_id FOR UPDATE;
+IF r.status='posted' THEN RETURN r.journal_entry_id; END IF;
+IF s.lease_id IS DISTINCT FROM p_lease OR s.lease_until<now() OR NOT s.enabled OR s.paused_reason IS NOT NULL THEN RAISE EXCEPTION 'Automatic posting is paused or busy';END IF;
+IF s.ask_above IS NOT NULL AND r.amount>s.ask_above THEN RAISE EXCEPTION 'Above your limit';END IF;
+snap:=public.bani_accounting_snapshot(r.source_type,r.source_id);IF md5(snap::text) IS DISTINCT FROM p_fingerprint THEN RAISE EXCEPTION 'Record changed while Bani checked it';END IF;
+IF EXISTS(SELECT 1 FROM bani_accounting_examples WHERE tenant_id=r.tenant_id AND conflict_with IS NOT NULL AND resolved_at IS NULL AND (supplier_id::text=snap->>'supplier_id' OR item_key=r.source_id::text)) THEN RAISE EXCEPTION 'Which correction is right?';END IF;
+u:=r.requested_by;
+IF u IS NULL OR NOT public.user_has_tenant(u,r.tenant_id) OR NOT (public.has_role(u,'admin') OR public.has_role(u,'manager')) THEN RAISE EXCEPTION 'A permitted accounting user is required';END IF;
+PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);PERFORM set_config('request.jwt.claim.sub',u::text,true);PERFORM set_config('request.jwt.claim.role','authenticated',true);PERFORM set_config('bani.accounting.executing',r.id::text,true);
+PERFORM public.finance_assert_open(r.tenant_id,r.source_date);
+IF r.source_type='expense_bill' THEN j:=public.approve_and_post_expense_bill(r.source_id);
+ELSIF r.source_type='invoice' THEN
+SELECT * INTO inv FROM invoices WHERE id=r.source_id AND tenant_id=r.tenant_id FOR UPDATE;
+IF inv.review_status NOT IN ('Draft','To approve','Under Review') OR inv.has_disputes OR inv.held_amount>0 THEN RAISE EXCEPTION 'Invoice requires review';END IF;
+IF NOT EXISTS(SELECT 1 FROM goods_received_notes g WHERE g.invoice_id=inv.id AND g.tenant_id=r.tenant_id AND g.status='confirmed' AND g.received_by IS NOT NULL AND EXISTS(SELECT 1 FROM grn_items l WHERE l.grn_id=g.id) AND NOT EXISTS(SELECT 1 FROM invoice_line_items l WHERE l.invoice_id=inv.id AND NOT EXISTS(SELECT 1 FROM grn_items c WHERE c.grn_id=g.id AND c.invoice_line_item_id=l.id AND c.quantity_received IS NOT NULL AND c.quantity_received=c.quantity_invoiced))) THEN RAISE EXCEPTION 'Delivery needs a human count';END IF;
+UPDATE invoices SET review_status='Approved',approved_by=u,approved_at=now() WHERE id=inv.id;
+PERFORM set_config('bani.accounting.source_type','invoice',true);PERFORM set_config('bani.accounting.source_id',inv.id::text,true);PERFORM public._rebuild_journal_from_operations_impl(r.tenant_id,u,'Bani');SELECT id INTO j FROM journal_entries WHERE tenant_id=r.tenant_id AND source_type='invoice' AND source_id=inv.id::text AND status='posted';
+ELSE SELECT * INTO b FROM bank_transactions WHERE id=r.source_id AND tenant_id=r.tenant_id FOR UPDATE;
+IF b.is_manual OR b.is_transfer OR b.journal_entry_id IS NOT NULL OR b.status NOT IN ('unmatched','pending') THEN RAISE EXCEPTION 'Bank line requires review';END IF;
+IF p_target_type='bank_fee' THEN PERFORM set_config('bani.accounting.verified_bank',b.id::text,true);UPDATE bank_transactions SET description=description WHERE id=b.id;SELECT journal_entry_id INTO j FROM bank_transactions WHERE id=b.id;
+ELSIF p_target_type='settlement_clearing' THEN
+IF NOT EXISTS(SELECT 1 FROM payment_settlement_batches x WHERE x.id=p_target_id AND x.tenant_id=r.tenant_id AND x.bank_transaction_id IS NULL AND x.net_settlement=b.money_in AND x.settlement_date=b.txn_date AND (x.bank_account_id IS NULL OR x.bank_account_id=b.bank_account_id)) THEN RAISE EXCEPTION 'Settlement match changed';END IF;
+UPDATE payment_settlement_batches SET bank_transaction_id=b.id,bank_account_id=b.bank_account_id WHERE id=p_target_id;
+PERFORM set_config('bani.accounting.source_type','settlement_clearing',true);PERFORM set_config('bani.accounting.source_id',p_target_id::text,true);PERFORM public._rebuild_journal_from_operations_impl(r.tenant_id,u,'Bani');SELECT clearing_journal_entry_id INTO j FROM payment_settlement_batches WHERE id=p_target_id;
+ELSIF p_target_type='supplier_payment' THEN
+SELECT count(*),sum(greatest(total_amount-coalesce(amount_paid,0)-coalesce(held_amount,0),0)) INTO cnt,due FROM invoices WHERE tenant_id=r.tenant_id AND supplier_id=p_target_id AND review_status='Approved' AND coalesce(has_disputes,false)=false AND invoice_date<=b.txn_date AND greatest(total_amount-coalesce(amount_paid,0)-coalesce(held_amount,0),0)>0;
+IF cnt=0 OR due IS DISTINCT FROM b.money_out OR EXISTS(SELECT 1 FROM payments WHERE bank_transaction_id=b.id) THEN RAISE EXCEPTION 'Supplier match changed';END IF;
+INSERT INTO payments(tenant_id,supplier_id,payment_date,amount,payment_method,paid_from_account_id,bank_transaction_id,reference_number,created_by,match_status) VALUES(r.tenant_id,p_target_id,b.txn_date,b.money_out,'bank_transfer',b.bank_account_id,b.id,b.reference,u,'matched') RETURNING id INTO pay;
+INSERT INTO payment_allocations(tenant_id,payment_id,invoice_id,amount_allocated) SELECT r.tenant_id,pay,id,greatest(total_amount-coalesce(amount_paid,0)-coalesce(held_amount,0),0) FROM invoices WHERE tenant_id=r.tenant_id AND supplier_id=p_target_id AND review_status='Approved' AND coalesce(has_disputes,false)=false AND invoice_date<=b.txn_date AND greatest(total_amount-coalesce(amount_paid,0)-coalesce(held_amount,0),0)>0;
+PERFORM public.post_invoice_payment(pay);SELECT journal_entry_id INTO j FROM payments WHERE id=pay;
+ELSE RAISE EXCEPTION 'No single bank match';END IF;
+IF j IS NOT NULL THEN INSERT INTO bank_transaction_matches(tenant_id,txn_id,matched_type,matched_id,amount,confidence,notes,created_by) VALUES(r.tenant_id,b.id,p_target_type,coalesce(p_target_id,j),r.amount,'high',p_reason,u);UPDATE bank_transactions SET status='matched',matched_record_type=p_target_type,matched_record_id=coalesce(p_target_id,j),journal_entry_id=j WHERE id=b.id;END IF;
+END IF;
+IF j IS NULL OR NOT EXISTS(SELECT 1 FROM journal_entries WHERE id=j AND status='posted') THEN RAISE EXCEPTION 'Line not placed or posting did not balance';END IF;
+IF EXISTS(SELECT 1 FROM journal_lines l LEFT JOIN chart_of_accounts a ON a.id=l.account_id WHERE l.entry_id=j AND (l.account_id IS NULL OR a.tenant_id<>r.tenant_id OR l.mapping_status='missing' OR lower(a.name) LIKE '%suspense%')) THEN RAISE EXCEPTION 'Line not placed';END IF;
+UPDATE bani_accounting_reviews SET status='posted',posting_reason=p_reason,journal_entry_id=j,posted_at=now(),checked_at=now(),reasons='[]',updated_at=now() WHERE id=r.id;
+INSERT INTO audit_log(tenant_id,user_id,action,entity_type,entity_id,details) VALUES(r.tenant_id,u,'bani_auto_posted',r.source_type,r.source_id::text,jsonb_build_object('reason',p_reason,'journal_entry_id',j,'document',r.document_path));RETURN j; END $$;
+REVOKE ALL ON FUNCTION public.bani_accounting_commit(uuid,uuid,text,text,text,uuid) FROM PUBLIC,anon,authenticated;GRANT EXECUTE ON FUNCTION public.bani_accounting_commit(uuid,uuid,text,text,text,uuid) TO service_role;

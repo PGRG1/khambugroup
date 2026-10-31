@@ -1,0 +1,10 @@
+ALTER TABLE public.grn_items ADD COLUMN human_counted_at timestamptz, ADD COLUMN human_counted_by uuid;
+COMMENT ON COLUMN public.grn_items.human_counted_at IS 'Explicit human quantity input only; generated or prefilled receipt quantities never establish a human count.';
+CREATE OR REPLACE FUNCTION public.bani_human_count_evidence() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN
+IF auth.uid() IS NOT NULL AND OLD.quantity_received IS DISTINCT FROM NEW.quantity_received THEN NEW.human_counted_at:=now();NEW.human_counted_by:=auth.uid(); ELSE NEW.human_counted_at:=OLD.human_counted_at;NEW.human_counted_by:=OLD.human_counted_by;END IF;RETURN NEW; END $$;
+CREATE TRIGGER bani_human_count_record BEFORE UPDATE ON public.grn_items FOR EACH ROW EXECUTE FUNCTION public.bani_human_count_evidence();
+DO $$ DECLARE d text;BEGIN SELECT pg_get_functiondef('public.bani_accounting_commit(uuid,uuid,text,text,text,uuid)'::regprocedure) INTO d;
+d:=replace(d,'AND c.quantity_received IS NOT NULL AND c.quantity_received=c.quantity_invoiced','AND c.human_counted_at IS NOT NULL AND c.quantity_received IS NOT NULL AND c.quantity_received=c.quantity_invoiced');
+d:=replace(d,'SELECT * INTO r FROM bani_accounting_reviews WHERE id=p_review FOR UPDATE;','SELECT * INTO r FROM bani_accounting_reviews WHERE id=p_review FOR UPDATE; PERFORM pg_advisory_xact_lock(hashtextextended(''bani-post:''||r.tenant_id::text,0));');
+d:=replace(d,'snap:=public.bani_accounting_snapshot', 'IF EXISTS(SELECT 1 FROM journal_entries WHERE tenant_id=r.tenant_id AND source_type IN (''invoice'',''expense_bill'',''bank_fee'',''bank_txn'') AND source_id=r.source_id::text AND status=''posted'') THEN RAISE EXCEPTION ''Already posted in the books'';END IF; snap:=public.bani_accounting_snapshot');
+EXECUTE d;END $$;

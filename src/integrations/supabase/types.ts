@@ -567,6 +567,186 @@ export type Database = {
           },
         ]
       }
+      bani_accounting_examples: {
+        Row: {
+          actor_id: string | null
+          after_value: Json
+          before_value: Json
+          conflict_with: string | null
+          created_at: string
+          field: string
+          id: string
+          item_key: string
+          reason: string | null
+          resolved_at: string | null
+          source_id: string
+          source_type: string
+          supplier_id: string | null
+          tenant_id: string
+          venue: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          after_value?: Json
+          before_value?: Json
+          conflict_with?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          item_key?: string
+          reason?: string | null
+          resolved_at?: string | null
+          source_id: string
+          source_type: string
+          supplier_id?: string | null
+          tenant_id: string
+          venue?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          after_value?: Json
+          before_value?: Json
+          conflict_with?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          item_key?: string
+          reason?: string | null
+          resolved_at?: string | null
+          source_id?: string
+          source_type?: string
+          supplier_id?: string | null
+          tenant_id?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_accounting_examples_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bani_accounting_reviews: {
+        Row: {
+          amount: number
+          checked_at: string | null
+          created_at: string
+          document_path: string | null
+          id: string
+          journal_entry_id: string | null
+          label: string
+          posted_at: string | null
+          posting_reason: string | null
+          reasons: Json
+          record_link: string
+          requested_by: string | null
+          reversal_entry_id: string | null
+          source_date: string | null
+          source_fingerprint: string | null
+          source_id: string
+          source_type: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          checked_at?: string | null
+          created_at?: string
+          document_path?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          label?: string
+          posted_at?: string | null
+          posting_reason?: string | null
+          reasons?: Json
+          record_link?: string
+          requested_by?: string | null
+          reversal_entry_id?: string | null
+          source_date?: string | null
+          source_fingerprint?: string | null
+          source_id: string
+          source_type: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          checked_at?: string | null
+          created_at?: string
+          document_path?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          label?: string
+          posted_at?: string | null
+          posting_reason?: string | null
+          reasons?: Json
+          record_link?: string
+          requested_by?: string | null
+          reversal_entry_id?: string | null
+          source_date?: string | null
+          source_fingerprint?: string | null
+          source_id?: string
+          source_type?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_accounting_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bani_accounting_settings: {
+        Row: {
+          ask_above: number | null
+          enabled: boolean
+          lease_id: string | null
+          lease_until: string | null
+          paused_kind: string | null
+          paused_reason: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ask_above?: number | null
+          enabled?: boolean
+          lease_id?: string | null
+          lease_until?: string | null
+          paused_kind?: string | null
+          paused_reason?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ask_above?: number | null
+          enabled?: boolean
+          lease_id?: string | null
+          lease_until?: string | null
+          paused_kind?: string | null
+          paused_reason?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_accounting_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bani_memory_notes: {
         Row: {
           created_at: string
@@ -3911,6 +4091,8 @@ export type Database = {
           created_at: string
           description: string
           grn_id: string
+          human_counted_at: string | null
+          human_counted_by: string | null
           id: string
           invoice_line_item_id: string | null
           issue: string | null
@@ -3933,6 +4115,8 @@ export type Database = {
           created_at?: string
           description: string
           grn_id: string
+          human_counted_at?: string | null
+          human_counted_by?: string | null
           id?: string
           invoice_line_item_id?: string | null
           issue?: string | null
@@ -3955,6 +4139,8 @@ export type Database = {
           created_at?: string
           description?: string
           grn_id?: string
+          human_counted_at?: string | null
+          human_counted_by?: string | null
           id?: string
           invoice_line_item_id?: string | null
           issue?: string | null
@@ -12885,6 +13071,45 @@ export type Database = {
       approve_supplier_account_matches: {
         Args: { p_rows: Json; p_supplier: string; p_tenant: string }
         Returns: number
+      }
+      bani_accounting_answer: {
+        Args: { p_answer: string; p_review: string }
+        Returns: undefined
+      }
+      bani_accounting_commit: {
+        Args: {
+          p_fingerprint: string
+          p_lease: string
+          p_reason: string
+          p_review: string
+          p_target_id?: string
+          p_target_type?: string
+        }
+        Returns: string
+      }
+      bani_accounting_fingerprint: {
+        Args: { p_id: string; p_type: string }
+        Returns: string
+      }
+      bani_accounting_lease: {
+        Args: { p_lease: string; p_tenant: string }
+        Returns: boolean
+      }
+      bani_accounting_resolve_example: {
+        Args: { p_id: string; p_use_new: boolean }
+        Returns: undefined
+      }
+      bani_accounting_reverse: {
+        Args: { p_reason?: string; p_review: string }
+        Returns: string
+      }
+      bani_accounting_save_settings: {
+        Args: { p_ask_above: number; p_enabled: boolean; p_tenant: string }
+        Returns: undefined
+      }
+      bani_accounting_snapshot: {
+        Args: { p_id: string; p_type: string }
+        Returns: Json
       }
       bani_people_claim: {
         Args: { a: string; decision: string; t: string }
