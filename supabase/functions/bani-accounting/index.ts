@@ -15,6 +15,7 @@ const BATCH=20;
 type Client=ReturnType<typeof createClient>;
 async function all(c:Client,table:string,tenant:string){const out:any[]=[];for(let i=0;;i+=1000){const {data,error}=await c.from(table).select('*').eq('tenant_id',tenant).order('id').range(i,i+999);if(error)throw error;out.push(...(data??[]));if((data?.length??0)<1000)return out;}}
 async function checked(c:Client,table:string,patch:any,id:string){const {error}=await c.from(table).update(patch).eq('id',id);if(error)throw error;}
+async function pause(c:Client,tenant:string,e:unknown){const status=(e as any)?.statusCode??500;const type=(e as any)?.type??'';const workspace=['credit_limit_reached','ai_disabled','insufficient_credits','workspace_policy_block'].includes(type)||status===402;const kind=status===403&&!workspace?'provider':status===402||status===403?'access':'transient';const reason=e instanceof Error?e.message:AI_UNAVAILABLE;const {error}=await c.from('bani_accounting_settings').update({paused_reason:reason,paused_kind:kind}).eq('tenant_id',tenant);if(error)throw error;const {error:qe}=await c.from('bani_accounting_reviews').update({status:'asked',reasons:[AI_UNAVAILABLE],checked_at:new Date().toISOString()}).eq('tenant_id',tenant).in('status',['queued','checking']);if(qe)throw qe;}
 
 async function verify(req:Request,payload:unknown,document?:{data:Uint8Array;mime:string}){
   const key=Deno.env.get('LOVABLE_API_KEY');if(!key)throw new Error(AI_UNAVAILABLE);
@@ -41,7 +42,7 @@ async function processTenant(admin:Client,req:Request,tenant:string,userId:strin
     if(!settings.enabled){for(const r of queue){await checked(admin,'bani_accounting_reviews',{status:'asked',reasons:['Automatic posting is off'],checked_at:new Date().toISOString()},r.id);asked++;}return {posted,asked,outcomes};}
     let unavailable=settings.paused_reason as string|null;
     // One availability check per bounded run, never probe a paused job.
-    if(!unavailable)try{const result=await verify(req,{availability_check:true});if(!result.sure)unavailable=result.reason||AI_UNAVAILABLE;}catch(e){unavailable=AI_UNAVAILABLE;const status=(e as any)?.statusCode??500;await admin.from('bani_accounting_settings').update({paused_reason:e instanceof Error?e.message:AI_UNAVAILABLE,paused_kind:status===402||status===403?'access':'transient'}).eq('tenant_id',tenant);}
+    if(!unavailable)try{const result=await verify(req,{availability_check:true});if(!result.sure){unavailable=result.reason||AI_UNAVAILABLE;await pause(admin,tenant,new Error(unavailable));}}catch(e){unavailable=AI_UNAVAILABLE;await pause(admin,tenant,e);}
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());const firstDate=sales.map(s=>s.date).sort()[0]??null;
     for(const r of queue){
       const record=r.source_type==='expense_bill'?bills.find(b=>b.id===r.source_id):r.source_type==='invoice'?invoices.find(i=>i.id===r.source_id):bank.find(b=>b.id===r.source_id);if(!record){await checked(admin,'bani_accounting_reviews',{status:'resolved'},r.id);continue;}
@@ -55,7 +56,7 @@ async function processTenant(admin:Client,req:Request,tenant:string,userId:strin
       }else if(r.source_type==='invoice'){
         placed=lines.length>0&&lines.every(l=>{const p=products.find(p=>p.id===l.product_master_id);return l.category_id&&p?.financial_treatment&&(p.default_coa_account_id||mappings.some(m=>m.rule_type==='procurement_category'&&m.match_key===`${p.financial_treatment}__${p.level1_category}`&&m.account_id));});
         balanced=Math.abs(lines.reduce((n,l)=>n+Number(l.total),0)-Number(record.discount||0)-Number(record.total_amount))<0.01&&!record.has_disputes&&!Number(record.held_amount);
-        const grns=deliveries.filter(g=>g.invoice_id===record.id&&g.status==='confirmed'&&g.received_by);humanCount=grns.some(g=>lines.every(l=>counts.some(c=>c.grn_id===g.id&&c.invoice_line_item_id===l.id&&c.quantity_received!=null&&Number(c.quantity_received)===Number(c.quantity_invoiced))));
+        const grns=deliveries.filter(g=>g.invoice_id===record.id&&g.status==='confirmed'&&g.received_by);humanCount=grns.some(g=>lines.every(l=>counts.some(c=>c.grn_id===g.id&&c.invoice_line_item_id===l.id&&c.human_counted_at&&c.quantity_received!=null&&Number(c.quantity_received)===Number(c.quantity_invoiced))));
         usualReason=usualAmountReason(Number(record.total_amount),invoices.filter(i=>i.id!==record.id&&i.supplier_id===record.supplier_id&&i.venue===record.venue&&i.invoice_date<record.invoice_date&&i.review_status==='Approved').sort((a,b)=>b.invoice_date.localeCompare(a.invoice_date)).slice(0,10).map(i=>Number(i.total_amount)));
       }else{
         const fee=/bank\s*(charges?|fees?)|service charge|handling\s*(fee|charge)|monthly\s*(fee|charge)|account\s*maint|remittance\s*(fee|charge)|transfer\s*(fee|charge)/i.test(`${record.description} ${record.reference}`);
@@ -82,7 +83,7 @@ async function processTenant(admin:Client,req:Request,tenant:string,userId:strin
             const example=contextual.find(e=>!e.conflict_with||e.resolved_at);const reason=check.reason+(example?` · Used your correction from ${example.created_at.slice(0,10)}`:'');
             const {error:pe}=await admin.rpc('bani_accounting_commit',{p_review:r.id,p_lease:lease,p_fingerprint:fingerprint,p_reason:reason,p_target_type:targetType,p_target_id:targetId});if(pe)reasons.push(pe.message);else posted++;
           }
-        }catch(e){reasons.push(AI_UNAVAILABLE);unavailable=AI_UNAVAILABLE;const status=(e as any)?.statusCode??500;await admin.from('bani_accounting_settings').update({paused_reason:e instanceof Error?e.message:AI_UNAVAILABLE,paused_kind:status===402||status===403?'access':'transient'}).eq('tenant_id',tenant);}
+        }catch(e){reasons.push(AI_UNAVAILABLE);unavailable=AI_UNAVAILABLE;await pause(admin,tenant,e);}
       }
       if(reasons.length){await checked(admin,'bani_accounting_reviews',{status:'asked',reasons,checked_at:new Date().toISOString()},r.id);asked++;}outcomes.push({source_type:r.source_type,label:r.label,posted:!reasons.length,reasons});
     }
