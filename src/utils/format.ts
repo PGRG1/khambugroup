@@ -16,6 +16,11 @@ export function formatCurrency(value: number): string {
   return `${value < 0 ? "-" : ""}HK$ ${formatTableInteger(Math.abs(value))}`;
 }
 
+/** Full precision for recipe amounts and bought-versus-sold menu costs. */
+export function formatMenuCurrency(value: number): string {
+  return `${value < 0 ? "-" : ""}HK$ ${formatDecimal(Math.abs(value), 2)}`;
+}
+
 export function formatPercent(value: number | null): string {
   return value == null ? "—" : `${formatDecimal(value, 1)}%`;
 }
