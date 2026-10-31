@@ -1,3 +1,10 @@
+## Bani automatic posting and learning
+- [ ] Tenant Accounting switches and optional amount limit
+- [ ] Guarded posting through existing expense/invoice/bank functions; exceptions and first waiting-item run
+- [ ] Posted by Bani reasons, document links, reversal and monthly posted/asked counts
+- [ ] Tenant correction examples, contextual reuse and contradiction resolution excluding pay
+- [ ] Fail-safe AI checks, focused tests and signed-in verification
+
 ## Finance — Part 1
 - [x] Unified navigation, redirects and Cash & bank links; Bank/Payments/Petty Cash retained
 - [x] Needs you, shared month-close checks, persisted close/owner reopen and factual ask; posting calculations unchanged
