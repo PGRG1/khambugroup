@@ -1,8 +1,9 @@
 ## Stock counting — Part 2
-- [ ] Phone-first area count: photos, browser dictation/text, typed items and corrections
-- [ ] Tenant-validated read-stock-count using the matcher model and recent delivered-item context
-- [ ] Deterministic expected quantities, gap-only sending and manager/owner whole-count approval
-- [ ] Tests and authenticated desktop/phone flow; preserve Menu costs
+- [x] Phone-first area count: photos, browser dictation/text, typed items and corrections
+- [x] Tenant-validated read-stock-count using the matcher model and recent delivered-item context
+- [x] Deterministic expected quantities, gap-only sending and manager/owner whole-count approval
+- [x] 33 frontend + 3 edge tests and build OK. Signed-in 375/1280 checks: model read/save of delivered Jim Beam, correction 2→3, three areas completed, pending review, whole-count approval, On hand 3 Bot, approved edit rejected. Temporary count deleted; original June draft untouched. Menu costs unchanged.
+- [ ] Physical shelf-photo accuracy and actual phone speech capture: require user device/real shelf photos; upload/camera controls and speech text fallback implemented but physical inputs unverified. Separate non-admin manager/owner session not exercised; existing admin/manager write restrictions preserved, Counts discoverable with invoice access.
 
 ## Stock simplification — Part 1
 - [x] Two-page navigation, underline Stock tabs and legacy movement redirects
