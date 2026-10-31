@@ -111,12 +111,12 @@ import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassifica
 
 import HREmployees from "./pages/hr/HREmployees";
 import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
-import HRDashboard from "./pages/hr/HRDashboard";
+import PeopleSettings from "./pages/admin/PeopleSettings";
 
 import HRSchedule from "./pages/hr/HRSchedule";
-import HRLeave from "./pages/hr/HRLeave";
+
 import HRPayroll from "./pages/hr/HRPayroll";
-import HRPayrollPayables from "./pages/hr/HRPayrollPayables";
+
 
 import ExpensesOverview from "./pages/expenses/Overview";
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
@@ -295,6 +295,7 @@ function App() {
                 <Route path="/admin/system-configuration" element={<Navigate to="/admin/structure" replace />} />
                 <Route path="/admin/structure" element={<AdminRoute><BusinessStructure /></AdminRoute>} />
                 <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
+                <Route path="/admin/people" element={<AdminRoute><PeopleSettings /></AdminRoute>} />
                 <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
 
@@ -358,14 +359,14 @@ function App() {
                 
 
                 
-                <Route path="/hr" element={<AdminRoute><HRDashboard /></AdminRoute>} />
+                <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
                 <Route path="/hr/employees/:id" element={<AdminRoute><HREmployeeProfile /></AdminRoute>} />
                 
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
-                <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
+                <Route path="/hr/leave" element={<Navigate to="/hr/schedule" replace />} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
-                <Route path="/hr/payroll/payables" element={<AdminRoute><HRPayrollPayables /></AdminRoute>} />
+                <Route path="/hr/payroll/payables" element={<Navigate to="/finance/payables" replace />} />
 
 
                 <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />

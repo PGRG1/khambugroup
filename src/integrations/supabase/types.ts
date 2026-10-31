@@ -3999,9 +3999,12 @@ export type Database = {
       }
       hr_employee_history: {
         Row: {
+          approved_by: string | null
+          change_id: string | null
           change_type: string
           created_at: string
           created_by: string | null
+          document_id: string | null
           effective_date: string
           employee_id: string
           field_changed: string | null
@@ -4012,9 +4015,12 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          approved_by?: string | null
+          change_id?: string | null
           change_type?: string
           created_at?: string
           created_by?: string | null
+          document_id?: string | null
           effective_date?: string
           employee_id: string
           field_changed?: string | null
@@ -4025,9 +4031,12 @@ export type Database = {
           tenant_id?: string
         }
         Update: {
+          approved_by?: string | null
+          change_id?: string | null
           change_type?: string
           created_at?: string
           created_by?: string | null
+          document_id?: string | null
           effective_date?: string
           employee_id?: string
           field_changed?: string | null
@@ -4038,6 +4047,20 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "hr_employee_history_change_id_fkey"
+            columns: ["change_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people_changes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_employee_history_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "hr_person_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "hr_employee_history_employee_id_fkey"
             columns: ["employee_id"]
@@ -4163,6 +4186,47 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_employment_terms: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          created_by: string
+          effective_date: string
+          employee_id: string
+          id: string
+          tenant_id: string
+          values: Json
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          created_by: string
+          effective_date: string
+          employee_id: string
+          id?: string
+          tenant_id: string
+          values: Json
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          created_by?: string
+          effective_date?: string
+          employee_id?: string
+          id?: string
+          tenant_id?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_employment_terms_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
         ]
@@ -4800,6 +4864,122 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_people_changes: {
+        Row: {
+          approval_mode: string
+          approved_at: string | null
+          approved_by: string | null
+          change_type: string
+          created_at: string
+          created_by: string
+          document_id: string | null
+          effective_date: string
+          employee_id: string | null
+          id: string
+          status: string
+          tenant_id: string
+          values: Json
+        }
+        Insert: {
+          approval_mode: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_type: string
+          created_at?: string
+          created_by: string
+          document_id?: string | null
+          effective_date: string
+          employee_id?: string | null
+          id?: string
+          status?: string
+          tenant_id: string
+          values: Json
+        }
+        Update: {
+          approval_mode?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_type?: string
+          created_at?: string
+          created_by?: string
+          document_id?: string | null
+          effective_date?: string
+          employee_id?: string | null
+          id?: string
+          status?: string
+          tenant_id?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_people_changes_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_person_documents: {
+        Row: {
+          created_at: string
+          created_by: string
+          employee_id: string
+          expiry_date: string | null
+          file_name: string
+          id: string
+          kind: string
+          mime_type: string
+          previous_id: string | null
+          storage_path: string
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          employee_id: string
+          expiry_date?: string | null
+          file_name: string
+          id?: string
+          kind: string
+          mime_type: string
+          previous_id?: string | null
+          storage_path: string
+          tenant_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          expiry_date?: string | null
+          file_name?: string
+          id?: string
+          kind?: string
+          mime_type?: string
+          previous_id?: string | null
+          storage_path?: string
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_person_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_person_documents_previous_id_fkey"
+            columns: ["previous_id"]
+            isOneToOne: false
+            referencedRelation: "hr_person_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -7778,6 +7958,41 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: true
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people_settings: {
+        Row: {
+          id: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          values: Json
+          venue_id: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          values?: Json
+          venue_id?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          values?: Json
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_settings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -12162,6 +12377,10 @@ export type Database = {
         }
         Returns: string
       }
+      approve_people_change: {
+        Args: { c: string; yes: boolean }
+        Returns: undefined
+      }
       approve_supplier_account_due_dates: {
         Args: { p_rows: Json; p_tenant: string }
         Returns: number
@@ -12195,6 +12414,17 @@ export type Database = {
           p_effective_from: string
           p_from?: string
           p_recognition_day: string
+        }
+        Returns: string
+      }
+      confirm_people_change: {
+        Args: {
+          d: string
+          doc?: string
+          e: string
+          kind: string
+          p: Json
+          t: string
         }
         Returns: string
       }
@@ -12344,6 +12574,20 @@ export type Database = {
           p_venue: string
         }
         Returns: string
+      }
+      people_access: { Args: { t: string; u: string }; Returns: boolean }
+      people_documents_access: {
+        Args: { t: string; u: string }
+        Returns: boolean
+      }
+      people_effective_settings: {
+        Args: { t: string; v: string }
+        Returns: Json
+      }
+      people_owner: { Args: { t: string; u: string }; Returns: boolean }
+      people_person_access: {
+        Args: { e: string; t: string; u: string }
+        Returns: boolean
       }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
@@ -12515,6 +12759,18 @@ export type Database = {
         }
         Returns: string
       }
+      register_people_document: {
+        Args: {
+          e: string
+          expiry?: string
+          k: string
+          m: string
+          n: string
+          p: string
+          t: string
+        }
+        Returns: string
+      }
       register_sales_receipt_intake: {
         Args: {
           p_hash: string
@@ -12541,6 +12797,10 @@ export type Database = {
           journal_entry_id: string
           line_id: string
         }[]
+      }
+      save_people_settings: {
+        Args: { p: Json; t: string; v: string }
+        Returns: undefined
       }
       save_purchasing_budgets: {
         Args: {

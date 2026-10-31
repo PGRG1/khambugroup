@@ -16,6 +16,10 @@ import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
 import { PayrollLaborCostCard } from "./PayrollLaborCostCard";
 import PayrollImportDialog, { EmployeePicker, type PayrollImportApplyPayload } from "./PayrollImportDialog";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { fetchAllRows } from "@/utils/fetchAllRows";
+import { monthlyDatedPay, termsOnDate } from "@/utils/people";
+import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenues } from "@/hooks/useVenues";
 
 const UNASSIGNED = "Unassigned";
@@ -207,6 +211,8 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
     return venueOrder.has(name) ? venueOrder.get(name)! : Number.MAX_SAFE_INTEGER - 1;
   }, [venueOrder]);
 
+  const {tenantId}=useActiveTenant();const peopleSettings=usePeopleSettings();const [employmentTerms,setEmploymentTerms]=useState<any[]>([]);const [clockRows,setClockRows]=useState<any[]>([]);
+  useEffect(()=>{if(tenantId)Promise.all([fetchAllRows("hr_employment_terms","*",undefined,tenantId),fetchAllRows("hr_attendance","*",undefined,tenantId)]).then(([t,a])=>{setEmploymentTerms(t);setClockRows(a);});},[tenantId]);
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
   const filtered = useMemo(
@@ -265,7 +271,14 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
     const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
     const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
-    const computedEarned = isFT ? baseSalary : baseSalary * daysHours;
+    const employeeTerms=employmentTerms.filter(t=>t.employee_id===emp.id);
+    const source=peopleSettings.forVenue((emp as any).venue_id).pay_hours;
+    const hours:Record<string,number>={};
+    if(source==='clock_ins')clockRows.filter(a=>a.employee_id===emp.id).forEach(a=>{hours[a.date]=(hours[a.date]??0)+Number(a.hours_worked??0);});
+    else if(source==='rota')shifts.filter(s=>s.employee_id===emp.id).forEach(s=>{const duration=(Date.parse(`2000-01-01T${s.end_time}`)-Date.parse(`2000-01-01T${s.start_time}`))/3600000;hours[s.shift_date]=(hours[s.shift_date]??0)+Math.max(0,(duration<0?duration+24:duration)-s.break_minutes/60);});
+    else {const date=`${filterYear}-${String(filterMonth).padStart(2,'0')}-01`;hours[date]=daysHours;}
+    const datedPay=monthlyDatedPay(employeeTerms,filterYear,filterMonth,hours);
+    const computedEarned = p || e.forecast_base_salary!=null ? (isFT ? baseSalary : baseSalary*daysHours) : datedPay??(isFT?baseSalary:baseSalary*daysHours);
     const earnedOverride = e.earned_salary_override !== undefined
       ? (e.earned_salary_override === "" ? null : Number(e.earned_salary_override))
       : (p?.earned_salary_override ?? null);
@@ -309,7 +322,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
       bank, account, totalCost,
       payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride,
     };
-  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
+  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth, employmentTerms, clockRows, shifts, peopleSettings]);
 
   const buildPayload = (emp: HREmployee): Partial<HRPayroll> => {
     const row = getRowData(emp);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { termsOnDate } from "@/utils/people";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 
 // Types
@@ -198,7 +199,9 @@ export function useHRData() {
   const fetchEmployees = useCallback(async () => {
     if (!tenantId) return;
     const data = await fetchAllRows("hr_employees", "*, department:hr_departments(*)", { col: "sort_order", asc: true }, tenantId);
-    setEmployees(data as any);
+    const terms=await fetchAllRows("hr_employment_terms","*",undefined,tenantId);
+    const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong"}).format(new Date());
+    setEmployees(data.map(e=>({...e,...termsOnDate(terms.filter(t=>t.employee_id===e.id),today)})) as any);
   }, [tenantId]);
 
   const fetchLeaveTypes = useCallback(async () => {
@@ -279,11 +282,11 @@ export function useHRData() {
 
   const upsertEmployee = async (emp: Partial<HREmployee>) => {
     if (!tenantId) return false;
-    const payload = { ...emp };
-    delete (payload as any).department;
-    const { error } = emp.id
-      ? await supabase.from("hr_employees").update(payload).eq("id", emp.id).eq("tenant_id", tenantId)
-      : await supabase.from("hr_employees").insert({ ...payload, tenant_id: tenantId } as any);
+    const payload = { ...emp } as any;
+    delete payload.department;delete payload.id;delete payload.cost_allocation_mode;
+    const allowed=['first_name','last_name','job_title','employment_type','venue_id','venue','hire_date','end_date','status','email','phone'];
+    const values=Object.fromEntries(allowed.filter(k=>payload[k]!=null).map(k=>[k,payload[k]]));
+    const { error } = await supabase.rpc("confirm_people_change",{t:tenantId,e:emp.id??null,d:new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong"}).format(new Date()),p:values,kind:emp.id?"details":"joined"});
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchEmployees();
     return true;
@@ -291,17 +294,10 @@ export function useHRData() {
 
   const createEmployee = async (emp: Partial<HREmployee>): Promise<HREmployee | null> => {
     if (!tenantId) return null;
-    const payload = { ...emp };
-    delete (payload as any).department;
-    delete (payload as any).id;
-    const { data, error } = await supabase
-      .from("hr_employees")
-      .insert({ ...payload, tenant_id: tenantId } as any)
-      .select("*, department:hr_departments(*)")
-      .single();
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
-    await fetchEmployees();
-    return data as any;
+    const ok=await upsertEmployee(emp);
+    if(!ok)return null;
+    toast({title:"Person submitted",description:"Owner review may be required before this person appears."});
+    return null;
   };
 
   const upsertLeaveType = async (lt: Partial<HRLeaveType>) => {
