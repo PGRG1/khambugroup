@@ -1,9 +1,10 @@
 ## People — Part 1
-- [ ] People navigation and redirects; admin Company/venue settings with feature gates
-- [ ] Team clean list, venue review and confirmed Bani drafts with owner approval
-- [ ] Centred profile, private versioned documents, contract review and dated history
-- [ ] Effective-dated pay/leave integration and focused tests; no Rota/Payroll redesign
-- [ ] Signed-in phone/desktop and permission/save verification
+- [x] Team/Rota & hours/Payroll navigation and requested redirects; Company/active venue People settings
+- [x] Clean Team table, shared scope/filter/search/download, Bani venue/new-person/change drafts and explicit owner-review requests
+- [x] Centred profiles, private versioned documents/contract review, 60-day expiry notices, dated history and annual-leave presentation
+- [x] Dated unsaved payroll calculation and save-roundtrip preservation; existing saved payroll authoritative; no Rota/Payroll redesign
+- [x] 17 focused tests via Node setup (default canvas dependency unavailable), build OK, signed-in phone/desktop Team/profile/settings/draft checks without overflow. Confirm created pending request, no employee, non-owner approval rejected; temporary request removed.
+- [ ] Owner/Strict approval and actual private contract/version upload: unavailable in current non-owner session; no unauthorized privilege grant made. Real contract extraction, cross-venue manager file access, phone-at-venue enforcement and staff-app/payslip experiences remain unverified/unbuilt pending later People parts.
 
 ## Supplier Accounts — Part 2
 - [x] Restyle detail header, nonzero summary, More actions/Deals and five clean-table tabs; preserve existing tab actions, default Open invoices

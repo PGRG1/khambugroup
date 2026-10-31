@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter} from '@/components/ui/dialog';
 import {Button} from '@/components/ui/button';import {Input} from '@/components/ui/input';import {Label} from '@/components/ui/label';
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
-import {supabase} from '@/integrations/supabase/client';import {toast} from 'sonner';import {formatCurrency} from '@/utils/format';
+import {supabase} from '@/integrations/supabase/client';import {toast} from 'sonner';import {formatCurrency,formatDate} from '@/utils/format';
 export function PeopleChangeDialog({draft,onClose,tenantId,venues,onSaved,disabled=false}:{draft:any;onClose:()=>void;tenantId:string;venues:{id:string;name:string}[];onSaved:()=>void;disabled?:boolean}){
  const [value,setValue]=useState<any>({});const [saving,setSaving]=useState(false);useEffect(()=>setValue(draft?{...draft,employment_type:draft.employment_type??'full_time',pay_basis:draft.pay_basis??'month'}:{}),[draft]);
  const update=(k:string,v:any)=>setValue((s:any)=>({...s,[k]:v}));
@@ -16,6 +16,6 @@ export function PeopleChangeDialog({draft,onClose,tenantId,venues,onSaved,disabl
  <Label>Pay<Input aria-label="Pay amount" type="number" min="0" value={value.pay_amount??''} onChange={e=>update('pay_amount',e.target.value===''?null:Number(e.target.value))}/></Label>
  <Label>Pay basis<Select value={value.pay_basis??'month'} onValueChange={v=>update('pay_basis',v)}><SelectTrigger aria-label="Pay basis"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="month">Per month</SelectItem><SelectItem value="hour">Per hour</SelectItem></SelectContent></Select></Label>
  {['weekly_hours','annual_leave','probation_months','notice_days'].map(k=><Label key={k}>{k.replace(/_/g,' ')}<Input aria-label={k} type="number" min="0" value={value[k]??''} onChange={e=>update(k,e.target.value===''?null:Number(e.target.value))}/></Label>)}
- </div><div className="kit-explain">{value.note&&<p>{value.note}</p>}<p>Pay: {value.pay_amount==null?'unchanged / unknown':`${formatCurrency(value.pay_amount)} per ${value.pay_basis??'month'}`} from {value.effective_date}. This month’s pay uses the old terms before that date and new terms afterwards. Leave builds from the dated entitlement; rota hours use the dated weekly hours. Existing paid records are not rewritten.</p></div>
+ </div><div className="kit-explain">{value.note&&<p>{value.note}</p>}<p>Pay: {value.pay_amount==null?'unchanged / unknown':`${formatCurrency(value.pay_amount)} per ${value.pay_basis??'month'}`} from {value.effective_date?formatDate(value.effective_date):'—'}. This month’s pay uses the old terms before that date and new terms afterwards. Leave builds from the dated entitlement; rota hours use the dated weekly hours. Existing paid records are not rewritten.</p></div>
  <DialogFooter><Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button onClick={save} disabled={saving||disabled||!value.effective_date}>{saving?'Saving…':'Confirm'}</Button></DialogFooter></DialogContent></Dialog>;
 }

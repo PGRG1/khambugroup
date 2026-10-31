@@ -1,0 +1,1 @@
+CREATE TRIGGER people_employee_confirm_delete BEFORE DELETE ON public.hr_employees FOR EACH ROW EXECUTE FUNCTION public.people_guard_employee_write();CREATE POLICY people_employees_scope ON public.hr_employees AS RESTRICTIVE FOR SELECT TO authenticated USING(public.people_person_access(tenant_id,id,auth.uid()));

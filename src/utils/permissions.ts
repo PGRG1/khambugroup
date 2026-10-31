@@ -56,6 +56,7 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   people: [
     { key: "people.manage_payroll", label: "Manage payroll" },
     { key: "people.view_salary", label: "View salary information" },
+    { key: "people.view_documents", label: "View private person documents" },
   ],
   admin: [],
 };

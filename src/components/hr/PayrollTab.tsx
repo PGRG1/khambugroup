@@ -18,7 +18,7 @@ import { PayrollLaborCostCard } from "./PayrollLaborCostCard";
 import PayrollImportDialog, { EmployeePicker, type PayrollImportApplyPayload } from "./PayrollImportDialog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchAllRows } from "@/utils/fetchAllRows";
-import { monthlyDatedPay, termsOnDate } from "@/utils/people";
+import { monthlyDatedPay, preserveEarnedPay } from "@/utils/people";
 import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenues } from "@/hooks/useVenues";
 
@@ -177,7 +177,7 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
+export function PayrollTab({ payroll, employees, shifts, onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(initialYear ?? now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(initialMonth ?? (now.getMonth() + 1));
@@ -340,7 +340,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
       mpf_payment_amount: row.totalMPF, net_salary: row.netPay, total_deductions: row.mpfEE + row.otherDed,
       payment_method: row.bank || "bank_transfer", notes: row.account,
       payment_status: p?.payment_status || "draft",
-      earned_salary_override: row.earnedOverride,
+      earned_salary_override: preserveEarnedPay(Boolean(p),row.earnedOverride,row.earnedSalary),
       adjustments_override: row.adjOverride,
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
