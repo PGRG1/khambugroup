@@ -109,7 +109,7 @@ export default function StockCounts() {
   const close = () => { setSelectedSessionId(null); setParams({}); };
   return <div className="w-full min-w-0 space-y-5 pb-24">
     <ListView onOpen={setSelectedSessionId} refreshKey={selectedSessionId} />
-    <Dialog open={!!selectedSessionId} onOpenChange={o => !o && close()}><DialogContent className="stock-count-dialog w-[calc(100%-2rem)] max-w-5xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle className="sr-only">Stock count</DialogTitle></DialogHeader>{selectedSessionId && <DetailView sessionId={selectedSessionId} onBack={close} />}</DialogContent></Dialog>
+    <Dialog open={!!selectedSessionId} onOpenChange={o => !o && close()}><DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle className="sr-only">Stock count</DialogTitle></DialogHeader>{selectedSessionId && <DetailView sessionId={selectedSessionId} onBack={close} />}</DialogContent></Dialog>
   </div>;
 }
 

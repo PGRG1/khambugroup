@@ -20,7 +20,7 @@ Deno.serve(async req => {
     const input=parsed.data;
     if(input.photos.reduce((s,p)=>s+p.length,0)>28000000) throw new RequestError(400,'Use fewer or smaller photos (20 MB total).');
     const {admin,user}=await authorize(req,input.tenant_id);
-    const {data:claims}=await user.auth.getClaims();
+    const {data:claims}=await user.auth.getClaims(req.headers.get('Authorization')?.slice(7));
     const userId=claims?.claims?.sub;
     if(!userId) throw new RequestError(401,'Sign in required');
     const {data:session,error:se}=await user.from('stock_count_sessions').select('*').eq('id',input.session_id).eq('tenant_id',input.tenant_id).eq('venue',input.venue).maybeSingle();
