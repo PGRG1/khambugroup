@@ -12913,6 +12913,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      payroll_override_batch: {
+        Args: { changes: Json; repeating: boolean; rev: number; t: string }
+        Returns: undefined
+      }
       payroll_prepare: {
         Args: { m: number; t: string; y: number }
         Returns: Json
