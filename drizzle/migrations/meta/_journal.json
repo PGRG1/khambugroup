@@ -358,6 +358,13 @@
       "when": 1793461411542,
       "tag": "0050_finance_ai_pause_and_close_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793462273888,
+      "tag": "0051_bani_accounting_automation_foundation",
+      "breakpoints": true
     }
   ]
 }
