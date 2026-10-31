@@ -1,4 +1,4 @@
-import {addDays, shiftHours, minutes, personOnDate, type RotaRow} from '@/utils/peopleRota';
+import {addDays, shiftHours, personOnDate, type RotaRow} from '@/utils/peopleRota';
 
 export function payrollAmounts(earned:number, overtime=0, bonus=0, annualLeave=0, unpaid=0, adjustment=0, other=0, eeOverride:number|null=null, erOverride:number|null=null) {
   const gross=earned+overtime+bonus+annualLeave-unpaid+adjustment;
@@ -8,7 +8,7 @@ export function payrollAmounts(earned:number, overtime=0, bonus=0, annualLeave=0
 export function payrollApprovalAllowed(mode:string,owner:boolean,author:string|null,uid:string) {return owner&&(mode!=='strict'||Boolean(author&&author!==uid));}
 export function payrollPayChangeAllowed(owner:boolean,manager:boolean,enabled:boolean) {return owner||(manager&&enabled);}
 export function payrollPeriod(year:number,month:number) {const start=`${year}-${String(month).padStart(2,'0')}-01`;return {start,end:addDays(`${month===12?year+1:year}-${String(month===12?1:month+1).padStart(2,'0')}-01`,-1)};}
-export function payrollExceptions(rows:RotaRow[],previous:RotaRow[],audits:RotaRow[]) {
+export function payrollExceptions(rows:RotaRow[],previous:RotaRow[],audits:RotaRow[]):(RotaRow & {reasons:string[];changed:boolean})[] {
   return rows.map(row=>{const old=previous.find(p=>p.employee_id===row.employee_id);const changes=audits.filter(a=>a.employee_id===row.employee_id);const reasons:string[]=[...(row.preparation?.reasons??[])];
     for(const a of changes)reasons.push(`Changed by manager: ${a.reason} (${a.previous_value} → ${a.new_value}), ${a.repeat?'every month':'this month only'}`);
     if(!old)reasons.push('First payroll record');else if(Math.abs(Number(row.net_salary)-Number(old.net_salary))>0.01&&!reasons.length)reasons.push('Pay differs from last month');

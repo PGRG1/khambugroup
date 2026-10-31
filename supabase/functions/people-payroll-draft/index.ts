@@ -3,7 +3,7 @@ import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
 import {z} from 'npm:zod@4';
 import {createOpenAI} from 'npm:@ai-sdk/openai@3';
 import {streamText,Output} from 'npm:ai@6';
-import {createLovableAiGatewayRunIdFetch} from '../people-rota-draft/run-id.ts';
+import {createLovableAiGatewayRunIdFetch} from './run-id.ts';
 const Body=z.object({tenant_id:z.string().uuid(),year:z.number().int().min(2000).max(2200),month:z.number().int().min(1).max(12),text:z.string().min(1).max(3000)});
 const Draft=z.object({answer:z.string(),changes:z.array(z.object({employee_id:z.string(),field:z.enum(['adjustments_override','earned_salary_override','actual_overtime','actual_bonus','forecast_allowances']),value:z.number(),reason:z.string()}))});
 Deno.serve(async(req)=>{const headers={...corsHeaders,'Content-Type':'application/json'};if(req.method==='OPTIONS')return new Response('ok',{headers});try{
