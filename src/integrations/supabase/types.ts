@@ -12899,6 +12899,10 @@ export type Database = {
         Args: { m: number; rev: number; t: string; y: number }
         Returns: Json
       }
+      payroll_fill_terms: {
+        Args: { m: number; rows: Json; t: string; y: number }
+        Returns: Json
+      }
       payroll_manager: { Args: { t: string; u: string }; Returns: boolean }
       payroll_override: {
         Args: {
@@ -12922,6 +12926,10 @@ export type Database = {
         Returns: Json
       }
       payroll_preview: {
+        Args: { m: number; t: string; y: number }
+        Returns: Json
+      }
+      payroll_terms_candidates: {
         Args: { m: number; t: string; y: number }
         Returns: Json
       }
