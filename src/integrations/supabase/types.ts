@@ -12585,6 +12585,10 @@ export type Database = {
         Returns: Json
       }
       people_owner: { Args: { t: string; u: string }; Returns: boolean }
+      people_person_access: {
+        Args: { e: string; t: string; u: string }
+        Returns: boolean
+      }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
         Returns: undefined
