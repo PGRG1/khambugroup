@@ -1,3 +1,9 @@
+## Stock counting — Part 2
+- [ ] Phone-first area count: photos, browser dictation/text, typed items and corrections
+- [ ] Tenant-validated read-stock-count using the matcher model and recent delivered-item context
+- [ ] Deterministic expected quantities, gap-only sending and manager/owner whole-count approval
+- [ ] Tests and authenticated desktop/phone flow; preserve Menu costs
+
 ## Stock simplification — Part 1
 - [x] Two-page navigation, underline Stock tabs and legacy movement redirects
 - [x] Count-aware On hand list and centred item/count dialogs, deposits unchanged
