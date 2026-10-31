@@ -20,7 +20,7 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  const stripped=instruction.replace(/\b20\d{2}(?:-(?:0?[1-9]|1[0-2]))?\b/g,'');
  const raw=[...stripped.matchAll(/\b\d[\d,]*(?:\.\d{1,2})?\b/g)];
  if(amountMatches.length!==1&&(amountMatches.length!==0||raw.length!==1))return empty('What exact amount or monthly hours should change? Please give one amount for one person.');
- const amount=Number((amountMatches[0]?.[1]??amountMatches[0]?.[2]??raw[0]?.[0]??'').replaceAll(',',''));
+ const amount=Number((amountMatches[0]?.[1]??amountMatches[0]?.[2]??raw[0]?.[0]??'').replace(/,/g,''));
  if(!Number.isFinite(amount)||amount<0||amount>10000000||/\b(percent|percentage)\b|%/.test(lower))return empty('Please give the exact amount in HK dollars, or exact typed monthly hours.');
  const hours=/\bhours?\b/i.test(instruction), base=/\b(base|basic|earned)\s*(pay|salary)?\b/i.test(instruction), bonus=/\bbonus\b/i.test(instruction), cut=/\b(deduct|cut|reduce|subtract)\b/i.test(instruction);
  if(hours&&person.preparation?.source!=='typed_monthly')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
@@ -32,7 +32,7 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  return {...empty(''),changes:[{employee_id:person.employee_id,field,value,previous:old,reason,amount,delta:value-old}],repeat:/\b(every month|monthly|each month)\b/i.test(instruction)};
 }
 export function payrollNetAfter(p:Row,c:Row) {
- const next={...p,[c.field]:c.value};
+ const next:Row={...p,[c.field]:c.value};
  const earned=c.field==='forecast_allowances'?Number(p.forecast_base_salary)*c.value:Number(next.earned_salary_override??next.actual_base_salary??next.forecast_base_salary??0);
  const gross=earned+Number(next.actual_overtime??0)+Number(next.actual_bonus??0)+Number(next.annual_leave_pay??0)-Number(next.unpaid_leave_deduction??0)+Number(next.adjustments_override??0);
  return gross-Number(next.mpf_employee_override??Math.min(1500,gross*.05))-Number(next.other_deductions??0);
