@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "@/hooks/use-toast";
 import { AssistantChart, type ChartSpec } from "@/components/assistant/AssistantChart";
+import { PeopleActionCard, type ChatActionCard, type PeopleOutcome } from "@/components/assistant/PeopleActionCard";
 import {
   assistantScopeKey,
   canSend as canSendFn,
@@ -94,6 +95,11 @@ export default function Assistant() {
   }, [scopeKey]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    const change = (event: Event) => { if (event instanceof CustomEvent && typeof event.detail === "string") setInput(event.detail); };
+    window.addEventListener("bani-people-change", change);
+    return () => window.removeEventListener("bani-people-change", change);
+  }, []);
 
   // Only auto-scroll when the user is already at the bottom.
   const onScroll = () => {
@@ -147,7 +153,7 @@ export default function Assistant() {
     (convId: string) => {
       patchActive(convId, (c) => {
         const last = c.messages[c.messages.length - 1];
-        return last?.role === "assistant" && !last.content && !(last.charts?.length)
+        return last?.role === "assistant" && !last.content && !(last.charts?.length) && !last.actionCard
           ? { ...c, messages: c.messages.slice(0, -1) }
           : c;
       });
@@ -198,6 +204,7 @@ export default function Assistant() {
     let assistantSoFar = "";
     const collectedCharts: ChartSpec[] = [];
     const collectedSteps: AssistantStep[] = [];
+    let actionCard: ChatActionCard | undefined;
     const startedAt = Date.now();
     let durationMs: number | undefined;
     const stale = () => requestScopeRef.current !== sentScope || controller.signal.aborted;
@@ -212,6 +219,7 @@ export default function Assistant() {
           content: assistantSoFar,
           charts: [...collectedCharts],
           steps: [...collectedSteps],
+          ...(actionCard ? { actionCard } : {}),
           ...(durationMs !== undefined ? { durationMs } : {}),
         };
         const last = c.messages[c.messages.length - 1];
@@ -302,6 +310,9 @@ export default function Assistant() {
               opts?.onStatus?.(parsed.status.label);
             } else if (parsed.speak && typeof parsed.speak.text === "string") {
               opts?.onSpeak?.(parsed.speak as SpeakEvent);
+            } else if (parsed.action?.type === "action_card" && parsed.action.kind === "people") {
+              actionCard = { id: parsed.action.action_id, kind: "people", title: parsed.action.title, detail: parsed.action.detail };
+              upsert("");
             } else if (parsed.chart) {
               upsert("", parsed.chart as ChartSpec);
             } else {
@@ -640,7 +651,7 @@ export default function Assistant() {
               <div className="mx-auto w-full max-w-[720px] space-y-5">
                 {messages.map((m, i) => {
                   const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
-                  return inFlight ? null : <MessageBlock key={i} msg={m} voiceMode />;
+                  return inFlight ? null : <MessageBlock key={i} msg={m} voiceMode onOutcome={result => { if (active) patchActive(active.id, c => ({ ...c, messages: c.messages.map((item, index) => index === i ? { ...item, actionOutcome: result } : item) })); }} onChange={setInput} />;
                 })}
               </div>
             </div>
@@ -693,7 +704,7 @@ export default function Assistant() {
               {messages.map((m, i) => {
                 const inFlight = loading && i === messages.length - 1 && m.role === "assistant" && !m.content;
                 if (inFlight) return voiceMode ? null : <ThinkingLine key={i} />;
-                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} />;
+                return <MessageBlock key={i} msg={m} voiceMode={voiceMode} onOutcome={result => { if (active) patchActive(active.id, c => ({ ...c, messages: c.messages.map((item, index) => index === i ? { ...item, actionOutcome: result } : item) })); }} onChange={setInput} />;
               })}
               {!voiceMode && loading && messages[messages.length - 1]?.role === "user" && <ThinkingLine />}
             </div>
@@ -715,7 +726,7 @@ export default function Assistant() {
   );
 }
 
-function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolean }) {
+function MessageBlock({ msg, voiceMode = false, onOutcome, onChange }: { msg: Msg; voiceMode?: boolean; onOutcome: (result: PeopleOutcome) => void; onChange: (text: string) => void }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -766,6 +777,7 @@ function MessageBlock({ msg, voiceMode = false }: { msg: Msg; voiceMode?: boolea
         {msg.charts?.map((c, ci) => (
           <AssistantChart key={ci} spec={c} />
         ))}
+        {msg.actionCard?.kind === "people" && <PeopleActionCard card={msg.actionCard} outcome={msg.actionOutcome} onOutcome={onOutcome} onChange={onChange} />}
       </div>
     </div>
   );
