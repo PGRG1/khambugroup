@@ -1,3 +1,10 @@
+## Finance — Part 2
+- [ ] Unified Payables list and recorded-payment allocation with original workflows
+- [ ] Receivables expected sales, payout checks and processor settings
+- [ ] Cash & bank Accounts/Transactions/Close month and cash-box expense receipts
+- [ ] Legacy redirects, access preservation and sidebar cleanup
+- [ ] Focused tests and signed-in desktop/phone checks; AI remains paused until spending cap restored
+
 ## Bani automatic posting and learning
 - [x] Tenant Accounting defaults on, optional ask-above amount and audited settings
 - [x] Server-only leased source queue, independent verification, existing posting delegates, open-period/idempotency guards and Needs you reasons; first run posted 0, all 9 waiting bills unchanged
