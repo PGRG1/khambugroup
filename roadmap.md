@@ -1,8 +1,9 @@
 ## Bani People write actions
-- [ ] Shared main/floating Confirm / Change / Cancel cards and server-validated People drafts
-- [ ] Reuse rota/leave/Team/payroll RPCs with existing permissions, owner review and no chat payroll approval
-- [ ] Atomic confirmation audit, stale protection, safe rota/leave undo and linked results
-- [ ] Focused rules tests and signed-in end-to-end checks; report unavailable checks
+- [x] Shared main/floating Confirm / Change / Cancel cards and server-validated People drafts; explicit identities and periods required
+- [x] Reuse rota/leave/Team/payroll RPCs with existing permissions, owner review and no chat payroll approval
+- [x] Atomic owned-card confirmation/audit, unchanged-record checks, safe rota/leave undo and selected-period links
+- [x] 49 focused tests and build OK; signed-in main confirmation, Assembly Asim 09 Nov RD readback, Confirm undo/readback, floating 375px card and Change; audit records verified and test shifts undone
+- [ ] Owner/Strict Team approval, live pay instructions/preparation, paid leave approval/refund, non-admin cross-venue and concurrent confirms: not exercised on live People/pay records; existing permission/approval RPCs retained. Complex move/copy/send and changed-record undo refusal remain unverified end-to-end.
 
 ## People fixes — payroll, hours, clock-in
 - [x] Explicit-only payroll instructions, selected-month/revision binding and factual confirmed net-pay dialog; no model-generated pay amounts
