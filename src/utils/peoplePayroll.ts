@@ -1,4 +1,4 @@
-import {addDays, shiftHours, personOnDate, type RotaRow} from '@/utils/peopleRota';
+import {addDays, shiftHours, personOnDate, punctualityFacts, type RotaRow} from '@/utils/peopleRota';
 
 export function payrollAmounts(earned:number, overtime=0, bonus=0, annualLeave=0, unpaid=0, adjustment=0, other=0, eeOverride:number|null=null, erOverride:number|null=null) {
   const gross=earned+overtime+bonus+annualLeave-unpaid+adjustment;
@@ -22,5 +22,6 @@ export function profileReliability(person:RotaRow,terms:RotaRow[],shifts:RotaRow
   const recorded=observed.filter(r=>r.a).length;const planned=own.reduce((n,s)=>n+shiftHours(s),0);
   let contract=0,known=true;for(let d=start;d<today;d=addDays(d,1)){const at=personOnDate(person,terms,d);if(at.hire_date>d||at.end_date&&at.end_date<d)continue;if(at.weekly_hours==null)known=false;else contract+=Number(at.weekly_hours)/7;}
   const covered=swaps.filter(s=>s.replacement_employee_id===person.id&&s.status==='approved'&&shifts.some(r=>r.id===s.shift_id&&r.shift_date>=start&&r.shift_date<today)).length;
-  return {start,onTime:recorded-late.length,recorded,late,noShows:clockEnabled?own.filter(s=>s.no_show===true).length:null,covered,planned,contract:known?contract:null,unknown:!clockEnabled||recorded<own.length||recorded===0};
+  const departures=own.map(s=>({date:s.shift_date,...punctualityFacts(s,attendance.filter(a=>a.employee_id===person.id&&a.date===s.shift_date),new Date(`${today}T00:00:00+08:00`))})).filter(f=>f.earlyMinutes>0||f.extraMinutes>0);
+  return {start,onTime:recorded-late.length,recorded,late,departures,noShows:clockEnabled?own.filter(s=>s.no_show===true).length:null,covered,planned,contract:known?contract:null,unknown:!clockEnabled||recorded<own.length||recorded===0};
 }
