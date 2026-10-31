@@ -1,5 +1,5 @@
 import {Button} from '@/components/ui/button';
-import {formatDecimal,formatPercent,formatDate} from '@/utils/format';
+import {formatDecimal,formatPercent,formatDate,formatHongKongTime} from '@/utils/format';
 import {shiftHours,leaveOnDay,leaveCode,personOnDate,attendanceDifference,daySummary,expectedSales,type RotaRow} from '@/utils/peopleRota';
 export function RotaBoard({view,venue,people,terms,shifts,leave,holidays,sales,attendance,days,day,clockEnabled,disabled,onCell}:{view:string;venue:RotaRow;people:RotaRow[];terms:RotaRow[];shifts:RotaRow[];leave:RotaRow[];holidays:RotaRow[];sales:RotaRow[];attendance:RotaRow[];days:string[];day:string;clockEnabled:boolean;disabled:boolean;onCell:(person:RotaRow,day:string)=>void}){
  const chip=(p:RotaRow,d:string)=>{const l=leaveOnDay(leave,p.id,d);return l?leaveCode(l.leave_type?.name??'Leave'):holidays.some(h=>h.is_active&&h.date===d&&h.holiday_type==='statutory')?'SH':null;};

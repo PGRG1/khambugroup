@@ -29,6 +29,10 @@ export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
 
+export function formatHongKongTime(value: string): string {
+  return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Hong_Kong',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+}
+
 /** Buying-side due labels retain the weekday for invoice ageing. */
 export function formatSupplierDueDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {weekday:'short',day:'2-digit',month:'short',timeZone:'UTC'}).format(new Date(`${value.slice(0,10)}T00:00:00Z`));
