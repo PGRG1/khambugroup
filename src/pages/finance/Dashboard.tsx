@@ -72,6 +72,7 @@ export default function FinanceDashboard() {
     const bills = books.bills.filter(
       (b) =>
         ["draft", "pending_review"].includes(b.approval_status) &&
+        !bani.reviews.some(r=>r.source_id===b.id&&['asked','posted','reversed'].includes(r.status)) &&
         period.inPeriod(b.bill_date),
     );
     const missing = books.lines.filter(
@@ -122,7 +123,7 @@ export default function FinanceDashboard() {
         link: "/finance/payables",
       },
     ].filter((x) => x.count > 0);
-  }, [books, period.fromIso, period.toIso, today]);
+  }, [books, bani.reviews, period.fromIso, period.toIso, today]);
   async function ask() {
     if (!question.trim() || !books.tenantId) return;
     setAsking(true);

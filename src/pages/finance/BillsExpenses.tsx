@@ -36,6 +36,7 @@ import {
   BillApprovalStatus,
 } from "@/hooks/useExpenseBills";
 import { useAuth } from "@/hooks/useAuth";
+import { useBaniAccounting } from '@/hooks/useBaniAccounting';
 import {
   PageHeader,
   KpiGrid,
@@ -86,6 +87,7 @@ function AmountCell({ value, onChange }: { value: number; onChange: (n: number) 
 }
 
 export default function BillsExpenses() {
+  const baniAccounting=useBaniAccounting();
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
@@ -347,6 +349,8 @@ export default function BillsExpenses() {
   const addAllocation = () => {
     setAllocations((rows) => [...rows, { line_no: rows.length + 1, expense_category: "", account_id: null, venue: header.venue || null, department: header.department || null, amount: 0, tax_treatment: "none", tax_amount: 0, notes: null }]);
   };
+  const billFromLink=new URLSearchParams(location.search).get('bill');
+  useEffect(()=>{const bill=bills.find(b=>b.id===billFromLink);if(bill&&!editorOpen)void openEditor(bill);},[billFromLink,bills.length]);
 
   const updateAlloc = (idx: number, patch: Partial<ExpenseBillAllocation>) => {
     setAllocations((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -601,6 +605,7 @@ export default function BillsExpenses() {
           </DialogHeader>
 
           <div className="space-y-5 mt-5 [&_section]:rounded-none [&_section]:border-0 [&_section]:bg-transparent [&_section]:p-0">
+            {baniAccounting.reviews.filter(r=>r.source_id===editing?.id&&r.posted_at).map(r=><div className="kit-explain" key={r.id}><p>Posted by Bani · {r.posting_reason}</p>{r.status==='posted'&&<Button variant="outline" size="sm" disabled={baniAccounting.busy||!canWrite} onClick={async()=>{await baniAccounting.reverse(r.id);setEditorOpen(false);}}>Reverse</Button>}</div>)}
             <div className="grid grid-cols-2 gap-3 text-sm"><div><span className="text-muted-foreground">What for</span><p>{header.notes||allocations.map(a=>a.expense_category).join(", ")||"—"}</p></div><div><span className="text-muted-foreground">Account</span><p>{allocations.map(a=>accounts.find(ac=>ac.id===a.account_id)?.name||"Pick an account").join(", ")}</p></div><div><span className="text-muted-foreground">Due</span><p>{header.due_date?formatDate(header.due_date):"No due date"}</p></div><div><span className="text-muted-foreground">Paid from</span><p>{payments.map(p=>p.payment_method.replace(/_/g," ")).join(", ")||"Not paid"}</p></div></div>
             <p className="text-sm text-muted-foreground">{header.attachment_path || header.attachment_url ? 'Read from the attached invoice · check against the original before approving' : 'No invoice attached — entered manually'}</p>
             {/* Statement bill notice — brought-forward is excluded from booking. */}

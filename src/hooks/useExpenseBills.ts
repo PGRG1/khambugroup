@@ -206,8 +206,10 @@ export function useExpenseBills() {
           });
         }
 
-        const { error: deleteError } = await supabase.from("expense_bill_allocations").delete().eq("bill_id", billId).eq("tenant_id", tenantId);
-        if (deleteError) throw deleteError;
+        const {data:existingLines,error:readError}=await supabase.from('expense_bill_allocations').select('id,line_no').eq('bill_id',billId).eq('tenant_id',tenantId);
+        if(readError)throw readError;
+        const removed=(existingLines??[]).filter(l=>l.line_no>allocations.length).map(l=>l.id);
+        if(removed.length){const {error}=await supabase.from('expense_bill_allocations').delete().in('id',removed).eq('tenant_id',tenantId);if(error)throw error;}
         if (allocations.length) {
           const payload = allocations.map((a, i) => ({
             bill_id: billId,
@@ -222,8 +224,7 @@ export function useExpenseBills() {
             notes: a.notes || null,
             tenant_id: tenantId,
           }));
-          const { error } = await supabase.from("expense_bill_allocations").insert(payload);
-          if (error) throw error;
+          for(const row of payload){const existing=existingLines?.find(l=>l.line_no===row.line_no);const result=existing?await supabase.from('expense_bill_allocations').update(row).eq('id',existing.id).eq('tenant_id',tenantId):await supabase.from('expense_bill_allocations').insert(row);if(result.error)throw result.error;}
         }
 
         await refresh();
