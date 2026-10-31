@@ -365,6 +365,13 @@
       "when": 1793462273888,
       "tag": "0051_bani_accounting_automation_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793462343814,
+      "tag": "0052_bani_guarded_source_posting_and_corrections",
+      "breakpoints": true
     }
   ]
 }
