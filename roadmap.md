@@ -1,8 +1,9 @@
 ## Menu costs — Part 3
-- [ ] Food cost period table, counts basis and missing-sales warnings
-- [ ] Recipes table, latest received ingredient costs, inline recipe/price editing
-- [ ] Tenant-validated menu drafting and selectable draft saving
-- [ ] Rule tests and signed-in phone/desktop verification; Stock unchanged
+- [x] Food cost period table, approved-count basis and sales-day coverage through today
+- [x] Recipes table, latest confirmed received ingredient costs, inline recipe/price editing
+- [x] Tenant-validated menu drafting and selectable draft saving; unknown ingredients remain unpriced
+- [x] 47 frontend + 4 function policy tests; build OK. Signed-in 1280/375 checks: real food figures, recipes, centred details and no overflow. Sample photo drafted four bought ingredients, saved a recipe, read it back and deleted it; original 3 dishes/10 ingredients/7 prices remain. Stock pages unchanged.
+- [ ] Real multi-page menu PDF accuracy and counts-based live figures: require a real menu and approved opening/closing count pair; pure count math tested. Separate non-admin permission session not exercised.
 
 ## Stock counting — Part 2
 - [x] Phone-first area count: photos, browser dictation/text, typed items and corrections
