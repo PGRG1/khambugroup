@@ -1,0 +1,21 @@
+import {useEffect,useState} from 'react';
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter} from '@/components/ui/dialog';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
+import {usePayables} from '@/hooks/usePayables';
+import {usePaymentSettlements} from '@/hooks/usePaymentSettlements';
+import {useFinanceReceipts} from '@/hooks/useFinanceReceipts';
+import {useBaniAccounting} from '@/hooks/useBaniAccounting';
+import type {useBankModule,BankTxn} from '@/hooks/useBankModule';
+import {supabase} from '@/integrations/supabase/client';
+import {formatDate,formatMenuCurrency} from '@/utils/format';
+import {toast} from 'sonner';
+export function BankMatchDialog({txn,onClose,bank}:{txn:BankTxn|null;onClose:()=>void;bank:ReturnType<typeof useBankModule>}){
+ const ap=usePayables(),payout=usePaymentSettlements(),sales=useFinanceReceipts(),bani=useBaniAccounting();const [pick,setPick]=useState('none'),[notes,setNotes]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{setPick('none');setNotes(txn?.notes??'');},[txn?.id]);if(!txn)return null;
+ const candidates=[...ap.payments.filter(p=>Math.abs(p.amount-Number(txn.money_out))<=.005&&p.paid_from_account_id===txn.bank_account_id&&p.match_status!=='matched').map(p=>({key:`payment:${p.id}`,type:'payment',id:p.id,name:`${p.supplier_name} · ${formatDate(p.payment_date)} · ${formatMenuCurrency(p.amount)}`})),...payout.batches.filter(b=>!b.bank_transaction_id&&Number(txn.money_in)>0&&Math.abs(Number(b.net_settlement)-Number(txn.money_in))<=.005&&b.settlement_date===txn.txn_date&&(!b.bank_account_id||b.bank_account_id===txn.bank_account_id)).map(b=>({key:`settlement:${b.id}`,type:'settlement_batch',id:b.id,name:`${payout.processors.find(p=>p.id===b.processor_id)?.name??'Card'} payout · ${formatDate(b.settlement_date)}`})),...sales.expected.filter(s=>s.method==='cash'&&Number(txn.money_in)>0&&Math.abs(s.amount-Number(txn.money_in))<=.005).map(s=>({key:`cash:${s.salesId}`,type:'cash_deposit',id:s.salesId,name:`Cash takings · ${s.venue} · ${formatDate(s.date)}`}))];
+ async function save(){const c=candidates.find(c=>c.key===pick);if(!c)return;setBusy(true);const {error}=await supabase.rpc('finance_confirm_bank_match' as never,{p_tenant:bank.tenantId,p_txn:txn?.id,p_type:c.type,p_target:c.id,p_notes:notes} as never);setBusy(false);if(error)toast.error(error.message);else{toast.success('Bank line matched');await bank.reload();onClose();}}
+ return <Dialog open onOpenChange={o=>!o&&onClose()}><DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden"><DialogHeader><DialogTitle>Bank line · {formatDate(txn.txn_date)}</DialogTitle></DialogHeader><p className="break-words text-sm">{txn.description}</p><p className="td-num">{formatMenuCurrency(Number(txn.money_in)-Number(txn.money_out))}</p>{bani.settings.paused_reason&&<p className="kit-explain">Bani couldn't check this (AI unavailable). {bani.settings.paused_reason}</p>}<Label>Match to an existing record</Label><Select value={pick} onValueChange={setPick}><SelectTrigger aria-label="Match record"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="none">Choose record</SelectItem>{candidates.map(c=><SelectItem key={c.key} value={c.key}>{c.name}</SelectItem>)}</SelectContent></Select>{!candidates.length&&<p className="text-sm text-muted-foreground">No equal-amount record found. This line stays in Needs a look.</p>}<Label htmlFor="bank-match-note">Notes</Label><Input id="bank-match-note" value={notes} onChange={e=>setNotes(e.target.value)}/>{txn.import_id&&<Button variant="link" onClick={async()=>{const i=bank.imports.find(i=>i.id===txn.import_id);if(!i?.file_url)return;const {data,error}=await supabase.storage.from('bank-statements').createSignedUrl(i.file_url,300);if(error)toast.error(error.message);else if(data)window.open(data.signedUrl,'_blank','noopener,noreferrer');}}>View statement</Button>}<DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={busy||pick==='none'}>Confirm match</Button></DialogFooter></DialogContent></Dialog>;
+}
