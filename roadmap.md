@@ -1,3 +1,9 @@
+## Supplier Accounts — Part 1
+- [ ] Remove Purchasing sub-tabs and redirect legacy buying-side payables/deposits
+- [ ] Supplier/invoice list, ageing switches, scoped totals and whole-dollar downloads
+- [ ] Approval-only oldest-invoice matching and median due-date suggestions
+- [ ] Tests and signed-in phone/desktop checks; supplier details, Finance, Stock and Menu costs unchanged
+
 ## Menu costs — Part 3
 - [x] Food cost period table, approved-count basis and sales-day coverage through today
 - [x] Recipes table, latest confirmed received ingredient costs, inline recipe/price editing
