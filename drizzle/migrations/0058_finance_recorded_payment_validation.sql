@@ -1,0 +1,6 @@
+DO $$ DECLARE def text;BEGIN
+SELECT pg_get_functiondef('public.finance_record_owed_payment(uuid,date,text,uuid,numeric,text,jsonb)'::regprocedure) INTO def;
+def:=replace(def,'IF p_amount>0 AND p_method<>''cash'' THEN','IF p_account IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.bank_accounts WHERE id=p_account AND tenant_id=p_tenant AND is_active) THEN RAISE EXCEPTION ''Account unavailable'';END IF; IF p_method=''cash'' AND p_account IS NOT NULL THEN RAISE EXCEPTION ''Cash payments use the configured cash account; clear the bank account'';END IF; IF p_method=''cheque'' AND btrim(ref)='''' THEN RAISE EXCEPTION ''Cheque reference required'';END IF; IF p_amount>0 AND p_method<>''cash'' THEN');
+def:=replace(def,'ELSIF x->>''source'' IN(''salary'',''mpf'') THEN','ELSIF x->>''source'' IN(''salary'',''mpf'') THEN IF p_method=''cheque'' THEN RAISE EXCEPTION ''Payroll payments support bank transfer or cash'';END IF;');
+def:=replace(def,'IF NOT FOUND OR cn.status<>''approved''','IF NOT FOUND OR c->>''amount'' IS NULL OR cn.status<>''approved''');
+EXECUTE def;END $$;

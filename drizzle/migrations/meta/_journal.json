@@ -407,6 +407,13 @@
       "when": 1793463649465,
       "tag": "0057_finance_confirm_bank_matches_and_close",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793464024242,
+      "tag": "0058_finance_recorded_payment_validation",
+      "breakpoints": true
     }
   ]
 }
