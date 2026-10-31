@@ -177,7 +177,7 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts, onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
+export function PayrollTab({ payroll, employees, shifts: scheduledShifts = [], onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(initialYear ?? now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(initialMonth ?? (now.getMonth() + 1));
@@ -275,7 +275,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave, onSaveBatch, de
     const source=peopleSettings.forVenue((emp as any).venue_id).pay_hours;
     const hours:Record<string,number>={};
     if(source==='clock_ins')clockRows.filter(a=>a.employee_id===emp.id).forEach(a=>{hours[a.date]=(hours[a.date]??0)+Number(a.hours_worked??0);});
-    else if(source==='rota')shifts.filter(s=>s.employee_id===emp.id).forEach(s=>{const duration=(Date.parse(`2000-01-01T${s.end_time}`)-Date.parse(`2000-01-01T${s.start_time}`))/3600000;hours[s.shift_date]=(hours[s.shift_date]??0)+Math.max(0,(duration<0?duration+24:duration)-s.break_minutes/60);});
+    else if(source==='rota')scheduledShifts.filter(s=>s.employee_id===emp.id).forEach(s=>{const duration=(Date.parse(`2000-01-01T${s.end_time}`)-Date.parse(`2000-01-01T${s.start_time}`))/3600000;hours[s.shift_date]=(hours[s.shift_date]??0)+Math.max(0,(duration<0?duration+24:duration)-s.break_minutes/60);});
     else {const date=`${filterYear}-${String(filterMonth).padStart(2,'0')}-01`;hours[date]=daysHours;}
     const datedPay=monthlyDatedPay(employeeTerms,filterYear,filterMonth,hours);
     const computedEarned = p || e.forecast_base_salary!=null ? (isFT ? baseSalary : baseSalary*daysHours) : datedPay??(isFT?baseSalary:baseSalary*daysHours);
@@ -322,7 +322,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave, onSaveBatch, de
       bank, account, totalCost,
       payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride,
     };
-  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth, employmentTerms, clockRows, shifts, peopleSettings]);
+  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth, employmentTerms, clockRows, scheduledShifts, peopleSettings]);
 
   const buildPayload = (emp: HREmployee): Partial<HRPayroll> => {
     const row = getRowData(emp);
