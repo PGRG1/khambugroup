@@ -99,31 +99,6 @@ const navItems: (Item & { icon: any })[] = [
   { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
 ];
 
-const financeItems: Item[] = [
-  { title: "Overview", url: "/finance/dashboard", end: true },
-  { title: "Document Centre", url: "/finance/document-centre" },
-  { title: "Documents & Bills", url: "/finance/documents-bills" },
-  { title: "Accounts Payable", url: "/finance/payables" },
-  { title: "Accounts Receivable", url: "/finance/receivables" },
-];
-
-
-
-const financeReportsItems: Item[] = [
-  { title: "Profit & Loss", url: "/pl-report", pageKey: "pl-report" },
-  { title: "P&L (Ledger)", url: "/finance/pl-ledger" },
-  { title: "Balance Sheet", url: "/finance/balance-sheet" },
-  { title: "Cash Flow", url: "/finance/cashflow-report" },
-  { title: "Trial Balance", url: "/finance/trial-balance" },
-];
-
-const financeAccountingItems: Item[] = [
-  { title: "Journal", url: "/finance/journal" },
-  { title: "Ledger", url: "/finance/ledger" },
-  { title: "Chart of Accounts", url: "/finance/chart-of-accounts" },
-  { title: "Ledger Audit Log", url: "/finance/ledger-audit" },
-];
-
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
 const bankAccounts: Item[] = [
   { title: "Bank Accounts", url: "/bank/accounts" },
@@ -444,7 +419,7 @@ export function AppSidebar() {
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
-          ...(showFinance ? [{ title: "Finance", to: "/finance/dashboard", icon: Scale, active: pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
           ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
@@ -553,21 +528,7 @@ export function AppSidebar() {
         )}
 
 
-        {showFinance && (
-          <CollapsibleNavGroup
-            label="Finance"
-            icon={Scale}
-            defaultOpen={groupState.finance}
-            onOpenChange={(o) => setGroup("finance", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              {financeItems.map((it) => <ChildLink key={it.url} item={it} />)}
-            </SidebarMenu>
-            <SubSection label="Reports" items={financeReportsItems} />
-            <SubSection label="Accounting" items={financeAccountingItems} />
-          </CollapsibleNavGroup>
-        )}
-
+        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} /></SidebarMenu></SidebarGroup>}
 
         {showBank && (
           <CollapsibleNavGroup
