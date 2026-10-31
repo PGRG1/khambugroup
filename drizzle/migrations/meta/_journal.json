@@ -288,6 +288,13 @@
       "when": 1793457931471,
       "tag": "0040_bani_people_confirmed_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793458070111,
+      "tag": "0041_bani_people_executor_hardening",
+      "breakpoints": true
     }
   ]
 }
