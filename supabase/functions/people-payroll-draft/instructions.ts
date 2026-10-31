@@ -3,7 +3,7 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  const empty=(answer:string)=>({answer,changes:[] as Row[],year,month});
  const instruction=text.trim(), lower=instruction.toLowerCase();
  if(/\b(suggest|recommend|should|deserve|fair|appropriate|how much|what.*(?:raise|bonus|cut))\b/i.test(instruction))return empty('I do not recommend pay amounts. What exact pay instruction would you like carried out?');
- if(!/\b(give|add|extra|bonus|deduct|cut|reduce|increase|raise|set|change|pay|hours)\b/i.test(instruction))return empty(`Recorded net pay for the selected month: ${people.reduce((n,p)=>n+Number(p.net_salary??0),0)} HK dollars. ${people.filter(p=>p.preparation?.missing?.length).length} people have missing inputs.`);
+ if(/^(?:why|what|how|show|list|calculate|check|tell)\b/i.test(instruction)||!/\b(give|add|extra|bonus|deduct|cut|reduce|increase|raise|set|change|pay|hours)\b/i.test(instruction))return empty(`Recorded net pay for the selected month: ${people.reduce((n,p)=>n+Number(p.net_salary??0),0)} HK dollars. ${people.filter(p=>p.preparation?.missing?.length).length} people have missing inputs.`);
  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
  const mentioned=months.flatMap((m,i)=>new RegExp(`\\b(?:${m}|${m.slice(0,3)})\\b`,'i').test(instruction)?[i+1]:[]);
  const numericMonths=[...instruction.matchAll(/\b(20\d{2})-(0?[1-9]|1[0-2])\b/g)];
@@ -21,13 +21,14 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  const raw=[...stripped.matchAll(/\b\d[\d,]*(?:\.\d{1,2})?\b/g)];
  if(amountMatches.length!==1&&(amountMatches.length!==0||raw.length!==1))return empty('What exact amount or monthly hours should change? Please give one amount for one person.');
  const amount=Number((amountMatches[0]?.[1]??amountMatches[0]?.[2]??raw[0]?.[0]??'').replace(/,/g,''));
+ if(/(?:HK\s*\$|\$|HKD)\s*-\s*\d|-\s*\d/.test(instruction))return empty('Please state whether this is an addition or deduction, with a positive amount.');
  if(!Number.isFinite(amount)||amount<0||amount>10000000||/\b(percent|percentage)\b|%/.test(lower))return empty('Please give the exact amount in HK dollars, or exact typed monthly hours.');
  const hours=/\bhours?\b/i.test(instruction), base=/\b(base|basic|earned)\s*(pay|salary)?\b/i.test(instruction), bonus=/\bbonus\b/i.test(instruction), cut=/\b(deduct|cut|reduce|subtract)\b/i.test(instruction);
  if(hours&&person.preparation?.source!=='typed_monthly')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
  if(/\b(overtime|OT|net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base)return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
  const field=hours?'forecast_allowances':base?'earned_salary_override':bonus?'actual_bonus':'adjustments_override';
  const set=/\b(set|to|total|make)\b/i.test(instruction)&&!/(?:give|add|extra)\b/i.test(instruction);
- const old=Number(person[field]??0), value=base||hours||set?amount:old+(cut?-amount:amount);
+ const old=Number(person[field]??0), value=hours||set?amount:old+(cut?-amount:amount);
  const reason=instruction.match(/\b(?:because|for)\s+(.+?)(?:\s+(?:this month only|every month))?\s*$/i)?.[1]?.trim()??instruction;
  return {...empty(''),changes:[{employee_id:person.employee_id,field,value,previous:old,reason,amount,delta:value-old}],repeat:/\b(every month|monthly|each month)\b/i.test(instruction)};
 }
