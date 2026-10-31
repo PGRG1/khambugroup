@@ -41,3 +41,4 @@
 .supplier-detail [role=tablist] { max-width:100%; min-width:0; overscroll-behavior-x:contain; }
 .supplier-detail-section { border-bottom:1px solid hsl(var(--border)); padding-bottom:12px; }
 .supplier-detail-section:last-child { border-bottom:0; }
+.tenant-portal .supplier-detail [role=tablist] { overflow-x:auto !important; overflow-y:hidden !important; }
