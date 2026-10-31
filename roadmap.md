@@ -1,3 +1,8 @@
+## People — Part 3
+- [ ] Payroll preparation/checklist, past months and exception-only approval; retain full table/calculations
+- [ ] Settings-aware dated preparation, audited confirmed overrides, locked approval/private payslips/existing accruals
+- [ ] Factual settings-aware profile reliability; focused tests and signed-in desktop/phone verification
+
 ## People — Part 2
 - [x] Settings-aware weekly/day rota, dated hours/cost/sales checks, confirmed edit/copy/cover/ask and sent status
 - [x] Identity-bound phone clock-in/out and 150 m venue check; location fields in venue People settings; daily manager confirmation; grid/profile leave and swap decisions
