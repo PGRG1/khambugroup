@@ -3875,8 +3875,11 @@ export type Database = {
       }
       hr_attendance: {
         Row: {
+          break_minutes: number
           clock_in: string | null
           clock_out: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           date: string
           employee_id: string
@@ -3887,10 +3890,14 @@ export type Database = {
           status: string
           tenant_id: string
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
+          break_minutes?: number
           clock_in?: string | null
           clock_out?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           date: string
           employee_id: string
@@ -3901,10 +3908,14 @@ export type Database = {
           status?: string
           tenant_id?: string
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
+          break_minutes?: number
           clock_in?: string | null
           clock_out?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           date?: string
           employee_id?: string
@@ -3915,6 +3926,7 @@ export type Database = {
           status?: string
           tenant_id?: string
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3929,6 +3941,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_attendance_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4984,6 +5003,54 @@ export type Database = {
           },
         ]
       }
+      hr_rota_weeks: {
+        Row: {
+          id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string
+          week_start: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          venue_id: string
+          week_start: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_rota_weeks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_rota_weeks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_shifts: {
         Row: {
           actual_break_minutes: number | null
@@ -4995,9 +5062,12 @@ export type Database = {
           created_at: string
           employee_id: string
           end_time: string
+          hours_confirmed_at: string | null
+          hours_confirmed_by: string | null
           id: string
           no_show: boolean
           notes: string | null
+          role: string | null
           shift_date: string
           shift_type: string
           start_time: string
@@ -5005,6 +5075,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           variance_minutes: number | null
+          venue_id: string | null
         }
         Insert: {
           actual_break_minutes?: number | null
@@ -5016,9 +5087,12 @@ export type Database = {
           created_at?: string
           employee_id: string
           end_time: string
+          hours_confirmed_at?: string | null
+          hours_confirmed_by?: string | null
           id?: string
           no_show?: boolean
           notes?: string | null
+          role?: string | null
           shift_date: string
           shift_type?: string
           start_time: string
@@ -5026,6 +5100,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           variance_minutes?: number | null
+          venue_id?: string | null
         }
         Update: {
           actual_break_minutes?: number | null
@@ -5037,9 +5112,12 @@ export type Database = {
           created_at?: string
           employee_id?: string
           end_time?: string
+          hours_confirmed_at?: string | null
+          hours_confirmed_by?: string | null
           id?: string
           no_show?: boolean
           notes?: string | null
+          role?: string | null
           shift_date?: string
           shift_type?: string
           start_time?: string
@@ -5047,6 +5125,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           variance_minutes?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -5058,6 +5137,71 @@ export type Database = {
           },
           {
             foreignKeyName: "hr_shifts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_shifts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_swap_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          replacement_employee_id: string
+          requested_by: string
+          shift_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          replacement_employee_id: string
+          requested_by: string
+          shift_id: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          replacement_employee_id?: string
+          requested_by?: string
+          shift_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_swap_requests_replacement_employee_id_fkey"
+            columns: ["replacement_employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_swap_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "hr_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_swap_requests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -11772,6 +11916,8 @@ export type Database = {
           id: string
           is_active: boolean
           is_system: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           notes: string
           organization_id: string | null
@@ -11785,6 +11931,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_system?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           notes?: string
           organization_id?: string | null
@@ -11798,6 +11946,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_system?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           notes?: string
           organization_id?: string | null
@@ -12686,6 +12836,8 @@ export type Database = {
           id: string
           is_active: boolean
           is_system: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           notes: string
           organization_id: string | null
@@ -12800,6 +12952,68 @@ export type Database = {
         Returns: Json
       }
       reverse_expense_bill: { Args: { p_bill_id: string }; Returns: Json }
+      rota_clock: {
+        Args: {
+          accuracy?: number
+          action: string
+          b?: number
+          lat?: number
+          lng?: number
+          t: string
+        }
+        Returns: undefined
+      }
+      rota_clock_context: { Args: { t: string }; Returns: Json }
+      rota_confirm_hours: {
+        Args: { d: string; rows: Json; t: string; v: string }
+        Returns: undefined
+      }
+      rota_edit: {
+        Args: { changes: Json; t: string; v: string }
+        Returns: undefined
+      }
+      rota_leave: {
+        Args: {
+          d: string
+          e: string
+          k: string
+          last_day: string
+          request_id?: string
+          t: string
+          yes?: boolean
+        }
+        Returns: undefined
+      }
+      rota_manager: {
+        Args: { t: string; u: string; v: string }
+        Returns: boolean
+      }
+      rota_request_swap: {
+        Args: { replacement: string; sid: string; t: string }
+        Returns: string
+      }
+      rota_save_location: {
+        Args: { lat: number; lng: number; t: string; v: string }
+        Returns: undefined
+      }
+      rota_send: {
+        Args: { t: string; v: string; w: string }
+        Returns: undefined
+      }
+      rota_shift_scope: {
+        Args: { e: string; t: string; u: string; v: string }
+        Returns: boolean
+      }
+      rota_swap: {
+        Args: {
+          replacement: string
+          request_id?: string
+          sid: string
+          t: string
+          yes?: boolean
+        }
+        Returns: undefined
+      }
       run_prepaid_recognition: {
         Args: { p_as_of?: string }
         Returns: {

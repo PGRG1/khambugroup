@@ -114,6 +114,7 @@ import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
 import PeopleSettings from "./pages/admin/PeopleSettings";
 
 import HRSchedule from "./pages/hr/HRSchedule";
+import HRClock from "./pages/hr/HRClock";
 
 import HRPayroll from "./pages/hr/HRPayroll";
 
@@ -363,7 +364,8 @@ function App() {
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
                 <Route path="/hr/employees/:id" element={<AdminRoute><HREmployeeProfile /></AdminRoute>} />
                 
-                <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
+                <Route path="/hr/schedule" element={<ProtectedRoute pageKey="people"><HRSchedule /></ProtectedRoute>} />
+                <Route path="/hr/clock" element={<ProtectedRoute><HRClock /></ProtectedRoute>} />
                 <Route path="/hr/leave" element={<Navigate to="/hr/schedule" replace />} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
                 <Route path="/hr/payroll/payables" element={<Navigate to="/finance/payables" replace />} />
