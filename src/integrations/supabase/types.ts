@@ -12714,6 +12714,24 @@ export type Database = {
         Args: { p_rows: Json; p_supplier: string; p_tenant: string }
         Returns: number
       }
+      bani_people_claim: {
+        Args: { a: string; decision: string; t: string }
+        Returns: Json
+      }
+      bani_people_execute: {
+        Args: { a: string; decision: string; t: string }
+        Returns: Json
+      }
+      bani_people_finish: {
+        Args: {
+          a: string
+          decision: string
+          result: Json
+          snapshot: Json
+          t: string
+        }
+        Returns: undefined
+      }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
         Returns: string

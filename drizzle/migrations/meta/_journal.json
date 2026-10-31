@@ -281,6 +281,13 @@
       "when": 1793456859425,
       "tag": "0039_people_saved_pay_basis_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793457931471,
+      "tag": "0040_bani_people_confirmed_actions",
+      "breakpoints": true
     }
   ]
 }
