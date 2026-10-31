@@ -1,3 +1,8 @@
+## People — Part 2
+- [ ] Settings-aware weekly/day rota, dated hours/cost/sales checks, confirmed edit/copy/cover/ask and sent status
+- [ ] Identity-bound phone clock-in/out and 150 m venue check; daily manager confirmation; leave/swap decisions
+- [ ] Focused rules tests and signed-in desktop/phone save/readback verification; Payroll unchanged
+
 ## People — Part 1
 - [x] Team/Rota & hours/Payroll navigation and requested redirects; Company/active venue People settings
 - [x] Clean Team table, shared scope/filter/search/download, Bani venue/new-person/change drafts and explicit owner-review requests
