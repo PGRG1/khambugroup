@@ -49,8 +49,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="md:hidden">
               {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
-              {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             </div>
+            {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {children}
           </div>

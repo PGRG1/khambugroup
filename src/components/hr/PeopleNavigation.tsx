@@ -13,7 +13,7 @@ const tabs = [
 
 export function peopleNavigationPath(pathname: string): string | undefined {
   if(pathname==="/hr")return "/hr/employees";
-  if(pathname==="/hr/leave")return "/hr/schedule";
+  if(pathname==="/hr/leave"||pathname==="/hr/clock")return "/hr/schedule";
   if(pathname==="/hr/payroll/payables")return undefined;
   return tabs.filter(tab => pathname === tab.path || (tab.path !== "/hr" && pathname.startsWith(`${tab.path}/`)))
     .sort((a, b) => b.path.length - a.path.length)[0]?.path;
