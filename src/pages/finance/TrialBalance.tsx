@@ -1,4 +1,4 @@
-import { kpiValueSizeClass } from "@/utils/kpiSize";
+import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
@@ -13,13 +13,9 @@ import { ACCOUNT_TYPE_LABEL } from "@/hooks/useChartOfAccounts";
 import { generateTrialBalancePDF } from "@/utils/financePdfReports";
 import { cn } from "@/lib/utils";
 
-const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtWhole = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const fmtDate = (iso: string | null | undefined) => {
-  if (!iso) return "—";
-  try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
-  catch { return iso; }
-};
+const fmt = formatDecimal;
+const fmtWhole = (n:number)=>formatDecimal(n,0);
+const fmtDate = (v:string|null|undefined)=>v?formatDate(v):'—';
 
 const TYPE_ORDER = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
@@ -131,13 +127,13 @@ export default function TrialBalance() {
   const priorLabel = `${prior.from ? fmtDate(prior.from) : "Beginning"} → ${fmtDate(prior.to)}`;
 
   const ledgerLink = (accountId: string) =>
-    `/finance/ledger?account=${accountId}${fromDate ? `&from=${fromDate}` : ""}${toDate ? `&to=${toDate}` : ""}`;
+    `/finance/books?view=ledger&account=${accountId}${fromDate ? `&from=${fromDate}` : ""}${toDate ? `&to=${toDate}` : ""}`;
 
   return (
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Trial Balance</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Trial balance</h1>
           <p className="text-sm text-muted-foreground mt-1">Total debits and credits per account. The bottom row must always balance.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -161,18 +157,7 @@ export default function TrialBalance() {
         {compareOn && <span className="ml-3 opacity-80">vs prior: {priorLabel}</span>}
       </p>
 
-      {!loading && rows.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatTile label="Total debits" value={`HK$ ${fmtWhole(totals.debit)}`} />
-          <StatTile label="Total credits" value={`HK$ ${fmtWhole(totals.credit)}`} />
-          <StatTile
-            label="Difference"
-            value={isBalanced ? "Balanced" : `HK$ ${fmtWhole(Math.abs(diff))}`}
-            tone={isBalanced ? "primary" : "destructive"}
-            icon={isBalanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-          />
-        </div>
-      )}
+      <p className="text-sm text-muted-foreground">{rows.length} accounts · Debits {formatCurrency(totals.debit)} · Credits {formatCurrency(totals.credit)} · {isBalanced?'Balanced':`Difference ${formatCurrency(diff)}`}</p>
 
       {/* Desktop table */}
       <Card className="card-glass p-0 overflow-hidden hidden md:block">
@@ -327,17 +312,5 @@ export default function TrialBalance() {
         <p className="text-xs text-primary flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Books are balanced.</p>
       )}
     </div>
-  );
-}
-
-function StatTile({ label, value, tone, icon }: { label: string; value: string; tone?: "primary" | "destructive"; icon?: React.ReactNode }) {
-  const toneCls = tone === "primary" ? "text-primary" : tone === "destructive" ? "text-destructive" : "text-foreground";
-  return (
-    <Card className="glass-surface border border-border/60 p-3 min-w-0 overflow-hidden">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground min-w-0">
-        {icon}<span className="truncate">{label}</span>
-      </div>
-      <div className={cn("font-display font-semibold mt-1 tabular-nums whitespace-nowrap min-w-0", kpiValueSizeClass(value), toneCls)} title={value}>{value}</div>
-    </Card>
   );
 }

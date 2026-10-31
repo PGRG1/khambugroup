@@ -6,6 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, XCircle, Loader2, SkipForward, RefreshCw, Coins, Wallet, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {fetchAllRows} from "@/utils/fetchAllRows";
+import {formatDate,formatMenuCurrency} from "@/utils/format";
+import {Link} from "react-router-dom";
 
 interface AuditRow {
   id: string;
@@ -110,15 +113,8 @@ export default function LedgerAuditLog() {
     if (!tenantId) { setRows([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
-      let q = (supabase as any)
-        .from("ledger_audit_log")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (eventFilter !== "all") q = q.eq("event_type", eventFilter);
-      const { data } = await q;
-      setRows((data as AuditRow[]) || []);
+      const data=await fetchAllRows('ledger_audit_log','*',{col:'created_at',asc:false},tenantId);
+      setRows((data as AuditRow[]).filter(r=>eventFilter==='all'||r.event_type===eventFilter));
       setLoading(false);
     })();
   }, [eventFilter, tenantId, tenantLoading]);
@@ -127,9 +123,9 @@ export default function LedgerAuditLog() {
     <div className="p-4 sm:p-6 w-full max-w-[1200px] mx-auto space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Ledger Audit Log</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Audit</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Every ledger rebuild and payroll-driven journal entry — most recent 500 events.
+            Recorded ledger events
           </p>
         </div>
         <Select value={eventFilter} onValueChange={setEventFilter}>
@@ -145,59 +141,8 @@ export default function LedgerAuditLog() {
         </Select>
       </header>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="card-glass p-4"><Skeleton className="h-14 w-full" /></Card>
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
-        <Card className="card-glass p-10 text-center">
-          <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm font-medium">No audit entries yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Trigger a ledger rebuild from Finance → Journal to see events here.</p>
-        </Card>
-      ) : (
-        <ol className="relative border-l border-border/60 ml-3 space-y-4">
-          {rows.map((r) => {
-            const { Icon, tone } = eventIcon(r.event_type, r.status);
-            const isSpin = r.status === "in_progress";
-            return (
-              <li key={r.id} className="pl-6">
-                <span className={cn("absolute -left-[13px] flex items-center justify-center w-6 h-6 rounded-full border", tone)}>
-                  <Icon className={cn("h-3 w-3", isSpin && "animate-spin")} />
-                </span>
-                <Card className="card-glass p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium">{EVENT_LABELS[r.event_type] || r.event_type}</span>
-                        <span className={cn("text-[10px] uppercase px-2 py-0.5 rounded-full tracking-wide", STATUS_TONE[r.status] || STATUS_TONE.skipped)}>
-                          {STATUS_LABEL[r.status] ?? r.status}
-                        </span>
-                      </div>
-                      {r.notes && <p className="text-sm mt-1 text-foreground/90">{r.notes}</p>}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
-                        {r.employee_name && <span>👤 {r.employee_name}</span>}
-                        {r.venue && <span>· {r.venue}</span>}
-                        {r.period && <span>· Period <span className="font-mono">{r.period}</span></span>}
-                        {r.user_display_name && <span>· by {r.user_display_name}</span>}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {r.amount !== null && (
-                        <div className="text-sm font-semibold tabular-nums">HK$ {fmt(Number(r.amount))}</div>
-                      )}
-                      <div className="text-[11px] text-foreground/80 mt-0.5">{fmtRelative(r.created_at)}</div>
-                      <div className="text-[10px] text-muted-foreground">{fmtAbsDate(r.created_at)}</div>
-                    </div>
-                  </div>
-                </Card>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+      <section className="kit card-glass overflow-hidden"><div className="p-4"><h2 className="font-semibold">Audit</h2><p className="text-sm text-muted-foreground">{rows.length} recorded events</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[24%] text-left">Date</th><th className="text-left">What changed</th><th className="w-[22%] text-left">Who</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-t border-border/50"><td className="p-4 align-top">{formatDate(r.created_at)}</td><td className="py-4 pr-3 break-words">{EVENT_LABELS[r.event_type]??r.event_type.replace(/_/g,' ')}<p className="text-xs text-muted-foreground">{r.notes}</p>{r.journal_entry_id&&<Link className="text-primary underline text-xs" to={`/finance/books?view=journal&entry=${r.journal_entry_id}`}>Entry</Link>}</td><td className="pr-4 align-top py-4 break-words">{r.user_display_name??'Not recorded'}<p className="text-xs text-muted-foreground">{STATUS_LABEL[r.status]??r.status}</p></td></tr>)}</tbody></table>{!rows.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading audit…':'No audit records.'}</p>}</section>
+
     </div>
   );
 }
