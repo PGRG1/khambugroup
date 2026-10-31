@@ -1,225 +1,53 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useVenueScope } from "@/hooks/useVenueScope";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
-import { fetchAllRows } from "@/utils/fetchAllRows";
-import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { usePayables } from "@/hooks/usePayables";
-
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmtDate = (d?: string | null) => {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return d;
-  return `${String(dt.getDate()).padStart(2, "0")} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
-};
-
-function KCard({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "amber" | "green" | "red" | "sky" }) {
-  const toneCls =
-    tone === "amber" ? "text-amber-400" :
-    tone === "green" ? "text-emerald-400" :
-    tone === "red" ? "text-red-400" :
-    tone === "sky" ? "text-sky-400" :
-    "text-foreground";
-  return (
-    <Card className="card-glass">
-      <CardContent className="p-4">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-        <div className={`mt-1 text-2xl font-semibold td-num ${toneCls}`}>{value}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function SupplierAccountsPage() {
-  const navigate = useNavigate();
-  const { tenantId } = useActiveTenant();
-  const { invoices, creditNotesAvailable, loading } = usePayables();
-  const [payments, setPayments] = useState<any[]>([]);
-  const [allocs, setAllocs] = useState<any[]>([]);
-  const [paymentsFailed, setPaymentsFailed] = useState(false);
-  const [supplierMap, setSupplierMap] = useState<Map<string, string>>(new Map());
-  const [venues, setVenues] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const venueScope = useVenueScope();
-  const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
-
-  useEffect(() => {
-    if (!tenantId) return;
-    (async () => {
-      try {
-        const [pays, alcs, sups, grnRows] = await Promise.all([
-          fetchAllRows("payments", "id, payment_date, amount, supplier_id"),
-          fetchAllRows("payment_allocations", "id, payment_id, amount_allocated"),
-          fetchAllRows("suppliers", "id, name", undefined, tenantId),
-          fetchAllRows("goods_received_notes", "venue", undefined, tenantId),
-        ]);
-        setPayments(pays); setAllocs(alcs);
-        const m = new Map<string, string>();
-        for (const s of sups as any[]) m.set(s.id, s.name || "—");
-        setSupplierMap(m);
-        const set = new Set<string>();
-        for (const r of grnRows as any[]) if (r.venue) set.add(String(r.venue));
-        setVenues(Array.from(set).sort());
-      } catch {
-        setPaymentsFailed(true);
-      }
-    })();
-  }, [tenantId]);
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  // Pre-filter invoices by venue (client-side)
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((i) => venueScope.includesName(i.venue));
-  }, [invoices, venueScope.includesName]);
-
-  const rows = useMemo(() => {
-    const tenantSupplierIds = new Set(filteredInvoices.map((i) => i.supplier_id).filter(Boolean) as string[]);
-    for (const cn of creditNotesAvailable) tenantSupplierIds.add(cn.supplier_id);
-
-    const allocSumByPayment = new Map<string, number>();
-    for (const a of allocs) allocSumByPayment.set(a.payment_id, (allocSumByPayment.get(a.payment_id) || 0) + (Number(a.amount_allocated) || 0));
-
-    type Agg = {
-      supplier_id: string; supplier_name: string;
-      current_balance: number; overdue_balance: number;
-      available_credits: number; unallocated_payments: number;
-      open_invoice_count: number; last_transaction_date: string | null;
-    };
-    const m = new Map<string, Agg>();
-    const get = (sid: string): Agg => {
-      let a = m.get(sid);
-      if (!a) {
-        a = { supplier_id: sid, supplier_name: supplierMap.get(sid) || "—",
-          current_balance: 0, overdue_balance: 0, available_credits: 0,
-          unallocated_payments: 0, open_invoice_count: 0, last_transaction_date: null };
-        m.set(sid, a);
-      }
-      return a;
-    };
-
-    for (const inv of filteredInvoices) {
-      if (!inv.supplier_id) continue;
-      const a = get(inv.supplier_id);
-      if (!a.supplier_name || a.supplier_name === "—") a.supplier_name = inv.supplier_name;
-      if (inv.outstanding_amount > 0 && inv.payment_status !== "voided") {
-        a.current_balance += inv.outstanding_amount;
-        a.open_invoice_count += 1;
-        if (inv.due_date && inv.due_date < todayStr) a.overdue_balance += inv.outstanding_amount;
-      }
-      if (!a.last_transaction_date || (inv.invoice_date || "") > a.last_transaction_date) a.last_transaction_date = inv.invoice_date;
-    }
-    for (const cn of creditNotesAvailable) {
-      const a = get(cn.supplier_id);
-      a.available_credits += cn.remaining_balance;
-      if (!a.last_transaction_date || (cn.credit_note_date || "") > a.last_transaction_date) a.last_transaction_date = cn.credit_note_date;
-    }
-    if (!paymentsFailed) for (const p of payments) {
-      if (!p.supplier_id || !tenantSupplierIds.has(p.supplier_id)) continue;
-      const a = get(p.supplier_id);
-      const amt = Number(p.amount) || 0;
-      const allocated = allocSumByPayment.get(p.id) || 0;
-      const unalloc = Math.max(0, amt - allocated);
-      if (unalloc > 0.01) a.unallocated_payments += unalloc;
-      if (!a.last_transaction_date || (p.payment_date || "") > a.last_transaction_date) a.last_transaction_date = p.payment_date;
-    }
-    let list = Array.from(m.values()).sort((a, b) => b.current_balance - a.current_balance);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((r) => r.supplier_name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [filteredInvoices, creditNotesAvailable, payments, allocs, supplierMap, todayStr, search, paymentsFailed]);
-
-  const totals = useMemo(() => {
-    let outstanding = 0, overdue = 0, credits = 0, unalloc = 0;
-    for (const r of rows) {
-      outstanding += r.current_balance;
-      overdue += r.overdue_balance;
-      credits += r.available_credits;
-      unalloc += r.unallocated_payments;
-    }
-    return { outstanding, overdue, credits, unalloc };
-  }, [rows]);
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight font-display">Supplier Accounts</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Current balance, credits, and payment position for each supplier</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search suppliers" className="h-9 pl-8 w-[220px]" />
-          </div>
-          
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone="amber" />
-        <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
-        <KCard label="Available credits" value={fmtMoney(totals.credits)} tone="green" />
-        <KCard label="Unallocated payments" value={paymentsFailed ? "—" : fmtMoney(totals.unalloc)} tone="amber" />
-      </div>
-
-      <Card className="card-glass">
-        <CardContent className="p-5">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Suppliers ({rows.length})</div>
-          {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : rows.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No supplier activity yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                    <th className="text-left py-2 pr-4">Supplier</th>
-                    <th className="text-right py-2 pr-4">Balance</th>
-                    <th className="text-right py-2 pr-4">Overdue</th>
-                    <th className="text-right py-2 pr-4">Available credits</th>
-                    <th className="text-right py-2 pr-4">Unallocated payments</th>
-                    <th className="text-right py-2 pr-4">Open invoices</th>
-                    <th className="text-left py-2 pr-4">Last activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr
-                      key={r.supplier_id}
-                      onClick={() => navigate(`/procurement/finance/suppliers/${r.supplier_id}`)}
-                      className={`border-b border-border/40 cursor-pointer hover:bg-muted/30 transition-colors ${r.overdue_balance > 0 ? "border-l-2 border-l-amber-400" : ""}`}
-                    >
-                      <td className="py-2 pr-4 font-semibold">{r.supplier_name}</td>
-                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.current_balance > 0 ? "text-amber-400" : ""}`}>{fmtMoney(r.current_balance)}</td>
-                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.overdue_balance > 0 ? "text-red-400" : "text-muted-foreground/60"}`}>{r.overdue_balance > 0 ? fmtMoney(r.overdue_balance) : "—"}</td>
-                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.available_credits > 0 ? "text-emerald-400" : "text-muted-foreground/60"}`}>{r.available_credits > 0 ? fmtMoney(r.available_credits) : "—"}</td>
-                      <td className="py-2 pr-4 text-right td-num tabular-nums">
-                        {paymentsFailed ? <span className="text-muted-foreground/60">—</span> :
-                          r.unallocated_payments > 0 ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">Unallocated</Badge>
-                              {fmtMoney(r.unallocated_payments)}
-                            </span>
-                          ) : <span className="text-muted-foreground/60">—</span>}
-                      </td>
-                      <td className="py-2 pr-4 text-right td-num">{r.open_invoice_count}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{fmtDate(r.last_transaction_date)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+import {useState,useMemo} from 'react';
+import {Link,useNavigate,useSearchParams} from 'react-router-dom';
+import {ArrowUpRight} from 'lucide-react';
+import {useVenueScope} from '@/hooks/useVenueScope';
+import {useAuth} from '@/hooks/useAuth';
+import {usePreviewMode} from '@/hooks/usePreviewMode';
+import {useSupplierAccountsList,supplierMatchProposal} from '@/hooks/useSupplierAccountsList';
+import {supplierAccountRows,openAccountInvoices,daysLate,inLateBucket,type LateBucket,type MatchProposal} from '@/utils/supplierAccounts';
+import {tenantToday} from '@/utils/salesRecordChecks';
+import {formatCurrency,formatDate,formatSupplierDueDate} from '@/utils/format';
+import {downloadCSV} from '@/utils/csvDownload';
+import {RevenuePageTop} from '@/components/revenue/RevenuePageTop';
+import {Toolbar} from '@/components/kit/Toolbar';
+import {QuickFilter} from '@/components/kit/QuickFilter';
+import {FilterPanel,FilterGroup} from '@/components/kit/FilterPanel';
+import {SortMenu} from '@/components/kit/SortMenu';
+import {Button} from '@/components/ui/button';
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
+import {SupplierMatchesDialog,SupplierDueDatesDialog,type DueTermsRow} from '@/components/procurement/SupplierAccountsReviewDialogs';
+import '@/components/kit/kit.css';
+export default function SupplierAccountsPage(){
+ const accounts=useSupplierAccountsList();const scope=useVenueScope();const navigate=useNavigate();const [params,setParams]=useSearchParams();const view=params.get('view')==='invoice'?'invoice':'supplier';
+ const [search,setSearch]=useState(''),[sort,setSort]=useState('default'),[supplier,setSupplier]=useState('all'),[status,setStatus]=useState('all'),[bucket,setBucket]=useState<LateBucket>('all');
+ const [matching,setMatching]=useState<{id:string;name:string;proposal:MatchProposal[]}|null>(null),[dueRows,setDueRows]=useState<DueTermsRow[]|null>(null);
+ const {isPreviewActive}=usePreviewMode();const {isAdmin}=useAuth();const today=tenantToday();
+ const scoped=useMemo(()=>accounts.invoices.filter(i=>scope.includesName(i.venue)),[accounts.invoices,scope]);
+ const scopedIds=new Set(scoped.map(i=>i.supplier_id));const payments=accounts.payments.filter(p=>scope.isAll||!!p.supplier_id&&scopedIds.has(p.supplier_id));
+ const names=new Map(accounts.payments.filter(p=>p.supplier_id).map(p=>[p.supplier_id??'',p.supplier_name]));
+ const allRows=supplierAccountRows(scoped,payments,today,names);const open=openAccountInvoices(scoped);
+ const supplierOptions=allRows.slice().sort((a,b)=>a.name.localeCompare(b.name));
+ const matchesSearch=(text:string)=>text.toLowerCase().includes(search.trim().toLowerCase());
+ const filtered=open.filter(i=>(supplier==='all'||i.supplier_id===supplier)&&(status==='all'||status==='overdue'&&daysLate(i.due_date,today)>0||status==='no-date'&&!i.due_date)&&matchesSearch(`${i.supplier_name} ${i.invoice_number} ${i.venue}`));
+ const invoiceRows=filtered.filter(i=>inLateBucket(i,bucket,today)).sort((a,b)=>sort==='name'?a.supplier_name.localeCompare(b.supplier_name):sort==='owed'?b.outstanding_amount-a.outstanding_amount:sort==='overdue'?(b.due_date?daysLate(b.due_date,today):-1)-(a.due_date?daysLate(a.due_date,today):-1):a.invoice_date.localeCompare(b.invoice_date)||a.id.localeCompare(b.id));
+ const rows=allRows.filter(r=>(supplier==='all'||r.id===supplier)&&(status==='all'||status==='overdue'&&r.overdue>0||status==='no-date'&&r.noDueCount>0||status==='unmatched'&&r.unallocated>0.005)&&matchesSearch(r.name)).sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='overdue'?b.overdue-a.overdue:sort==='latest'?(b.lastInvoice??'').localeCompare(a.lastInvoice??''):b.owed-a.owed);
+ const total=allRows.reduce((s,r)=>({owed:s.owed+r.owed,overdue:s.overdue+r.overdue}),{owed:0,overdue:0});const missing=open.filter(i=>!i.due_date);const unmatched=allRows.filter(r=>r.unallocated>0.005);
+ const filter=<FilterPanel activeCount={Number(supplier!=='all')+Number(status!=='all')} onReset={()=>{setSupplier('all');setStatus('all');}} resultLabel={`Show ${view==='supplier'?rows.length:invoiceRows.length} ${view==='supplier'?'suppliers':'invoices'}`}><FilterGroup title="Supplier"><Select value={supplier} onValueChange={setSupplier}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{supplierOptions.filter(r=>r.id).map(r=><SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Show"><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="no-date">No due date</SelectItem>{view==='supplier'&&<SelectItem value="unmatched">Unmatched payments</SelectItem>}</SelectContent></Select></FilterGroup></FilterPanel>;
+ const buckets:{key:LateBucket;label:string}[]=[{key:'all',label:'All'},{key:'no-date',label:'No due date'},{key:'1-30',label:'1–30 days late'},{key:'31-60',label:'31–60'},{key:'60+',label:'60+'}];
+ const due=(i:typeof open[number])=>!i.due_date?'No due date':`Due ${formatSupplierDueDate(i.due_date)}${daysLate(i.due_date,today)>0?` · ${daysLate(i.due_date,today)} days late`:''}`;
+ const exportCsv=()=>view==='supplier'?downloadCSV(rows.map(r=>({supplier:r.name,owed:r.owed,overdue:r.overdue,last_invoice:r.lastInvoice??'',invoices:r.invoiceCount,no_due_date:r.noDueCount,unmatched:r.unallocated})),[{key:'supplier',label:'Supplier'},{key:'owed',label:'Owed'},{key:'overdue',label:'Overdue'},{key:'last_invoice',label:'Last invoice'},{key:'invoices',label:'Open invoices'},{key:'no_due_date',label:'No due date'},{key:'unmatched',label:'Unmatched payments'}],'supplier_accounts'):downloadCSV(invoiceRows.map(i=>({supplier:i.supplier_name,invoice:i.invoice_number,venue:i.venue,due:i.due_date??'',open:i.outstanding_amount})),[{key:'supplier',label:'Supplier'},{key:'invoice',label:'Invoice'},{key:'venue',label:'Venue'},{key:'due',label:'Due'},{key:'open',label:'Open'}],'supplier_open_invoices');
+ const openTerms=()=>setDueRows([...new Set(missing.map(i=>i.supplier_id))].map(id=>{const invoices=missing.filter(i=>i.supplier_id===id);return {supplier_id:id,name:invoices[0]?.supplier_name??'—',...accounts.terms(id),invoices};}));
+ const subline=(r:typeof rows[number])=>r.unallocated>0.005?`${formatCurrency(r.unallocated)} paid but not matched to invoices`:`${r.invoiceCount} invoices · ${r.noDueCount} with no due date`;
+ return <div className="w-full min-w-0 space-y-5 pb-24"><RevenuePageTop title="Supplier Accounts" actionsBesideTitle actions={<Button variant="outline" asChild><Link to="/finance/payables">Pay in Finance <ArrowUpRight className="h-4 w-4"/></Link></Button>}/><section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><div><h2 className="text-base font-semibold">Today</h2><p className="text-sm text-muted-foreground">· {allRows.length} suppliers · <span className="td-num">{formatCurrency(total.owed)}</span> owed · <span className="text-warning td-num">{formatCurrency(total.overdue)} overdue</span></p></div>
+ {!accounts.loading&&unmatched.map(r=><div key={r.id} className="kit-explain">{r.name}: {r.paymentCount} payments ({formatCurrency(r.paid)}) are recorded, but only {formatCurrency(r.matched)} is matched to invoices. <Button variant="link" className="h-auto p-0 text-warning" onClick={()=>setMatching({id:r.id,name:r.name,proposal:supplierMatchProposal(r.id,payments,scoped)})}>Check matches</Button></div>)}
+ {!accounts.loading&&missing.length>0&&<div className="kit-explain">{missing.length} of {open.length} open invoices have no due date, so overdue is too low. <Button variant="link" className="h-auto p-0 text-warning" disabled={!!accounts.historyError} onClick={openTerms}>Fill due dates</Button></div>}
+ {accounts.historyError&&<p className="text-xs text-destructive">Payment terms could not load: {accounts.historyError}</p>}
+ <div><QuickFilter label="View" value={view} onChange={v=>{const next=new URLSearchParams(params);next.set('view',v);setParams(next);setSort('default');setStatus('all');}} options={[{key:'supplier',label:'By supplier'},{key:'invoice',label:'By invoice'}]}/></div>
+ <Toolbar search={search} onSearch={setSearch} placeholder={view==='supplier'?'Search suppliers':'Search invoices'} searchAfterControls mobileSearchBelow filter={filter} sort={<SortMenu value={sort} onChange={setSort} options={view==='supplier'?[{key:'default',label:'Highest owed',compactLabel:'Owed'},{key:'name',label:'Supplier'},{key:'overdue',label:'Highest overdue'},{key:'latest',label:'Last invoice'}]:[{key:'default',label:'Oldest first',compactLabel:'Oldest'},{key:'name',label:'Supplier'},{key:'owed',label:'Highest open'},{key:'overdue',label:'Most overdue'}]}/>} onDownload={exportCsv}/>
+ {view==='invoice'&&<div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">{buckets.map(b=><Button key={b.key} variant={bucket===b.key?'secondary':'outline'} aria-pressed={bucket===b.key} onClick={()=>setBucket(b.key)} className="h-auto min-h-10 px-3 py-2 text-xs whitespace-normal justify-between gap-2"><span>{b.label}</span><span className="td-num">{formatCurrency(filtered.filter(i=>inLateBucket(i,b.key,today)).reduce((s,i)=>s+i.outstanding_amount,0))}</span></Button>)}</div>}</div>
+ {accounts.loading?<p className="p-6 text-center text-muted-foreground">Loading Supplier Accounts…</p>:view==='supplier'?<><table className="hidden min-[641px]:table w-full table-fixed text-sm"><thead className="border-y border-border text-xs text-muted-foreground"><tr><th className="w-[45%] text-left px-5 py-3 font-medium">Supplier</th><th className="text-right px-3 font-medium">Owed</th><th className="text-right px-3 font-medium">Overdue</th><th className="text-right px-5 font-medium">Last invoice</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-b border-border/50 cursor-pointer hover:bg-muted/40" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&navigate(`/procurement/finance/suppliers/${r.id}`)} onClick={()=>navigate(`/procurement/finance/suppliers/${r.id}`)}><td className="px-5 py-3 break-words font-medium">{r.name}<p className={`text-xs font-normal mt-1 ${r.unallocated>0.005?'text-warning':'text-muted-foreground'}`}>{subline(r)}</p></td><td className="px-3 text-right td-num">{formatCurrency(r.owed)}</td><td className="px-3 text-right td-num text-warning">{r.overdue>0?formatCurrency(r.overdue):'—'}</td><td className="px-5 text-right text-xs text-muted-foreground">{r.lastInvoice?formatDate(r.lastInvoice):'—'}</td></tr>)}</tbody></table><div className="min-[641px]:hidden divide-y divide-border">{rows.map(r=><Button key={r.id} variant="ghost" className="w-full h-auto rounded-none p-4 block text-left whitespace-normal" onClick={()=>navigate(`/procurement/finance/suppliers/${r.id}`)}><div className="flex justify-between gap-3"><span className="min-w-0 break-words font-medium">{r.name}</span><span className="td-num shrink-0">{formatCurrency(r.owed)}</span></div><p className={`text-xs mt-1 ${r.unallocated>0.005?'text-warning':'text-muted-foreground'}`}>{subline(r)}</p><div className="flex flex-wrap justify-between gap-2 mt-2 text-xs"><span className="text-warning">Overdue {r.overdue>0?formatCurrency(r.overdue):'—'}</span><span className="text-muted-foreground">Last invoice {r.lastInvoice?formatDate(r.lastInvoice):'—'}</span></div></Button>)}</div>{!rows.length&&<p className="p-6 text-center text-muted-foreground">No suppliers found.</p>}</>:<><table className="hidden min-[641px]:table w-full table-fixed text-sm"><thead className="border-y border-border text-xs text-muted-foreground"><tr><th className="w-[27%] text-left px-5 py-3 font-medium">Supplier</th><th className="w-[23%] text-left px-3 font-medium">Invoice</th><th className="w-[35%] text-left px-3 font-medium">Due</th><th className="text-right px-5 font-medium">Open</th></tr></thead><tbody>{invoiceRows.map(i=><tr key={i.id} className="border-b border-border/50"><td className="px-5 py-3 break-words"><Link className="font-medium hover:underline" to={`/procurement/finance/suppliers/${i.supplier_id}`}>{i.supplier_name}</Link></td><td className="px-3 py-3 break-words">{i.invoice_number||'—'}<p className="text-xs text-muted-foreground">{i.venue}</p></td><td className={`px-3 py-3 text-xs ${daysLate(i.due_date,today)>0?'text-warning':'text-muted-foreground'}`}>{due(i)}</td><td className="px-5 text-right td-num">{formatCurrency(i.outstanding_amount)}</td></tr>)}</tbody></table><div className="min-[641px]:hidden divide-y divide-border">{invoiceRows.map(i=><div key={i.id} className="p-4 space-y-1 text-sm"><div className="flex justify-between gap-3"><Link className="min-w-0 break-words font-medium hover:underline" to={`/procurement/finance/suppliers/${i.supplier_id}`}>{i.supplier_name}</Link><span className="td-num shrink-0">{formatCurrency(i.outstanding_amount)}</span></div><p className="text-xs text-muted-foreground">{i.invoice_number||'—'} · {i.venue}</p><p className={`text-xs ${daysLate(i.due_date,today)>0?'text-warning':'text-muted-foreground'}`}>{due(i)}</p></div>)}</div>{!invoiceRows.length&&<p className="p-6 text-center text-muted-foreground">No open invoices found.</p>}</>}
+ <footer className="p-4 border-t border-border text-xs text-muted-foreground">Paying is done in Finance › Payables</footer></section>
+ {matching&&<SupplierMatchesDialog name={matching.name} proposal={matching.proposal} invoices={scoped} canApprove={!isPreviewActive} onClose={()=>setMatching(null)} onApprove={()=>accounts.approveMatches(matching.id,matching.proposal)}/>}
+ {dueRows&&<SupplierDueDatesDialog rows={dueRows} canApprove={!isPreviewActive} onClose={()=>setDueRows(null)} onApprove={accounts.approveDueDates}/>}</div>;
 }
