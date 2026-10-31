@@ -1,3 +1,9 @@
+## People fixes — payroll, hours, clock-in
+- [ ] Explicit-only payroll instructions, selected-month binding and factual confirmed pay-change dialog
+- [ ] Rota/typed pay hours, migrated clock-in settings, rota day confirmation and quiet punctuality with optional thresholds
+- [ ] Confirmed prior-payroll terms fill, amber missing-input review and payroll presentation
+- [ ] Focused tests and signed-in desktop/phone checks; document unavailable real-device/approval checks
+
 ## People — Part 3
 - [x] Payroll checklist, past months and exception-only approval; retained 21-column read-only full table and existing payroll/MPF figures
 - [x] Settings-aware dated preparation, atomic confirmed audited/repeating overrides, owner/Strict approval, month locks/private payslips and tenant-scoped accrual using existing ledger mappings
