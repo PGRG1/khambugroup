@@ -3,7 +3,7 @@ import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
 import {z} from 'npm:zod@4';
 import {createOpenAI} from 'npm:@ai-sdk/openai@3';
 import {streamText,Output,NoObjectGeneratedError} from 'npm:ai@6';
-import {createLovableAiGatewayRunIdFetch} from '../people-draft/run-id.ts';
+import {createLovableAiGatewayRunIdFetch} from './run-id.ts';
 const Body=z.object({tenant_id:z.string().uuid(),venue_id:z.string().uuid(),week_start:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),text:z.string().min(1).max(3000)});
 const Draft=z.object({action:z.enum(['copy','move','cover','unknown']),shift_id:z.string().nullable(),replacement_employee_id:z.string().nullable(),day:z.string().nullable(),role:z.string().nullable(),note:z.string()});
 // This function returns a proposal only. It cannot send a rota or mutate shifts.
