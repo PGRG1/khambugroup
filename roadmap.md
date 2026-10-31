@@ -1,8 +1,9 @@
 ## People fixes — payroll, hours, clock-in
-- [ ] Explicit-only payroll instructions, selected-month binding and factual confirmed pay-change dialog
-- [ ] Rota/typed pay hours, migrated clock-in settings, rota day confirmation and quiet punctuality with optional thresholds
-- [ ] Confirmed prior-payroll terms fill, amber missing-input review and payroll presentation
-- [ ] Focused tests and signed-in desktop/phone checks; document unavailable real-device/approval checks
+- [x] Explicit-only payroll instructions, selected-month/revision binding and factual confirmed net-pay dialog; no model-generated pay amounts
+- [x] Rota/typed pay hours, migrated clock-in settings, rota day confirmation and quiet punctuality with optional thresholds; explicit no-show decisions
+- [x] Confirmed prior-payroll terms fill under existing owner review, unknown historical pay basis requires human choice, amber missing-input review and underline tabs
+- [x] Focused tests and signed-in desktop/375px May payroll HK$239,747, unsaved Asim +HK$800 review, prior-payroll table, rota/settings checks without page overflow
+- [ ] Live pay override/terms-owner approval/month approval and physical clock-in checks: no live pay changed; account is not an owner, no employee login links or venue coordinates. Non-admin/concurrent approvals and historical pay basis remain unverified.
 
 ## People — Part 3
 - [x] Payroll checklist, past months and exception-only approval; retained 21-column read-only full table and existing payroll/MPF figures

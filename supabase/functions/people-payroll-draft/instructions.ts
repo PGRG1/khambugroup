@@ -2,6 +2,7 @@ type Row = Record<string, any>;
 export function payrollInstruction(text:string, people:Row[], year:number, month:number) {
  const empty=(answer:string)=>({answer,changes:[] as Row[],year,month});
  const instruction=text.trim(), lower=instruction.toLowerCase();
+ if(/\b(?:and|or|each|both|everyone|all staff)\b/i.test(instruction.split(/\b(?:for|because)\b/i)[0]))return empty('Please give one exact pay instruction for one person at a time.');
  if(/\b(suggest|recommend|should|deserve|fair|appropriate|how much|what.*(?:raise|bonus|cut))\b/i.test(instruction))return empty('I do not recommend pay amounts. What exact pay instruction would you like carried out?');
  if(/^(?:why|what|how|show|list|calculate|check|tell)\b/i.test(instruction)||!/\b(give|add|extra|bonus|deduct|cut|reduce|increase|raise|set|change|pay|hours)\b/i.test(instruction))return empty(`Recorded net pay for the selected month: ${people.reduce((n,p)=>n+Number(p.net_salary??0),0)} HK dollars. ${people.filter(p=>p.preparation?.missing?.length).length} people have missing inputs.`);
  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
@@ -27,7 +28,7 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  if(hours&&person.preparation?.source!=='typed_monthly')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
  if(/\b(net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base||!hours&&!base&&!bonus&&!overtime&&!cut&&!/\b(extra|adjustment)\b/i.test(instruction))return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
  const field=hours?'forecast_allowances':base?'earned_salary_override':bonus?'actual_bonus':overtime?'actual_overtime':'adjustments_override';
- const set=/\b(set|to|total|make)\b/i.test(instruction)&&!/(?:give|add|extra)\b/i.test(instruction);
+ const set=/\b(set|to|total|make)\b/i.test(instruction.split(/\b(?:for|because)\b/i)[0])&&!/(?:give|add|extra)\b/i.test(instruction.split(/\b(?:for|because)\b/i)[0]);
  const old=Number(person[field]??0), value=hours||set?amount:old+(cut?-amount:amount);
  const reason=instruction.match(/\b(?:because|for)\s+(.+?)(?:\s+(?:this month only|every month))?\s*$/i)?.[1]?.trim()??instruction;
  return {...empty(''),changes:[{employee_id:person.employee_id,field,value,previous:old,reason,amount,delta:value-old}],repeat:/\b(every month|monthly|each month)\b/i.test(instruction)};

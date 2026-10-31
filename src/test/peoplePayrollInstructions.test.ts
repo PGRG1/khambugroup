@@ -7,6 +7,7 @@ describe('Explicit payroll instructions',()=>{
  it('never recommends a bonus amount',()=>expect(payrollInstruction('What bonus should Asim Rana get?',[p],2026,5).changes).toEqual([]));
  it('uses only the human HK$800 instruction',()=>{const d=payrollInstruction('Give Asim Rana HK$800 extra for Saturday cover',[p],2026,5);expect(d.changes[0]).toMatchObject({employee_id:'a',value:800,delta:800,reason:'Saturday cover'});expect(payrollNetAfter(p,d.changes[0])).toBe(7840);});
  it('asks for ambiguous names rather than picking a person',()=>expect(payrollInstruction('Give Asim HK$800 extra',[p,{...p,employee_id:'b',name:'Asim Gurung'}],2026,5).changes).toEqual([]));
+ it('never picks one person out of a multiple-person instruction',()=>expect(payrollInstruction('Give Asim Rana and Subash HK$800 extra',[p,{...p,employee_id:'b',name:'Subash Limbu'}],2026,5).changes).toEqual([]));
  it('unknown person never receives a change',()=>expect(payrollInstruction('Give Nobody HK$800 extra',[p],2026,5).changes).toEqual([]));
  it('requires an explicit amount',()=>expect(payrollInstruction('Give Asim Rana a bonus',[p],2026,5).changes).toEqual([]));
  it('never turns a negative amount into a positive addition',()=>expect(payrollInstruction('Give Asim Rana HK$-800 extra',[p],2026,5).changes).toEqual([]));
