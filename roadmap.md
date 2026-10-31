@@ -1,9 +1,12 @@
 ## Bani automatic posting and learning
-- [ ] Tenant Accounting switches and optional amount limit
-- [ ] Guarded posting through existing expense/invoice/bank functions; exceptions and first waiting-item run
-- [ ] Posted by Bani reasons, document links, reversal and monthly posted/asked counts
-- [ ] Tenant correction examples, contextual reuse and contradiction resolution excluding pay
-- [ ] Fail-safe AI checks, focused tests and signed-in verification
+- [x] Tenant Accounting defaults on, optional ask-above amount and audited settings
+- [x] Server-only leased source queue, independent verification, existing posting delegates, open-period/idempotency guards and Needs you reasons; first run posted 0, all 9 waiting bills unchanged
+- [x] Posted by Bani reason/document/reversal surfaces and monthly posted/asked counts; originals retained on Bani reversal
+- [x] Tenant expense/invoice line, vendor, bank-match, answer and reversal examples; conflict resolution excluding pay
+- [x] 59 safety/regression tests, build OK, signed-in default settings and desktop/375px exception review without page overflow
+- [ ] Live automatic posting and reversal, successful AI document checks, non-admin/concurrent writes and contextual learning accuracy blocked by workspace AI spending cap. Workspace owner must raise the AI limit before explicitly resuming.
+- [ ] Human count evidence only records changed quantities; existing/generated GRNs are not trusted as human counts. Explicit unchanged-count confirmation and full multi-document source verification remain unavailable.
+- [ ] Expense upload still saves a review draft before queued verification; direct scan-to-post without draft review, automatic line re-placement from learned examples, and bank/manual account-edit learning beyond match records remain incomplete.
 
 ## Finance — Part 1
 - [x] Unified navigation, redirects and Cash & bank links; Bank/Payments/Petty Cash retained
