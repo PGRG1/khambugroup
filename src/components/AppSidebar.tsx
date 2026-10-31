@@ -420,9 +420,6 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
-          ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
-          ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
-          ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
 
           ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log", "/procurement/suppliers"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
@@ -529,54 +526,6 @@ export function AppSidebar() {
 
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} /></SidebarMenu></SidebarGroup>}
-
-        {showBank && (
-          <CollapsibleNavGroup
-            label="Bank"
-            icon={Landmark}
-            defaultOpen={groupState.bank}
-            onOpenChange={(o) => setGroup("bank", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={bankOverview} />
-            </SidebarMenu>
-            <SubSection label="Accounts" items={bankAccounts} />
-            <SubSection label="Transactions" items={bankTransactions} />
-            <SubSection label="Reconciliation" items={bankReconciliation} />
-            <SubSection label="Reporting" items={bankReporting} />
-          </CollapsibleNavGroup>
-        )}
-
-        {showPayments && (
-          <CollapsibleNavGroup
-            label="Payments"
-            icon={CreditCard}
-            defaultOpen={groupState.payments}
-            onOpenChange={(o) => setGroup("payments", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={paymentsOverview} />
-            </SidebarMenu>
-            <SubSection label="Master Data" items={paymentsMasterData} />
-            <SubSection label="Operations" items={paymentsOperations} />
-            <SubSection label="Reconciliation" items={paymentsReconciliation} />
-          </CollapsibleNavGroup>
-        )}
-
-        {showPettyCash && (
-          <CollapsibleNavGroup
-            label="Petty Cash"
-            icon={Coins}
-            defaultOpen={groupState.pettycash}
-            onOpenChange={(o) => setGroup("pettycash", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={pettyCashOverview} />
-            </SidebarMenu>
-            <SubSection label="Operations" items={pettyCashOps} />
-            <SubSection label="Master Data" items={pettyCashMaster} />
-          </CollapsibleNavGroup>
-        )}
 
         {showAdmin && (
           <CollapsibleNavGroup
