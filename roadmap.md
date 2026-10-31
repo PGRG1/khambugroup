@@ -1,3 +1,10 @@
+## People — Part 1
+- [ ] People navigation and redirects; admin Company/venue settings with feature gates
+- [ ] Team clean list, venue review and confirmed Bani drafts with owner approval
+- [ ] Centred profile, private versioned documents, contract review and dated history
+- [ ] Effective-dated pay/leave integration and focused tests; no Rota/Payroll redesign
+- [ ] Signed-in phone/desktop and permission/save verification
+
 ## Supplier Accounts — Part 2
 - [x] Restyle detail header, nonzero summary, More actions/Deals and five clean-table tabs; preserve existing tab actions, default Open invoices
 - [x] Received Asset-line container grouping, deposits summary and centred confirmation dialog; standalone idempotent negative GRN return under existing user RLS, no invoice/PO/payment writes
