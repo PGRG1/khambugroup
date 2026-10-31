@@ -36,3 +36,8 @@
  .supplier-detail .supplier-deposit-table th:last-child { width:27%; }
  .supplier-detail .supplier-deposit-table th { white-space:nowrap; font-size:11px; }
 }
+.supplier-detail { overflow-x:clip; }
+.supplier-detail > [dir] { min-width:0; max-width:100%; }
+.supplier-detail [role=tablist] { max-width:100%; min-width:0; overscroll-behavior-x:contain; }
+.supplier-detail-section { border-bottom:1px solid hsl(var(--border)); padding-bottom:12px; }
+.supplier-detail-section:last-child { border-bottom:0; }

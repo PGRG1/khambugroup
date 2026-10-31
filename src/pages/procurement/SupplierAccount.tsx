@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus, MoreHorizontal, ArrowUpRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -608,8 +608,8 @@ export default function SupplierAccountPage() {
             </Select>
             <div className="text-xs text-muted-foreground">{filteredLedger.length} entries</div>
           </div>
-          <Card className="card-glass">
-            <CardContent className="p-0">
+          <div className="supplier-detail-section">
+            <div className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20">
@@ -663,14 +663,14 @@ export default function SupplierAccountPage() {
                   )}
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* OPEN DOCUMENTS */}
         <TabsContent value="open" className="mt-6 space-y-6">
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unpaid invoices ({openInvoicesList.length})</div>
               <p className="text-xs text-muted-foreground mb-4">{fmtMoney(outstanding)} open · {fmtMoney(disputedOutstanding)} disputed · {fmtMoney(unallocatedPayments)} unallocated · {fmtMoney(ledgerTotals.net)} supplier balance</p>
               <div className="overflow-x-auto">
@@ -719,11 +719,11 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unapplied credits ({supplierAvailableCNs.length})</div>
               <CreditTable rows={supplierAvailableCNs} showRemaining actions={(cn) => (
                 <>
@@ -731,11 +731,11 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Unallocated payments</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -777,14 +777,14 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* PAYMENTS */}
         <TabsContent value="payments" className="mt-6">
-          <Card className="card-glass">
-            <CardContent className="p-0">
+          <div className="supplier-detail-section">
+            <div className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20">
@@ -825,14 +825,14 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* CREDITS & ADJUSTMENTS */}
         <TabsContent value="credits" className="mt-6 space-y-6">
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Available credits</div>
               <CreditTable rows={supplierAvailableCNs} showRemaining actions={(cn) => (
                 <>
@@ -840,10 +840,10 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Pending credits</div>
               <CreditTable rows={pendingCNs} showStatus actions={(cn) => (
                 <>
@@ -851,10 +851,10 @@ export default function SupplierAccountPage() {
                   <Button size="sm" variant="ghost" onClick={() => handleVoidCN(cn.id)}>Void</Button>
                 </>
               )} />
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Refunds received</div>
               <div className="text-xs text-muted-foreground mb-2">Refunds settle existing credits — they do not reduce procurement cost.</div>
               <div className="overflow-x-auto">
@@ -888,14 +888,14 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="card-glass">
-            <CardContent className="p-5">
+            </div>
+          </div>
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Historical</div>
               <CreditTable rows={historicalCNs} showStatus />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* INCENTIVES */}
@@ -904,8 +904,8 @@ export default function SupplierAccountPage() {
             Rebates, volume incentives, and milestone rewards are recorded manually. Use the Book Credit Note workflow to record an earned incentive when received from the supplier. Incentive tracking and auto-calculation are not yet available.
           </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Buy-X-Get-Y-Free Deals ({deals.length})</div>
                 <Button size="sm" onClick={() => setAddDealOpen(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Add deal</Button>
@@ -944,18 +944,18 @@ export default function SupplierAccountPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="card-glass">
-            <CardContent className="p-5">
+          <div className="supplier-detail-section">
+            <div className="p-5">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Other Incentives & Rebates</div>
               <div className="text-sm text-muted-foreground py-6 text-center">
                 No manual incentive notes recorded.
                 <div className="text-xs mt-1">Earned incentives should be settled via a credit note booked in Credits & Adjustments.</div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <div hidden={activeTab!=="deposits"}><TabsContent forceMount value="deposits">
