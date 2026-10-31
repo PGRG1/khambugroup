@@ -4582,6 +4582,7 @@ export type Database = {
           payment_date: string | null
           payment_method: string
           payment_status: string
+          preparation: Json | null
           salary_paid_amount: number
           sick_leave_deduction: number
           statutory_holiday_pay: number
@@ -4630,6 +4631,7 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          preparation?: Json | null
           salary_paid_amount?: number
           sick_leave_deduction?: number
           statutory_holiday_pay?: number
@@ -4678,6 +4680,7 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          preparation?: Json | null
           salary_paid_amount?: number
           sick_leave_deduction?: number
           statutory_holiday_pay?: number
@@ -4718,6 +4721,117 @@ export type Database = {
           },
           {
             foreignKeyName: "hr_payroll_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_months: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          id: string
+          month: number
+          prepared_at: string | null
+          prepared_by: string | null
+          revision: number
+          status: string
+          tenant_id: string
+          year: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          id?: string
+          month: number
+          prepared_at?: string | null
+          prepared_by?: string | null
+          revision?: number
+          status?: string
+          tenant_id: string
+          year: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          id?: string
+          month?: number
+          prepared_at?: string | null
+          prepared_by?: string | null
+          revision?: number
+          status?: string
+          tenant_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_months_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_overrides: {
+        Row: {
+          created_at: string
+          created_by: string
+          employee_id: string
+          field: string
+          id: string
+          new_value: number
+          payroll_id: string
+          previous_value: number
+          reason: string
+          repeat: boolean
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          employee_id: string
+          field: string
+          id?: string
+          new_value: number
+          payroll_id: string
+          previous_value: number
+          reason: string
+          repeat?: boolean
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          field?: string
+          id?: string
+          new_value?: number
+          payroll_id?: string
+          previous_value?: number
+          reason?: string
+          repeat?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_overrides_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_overrides_payroll_id_fkey"
+            columns: ["payroll_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payroll"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_overrides_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4880,6 +4994,58 @@ export type Database = {
           },
           {
             foreignKeyName: "hr_payroll_payment_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payslips: {
+        Row: {
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          payroll_id: string
+          snapshot: Json
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          payroll_id: string
+          snapshot: Json
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          payroll_id?: string
+          snapshot?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payslips_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payslips_payroll_id_fkey"
+            columns: ["payroll_id"]
+            isOneToOne: true
+            referencedRelation: "hr_payroll"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payslips_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -12724,6 +12890,28 @@ export type Database = {
           p_venue: string
         }
         Returns: string
+      }
+      payroll_manager: { Args: { t: string; u: string }; Returns: boolean }
+      payroll_override: {
+        Args: {
+          f: string
+          pid: string
+          previous: number
+          repeating: boolean
+          rev: number
+          t: string
+          value: number
+          why: string
+        }
+        Returns: undefined
+      }
+      payroll_prepare: {
+        Args: { m: number; t: string; y: number }
+        Returns: Json
+      }
+      payroll_preview: {
+        Args: { m: number; t: string; y: number }
+        Returns: Json
       }
       people_access: { Args: { t: string; u: string }; Returns: boolean }
       people_change_scope: {
