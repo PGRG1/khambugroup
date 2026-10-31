@@ -579,7 +579,7 @@ html:not(.dark) .tenant-portal .app-atmosphere :is(.card-glass, .glass-surface, 
   -webkit-text-fill-color: hsl(var(--card-foreground));
 }
 
-html:not(.dark) .tenant-portal .app-atmosphere :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
+html:not(.dark) .tenant-portal .app-atmosphere :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="Stock & menu"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
 html:not(.dark) .tenant-portal .app-atmosphere .home-venue-filters button {
   background: hsl(var(--tenant-white) / 0.35);
   border: 1px solid var(--tenant-glass-border);
@@ -632,7 +632,7 @@ html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [data-sidebar="trigge
 html:not(.dark) .tenant-portal .app-bg-sage .tenant-topbar [aria-label="User menu"] svg {
   color: hsl(var(--foreground));
 }
-html:not(.dark) .tenant-portal .app-bg-sage :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
+html:not(.dark) .tenant-portal .app-bg-sage :is(nav[aria-label="Revenue"], nav[aria-label="Purchasing"], nav[aria-label="Stock & menu"], nav[aria-label="KPI"], nav[aria-label="People"]) :is(a, button),
 html:not(.dark) .tenant-portal .app-bg-sage .home-venue-filters button,
 html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-muted {
   background: hsl(var(--tenant-white) / 0.55);
@@ -640,6 +640,19 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 }
 
 /* Portal-wide venue scope pill (fixed tenant theme) */
+/* Reused Stock workflows keep all fields, stacked on phone rather than wide grids. */
+.stock-transfer-dialog > .flex { flex-wrap: wrap; }
+.stock-transfer-dialog .bg-primary { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+@media (max-width: 640px) {
+  .stock-transfer-dialog table, .stock-count-dialog table { min-width: 0 !important; table-layout: fixed; }
+  .stock-transfer-dialog thead, .stock-count-dialog thead { display: none; }
+  .stock-transfer-dialog tbody tr, .stock-count-dialog tbody tr { display: block; padding: 8px 0; border-bottom: 1px solid hsl(var(--border)); }
+  .stock-transfer-dialog tbody td, .stock-count-dialog tbody td { display: block; width: 100%; max-width: none; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+  .stock-transfer-dialog tbody td input, .stock-count-dialog tbody td input { width: 100%; max-width: 100%; }
+  .stock-count-dialog .grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .stock-count-dialog .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .stock-count-dialog .flex { flex-wrap: wrap; }
+}
 .bani-brand-word { font-family: "IBM Plex Sans", Inter, system-ui, sans-serif; font-weight: 300; font-size: 20px; color: #25372B; letter-spacing: -0.025em; }
 .bani-brand-mark { color: #25372B; }
 html:not(.dark) .bani-collapse-btn { color: #55605A; }
