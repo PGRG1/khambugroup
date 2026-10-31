@@ -28,12 +28,19 @@ describe("Purchasing navigation access", () => {
   const standard = { title: "Invoices", url: "/procurement/invoices" };
   const admin = { ...standard, adminOnly: true };
   const access = { isAdmin: false, isPreviewActive: false, previewIsAdmin: false, canAccessInvoices: true };
-  it("hides Credit & Debit Notes, Counts and Movements from non-admins", () => {
-    for (const path of ["credit-notes", "stock-counts", "movements"]) {
+  it("hides Credit & Debit Notes and Movements from non-admins", () => {
+    for (const path of ["credit-notes", "movements"]) {
       const tab = purchasingTabsForPath(`/procurement/${path}`)?.find(t => t.url === `/procurement/${path}`);
       expect(tab).toBeDefined();
       if (tab) expect(canOpenPurchasingTab(tab, access)).toBe(false);
     }
+  });
+  it("allows invoice users to find Counts while count writes and approval remain server-authorized", () => {
+    const counts=purchasingTabsForPath('/procurement/stock-counts')?.find(t=>t.url==='/procurement/stock-counts');
+    expect(counts).toBeDefined();
+    if(!counts)throw new Error('Counts tab missing');
+    expect(canOpenPurchasingTab(counts,access)).toBe(true);
+    expect(canOpenPurchasingTab(counts,{...access,canAccessInvoices:false})).toBe(false);
   });
   it("hides admin destinations when an admin previews a non-admin", () => {
     expect(canOpenPurchasingTab(admin, { ...access, isAdmin: true, isPreviewActive: true })).toBe(false);

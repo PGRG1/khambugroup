@@ -47,7 +47,7 @@ export const purchasingTabGroups: PurchasingTab[][] = [
   ],
   [
     { title: "On hand", url: "/procurement/inventory" },
-    { title: "Counts", url: "/procurement/stock-counts", adminOnly: true },
+    { title: "Counts", url: "/procurement/stock-counts" },
     { title: "Movements", url: "/procurement/movements", adminOnly: true },
   ],
   [

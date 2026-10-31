@@ -327,7 +327,7 @@ function App() {
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
                 <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
-                <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
+                <Route path="/procurement/stock-counts" element={<ProtectedRoute pageKey="invoices"><StockCounts /></ProtectedRoute>} />
                 <Route path="/procurement/movements" element={<AdminRoute><StockMovementsTab /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Navigate to="/procurement/movements?type=transfer" replace /></AdminRoute>} />
                 <Route path="/procurement/waste" element={<AdminRoute><Navigate to="/procurement/movements?type=waste" replace /></AdminRoute>} />
