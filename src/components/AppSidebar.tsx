@@ -34,6 +34,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueNavigation";
 import { useKpiCapability } from "@/hooks/useKpiCapability";
+import { usePeopleSettings } from "@/hooks/usePeopleSettings";
+import { useVenueScope } from "@/hooks/useVenueScope";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
@@ -376,10 +378,10 @@ export function AppSidebar() {
   ].filter((c) => c.allowed);
   const kpiChildActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`)
     || (to === "/kpis/setup" && ["/kpis/assignments", "/kpis/targets"].some((r) => pathname === r || pathname.startsWith(`${r}/`)));
+  const peopleSettings=usePeopleSettings();const peopleScope=useVenueScope();
   const peopleChildren = [
-    { title: "Overview", to: "/hr" }, { title: "Employees", to: "/hr/employees" }, { title: "Schedule", to: "/hr/schedule" },
-    { title: "Leave", to: "/hr/leave" }, { title: "Payroll", to: "/hr/payroll" }, { title: "Payroll Payables", to: "/hr/payroll/payables" },
-  ];
+    { title: "Team", to: "/hr/employees" }, { title: "Rota & hours", to: "/hr/schedule" }, { title: "Payroll", to: "/hr/payroll" },
+  ].filter(t=>t.to!=="/hr/schedule"||peopleScope.venues.some(v=>peopleScope.includesId(v.id)&&peopleSettings.forVenue(v.id).rota));
   const peopleActivePath = peopleNavigationPath(pathname);
   const showSubPages = !isMobile;
 
@@ -684,6 +686,7 @@ export function AppSidebar() {
                 { title: "User Access", url: "/user-access" },
                 { title: "Business & venues", url: "/admin/structure" },
                 { title: "Revenue setup", url: "/revenue/setup" },
+                { title: "People", url: "/admin/people" },
                 { title: "Master Data", url: "/admin/master-data" },
                 { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
