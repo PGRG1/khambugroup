@@ -23,10 +23,10 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  const amount=Number((amountMatches[0]?.[1]??amountMatches[0]?.[2]??raw[0]?.[0]??'').replace(/,/g,''));
  if(/(?:HK\s*\$|\$|HKD)\s*-\s*\d|-\s*\d/.test(instruction))return empty('Please state whether this is an addition or deduction, with a positive amount.');
  if(!Number.isFinite(amount)||amount<0||amount>10000000||/\b(percent|percentage)\b|%/.test(lower))return empty('Please give the exact amount in HK dollars, or exact typed monthly hours.');
- const hours=/\bhours?\b/i.test(instruction), base=/\b(base|basic|earned)\s*(pay|salary)?\b/i.test(instruction), bonus=/\bbonus\b/i.test(instruction), cut=/\b(deduct|cut|reduce|subtract)\b/i.test(instruction);
+ const hours=/\bhours?\b/i.test(instruction), base=/\b(base|basic|earned)\s*(pay|salary)?\b/i.test(instruction), bonus=/\bbonus\b/i.test(instruction), overtime=/\b(overtime|OT)\b/i.test(instruction), cut=/\b(deduct|cut|reduce|subtract)\b/i.test(instruction);
  if(hours&&person.preparation?.source!=='typed_monthly')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
- if(/\b(overtime|OT|net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base)return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
- const field=hours?'forecast_allowances':base?'earned_salary_override':bonus?'actual_bonus':'adjustments_override';
+ if(/\b(net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base||!hours&&!base&&!bonus&&!overtime&&!cut&&!/\b(extra|adjustment)\b/i.test(instruction))return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
+ const field=hours?'forecast_allowances':base?'earned_salary_override':bonus?'actual_bonus':overtime?'actual_overtime':'adjustments_override';
  const set=/\b(set|to|total|make)\b/i.test(instruction)&&!/(?:give|add|extra)\b/i.test(instruction);
  const old=Number(person[field]??0), value=hours||set?amount:old+(cut?-amount:amount);
  const reason=instruction.match(/\b(?:because|for)\s+(.+?)(?:\s+(?:this month only|every month))?\s*$/i)?.[1]?.trim()??instruction;
