@@ -1,8 +1,10 @@
 ## Finance — Part 3
-- [ ] Books clean-table views, journal evidence and unified document search/upload routing
-- [ ] Confirmed date/account corrections retain originals, recheck closed periods and audit
-- [ ] Owner-confirmed chart review changes, without automatic account changes
-- [ ] Rules tests, signed-in desktop/phone checks and limitations report
+- [x] Six Books views restyled; journal source/account reasons, 1,935 stored documents searched, bank PDF opened; uploads stage in existing Bani composer
+- [x] Atomic confirmed date/reclassification/reversal RPC, originals retained, snapshot/period/access checks, linked audit; no live financial records changed
+- [x] Three chart review notes with owner-only confirmed additive account creation; no automatic remapping, merging or balance movements
+- [x] 40 Finance rules tests and build OK; signed-in six-view desktop/375px checks, actual date/account reviews and bank document search/view verified
+- [ ] AI evidence suggestions blocked by existing Finance AI access pause (Forbidden); successful model reads unavailable. Live correction/posting, owner Apply, closed-period rejection/reopen and concurrency not tested on production books; no closed months exist.
+- [ ] Existing Bani upload routing only directly hands off supplier/sales scans; bank, settlements, expenses and contracts still need their existing type-specific flow. Source dates are retained, not silently edited; source lists may retain original misread dates. Existing source_type constraint lacks staff-reimbursement types, blocking that workflow independently of account creation.
 
 ## Finance — Part 2
 - [x] Unified Payables list, grouped payees, history, automatic credit preview and atomic recorded-payment delegates
