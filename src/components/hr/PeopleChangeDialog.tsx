@@ -4,7 +4,7 @@ import {Button} from '@/components/ui/button';import {Input} from '@/components/
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import {supabase} from '@/integrations/supabase/client';import {toast} from 'sonner';import {formatCurrency} from '@/utils/format';
 export function PeopleChangeDialog({draft,onClose,tenantId,venues,onSaved,disabled=false}:{draft:any;onClose:()=>void;tenantId:string;venues:{id:string;name:string}[];onSaved:()=>void;disabled?:boolean}){
- const [value,setValue]=useState<any>({});const [saving,setSaving]=useState(false);useEffect(()=>setValue(draft??{}),[draft]);
+ const [value,setValue]=useState<any>({});const [saving,setSaving]=useState(false);useEffect(()=>setValue(draft?{...draft,employment_type:draft.employment_type??'full_time',pay_basis:draft.pay_basis??'month'}:{}),[draft]);
  const update=(k:string,v:any)=>setValue((s:any)=>({...s,[k]:v}));
  const save=async()=>{if(disabled)return;const keys=['first_name','last_name','job_title','employment_type','venue_id','pay_amount','pay_basis','weekly_hours','annual_leave','probation_months','notice_days','status','email','phone','end_date'];const p=Object.fromEntries(keys.filter(k=>value[k]!=null&&value[k]!=='').map(k=>[k,value[k]]));if(!value.employee_id)p.hire_date=value.effective_date;
  setSaving(true);const {error}=await supabase.rpc('confirm_people_change',{t:tenantId,e:value.employee_id??null,d:value.effective_date,p,kind:value.change_type??'details',doc:value.document_id??null});setSaving(false);if(error)toast.error(error.message);else{toast.success('Change confirmed; owner review applied where required');onClose();onSaved();}};
