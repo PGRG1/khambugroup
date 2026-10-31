@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { fetchAllRows } from "@/utils/fetchAllRows";
+import { latestConfirmedCosts, recipeUnitCost, type CostProduct, type FoodReceipt, type FoodLine } from "@/utils/menuCosts";
+import { tenantToday } from "@/utils/salesRecordChecks";
 
 export interface MenuItem {
   id: string;
@@ -45,16 +48,8 @@ export function useMenuCosting() {
   const fetchMenuItems = useCallback(async () => {
     if (!tenantId) { setMenuItems([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("menu_items" as any)
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("name");
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setMenuItems((data || []) as unknown as MenuItem[]);
-    }
+    try { const data = await fetchAllRows("menu_items", "*", {col:"name",asc:true}, tenantId); setMenuItems(data as unknown as MenuItem[]); }
+    catch (error) { toast({ title: "Error", description: error instanceof Error ? error.message : "Could not load recipes", variant: "destructive" }); }
     setLoading(false);
   }, [toast, tenantId]);
 
@@ -152,26 +147,52 @@ export function useMenuCosting() {
   }, [toast, tenantId]);
 
   const recalcTheoreticalCost = useCallback(async (menuItemId: string) => {
-    if (!tenantId) return;
+    if (!tenantId) return false;
     const ingredients = await fetchIngredients(menuItemId);
     const total = ingredients.reduce((sum, ing) => sum + ing.line_cost, 0);
-    await supabase.from("menu_items" as any).update({ theoretical_cost: total } as any).eq("id", menuItemId).eq("tenant_id", tenantId);
+    const {error:costError} = await supabase.from("menu_items" as any).update({ theoretical_cost: total } as any).eq("id", menuItemId).eq("tenant_id", tenantId);
+    if(costError) { toast({title:"Could not update recipe cost",description:costError.message,variant:"destructive"}); return false; }
 
     const pricing = await fetchPricing(menuItemId);
     for (const p of pricing) {
       const grossProfit = p.selling_price - total;
       const foodCostPct = p.selling_price > 0 ? (total / p.selling_price) * 100 : 0;
-      await supabase.from("menu_item_pricing" as any).update({ gross_profit: grossProfit, food_cost_pct: foodCostPct } as any).eq("id", p.id).eq("tenant_id", tenantId);
+      const {error} = await supabase.from("menu_item_pricing" as any).update({ gross_profit: grossProfit, food_cost_pct: foodCostPct } as any).eq("id", p.id).eq("tenant_id", tenantId);
+      if(error) { toast({title:"Could not update price cost",description:error.message,variant:"destructive"});return false; }
     }
 
     await fetchMenuItems();
-  }, [fetchIngredients, fetchPricing, fetchMenuItems, tenantId]);
+    return true;
+  }, [fetchIngredients, fetchPricing, fetchMenuItems, tenantId, toast]);
+
+  const refreshPurchaseCosts = useCallback(async () => {
+    if (!tenantId) return;
+    const [products, receipts, received, ingredients] = await Promise.all([
+      fetchAllRows('product_master','*',undefined,tenantId), fetchAllRows('goods_received_notes','id,venue,status,received_date',undefined,tenantId),
+      fetchAllRows('grn_items','id,grn_id,product_master_id,accepted_qty,quantity_received,unit_cost,unit,created_at',undefined,tenantId), fetchAllRows('menu_item_ingredients','*',undefined,tenantId),
+    ]);
+    const latest = latestConfirmedCosts(receipts as FoodReceipt[],received as FoodLine[],tenantToday());
+    const masters = new Map((products as unknown as CostProduct[]).map(p=>[p.id,p]));
+    const changed = new Set<string>();
+    for (const ingredient of ingredients as unknown as MenuItemIngredient[]) {
+      const product = ingredient.product_master_id ? masters.get(ingredient.product_master_id) : undefined;
+      if (!product) continue;
+      const cost = recipeUnitCost(product,latest.get(product.id),ingredient.unit_used);
+      if(cost == null) continue;
+      const lineCost = Number(ingredient.quantity_used) * cost;
+      if(Math.abs(Number(ingredient.reference_cost)-cost)<.0000001 && Math.abs(Number(ingredient.line_cost)-lineCost)<.0000001) continue;
+      const {error} = await supabase.from('menu_item_ingredients').update({reference_cost:cost,line_cost:lineCost}).eq('id',ingredient.id).eq('tenant_id',tenantId);
+      if(error) throw error;
+      changed.add(ingredient.menu_item_id);
+    }
+    for (const id of changed) { if(!await recalcTheoreticalCost(id)) throw new Error('Some recipe costs could not be updated.'); }
+  },[tenantId,recalcTheoreticalCost]);
 
   return {
     menuItems, loading, fetchMenuItems,
     createMenuItem, updateMenuItem, deleteMenuItem,
     fetchIngredients, saveIngredient, deleteIngredient,
     fetchPricing, savePricing, deletePricing,
-    recalcTheoreticalCost,
+    recalcTheoreticalCost, refreshPurchaseCosts,
   };
 }

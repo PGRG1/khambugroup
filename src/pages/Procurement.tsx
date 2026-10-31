@@ -25,7 +25,7 @@ const tabTitles: Record<string, string> = {
   "line-items": "Purchase Register",
   "deposit-ledger": "Deposit Ledger",
   inventory: "Stock on Hand",
-  "menu-costing": "Recipes & Menu Costing",
+  "menu-costing": "Menu costs",
 };
 
 interface ProcurementProps {
@@ -54,8 +54,8 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
   }, [defaultTab]);
 
   return (
-    <div className={["invoices", "line-items", "receiving", "inventory"].includes(activeTab) ? "w-full mx-auto space-y-6" : "p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto"}>
-      {!["dashboard", "purchase-orders", "invoices", "line-items", "receiving", "inventory"].includes(activeTab) && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
+    <div className={["invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) ? "w-full mx-auto space-y-6" : "p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto"}>
+      {!["dashboard", "purchase-orders", "invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
 
 
       <Tabs value={activeTab}>
