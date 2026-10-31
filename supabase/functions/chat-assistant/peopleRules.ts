@@ -26,3 +26,15 @@ export function instructedPay(text: string, value: number) {
   if (!Number.isFinite(value) || value < 0 || !amounts.includes(value)) throw new Error("Please give the exact pay amount in HK dollars; I will not invent one.");
 }
 export const PEOPLE_OPERATIONS = ["rota_edit", "rota_copy", "rota_send", "leave", "team_change", "team_approve", "payroll_instruction", "payroll_prepare"] as const;
+export function establishedScope(text: string, value: string, label: string) {
+  const normalized = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  if (!value || !(` ${normalized(text)} `).includes(` ${normalized(value)} `)) throw new Error(`Which ${label} do you mean? Please specify it explicitly.`);
+}
+export function establishedPeriod(text: string, value: string, label: string) {
+  if (text.includes(value)) return;
+  const d = new Date(`${value.length === 7 ? `${value}-01` : value}T00:00:00Z`);
+  if (!Number.isFinite(d.getTime())) throw new Error(`Which ${label} do you mean?`);
+  const month = d.toLocaleString("en", { month: "long", timeZone: "UTC" });
+  const pattern = value.length === 7 ? new RegExp(`\\b(?:${month}|${month.slice(0, 3)})\\s+${d.getUTCFullYear()}\\b`, "i") : new RegExp(`\\b${d.getUTCDate()}\\s+(?:${month}|${month.slice(0, 3)})\\s+${d.getUTCFullYear()}\\b`, "i");
+  if (!pattern.test(text)) throw new Error(`Which exact ${label} and year do you mean?`);
+}

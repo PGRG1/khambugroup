@@ -1,5 +1,5 @@
 import { z } from "npm:zod@4";
-import { addDays, checkedDate, exactPerson, instructedPay, monday, PEOPLE_OPERATIONS } from "./peopleRules.ts";
+import { addDays, checkedDate, exactPerson, establishedScope, establishedPeriod, instructedPay, monday, PEOPLE_OPERATIONS } from "./peopleRules.ts";
 type Client = any;
 const uuid = z.string().uuid();
 const Args = z.object({
@@ -46,22 +46,24 @@ export async function peopleContext(client: Client, tenant: string, user: string
   const ids = new Set(people.map(p => p.id));
   return { people: people.map(p => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, venue_id: p.venue_id, job_title: p.job_title })), venues: allowed.map(v => ({ id: v.id, name: v.name })), shifts, balances: (await all(client, "hr_leave_balances", tenant)).filter(b => ids.has(b.employee_id)), leave_types: await all(client, "hr_leave_types", tenant), pending_changes: (await all(client, "hr_people_changes", tenant, q => q.eq("status", "pending"))).filter(c => !c.employee_id || ids.has(c.employee_id)) };
 }
-export async function draftPeopleAction(raw: unknown, client: Client, admin: Client, tenant: string, user: string, userText: string) {
+export async function draftPeopleAction(raw: unknown, client: Client, admin: Client, tenant: string, user: string, userText: string, scopeText = userText) {
   const a = Args.parse(raw);
   // Instruction is the real user's text, never model-authored wording/numbers.
   const instruction = userText;
   const ctx = await peopleContext(client, tenant, user, {});
-  const person = () => exactPerson(a.person ?? "", ctx.people);
-  const venue = () => { const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
+  const person = () => { establishedScope(scopeText, a.person ?? "", "person"); return exactPerson(a.person ?? "", ctx.people); };
+  const venue = () => { establishedScope(scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
   const p: any = { operation: a.operation, instruction };
   let title = "People", detail = "", link = "/hr/employees";
   if (a.operation.startsWith("rota_")) {
     const v = venue(), w = monday(a.week_start ?? ""); const end = addDays(w, 6);
+    establishedPeriod(scopeText, w, "week start");
     p.venue_id = v.id; p.week_start = w; link = `/hr/schedule?week=${w}&venue=${v.id}`;
     const own = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", w).lte("shift_date", end))).filter(s => s.venue_id === v.id || !s.venue_id && ctx.people.some(e => e.id === s.employee_id && e.venue_id === v.id));
     p.before = own; p.week_before = await all(client, "hr_rota_weeks", tenant, q => q.eq("venue_id", v.id).eq("week_start", w));
     if (a.operation === "rota_send") { detail = `Send saved rota · ${own.length} entries`; }
     else if (a.operation === "rota_copy") {
+      if (!/\bcopy\b/i.test(instruction)) throw new Error("Would you like to copy last week's saved rota?");
       const prior = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", addDays(w, -7)).lt("shift_date", w))).filter(s => s.venue_id === v.id || !s.venue_id && ctx.people.some(e => e.id === s.employee_id && e.venue_id === v.id));
       p.changes = prior.map(s => ({ employee_id: s.employee_id, shift_date: addDays(s.shift_date, 7), start_time: s.start_time, end_time: s.end_time, break_minutes: s.break_minutes, role: s.role, shift_type: s.shift_type })).filter(s => !own.some(o => o.employee_id === s.employee_id && o.shift_date === s.shift_date));
       if (!p.changes.length) throw new Error("No saved shifts to copy into empty days for that week.");
@@ -69,6 +71,8 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
     } else {
       if (!a.shifts?.length) throw new Error("Please specify the people, days and shift times, or say copy last week.");
       p.changes = a.shifts.map(s => {
+        establishedScope(scopeText, s.person, "person");
+        if (s.replacement) establishedScope(scopeText, s.replacement, "cover person");
         const e = exactPerson(s.person, ctx.people); const date = checkedDate(s.date);
         if (date < w || date > end) throw new Error("A shift falls outside that week. Which week should change?");
         const candidates = own.filter(o => o.employee_id === e.id && o.shift_date === date && (!s.id || o.id === s.id));
@@ -87,6 +91,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
     if (a.operation === "rota_copy") detail += "\n" + p.changes.map((c: any) => { const e = ctx.people.find(e => e.id === c.employee_id); return `${e?.first_name} ${e?.last_name} · ${c.shift_date} · ${c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min`}`; }).join("\n");
   } else if (a.operation === "leave") {
     const e = person(); p.employee_id = e.id; p.date_from = checkedDate(a.date_from ?? ""); p.date_to = checkedDate(a.date_to ?? a.date_from ?? "");
+    establishedPeriod(scopeText, p.date_from, "leave date"); establishedPeriod(scopeText, p.date_to, "leave end date");
     if (p.date_to < p.date_from || p.date_to.slice(0, 4) !== p.date_from.slice(0, 4)) throw new Error("Choose leave dates in one calendar year.");
     const types = ctx.leave_types.filter(t => t.is_active && t.name.toLowerCase() === String(a.leave_type ?? "").toLowerCase());
     if (types.length !== 1 && a.leave_type !== "Unpaid") throw new Error(`Which leave type? ${ctx.leave_types.filter(t => t.is_active).map(t => t.name).join(", ")}`);
@@ -104,6 +109,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
   } else if (a.operation === "team_change") {
     const kind = a.change_type; if (!kind) throw new Error("What Team change should be recorded?");
     const values: any = { ...a.values }; const date = checkedDate(a.effective_date ?? "");
+    establishedPeriod(scopeText, date, "effective date");
     const e = kind === "joined" ? null : person();
     if (kind === "joined" && (!values.first_name || !values.last_name)) throw new Error("What are the joiner's first and last names?");
     if (kind === "joined" && ctx.people.some(e => `${e.first_name} ${e.last_name}`.toLowerCase() === `${values.first_name} ${values.last_name}`.toLowerCase())) throw new Error("That person already exists. Is this a change to their record?");
@@ -126,6 +132,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
   } else {
     if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(a.month ?? "")) throw new Error("Which payroll month and year do you mean?");
     const [y, m] = String(a.month).split("-").map(Number); p.year = y; p.month = m; link = `/hr/payroll?year=${y}&month=${m}`;
+    establishedPeriod(scopeText, String(a.month), "payroll month");
     if (!await rpc(client, "payroll_manager", { t: tenant, u: user })) throw new Error("Payroll manager access required");
     const preview = await rpc(client, "payroll_preview", { t: tenant, y, m });
     const period = await all(client, "hr_payroll_months", tenant, q => q.eq("year", y).eq("month", m)); p.period_before = period;
