@@ -51,8 +51,8 @@ const fmtQty = (n?: number | null) =>
 const WASTE_REASONS = ["Spoilage", "Expiry", "Breakage", "Quality", "Over-prep", "Other"];
 const CONSUMPTION_REASONS = ["Staff meal", "Marketing", "R&D", "Tasting", "Comp", "Other"];
 
-type EntryType = "waste" | "consumption";
-type Entry = {
+export type EntryType = "waste" | "consumption";
+export type Entry = {
   id: string;
   tenant_id: string;
   venue: string;
@@ -70,7 +70,7 @@ type Entry = {
   created_by: string | null;
   created_at: string;
 };
-type Product = {
+export type Product = {
   id: string;
   internal_sku: string;
   internal_product_name: string;
@@ -505,8 +505,8 @@ function Kpi({ label, value, sub, Icon }: { label: string; value: string; sub?: 
 }
 
 // ---------- entry dialog ----------
-function EntryDialog({
-  open, onOpenChange, editing, products, venues, tenantId, userId, onSaved,
+export function EntryDialog({
+  open, onOpenChange, editing, products, venues, tenantId, userId, onSaved, initialType = "waste", onDelete,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -516,11 +516,13 @@ function EntryDialog({
   tenantId: string | null;
   userId: string | null;
   onSaved: () => void;
+  initialType?: EntryType;
+  onDelete?: () => void;
 }) {
   const blank = {
     venue: venues[0] || "",
     entry_date: new Date().toISOString().slice(0, 10),
-    entry_type: "waste" as EntryType,
+    entry_type: initialType,
     reason: "",
     product_master_id: null as string | null,
     sku: "",
@@ -553,7 +555,7 @@ function EntryDialog({
     } else {
       setForm({ ...blank, venue: venues[0] || "" });
     }
-  }, [open, editing, venues.join("|")]);
+  }, [open, editing, venues.join("|"), initialType]);
 
   const reasons = form.entry_type === "waste" ? WASTE_REASONS : CONSUMPTION_REASONS;
 
@@ -608,7 +610,7 @@ function EntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit entry" : "New waste / consumption entry"}</DialogTitle>
           <DialogDescription>
@@ -718,6 +720,7 @@ function EntryDialog({
         </div>
 
         <DialogFooter>
+          {editing && onDelete && <Button variant="destructive" onClick={onDelete}>Delete</Button>}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : editing ? "Save" : "Record entry"}</Button>
         </DialogFooter>

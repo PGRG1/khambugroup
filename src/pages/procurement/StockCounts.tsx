@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
+import { Toolbar } from "@/components/kit/Toolbar";
+import { FilterPanel, FilterGroup } from "@/components/kit/FilterPanel";
+import { SortMenu } from "@/components/kit/SortMenu";
+import { formatDate as displayDate, formatCurrency as displayCurrency } from "@/utils/format";
+import "@/components/kit/kit.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,17 +103,13 @@ const LOC_COLORS = [
 ];
 
 export default function StockCounts() {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-
-  return (
-    <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      {selectedSessionId ? (
-        <DetailView sessionId={selectedSessionId} onBack={() => setSelectedSessionId(null)} />
-      ) : (
-        <ListView onOpen={setSelectedSessionId} />
-      )}
-    </div>
-  );
+  const [params, setParams] = useSearchParams();
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(params.get("session"));
+  const close = () => { setSelectedSessionId(null); setParams({}); };
+  return <div className="w-full min-w-0 space-y-5 pb-24">
+    <ListView onOpen={setSelectedSessionId} />
+    <Dialog open={!!selectedSessionId} onOpenChange={o => !o && close()}><DialogContent className="stock-count-dialog w-[calc(100%-2rem)] max-w-5xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Stock count</DialogTitle></DialogHeader>{selectedSessionId && <DetailView sessionId={selectedSessionId} onBack={close} />}</DialogContent></Dialog>
+  </div>;
 }
 
 /* ============================================================
@@ -122,6 +125,8 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
   const venueFilter: string = "all"; const setVenueFilter = (_v: string) => {};
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
 
   const load = async () => {
     if (!tenantId) return;
@@ -161,120 +166,21 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
   const filtered = sessions.filter(
     (s) =>
       venueScope.includesName(s.venue) &&
-      (statusFilter === "all" || s.status === statusFilter)
-  );
+      (statusFilter === "all" || s.status === statusFilter) && `${s.session_number} ${s.venue}`.toLowerCase().includes(search.toLowerCase())
+  ).sort((a,b) => sort === "name" ? a.venue.localeCompare(b.venue) : b.count_date.localeCompare(a.count_date));
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold font-display">
-          <span className="text-gradient-gold">Stock Counts</span>
-        </h1>
-        <Button onClick={() => setShowNew(true)}>
-          <Plus className="h-4 w-4 mr-1" /> New Count
-        </Button>
-      </div>
-
-      <div className="flex gap-2 mb-4">
-        
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="pending_review">Pending Review</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="card-glass rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-primary text-primary-foreground text-xs font-semibold">
-            <tr>
-              <th className="text-left px-3 py-2">Session #</th>
-              <th className="text-left px-3 py-2">Venue</th>
-              <th className="text-left px-3 py-2">Date</th>
-              <th className="text-left px-3 py-2">Type</th>
-              <th className="text-left px-3 py-2">Status</th>
-              <th className="text-left px-3 py-2">Progress</th>
-              <th className="text-right px-3 py-2">Value</th>
-              <th className="w-8 px-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-10 text-muted-foreground text-sm">
-                  No stock counts yet.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((s) => {
-                const stats = itemStats[s.id] ?? { total: 0, counted: 0, value: 0 };
-                const pct = stats.total ? (stats.counted / stats.total) * 100 : 0;
-                const t = TYPE_BADGE[s.count_type];
-                const st = STATUS_BADGE[s.status];
-                return (
-                  <tr
-                    key={s.id}
-                    onClick={() => onOpen(s.id)}
-                    className="hover:bg-accent/30 cursor-pointer text-sm border-t border-border/40"
-                  >
-                    <td className="px-3 py-2 font-mono text-xs">{s.session_number}</td>
-                    <td className="px-3 py-2">{s.venue}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {new Date(s.count_date).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant="outline" className={t.cls}>
-                        {t.label}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant="outline" className={st.cls}>
-                        {st.label}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full ${s.status === "approved" ? "bg-green-500" : "bg-amber-500"}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {stats.counted}/{stats.total}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {s.status === "approved" ? (
-                        `HK$ ${formatCurrency(stats.value)}`
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-2">
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
+      <RevenuePageTop title="Stock" actionsBesideTitle actions={<Button onClick={() => setShowNew(true)}><Plus className="h-4 w-4" />Count stock</Button>} />
+      <div data-invoice-tabs-host />
+      <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">Counts</h2><p className="text-sm text-muted-foreground">{filtered.length} stock counts</p>
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search counts" searchAfterControls mobileSearchBelow filter={<FilterPanel activeCount={statusFilter === "all" ? 0 : 1} onReset={() => setStatusFilter("all")} resultLabel={`Show ${filtered.length} counts`}><FilterGroup title="Status"><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="pending_review">Pending review</SelectItem><SelectItem value="approved">Approved</SelectItem></SelectContent></Select></FilterGroup></FilterPanel>} sort={<SortMenu value={sort} onChange={setSort} options={[{key:"newest",label:"Newest first",compactLabel:"Newest"},{key:"name",label:"Venue"}]} />} onDownload={() => downloadCSV(filtered.map(s => ({number:s.session_number,venue:s.venue,date:s.count_date,type:s.count_type,status:s.status,value:itemStats[s.id]?.value ?? 0})),[{key:"number",label:"Session #"},{key:"venue",label:"Venue"},{key:"date",label:"Date"},{key:"type",label:"Type"},{key:"status",label:"Status"},{key:"value",label:"Value"}],"stock_counts")} /></div>
+      <table className="hidden min-[641px]:table w-full table-fixed text-sm"><thead className="text-xs text-muted-foreground border-y"><tr>{["Count", "Venue", "Date", "Type", "Status", "Progress", "Value"].map(h => <th key={h} className="text-left px-3 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{filtered.map(s => <tr key={s.id} onClick={() => onOpen(s.id)} className="border-b cursor-pointer hover:bg-muted/40"><td className="px-3 py-3 break-words">{s.session_number}</td><td className="px-3 break-words">{s.venue}</td><td className="px-3">{displayDate(s.count_date)}</td><td className="px-3 capitalize">{s.count_type}</td><td className="px-3">{STATUS_BADGE[s.status].label}</td><td className="px-3 td-num">{itemStats[s.id]?.counted ?? 0}/{itemStats[s.id]?.total ?? 0}</td><td className="px-3 td-num">{s.status === "approved" ? displayCurrency(itemStats[s.id]?.value ?? 0) : "—"}</td></tr>)}</tbody></table>
+      <div className="min-[641px]:hidden divide-y divide-border">{filtered.map(s => <Button key={s.id} variant="ghost" onClick={() => onOpen(s.id)} className="block w-full h-auto rounded-none p-4 text-left whitespace-normal"><div className="font-medium">{s.venue} · {s.session_number}</div><div className="text-xs text-muted-foreground mt-1">{displayDate(s.count_date)} · {s.count_type} · {STATUS_BADGE[s.status].label}</div><div className="text-xs text-muted-foreground mt-1">{itemStats[s.id]?.counted ?? 0}/{itemStats[s.id]?.total ?? 0} counted</div></Button>)}</div>
+      {!filtered.length && <p className="text-center p-8 text-sm text-muted-foreground">No stock counts yet.</p>}</section>
       {showNew && (
         <NewCountDialog
+          initialVenue={venueScope.selectedNames.length === 1 ? venueScope.selectedNames[0] : ""}
           onClose={() => setShowNew(false)}
           onCreated={(id) => {
             setShowNew(false);
@@ -289,12 +195,12 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
 /* ============================================================
  * NEW COUNT DIALOG
  * ============================================================ */
-function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewCountDialog({ onClose, onCreated, initialVenue = "" }: { onClose: () => void; onCreated: (id: string) => void; initialVenue?: string }) {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
   const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
-  const [venue, setVenue] = useState<string>("");
+  const [venue, setVenue] = useState<string>(initialVenue);
   const [countDate, setCountDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [countType, setCountType] = useState<"full" | "category" | "spot">("full");
   const [notes, setNotes] = useState("");
@@ -442,7 +348,7 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">New stock count</DialogTitle>
         </DialogHeader>
@@ -569,7 +475,7 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
 /* ============================================================
  * DETAIL VIEW
  * ============================================================ */
-function DetailView({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
+export function DetailView({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
   const { user, isAdmin } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Item[]>([]);

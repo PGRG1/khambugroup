@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import DepositTransactionSheet from "./DepositTransactionSheet";
 import InventoryItemSheet, { type InventoryItemSheetLastCount } from "./InventoryItemSheet";
+import StockOnHandView from "./StockOnHandView";
 
 const formatDateShort = (iso: string | null | undefined) => {
   if (!iso) return "—";
@@ -76,6 +77,10 @@ function StatTile({ label, value, tone, active, onClick }: {
 }
 
 export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inventory" | "deposits" } = {}) {
+  return mode === "inventory" ? <StockOnHandView /> : <LegacyInventoryOnHandTab mode={mode} />;
+}
+
+function LegacyInventoryOnHandTab({ mode = "deposits" }: { mode?: "inventory" | "deposits" }) {
   const navigate = useNavigate();
   const { tenantId } = useActiveTenant();
   const isMobile = useIsMobile();

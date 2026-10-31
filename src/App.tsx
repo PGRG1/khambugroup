@@ -56,7 +56,7 @@ import AccessDenied from "./pages/AccessDenied";
 import Procurement from "./pages/Procurement";
 import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
-import Transfers from "./pages/procurement/Transfers";
+import StockMovementsTab from "./components/procurement/StockMovementsTab";
 import SpendSummaryPage from "./pages/procurement/SpendSummary";
 import SupplierAccountsPage from "./pages/procurement/SupplierAccounts";
 import OpenPayablesPage from "./pages/procurement/OpenPayables";
@@ -64,7 +64,6 @@ import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
 import OpeningBalances from "./pages/procurement/OpeningBalances";
-import WastePage from "./pages/procurement/Waste";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -329,8 +328,9 @@ function App() {
                 <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
-                <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
-                <Route path="/procurement/waste" element={<AdminRoute><WastePage /></AdminRoute>} />
+                <Route path="/procurement/movements" element={<AdminRoute><StockMovementsTab /></AdminRoute>} />
+                <Route path="/procurement/transfers" element={<AdminRoute><Navigate to="/procurement/movements?type=transfer" replace /></AdminRoute>} />
+                <Route path="/procurement/waste" element={<AdminRoute><Navigate to="/procurement/movements?type=waste" replace /></AdminRoute>} />
 
                 <Route path="/procurement/finance" element={<Navigate to="/procurement/finance/spend" replace />} />
                 <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />

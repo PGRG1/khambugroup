@@ -1,3 +1,9 @@
+## Stock simplification — Part 1
+- [x] Two-page navigation, underline Stock tabs and legacy movement redirects
+- [x] Count-aware On hand list and centred item/count dialogs, deposits unchanged
+- [x] Merged Movements with existing waste/consumption/transfer workflows
+- [x] 33 tests and build OK; signed-in 1280/375 checks, item/count/staff/transfer dialogs and CSV BOM; no overflow or data writes. KHAMBU has no counts or movements to verify populated detail workflows without creating data.
+
 ## Purchase Register redesign
 - [x] Match Invoices layout, reuse scanner/detail workflow, scope by invoice venue and preserve realtime/export/attachments
 - [x] Add 50-line pagination, optional columns and By item summaries/dialog with previous-90-day median and free-unit math

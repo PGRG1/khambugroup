@@ -309,7 +309,7 @@ type DraftLine = {
   unit_cost: string;
 };
 
-function NewTransferDialog({
+export function NewTransferDialog({
   open,
   onOpenChange,
   onCreated,
@@ -438,7 +438,7 @@ function NewTransferDialog({
     }
     const rows = valid.map((l) => ({
       transfer_id: t.id,
-      product_master_id: l.product_master_id!,
+      product_master_id: l.product_master_id,
       quantity_sent: Number(l.quantity_sent),
       unit: l.unit,
       unit_cost: Number(l.unit_cost) || 0,
@@ -456,7 +456,7 @@ function NewTransferDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="stock-transfer-dialog w-[calc(100%-2rem)] max-w-lg max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">New Transfer</DialogTitle>
         </DialogHeader>
@@ -537,14 +537,14 @@ function NewTransferDialog({
                 <tbody>
                   {lines.map((l, idx) => (
                     <tr key={idx} className="border-t border-border/40">
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Item">
                         <ProductPicker
                           products={products}
                           value={l.product_name}
                           onPick={(p) => pickProduct(idx, p)}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Quantity">
                         <Input
                           type="number" inputMode="decimal" min={0}
                           className="h-8 text-right"
@@ -552,14 +552,14 @@ function NewTransferDialog({
                           onChange={(e) => updateLine(idx, { quantity_sent: e.target.value })}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Unit">
                         <Input
                           className="h-8"
                           value={l.unit}
                           onChange={(e) => updateLine(idx, { unit: e.target.value })}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1" data-label="Unit cost">
                         <Input
                           type="number" inputMode="decimal" min={0}
                           className="h-8 text-right"
@@ -674,7 +674,7 @@ function ProductPicker({
 /*                            DETAIL VIEW                                 */
 /* ====================================================================== */
 
-function TransferDetail({ transferId, onBack }: { transferId: string; onBack: () => void }) {
+export function TransferDetail({ transferId, onBack }: { transferId: string; onBack: () => void }) {
   const { user } = useAuth();
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [items, setItems] = useState<TransferItem[]>([]);
