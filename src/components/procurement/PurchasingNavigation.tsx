@@ -2,7 +2,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { Link, useLocation } from "react-router-dom";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
-import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -12,13 +11,12 @@ import { SUPPLIER_DIRECTORY_TAB, isStockMenuRoute, matchesPurchasingPath, purcha
 /** URL-only navigation; existing page guards and content remain independent. */
 export function PurchasingNavigation() {
   const { pathname } = useLocation();
-  const { isMobile } = useSidebar();
   const { canOpen, loading } = usePurchasingNavigationAccess();
   const { isAdmin } = useAuth();
   const { isPreviewActive } = usePreviewMode();
   const [tabHost, setTabHost] = useState<Element | null>(null);
   const invoiceTabsRef = useActiveNavigationScroll(pathname, tabHost);
-  const invoiceFamily = purchasingParentPath(pathname) === "/procurement/invoices";
+  const invoiceFamily = ["/procurement/invoices", "/procurement/inventory"].includes(purchasingParentPath(pathname));
   useEffect(() => {
     const locate = () => setTabHost(document.querySelector('[data-invoice-tabs-host]'));
     locate();
@@ -37,18 +35,8 @@ export function PurchasingNavigation() {
     {!isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
       <SectionPillRow label="Purchasing" items={pages.filter(page => !page.adminOnly).map(page => ({ label: page.title, path: page.url }))} activePath={pages.find(page => matchesPurchasingPath(parentPath, page.url))?.url ?? parentPath} />
     </div>}
-    {isMobile && isStockMenuRoute(pathname) && pages.length > 0 && <div className="mb-5">
-      <nav aria-label={isStockMenuRoute(pathname) ? "Stock & menu" : "Purchasing"} className="flex items-center">
-        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1">
-          {pages.map(page => {
-            const active = matchesPurchasingPath(parentPath, page.url);
-            return <Link key={page.url} to={page.url} aria-current={active ? "page" : undefined} className={cn(
-              "inline-flex h-9 shrink-0 items-center rounded-md px-3 text-[13px] font-medium transition-colors",
-              active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-            )}>{page.title}</Link>;
-          })}
-        </div>
-      </nav>
+    {isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
+      <SectionPillRow label="Stock & menu" items={pages.map(page => ({ label: page.title, path: page.url }))} activePath={parentPath} />
     </div>}
     {analysis.length > 0 && <nav aria-label="Purchasing analysis" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
       {analysis.map(page => <Link key={page.url} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={page.url}>{page.title}</Link>)}

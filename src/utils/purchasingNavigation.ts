@@ -15,9 +15,8 @@ export const SUPPLIER_DIRECTORY_TAB: PurchasingTab = { title: "Suppliers & Vendo
 export const isSupplierDirectoryRoute = (pathname: string) => matchesPurchasingPath(pathname, SUPPLIER_DIRECTORY_TAB.url);
 
 export const stockMenuSectionPages: PurchasingTab[] = [
-  { title: "Inventory", url: "/procurement/inventory" },
-  { title: "Products & Consumables", url: "/procurement/products" },
-  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing" },
+  { title: "Stock", url: "/procurement/inventory" },
+  { title: "Menu costs", url: "/procurement/menu-costing" },
 ];
 
 export const purchasingAnalysisPages: PurchasingTab[] = [
@@ -47,10 +46,9 @@ export const purchasingTabGroups: PurchasingTab[][] = [
     { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
   ],
   [
-    { title: "Stock on Hand", url: "/procurement/inventory" },
-    { title: "Stock Counts", url: "/procurement/stock-counts", adminOnly: true },
-    { title: "Transfers", url: "/procurement/transfers", adminOnly: true },
-    { title: "Waste & Adjustments", url: "/procurement/waste", adminOnly: true },
+    { title: "On hand", url: "/procurement/inventory" },
+    { title: "Counts", url: "/procurement/stock-counts", adminOnly: true },
+    { title: "Movements", url: "/procurement/movements", adminOnly: true },
   ],
   [
     { title: "Products & Consumables", url: "/procurement/products" },
@@ -63,7 +61,14 @@ export function matchesPurchasingPath(pathname: string, url: string) {
 }
 
 export function purchasingTabsForPath(pathname: string) {
+  if (stockMovementRedirect(pathname)) pathname = "/procurement/movements";
   return purchasingTabGroups.find(group => group.some(tab => matchesPurchasingPath(pathname, tab.url)));
+}
+
+export function stockMovementRedirect(pathname: string) {
+  if (pathname === "/procurement/transfers") return "/procurement/movements?type=transfer";
+  if (pathname === "/procurement/waste") return "/procurement/movements?type=waste";
+  return undefined;
 }
 
 export function purchasingParentPath(pathname: string) {
@@ -71,7 +76,7 @@ export function purchasingParentPath(pathname: string) {
 }
 
 export function isStockMenuRoute(pathname: string) {
-  return ["inventory", "stock-counts", "transfers", "waste", "menu-costing", "products", "categories"]
+  return ["inventory", "stock-counts", "movements", "transfers", "waste", "menu-costing", "products", "categories"]
     .some(path => matchesPurchasingPath(pathname, `/procurement/${path}`));
 }
 

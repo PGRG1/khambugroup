@@ -289,12 +289,12 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
 /* ============================================================
  * NEW COUNT DIALOG
  * ============================================================ */
-function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewCountDialog({ onClose, onCreated, initialVenue = "" }: { onClose: () => void; onCreated: (id: string) => void; initialVenue?: string }) {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
   const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
-  const [venue, setVenue] = useState<string>("");
+  const [venue, setVenue] = useState<string>(initialVenue);
   const [countDate, setCountDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [countType, setCountType] = useState<"full" | "category" | "spot">("full");
   const [notes, setNotes] = useState("");
@@ -442,7 +442,7 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">New stock count</DialogTitle>
         </DialogHeader>
@@ -569,7 +569,7 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
 /* ============================================================
  * DETAIL VIEW
  * ============================================================ */
-function DetailView({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
+export function DetailView({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
   const { user, isAdmin } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Item[]>([]);

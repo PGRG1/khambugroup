@@ -309,7 +309,7 @@ type DraftLine = {
   unit_cost: string;
 };
 
-function NewTransferDialog({
+export function NewTransferDialog({
   open,
   onOpenChange,
   onCreated,
@@ -438,7 +438,7 @@ function NewTransferDialog({
     }
     const rows = valid.map((l) => ({
       transfer_id: t.id,
-      product_master_id: l.product_master_id!,
+      product_master_id: l.product_master_id,
       quantity_sent: Number(l.quantity_sent),
       unit: l.unit,
       unit_cost: Number(l.unit_cost) || 0,
@@ -456,7 +456,7 @@ function NewTransferDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="stock-transfer-dialog w-[calc(100%-2rem)] max-w-lg max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">New Transfer</DialogTitle>
         </DialogHeader>
@@ -674,7 +674,7 @@ function ProductPicker({
 /*                            DETAIL VIEW                                 */
 /* ====================================================================== */
 
-function TransferDetail({ transferId, onBack }: { transferId: string; onBack: () => void }) {
+export function TransferDetail({ transferId, onBack }: { transferId: string; onBack: () => void }) {
   const { user } = useAuth();
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [items, setItems] = useState<TransferItem[]>([]);
