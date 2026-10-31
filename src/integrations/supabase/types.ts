@@ -13234,6 +13234,20 @@ export type Database = {
         Args: { d: string; t: string }
         Returns: undefined
       }
+      finance_close_bank_period: {
+        Args: { p_import: string; p_note?: string; p_tenant: string }
+        Returns: string
+      }
+      finance_confirm_bank_match: {
+        Args: {
+          p_notes?: string
+          p_target: string
+          p_tenant: string
+          p_txn: string
+          p_type: string
+        }
+        Returns: undefined
+      }
       finance_convert_typed_month: {
         Args: {
           p_counter_account: string
@@ -13245,6 +13259,18 @@ export type Database = {
       }
       finance_month_checks: {
         Args: { p_month: string; p_tenant_id: string }
+        Returns: Json
+      }
+      finance_record_owed_payment: {
+        Args: {
+          p_account: string
+          p_amount: number
+          p_date: string
+          p_items: Json
+          p_method: string
+          p_reference: string
+          p_tenant: string
+        }
         Returns: Json
       }
       finance_set_month_closed: {

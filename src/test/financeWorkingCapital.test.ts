@@ -1,0 +1,22 @@
+import {describe,it,expect} from 'vitest';
+import {paymentPreview,groupPayees,payrollOwed,expectedTenderDays,cashDepositChecked,walletDayChecked,bankSettled,legacyFinanceDestination,type OwedItem} from '@/utils/financeWorkingCapital';
+const item:OwedItem={key:'supplier:1',id:'1',source:'supplier',payeeKey:'s',payee:'Supplier',what:'Invoice',venue:'Assembly',date:'2026-10-01',due:null,amount:100,supplierId:'s',link:'/'};
+describe('Finance working capital',()=>{
+ it('applies supplier credits before cash',()=>expect(paymentPreview([item],80,[{id:'c',supplier_id:'s',remaining_balance:20}])).toEqual([{source:'supplier',id:'1',amount:80,credits:[{id:'c',amount:20}]}]));
+ it('never uses another payee credit',()=>expect(paymentPreview([item],100,[{id:'c',supplier_id:'other',remaining_balance:20}])[0].credits).toEqual([]));
+ it('allocates only the recorded amount',()=>expect(paymentPreview([item,{...item,id:'2'}],120,[]).map(i=>i.amount)).toEqual([100,20]));
+ it('does not duplicate shared credit across invoices',()=>expect(paymentPreview([item,{...item,id:'2'}],0,[{id:'c',supplier_id:'s',remaining_balance:150}]).map(i=>i.credits.reduce((s,c)=>s+c.amount,0))).toEqual([100,50]));
+ it('never applies supplier credit to payroll',()=>expect(paymentPreview([{...item,source:'salary'}],0,[{id:'c',supplier_id:'s',remaining_balance:100}])[0].credits).toEqual([]));
+ it('groups all sources for the same payee without copying liabilities',()=>expect(groupPayees([item,{...item,source:'bill',id:'2',amount:50}])[0].amount).toBe(150));
+ it('deducts recorded salary and MPF payments',()=>expect(payrollOwed({net_salary:12000,salary_paid_amount:2000,mpf_employee:600,mpf_employer:600,mpf_paid_amount:400})).toEqual({salary:10000,mpf:800}));
+ it('clamps overpaid payroll to zero',()=>expect(payrollOwed({net_salary:100,salary_paid_amount:200,mpf_employee:0,mpf_employer:0,mpf_paid_amount:100})).toEqual({salary:0,mpf:0}));
+ it('derives daily expected tenders only when present',()=>expect(expectedTenderDays([{id:'s',date:'2026-10-01',cash:100,alipay:200,visa:0}]).map(i=>[i.method,i.amount])).toEqual([['alipay',200],['cash',100]]));
+ it('does not check cash by matching amount alone',()=>expect(cashDepositChecked('s',[{id:'b',money_in:100,status:'matched',matched_record_id:'other',matched_record_type:'cash_deposit'}],[])).toBe(false));
+ it('checks cash only against linked deposit evidence',()=>expect(cashDepositChecked('s',[{id:'b',money_in:100,status:'matched',matched_record_id:'s',matched_record_type:'cash_deposit'}],[])).toBe(true));
+ it('does not claim a bare matched label is verified',()=>expect(bankSettled({status:'matched',matched_record_id:null,journal_entry_id:null})).toBe(false));
+ it('checks wallets against dated venue payout evidence',()=>expect(walletDayChecked({date:'2026-10-01',venue:'Assembly',method:'alipay',amount:200},[{id:'b',transaction_date:'2026-10-01',merchant_id:'m',bank_transaction_id:'t'}],[{id:'m',venue:'Assembly',shared_venues:[]}],[{batch_id:'b',payment_type:'alipay',gross_amount:200}],[{id:'t',status:'matched'}])).toBe(true));
+ it('does not assign a shared-venue payout to a single day',()=>expect(walletDayChecked({date:'2026-10-01',venue:'Assembly',method:'alipay',amount:200},[{id:'b',transaction_date:'2026-10-01',merchant_id:'m',bank_transaction_id:'t'}],[{id:'m',venue:'Assembly',shared_venues:['Assembly','Caliente']}],[{batch_id:'b',payment_type:'alipay',gross_amount:200}],[{id:'t',status:'matched'}])).toBe(false));
+ it('routes processor setup to Accounting',()=>expect(legacyFinanceDestination('/payments/fee-rates')).toBe('/admin/accounting/card-processors?view=fee-rates'));
+ it('routes cash receipts to Expenses',()=>expect(legacyFinanceDestination('/petty-cash/receipts')).toBe('/expenses?source=cash-box'));
+ it('routes outgoing bank lines to money out',()=>expect(legacyFinanceDestination('/bank/outgoing')).toBe('/finance/cash?view=transactions&filter=out'));
+});

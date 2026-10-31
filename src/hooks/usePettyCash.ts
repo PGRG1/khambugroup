@@ -97,7 +97,7 @@ export function usePettyCash() {
       fetchAllRows("petty_cash_classifications", "*", { col: "sort_order", asc: true }, tenantId),
       fetchAllRows("petty_cash_receipts", "*", { col: "receipt_date", asc: false }, tenantId),
       fetchAllRows("petty_cash_replenishments", "*", { col: "replenishment_date", asc: false }, tenantId),
-      fetchAllRows("chart_of_accounts", "id, code, name, account_type", { col: "code", asc: true }),
+      fetchAllRows("chart_of_accounts", "id, code, name, account_type", { col: "code", asc: true }, tenantId),
       fetchAllRows("bank_accounts", "id, account_name, linked_gl_account_id", { col: "sort_order", asc: true }, tenantId),
     ]);
     setFloats(f as PettyFloat[]);

@@ -116,6 +116,8 @@ import HREmployees from "./pages/hr/HREmployees";
 import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
 import PeopleSettings from "./pages/admin/PeopleSettings";
 import AccountingSettings from "./pages/admin/Accounting";
+import CardProcessors from "./pages/admin/CardProcessors";
+import { legacyFinanceDestination } from "@/utils/financeWorkingCapital";
 
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRClock from "./pages/hr/HRClock";
@@ -279,25 +281,26 @@ function App() {
                 <Route path="/finance/document-centre" element={<Navigate to="/finance/books?view=documents" replace />} />
                 <Route path="/finance/documents-bills" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/finance/bills-expenses" element={<Navigate to="/expenses" replace />} />
-                <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
-                <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
-                <Route path="/payments/fee-audit" element={<AdminRoute><PaymentsFeeAuditPage /></AdminRoute>} />
-                <Route path="/payments/monthly" element={<AdminRoute><PaymentsMonthlyPage /></AdminRoute>} />
-                <Route path="/payments/processors" element={<AdminRoute><PaymentsProcessorsPage /></AdminRoute>} />
-                <Route path="/payments/merchants" element={<AdminRoute><PaymentsMerchantsPage /></AdminRoute>} />
-                <Route path="/payments/fee-rates" element={<AdminRoute><PaymentsFeeRatesPage /></AdminRoute>} />
-                <Route path="/payments/imports" element={<AdminRoute><PaymentsImportsPage /></AdminRoute>} />
-                <Route path="/petty-cash" element={<AdminRoute><PettyCashOverviewPage /></AdminRoute>} />
-                <Route path="/petty-cash/receipts" element={<AdminRoute><PettyCashReceiptsPage /></AdminRoute>} />
-                <Route path="/petty-cash/replenishments" element={<AdminRoute><PettyCashReplenishmentsPage /></AdminRoute>} />
-                <Route path="/petty-cash/floats" element={<AdminRoute><PettyCashFloatsPage /></AdminRoute>} />
-                <Route path="/petty-cash/classifications" element={<AdminRoute><PettyCashClassificationsPage /></AdminRoute>} />
+                <Route path="/payments" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/batches" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/batches") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/fee-audit" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/fee-audit") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/monthly" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/monthly") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/processors" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/processors") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/merchants" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/merchants") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/fee-rates" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/fee-rates") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/payments/imports" element={<AdminRoute><Navigate to={legacyFinanceDestination("/payments/imports") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/petty-cash" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/petty-cash/receipts" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/receipts") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/petty-cash/replenishments" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/replenishments") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/petty-cash/floats" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/floats") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/petty-cash/classifications" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/classifications") ?? "/finance/cash"} replace /></AdminRoute>} />
                 <Route path="/settings" element={<Navigate to="/admin/preferences" replace />} />
                 <Route path="/admin/system-configuration" element={<Navigate to="/admin/structure" replace />} />
                 <Route path="/admin/structure" element={<AdminRoute><BusinessStructure /></AdminRoute>} />
                 <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
                 <Route path="/admin/people" element={<AdminRoute><PeopleSettings /></AdminRoute>} />
                 <Route path="/admin/accounting" element={<AdminRoute><AccountingSettings /></AdminRoute>} />
+                <Route path="/admin/accounting/card-processors" element={<AdminRoute><CardProcessors /></AdminRoute>} />
                 <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
 
@@ -344,18 +347,18 @@ function App() {
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
                 <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 
-                <Route path="/bank" element={<Navigate to="/bank/dashboard" replace />} />
-                <Route path="/bank/dashboard" element={<AdminRoute><BankDashboard /></AdminRoute>} />
-                <Route path="/bank/accounts" element={<AdminRoute><BankAccountsPage /></AdminRoute>} />
-                <Route path="/bank/transactions" element={<AdminRoute><BankTransactionsPage /></AdminRoute>} />
-                <Route path="/bank/reconciliation" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
-                <Route path="/bank/incoming" element={<AdminRoute><IncomingDepositsPage /></AdminRoute>} />
-                <Route path="/bank/outgoing" element={<AdminRoute><OutgoingPaymentsPage /></AdminRoute>} />
-                <Route path="/bank/matching" element={<AdminRoute><PaymentMatchingPage /></AdminRoute>} />
-                <Route path="/bank/transfers" element={<AdminRoute><TransfersPage /></AdminRoute>} />
-                <Route path="/bank/fx" element={<AdminRoute><FxMultiCurrencyPage /></AdminRoute>} />
-                <Route path="/bank/rules" element={<AdminRoute><BankRulesPage /></AdminRoute>} />
-                <Route path="/bank/fees" element={<AdminRoute><BankFeesPage /></AdminRoute>} />
+                <Route path="/bank" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/dashboard" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/dashboard") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/accounts" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/accounts") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/transactions" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/transactions") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/reconciliation" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/reconciliation") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/incoming" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/incoming") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/outgoing" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/outgoing") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/matching" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/matching") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/transfers" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/transfers") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/fx" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/fx") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/rules" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/rules") ?? "/finance/cash"} replace /></AdminRoute>} />
+                <Route path="/bank/fees" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/fees") ?? "/finance/cash"} replace /></AdminRoute>} />
                 
 
                 
