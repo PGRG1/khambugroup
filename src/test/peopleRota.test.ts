@@ -1,0 +1,24 @@
+import {describe,it,expect} from 'vitest';
+import {shiftHours,expectedSales,daySummary,rotaIssues,coverCandidates,copyWeek,attendanceDifference,withinVenue,weekStart,personOnDate} from '@/utils/peopleRota';
+const p={id:'a',first_name:'A',job_title:'Server',status:'active',hire_date:'2020-01-01',weekly_hours:45,pay_amount:75,pay_basis:'hour'};
+describe('Rota & hours rules',()=>{
+ it('Monday begins the seven day week',()=>expect(weekStart('2026-10-31')).toBe('2026-10-26'));
+ it('overnight shifts subtract the recorded break',()=>expect(shiftHours({start_time:'18:00',end_time:'02:00',break_minutes:30})).toBe(7.5));
+ it('rest and leave do not count as planned work',()=>expect(shiftHours({start_time:'09:00',end_time:'18:00',shift_type:'AL'})).toBe(0));
+ it('expected sales averages only the four previous same weekdays for that venue',()=>expect(expectedSales([{date:'2026-10-24',venue_id:'v',subtotal:100},{date:'2026-10-17',venue_id:'v',subtotal:300},{date:'2026-10-10',venue_id:'other',subtotal:900},{date:'2026-09-26',venue_id:'v',subtotal:900}],{id:'v'},'2026-10-31')).toBe(200));
+ it('no weekday sales evidence remains unknown',()=>expect(expectedSales([],{id:'v'},'2026-10-31')).toBeNull());
+ it('cost uses the pay rate effective on the shift date',()=>expect(daySummary([{employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'11:00'}],[p],[{employee_id:'a',effective_date:'2026-10-31',values:{pay_amount:80}}],'2026-10-31',1000).percent).toBe(16));
+ it('a missing monthly contract means cost is unknown',()=>expect(daySummary([{employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'11:00'}],[{...p,pay_basis:'month',weekly_hours:null}],[],'2026-10-31',1000).cost).toBeNull());
+ it('seven worked days flags no rest day and hours above 45',()=>{const days=Array.from({length:7},(_,i)=>`2026-10-${26+i}`);const shifts=days.map(d=>({employee_id:'a',shift_date:d,start_time:'09:00',end_time:'17:00'}));expect(rotaIssues([p],[],shifts,[],days,[]).map(i=>i.kind)).toEqual(['contract','rest']);});
+ it('approved leave conflicts with scheduled work',()=>expect(rotaIssues([p],[],[{id:'s',employee_id:'a',shift_date:'2026-10-31',start_time:'09:00',end_time:'17:00'}],[{employee_id:'a',status:'approved',start_date:'2026-10-31',end_date:'2026-10-31'}],['2026-10-31'],[]).some(i=>i.kind==='leave')).toBe(true));
+ it('cover is free, right-role, and cheaper first',()=>expect(coverCandidates([p,{...p,id:'b',pay_amount:60},{...p,id:'c',job_title:'Bar'}],[],[],[],'2026-10-31','Server').map(e=>e.id)).toEqual(['b','a']));
+ it('leave excludes cover candidates',()=>expect(coverCandidates([p],[],[],[{employee_id:'a',status:'approved',start_date:'2026-10-31',end_date:'2026-10-31'}],'2026-10-31','Server')).toHaveLength(0));
+ it('copy preserves planned breaks, not clocked actuals',()=>expect(copyWeek([{employee_id:'a',shift_date:'2026-10-19',start_time:'09:00',end_time:'17:00',break_minutes:30,actual_start_time:'10:00'}],[],'2026-10-26')[0]).toEqual({employee_id:'a',shift_date:'2026-10-26',start_time:'09:00',end_time:'17:00',break_minutes:30,shift_type:undefined,role:undefined}));
+ it('copy leaves occupied days unchanged',()=>expect(copyWeek([{employee_id:'a',shift_date:'2026-10-19'}],[{employee_id:'a',shift_date:'2026-10-26'}],'2026-10-26')).toHaveLength(0));
+ it('late and early departure compare against rota timestamps',()=>expect(attendanceDifference({shift_date:'2026-10-31',start_time:'09:00',end_time:'17:00'},[{clock_in:'2026-10-31T01:10:00Z',clock_out:'2026-10-31T08:30:00Z',hours_worked:7.33,break_minutes:0}]).messages).toEqual(['Late','Early leave']));
+ it('no show starts only after the shift ended',()=>expect(attendanceDifference({shift_date:'2026-10-31',start_time:'09:00',end_time:'17:00'},[],new Date('2026-10-31T09:30:00Z')).messages).toEqual(['No-show']));
+ it('venue clock allows within 150 m',()=>expect(withinVenue(22.3,114.17,22.3008,114.17,20)).toBe(true));
+ it('venue clock refuses beyond 150 m',()=>expect(withinVenue(22.3,114.17,22.3015,114.17,20)).toBe(false));
+ it('venue clock refuses inaccurate locations',()=>expect(withinVenue(22.3,114.17,22.3,114.17,151)).toBe(false));
+ it('historic venue uses dated employment terms',()=>expect(personOnDate({...p,venue_id:'old'},[{employee_id:'a',effective_date:'2026-11-01',values:{venue_id:'new'}}],'2026-10-31').venue_id).toBe('old'));
+});
