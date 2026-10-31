@@ -37,6 +37,7 @@ import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
+import { expenseTabs } from "@/utils/expenses";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
@@ -106,10 +107,7 @@ const financeItems: Item[] = [
   { title: "Accounts Receivable", url: "/finance/receivables" },
 ];
 
-// Staff Reimbursements — its own top-level group.
-// Structure mirrors Petty Cash so `Operations` / `Master Data` sub-sections
-// can be added later without reshaping the group.
-const staffReimbOverview: Item = { title: "Overview", url: "/staff-reimbursements", end: true };
+
 
 const financeReportsItems: Item[] = [
   { title: "Profit & Loss", url: "/pl-report", pageKey: "pl-report" },
@@ -124,26 +122,6 @@ const financeAccountingItems: Item[] = [
   { title: "Ledger", url: "/finance/ledger" },
   { title: "Chart of Accounts", url: "/finance/chart-of-accounts" },
   { title: "Ledger Audit Log", url: "/finance/ledger-audit" },
-];
-
-const expensesOverview: Item = { title: "Overview", url: "/expenses", end: true };
-const expensesMasterData: Item[] = [
-  { title: "Categories", url: "/expenses/categories" },
-  { title: "Vendors", url: "/expenses/vendors" },
-  { title: "Mapping", url: "/expenses/mapping" },
-];
-const expensesBillsVendors: Item[] = [
-  { title: "Expense Bills", url: "/expenses/bills" },
-  
-  { title: "Recurring Expenses", url: "/expenses/recurring" },
-  { title: "Bank-Detected", url: "/expenses/bank-detected" },
-];
-const expensesApprovals: Item[] = [{ title: "Approvals", url: "/expenses/approvals" }];
-const expensesAnalytics: Item[] = [{ title: "Analytics", url: "/expenses/analytics" }];
-const expensesFinance: Item[] = [
-  { title: "Spend Summary", url: "/expenses/finance/spend" },
-  { title: "Vendor Accounts", url: "/expenses/finance/vendors" },
-  { title: "Open Payables", url: "/expenses/finance/payables" },
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
@@ -411,7 +389,6 @@ export function AppSidebar() {
   const showBank        = canSeeSection("bank");
   const showPayments    = canSeeSection("payments");
   const showPettyCash   = canSeeSection("pettycash");
-  const showStaffReimb  = canSeeSection("staff_reimbursements");
   const showAdmin       = isAdmin && !isPreviewActive;
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
@@ -471,7 +448,7 @@ export function AppSidebar() {
           ...(showBank ? [{ title: "Bank", to: "/bank/dashboard", icon: Landmark, active: pathname.startsWith("/bank") }] : []),
           ...(showPayments ? [{ title: "Payments", to: "/payments", icon: CreditCard, active: pathname.startsWith("/payments") }] : []),
           ...(showPettyCash ? [{ title: "Petty Cash", to: "/petty-cash", icon: Coins, active: pathname.startsWith("/petty-cash") }] : []),
-          ...(showStaffReimb ? [{ title: "Staff Reimbursements", to: "/staff-reimbursements", icon: HandCoins, active: pathname.startsWith("/staff-reimbursements") }] : []),
+
           ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log", "/procurement/suppliers"].some((r) => pathname.startsWith(r)) }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
@@ -557,23 +534,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {showFinance && (
-          <CollapsibleNavGroup
-            label="Expenses"
-            icon={ReceiptText}
-            defaultOpen={groupState.expenses}
-            onOpenChange={(o) => setGroup("expenses", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={expensesOverview} />
-            </SidebarMenu>
-            <SubSection label="Master Data" items={expensesMasterData} />
-            <SubSection label="Bills & Vendors" items={expensesBillsVendors} />
-            <SubSection label="Approvals" items={expensesApprovals} />
-            <SubSection label="Analytics" items={expensesAnalytics} />
-            <SubSection label="Finance" items={expensesFinance} />
-          </CollapsibleNavGroup>
-        )}
+        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Expenses",url:"/expenses",icon:ReceiptText}} />{showSubPages && expenseTabs.some(t=>t.path===pathname) && expenseTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
         {showKpi && (
           <SidebarGroup className="py-0 px-2">
@@ -656,23 +617,6 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
-        {showStaffReimb && (
-          <CollapsibleNavGroup
-            label="Staff Reimbursements"
-            icon={HandCoins}
-            defaultOpen={groupState.staffreimb}
-            onOpenChange={(o) => setGroup("staffreimb", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={staffReimbOverview} />
-            </SidebarMenu>
-            {/* Future: <SubSection label="Operations" items={...} /> and Master Data */}
-          </CollapsibleNavGroup>
-        )}
-
-
-
-
         {showAdmin && (
           <CollapsibleNavGroup
             label="Settings"
@@ -688,6 +632,8 @@ export function AppSidebar() {
                 { title: "Revenue setup", url: "/revenue/setup" },
                 { title: "People", url: "/admin/people" },
                 { title: "Master Data", url: "/admin/master-data" },
+                { title: "Expense categories", url: "/expenses/categories" },
+                { title: "Expense mapping", url: "/expenses/mapping" },
                 { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
                 
