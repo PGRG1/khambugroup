@@ -183,6 +183,13 @@
       "when": 1793446682430,
       "tag": "0025_supplier_container_return",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793448060659,
+      "tag": "0026_people_settings_and_review",
+      "breakpoints": true
     }
   ]
 }
