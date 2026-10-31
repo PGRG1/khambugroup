@@ -22,5 +22,4 @@ describe('Bani automatic accounting rules',()=>{
   it('blocks sixty-one days ahead',()=>expect(postingReasons({...safe,date:'2026-12-31'})).toContain('Date looks misread'));
   it('blocks earlier than business first sale',()=>expect(postingReasons({...safe,date:'2025-12-31'})).toContain('Date looks misread'));
   it('holds unresolved conflicting corrections',()=>expect(postingReasons({...safe,conflict:true})).toContain('Which correction is right?'));
-  it('AI-unavailable branch has no eligible outcome',()=>{const fail={posted:0,reasons:[AI_UNAVAILABLE]};expect(fail.posted).toBe(0);expect(fail.reasons).toContain(AI_UNAVAILABLE);});
 });

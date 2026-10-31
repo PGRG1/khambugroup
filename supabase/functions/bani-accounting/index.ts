@@ -7,7 +7,8 @@ import { requireAuth, resolveTenant } from '../_shared/auth.ts';
 import { createLovableAiGatewayRunIdFetch } from './run-id.ts';
 import { postingReasons, usualAmountReason, AI_UNAVAILABLE } from '../_shared/autoPostingRules.ts';
 
-const schema=z.object({tenant_id:z.string().uuid().optional(),mode:z.enum(['run','scheduled','resume']).default('run'),source_id:z.string().uuid().optional()});
+const uuid=z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+const schema=z.object({tenant_id:uuid.optional(),mode:z.enum(['run','scheduled','resume']).default('run'),source_id:uuid.optional()});
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...corsHeaders,'Content-Type':'application/json'}});
 const checkSchema=z.object({sure:z.boolean(),reason:z.string(),supplier_name:z.string().nullable(),date:z.string().nullable(),amount:z.number().nullable()}).strict();
 const BATCH=20;
