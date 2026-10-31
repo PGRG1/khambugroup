@@ -225,6 +225,13 @@
       "when": 1793452046060,
       "tag": "0031_preserve_employee_directory_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793452968562,
+      "tag": "0032_people_rota_hours",
+      "breakpoints": true
     }
   ]
 }
