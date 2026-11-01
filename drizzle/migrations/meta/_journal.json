@@ -533,6 +533,13 @@
       "when": 1793533664400,
       "tag": "0075_people_work_payroll_preview",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793533752432,
+      "tag": "0076_people_work_draft_approval",
+      "breakpoints": true
     }
   ]
 }

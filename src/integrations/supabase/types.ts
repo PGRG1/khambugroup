@@ -14268,6 +14268,10 @@ export type Database = {
         Args: { m: number; rev: number; t: string; y: number }
         Returns: Json
       }
+      payroll_approve_work_draft: {
+        Args: { m: number; rows: Json; t: string; y: number }
+        Returns: Json
+      }
       payroll_fill_terms: {
         Args: { m: number; rows: Json; t: string; y: number }
         Returns: Json
