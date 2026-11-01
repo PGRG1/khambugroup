@@ -603,6 +603,13 @@
       "when": 1793545700903,
       "tag": "0085_expense_account_monthend",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793545758133,
+      "tag": "0086_expense_meter_confirmations_and_prepaid_guard",
+      "breakpoints": true
     }
   ]
 }

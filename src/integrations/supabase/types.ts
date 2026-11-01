@@ -14435,6 +14435,10 @@ export type Database = {
       }
       expense_accrual_approve: { Args: { p_id: string }; Returns: string }
       expense_bani_undo: { Args: { p_log: string }; Returns: undefined }
+      expense_confirm_meter: {
+        Args: { p_covers: Json; p_id: string; p_method: string }
+        Returns: undefined
+      }
       expense_contract_bill_approve: {
         Args: { p_bill: string }
         Returns: string
@@ -14454,6 +14458,7 @@ export type Database = {
       }
       expense_monthend_run: { Args: { m: string; t: string }; Returns: Json }
       expense_monthend_scheduled: { Args: never; Returns: undefined }
+      expense_prepaid_release: { Args: { p_line: string }; Returns: string }
       expense_prepare_month: { Args: { m: string; t: string }; Returns: number }
       expense_statement_check: {
         Args: { p_account: string; p_date: string }
