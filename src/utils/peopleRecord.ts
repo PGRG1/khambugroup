@@ -3,7 +3,7 @@ import { formatCurrency, formatDate, formatMonthLabel } from '@/utils/format';
 import type { PageWorkItem } from '@/utils/baniPageWork';
 
 export type EvidenceRow = Record<string, any>;
-export type LeaveLine = { id: string; date: string | null; event: string; al: number; sh: number; kind: string; how: string; author: string; source: string; due?: string; conflict?: string; alLeft?: number | null; shOwed?: number };
+export type LeaveLine = { id: string; date: string | null; event: string; al: number; sh: number; kind: string; how: string; author: string; source: string; days?: number; year?: number; due?: string; conflict?: string; alLeft?: number | null; shOwed?: number };
 export type PersonEvidence = { shifts: EvidenceRow[]; requests: EvidenceRow[]; leave: EvidenceRow[]; ledger: EvidenceRow[]; holidays: EvidenceRow[]; payroll: EvidenceRow[]; attendance: EvidenceRow[]; swaps: EvidenceRow[]; terms: EvidenceRow[]; today: string };
 const normal = (v: unknown) => String(v ?? '').toLowerCase().replace(/[ -]/g, '_');
 export function leaveKind(value: unknown): string {
@@ -22,7 +22,7 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
   for (const l of data.ledger.filter(l=>l.employee_id===id)) {
     const kind=leaveKind(l.leave_type?.name); if(!kind)continue;
     occupied.add(`${kind}|${l.entry_date}`);
-    lines.push({id:l.id,date:l.entry_date,event:l.description||labels[kind],al:kind==='AL'?Number(l.accrued)-Number(l.taken):0,sh:kind==='SH'?Number(l.accrued)-Number(l.taken):0,kind,how:normal(l.description).includes('paid')?'Recorded payment':'Day off',author:l.created_by??'Not recorded',source:'Leave ledger'});
+    lines.push({id:l.id,date:l.entry_date,event:l.description||labels[kind],al:kind==='AL'?Number(l.accrued)-Number(l.taken):0,sh:kind==='SH'?Number(l.accrued)-Number(l.taken):0,kind,days:Number(l.taken),how:normal(l.description).includes('paid')?'Recorded payment':'Day off',author:l.created_by??'Not recorded',source:'Leave ledger'});
   }
   for (const r of data.requests.filter(r=>r.employee_id===id&&r.status==='approved')) {
     const kind=leaveKind(r.leave_type?.name); if(!kind)continue;
@@ -31,7 +31,7 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
     if(!dates.length)continue;
     const days=Math.min(dates.length,Number(r.total_days??dates.length));
     dates.forEach(day=>occupied.add(`${kind}|${day}`));
-    lines.push({id:r.id,date:r.start_date,event:`${labels[kind]} · ${formatDate(r.start_date)}–${formatDate(r.end_date)} · ${days} days`,al:kind==='AL'?-days:0,sh:kind==='SH'?-days:0,kind,how:'Day off',author:r.approved_by??'Not recorded',source:'Leave request'});
+    lines.push({id:r.id,date:r.start_date,event:`${labels[kind]} · ${formatDate(r.start_date)}–${formatDate(r.end_date)} · ${days} days`,al:kind==='AL'?-days:0,sh:kind==='SH'?-days:0,kind,days,how:'Day off',author:r.approved_by??'Not recorded',source:'Leave request'});
   }
   const days = new Map<string,EvidenceRow>();
   for(const s of data.shifts.filter(s=>s.employee_id===id&&s.status!=='cancelled'&&s.shift_date<=data.today)) {
@@ -42,9 +42,9 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
     const kind=leaveKind(s.shift_type), previous=lines[lines.length-1];
     // Adjacent rota days remain one evidence line, never double count two shifts on one day.
     if(previous?.source==='Rota'&&previous.kind===kind&&previous.date&&previous.id.endsWith(addDaysIso(s.shift_date,-1))) {
-      previous.al+=kind==='AL'?-1:0;previous.sh+=kind==='SH'?-1:0;previous.id=`rota-${kind}-${s.shift_date}`;
+      previous.al+=kind==='AL'?-1:0;previous.sh+=kind==='SH'?-1:0;previous.days=Number(previous.days??1)+1;previous.id=`rota-${kind}-${s.shift_date}`;
       previous.event=`${labels[kind]} · ${formatDate(previous.date)}–${formatDate(s.shift_date)}`;
-    } else lines.push({id:`rota-${kind}-${s.shift_date}`,date:s.shift_date,event:labels[kind],al:kind==='AL'?-1:0,sh:kind==='SH'?-1:0,kind,how:'Day off',author:s.hours_confirmed_by??'Not recorded',source:'Rota'});
+    } else lines.push({id:`rota-${kind}-${s.shift_date}`,date:s.shift_date,event:labels[kind],al:kind==='AL'?-1:0,sh:kind==='SH'?-1:0,kind,days:1,how:'Day off',author:s.hours_confirmed_by??'Not recorded',source:'Rota'});
   }
   const worked = new Set<string>();
   for(const h of data.holidays.filter(h=>h.is_active!==false&&normal(h.holiday_type)==='statutory'&&h.date<=data.today)) {
@@ -66,11 +66,15 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
   }
   // Undated imported balances cannot be presented as a dated entitlement award.
   for(const b of data.leave.filter(b=>b.employee_id===id&&leaveKind(b.leave_type?.name)==='AL')) {
-    if(!lines.some(l=>l.kind==='AL'&&l.al>0&&l.date?.startsWith(String(b.year))))lines.push({id:`balance-${b.id}`,date:null,event:`Annual leave entitlement · ${b.year} · award date not recorded`,al:Number(b.total_days)+Number(b.carried_forward??0)+Number(b.adjustments??0),sh:0,kind:'AL',how:'Recorded balance',author:'Not recorded',source:'Leave balance'});
+    if(!lines.some(l=>l.kind==='AL'&&l.al>0&&l.date?.startsWith(String(b.year))))lines.push({id:`balance-${b.id}`,date:null,year:b.year,event:`Annual leave entitlement · ${b.year} · award date not recorded`,al:Number(b.total_days)+Number(b.carried_forward??0)+Number(b.adjustments??0),sh:0,kind:'AL',how:'Recorded balance',author:'Not recorded',source:'Leave balance'});
+    const datedTaken=-lines.filter(l=>l.kind==='AL'&&l.date?.startsWith(String(b.year))&&l.al<0).reduce((n,l)=>n+l.al,0);
+    if(Number(b.used_days)>datedTaken)lines.push({id:`used-${b.id}`,date:null,year:b.year,event:`Annual leave taken · ${b.year} · dates not recorded`,al:-(Number(b.used_days)-datedTaken),sh:0,kind:'AL',how:'Recorded balance',author:'Not recorded',source:'Leave balance'});
   }
+  if(!data.leave.some(b=>b.employee_id===id&&leaveKind(b.leave_type?.name)==='AL')&&person.annual_leave!=null)lines.push({id:`terms-${id}`,date:null,year:Number(data.today.slice(0,4)),event:`Annual leave entitlement · ${data.today.slice(0,4)} · dated award not recorded`,al:Number(person.annual_leave),sh:0,kind:'AL',how:'Recorded employment terms',author:'Not recorded',source:'Employment terms'});
   lines.sort((a,b)=>(a.date??'').localeCompare(b.date??'')||a.id.localeCompare(b.id));
-  let al:number|null=data.leave.some(b=>b.employee_id===id&&leaveKind(b.leave_type?.name)==='AL')?0:null,sh=0;
-  return lines.map(l=>{if(al!==null)al+=l.al;sh+=l.sh;return {...l,alLeft:al,shOwed:Math.max(0,sh)};});
+  const known=data.leave.some(b=>b.employee_id===id&&leaveKind(b.leave_type?.name)==='AL')||person.annual_leave!=null;
+  const balances=new Map<number,number>();let sh=0;
+  return lines.map(l=>{const y=l.year??Number(l.date?.slice(0,4)??data.today.slice(0,4));const al=(balances.get(y)??0)+l.al;balances.set(y,al);sh+=l.sh;return {...l,alLeft:known?al:null,shOwed:Math.max(0,sh)};});
 }
 export function personMetrics(person: EvidenceRow,data:PersonEvidence) {
   const year=data.today.slice(0,4), all=leaveStatement(person,data), lines=all.filter(l=>l.date?.startsWith(year)||l.event.includes(year));
@@ -81,7 +85,7 @@ export function personMetrics(person: EvidenceRow,data:PersonEvidence) {
   let cleared=-all.filter(l=>l.sh<0).reduce((n,l)=>n+l.sh,0);
   // FIFO only for recorded substitute days; retain each outstanding holiday's deadline.
   const outstanding=owed.filter(()=>cleared-->0?false:true);
-  const sick=lines.filter(l=>l.kind==='SL').reduce((n,l)=>n+(l.source==='Leave request'?Number(l.event.match(/· ([\d.]+) days$/)?.[1]??1):1),0);
+  const sick=lines.filter(l=>l.kind==='SL').reduce((n,l)=>n+Number(l.days??1),0);
   return {all,lines,entitlement,taken,left:entitlement==null?null:entitlement-taken,shSoFar:lines.filter(l=>l.sh>0).reduce((n,l)=>n+l.sh,0),shTaken:-lines.filter(l=>l.sh<0).reduce((n,l)=>n+l.sh,0),shOwed:outstanding.length,outstanding,sick};
 }
 export function reliabilityLines(person:EvidenceRow,data:PersonEvidence,clock:boolean) {
