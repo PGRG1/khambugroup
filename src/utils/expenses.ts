@@ -1,7 +1,8 @@
 import type { ExpenseBill } from '@/hooks/useExpenseBills';
 
 export const expenseTabs = [
-  { label: 'Bills & receipts', path: '/expenses' },
+  { label: 'Overview', path: '/expenses/overview' },
+  { label: 'Bills & receipts', path: '/expenses/bills' },
   { label: 'Regular bills', path: '/expenses/recurring' },
   { label: 'Staff claims', path: '/expenses/claims' },
   { label: 'Trends', path: '/expenses/analytics' },
