@@ -174,7 +174,7 @@ export default function BillsExpenses() {
       setBankAccounts((b.data || []) as BankAccount[]);
       setCategories((c.data || []) as Category[]);
       const [meters,aliasRows]=await Promise.all([supabase.from('supplier_accounts').select('*').eq('tenant_id',tenantId),supabase.from('expense_supplier_aliases').select('*').eq('tenant_id',tenantId)]);
-      setAllMeters((meters.data??[]) as MeterAccount[]);setAliases(aliasRows.data??[]);
+      setAllMeters((meters.data??[]).map(m=>({...m,covers:Array.isArray(m.covers)?m.covers.filter((v):v is {venue_id:string;weight?:number}=>!!v&&typeof v==='object'&&!Array.isArray(v)&&typeof v.venue_id==='string'):[]})));setAliases(aliasRows.data??[]);
     })();
   }, [tenantId,lookupRevision]);
 
