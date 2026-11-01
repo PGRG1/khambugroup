@@ -15019,6 +15019,7 @@ export type Database = {
         Returns: string
       }
       finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
+      finance_tax_source: { Args: { d: string; t: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
         Args: { _tenant_id: string; _venue_id: string }
