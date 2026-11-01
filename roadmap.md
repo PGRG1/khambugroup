@@ -1,7 +1,8 @@
 ## Floating Bani redesign
-- [ ] Light chat, contextual no-AI opening cards, orb attention note and conversation continuation
-- [ ] RTL messages/cards/composers and explicit language behaviour; preserve scanner/actions/voice/gestures
-- [ ] Focused tests, build and signed-in Revenue desktop/375px, Arabic, voice, action-card and hosted-scanner checks
+- [x] Light chat, contextual no-AI opening cards, orb attention note and identity-scoped conversation continuation
+- [x] RTL messages/cards/composers; existing server prompt explicitly mirrors language and live Arabic reply verified; scanner/actions/voice/gestures retained
+- [x] Focused regression tests/build; signed-in Revenue desktop/375px with real October sales and missing 31 Oct for Assembly/Caliente, zero AI calls on open, Arabic RTL/reply, fake-microphone voice layout, continuation, Scan Z opening and real closure card Cancel; hosted invoice-scanner desktop/375px verified
+- [ ] Physical multilingual voice/playback, sphere drag/swipe gestures, live People confirmation/undo and scanner correction Apply need further checks. Requested People rest-day draft returned a missing-shift clarification, not a card; no rota/pay/financial records changed. Other unregistered pages use two relevant questions instead of invented counts.
 
 ## Settings rebuild
 - [x] Single Settings page, redirects/sidebar, Business venue editors, tenant-only Users and centred editing

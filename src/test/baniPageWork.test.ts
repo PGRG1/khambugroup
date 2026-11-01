@@ -17,6 +17,10 @@ describe("Bani page work", () => {
   it("does not invent trading history or zero sales when none exists", () => {
     expect(revenuePageWork([], venues, "2026-11-01", () => false)).toEqual([]);
   });
+  it("retains the latest missing day even when it is more than a week ago", () => {
+    const items = revenuePageWork(sales, [venues[0]], "2026-11-01", (_id, day) => day >= "2026-10-24");
+    expect(items[0].id).toBe("missing-2026-10-23");
+  });
   it("limits opening work to three actual items", () => {
     expect(revenuePageWork(sales, venues, "2026-11-01", () => false)).toHaveLength(3);
   });
