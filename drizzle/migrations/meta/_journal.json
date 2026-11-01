@@ -519,6 +519,13 @@
       "when": 1793528367643,
       "tag": "0073_team_role_house_setting",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793533601951,
+      "tag": "0074_people_shift_settlements_and_work_drafts",
+      "breakpoints": true
     }
   ]
 }

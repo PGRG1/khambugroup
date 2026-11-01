@@ -5817,6 +5817,66 @@ export type Database = {
           },
         ]
       }
+      hr_payroll_work_drafts: {
+        Row: {
+          amounts: Json
+          baseline: Json
+          changed_at: string
+          changed_by: string
+          employee_id: string
+          id: string
+          month: number
+          notes: Json
+          revision: number
+          source_fingerprint: string
+          tenant_id: string
+          year: number
+        }
+        Insert: {
+          amounts: Json
+          baseline: Json
+          changed_at?: string
+          changed_by: string
+          employee_id: string
+          id?: string
+          month: number
+          notes?: Json
+          revision?: number
+          source_fingerprint: string
+          tenant_id: string
+          year: number
+        }
+        Update: {
+          amounts?: Json
+          baseline?: Json
+          changed_at?: string
+          changed_by?: string
+          employee_id?: string
+          id?: string
+          month?: number
+          notes?: Json
+          revision?: number
+          source_fingerprint?: string
+          tenant_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_work_drafts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_work_drafts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_payslips: {
         Row: {
           created_at: string
@@ -6110,6 +6170,88 @@ export type Database = {
           },
         ]
       }
+      hr_shift_settlements: {
+        Row: {
+          actual_end: string | null
+          actual_hours: number
+          actual_start: string | null
+          amount: number
+          decided_at: string
+          decided_by: string
+          employee_id: string
+          employee_status: string
+          hours: number
+          id: string
+          note: string
+          reason: string
+          revision: number
+          settle: string
+          shift_id: string
+          source_updated_at: string
+          tenant_id: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_hours: number
+          actual_start?: string | null
+          amount?: number
+          decided_at?: string
+          decided_by: string
+          employee_id: string
+          employee_status?: string
+          hours: number
+          id?: string
+          note?: string
+          reason: string
+          revision?: number
+          settle: string
+          shift_id: string
+          source_updated_at: string
+          tenant_id: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_hours?: number
+          actual_start?: string | null
+          amount?: number
+          decided_at?: string
+          decided_by?: string
+          employee_id?: string
+          employee_status?: string
+          hours?: number
+          id?: string
+          note?: string
+          reason?: string
+          revision?: number
+          settle?: string
+          shift_id?: string
+          source_updated_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_shift_settlements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_shift_settlements_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: true
+            referencedRelation: "hr_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_shift_settlements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_shifts: {
         Row: {
           actual_break_minutes: number | null
@@ -6270,6 +6412,63 @@ export type Database = {
           },
           {
             foreignKeyName: "hr_swap_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_work_confirmations: {
+        Row: {
+          deadline: string
+          employee_id: string
+          fingerprint: string
+          id: string
+          message: string
+          period_end: string
+          period_start: string
+          responded_at: string
+          responded_by: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          deadline: string
+          employee_id: string
+          fingerprint: string
+          id?: string
+          message?: string
+          period_end: string
+          period_start: string
+          responded_at?: string
+          responded_by: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          deadline?: string
+          employee_id?: string
+          fingerprint?: string
+          id?: string
+          message?: string
+          period_end?: string
+          period_start?: string
+          responded_at?: string
+          responded_by?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_work_confirmations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_work_confirmations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14130,6 +14329,14 @@ export type Database = {
         Args: { d: string; e: string; t: string }
         Returns: Json
       }
+      people_work_fingerprint: {
+        Args: { e: string; first_day: string; last_day: string; t: string }
+        Returns: string
+      }
+      people_work_period: {
+        Args: { e: string; first_day: string; last_day: string; t: string }
+        Returns: Json
+      }
       platform_delete_organization: {
         Args: { _id: string; _tenant_id: string }
         Returns: undefined
@@ -14350,6 +14557,17 @@ export type Database = {
         Args: { d: string; rows: Json; t: string; v: string }
         Returns: undefined
       }
+      rota_confirm_my_work: {
+        Args: {
+          answer: string
+          fingerprint: string
+          first_day: string
+          last_day: string
+          message?: string
+          t: string
+        }
+        Returns: undefined
+      }
       rota_edit: {
         Args: { changes: Json; t: string; v: string }
         Returns: undefined
@@ -14390,6 +14608,10 @@ export type Database = {
       }
       rota_send: {
         Args: { t: string; v: string; w: string }
+        Returns: undefined
+      }
+      rota_settle_shift: {
+        Args: { decision: Json; expected: string; sid: string; t: string }
         Returns: undefined
       }
       rota_shift_scope: {
