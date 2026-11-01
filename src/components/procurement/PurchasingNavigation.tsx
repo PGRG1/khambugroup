@@ -26,8 +26,8 @@ export function PurchasingNavigation() {
   }, [pathname]);
   if (loading) return null;
   const sectionPages = purchasingSectionPagesForPath(pathname);
-  // Admins find the supplier directory under Settings; everyone else keeps it in Purchasing.
-  const pages = (isStockMenuRoute(pathname) || (isAdmin && !isPreviewActive) ? sectionPages : [...sectionPages, SUPPLIER_DIRECTORY_TAB]).filter(canOpen);
+  // Supplier directory stays in Purchasing under existing access rights.
+  const pages = (isStockMenuRoute(pathname) ? sectionPages : [...sectionPages, SUPPLIER_DIRECTORY_TAB]).filter(canOpen);
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
   const analysis = pathname === "/procurement/dashboard" ? purchasingAnalysisPages.filter(canOpen) : [];
   const parentPath = purchasingParentPath(pathname);
