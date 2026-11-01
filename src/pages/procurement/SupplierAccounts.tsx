@@ -1,6 +1,6 @@
 import {SupplierNameLink} from '@/components/vendors/SupplierProfileDialog';
 import {useState,useMemo} from 'react';
-import {Link,useNavigate,useSearchParams} from 'react-router-dom';
+import {Link,useSearchParams} from 'react-router-dom';
 import {ArrowUpRight} from 'lucide-react';
 import {useVenueScope} from '@/hooks/useVenueScope';
 import {usePreviewMode} from '@/hooks/usePreviewMode';
@@ -19,7 +19,7 @@ import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/compo
 import {SupplierMatchesDialog,SupplierDueDatesDialog,type DueTermsRow} from '@/components/procurement/SupplierAccountsReviewDialogs';
 import '@/components/kit/kit.css';
 export default function SupplierAccountsPage(){
- const accounts=useSupplierAccountsList();const scope=useVenueScope();const navigate=useNavigate();const [params,setParams]=useSearchParams();const view=params.get('view')==='invoice'?'invoice':'supplier';
+ const accounts=useSupplierAccountsList();const scope=useVenueScope();const [params,setParams]=useSearchParams();const view=params.get('view')==='invoice'?'invoice':'supplier';
  const [search,setSearch]=useState(''),[sort,setSort]=useState('default'),[supplier,setSupplier]=useState('all'),[status,setStatus]=useState('all'),[bucket,setBucket]=useState<LateBucket>('all');
  const [matching,setMatching]=useState<{id:string;name:string;proposal:MatchProposal[]}|null>(null),[dueRows,setDueRows]=useState<DueTermsRow[]|null>(null);
  const {isPreviewActive}=usePreviewMode();const today=tenantToday();
