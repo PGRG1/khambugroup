@@ -258,13 +258,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     // procurement") can refer to an earlier turn's attachments.
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
-    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text, attached.map(f => f.name))]);
+    const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
+    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext, attached.map(f => f.name))]);
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError(""); setStepLabel("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
+      if(attached.length && page?.path===pathname && page.person && page.retainFiles) {
+        setStepLabel('Saving employee documents');
+        await page.retainFiles(attached.map(a=>a.file));
+        if(controller.signal.aborted)return;
+      }
       const attachments = attached.length ? await Promise.all(attached.map(async f => {
         const prepared = f.type.startsWith("image/") ? await compressImageFile(f.file) : f.file;
         return { name: f.name, type: prepared.type || f.type, data: await toBase64(prepared, controller.signal) };

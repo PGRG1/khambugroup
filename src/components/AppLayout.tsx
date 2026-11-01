@@ -8,7 +8,6 @@ import { useLocation } from "react-router-dom";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
 import { KpiNavigation } from "@/components/kpi/KpiNavigation";
-import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
 import { FinanceNavigation } from "@/components/finance/FinanceNavigation";
 import { ExpensesNavigation } from "@/components/expenses/ExpensesNavigation";
 import { PurchasingNavigation } from "@/components/procurement/PurchasingNavigation";
@@ -53,7 +52,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
             </div>
-            {(pathname === "/hr" || pathname.startsWith("/hr/")) && <PeopleNavigation />}
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/expenses") && <ExpensesNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}

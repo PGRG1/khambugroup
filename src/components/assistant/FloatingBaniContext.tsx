@@ -12,7 +12,7 @@ type Host = { token: string; node: HTMLElement };
 export type BaniAttachment = { id: string; file: File; name: string; type: string; size: number; url?: string };
 export type BaniActionCard = { id: string; kind: "mark_closed_days" | "open_sales_scanner" | "open_invoice_scanner" | "people"; title: string; detail?: string | null };
 export type BaniMessage = { role: "user" | "assistant"; content: string; files?: string[]; proposal?: DraftProposal; outcome?: string; actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string }; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; hidden?: boolean };
-export type PageContext = { path: string; detail: string } | null;
+export type PageContext = { path: string; detail: string; person?: { id: string; name: string }; facts?: string; retainFiles?: (files: File[]) => Promise<void> } | null;
 
 type S<T> = [T, Dispatch<SetStateAction<T>>];
 type Store = {
@@ -46,6 +46,11 @@ export const useFloatingBaniStore = () => useContext(Context);
 export const useFloatingBaniHost = () => { const s = useContext(Context); return { host: s?.host ?? null, setHost: s?.setHost ?? noop }; };
 /** Pages register only facts they actually hold (e.g. Home's selected venue chip). */
 export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
+/** Opens a grounded topic in the composer; only the person can send it. */
+export function useBaniTopic() {
+  const s=useContext(Context);
+  return useCallback((text:string)=>{s?.draft[1](text);s?.hidden[1](false);s?.open[1](true);},[s?.draft[1],s?.hidden[1],s?.open[1]]);
+}
 /** Register already-computed page facts, without a second query or an AI turn. */
 export function useBaniWorkPublisher(path: string, items: PageWorkItem[], ready = true) {
   const setWork = useContext(Context)?.work[1];

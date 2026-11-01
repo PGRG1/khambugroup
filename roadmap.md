@@ -1,3 +1,9 @@
+## People redesign — Part 1
+- [x] Team grouped by venue and full-page records with evidence pop-ups; 49 records, 27 working (Assembly 18 / Caliente 9). Unknown entitlements/dates retained; no payroll/financial writes.
+- [x] Title-first Team/Rota/Payroll and phone pills; page ask boxes removed, shared tab divider fixed, factual findings and mistake-prevention markers open orb topics.
+- [x] Private authored notes, original person-document retention from page/orb, recorded change evidence and factual text-letter download; 111 focused tests/build and signed-in desktop/375px all/Assembly Team, Asim leave pop-up and marker→orb verified without overflow. Payroll stays 85 rows with unchanged gross/net/deductions.
+- [ ] Owner/permitted-manager pay, documents/upload and notes saves remain unverified: requester has viewer position and no private-document permission. Existing Team admin guard unchanged. Automatic document fact persistence/action linking, AI-written change-letter generation and statutory payout-day linking need further implementation; current documents show only confirmed history evidence, letters are factual text drafts, and unlinked payouts never silently clear holidays. No financial/pay writes tested.
+
 ## Purchasing clean-up
 - [x] Consolidated Settings Master data and shared profiles; 31 active / 7 archived / 4 possible duplicate pairs, financial records unchanged
 - [x] Overview Food/Drink split, up to six same-unit price moves, factual top notes and under-25% invoice masking
