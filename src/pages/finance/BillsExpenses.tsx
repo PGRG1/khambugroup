@@ -21,6 +21,7 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { downloadCSV } from "@/utils/csvDownload";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { isWaitingBill, expenseStatus, proposedCategoryAccount, similarVendors } from "@/utils/expenses";
+import { usesContractBillApproval } from '@/utils/expenseMonthlyApproval';
 import { useVendorStatements } from "@/hooks/useVendorStatements";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle, Settings2, CheckCircle2, UserPlus } from "lucide-react";
@@ -473,7 +474,14 @@ export default function BillsExpenses() {
     if (splitDraft.mode==='split'&&!splitDraft.balanced){toast.error('Venue split is not balanced');return;}
     setBusy(true);
     try {
-      if(editing?.recurring_rule_id&&!header.attachment_path&&!header.attachment_url){const {error}=await supabase.rpc('expense_contract_bill_approve',{p_bill:editing.id});if(error)toast.error(error.message);else{toast.success('Contract accrual booked; bill retained unchanged');setEditorOpen(false);}return;}
+      if(editing?.recurring_rule_id&&!header.attachment_path&&!header.attachment_url){
+        if(!tenantId)return;
+        const {data:rule,error:ruleError}=await supabase.from('expense_recurring_rules').select('is_contract').eq('id',editing.recurring_rule_id).eq('tenant_id',tenantId).single();
+        if(ruleError){toast.error('Could not check the regular bill rule. Please try again.');return;}
+        if(usesContractBillApproval(rule.is_contract,header.attachment_path,header.attachment_url)){
+          const {error}=await supabase.rpc('expense_contract_bill_approve',{p_bill:editing.id});if(error)toast.error(error.message);else{toast.success('Contract accrual booked; bill retained unchanged');setEditorOpen(false);}return;
+        }
+      }
       // Save corrections first in review state; approval and posting are one transaction.
       const id = await saveBill({...header, approval_status:'pending_review'}, allocations);
       if (!id) return;
