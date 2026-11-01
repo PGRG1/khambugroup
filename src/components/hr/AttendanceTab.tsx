@@ -32,13 +32,7 @@ interface Props {
   onRefetch?: () => Promise<void>;
 }
 
-const VENUE_OPTIONS = [
-  { value: "Caliente", label: "Caliente" },
-  { value: "Assembly", label: "Assembly" },
-  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
-  { value: "Kitchen", label: "Kitchen" },
-  { value: "Support", label: "Support" },
-];
+
 
 const SHIFT_TYPES = [
   { value: "unscheduled", label: "—", color: "bg-muted/50 text-muted-foreground border-border" },

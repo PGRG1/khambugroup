@@ -32,13 +32,7 @@ interface Props {
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-const VENUE_OPTIONS = [
-  { value: "Caliente", label: "Caliente" },
-  { value: "Assembly", label: "Assembly" },
-  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
-  { value: "Kitchen", label: "Kitchen" },
-  { value: "Support", label: "Support" },
-];
+
 const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const LEGEND_ITEMS = [

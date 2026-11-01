@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { ChartAccount } from "@/hooks/useChartOfAccounts";
 import { useAccountMapping } from "@/hooks/useAccountMapping";
+import { useVenues } from "@/hooks/useVenues";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, AlertCircle } from "lucide-react";
 
-const VENUES = ["", "Assembly", "Caliente", "Hanabi", "Events"] as const;
+
 const PAYMENT_METHODS = ["bank_transfer", "cash", "cheque"] as const;
 
 const EXPENSE_ROWS: Array<{
@@ -28,6 +29,7 @@ const PAYABLE_ROWS: Array<{
 
 export function PayrollMappingMatrix({ accounts }: { accounts: ChartAccount[] }) {
   const { items, upsert } = useAccountMapping();
+  const {venues}=useVenues();const VENUES=["",...venues.filter(v=>v.is_active).map(v=>v.name)];
 
   const lookup = useMemo(() => {
     const m = new Map<string, string>();

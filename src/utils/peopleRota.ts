@@ -37,7 +37,5 @@ export function managerClockFlags(shift:RotaRow|undefined,records:RotaRow[],sett
  if(!shift||shift.shift_type&&shift.shift_type!=='regular')return [];
  const facts=punctualityFacts(shift,records,now),flags:string[]=[];
  if(facts.noShow&&!shift.no_show_decision)flags.push('No-show');
- if(settings.flag_lateness&&facts.lateMinutes>settings.lateness_minutes&&!facts.noShow)flags.push(`Late ${facts.lateMinutes} min`);
- if(settings.flag_extra_hours&&facts.extraMinutes>settings.extra_hours_minutes)flags.push(`Extra hours ${facts.extraMinutes} min`);
  return flags;
 }

@@ -37,7 +37,7 @@ import { toast } from "sonner";
 import { BaniAccountingReview } from '@/components/finance/BaniAccountingReview';
 import { useBaniAccounting } from '@/hooks/useBaniAccounting';
 import { useBookReview } from '@/hooks/useBookReview';
-import { unresolvedAccountLines, unresolvedDateEntries } from '@/utils/booksReview';
+import { unresolvedAccountLines, unresolvedDateEntries, bookDocumentDates } from '@/utils/booksReview';
 export default function FinanceDashboard() {
   const bookReview = useBookReview();
   const bani = useBaniAccounting();
@@ -80,7 +80,7 @@ export default function FinanceDashboard() {
     );
     const missing = unresolvedAccountLines(books.lines,bookReview.corrections,posted);
     const first = books.sales.map((s) => s.date).sort()[0];
-    const dates = unresolvedDateEntries(books.entries,bookReview.corrections,first,today);
+    const dates = unresolvedDateEntries(books.entries,bookReview.corrections,first,today,bookDocumentDates(books.invoices,books.bills,books.sales));
     const unposted =
       books.invoices.filter(
         (i) =>
