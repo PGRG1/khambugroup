@@ -355,4 +355,5 @@
 ## Shared period control — Finance first
 - [x] Three-mode shared control, bounded books window, fiscal shortcuts, daily identity-scoped session persistence, Accounting books start setting and date exception link.
 - [x] Overview, Month close, Payables, Receivables, Reports, Balance sheet, Trial balance, Journal, Ledger and Bank statement controls integrated; old Finance pickers removed.
-- [ ] Focused date-rule tests and signed-in desktop/375px checks; protected record read comparison.
+- [x] Nine date-rule fixture tests and build pass; signed-in desktop/375px Overview, Month close, Payables and Reports menus/selecting months checked. Protected counts/latest timestamps match (sales has created_at only).
+- [ ] Accounting setting save/readback not exercised to avoid changing tenant configuration; remaining Finance screens and custom calendar need expanded UI verification.
