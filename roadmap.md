@@ -1,3 +1,8 @@
+## Payroll table and Rota top presentation
+- [x] Payroll number-only edits/dots, single shaded group subtotal, grouped Bani findings and readiness bar; no calculation or record changes.
+- [x] Rota two-row top, combined week control/Fill week menu and leave/off/day totals presentation; existing actions unchanged.
+- [x] Signed-in November Mirak overtime 600 Enter recalculated net 17670/company cost 19530; 6px dot/no border, zero calculated buttons, one subtotal/group. May 247407.70/239747.20/255068.20 unchanged; loaded Rota/Fill menu checked; build OK. No saves. Populated leave/off grid not live-tested in this empty week.
+
 ## Rota to payroll flow
 - [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.
 - [x] Payroll PageTop/month menu, fixed 12 columns, immediate draft recalculation/override findings, saved read-only payslip/download, guarded owner approval via existing atomic accrual path.
