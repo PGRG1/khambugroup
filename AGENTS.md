@@ -1,5 +1,6 @@
 # Project Architecture Rules
 Read nested AGENTS.md; src/pages/hr has People-specific rules.
+- PageTop owns tenant title/controls/Bani rows. PageControls/PageNotice relocate presentation through the route-scoped provider while state, evidence, handlers and access stay with their original owners; finding grouping is display-only.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
