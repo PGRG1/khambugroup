@@ -1,8 +1,9 @@
 ## Bani document reading and source-linked books
-- [ ] Plan contextual self-checked extraction, sure-only atomic save/post, one-question exceptions and retained uploads
-- [ ] Stable source links, unique live posting, atomic edit/delete/Undo and closed-period compensation
-- [ ] Tenant correction learning, source drift review and authorized seven-entry cleanup with audit/Undo
-- [ ] Tests/live verification, before/after drift and affected-period P&L reconciliation (invoice year changes may change 2026 P&L)
+- [x] Contextual extraction with requested model, printed date/confidence, retained originals and receipt commit RPC; original BA260803767 reread confirms 19 Aug 2026
+- [x] Seven authorized journal corrections retain originals and operation Undo; seven tenant correction examples saved; wrong-year target revenue nets to zero
+- [x] 53 focused tests pass; invoice date drift 5 → 0, total invoice drift 135 → 130; 2026 P&L HK$2,699,324.28 → HK$2,675,544.08; signed-in correction Undo visible desktop/375px
+- [ ] Incomplete implementation: invoice sure-only save/post and one-question chat, receipt outcome Undo wiring, stable daily sales-group membership, all-source amount/venue/delete synchronization, durable retry worker and comprehensive source drift. Receipt Undo RPC added but not live-tested. These require further implementation, not user credentials.
+- [ ] Atomic receipt save/post/Undo, closed-period edits, uniqueness/concurrency and multi-page uploads remain unverified end-to-end; no closed months exist. Remaining 130 invoice checks and one unlinked legacy sales key require evidence review; do not auto-correct amounts from aggregates.
 
 ## Floating Bani redesign
 - [x] Light chat, contextual no-AI opening cards, orb attention note and identity-scoped conversation continuation
