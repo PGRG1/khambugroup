@@ -218,7 +218,7 @@ const DataPage = () => {
           <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo}
             months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} includeMtd initialPeriod="MTD" labelled />
         )}
-        actions={actions}
+        primaryAction={actions}
       />
 
       {loading ? (
