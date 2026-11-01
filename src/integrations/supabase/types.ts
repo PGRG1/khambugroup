@@ -2016,6 +2016,61 @@ export type Database = {
           },
         ]
       }
+      document_source_archives: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          intake_id: string
+          operation_id: string
+          source_record_id: string
+          source_snapshot: Json
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          intake_id: string
+          operation_id: string
+          source_record_id: string
+          source_snapshot: Json
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          intake_id?: string
+          operation_id?: string
+          source_record_id?: string
+          source_snapshot?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_source_archives_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "sales_receipt_intakes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_source_archives_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "finance_source_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_source_archives_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           actual_guests: number | null
@@ -13677,6 +13732,7 @@ export type Database = {
         Args: { p_end: string; p_start: string; p_tenant: string }
         Returns: Json
       }
+      document_undo_receipt: { Args: { p_record: string }; Returns: string }
       ensure_revenue_manager_target_lines_month: {
         Args: {
           p_month: number

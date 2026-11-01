@@ -470,6 +470,13 @@
       "when": 1793500950812,
       "tag": "0066_learning_rule_hash_schema_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1793501092949,
+      "tag": "0067_receipt_undo_and_retained_document_access",
+      "breakpoints": true
     }
   ]
 }
