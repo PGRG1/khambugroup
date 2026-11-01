@@ -1,9 +1,10 @@
 ## Expenses part 3
-- [ ] Draft-only month-end and selected owner/admin monthly approval with manual-booking guard.
-- [ ] Light contract/year list and existing-contract lease upload/confirmation.
-- [ ] Invoice-style bill dialog with refreshed document links and safe retry.
-- [ ] Evidence-only sales receipt matching, ambiguous photo questions and receipt presentation.
-- [ ] Focused tests, desktop/phone check and protected fingerprints.
+- [x] Draft-only month-end, explicit selected monthly RPC and fixture tests; same-account/month/amount manual guard and legacy automatic expense commit blocked.
+- [x] Compact contract strip, existing lease upload/confirmation and invoice-style bills with safe signed-document retry.
+- [x] Nine receipt photos appended to seven exact records; two wrong-year photos retained as evidence-only Bani review questions. Protected fingerprints unchanged including sales apart from receipt links.
+- [x] Ten tests passed; desktop/375px compact contract no scrolling and bill no sideways overflow; no production approvals.
+- [ ] Not complete: contract Details still has form fields rather than all click-to-edit rows; accounting controls not all moved into More; regular account squares lack estimate colours/Undo metadata and Now text needs shortening.
+- [ ] Not verified: real lease extraction/save, populated selected monthly approval through database, prepayment approval, signed-photo failure Retry and sales photo UI. PDF preview renders first page only; multi-page PDF navigation remains incomplete.
 
 ## Expenses supplier accounts and month-end
 - [x] Existing CLP/Towngas meters retained; coverage fields, account-first matching, alias metadata and account grid rows. Unknown covers remain questions.
