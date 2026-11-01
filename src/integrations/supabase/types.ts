@@ -14298,7 +14298,15 @@ export type Database = {
         Args: { m: number; t: string; y: number }
         Returns: Json
       }
+      payroll_save_work_draft: {
+        Args: { m: number; rows: Json; t: string; y: number }
+        Returns: undefined
+      }
       payroll_terms_candidates: {
+        Args: { m: number; t: string; y: number }
+        Returns: Json
+      }
+      payroll_work_preview: {
         Args: { m: number; t: string; y: number }
         Returns: Json
       }

@@ -526,6 +526,13 @@
       "when": 1793533601951,
       "tag": "0074_people_shift_settlements_and_work_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793533664400,
+      "tag": "0075_people_work_payroll_preview",
+      "breakpoints": true
     }
   ]
 }
