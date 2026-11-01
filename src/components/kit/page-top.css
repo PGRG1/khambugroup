@@ -53,3 +53,6 @@
 .page-top-controls-left-host > .kit { min-width: 0; }
 .page-top-controls-left-host { max-width: 100%; }
 .page-top-controls [aria-haspopup="listbox"] ~ div { background: hsl(var(--card)); }
+
+.page-top .kit-search button { height: 20px; min-height: 20px; width: 20px; padding: 0; border: 0; background: transparent; }
+.page-top-controls-host > nav, .page-top-controls-left-host > nav { max-width: 100%; }

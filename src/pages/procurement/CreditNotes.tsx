@@ -1,3 +1,4 @@
+import { PageNotice } from '@/components/kit/PageTopControls';
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
@@ -242,10 +243,10 @@ export default function CreditNotes() {
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Credit notes">
 
         {disputedCount > 0 && (
-          <p className="px-1 text-[13px] text-warning">
+          <PageNotice><p className="px-1 text-[13px] text-warning">
             {disputedCount} disputed invoice{disputedCount === 1 ? "" : "s"} may need a credit note from the supplier ·{" "}
             <Link to="/procurement/invoices?status=disputed" className="underline underline-offset-2 font-medium">View</Link>
-          </p>
+          </p></PageNotice>
         )}
         <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search note #, supplier or invoice #"
           filter={<>{segmented}{filter}</>}
