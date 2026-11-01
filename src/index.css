@@ -426,7 +426,7 @@ html:not(.dark) .tenant-portal {
   --card: 0 0% 100%;
   --muted: 150 12% 95%;
   --secondary: 150 12% 95%;
-  --border: 153 15% 88%;
+  --border: 137 11% 88%;
   --input: 153 15% 88%;
   --primary: 175 39% 14%;
   --primary-foreground: 0 0% 100%;
@@ -640,7 +640,7 @@ html:not(.dark) .tenant-portal .app-bg-sage nav[aria-label] :is(a, button).bg-mu
 }
 
 /* Portal-wide venue scope pill (fixed tenant theme) */
-html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"] a {
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"].md\:flex a {
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -648,10 +648,12 @@ html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label=
   color: hsl(var(--muted-foreground));
   backdrop-filter: none;
 }
-html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"] a[aria-current="page"] {
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) nav[aria-label="People"].md\:flex a[aria-current="page"] {
   border-bottom-color: hsl(var(--primary));
   color: hsl(var(--foreground));
 }
+/* Section dividers never inherit the tenant white glass outline. */
+.tenant-portal nav[aria-label].border-b {border-bottom:0;box-shadow:none;}
 .payroll-page .kit-table td,.payroll-page .kit-table th { padding: 10px 8px; overflow-wrap: anywhere; }
 /* Reused Stock workflows keep all fields, stacked on phone rather than wide grids. */
 .stock-transfer-dialog > .flex { flex-wrap: wrap; }

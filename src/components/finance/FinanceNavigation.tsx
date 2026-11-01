@@ -17,7 +17,7 @@ export function FinanceNavigation() {
       </div>
       <nav
         aria-label="Finance"
-        className="hidden md:flex border-b border-border mb-5 gap-1"
+        className="hidden md:flex mb-5 gap-1"
       >
         {financeTabs.map((t) => (
           <Button

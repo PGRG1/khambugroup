@@ -6,3 +6,23 @@
 .people-profile [role=tablist] {display:flex;max-width:100%;overflow-x:auto !important;justify-content:flex-start;}
 .people-profile [role=tab] {flex-shrink:0;}
 @media(max-width:640px){.people-profile table {font-size:12px;}.people-profile td,.people-profile th {padding:8px 4px;}}@media(max-width:640px){.people-page th:first-child {width:42%;}.people-page th:nth-child(2){width:27%;}.people-page th:last-child{width:31%;}.people-page td,.people-page th {padding:12px 4px;}}
+.people-page .team-evidence-table {table-layout:fixed;font-size:12px;}
+.people-page .team-evidence-table th:first-child {width:19%;}
+.people-page .team-evidence-table th:nth-child(2) {width:9%;}
+.people-page .team-evidence-table th:nth-child(3) {width:11%;}
+.people-page .team-evidence-table td:last-child {text-align:left;}
+.people-page .team-venue-row th {width:auto;background:hsl(var(--muted));color:hsl(var(--foreground));padding:10px 8px;}
+.employee-record section {border-top:1px solid hsl(var(--border));padding-top:20px;}
+.employee-record .employee-statement td:last-child {text-align:left;}
+@media(max-width:767px){
+ .people-page .team-evidence-table thead,.employee-statement thead {display:none;}
+ .people-page .team-evidence-table,.people-page .team-evidence-table tbody,.employee-statement,.employee-statement tbody {display:block;}
+ .people-page .team-person-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid hsl(var(--border));padding:12px 0;gap:4px 12px;}
+ .people-page .team-person-row td {display:block;border:0;padding:5px 0;min-width:0;}
+ .people-page .team-person-row td:first-child {grid-column:1/-1;font-size:14px;}
+ .people-page .team-person-row td:not(:first-child)::before {content:attr(data-label);display:block;color:hsl(var(--muted-foreground));font-size:11px;margin-bottom:3px;}
+ .people-page .team-venue-row,.people-page .team-venue-row th {display:block;width:100%;}
+ .employee-record .employee-statement tr {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;padding:12px 0;border-bottom:1px solid hsl(var(--border));}
+ .employee-record .employee-statement td {display:block;border:0;padding:4px 0;}
+ .employee-record .employee-statement td::before {content:attr(data-label);display:block;color:hsl(var(--muted-foreground));font-size:11px;}
+}
