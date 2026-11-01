@@ -1,3 +1,8 @@
+## Floating Bani redesign
+- [ ] Light chat, contextual no-AI opening cards, orb attention note and conversation continuation
+- [ ] RTL messages/cards/composers and explicit language behaviour; preserve scanner/actions/voice/gestures
+- [ ] Focused tests, build and signed-in Revenue desktop/375px, Arabic, voice, action-card and hosted-scanner checks
+
 ## Settings rebuild
 - [x] Single Settings page, redirects/sidebar, Business venue editors, tenant-only Users and centred editing
 - [x] Automatic People rules/posting defaults, merged category mapping RPC, learned rules/examples and Alerts
