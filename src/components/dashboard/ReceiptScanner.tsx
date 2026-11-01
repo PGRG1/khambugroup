@@ -18,6 +18,8 @@ import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch
 import { diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { associateSalesScan } from "@/utils/salesScanEvidence";
+import { DeferredSalesFields } from '@/components/sales/DeferredSalesFields';
+import { deferredSalesAmounts } from '@/utils/deferredSales';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -228,6 +230,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
         serviceCharge: Number(raw.serviceCharge) || 0,
         discount: -(Math.abs(Number(raw.discount) || 0)),
         totalSales: Number(raw.totalSales) || 0,
+        vouchersSold: Number(raw.vouchersSold) || 0,
+        depositsTaken: Number(raw.depositsTaken) || 0,
+        vouchersUsed: Number(raw.vouchersUsed) || 0,
+        depositsUsed: Number(raw.depositsUsed) || 0,
         visa: Number(raw.visa) || 0,
         mastercard: Number(raw.mastercard) || 0,
         amex: Number(raw.amex) || 0,
@@ -245,6 +251,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
       scannedRef.current = record;
       setShowDetails(false);
+      const deferred = deferredSalesAmounts(record);
+      if (deferred.sold || deferred.used) { setExtractedData(record); setShowDetails(true); return; }
       setSaving(true);
       setStage("Cross-verifying figures…");
       const stageTimer = window.setTimeout(() => setStage(`Checking ${record.venue || "venue"} ${record.date || ""} records…`.replace("  ", " ")), 3500);
@@ -257,6 +265,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
+      const pending = scannedRef.current;
+      if (pending && (deferredSalesAmounts(pending).sold || deferredSalesAmounts(pending).used)) {
+        setExtractedData(pending); setShowDetails(true);
+        baniSay('Deferred revenue needs your confirmation; nothing saved.');
+        return;
+      }
       const result = await onSave(scannedRef.current ?? { ...emptyRecord }, file, null, evidenceScanRef.current).catch(() => ({ status: "failed" as const, error: "Receipt was not saved" }));
       setOutcome(result); setExtractedData(scannedRef.current ?? { ...emptyRecord });
       baniSay(salesOutcomeMessage(result));
@@ -667,6 +681,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
           </>)}
 
+          <DeferredSalesFields record={extractedData} onChange={(key,value)=>setExtractedData({...extractedData,[key]:value})} />
           <DayNoteField prompt={notePrompt(extractedData, history)} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
 
           <div className="flex items-center gap-3 pt-2">

@@ -8,6 +8,7 @@ import { DayNoteField } from "@/components/sales/NoteComposer";
 import { notePrompt } from "@/utils/salesRecordChecks";
 import type { SalesSaveResult } from "@/utils/salesSaveResult";
 import { Button } from "@/components/ui/button";
+import { DeferredSalesFields } from '@/components/sales/DeferredSalesFields';
 
 export interface DayNote { body: string; tag: string | null }
 
@@ -245,6 +246,7 @@ const ManualInput = ({ onAdd, onClose, history = [], initial }: ManualInputProps
             </span>
           </div>
         )}
+        <DeferredSalesFields record={form} onChange={set} />
         <DayNoteField prompt={prompt} body={noteBody} tag={noteTag} onBody={setNoteBody} onTag={setNoteTag} />
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t border-border">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">

@@ -166,6 +166,10 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
   "serviceCharge": number,
   "discount": number,
   "totalSales": number,
+  "vouchersSold": number,
+  "depositsTaken": number,
+  "vouchersUsed": number,
+  "depositsUsed": number,
   "visa": number,
   "mastercard": number,
   "amex": number,
@@ -193,6 +197,7 @@ Rules:
     }
 - IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
 - Delivery platforms (Deliveroo, Foodpanda, Keeta) appear as settlement/tender lines. Put each in its own key; never add them to cash or cards. Use null when not printed.
+- Extract gift card/voucher sold as vouchersSold, redeemed as vouchersUsed, deposit received as depositsTaken, deposit applied as depositsUsed. These are separate liability movements, not payment methods. Return null when absent; never infer them from totals.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation${hints}`;
 

@@ -1,0 +1,3 @@
+import {describe,it,expect} from 'vitest';
+import {exactBankMatch} from '@/utils/bankMultiMatch';
+describe('multi-source bank match',()=>{it('requires an exact total in cents',()=>{expect(exactBankMatch(100,[40,60])).toBe(true);expect(exactBankMatch(100,[40,59.99])).toBe(false);expect(exactBankMatch(100,[])).toBe(false);});it('rejects nonpositive and fractional-cent source amounts',()=>{expect(exactBankMatch(100,[110,-10])).toBe(false);expect(exactBankMatch(100,[40.001,60])).toBe(false);});});

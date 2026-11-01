@@ -1569,6 +1569,7 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          future_account_id: string | null
           id: string
           is_active: boolean
           is_cash: boolean
@@ -1585,6 +1586,7 @@ export type Database = {
           code: string
           created_at?: string
           description?: string | null
+          future_account_id?: string | null
           id?: string
           is_active?: boolean
           is_cash?: boolean
@@ -1601,6 +1603,7 @@ export type Database = {
           code?: string
           created_at?: string
           description?: string | null
+          future_account_id?: string | null
           id?: string
           is_active?: boolean
           is_cash?: boolean
@@ -1612,6 +1615,34 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
           {
             foreignKeyName: "chart_of_accounts_parent_id_fkey"
             columns: ["parent_id"]
@@ -3801,6 +3832,7 @@ export type Database = {
           reference: string
           release_months: number
           source_document: string | null
+          source_sales_id: string | null
           status: string
           tenant_id: string
           used_amount: number
@@ -3818,6 +3850,7 @@ export type Database = {
           reference: string
           release_months?: number
           source_document?: string | null
+          source_sales_id?: string | null
           status?: string
           tenant_id: string
           used_amount?: number
@@ -3835,12 +3868,27 @@ export type Database = {
           reference?: string
           release_months?: number
           source_document?: string | null
+          source_sales_id?: string | null
           status?: string
           tenant_id?: string
           used_amount?: number
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "finance_deferred_items_source_sales_id_fkey"
+            columns: ["source_sales_id"]
+            isOneToOne: false
+            referencedRelation: "sales_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_deferred_items_source_sales_id_fkey"
+            columns: ["source_sales_id"]
+            isOneToOne: false
+            referencedRelation: "sales_records"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "finance_deferred_items_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -11973,7 +12021,10 @@ export type Database = {
           created_at: string
           date: string
           day: string
+          deferred_feed: boolean
           deliveroo: number
+          deposits_taken: number
+          deposits_used: number
           discount: number
           event_id: string | null
           event_name: string | null
@@ -12002,6 +12053,8 @@ export type Database = {
           venue: string
           venue_id: string | null
           visa: number
+          vouchers_sold: number
+          vouchers_used: number
           wechat: number
         }
         Insert: {
@@ -12012,7 +12065,10 @@ export type Database = {
           created_at?: string
           date: string
           day: string
+          deferred_feed?: boolean
           deliveroo?: number
+          deposits_taken?: number
+          deposits_used?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
@@ -12041,6 +12097,8 @@ export type Database = {
           venue: string
           venue_id?: string | null
           visa?: number
+          vouchers_sold?: number
+          vouchers_used?: number
           wechat?: number
         }
         Update: {
@@ -12051,7 +12109,10 @@ export type Database = {
           created_at?: string
           date?: string
           day?: string
+          deferred_feed?: boolean
           deliveroo?: number
+          deposits_taken?: number
+          deposits_used?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
@@ -12080,6 +12141,8 @@ export type Database = {
           venue?: string
           venue_id?: string | null
           visa?: number
+          vouchers_sold?: number
+          vouchers_used?: number
           wechat?: number
         }
         Relationships: [
@@ -14800,6 +14863,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      finance_account_merge: {
+        Args: {
+          d: string
+          reclass?: boolean
+          source: string
+          t: string
+          target: string
+        }
+        Returns: string
+      }
       finance_apply_account_review: {
         Args: {
           p_code: string
@@ -14831,6 +14904,10 @@ export type Database = {
           p_txn: string
           p_type: string
         }
+        Returns: undefined
+      }
+      finance_confirm_bank_matches: {
+        Args: { items: Json; notes?: string; t: string; txn: string }
         Returns: undefined
       }
       finance_convert_typed_month: {
@@ -14913,6 +14990,10 @@ export type Database = {
         }
         Returns: Json
       }
+      finance_sales_deferred_save: {
+        Args: { p: Json; t: string }
+        Returns: string
+      }
       finance_schedule_account: {
         Args: { c: string; k: string; n: string; t: string }
         Returns: string
@@ -14983,6 +15064,7 @@ export type Database = {
         Returns: string
       }
       finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
+      finance_tax_source: { Args: { d: string; t: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
         Args: { _tenant_id: string; _venue_id: string }

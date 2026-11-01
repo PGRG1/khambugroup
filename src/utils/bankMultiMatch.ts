@@ -1,0 +1,1 @@
+export function exactBankMatch(amount:number,selected:number[]) { const cents=(n:number)=>Number.isFinite(n)&&n>0&&Math.abs(n*100-Math.round(n*100))<.000001;return cents(amount) && selected.length>0 && selected.every(cents) && selected.reduce((n,v)=>n+Math.round(v*100),0)===Math.round(amount*100); }

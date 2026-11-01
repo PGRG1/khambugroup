@@ -15,6 +15,10 @@ export interface SalesRecord {
   serviceCharge: number;
   discount: number;
   totalSales: number;
+  vouchersSold?: number;
+  depositsTaken?: number;
+  vouchersUsed?: number;
+  depositsUsed?: number;
   visa: number;
   mastercard: number;
   amex: number;

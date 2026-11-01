@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SalesRecord } from "@/types/sales";
 import type { SalesSaveResult } from "./salesSaveResult";
+import { deferredSalesAmounts } from './deferredSales';
 
 export async function saveReceiptIntake(record: SalesRecord, file: File | null, scanId: string | null, tenantId: string): Promise<SalesSaveResult> {
   if (!file) return { status: "failed", error: "Original receipt is missing; nothing saved" };
@@ -8,6 +9,15 @@ export async function saveReceiptIntake(record: SalesRecord, file: File | null, 
     const bytes = new Uint8Array(await file.arrayBuffer());
     let binary = "";
     for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    const deferred = deferredSalesAmounts(record);
+    if (deferred.sold || deferred.used) {
+      const path = `${tenantId}/deferred-${crypto.randomUUID()}.${file.name.toLowerCase().endsWith('.pdf')?'pdf':'jpg'}`;
+      const { error: uploadError } = await supabase.storage.from('sales-receipts').upload(path,file);
+      if(uploadError) return {status:'failed',error:'Receipt upload failed; no sales saved'};
+      const {data,error} = await supabase.rpc('finance_sales_deferred_save',{t:tenantId,p:JSON.parse(JSON.stringify({...record,receiptFileUrl:path,receiptFileName:file.name}))});
+      if(error||typeof data!=='string') return {status:'failed',error:error?.message??'Deferred sales draft could not be saved'};
+      return {status:'saved',recordId:data,journal:'draft'};
+    }
     const { data, error } = await supabase.functions.invoke("parse-receipt", { body: {
       op: "receipt_intake", tenantId, scanId, imageBase64: btoa(binary),
       mimeType: file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"), fileName: file.name, tentative: record,

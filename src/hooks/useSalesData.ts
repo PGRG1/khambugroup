@@ -10,6 +10,7 @@ import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { captureSavedSalesScan } from "@/utils/salesScanEvidence";
 import type { SalesSaveResult } from "@/utils/salesSaveResult";
+import { deferredSalesAmounts } from '@/utils/deferredSales';
 
 function toDbRecord(r: SalesRecord, tenantId?: string | null) {
   return {
@@ -24,6 +25,10 @@ function toDbRecord(r: SalesRecord, tenantId?: string | null) {
     service_charge: r.serviceCharge,
     discount: -Math.abs(r.discount), // always store as negative
     total_sales: r.totalSales,
+    vouchers_sold: r.vouchersSold ?? 0,
+    deposits_taken: r.depositsTaken ?? 0,
+    vouchers_used: r.vouchersUsed ?? 0,
+    deposits_used: r.depositsUsed ?? 0,
     visa: r.visa,
     mastercard: r.mastercard,
     amex: r.amex,
@@ -66,6 +71,10 @@ function fromDbRecord(r: any): SalesRecord {
     serviceCharge: Number(r.service_charge),
     discount: normalizeDiscount(Number(r.discount)),
     totalSales: Number(r.total_sales),
+    vouchersSold: Number(r.vouchers_sold ?? 0),
+    depositsTaken: Number(r.deposits_taken ?? 0),
+    vouchersUsed: Number(r.vouchers_used ?? 0),
+    depositsUsed: Number(r.deposits_used ?? 0),
     visa: Number(r.visa),
     mastercard: Number(r.mastercard),
     amex: Number(r.amex),
@@ -174,6 +183,13 @@ export function useSalesData(cached = false) {
       }
     }
 
+    const deferred = deferredSalesAmounts(finalRecord);
+    if (deferred.sold || deferred.used) {
+      const {data,error} = await supabase.rpc('finance_sales_deferred_save',{t:tenantId,p:JSON.parse(JSON.stringify(finalRecord))});
+      if(error||typeof data!=='string') return {status:'failed',error:error?.message??'Deferred sales draft could not be saved'};
+      await fetchData();
+      return {status:'saved',recordId:data,journal:'draft'};
+    }
     const { data: inserted, error } = await supabase
       .from("sales_records")
       .insert(toDbRecord(finalRecord, tenantId)).select("id").single();

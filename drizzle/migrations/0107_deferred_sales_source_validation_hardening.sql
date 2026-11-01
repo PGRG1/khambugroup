@@ -1,0 +1,7 @@
+DO $$ DECLARE def text;BEGIN SELECT pg_get_functiondef('public.finance_sales_deferred_save(uuid,jsonb)'::regprocedure) INTO def;
+def:=replace(def,'FOREACH kind IN ARRAY','FOREACH kind IN ARRAY');
+def:=replace(def,'finance_deferred_items.kind=kind','finance_deferred_items.kind=finance_sales_deferred_save.kind');
+def:=replace(def,'AND venue=v AND issued_date<=d','AND finance_deferred_items.venue=v AND issued_date<=d');
+def:=replace(def,'SELECT * INTO cfg FROM finance_schedule_settings WHERE tenant_id=t;','IF EXISTS(SELECT 1 FROM venues vv JOIN venue_closures c ON c.venue_id=vv.id AND c.tenant_id=t WHERE vv.tenant_id=t AND vv.name=v AND c.date=d) THEN RAISE EXCEPTION ''Trading date is marked closed'';END IF;IF nullif(p->>''servicePeriodId'','''') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM venue_service_periods sp JOIN venues vv ON vv.id=sp.venue_id WHERE sp.id=(p->>''servicePeriodId'')::uuid AND sp.tenant_id=t AND vv.tenant_id=t AND vv.name=v) THEN RAISE EXCEPTION ''Service period does not belong to venue'';END IF;SELECT * INTO cfg FROM finance_schedule_settings WHERE tenant_id=t;');
+def:=replace(def,'did:=finance_schedule_enqueue','IF EXISTS(SELECT 1 FROM jsonb_array_elements(ls) l WHERE (l->>''account_id'') IS NULL OR NOT EXISTS(SELECT 1 FROM chart_of_accounts a WHERE a.tenant_id=t AND a.id=(l->>''account_id'')::uuid AND a.is_active)) THEN RAISE EXCEPTION ''Active tenant posting accounts required'';END IF;did:=finance_schedule_enqueue');EXECUTE def;
+END $$;
