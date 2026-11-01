@@ -624,6 +624,13 @@
       "when": 1793546732810,
       "tag": "0088_expense_owner_membership_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793550962487,
+      "tag": "0089_finance_reconciliation_explanations",
+      "breakpoints": true
     }
   ]
 }

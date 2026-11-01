@@ -3788,6 +3788,47 @@ export type Database = {
           },
         ]
       }
+      finance_reconciliation_explanations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          month_start: string
+          reason: string
+          reconciliation_key: string
+          snapshot: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          month_start: string
+          reason: string
+          reconciliation_key: string
+          snapshot: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          month_start?: string
+          reason?: string
+          reconciliation_key?: string
+          snapshot?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_reconciliation_explanations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_source_operations: {
         Row: {
           actor_id: string
@@ -14538,8 +14579,22 @@ export type Database = {
         }
         Returns: string
       }
+      finance_explain_reconciliation: {
+        Args: {
+          p_key: string
+          p_month: string
+          p_reason: string
+          p_snapshot: string
+          p_tenant: string
+        }
+        Returns: undefined
+      }
       finance_month_checks: {
         Args: { p_month: string; p_tenant_id: string }
+        Returns: Json
+      }
+      finance_reconciliation_rows: {
+        Args: { p_month: string; p_tenant: string }
         Returns: Json
       }
       finance_record_owed_payment: {
