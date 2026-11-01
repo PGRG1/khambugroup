@@ -102,7 +102,7 @@ export function useSalesData(cached = false) {
     },
   });
   const data = query.data ?? [];
-  const loading = tenantLoading || (!!tenantId && query.isPending);
+  const loading = (tenantLoading && !query.data) || (!!tenantId && query.isPending);
   const fetchData = useCallback(async () => {
     if (!tenantId || tenantLoading) return;
     await cache.invalidateQueries({ queryKey: ["sales-records", user?.id, tenantId, previewUserId], exact: true });
