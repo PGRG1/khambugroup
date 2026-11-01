@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { sessionQueryTiming } from "@/utils/sessionQuery";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 /**
  * Returns true if the signed-in user has the Bani-level `platform_admin`
@@ -12,7 +13,7 @@ export function usePlatformAdmin() {
   const { user } = useAuth();
   const { previewUserId } = usePreviewMode();
   // Active tenant is part of the cache identity, not part of platform authority.
-  const tenantId = localStorage.getItem("khambu.activeTenantId");
+  const { tenantId } = useActiveTenant();
   const query = useQuery({
     queryKey: ["platform-admin", user?.id, tenantId, previewUserId],
     enabled: !!user,

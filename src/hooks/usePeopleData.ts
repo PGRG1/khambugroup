@@ -7,7 +7,7 @@ import {useAuth} from '@/hooks/useAuth';
 import {usePreviewMode} from '@/hooks/usePreviewMode';
 import {fetchAllRows} from '@/utils/fetchAllRows';
 import {termsOnDate,type EmploymentTerms} from '@/utils/people';
-function useLivePeopleData(){const {tenantId}=useActiveTenant();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();const uid=isPreviewActive&&isAdmin?previewUserId:user?.id;
+export function usePeopleData(){const {tenantId}=useActiveTenant();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();const uid=isPreviewActive&&isAdmin?previewUserId:user?.id;
  const [employees,setEmployees]=useState<any[]>([]);const [terms,setTerms]=useState<any[]>([]);const [changes,setChanges]=useState<any[]>([]);const [documents,setDocuments]=useState<any[]>([]);const [history,setHistory]=useState<any[]>([]);const [shifts,setShifts]=useState<any[]>([]);const [leave,setLeave]=useState<any[]>([]);const [payroll,setPayroll]=useState<any[]>([]);const [requests,setRequests]=useState<any[]>([]);const [owner,setOwner]=useState(false);const [canDocuments,setCanDocuments]=useState(false);const [loading,setLoading]=useState(true);
  const [evidence,setEvidence]=useState<{ledger:any[];holidays:any[];attendance:any[];swaps:any[];authors:any[]}>({ledger:[],holidays:[],attendance:[],swaps:[],authors:[]});
  const reload=useCallback(async()=>{if(!tenantId||!uid){setLoading(false);return;}setLoading(true);try{const [e,t,c,h,s,l,p,o,da,lr]=await Promise.all([fetchAllRows('hr_employees','*',undefined,tenantId),fetchAllRows('hr_employment_terms','*',undefined,tenantId),fetchAllRows('hr_people_changes','*',undefined,tenantId),fetchAllRows('hr_employee_history','*',undefined,tenantId),fetchAllRows('hr_shifts','*',undefined,tenantId),fetchAllRows('hr_leave_balances','*,leave_type:hr_leave_types(*)',undefined,tenantId),fetchAllRows('hr_payroll','*',undefined,tenantId),supabase.rpc('people_owner',{t:tenantId,u:uid}),supabase.rpc('people_documents_access',{t:tenantId,u:uid}),fetchAllRows('hr_leave_requests','*,leave_type:hr_leave_types(*)',undefined,tenantId)]);setRequests(lr);setEmployees(e);setTerms(t);setChanges(c);setHistory(h);setShifts(s);setLeave(l);setPayroll(p);setOwner(Boolean(o.data));setCanDocuments(Boolean(da.data));setDocuments(da.data?await fetchAllRows('hr_person_documents','*',undefined,tenantId):[]);}finally{setLoading(false);}},[tenantId,uid]);
@@ -15,11 +15,7 @@ function useLivePeopleData(){const {tenantId}=useActiveTenant();const {user,isAd
  useEffect(()=>{reload();},[reload]);const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  return {tenantId,employees:employees.map(e=>({...e,...termsOnDate(terms.filter(t=>t.employee_id===e.id) as EmploymentTerms[],today)})),rawEmployees:employees,terms,changes,documents,history,shifts,leave,requests,payroll,owner,canDocuments,loading,reload,today,isPreviewActive,...evidence};
 }
-export function usePeopleData(cached = false){
- // The option is fixed at the call site, never changed during a component's life.
- return cached ? useOverviewPeopleData() : useLivePeopleData();
-}
-function useOverviewPeopleData(){
+export function useOverviewPeopleData(){
  const {tenantId}=useActiveTenant();const {user,isAdmin}=useAuth();
  const {isPreviewActive,previewUserId}=usePreviewMode();
  const uid=isPreviewActive&&isAdmin?previewUserId:user?.id;

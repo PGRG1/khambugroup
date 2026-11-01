@@ -119,7 +119,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   const allowed = Boolean(store && user && tenantId && !authLoading && !roleLoading && !tenantLoading && !permissionsLoading && canAccessPage("assistant") && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
   // Confidential content resets only when the user, client or preview identity changes.
-  const identity = `${user?.id}:${tenantId}:${isPreviewActive}`;
+  const identity = `${user?.id}:${tenantId}:${isPreviewActive}:${previewUserId}`;
   const liveIdentity = useRef(identity); liveIdentity.current = identity;
   const binding = review?.binding;
   const filesRef = useRef(files); filesRef.current = files;
