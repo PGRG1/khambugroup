@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PageBani } from "@/components/kit/PageBani";
 import { formatCurrency, formatDate, formatTableInteger } from "@/utils/format";
 
 const counts = ["orders", "guests"];
@@ -46,11 +45,13 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
   const [sourceError, setSourceError] = useState("");
   if (q.isError) return <p className="text-sm text-warning">Flagged receipts could not be loaded.</p>;
   if (!rows.length) return null;
-  const findings = rows.map(r => ({ id: `intake-${r.id}`, tone: "amber" as const, title: `Receipt needs review · no sales posted: ${r.source_name}`, detail: "", label: "Review", group: "intake", groupTitle: (n: number) => `${n} receipts need review · no sales posted`, onOpen: () => { setSelected(r.id); setSourceError(""); } }));
-  const first = findings[0];
-  if (findings.length > 1) first.onOpen = () => { setSelected(rows[0].id); setSourceError(""); };
-  return <>
-    <PageBani findings={findings.length > 1 ? [{ ...first, title: `${rows.length}${rows.length >= 100 ? "+" : ""} receipts need review · no sales posted · open the latest`, group: undefined }, ...findings.slice(1).map(f => ({ ...f, title: f.title.replace("Receipt needs review · no sales posted: ", ""), group: undefined }))] : findings} />
+  return <section className="mb-4 space-y-2">
+    <h3 className="text-sm font-semibold text-warning">Receipts needing review · no sales posted</h3>
+    {rows.map(r => <div key={r.id} className="flex min-w-0 items-center justify-between gap-2 border-b border-border py-2 text-sm">
+      <span className="min-w-0 break-all">{r.source_name}</span>
+      <Button variant="outline" size="sm" onClick={() => { setSelected(r.id); setSourceError(""); }}>Review</Button>
+    </div>)}
+    {rows.length >= 100 && <p className="text-xs text-muted-foreground">Latest 100 receipts shown.</p>}
     <Dialog open={!!current} onOpenChange={open => { if (!open) setSelected(null); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader><DialogTitle>Receipt needs review</DialogTitle></DialogHeader>
@@ -67,5 +68,5 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
         </>}
       </DialogContent>
     </Dialog>
-  </>;
+  </section>;
 }
