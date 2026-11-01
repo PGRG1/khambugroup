@@ -60,6 +60,7 @@ function inDateRange(dateStr: string, from?: string, to?: string) {
 
 // ---------- tools ----------
 const tools = [
+  expenseContextTool,
   {
     type: "function",
     function: {
@@ -578,6 +579,7 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
   ): Promise<T[]> => fetchAllRaw<T>(table, cols, tenantId, filters);
 
   switch (name) {
+    case 'get_expense_accounts':return expenseAccountContext(admin,tenantId);
     case "get_sales_summary": {
       const sales = await fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,orders,guests");
       const filtered = sales.filter(
