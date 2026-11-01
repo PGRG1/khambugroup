@@ -1,0 +1,1 @@
+export function exactBankMatch(amount:number,selected:number[]) { return amount>0 && selected.length>0 && selected.every(n=>Number.isFinite(n)&&n>0) && selected.reduce((n,v)=>n+Math.round(v*100),0)===Math.round(amount*100); }
