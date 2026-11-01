@@ -10,6 +10,7 @@ import { logAuditEvent } from "@/utils/auditLog";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { captureSavedSalesScan } from "@/utils/salesScanEvidence";
 import type { SalesSaveResult } from "@/utils/salesSaveResult";
+import { deferredSalesAmounts } from '@/utils/deferredSales';
 
 function toDbRecord(r: SalesRecord, tenantId?: string | null) {
   return {
@@ -182,6 +183,13 @@ export function useSalesData(cached = false) {
       }
     }
 
+    const deferred = deferredSalesAmounts(finalRecord);
+    if (deferred.sold || deferred.used) {
+      const {data,error} = await supabase.rpc('finance_sales_deferred_save',{t:tenantId,p:JSON.parse(JSON.stringify(finalRecord))});
+      if(error||typeof data!=='string') return {status:'failed',error:error?.message??'Deferred sales draft could not be saved'};
+      await fetchData();
+      return {status:'saved',recordId:data,journal:'draft'};
+    }
     const { data: inserted, error } = await supabase
       .from("sales_records")
       .insert(toDbRecord(finalRecord, tenantId)).select("id").single();
