@@ -1,3 +1,10 @@
+## Expenses part 3
+- [ ] Draft-only month-end and selected owner/admin monthly approval with manual-booking guard.
+- [ ] Light contract/year list and existing-contract lease upload/confirmation.
+- [ ] Invoice-style bill dialog with refreshed document links and safe retry.
+- [ ] Evidence-only sales receipt matching, ambiguous photo questions and receipt presentation.
+- [ ] Focused tests, desktop/phone check and protected fingerprints.
+
 ## Expenses supplier accounts and month-end
 - [x] Existing CLP/Towngas meters retained; coverage fields, account-first matching, alias metadata and account grid rows. Unknown covers remain questions.
 - [x] Current-charge statement extraction/save guard, per-account line links, meter split on save and confirmed Bani coverage cards.
