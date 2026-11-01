@@ -1,12 +1,12 @@
-import {useMemo,useState,useEffect} from 'react';
+import {useMemo,useState} from 'react';
 import {Navigate} from 'react-router-dom';
 import DateFilter from '@/components/dashboard/DateFilter';
 import {RevenuePageTop} from '@/components/revenue/RevenuePageTop';
 import {EachMonthCharts,CostRunningChart,TeamMonthChart,compactCost} from '@/components/hr/PeopleOverviewCharts';
-import {usePeopleData} from '@/hooks/usePeopleData';
-import {usePeopleRoles} from '@/hooks/usePeopleRoles';
+import {usePeopleData,useOverviewPeopleData} from '@/hooks/usePeopleData';
+import {useQuery} from '@tanstack/react-query';
+import {sessionQueryTiming} from '@/utils/sessionQuery';
 import {useTeamWorking} from '@/hooks/useTeamWorking';
-import {useVenues} from '@/hooks/useVenues';
 import {useVenueScope} from '@/hooks/useVenueScope';
 import {useSalesData} from '@/hooks/useSalesData';
 import {useAuth} from '@/hooks/useAuth';
@@ -23,9 +23,16 @@ import './people.css';
 export function PeopleEntry(){const data=usePeopleData();return data.loading?<p>Loading People…</p>:<Navigate to={data.owner?'/hr/overview':'/hr/schedule'} replace/>;}
 const iso=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 export default function PeopleOverview(){
- const data=usePeopleData(true),roles=usePeopleRoles(),team=useTeamWorking(),allVenues=useVenues(),scope=useVenueScope(),salesData=useSalesData(true),auth=useAuth(),topic=useBaniTopic();
- const [period,setPeriod]=useState('MTD'),[from,setFrom]=useState<Date|undefined>(()=>new Date(`${data.today.slice(0,7)}-01T00:00:00`)),[to,setTo]=useState<Date|undefined>(()=>new Date(`${data.today}T00:00:00`)),[expanded,setExpanded]=useState(false),[popup,setPopup]=useState<{title:string;people?:any[];parts?:boolean}|null>(null),[targets,setTargets]=useState<any[]>([]);
- useEffect(()=>{let active=true;if(data.tenantId)fetchAllRows('revenue_daily_projections','venue_id,target_date,projected_sales',undefined,data.tenantId).then(r=>{if(active)setTargets(r);});return()=>{active=false;};},[data.tenantId]);
+ const data=useOverviewPeopleData(),team=useTeamWorking(),scope=useVenueScope(),salesData=useSalesData(true),auth=useAuth(),topic=useBaniTopic();
+ const [period,setPeriod]=useState('MTD'),[from,setFrom]=useState<Date|undefined>(()=>new Date(`${data.today.slice(0,7)}-01T00:00:00`)),[to,setTo]=useState<Date|undefined>(()=>new Date(`${data.today}T00:00:00`)),[expanded,setExpanded]=useState(false),[popup,setPopup]=useState<{title:string;people?:any[];parts?:boolean}|null>(null);
+ const allVenues={venues:scope.venues};
+ const lookups=useQuery({queryKey:['people-overview-lookups',auth.user?.id,data.tenantId,data.isPreviewActive],enabled:!!data.tenantId,...sessionQueryTiming,queryFn:async()=>{
+  if(!data.tenantId)return {targets:[],roles:{}};
+  const [targets,rows]=await Promise.all([fetchAllRows('revenue_daily_projections','venue_id,target_date,projected_sales',undefined,data.tenantId),fetchAllRows('hr_role_groups','*',undefined,data.tenantId)]);
+  const roles:Record<string,string>=Object.fromEntries(rows.flatMap(r=>(r.titles??[]).map((title:string)=>[title.toLowerCase().replace(/[^a-z]+/g,' ').trim(),r.name])));
+  return {targets,roles};
+ }});
+ const targets=lookups.data?.targets??[],roles=lookups.data?.roles??{};
  const monthOptions=[...new Set([...data.payroll.map(monthKey),...data.shifts.map(s=>String(s.shift_date).slice(0,7))])].sort().reverse();
  const sales=useMemo(()=>salesData.data.map(s=>({...s,venue_id:allVenues.venues.find(v=>v.name===s.venue)?.id,total_sales:s.totalSales})),[salesData.data,allVenues.venues]);
  const start=from?iso(from):([...monthOptions].sort()[0]??data.today.slice(0,7))+'-01',finish=to?iso(to):data.today;
