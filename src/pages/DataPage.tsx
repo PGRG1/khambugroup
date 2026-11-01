@@ -80,6 +80,15 @@ const DataPage = () => {
   const hideScanReceipt = isActionHidden("data.scan_receipt");
   const hideManualEntry = isActionHidden("data.manual_entry");
 
+  // A page-work Scan Z button opens the existing receipt workflow, under the same guards.
+  useEffect(() => {
+    if (params.get("scan") !== "1" || roleLoading) return;
+    if (isAdmin && !hideScanReceipt && !isPreviewActive && !showScanner) {
+      setShowUpload(false); setShowManual(false); setScanFile(null); setShowScanner(true);
+    }
+    const next = new URLSearchParams(params); next.delete("scan"); setParams(next, { replace: true });
+  }, [params, roleLoading, isAdmin, hideScanReceipt, isPreviewActive, showScanner, setParams]);
+
   // Floating-Bani sales receipt handoff: scope-checked, consumed once, never replaces an open receipt.
   const salesHandoff = useSyncExternalStore(subscribeSalesHandoff, peekSalesHandoff);
   useEffect(() => {

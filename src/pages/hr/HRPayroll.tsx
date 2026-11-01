@@ -12,6 +12,7 @@ import {usePeoplePayroll} from '@/hooks/usePeoplePayroll';
 import {usePeopleData} from '@/hooks/usePeopleData';
 import {usePeopleSettings} from '@/hooks/usePeopleSettings';
 import {useVenueScope} from '@/hooks/useVenueScope';
+import {useBaniWorkPublisher} from '@/components/assistant/FloatingBaniContext';
 import {payrollExceptions,payrollApprovalAllowed} from '@/utils/peoplePayroll';
 import {hongKongDay,type RotaRow} from '@/utils/peopleRota';
 import {formatCurrency,formatMonthLabel,formatPercent} from '@/utils/format';
@@ -27,6 +28,7 @@ export default function HRPayroll(){
  const changed=review.filter(r=>r.changed),same=review.length-changed.length;const missing=rows.flatMap(p=>(p.preparation?.missing??[]).map((m:string)=>`${p.name}: ${m}`));
  const missingPeople=rows.filter(p=>p.preparation?.missing?.length);
  const total=rows.reduce((n,p)=>n+Number(p.net_salary??0),0);const writable=data.manager&&!data.preview&&!busy&&state?.status!=='approved';const canApprove=data.owner&&!data.preview&&rows.length>0&&!missing.length&&data.rows.every(p=>payrollApprovalAllowed(settings.forVenue(p.venue_id).approvals,data.owner,state?.prepared_by??null,data.uid??''));
+ useBaniWorkPublisher('/hr/payroll',missingPeople.length?[{id:'payroll-inputs',tone:'amber',title:`${missingPeople.length} people missing pay terms or hours`,detail:label,label:'Check',href:`/hr/payroll?year=${year}&month=${month}`}]:state?.status==='prepared'&&rows.length?[{id:'payroll-approval',tone:'amber',title:`${label} payroll awaiting owner approval`,detail:`${rows.length} people · ${formatCurrency(total)}`,label:'Check',href:`/hr/payroll?year=${year}&month=${month}`}]:[],!data.loading);
  const move=(n:number)=>{const d=new Date(Date.UTC(year,month-1+n,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth()+1);setFull(false);};
  const askBani=async()=>{if(!ask.trim()||!data.tenantId)return;setBusy(true);try{const {data:d,error}=await supabase.functions.invoke('people-payroll-draft',{body:{tenant_id:data.tenantId,year,month,text:ask}});if(error||d?.error)throw new Error(d?.error??error?.message);if(d.year!==year||d.month!==month)throw new Error('Payroll month changed; ask again');setDraft(d);setRepeat(d.repeat?'repeat':'once');}catch(e){toast.error((e as Error).message);}finally{setBusy(false);}};
  const approve=async()=>{if(!data.tenantId||!state)return;setBusy(true);const {error}=await supabase.rpc('payroll_approve',{t:data.tenantId,y:year,m:month,rev:state.revision});setBusy(false);if(error)toast.error(error.message);else{toast.success('Payroll approved · payslips recorded · Finance amounts owed created');await data.reload();}};

@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import type { Point } from "@/utils/floatingBaniUi";
 import type { SalesRecord } from "@/types/sales";
 import type { SalesChange } from "@/utils/salesReceiptCorrections";
+import type { PageWorkItem } from "@/utils/baniPageWork";
 
 /** The unsaved Scan Receipt draft Bani may propose corrections for (Apply only; Save stays manual). */
 export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: SalesRecord) => void; note?: string; applyNote?: (body: string) => void };
@@ -22,6 +23,8 @@ type Store = {
   lastFiles: S<BaniAttachment[]>;
   open: S<boolean>; hidden: S<boolean>; sphere: S<Point | null>; panel: S<Point | null>; page: S<PageContext>;
   sales: S<SalesDraft | null>;
+  work: S<{ path: string; items: PageWorkItem[] } | null>;
+  continueToPage: S<boolean>;
 };
 const Context = createContext<Store | null>(null);
 
@@ -34,6 +37,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
     lastFiles: useState<BaniAttachment[]>([]),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
     sales: useState<SalesDraft | null>(null),
+    work: useState<{ path: string; items: PageWorkItem[] } | null>(null), continueToPage: useState(false),
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
@@ -42,6 +46,16 @@ export const useFloatingBaniStore = () => useContext(Context);
 export const useFloatingBaniHost = () => { const s = useContext(Context); return { host: s?.host ?? null, setHost: s?.setHost ?? noop }; };
 /** Pages register only facts they actually hold (e.g. Home's selected venue chip). */
 export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
+/** Register already-computed page facts, without a second query or an AI turn. */
+export function useBaniWorkPublisher(path: string, items: PageWorkItem[], ready = true) {
+  const setWork = useContext(Context)?.work[1];
+  const signature = JSON.stringify(items);
+  // The exact current period/scope is represented by the published items.
+  useEffect(() => {
+    setWork?.({ path, items: ready ? JSON.parse(signature) : [] });
+    return () => setWork?.(current => current?.path === path ? null : current);
+  }, [setWork, path, signature, ready]);
+}
 /** Scan Receipt registers its live unsaved draft so the floating sphere can fix it. */
 export const useFloatingBaniSales = () => useContext(Context)?.sales[1] ?? noop;
 /** Launchpad drop zone: stage files in Bani's composer and open it; Bani classifies and routes them. */

@@ -4,6 +4,7 @@ import { usePayables } from "@/hooks/usePayables";
 import { useFinanceObligations } from "@/hooks/useFinanceObligations";
 import { usePeriodFilter } from "@/hooks/usePeriodFilter";
 import { useVenueScope } from "@/hooks/useVenueScope";
+import { useBaniWorkPublisher } from "@/components/assistant/FloatingBaniContext";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { PageTop } from "@/components/kit/PageTop";
 import { Toolbar } from "@/components/kit/Toolbar";
@@ -30,6 +31,8 @@ export default function Payables(){
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const rows=items.filter(i=>period.inPeriod(i.date)&&(filter==='all'||filter==='payroll'&&['salary','mpf'].includes(i.source)||filter===i.source)&&(aging==='all'||aging==='late'&&daysLate(i.due,today)>0||aging==='no-date'&&!i.due||aging==='current'&&daysLate(i.due,today)===0)&&`${i.payee} ${i.what}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.payee.localeCompare(b.payee)||(a.due||'9999').localeCompare(b.due||'9999')||a.date.localeCompare(b.date));
  const groups=groupPayees(rows);const payments=[...ap.payments.map(p=>({key:`supplier:${p.id}`,paymentId:p.id,date:p.payment_date,payee:p.supplier_name,amount:p.amount,method:p.payment_method,match:bankMatchLabel(p.match_status),link:p.supplier_id?`/procurement/finance/suppliers/${p.supplier_id}`:'/finance/payables',what:p.invoice_numbers.join(', ')})),...other.history.map(p=>({...p,what:''}))].filter(p=>period.inPeriod(p.date)&&`${p.payee} ${p.method}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>b.date.localeCompare(a.date));
+ const dueWork=items.filter(i=>period.inPeriod(i.date)&&i.due&&i.due<=today);
+ useBaniWorkPublisher('/finance/payables',dueWork.length?[{id:'due-payables',tone:'amber',title:`${dueWork.length} items due`,detail:`${period.label} · ${formatCurrency(dueWork.reduce((n,i)=>n+i.amount,0))}`,label:'Check',href:'/finance/payables?view=to-pay'}]:[],!ap.loading&&!other.loading);
  useEffect(()=>{setPage(1);setSelected([]);},[view]);
  const shown=view==='payments'?payments.length:view==='who'?groups.length:rows.length;const total=view==='payments'?payments.reduce((s,p)=>s+p.amount,0):rows.reduce((s,i)=>s+i.amount,0);
  const due=(i:OwedItem)=>!i.due?'No due date':daysLate(i.due,today)>0?`${daysLate(i.due,today)} days late`:`Due ${formatDate(i.due)}`;
