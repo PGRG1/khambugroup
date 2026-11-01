@@ -1,3 +1,8 @@
+## People redesign — Part 1
+- [ ] Team venue groups, leave/reliability evidence pop-ups and full-page employee record without changing payroll/financial records
+- [ ] Title-first Team/Rota/Payroll navigation and shared divider fix; People findings/instructions in floating orb only
+- [ ] Documents/notes/dated change evidence, focused tests and signed-in desktop/375px Team/Asim checks
+
 ## Purchasing clean-up
 - [x] Consolidated Settings Master data and shared profiles; 31 active / 7 archived / 4 possible duplicate pairs, financial records unchanged
 - [x] Overview Food/Drink split, up to six same-unit price moves, factual top notes and under-25% invoice masking
