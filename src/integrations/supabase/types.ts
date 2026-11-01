@@ -1960,6 +1960,62 @@ export type Database = {
           },
         ]
       }
+      document_read_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extraction: Json | null
+          id: string
+          kind: string
+          mime_type: string
+          source_hash: string
+          source_name: string
+          source_path: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extraction?: Json | null
+          id?: string
+          kind: string
+          mime_type: string
+          source_hash: string
+          source_name: string
+          source_path: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extraction?: Json | null
+          id?: string
+          kind?: string
+          mime_type?: string
+          source_hash?: string
+          source_name?: string
+          source_path?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_read_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           actual_guests: number | null
