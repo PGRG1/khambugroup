@@ -1,3 +1,10 @@
+## Finance part 2 — current
+- [x] Grouped Payables/payment selection-preview, merchant Receivables, Bank & cash/tills/petty cash and unmatched lines; existing guarded actions retained.
+- [x] Server reconciliation snapshots, tenant-scoped append-only explanations, Close log and server close guards.
+- [x] 29 focused tests; populated desktop/375px checks and cancelled payment previews; no page overflow.
+- [ ] True single-file BOCHK/KPay/YeahPay automatic detection/drop handoff remains incomplete; upload chooser reuses separate existing flows. Historical payable detail uses recorded remaining balances, not date-replayed payment allocations. YeahPay has no merchant data; Arca has GL evidence but no separate contract ledger. Supplier difference actually -450490.92 (not requested -467641); wages +33345, MPF agrees.
+- [ ] Explanation writes, owner matching, imports and close/reopen not live-tested to preserve records and avoid inventing an explanation.
+
 ## Expenses part 3
 - [x] Draft-only month-end, explicit selected monthly RPC and fixture tests; same-account/month/amount manual guard and legacy automatic expense commit blocked.
 - [x] Compact contract strip, existing lease upload/confirmation and invoice-style bills with safe signed-document retry.

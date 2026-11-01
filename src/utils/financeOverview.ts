@@ -3,6 +3,9 @@ import {bankSettled} from './financeWorkingCapital';
 export type FinanceBank = {id:string;txn_date:string;status:string;match_confidence?:string|null;matched_record_id?:string|null;journal_entry_id?:string|null};
 export type FinanceBatch = {id:string;transaction_date:string;bank_transaction_id:string|null;processor_id:string;net_settlement:number};
 export type CloseRow = {name:string;state:'done'|'open'|'skip';detail:string;href:string};
+export type ReconciliationRow={key:string;name:string;books:number|null;detail:number|null;difference:number|null;note:string;state:'agrees'|'open'|'set up';snapshot:string;reason:string|null;items:{id:string;name:string;date:string|null;amount:number|null;href:string}[]};
+export function reconciliationReady(rows:ReconciliationRow[],exceptions:number){return rows.length>0&&exceptions===0&&rows.every(r=>r.state!=='open'||!!r.reason?.trim());}
+export function reconciliationDifference(books:number,detail:number){return Math.round((detail-books)*100)/100;}
 export function cardMonthMatched(month:string,batches:FinanceBatch[],bank:FinanceBank[]){const rows=batches.filter(b=>b.transaction_date.startsWith(month));return rows.length>0&&rows.every(b=>bank.some(t=>t.id===b.bank_transaction_id&&bankSettled(t)));}
 export function reliableFinanceMonth(checks:MonthCheck[],batches:FinanceBatch[],bank:FinanceBank[],today:string){return checks.filter(c=>c.month<today.slice(0,7)&&c.bank_lines>0&&c.bank_unmatched===0&&bank.filter(t=>t.txn_date.startsWith(c.month)).every(bankSettled)&&cardMonthMatched(c.month,batches,bank)).map(c=>c.month).sort().pop();}
 export function closeRows(check:MonthCheck|undefined,bank:FinanceBank[],batches:FinanceBatch[]):CloseRow[]{
