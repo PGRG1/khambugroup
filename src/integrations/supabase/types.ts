@@ -13712,6 +13712,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      finance_source_date_correct: {
+        Args: {
+          p_date: string
+          p_entry: string
+          p_expected: Json
+          p_reason: string
+          p_reverse_only?: boolean
+        }
+        Returns: string
+      }
+      finance_source_drift: { Args: { p_tenant: string }; Returns: Json }
+      finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
         Args: { _tenant_id: string; _venue_id: string }
