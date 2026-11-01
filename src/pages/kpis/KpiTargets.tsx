@@ -73,7 +73,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
 
   return (
     <div className={embedded ? "space-y-5" : "p-4 sm:p-6 max-w-6xl mx-auto space-y-5"}>
-      {!embedded && <PageTop title="KPI Targets"/>}<PageControls><div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-w-md gap-3">
+      {!embedded && <PageTop title="KPI Targets"/>}<PageControls side="left"><div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-w-md gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">Period</Label>
             <Select value={period} onValueChange={setPeriod}>

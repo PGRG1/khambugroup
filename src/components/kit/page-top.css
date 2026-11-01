@@ -48,3 +48,8 @@
  .page-top-detail { max-height: 40px; overflow: auto; }
  .page-top-controls-host > .kit-seg { flex-shrink: 0; }
 }
+
+.page-top-controls-left-host .kit-search { width: 220px; }
+.page-top-controls-left-host > .kit { min-width: 0; }
+.page-top-controls-left-host { max-width: 100%; }
+.page-top-controls [aria-haspopup="listbox"] ~ div { background: hsl(var(--card)); }

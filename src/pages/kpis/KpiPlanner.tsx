@@ -138,7 +138,7 @@ export default function KpiPlanner() {
       <PageTop title="KPI Planner"/>
 
 
-      <PageControls>
+      <PageControls side="left">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">KPI</Label>
