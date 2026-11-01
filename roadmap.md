@@ -1,9 +1,14 @@
 ## Finance part 3b
-- [ ] Draft-only schedule storage and selected monthly approval, with server closed-period/source checks.
-- [ ] Schedules register/detail, deferred revenue setup/items, stock basis and tax setup.
-- [ ] Month-close schedule reconciliations and month-end draft queue.
-- [ ] Safe 3a leftovers: manual proposals, aging PDFs, petty cash fields and other available guarded integrations.
-- [ ] Focused rules and populated desktop/375px check; protected counts/latest timestamps.
+- [x] Tenant-protected schedule settings, deferred items, source-required manual proposals; explicit selected approval integration (0091–0095), no page-load posting.
+- [x] Schedules table/source lists, HK tax/stock/deferred setup, Month-close reconciliations and draft-review trigger; deposits read HK$164,552.
+- [x] Draft generators for depreciation, voucher expiry/package releases and tax; exact code-purpose conflicts rejected, source changes stop approval. Tax approval intentionally blocked pending source revalidation.
+- [x] Journal proposal UI, aging PDFs, petty-cash kept-by/top-up-account fields; 22 focused tests, build OK, desktop/375px schedule/tax/journal/close screenshots without page overflow.
+- [ ] Database connection pooler became unavailable during final checks: tax-save/readback, post-change protected counts/max timestamps and live draft approval remain unverified. Baseline journals 2645/latest 2026-11-01 02:35:03.261476+00; invoices 1365/latest 2026-10-30 05:25:50.847628+00; bills 23/latest 2026-10-31 02:00:00.044315+00; payroll 85/latest 2026-07-20 12:18:38.140785+00. No financial writes issued by agent.
+- [ ] Fixed-asset opening RPC exists but Add asset/disposal UI and bill capitalisation proposal integration remain unbuilt.
+- [ ] Advance-bill prepaid funding/schedule creation and GRNI draft/reversal integration need guarded source workflows; existing accrued actual-bill logic retained, no unsafe direct function called.
+- [ ] Deferred sales-day fields/POS extraction, use/refund UI and historical date-aware schedule detail not finished; pure sold/used/expiry fixture tested, no live posting.
+- [ ] Approved-count stock generator and tax source revalidation need completion; stock remains off by default, tax drafts cannot be approved yet. Assessment dates manual only; upload reading absent.
+- [ ] 3a multi-item bank matching, multi-file reader/drop handoff, guarded account merge, Central sharing and merchant aging/Last matched remain incomplete; existing guarded flows retained.
 
 ## Finance part 3a
 - [x] Six read-only report views, CSV/PDF, comparisons; existing typed management report preserved.
