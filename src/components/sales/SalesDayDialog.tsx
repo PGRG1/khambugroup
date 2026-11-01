@@ -8,6 +8,7 @@ import { shortDay } from "@/utils/salesRecordChecks";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { CLOSURE_REASONS, weekdayName, weekdayOf } from "@/utils/venueClosures";
 import { NoteComposer } from "./NoteComposer";
+import { DeferredSalesFields } from './DeferredSalesFields';
 import type { DayItem } from "./DailyRecords";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import "@/components/kit/kit.css";
@@ -127,6 +128,7 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
                   {payOff && <p className="text-[12px] pt-1" style={{ color: "#C53030" }}>Payments are {money(getPaymentTotal(next!) - next!.totalSales)} off the total.</p>}
                 </section>
               </div>
+              <DeferredSalesFields record={r} />
               {invalid && <p className="text-[13px]" style={{ color: "#C53030" }}>Use numbers only.</p>}
               {r.receiptFileUrl&&<ExpenseDocumentPreview path={r.receiptFileUrl} bucket="sales-receipts" label="Receipt photo"/>}
               {!editing && <section className="space-y-2"><h3 className="kit-group-h">Notes</h3>
