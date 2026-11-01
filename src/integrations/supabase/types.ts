@@ -14865,6 +14865,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      finance_confirm_bank_matches: {
+        Args: { items: Json; notes?: string; t: string; txn: string }
+        Returns: undefined
+      }
       finance_convert_typed_month: {
         Args: {
           p_counter_account: string
