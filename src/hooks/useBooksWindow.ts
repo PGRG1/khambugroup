@@ -19,7 +19,7 @@ export function useBooksWindow() {
       for (const result of [config, sales, opening, tax]) if (result.error) throw result.error;
       const openingDate = opening.data?.[0]?.as_at_date ?? '';
       const candidates = [sales.data?.[0]?.date, openingDate].filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort();
-      const saved = config.data?.value;
+      const saved = typeof config.data?.value === 'string' ? config.data.value : undefined;
       return { start: saved && /^\d{4}-\d{2}-\d{2}$/.test(saved) ? saved : (candidates[0] ?? today).slice(0, 7) + '-01', fiscalStart: (tax.data?.year_end_month ?? 12) % 12 + 1 };
     },
   });
