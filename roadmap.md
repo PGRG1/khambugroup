@@ -1,8 +1,10 @@
 ## Finance part 3c-1
-- [ ] Asset intake/disposal and confirmed bill capitalisation; draft-only register lifecycle.
-- [ ] Advance prepayment funding/releases, GRNI/reversal and approved-count stock drafts with source revalidation.
-- [ ] Deferred sales-day/POS feed, use/refund/expiry/package drafts and monthly selected approval.
-- [ ] Focused fixtures, desktop/375px screens, build and protected counts/timestamps; database check failed twice (pooler unavailable).
+- [x] Opening-asset dialog calls existing finance_opening_asset; deferred item Record use/Refund call existing finance_deferred_use. Preview writes disabled; all controls create only drafts. GRNI list includes confirmed deliveries.
+- [x] Non-persisting fixtures cover opening/capitalisation/disposal/depreciation, advance funding/day-based release, GRNI/reversal, deferred sold/used/refund/expiry and opt-in approved stock change; 35 focused tests passed; build OK.
+- [ ] Acquisition/disposal RPC and bill/invoice capitalisation integration blocked: database rejected additive disposal migration with connection checkout timeout; no migration applied or staged file remains.
+- [ ] Advance prepayment funding/releases, GRNI/reversal and approved-count stock live generators/source revalidation blocked by unavailable database; fixture functions are not wired to production posting.
+- [ ] Deferred sales-day/POS fields/feed and new-post accounting integration blocked by unavailable schema changes. Existing expiry/package draft generator and monthly queue remain unchanged; tax/stock/GRNI approval still blocked safely.
+- [ ] Signed-in KHAMBU desktop/375px rendering and live draft readback blocked: access gate remains Checking access while database is unavailable. Browser attempt issued no saves. Protected before/after counts/max timestamps unavailable: exact read retried once, both failed; no financial writes issued.
 
 ## Finance part 3b
 - [x] Tenant-protected schedule settings, deferred items, source-required manual proposals; explicit selected approval integration (0091–0095), no page-load posting.
