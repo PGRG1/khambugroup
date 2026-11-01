@@ -37,4 +37,4 @@ Read nested AGENTS.md before changes: src/pages/hr has People rules; src/compone
 
 - Regular-cost approvals use the atomic selected-items RPC; contract strips share the read-only regular plan. Expense documents fetch fresh signed links and validate bytes before rendering so errors never render as documents. Receipt evidence links append comma-separated paths without financial writes.
 
-- Finance overview facts share read-only helpers; Month close uses server reconciliation snapshots and append-only explanations, with close triggers retaining completeness and blocking unexplained or matching/correction exceptions. Existing guarded actions own financial writes.
+- Finance report views share financeReportViews and FinanceAging for read-only balance snapshots, due terms and capped payment-list proposals; existing ManagementReports retains typed adjustments. Finance overview facts share read-only helpers; Month close uses server reconciliation snapshots and append-only explanations, with close triggers retaining completeness and blocking unexplained or matching/correction exceptions. Existing guarded actions own financial writes.
