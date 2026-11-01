@@ -3326,6 +3326,228 @@ export type Database = {
           },
         ]
       }
+      finance_source_operations: {
+        Row: {
+          actor_id: string
+          after_snapshot: Json
+          before_snapshot: Json
+          created_at: string
+          id: string
+          original_entry_id: string
+          reason: string
+          replacement_entry_id: string | null
+          reversal_entry_id: string
+          source_posting_id: string | null
+          tenant_id: string
+          undone_by: string | null
+        }
+        Insert: {
+          actor_id: string
+          after_snapshot?: Json
+          before_snapshot: Json
+          created_at?: string
+          id?: string
+          original_entry_id: string
+          reason: string
+          replacement_entry_id?: string | null
+          reversal_entry_id: string
+          source_posting_id?: string | null
+          tenant_id: string
+          undone_by?: string | null
+        }
+        Update: {
+          actor_id?: string
+          after_snapshot?: Json
+          before_snapshot?: Json
+          created_at?: string
+          id?: string
+          original_entry_id?: string
+          reason?: string
+          replacement_entry_id?: string | null
+          reversal_entry_id?: string
+          source_posting_id?: string | null
+          tenant_id?: string
+          undone_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_source_posting_id_fkey"
+            columns: ["source_posting_id"]
+            isOneToOne: false
+            referencedRelation: "finance_source_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_undone_by_fkey"
+            columns: ["undone_by"]
+            isOneToOne: false
+            referencedRelation: "finance_source_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_source_postings: {
+        Row: {
+          created_at: string
+          current_entry_id: string
+          id: string
+          original_entry_id: string
+          posting_role: string
+          revision: number
+          source_key: string
+          source_record_id: string | null
+          source_snapshot: Json
+          source_type: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_entry_id: string
+          id?: string
+          original_entry_id: string
+          posting_role?: string
+          revision?: number
+          source_key: string
+          source_record_id?: string | null
+          source_snapshot?: Json
+          source_type: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          current_entry_id?: string
+          id?: string
+          original_entry_id?: string
+          posting_role?: string
+          revision?: number
+          source_key?: string
+          source_record_id?: string | null
+          source_snapshot?: Json
+          source_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_team_action_events: {
         Row: {
           action_id: string
@@ -13385,6 +13607,10 @@ export type Database = {
           p_proceeds: number
         }
         Returns: string
+      }
+      document_sales_context: {
+        Args: { p_end: string; p_start: string; p_tenant: string }
+        Returns: Json
       }
       ensure_revenue_manager_target_lines_month: {
         Args: {
