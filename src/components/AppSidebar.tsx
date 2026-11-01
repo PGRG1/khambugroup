@@ -39,6 +39,7 @@ import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
 import { visibleExpenseTabs } from "@/utils/expenses";
+import { financeTabs } from "@/utils/financeClose";
 import { useExpenseClaimsExist } from "@/hooks/useExpenseClaimsExist";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
