@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import {useBooksWindow} from '@/hooks/useBooksWindow';
+import {periodMonths} from '@/utils/periodWindow';
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import type {
@@ -11,6 +13,7 @@ import type {
 } from "@/utils/financeClose";
 export function useFinanceBooks(year: number) {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const window = useBooksWindow();
   const [data, setData] = useState<{
     entries: BookEntry[];
     lines: BookLine[];
@@ -74,24 +77,14 @@ export function useFinanceBooks(year: number) {
           fetchAllRows(table, "*", { col: "id", asc: true }, tenantId, true),
         ),
       );
-      const years = [
-        ...new Set([
-          year,
-          ...rows[0].map((e) => Number(e.entry_date.slice(0, 4))),
-          ...rows[3].map((l) => Number(l.year)),
-        ]),
-      ];
       const checks = await Promise.all(
-        years.flatMap((y) =>
-          Array.from({ length: 12 }, async (_, i) => {
-            const { data, error } = await supabase.rpc("finance_month_checks", {
-              p_tenant_id: tenantId,
-              p_month: `${y}-${String(i + 1).padStart(2, "0")}-01`,
-            });
-            if (error) throw error;
-            return data as unknown as MonthCheck;
-          }),
-        ),
+        periodMonths(window.start, window.today).map(async month => {
+          const { data, error } = await supabase.rpc("finance_month_checks", {
+            p_tenant_id: tenantId, p_month: month + '-01',
+          });
+          if (error) throw error;
+          return data as unknown as MonthCheck;
+        }),
       );
       if (seq !== sequence.current) return;
       setData({
@@ -114,9 +107,9 @@ export function useFinanceBooks(year: number) {
     } finally {
       if (seq === sequence.current) setLoading(false);
     }
-  }, [tenantId, year]);
+  }, [tenantId, window.start, window.today]);
   useEffect(() => {
-    if (!tenantLoading) void refetch();
-  }, [tenantLoading, refetch]);
+    if (!tenantLoading && window.data) void refetch();
+  }, [tenantLoading, window.data, refetch]);
   return { ...data, tenantId, loading, error, refetch };
 }

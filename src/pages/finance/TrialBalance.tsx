@@ -2,6 +2,7 @@ import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
+import {useFinancePeriod} from '@/components/kit/PeriodControl';
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -37,8 +38,9 @@ function priorPeriod(from: string | undefined, to: string): { from?: string; to:
 export default function TrialBalance() {
   const today = new Date();
   const [params, setParams] = useSearchParams();
-  const fromDate = params.get("from") || "";
-  const toDate = params.get("to") || today.toISOString().slice(0, 10);
+  const period = useFinancePeriod('asat');
+  const fromDate = '';
+  const toDate = period.toIso;
   const compareOn = params.get("compare") !== "off";
 
   const setParam = (k: string, v: string | null) => {
@@ -137,8 +139,7 @@ export default function TrialBalance() {
           <p className="text-sm text-muted-foreground mt-1">Total debits and credits per account. The bottom row must always balance.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Input type="date" value={fromDate} onChange={(e) => setParam("from", e.target.value)} className="h-9 w-40" placeholder="From" />
-          <Input type="date" value={toDate} onChange={(e) => setParam("to", e.target.value)} className="h-9 w-40" placeholder="To" />
+          {period.control}
           <Button
             size="sm"
             variant={compareOn ? "default" : "outline"}

@@ -10,7 +10,7 @@ import {fetchAllRows} from '@/utils/fetchAllRows';
 import { Fragment, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import {useFinancePeriod} from "@/components/kit/PeriodControl";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { PageTop } from "@/components/kit/PageTop";
@@ -64,15 +64,7 @@ export default function Reports() {
   const year = today.getFullYear();
   const books = useFinanceBooks(year);
   const scope = useVenueScope();
-  const period = usePeriodFilter(
-    [
-      ...books.entries.map((e) => e.entry_date),
-      ...books.typed
-        .filter((l) => l.month)
-        .map((l) => `${l.year}-${String(l.month).padStart(2, "0")}-01`),
-    ],
-    "MTD",
-  );
+  const period = useFinancePeriod('period','last-month',{extraShortcuts:true});
   const { isPreviewActive } = usePreviewMode();
   const [expanded, setExpanded] = useState<string[]>([]);
   const [conversion, setConversion] = useState<string | null>(null);

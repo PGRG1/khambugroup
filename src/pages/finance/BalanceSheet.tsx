@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import {useFinancePeriod} from '@/components/kit/PeriodControl';
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,8 @@ interface PLRow { account_type: string; amount: number; }
 export default function BalanceSheet() {
   const today = new Date();
   const [params, setParams] = useSearchParams();
-  const asOf = params.get("asOf") || today.toISOString().slice(0, 10);
+  const period = useFinancePeriod('asat');
+  const asOf = period.toIso;
   const setAsOf = (v: string) => {
     const next = new URLSearchParams(params);
     next.set("asOf", v);
@@ -133,8 +135,7 @@ export default function BalanceSheet() {
           <p className="text-sm text-muted-foreground mt-1">Snapshot of assets, liabilities, and equity, derived from posted journal entries.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-muted-foreground">As of</label>
-          <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-9 w-44" />
+          {period.control}
           <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
           <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> PDF</Button>
         </div>
