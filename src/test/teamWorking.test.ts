@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {allocateTeamCost,resolveTeamWorking,splitCents,teamSuggestions} from '@/utils/teamWorking';
 const venues=[{id:'a',name:'Assembly'},{id:'c',name:'Caliente'}],people=[{id:'p',venue_id:'a',job_title:'Chef'}],pay=[{employee_id:'p',year:2026,month:5,gross_salary:247407.70,mpf_employer:7660.50}];
 const work=(v:string,date='2026-05-01',end='17:00')=>({employee_id:'p',venue_id:v,shift_date:date,start_time:'10:00',end_time:end,shift_type:'regular'});
-const allocate=(mode='own',shifts:any[]=[],p=pay)=>allocateTeamCost(p,people,shifts,[],venues,[{date:'2026-05-01',venue_id:'a',total_sales:782251}],'2026-05',resolveTeamWorking({default_mode:mode,role_modes:{}}));
+const allocate=(mode='own',shifts:any[]=[],p:Record<string,any>[]=pay)=>allocateTeamCost(p,people,shifts,[],venues,[{date:'2026-05-01',venue_id:'a',total_sales:782251}],'2026-05',resolveTeamWorking({default_mode:mode,role_modes:{}}));
 describe('How your team works',()=>{
  it('unset business uses own team without a stored choice',()=>expect(resolveTeamWorking(null)).toEqual({default_mode:'own',role_modes:{}}));
  it('own team assigns the whole saved cost to the work venue',()=>{const r=allocate();expect(r.venues[0].cost).toBe(255068.2);expect(r.central.cost+r.unallocated.cost).toBe(0);});
