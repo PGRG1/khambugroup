@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Download, Search, X } from "lucide-react";
 import "./kit.css";
+import { PageTopPortal, useToolbarClaim } from "./PageTopSlots";
 
 export interface ActiveChip { key: string; label: string; onRemove: () => void }
 
@@ -18,8 +19,20 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
     <input value={search ?? ""} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
     {search && <button type="button" onClick={() => onSearch("")} aria-label="Clear search"><X className="h-3.5 w-3.5" /></button>}
   </label>;
+  const lifted = useToolbarClaim();
+  const downloadButton = onDownload && (
+    <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
+      <Download className="h-4 w-4" />
+    </button>
+  );
+  if (lifted && !chips.length) return <><PageTopPortal slot="left"><span className="kit contents">{searchControl}{filter}</span></PageTopPortal><PageTopPortal slot="tools"><span className="kit contents">{sort}{columns}</span></PageTopPortal><PageTopPortal slot="download"><span className="kit contents">{downloadControl}{downloadButton}</span></PageTopPortal></>;
   return (
     <div className="kit space-y-2">
+      {lifted ? <>
+        <PageTopPortal slot="left"><span className="kit contents">{searchControl}{filter}</span></PageTopPortal>
+        <PageTopPortal slot="tools"><span className="kit contents">{sort}{columns}</span></PageTopPortal>
+        <PageTopPortal slot="download"><span className="kit contents">{downloadControl}{downloadButton}</span></PageTopPortal>
+      </> : (
       <div className={mobileSearchBelow ? "flex flex-wrap min-[641px]:flex-nowrap items-center gap-2 [&>.kit-search]:min-w-0 [&>.kit-search]:min-[641px]:flex-1 [&>.kit-search]:max-[640px]:order-last [&>.kit-search]:max-[640px]:basis-full [&>.kit-search]:max-[640px]:w-full" : "flex flex-wrap items-center gap-2"}>
         {!searchAfterControls && searchControl}
         {filter}
@@ -27,12 +40,8 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
         {columns}
         {searchAfterControls && searchControl}
         {downloadControl && <div className="ml-auto">{downloadControl}</div>}
-        {onDownload && (
-          <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
-            <Download className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+        {downloadButton}
+      </div>)}
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {chips.map((c) => (
