@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION public.compute_ai_rule_key(_pattern jsonb,_action jsonb) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public AS $$ SELECT encode(extensions.digest(coalesce(_pattern::text,'{}')||'|'||coalesce(_action::text,'{}'),'sha256'),'hex') $$;

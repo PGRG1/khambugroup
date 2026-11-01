@@ -463,6 +463,13 @@
       "when": 1793500718174,
       "tag": "0065_document_date_correction_learning",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1793500950812,
+      "tag": "0066_learning_rule_hash_schema_resolution",
+      "breakpoints": true
     }
   ]
 }
