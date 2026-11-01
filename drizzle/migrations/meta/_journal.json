@@ -715,6 +715,13 @@
       "when": 1793559353492,
       "tag": "0101_schedule_depreciation_register_loop_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1793559462812,
+      "tag": "0102_schedule_cancelled_asset_reproposal_and_source_guards",
+      "breakpoints": true
     }
   ]
 }
