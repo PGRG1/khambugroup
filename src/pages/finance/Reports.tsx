@@ -1,3 +1,11 @@
+import {useTeamWorking} from '@/hooks/useTeamWorking';
+import {usePeopleData} from '@/hooks/usePeopleData';
+import {usePeopleRoles} from '@/hooks/usePeopleRoles';
+import {useVenues} from '@/hooks/useVenues';
+import {allocateTeamCost} from '@/utils/teamWorking';
+import {TeamCostLines} from '@/components/hr/TeamCostLines';
+import {useQuery} from '@tanstack/react-query';
+import {fetchAllRows} from '@/utils/fetchAllRows';
 import { Fragment, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
@@ -46,6 +54,8 @@ import {
 } from "@/utils/cashflowStatementClassifier";
 import PLReport from "@/pages/PLReport";
 export default function Reports() {
+  const team=useTeamWorking(),people=usePeopleData(),roles=usePeopleRoles(),allVenues=useVenues();
+  const staffSales=useQuery({queryKey:['team-cost-sales',people.tenantId],enabled:!!people.tenantId,queryFn:()=>fetchAllRows('sales_records','date,venue_id,venue,total_sales',undefined,people.tenantId??undefined)});
   const [params, setParams] = useSearchParams();
   const view = params.get("view") ?? "pl";
   const today = new Date();
@@ -83,6 +93,7 @@ export default function Reports() {
       ),
     [books.entries, books.typed, period.fromIso, period.toIso],
   );
+  const staffCosts=months.map(m=>allocateTeamCost(people.payroll,people.rawEmployees,people.shifts,people.terms,allVenues.venues,staffSales.data??[],m,team.setting,roles));
   const checks = [...books.checks, ...extraChecks];
   const missingMonths = months
     .map((m) => checks.find((c) => c.month === m))
@@ -469,6 +480,7 @@ export default function Reports() {
           running costs and profit are not real yet.
         </div>
       )}
+      {view==="venue"&&<section className="border-b border-border pb-4"><h2 className="font-display text-lg mb-3">Staff cost · saved payroll allocation</h2>{people.loading||staffSales.isLoading?<p>Loading staff cost…</p>:<TeamCostLines values={staffCosts} venueIds={scope.selectedVenues.map(v=>v.id)} showGroup={!scope.restricted}/>}</section>}
       <Card className="card-glass p-4 sm:p-5 min-w-0">
         <h2 className="font-display text-lg">
           {view === "bs"
