@@ -1,3 +1,13 @@
+## Finance part 3c-2
+- [ ] A: Deferred sales fields, receipt confirmation, new-sales liability drafts and schedule items.
+- [ ] B: Unposted expense-bill and purchase-invoice capitalisation proposals.
+- [ ] C: Advance-contract prepayment drafts.
+- [ ] D: Tax source revalidation and assessment reading/manual fallback.
+- [ ] E: Exact multi-item bank matching and unified reviewed file upload.
+- [ ] F: Guarded future-account merge and historic reclassification drafts.
+- [ ] G: Configured Central sharing and merchant aging/Last matched.
+- [ ] One focused fixture/browser pass and protected counts/latest timestamps comparison.
+
 ## Finance part 3c-1
 - [x] Cloud reachable; additive migrations 0096–0102 applied. Asset acquisition/disposal, posted expense-bill capitalisation/prepaid funding proposals, GRNI/reversal and opt-in full-count stock draft generators connect to source-rechecked selected monthly approval.
 - [x] Pending prepayment releases use the existing monthly approval; unfunded releases blocked. Depreciation register integration, cancellation/reprepare, source drift and closed-period guards added. No page-load generation or autonomous posting introduced.
