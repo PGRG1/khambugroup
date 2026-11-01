@@ -596,6 +596,13 @@
       "when": 1793545476910,
       "tag": "0084_expense_meter_accounts_and_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1793545700903,
+      "tag": "0085_expense_account_monthend",
+      "breakpoints": true
     }
   ]
 }

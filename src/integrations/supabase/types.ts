@@ -14429,6 +14429,10 @@ export type Database = {
         }
         Returns: Json
       }
+      expense_account_estimate: {
+        Args: { p_account: string; p_month: string }
+        Returns: number
+      }
       expense_accrual_approve: { Args: { p_id: string }; Returns: string }
       expense_bani_undo: { Args: { p_log: string }; Returns: undefined }
       expense_contract_bill_approve: {
@@ -14440,6 +14444,16 @@ export type Database = {
         Returns: number
       }
       expense_correction_approve: { Args: { p_id: string }; Returns: string }
+      expense_meter_split: {
+        Args: { p_account: string; p_amount: number; p_month: string }
+        Returns: {
+          amount: number
+          venue: string
+          venue_id: string
+        }[]
+      }
+      expense_monthend_run: { Args: { m: string; t: string }; Returns: Json }
+      expense_monthend_scheduled: { Args: never; Returns: undefined }
       expense_prepare_month: { Args: { m: string; t: string }; Returns: number }
       expense_statement_check: {
         Args: { p_account: string; p_date: string }
