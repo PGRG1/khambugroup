@@ -12,7 +12,6 @@ import {PayrollFullTable} from '@/components/hr/PayrollFullTable';
 import {PayrollCalculationDialog} from '@/components/hr/PayrollCalculationDialog';
 import {usePeoplePayroll} from '@/hooks/usePeoplePayroll';
 import {usePeopleData} from '@/hooks/usePeopleData';
-import {usePeopleGrouping} from '@/hooks/usePeopleGrouping';
 import {useVenueScope} from '@/hooks/useVenueScope';
 import {useBaniWorkPublisher} from '@/components/assistant/FloatingBaniContext';
 import {hongKongDay,type RotaRow} from '@/utils/peopleRota';
@@ -24,7 +23,7 @@ import {supabase} from '@/integrations/supabase/client';
 import {toast} from 'sonner';
 import './people.css';
 export default function HRPayroll(){
- const [params]=useSearchParams(),today=hongKongDay(),initial=`${Number(params.get('year'))||Number(today.slice(0,4))}-${String(Number(params.get('month'))||Number(today.slice(5,7))).padStart(2,'0')}`,[key,setKey]=useState(initial),year=Number(key.slice(0,4)),month=Number(key.slice(5,7)),data=usePeoplePayroll(year,month),people=usePeopleData(),scope=useVenueScope(),[groupBy,setGroupBy]=usePeopleGrouping(data.owner,data.loading),[draft,setDraft]=useState<RotaRow[]>([]),[draftLoading,setDraftLoading]=useState(false),[popup,setPopup]=useState<{row:RotaRow;line:string}|null>(null),[other,setOther]=useState<RotaRow|null>(null),[otherName,setOtherName]=useState(''),[approveOpen,setApproveOpen]=useState(false),[busy,setBusy]=useState(false);
+ const [params]=useSearchParams(),today=hongKongDay(),initial=`${Number(params.get('year'))||Number(today.slice(0,4))}-${String(Number(params.get('month'))||Number(today.slice(5,7))).padStart(2,'0')}`,[key,setKey]=useState(initial),year=Number(key.slice(0,4)),month=Number(key.slice(5,7)),data=usePeoplePayroll(year,month),people=usePeopleData(),scope=useVenueScope(),[groupBy,setGroupBy]=useState<'Role'|'Venue'>('Role'),[draft,setDraft]=useState<RotaRow[]>([]),[draftLoading,setDraftLoading]=useState(false),[popup,setPopup]=useState<{row:RotaRow;line:string}|null>(null),[other,setOther]=useState<RotaRow|null>(null),[otherName,setOtherName]=useState(''),[approveOpen,setApproveOpen]=useState(false),[busy,setBusy]=useState(false);
  const state=data.months.find(m=>m.year===year&&m.month===month),saved=savedPayrollMonth(data.payroll,year,month)||state?.status==='approved'||data.rows.length>0;
  const loadDraft=async()=>{if(!data.tenantId||!data.manager||saved)return;setDraftLoading(true);const {data:result,error}=await supabase.rpc('payroll_work_preview',{t:data.tenantId,y:year,m:month});setDraftLoading(false);if(error)toast.error(error.message);else setDraft((result??[]) as RotaRow[]);};
  useEffect(()=>{setDraft([]);setPopup(null);if(!data.loading)loadDraft();},[key,data.tenantId,data.manager,data.loading,saved]);

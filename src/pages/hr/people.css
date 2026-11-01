@@ -32,9 +32,18 @@
 .people-page .payroll-facts-table .payroll-name-col {width:18%;}
 .people-page .payroll-facts-table .payroll-money-col {width:7.4545%;}
 .people-page .payroll-facts-table button {font-size:13px;}
-.people-page .payroll-amount-input {height:32px;padding:4px;font-size:13px;width:100%;min-width:0;}
+.people-page .payroll-amount-input {height:28px;padding:2px 4px;font-size:13px;width:100%;min-width:0;text-align:right;}
 .people-page .payroll-facts-table th:first-child {width:auto;}
 .people-page .payroll-facts-table td,.people-page .payroll-facts-table th {padding:12px 5px;text-align:left;}
+.people-page .payroll-facts-table td.td-num,.people-page .payroll-facts-table thead th:not(:first-child) {text-align:right;font-variant-numeric:tabular-nums;}
+.people-page .payroll-person-row {height:60px;}
+.people-page .payroll-person-row td {padding-top:8px;padding-bottom:8px;}
+.payroll-person-name {display:flex;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.payroll-person-status {line-height:16px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.people-page .payroll-amount-text {position:relative;width:100%;height:28px;min-width:0;padding:2px 4px;justify-content:flex-end;border:1px solid transparent;border-radius:4px;font-weight:inherit;}
+.people-page .payroll-editable:hover {background:hsl(var(--muted));}
+.people-page .payroll-amount-changed {border-color:hsl(var(--warning));}
+.payroll-change-dot {position:absolute;top:2px;right:2px;width:3px;height:3px;border-radius:50%;background:hsl(var(--warning));}
 .payroll-group-row th {background:hsl(var(--muted));color:hsl(var(--foreground));}
 .payroll-subtotal-row,.payroll-total-row {font-weight:600;border-top:1px solid hsl(var(--border));}
 .payroll-total-row {border-top:3px double hsl(var(--border));}
@@ -42,6 +51,7 @@
  .people-page .payroll-facts-table thead,.people-page .hours-weekdays thead {display:none;}
  .people-page .payroll-facts-table,.people-page .payroll-facts-table tbody {display:block;}
  .payroll-person-row,.payroll-subtotal-row,.payroll-total-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;border-bottom:1px solid hsl(var(--border));padding:14px 0;}
+ .people-page .payroll-person-row {height:auto;grid-auto-rows:56px;}
  .people-page .payroll-facts-table td {display:block;border:0;min-width:0;}
  .payroll-person-row td:first-child,.payroll-subtotal-row th,.payroll-total-row th {grid-column:1/-1;width:auto!important;}
  .payroll-person-row td:not(:first-child)::before,.payroll-subtotal-row td::before,.payroll-total-row td::before {content:attr(data-label);display:block;font-size:11px;color:hsl(var(--muted-foreground));margin-bottom:4px;}
