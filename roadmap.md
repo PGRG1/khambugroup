@@ -1,3 +1,8 @@
+## Rota to payroll flow
+- [ ] Add guarded per-shift settlement and employee week confirmations, signed time balances and source-linked draft amounts; never alter saved payroll or journals.
+- [ ] Clean Payroll header, fixed 12 columns, editable drafts, read-only payslips and readiness/approval safeguards.
+- [ ] Light focused rules tests and signed-in desktop/375px checks; list remaining limitations and schema additions.
+
 ## Team light follow-up
 - [x] Five-column Team, scoped title counts and single folded Bani finding; stacked phone rows.
 - [x] Evidence-only rest-day deadlines, separate attendance facts and consolidated person record; substitute rest days added to proposed copy/pattern rota drafts only, confirmation stays unchanged.
