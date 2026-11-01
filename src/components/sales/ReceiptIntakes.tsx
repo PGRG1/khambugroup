@@ -1,3 +1,5 @@
+import {ExpenseDocumentPreview} from "@/components/expenses/ExpenseDocumentPreview";
+import {useBaniTopic,useBaniWorkPublisher} from "@/components/assistant/FloatingBaniContext";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +21,7 @@ function receiptValue(key: string, value: unknown) {
 
 export function ReceiptIntakes({ revision, venueIds }: { revision: number; venueIds: string[] }) {
   const { tenantId } = useActiveTenant();
+  const topic=useBaniTopic();
   const [selected, setSelected] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["receipt-intakes", tenantId, revision], enabled: !!tenantId,
     queryFn: async () => {
@@ -28,6 +31,7 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
       return data ?? [];
     } });
   const rows = (q.data ?? []).filter(r => r.venue_id === null || venueIds.includes(r.venue_id));
+  useBaniWorkPublisher('/sales-data',rows.filter(r=>(r.verification as Record<string,unknown>|null)?.evidence_only).map(r=>({id:r.id,tone:'amber' as const,title:`Receipt date needs your answer: ${r.source_name}`,detail:String(r.reasons),label:'Review',question:`Review receipt evidence ${r.id}: ${r.source_name}`})),!q.isLoading);
   const current = rows.find(r => r.id === selected);
   const comparisons = useQuery({ queryKey: ["receipt-comparison", tenantId, current?.id], enabled: !!current,
     queryFn: async () => {
@@ -38,7 +42,7 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
     } });
   const openSource = async () => {
     if (!current) return;
-    const { data, error } = await supabase.storage.from("sales-receipt-intake").createSignedUrl(current.source_path, 60);
+    const { data, error } = await supabase.storage.from((current.verification as Record<string,unknown>|null)?.source_bucket==='sales-receipts'?'sales-receipts':"sales-receipt-intake").createSignedUrl(current.source_path, 60);
     if (!error && data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     else setSourceError("Source could not be opened. Try again.");
   };
@@ -57,7 +61,7 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
         <DialogHeader><DialogTitle>Receipt needs review</DialogTitle></DialogHeader>
         {current && <>
           <p className="break-all text-sm">{current.source_name}</p>
-          <Button variant="outline" onClick={openSource}>View original receipt</Button>
+          <ExpenseDocumentPreview path={current.source_path} bucket={(current.verification as Record<string,unknown>|null)?.source_bucket==='sales-receipts'?'sales-receipts':'sales-receipt-intake'} label="Receipt photo"/><Button variant="link" onClick={()=>topic(`Which sales record does receipt evidence ${current.id} (${current.source_name}) belong to?`)}>Ask Bani</Button>
           {sourceError && <p className="text-sm text-warning">{sourceError}</p>}
           <ul className="list-disc pl-4 text-sm text-warning">{(Array.isArray(current.reasons) ? current.reasons : []).map((reason, i) => <li key={i}>{String(reason)}</li>)}</ul>
           <h4 className="text-sm font-semibold">Original extraction / tentative figures · unverified, not posted</h4>

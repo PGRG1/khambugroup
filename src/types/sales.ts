@@ -29,6 +29,7 @@ export interface SalesRecord {
   foodpanda?: number;
   keeta?: number;
   cardTips: number;
+  createdAt?: string;
   receiptFileUrl?: string | null;
   receiptFileName?: string | null;
   servicePeriodId?: string | null;
