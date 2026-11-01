@@ -4,12 +4,14 @@ import { useFloatingBaniStore } from '@/components/assistant/FloatingBaniContext
 import { BaniFindings } from './BaniFindings';
 import { usePageTopControls } from './PageTopControls';
 import './page-top.css';
+import { useBaniPageWork } from '@/hooks/useBaniPageWork';
 
 /** One title row, one wrapping controls row, then existing scoped Bani findings. */
 export function PageTop({ title, titleDetail, period, controls, actions, primaryAction, leading, actionsBesideTitle = false, showBani = true }: { title: ReactNode; titleDetail?: ReactNode; period?: ReactNode; controls?: ReactNode; actions?: ReactNode; primaryAction?: ReactNode; leading?: ReactNode; actionsBesideTitle?: boolean; showBani?: boolean }) {
   const host = usePageTopControls(), store = useFloatingBaniStore(), { pathname } = useLocation();
   const published = store?.work[0];
-  const findings = published?.path === pathname ? published.items : [];
+  const existingWork = useBaniPageWork(pathname, false);
+  const findings = published?.path === pathname ? published.items : existingWork.items;
   return (
     <div className="page-top space-y-3 min-w-0">
       <div className="page-top-title flex items-center justify-between gap-3 min-h-9">
