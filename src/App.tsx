@@ -80,6 +80,7 @@ import FinanceDashboard from "./pages/finance/Dashboard";
 import FinanceReports from "./pages/finance/Reports";
 import FinanceBooks from "./pages/finance/Books";
 import CashBank from "./pages/finance/CashBank";
+import MonthClose from "./pages/finance/MonthClose";
 
 import BankDashboard from "./pages/bank/BankDashboard";
 import BankAccountsPage from "./pages/bank/BankAccountsPage";
@@ -260,6 +261,7 @@ function App() {
                 <Route path="/finance/reports" element={<AdminRoute><FinanceReports /></AdminRoute>} />
                 <Route path="/finance/books" element={<AdminRoute><FinanceBooks /></AdminRoute>} />
                 <Route path="/finance/cash" element={<AdminRoute><CashBank /></AdminRoute>} />
+                <Route path="/finance/close" element={<AdminRoute><MonthClose /></AdminRoute>} />
                 {/* Cashflow: CashflowCombined at /finance/cashflow-report is canonical. Legacy paths redirect. */}
                 <Route path="/finance/cashflow" element={<Navigate to="/finance/cashflow-report" replace />} />
                 <Route path="/finance/cashflow-ledger" element={<Navigate to="/finance/reports?view=cash" replace />} />

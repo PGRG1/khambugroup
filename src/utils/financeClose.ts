@@ -2,7 +2,8 @@ export const financeTabs = [
   { label: "Overview", path: "/finance" },
   { label: "Payables", path: "/finance/payables" },
   { label: "Receivables", path: "/finance/receivables" },
-  { label: "Cash & bank", path: "/finance/cash" },
+  { label: "Bank & cash", path: "/finance/cash" },
+  { label: "Month close", path: "/finance/close" },
   { label: "Reports", path: "/finance/reports" },
   { label: "Books", path: "/finance/books" },
 ];

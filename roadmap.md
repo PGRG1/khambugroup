@@ -294,3 +294,8 @@
 - [x] Sales table refreshes live (realtime + tab focus)
 - [x] Bani can propose a day note on receipt drafts; no more "press Save" prompts
 - [x] Sidebar: People before Expenses; Activity Log only under Settings
+
+## Finance overview and Month close
+- [ ] Rebuild read-only overview queues, progress, profit, money and month strip.
+- [ ] Add Month close using existing guarded close/reopen workflow and navigation.
+- [ ] Light desktop/phone check, focused tests, build and protected fingerprints.
