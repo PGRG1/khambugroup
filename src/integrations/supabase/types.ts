@@ -14855,6 +14855,7 @@ export type Database = {
         Args: { p_month: string; p_tenant_id: string }
         Returns: Json
       }
+      finance_opening_asset: { Args: { p: Json; t: string }; Returns: string }
       finance_propose_journal: {
         Args: {
           d: string
