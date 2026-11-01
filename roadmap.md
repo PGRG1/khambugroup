@@ -1,12 +1,12 @@
 ## Finance part 3c-2
-- [ ] A: Deferred sales fields, receipt confirmation, new-sales liability drafts and schedule items.
+- [x] A: New-sales deferred fields, receipt confirmation, liability drafts and schedule items connected; existing sales edits stay immutable. Live draft approval and card-tip receipts not verified/supported.
 - [ ] B: Unposted expense-bill and purchase-invoice capitalisation proposals.
 - [ ] C: Advance-contract prepayment drafts.
-- [ ] D: Tax source revalidation and assessment reading/manual fallback.
-- [ ] E: Exact multi-item bank matching and unified reviewed file upload.
-- [ ] F: Guarded future-account merge and historic reclassification drafts.
-- [ ] G: Configured Central sharing and merchant aging/Last matched.
-- [ ] One focused fixture/browser pass and protected counts/latest timestamps comparison.
+- [ ] D: Tax source revalidation connected, manual dates retained; assessment reading remains unfinished.
+- [ ] E: Exact multi-item recorded-payment/payout matching connected; unified reviewed file upload and direct invoice/bill allocation remain unfinished.
+- [ ] F: Owner/admin future-account merge and historic reclassification drafts connected; accountant authority and live merge/approval fixtures remain unfinished.
+- [ ] G: Imported merchant net-payout aging/Last matched connected separately from ledger aging; configured Central sharing and sales-derived merchant receivables remain unfinished.
+- [x] 31 focused fixture tests and latest build pass; protected counts/latest timestamps match. Signed-in desktop/375px pages render; enabled deferred fields, matching and approvals not exercised end-to-end on production records.
 
 ## Finance part 3c-1
 - [x] Cloud reachable; additive migrations 0096–0102 applied. Asset acquisition/disposal, posted expense-bill capitalisation/prepaid funding proposals, GRNI/reversal and opt-in full-count stock draft generators connect to source-rechecked selected monthly approval.
