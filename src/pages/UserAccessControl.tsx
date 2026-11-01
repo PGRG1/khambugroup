@@ -195,7 +195,7 @@ const UserAccessControl = () => {
       </div>
 
       {/* Users Table */}
-      <div className="overflow-hidden">
+      <div className="card-glass rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">Loading users...</div>
         ) : (
