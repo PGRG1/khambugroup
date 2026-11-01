@@ -13,6 +13,7 @@ import { QuickFilter } from "@/components/kit/QuickFilter";
 import { FilterPanel, FilterGroup } from "@/components/kit/FilterPanel";
 import { usePeriodFilter } from "@/hooks/usePeriodFilter";
 import { useVenueScope } from "@/hooks/useVenueScope";
+import { useBaniWorkPublisher } from "@/components/assistant/FloatingBaniContext";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { downloadCSV } from "@/utils/csvDownload";
 import { formatCurrency, formatDate } from "@/utils/format";
@@ -287,6 +288,7 @@ export default function BillsExpenses() {
   const cashBoxOnly=new URLSearchParams(location.search).get("source")==="cash-box";
   const filtered = scopedBills.filter(b => !cashBoxOnly && (statusFilter === "all" || statusFilter === "waiting" && isWaitingBill(b) || statusFilter === "to-pay" && b.approval_status === "posted" && b.payment_status !== "paid" || statusFilter === "paid" && b.payment_status === "paid") && (vendorFilter === "all" || b.supplier_id === vendorFilter) && (categoryFilter === "all" || lineIndex[b.id]?.includes(categoryFilter)) && `${supplierName(b.supplier_id)} ${b.vendor_name ?? ''} ${b.notes ?? ''} ${b.bill_number ?? ''}`.toLowerCase().includes(search.toLowerCase()));
   const waiting = scopedBills.filter(isWaitingBill);
+  useBaniWorkPublisher(location.pathname, waiting.length ? [{ id: "waiting-bills", tone: "amber", title: `${waiting.length} bills waiting for you`, detail: `${period.label} · ${formatCurrency(waiting.reduce((n,b) => n + b.total_amount, 0))}`, label: "Check", href: "/expenses?status=waiting" }] : [], !loading);
   useEffect(() => { if (!tenantId) return; supabase.from('expense_bill_allocations').select('bill_id,expense_category').eq('tenant_id',tenantId).then(({data})=>{ const index:Record<string,string[]>={}; for(const a of data??[]) index[a.bill_id]=[...(index[a.bill_id]??[]),a.expense_category??'']; setLineIndex(index); }); },[tenantId,bills]);
   const missingCategories = categories.filter(c=>!c.default_account_id);
   const vendorPairs = similarVendors(suppliers.filter(s=>s.vendor_type==='expense'));
