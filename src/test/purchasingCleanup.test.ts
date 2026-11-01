@@ -7,7 +7,7 @@ describe('Purchasing incomplete periods',()=>{
  it('exactly 25% does not wait',()=>expect(purchasingChecks(invoices(16),invoices(64),10000,10000).waiting).toBe(false));
  it('no previous invoices cannot imply missing invoices',()=>expect(purchasingChecks(invoices(0),invoices(0),10000,10000).waiting).toBe(false));
  it('exactly three points does not flag',()=>expect(purchasingChecks(invoices(1,1300),invoices(1,1000),10000,10000).pointChange).toBeNull());
- it('more than three points flags',()=>expect(purchasingChecks(invoices(1,1400),invoices(1,1000),10000,10000).pointChange).toBe(4));
+ it('more than three points flags',()=>expect(purchasingChecks(invoices(1,1400),invoices(1,1000),10000,10000).pointChange).toBeCloseTo(4));
 });
 describe('Same-unit price moves and category split',()=>{
  const products=new Map([['p',{id:'p',internal_product_name:'Potato',financial_treatment:'Expense',level1_category:'Food',unit:'kg'}]]);

@@ -113,7 +113,7 @@ export default function ProcurementDashboardTab() {
   const checks = purchasingChecks(currentInvoices, previousInvoices, revenue, sumRevenue(previousSales));
   const moves = priceMoves(items);
   const largeMoves = priceMoves(items,20);
-  const priorSuppliers = supplierRanking(previousInvoices, [], names).slice(0,3).map(row=>({...row,count:previousInvoices.filter(i=>i.supplier_id===row.id).length}));
+  const priorSuppliers = supplierRanking(previousInvoices, [], names).map(row=>({...row,count:previousInvoices.filter(i=>i.supplier_id===row.id).length})).sort((a,b)=>b.count-a.count).slice(0,3);
   const foodRatio = percentage(categories.find(c=>c.name==="Food")?.value??0,revenue);
   const drinkRatio = percentage(categories.find(c=>c.name==="Beverages")?.value??0,revenue);
   const months = [...new Set([currentMonth, ...invoices.map(row => row.invoice_date.slice(0, 7))])].sort().reverse();
