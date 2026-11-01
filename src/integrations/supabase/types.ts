@@ -574,6 +574,7 @@ export type Database = {
           before_value: Json
           conflict_with: string | null
           created_at: string
+          disabled_at: string | null
           field: string
           id: string
           item_key: string
@@ -591,6 +592,7 @@ export type Database = {
           before_value?: Json
           conflict_with?: string | null
           created_at?: string
+          disabled_at?: string | null
           field: string
           id?: string
           item_key?: string
@@ -608,6 +610,7 @@ export type Database = {
           before_value?: Json
           conflict_with?: string | null
           created_at?: string
+          disabled_at?: string | null
           field?: string
           id?: string
           item_key?: string
@@ -11465,7 +11468,9 @@ export type Database = {
           is_active: boolean
           name: string
           sort_order: number
+          tenant_id: string | null
           venue: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -11473,7 +11478,9 @@ export type Database = {
           is_active?: boolean
           name: string
           sort_order?: number
+          tenant_id?: string | null
           venue: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -11481,9 +11488,26 @@ export type Database = {
           is_active?: boolean
           name?: string
           sort_order?: number
+          tenant_id?: string | null
           venue?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stock_locations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_locations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_accounts: {
         Row: {
@@ -13922,6 +13946,14 @@ export type Database = {
           p_remove_unknown?: string
           p_session: string
         }
+        Returns: undefined
+      }
+      settings_category_account: {
+        Args: { a: string; i: string; k: string; t: string }
+        Returns: undefined
+      }
+      settings_edit_accounting_example: {
+        Args: { forget?: boolean; i: string; r: string; t: string }
         Returns: undefined
       }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
