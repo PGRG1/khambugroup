@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -549,7 +550,7 @@ export function AppSidebar() {
         {user && (
           <p className="text-[11px] text-muted-foreground mb-2 truncate px-1">{user.email}</p>
         )}
-        <p className="px-3 py-2 text-xs text-muted-foreground">Appearance · Bani light</p>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start" aria-label="Profile and appearance"><UserRound className="h-4 w-4"/>Profile</Button></DropdownMenuTrigger><DropdownMenuContent side="top"><DropdownMenuItem disabled>Appearance · Bani light</DropdownMenuItem><DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         <Button variant="ghost"
           onClick={signOut}
           className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"

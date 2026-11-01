@@ -10,3 +10,6 @@ export function categorySuggestion(name:string,accounts:{id:string;code:string;i
  const target=code[name.trim().toLowerCase()];return target?accounts.find(a=>a.code===target&&a.is_active!==false):undefined;
 }
 export function learnedWords(value:unknown):string {if(value===null||value===undefined)return 'Not recorded';if(typeof value!=='object')return String(value);return Object.entries(value as Record<string,unknown>).map(([key,v])=>`${key.replace(/_/g,' ')}: ${typeof v==='object'?learnedWords(v):String(v)}`).join(' · ');}
+
+export function learnedCondition(value:unknown){const r=value as Record<string,unknown>|null;if(r&&typeof r==='object'&&(r.contains||r.matches))return `Bank line has “${r.contains??r.matches}”`;return learnedWords(value);}
+export function learnedAction(value:unknown){const r=value as Record<string,unknown>|null;if(r&&typeof r==='object'){if(r.suggested_category==='KPay Settlement')return 'KPay payout';return String(r.suggested_category??r.suggested_type??learnedWords(value)).replace(/_/g,' ');}return learnedWords(value);}

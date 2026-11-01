@@ -65,7 +65,7 @@ export default function AccountingMappingSummary() {
           <span className="text-xs text-muted-foreground">— where each sales line lands in the books</span>
         </div>
         <Link
-          to="/settings?tab=business&section=accounts"
+          to={`/settings?tab=business&section=accounts${venues.find(v=>v.is_active)?`&venue=${venues.find(v=>v.is_active)?.id}`:''}`}
           onClick={(e) => e.stopPropagation()}
           className="hidden sm:inline-flex items-center gap-1 text-xs text-primary hover:underline"
         >

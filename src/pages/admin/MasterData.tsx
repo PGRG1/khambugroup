@@ -307,24 +307,4 @@ function ProcurementCard() {
   );
 }
 
-export default function MasterData() {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <Navigate to="/" replace/>;
-  return (
-    <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <PageHeader
-        title="Master Data"
-        description="Module-level master data — revenue channels and procurement configuration. Organizations and venues live in Business Structure."
-      />
-      <RevenueSourcesCard/>
-      <ProcurementCard/>
-      <Link to="/procurement/suppliers" className="card-glass flex items-center justify-between rounded-xl border p-4 hover:bg-accent/40 transition-colors">
-        <div>
-          <div className="font-medium">Suppliers & Vendors</div>
-          <div className="text-sm text-muted-foreground">Open the supplier directory used by purchasing and invoices.</div>
-        </div>
-        <span className="text-sm text-primary">Open →</span>
-      </Link>
-    </div>
-  );
-}
+export default function MasterData(){return <Navigate to="/settings?tab=business" replace/>;}
