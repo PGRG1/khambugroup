@@ -1,3 +1,5 @@
+import {ContractPostingPlan} from "@/components/expenses/ContractPostingPlan";
+import BillDropZone from "@/components/finance/bills/BillDropZone";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,6 +107,7 @@ export default function RecurringExpenses() {
       status: "draft",
       active: false,
       auto_approve: false,
+      is_contract:true,direction:"cost",billed_when:"arrears",central_share_method:"sales",
       expected_amount: 0,
       effective_from: new Date().toISOString().slice(0, 10),
     });
@@ -156,7 +159,7 @@ export default function RecurringExpenses() {
   const usual=(r:RecurringRule)=>{const amounts=historyFor(r).map(b=>b.total_amount);return amounts.length?(Math.min(...amounts)===Math.max(...amounts)?formatCurrency(amounts[0]):`${formatCurrency(Math.min(...amounts))} – ${formatCurrency(Math.max(...amounts))}`):formatCurrency(r.expected_amount);};
   return (
     <div className="w-full min-w-0 space-y-5 pb-24">
-      <PageTop title="Regular bills" period={period.control} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add regular bill</Button>}/>
+      <PageTop title="Regular bills" period={period.control} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add contract</Button>}/>
       <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">{period.label} · {filteredRules.length} regular bills</h2><p className="text-sm text-muted-foreground">{activeCount} active</p><div className="flex flex-wrap gap-2"><Input className="flex-1 min-w-0" placeholder="Search regular bills" value={search} onChange={e=>setSearch(e.target.value)}/><Button variant="outline" onClick={generateNow}><PlayCircle className="h-4 w-4"/>Generate due</Button></div>{detected.map(g=>{const latest=g.rows.at(-1);if(!latest)return null;return <div key={g.key} className="kit-explain">{latest.vendor_name} · {latest.venue||'Unassigned venue'} · received in {new Set(g.rows.map(b=>b.bill_date.slice(0,7))).size} months. <Button variant="link" className="text-warning p-0 h-auto" onClick={async()=>{const lines=await fetchAllocations(latest.id);const cat=categories.find(c=>c.name===lines[0]?.expense_category);setEditing({name:latest.notes||latest.vendor_name||'Regular bill',supplier_id:latest.supplier_id,vendor_name:latest.vendor_name,venue_id:latest.venue_id,category_id:cat?.id,account_id:lines[0]?.account_id,expected_amount:latest.total_amount,cadence:'monthly',status:'draft',auto_approve:false,effective_from:new Date().toISOString().slice(0,10),recognition_day:latest.bill_date.slice(8,10)});setOpen(true);}}>Add as regular bill</Button></div>;})}</div>
         {loading ? (
           <TableSkeleton rows={4} cols={7} />
@@ -204,12 +207,16 @@ export default function RecurringExpenses() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing.id ? "Edit Rule" : "New Recurring Rule"}</DialogTitle>
+            <DialogTitle>{editing.id ? (editing.is_contract ? "Contract" : "Regular bill") : "New contract"}</DialogTitle>
             <p className="text-xs text-muted-foreground mt-1">
               This rule is a template. Edits only affect future generated bills — approved or posted bills are untouched.
             </p>
           </DialogHeader>
           <div className="space-y-3 mt-4">
+            <ContractPostingPlan rule={editing} bills={bills}/>
+            {!editing.id&&<details><summary className="text-sm text-primary cursor-pointer">Read a contract document</summary><BillDropZone onParsed={s=>{const c=(s as any).contract_terms??{};const supplier=suppliers.find(x=>x.name.toLowerCase()===s.vendor_name.toLowerCase());setEditing(p=>({...p,is_contract:true,name:c.name||s.notes||s.vendor_name,supplier_id:supplier?.id??null,vendor_name:s.vendor_name,expected_amount:c.amount??s.total_amount,cadence:c.cadence||'monthly',direction:c.direction||'cost',billed_when:c.billed_when||'arrears',effective_from:c.start||s.service_period_start||null,contract_end:c.end||s.service_period_end||null,payment_due_day:c.due_day??null,rent_free_months:c.rent_free_months??[],step_increases:c.step_increases??[],deposit_amount:c.deposit_amount??0,attachment_url:s.attachment_url,attachment_path:s.attachment_path}));}}/></details>}
+            <div className="grid grid-cols-2 gap-3"><div><Label>Direction</Label><Select value={editing.direction||'cost'} onValueChange={v=>setField('direction',v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="cost">Cost</SelectItem><SelectItem value="income">Income</SelectItem></SelectContent></Select></div><div><Label>Billed</Label><Select value={editing.billed_when||'arrears'} onValueChange={v=>setField('billed_when',v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="arrears">In arrears</SelectItem><SelectItem value="advance">In advance</SelectItem></SelectContent></Select></div><div><Label>Contract end</Label><Input type="date" value={editing.contract_end||''} onChange={e=>setField('contract_end',e.target.value)}/></div><div><Label>Deposit</Label><Input type="number" value={editing.deposit_amount??0} onChange={e=>setField('deposit_amount',Number(e.target.value))}/></div><div className="col-span-2"><Label>Rent-free months (YYYY-MM, separated by commas)</Label><Input value={(editing.rent_free_months??[]).join(',')} onChange={e=>setField('rent_free_months',e.target.value.split(',').map(v=>v.trim()).filter(v=>/^\d{4}-\d{2}$/.test(v)))}/></div><div className="col-span-2"><Label>Fixed increases</Label>{(editing.step_increases??[]).map((step,i)=><div className="flex gap-2 mt-2" key={i}><Input type="month" value={step.month} onChange={e=>setField('step_increases',(editing.step_increases??[]).map((s,j)=>j===i?{...s,month:e.target.value}:s))}/><Input type="number" value={step.amount} onChange={e=>setField('step_increases',(editing.step_increases??[]).map((s,j)=>j===i?{...s,amount:Number(e.target.value)}:s))}/></div>)}<Button variant="outline" size="sm" onClick={()=>setField('step_increases',[...(editing.step_increases??[]),{month:'',amount:0}])}>Add increase</Button></div></div>
+
             <div>
               <Label>Name</Label>
               <Input value={editing.name || ""} onChange={(e) => setField("name", e.target.value)} />
@@ -230,7 +237,7 @@ export default function RecurringExpenses() {
                 <Select value={editing.cadence || "monthly"} onValueChange={(v) => setField("cadence", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
+                    
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="quarterly">Quarterly</SelectItem>
                     <SelectItem value="yearly">Yearly</SelectItem>
@@ -272,7 +279,7 @@ export default function RecurringExpenses() {
                 >
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__combined__">All Venues / Combined</SelectItem>
+                    <SelectItem value="__combined__">Central · shared by sales</SelectItem>
                     {venues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

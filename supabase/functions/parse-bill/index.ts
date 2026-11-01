@@ -10,6 +10,9 @@ const SYSTEM_PROMPT = `You are an accurate bill/expense data extractor for a res
 
 You are extracting NON-INVENTORY bills (utilities, rent, telecom, internet, pest control, laundry, cleaning, repairs, licenses, insurance, professional fees, IT/software subscriptions, bank fees, service charges, fan rental, equipment rental, etc.) — NOT stock/ingredient purchases.
 
+CONTRACT DOCUMENTS:
+If the uploaded evidence is a lease or cost/income contract, also return contract_terms: {name, direction: cost|income, amount, cadence: monthly|quarterly|yearly, billed_when: advance|arrears, start, end, due_day, rent_free_months: [YYYY-MM], step_increases: [{month: YYYY-MM, amount}], deposit_amount}. Only extract explicitly printed terms; null unknown fields. Do not turn a quotation into a contract. Contract amounts are per stated cadence, never multiply quarterly amounts.
+
 RULES:
 - All extracted text MUST be in English. Translate any Chinese to English.
 - Keep the vendor/company name EXACTLY as printed on the bill (you may include its English name if both are shown).
