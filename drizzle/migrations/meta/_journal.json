@@ -575,6 +575,13 @@
       "when": 1793544552776,
       "tag": "0081_expense_actual_coverage_and_owner_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793544670376,
+      "tag": "0082_expense_accrual_validation_and_draft_preparation",
+      "breakpoints": true
     }
   ]
 }
