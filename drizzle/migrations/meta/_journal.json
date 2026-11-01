@@ -477,6 +477,13 @@
       "when": 1793501092949,
       "tag": "0067_receipt_undo_and_retained_document_access",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1793502171333,
+      "tag": "0068_supplier_directory_reversible_alias",
+      "breakpoints": true
     }
   ]
 }

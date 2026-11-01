@@ -12054,6 +12054,7 @@ export type Database = {
           contact_person: string | null
           created_at: string
           delivery_days: string[]
+          directory_merged_into: string | null
           email: string | null
           id: string
           invoice_rounding_mode: string
@@ -12079,6 +12080,7 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           delivery_days?: string[]
+          directory_merged_into?: string | null
           email?: string | null
           id?: string
           invoice_rounding_mode?: string
@@ -12104,6 +12106,7 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           delivery_days?: string[]
+          directory_merged_into?: string | null
           email?: string | null
           id?: string
           invoice_rounding_mode?: string
@@ -12122,6 +12125,13 @@ export type Database = {
           vendor_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suppliers_directory_merged_into_fkey"
+            columns: ["directory_merged_into"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suppliers_payment_terms_fk"
             columns: ["payment_terms_id"]
@@ -14310,6 +14320,10 @@ export type Database = {
           p_remove_unknown?: string
           p_session: string
         }
+        Returns: undefined
+      }
+      set_supplier_directory_alias: {
+        Args: { p_from: string; p_into?: string; p_tenant: string }
         Returns: undefined
       }
       settings_category_account: {
