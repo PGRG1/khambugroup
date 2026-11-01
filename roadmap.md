@@ -1,3 +1,8 @@
+## Team light follow-up
+- [ ] Five-column Team, scoped title counts and single folded Bani finding; stacked phone rows.
+- [ ] Evidence-only rest-day deadlines, separate attendance facts and consolidated person record; rest days in confirmed rota drafts only.
+- [ ] Light focused tests and signed-in desktop/375px checks; no saved payroll, ledger, financial or permission changes.
+
 ## People and persistent navigation follow-ups
 - [x] Saved months without work evidence retain totals and have no running curve; May total/quiet note verified.
 - [x] Four own People PageTop headers/actions; no desktop tabs, shell-mounted phone navigation.
