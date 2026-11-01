@@ -1,10 +1,8 @@
 import { requireAuth } from "../_shared/auth.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
+import {z} from 'npm:zod@3';
+const FileSchema=z.object({base64:z.string().min(1).max(22000000),mimeType:z.string().max(100)});
+const InputSchema=z.object({files:z.array(FileSchema).max(12).optional(),fileBase64:z.string().max(22000000).optional(),mimeType:z.string().max(100).optional()});
 
 const SYSTEM_PROMPT = `You are an accurate bill/expense data extractor for a restaurant/bar group in Hong Kong (KHAMBU group — venues include Assembly, Caliente, Hanabi, Events).
 
@@ -27,6 +25,7 @@ DATE RULES (CRITICAL — Hong Kong bills are day-first):
 (d) Sanity check every date: bill_date should be within ~2 years of today; service_period_start/end should precede bill_date; due_date should follow bill_date. If a parsed date lands years in the past for a clearly recent bill, re-read the source assuming day-first order.
 
 STATEMENT vs INVOICE (CRITICAL — do not double-count):
+- Utility statements also return statement_check: {current_charges: number|null, previous_balance: number|null, payments_received: number|null, amount_due: number|null, deposit_held: number|null, usage: object|null, accounts: [{account_number, current_charges, service_period_start, service_period_end}]}. Unknown figures are null, not invented zeroes. Extract service_address as printed. Each distinct meter/account with current charges gets one allocation with account_number. Payments, previous balance, deposits and amount due are never costs. Do not assert any book comparison; the application checks it.
 - If the bill shows "Brought Forward", "Previous Balance", "Balance B/F", "B/F", "Amount from previous bill", or similar prior-balance line, it is a STATEMENT, not a plain invoice.
 - On a statement, the printed "Total Amount" = brought_forward + current_charges. Booking the printed total as an expense would double-count the brought-forward portion (already booked on the prior bill).
 - Return these JSON fields:
@@ -145,7 +144,9 @@ Deno.serve(async (req) => {
   if (auth.response) return auth.response;
 
   try {
-    const { fileBase64, mimeType, files } = await req.json();
+    const input=InputSchema.safeParse(await req.json());
+    if(!input.success)return new Response(JSON.stringify({success:false,error:'Invalid document payload'}),{status:400,headers:{...corsHeaders,'Content-Type':'application/json'}});
+    const { fileBase64, mimeType, files } = input.data;
 
     let fileEntries: { base64: string; mimeType: string }[] = [];
     if (files && Array.isArray(files) && files.length > 0) {
@@ -254,6 +255,7 @@ Deno.serve(async (req) => {
     parsed.suggested_document_type = String(parsed.suggested_document_type || "bill_expense");
     parsed.allocations = Array.isArray(parsed.allocations) ? parsed.allocations : [];
     parsed.allocations = parsed.allocations.map((a: any) => ({
+      account_number: String(a.account_number||'').trim(),
       expense_category: String(a.expense_category || "").trim(),
       amount: Number(a.amount || 0),
       notes: String(a.notes || "").trim(),
@@ -294,7 +296,12 @@ Deno.serve(async (req) => {
 
     // Statement safety net: if brought_forward > 0 and current_charges is set,
     // force subtotal/total_amount to current_charges (never the statement total).
-    if (parsed.brought_forward > 0 && parsed.current_charges > 0) {
+    if (parsed.statement_check || parsed.statement_total !== null) {
+      const check=parsed.statement_check;
+      const amount=check?.accounts?.length?check.accounts.reduce((n:number,a:any)=>n+Number(a.current_charges),0):check?.current_charges??parsed.current_charges;
+      if(amount===null||!Number.isFinite(Number(amount))||Number(amount)<0)return new Response(JSON.stringify({success:false,error:'Current charges are unclear; please check the statement'}),{status:422,headers:{...corsHeaders,'Content-Type':'application/json'}});
+      parsed.current_charges=Number(amount);
+      if(!check)parsed.statement_check={current_charges:parsed.current_charges,previous_balance:parsed.brought_forward,amount_due:parsed.statement_total,payments_received:null,deposit_held:null};
       parsed.total_amount = parsed.current_charges;
       parsed.subtotal = parsed.current_charges - (parsed.tax_amount || 0);
       // If allocations still sum to statement_total, drop any row that matches brought_forward
@@ -304,6 +311,7 @@ Deno.serve(async (req) => {
           (a: any) => Math.abs(Number(a.amount || 0) - parsed.brought_forward) > 0.5
         );
       }
+      if(check?.accounts?.length)parsed.allocations=check.accounts.map((a:any)=>({account_number:String(a.account_number??''),expense_category:'Utilities',amount:Number(a.current_charges),notes:'Current charges only'}));
     }
 
     // If no allocations, create one default row from subtotal
