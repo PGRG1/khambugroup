@@ -1,3 +1,8 @@
+## Settings rebuild
+- [ ] Single Settings page, redirects and sidebar; Business venue facts/editors; tenant-only Users and centred editing
+- [ ] Automatic People rules and posting defaults, merged Accounting categories, learned Bani examples, Alerts
+- [ ] Data-driven venue choices, narrow Books date checks, tests and signed-in desktop/375px checks; report counts without financial writes
+
 ## Finance — Part 3
 - [x] Six Books views restyled; journal source/account reasons, 1,935 stored documents searched, bank PDF opened; uploads stage in existing Bani composer
 - [x] Atomic confirmed date/reclassification/reversal RPC, originals retained, snapshot/period/access checks, linked audit; no live financial records changed
