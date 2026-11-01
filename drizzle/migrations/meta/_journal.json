@@ -540,6 +540,13 @@
       "when": 1793533752432,
       "tag": "0076_people_work_draft_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793534201543,
+      "tag": "0077_staff_work_balance_context",
+      "breakpoints": true
     }
   ]
 }

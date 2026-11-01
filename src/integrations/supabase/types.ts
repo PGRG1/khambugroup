@@ -14600,6 +14600,7 @@ export type Database = {
         Args: { t: string; u: string; v: string }
         Returns: boolean
       }
+      rota_my_work_context: { Args: { t: string }; Returns: Json }
       rota_no_show_decision: {
         Args: {
           decision: string
