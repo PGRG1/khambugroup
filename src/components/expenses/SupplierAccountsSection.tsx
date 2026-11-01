@@ -19,6 +19,7 @@ export interface SupplierAccountRow {
   default_venue_id: string | null;
   default_gl_account_id: string | null;
   is_active: boolean;
+  service_address?:string|null;split_method?:string;covers?:{venue_id:string;weight?:number}[];
 }
 
 interface Props {
@@ -48,6 +49,7 @@ export default function SupplierAccountsSection({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
+    service_address:"",split_method:"unknown",covers:[] as {venue_id:string;weight?:number}[],
     account_number: "",
     label: "",
     default_venue_id: "",
@@ -61,7 +63,7 @@ export default function SupplierAccountsSection({
     const [{ data: sa }, { data: v }, { data: a }] = await Promise.all([
       (supabase as any)
         .from("supplier_accounts")
-        .select("id, account_number, label, default_venue_id, default_gl_account_id, is_active")
+        .select("*")
         .eq("tenant_id", tenantId)
         .eq("supplier_id", supplierId)
         .order("account_number"),
@@ -82,7 +84,7 @@ export default function SupplierAccountsSection({
   useEffect(() => { load(); }, [load]);
 
   const resetForm = () =>
-    setForm({ account_number: "", label: "", default_venue_id: "", default_gl_account_id: "", is_active: true });
+    setForm({service_address:"",split_method:"unknown",covers:[], account_number: "", label: "", default_venue_id: "", default_gl_account_id: "", is_active: true });
 
   const submit = async () => {
     if (!tenantId) return;
@@ -97,6 +99,7 @@ export default function SupplierAccountsSection({
       default_venue_id: form.default_venue_id || null,
       default_gl_account_id: form.default_gl_account_id || null,
       is_active: form.is_active,
+      service_address:form.service_address||null,split_method:form.split_method,covers:form.covers,
     });
     setSaving(false);
     if (error) {
@@ -186,7 +189,7 @@ export default function SupplierAccountsSection({
                         )}
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                        {venueName(r.default_venue_id) && <span>Venue: {venueName(r.default_venue_id)}</span>}
+                        <span>Covers: {r.covers?.length?r.covers.map(v=>venueName(v.venue_id)).join(' + '):'Ask Bani'} · {r.split_method??'unknown'}</span>
                         {acctLabel(r.default_gl_account_id) && <span>GL: {acctLabel(r.default_gl_account_id)}</span>}
                         {!venueName(r.default_venue_id) && !acctLabel(r.default_gl_account_id) && (
                           <span className="italic">No defaults set</span>
@@ -224,19 +227,9 @@ export default function SupplierAccountsSection({
                   placeholder="e.g. G/F, 1F, 3F"
                 />
               </div>
-              <div>
-                <Label>Default venue</Label>
-                <Select
-                  value={form.default_venue_id || "__none__"}
-                  onValueChange={(v) => setForm({ ...form, default_venue_id: v === "__none__" ? "" : v })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {venues.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div><Label>Service address</Label><Input value={form.service_address} onChange={e=>setForm({...form,service_address:e.target.value})}/></div>
+              <div><Label>Covers · split rule</Label><Select value={form.split_method} onValueChange={v=>setForm({...form,split_method:v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{[['unknown','Ask Bani'],['single','100% one venue'],['fixed','Fixed %'],['floor_area','Floor area'],['sales','By sales'],['central','Central · group sharing']].map(([id,name])=><SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></div>
+              {venues.map(v=><div key={v.id} className="flex gap-2 items-center"><Checkbox checked={form.covers.some(x=>x.venue_id===v.id)} onCheckedChange={checked=>setForm({...form,covers:checked?[...form.covers,{venue_id:v.id,weight:0}]:form.covers.filter(x=>x.venue_id!==v.id)})}/><span className="text-sm flex-1">{v.name}</span>{['fixed','floor_area'].includes(form.split_method)&&form.covers.some(x=>x.venue_id===v.id)&&<Input aria-label={`${v.name} share`} type="number" className="w-24" value={form.covers.find(x=>x.venue_id===v.id)?.weight??0} onChange={e=>setForm({...form,covers:form.covers.map(x=>x.venue_id===v.id?{...x,weight:Number(e.target.value)}:x)})}/>}</div>)}
               <div>
                 <Label>Default GL account</Label>
                 <Select
