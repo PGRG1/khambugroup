@@ -645,6 +645,13 @@
       "when": 1793554540602,
       "tag": "0091_finance_schedule_draft_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1793554576883,
+      "tag": "0092_finance_schedule_selected_approval",
+      "breakpoints": true
     }
   ]
 }

@@ -14887,6 +14887,10 @@ export type Database = {
         Args: { c: string; k: string; n: string; t: string }
         Returns: string
       }
+      finance_schedule_approve: {
+        Args: { ident: string; m: string; t: string }
+        Returns: string
+      }
       finance_schedule_enqueue: {
         Args: {
           d: string
@@ -14903,6 +14907,10 @@ export type Database = {
         Returns: string
       }
       finance_schedule_manager: { Args: { t: string }; Returns: boolean }
+      finance_schedule_prepare: {
+        Args: { m: string; t: string }
+        Returns: number
+      }
       finance_schedule_save_settings: {
         Args: { p: Json; t: string }
         Returns: undefined
