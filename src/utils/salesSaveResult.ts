@@ -1,5 +1,5 @@
 export type SalesSaveResult =
-  | { status: "saved"; recordId: string; journal: "completed" | "failed" }
+  | { status: "saved"; recordId: string; journal: "completed" | "failed" | "draft" }
   | { status: "flagged"; intakeId: string; repeated: boolean; reasons?: string[] }
   | { status: "failed"; error: string };
 
@@ -11,6 +11,7 @@ export function salesOutcomeMessage(result: SalesSaveResult): string {
     return result.repeated ? `This receipt was already received — nothing added again.${why}`
       : `Kept for your review, not recorded.${why}`;
   }
+  if(result.journal==='draft') return 'Sales recorded. Deferred revenue journal is waiting for approval.';
   return result.journal === "completed" ? "Checked twice and recorded. Journal updated."
     : "Sales recorded, but journal rebuild failed. Do not submit these sales again.";
 }
