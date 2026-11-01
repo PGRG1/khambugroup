@@ -617,6 +617,13 @@
       "when": 1793546699385,
       "tag": "0087_expense_explicit_monthly_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1793546732810,
+      "tag": "0088_expense_owner_membership_approval",
+      "breakpoints": true
     }
   ]
 }
