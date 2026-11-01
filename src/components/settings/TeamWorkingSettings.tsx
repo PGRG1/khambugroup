@@ -4,7 +4,7 @@ import {usePeopleData} from '@/hooks/usePeopleData';
 import {usePeopleRoles} from '@/hooks/usePeopleRoles';
 import {useVenues} from '@/hooks/useVenues';
 import {useBaniTopic,useBaniWorkPublisher} from '@/components/assistant/FloatingBaniContext';
-import {TEAM_MODES,ROLE_GROUPS_PLACEHOLDER} from '@/utils/teamWorking';
+import {TEAM_MODES} from '@/utils/teamWorking';
 import {teamSuggestions,type TeamMode,type TeamWorking} from '@/utils/teamWorking';
 import {ROLE_GROUPS} from '@/utils/peoplePresentation';
 import {Button} from '@/components/ui/button';
