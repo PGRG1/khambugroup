@@ -1,5 +1,5 @@
 # Project Architecture Rules
-Read nested AGENTS.md; src/pages/hr has People-specific rules.
+Read nested AGENTS.md before changes: src/pages/hr has People rules; src/components/assistant has voice rules, also required for related hooks and server voice integrations.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
@@ -16,9 +16,6 @@ Read nested AGENTS.md; src/pages/hr has People-specific rules.
 - Settlement credits require explicit batch venues and exact tenant clearing mappings; shared merchants never use generic fallbacks.
 - Rota person checks use all tenant shifts while cover remains venue-scoped; combined role grids keep shift-specific venue actions. Server people_week_sent guards whole-week confirmation so venue drafts never imply readiness.
 - Finance: owner-only reopening; payments delegate posting. Source links keep originals; invoice date RPCs pair corrections, compensating closed periods in the current open month. Books reads drift; documents keep RLS/People access.
-- Voice routing uses the existing reasoning turn and full conversation, and acknowledgements originate only from confirmed tool work; bounded non-confidential session clips share one cancellable media element. Final speech extracts complete prose without a second model request, keeping text independent of audio.
-- Voice capture has one mobile microphone owner (MediaRecorder); wall-clock capture deadlines and abortable stage deadlines must remain independent of analyser levels and recorder start events, with an explicit orb send and recoverable notices instead of discarding quiet recordings.
-- Composer dictation uses MediaRecorder + bani-stt (never Web Speech) and only fills the editable draft; the orb has a constant ambient grain/swirl but its level-driven scale and glow come solely from real signals (mic analyser, or PCM envelope at the `<audio>` currentTime), and playback must never be routed through WebAudio.
 - Floating Bani is tenant-only with one conversation held in FloatingBaniProvider (shared by global and scanner-hosted instances, reset only on user/tenant/preview change) and relocates into the active scanner host; attachments are read-only analysis in chat-assistant `floatingFiles.ts`; unsaved corrections use server-validated whitelists, supplier-scoped candidates and host-rechecked stable draft/line IDs with mutation revisions, never model-side writes or Save/GRN bypasses.
 - Floating Bani classifies attachments (sales report / supplier invoice / expense) and has two navigation actions: `open_sales_scanner` (one file, separate sales slot in `scannerHandoff.ts`, consumed by Sales Data's Scan Receipt) and `open_invoice_scanner`: the server validates the venue and emits an action event, the client hands original in-memory File objects through `src/utils/scannerHandoff.ts` (consumed by request id, re-armed only on real scan failure), and the scanner runs its normal parse pipeline; unsaved reviews are never replaced without explicit user consent, and Save/GRN stay on the existing explicit workflow.
 - Sales corrections use salesReview.ts + salesReceiptCorrections.ts: whitelisted, tenant-validated, user-applied to the same draft, never financial writes.
