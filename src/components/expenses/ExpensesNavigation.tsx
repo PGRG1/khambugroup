@@ -1,11 +1,12 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { useLocation } from 'react-router-dom';
 import { SectionPillRow } from '@/components/kit/SectionPillRow';
-import { expenseTabs } from '@/utils/expenses';
-import { cn } from '@/lib/utils';
+import { visibleExpenseTabs } from '@/utils/expenses';
+import { useExpenseClaimsExist } from '@/hooks/useExpenseClaimsExist';
 
+/** Phone-only page pills; on desktop the sidebar is the only Expenses navigation. */
 export function ExpensesNavigation() {
   const { pathname } = useLocation();
-  if (!expenseTabs.some(t => t.path === pathname)) return null;
-  return <><div className="md:hidden"><SectionPillRow label="Expenses" items={expenseTabs} activePath={pathname}/></div><nav aria-label="Expenses" className="hidden md:flex mb-5 gap-2">{expenseTabs.map(t => <Button key={t.path} asChild variant="ghost" className={cn('rounded-none border-b-2 h-10', pathname === t.path ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground')}><Link to={t.path} aria-current={pathname === t.path ? 'page' : undefined}>{t.label}</Link></Button>)}</nav></>;
+  const tabs = visibleExpenseTabs(useExpenseClaimsExist());
+  if (!tabs.some(t => t.path === pathname) && pathname !== '/expenses/claims') return null;
+  return <SectionPillRow label="Expenses" items={tabs} activePath={pathname}/>;
 }

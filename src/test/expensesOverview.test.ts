@@ -17,3 +17,14 @@ describe('Expenses overview factual accounting',()=>{
  it('flags posted bill plus manual journal on same account/month',()=>{const r=buildExpensesOverview({...input,entries:[...entries,{id:'jm',status:'posted',source_type:'manual',entry_date:'2026-01-28'}],lines:[...lines,{id:'lm',entry_id:'jm',account_id:'rent',debit:20000,credit:0}]});expect(r.findings.some(f=>f.id==='possible-double-costs')).toBe(true);});
  it('venue scope does not leak another venue or unassigned costs',()=>{const r=buildExpensesOverview({...input,includesName:name=>name==='Assembly',includesId:id=>id==='assembly'});expect(r.amount).toBe(0);expect(r.regular).toHaveLength(0);});
 });
+
+describe('By supplier', () => {
+  it('groups bill costs by supplier and hand journals as Entered by hand', () => {
+    const accounts=[{id:'a',code:'6200',name:'Rent',account_type:'opex'}];
+    const entries=[{id:'e1',status:'posted',entry_date:'2026-02-01',source_type:'expense_bill',source_id:'b1'},{id:'e2',status:'posted',entry_date:'2026-02-03',source_type:'manual'}];
+    const lines=[{entry_id:'e1',account_id:'a',debit:380000,credit:0},{entry_id:'e2',account_id:'a',debit:20000,credit:0}];
+    const bills=[{id:'b1',supplier_id:'s',vendor_name:'Landlord',venue_id:null,bill_date:'2026-02-01',approval_status:'posted',journal_entry_id:'e1',total_amount:380000}] as any;
+    const r=buildExpensesOverview({bills,allocations:[],entries,lines,accounts,sales:[],from:'2026-01-01',to:'2026-06-30',today:'2026-11-01',includesId:()=>true,includesName:()=>true});
+    expect(r.suppliers).toEqual([{name:'Landlord',amount:380000},{name:'Entered by hand',amount:20000}]);
+  });
+});

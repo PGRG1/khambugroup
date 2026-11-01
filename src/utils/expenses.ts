@@ -5,8 +5,9 @@ export const expenseTabs = [
   { label: 'Bills & receipts', path: '/expenses/bills' },
   { label: 'Regular bills', path: '/expenses/recurring' },
   { label: 'Staff claims', path: '/expenses/claims' },
-  { label: 'Trends', path: '/expenses/analytics' },
 ];
+/** Sidebar/phone pages; Staff claims shows only when the tenant has claims. */
+export const visibleExpenseTabs = (hasClaims: boolean) => expenseTabs.filter(t => hasClaims || t.path !== '/expenses/claims');
 export const isWaitingBill = (b: Pick<ExpenseBill, 'approval_status'>) => ['draft', 'pending_review', 'approved'].includes(b.approval_status);
 export function expenseStatus(b: Pick<ExpenseBill, 'approval_status' | 'payment_status' | 'meta'>): string {
   if (['void', 'reversed', 'rejected'].includes(b.approval_status)) return b.approval_status === 'void' ? 'Voided' : b.approval_status === 'reversed' ? 'Reversed' : 'Rejected';

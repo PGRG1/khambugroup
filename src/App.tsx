@@ -132,7 +132,6 @@ import ExpenseCategoriesPage from "./pages/expenses/Categories";
 import ExpenseMappingPage from "./pages/expenses/Mapping";
 import ExpenseVendorAccountPage from "./pages/expenses/VendorAccount";
 
-import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
 
 function ExpensesEntry(){const location=useLocation();return <Navigate to={{pathname:location.search?'/expenses/bills':'/expenses/overview',search:location.search}} state={location.state} replace/>;}
 const queryClient = new QueryClient();
@@ -380,7 +379,7 @@ function App() {
                 <Route path="/expenses/mapping" element={<Navigate to="/settings?tab=accounting&view=categories" replace />} />
                 
                 <Route path="/expenses/approvals" element={<Navigate to="/expenses?status=waiting" replace />} />
-                <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
+                <Route path="/expenses/analytics" element={<Navigate to="/expenses/overview" replace />} />
                 <Route path="/expenses/finance" element={<Navigate to="/expenses/finance/spend" replace />} />
                 <Route path="/expenses/finance/spend" element={<Navigate to="/expenses/analytics" replace />} />
                 <Route path="/expenses/finance/vendors" element={<Navigate to="/finance/payables" replace />} />

@@ -56,5 +56,9 @@ export function buildExpensesOverview({bills,allocations,entries,lines,accounts,
  const completeKeys=new Set(months.filter(m=>m.complete).map(m=>m.key)),completeCosts=costs.filter(c=>completeKeys.has(c.month)&&c.date>=from&&c.date<=to),amount=completeCosts.reduce((n,c)=>n+c.amount,0),revenue=months.filter(m=>m.complete).reduce((n,m)=>n+m.sales,0);
  const categories=['Rent','Utilities','Everything else'].map(name=>({name,amount:completeCosts.filter(c=>expenseType(c.account)===name).reduce((n,c)=>n+c.amount,0)}));
  const periodCosts=costs.filter(c=>c.date>=from&&c.date<=to),types=[...new Set(periodCosts.map(c=>c.account.name))].map(name=>({name,amount:periodCosts.filter(c=>c.account.name===name).reduce((n,c)=>n+c.amount,0)})).filter(r=>r.amount!==0).sort((a,b)=>b.amount-a.amount);
- return {months,regular:[...regular,...manualRows],findings,amount,sales:revenue,percent:revenue>0?amount/revenue*100:null,categories,types,periodSales:months.reduce((n,m)=>n+m.sales,0),completeKeys:[...completeKeys]};
+ const billByEntry=new Map<string,ExpenseBill>();for(const b of bills){if(b.journal_entry_id)billByEntry.set(b.journal_entry_id,b);}const billById=new Map(bills.map(b=>[b.id,b]));
+ const supplierOf=(c:ExpenseRow)=>{const b=billByEntry.get(c.entry.id)??(c.entry.source_type==='expense_bill'?billById.get(c.entry.source_id):undefined);return b?.vendor_name||'Entered by hand';};
+ const supplierTotals=new Map<string,number>();for(const c of periodCosts){const k=supplierOf(c);supplierTotals.set(k,(supplierTotals.get(k)??0)+c.amount);}
+ const suppliers=[...supplierTotals].map(([name,amount])=>({name,amount})).filter(r=>r.amount!==0).sort((a,b)=>b.amount-a.amount).slice(0,8);
+ return {months,regular:[...regular,...manualRows],findings,amount,sales:revenue,percent:revenue>0?amount/revenue*100:null,categories,types,suppliers,periodSales:months.reduce((n,m)=>n+m.sales,0),completeKeys:[...completeKeys]};
 }

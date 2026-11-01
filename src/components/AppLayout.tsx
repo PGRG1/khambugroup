@@ -56,9 +56,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {pathname.startsWith("/hr") && <PeopleNavigation />}
-            </div>
+              {pathname.startsWith("/expenses") && <ExpensesNavigation />}
+              </div>
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
-            {pathname.startsWith("/expenses") && <ExpensesNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
             <div key={`${tenantId}:${previewUserId}`} className="min-w-0">
               <div key={pathname} className="route-content-enter min-w-0">{children}</div>

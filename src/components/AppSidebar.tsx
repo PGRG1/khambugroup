@@ -38,7 +38,8 @@ import { useKpiCapability } from "@/hooks/useKpiCapability";
 import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
-import { expenseTabs } from "@/utils/expenses";
+import { visibleExpenseTabs } from "@/utils/expenses";
+import { useExpenseClaimsExist } from "@/hooks/useExpenseClaimsExist";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
@@ -297,6 +298,7 @@ export function AppSidebar() {
   const { isPlatformAdmin } = usePlatformAdmin();
   const { activeTenantId, isInsideClient, exitToPlatform } = useTenantSession();
   const [clientName, setClientName] = useState("");
+  const expenseNav = visibleExpenseTabs(useExpenseClaimsExist());
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar, canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveUserId || undefined);
@@ -507,7 +509,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Expenses",url:"/expenses",icon:ReceiptText}} />{showSubPages && expenseTabs.some(t=>t.path===pathname) && expenseTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
+        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Expenses",url:"/expenses",icon:ReceiptText}} />{showSubPages && pathname.startsWith("/expenses") && expenseNav.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
         {showKpi && (
           <SidebarGroup className="py-0 px-2">
