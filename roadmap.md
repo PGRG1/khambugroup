@@ -1,7 +1,8 @@
 ## People Overview simplification
-- [ ] Read-only month/year Overview, compact findings, accrued costs/projections, venue/role bars and dated team counts.
-- [ ] Confirmed front/back role setting; remove Payroll venue extras without changing Rota or saved records.
-- [ ] Focused rules tests, signed-in desktop/375px May/year/November and settings checks; unchanged payroll/journal fingerprints.
+- [x] Read-only month/year Overview, two findings plus folded line, accrued costs/projections, venue/role bars and dated team counts. Saved daily curve spreads saved totals over recorded days, or calendar days when daily evidence is absent; no payroll recomputation.
+- [x] Confirmed front/back role setting and orb draft support; Payroll venue header/split/subtotal methods removed; Rota unchanged.
+- [x] 103 rules tests and build OK; signed-in desktop/375px November unknown, May 255068.20/32.6%, requested role/venue totals, Jan–May chart, headcounts Jan–Oct 23/24/19/20/20/20/26/27/27/27 with March/July flags, settings dialog cancel and May Payroll checked without overflow. All 85 payroll/2645 journals/21492 lines fingerprints unchanged.
+- [ ] Verification limits: real unsaved current-month accrual/projection has no November rota/clock-in data; unit-tested only. Live setting/orb Confirm and concurrent saves deliberately not exercised; separate venue-manager session unavailable. Custom range edge cases not browser-tested. Saved months without daily work evidence cannot supply a factual daily cost curve; calendar spreading is presentation, not real daily payroll evidence.
 
 ## People venue staff-cost correction
 - [x] Company default and role overrides beside How you buy; evidence-based orb suggestions and confirmed guarded settings; KHAMBU has zero saved choices.
