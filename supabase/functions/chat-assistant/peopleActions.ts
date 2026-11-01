@@ -1,6 +1,6 @@
 import { z } from "npm:zod@4";
 import { addDays, checkedDate, exactPerson, establishedScope, establishedPeriod, instructedPay, monday, PEOPLE_OPERATIONS } from "./peopleRules.ts";
-import {usualRotaDraft} from '../_shared/peopleRotaPattern.ts';
+import {usualRotaDraft,addOwedRestToDraft} from '../_shared/peopleRotaPattern.ts';
 type Client = any;
 const uuid = z.string().uuid();
 const Args = z.object({
@@ -107,6 +107,14 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
         return { ...(old ? { id: old.id } : {}), employee_id: e.id, shift_date: date, shift_type: s.rest ? "RD" : "regular", start_time: s.rest ? "00:00" : start, end_time: s.rest ? "00:00" : endTime, break_minutes: s.break_minutes ?? old?.break_minutes ?? 0, role: s.role ?? old?.role ?? null };
       });
       detail = p.changes.map((c: any) => { const s = own.find(o => o.id === c.swap_id); const e = ctx.people.find(e => e.id === (c.employee_id ?? s?.employee_id)); const r = ctx.people.find(e => e.id === c.replacement); return `${e?.first_name} ${e?.last_name} · ${c.shift_date ?? s?.shift_date} · ${c.swap_id ? `cover ${r?.first_name} ${r?.last_name}` : c.remove ? "remove shift" : c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min${c.role ? ` · ${c.role}` : ""}`}`; }).join("\n");
+    }
+    if(a.operation==='rota_copy'||a.operation==='rota_pattern'){
+      const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const history=await all(client,'hr_shifts',tenant,q=>q.lte('shift_date',today));
+      const attendance=await all(client,'hr_attendance',tenant,q=>q.lte('date',today));
+      const leave=await all(client,'hr_leave_requests',tenant,q=>q.eq('status','approved'));
+      p.changes=addOwedRestToDraft(p.changes,own,history,attendance,ctx.people,w,today,leave);
+      if(p.changes.some((c:any)=>c.notes?.startsWith('Substitute rest day')))detail+='\nOwed substitute rest days included in this draft only; confirm the exact days before saving.';
     }
     p.display_changes = p.changes ?? []; title = `Rota · ${v.name} · week of ${w}`;
     if (a.operation === "rota_copy"||a.operation === "rota_pattern") detail += "\n" + p.changes.map((c: any) => { const e = ctx.people.find(e => e.id === c.employee_id); return `${e?.first_name} ${e?.last_name} · ${c.shift_date} · ${c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min`}`; }).join("\n");
