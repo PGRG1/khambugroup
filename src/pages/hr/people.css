@@ -47,3 +47,14 @@
  .people-page .hours-weekdays td {border:0;}
  .people-page .hours-weekdays td:not(:first-child)::before {content:attr(data-label);display:block;font-size:11px;color:hsl(var(--muted-foreground));}
 }
+
+.people-overview .bani-finding {display:block;background:transparent;color:hsl(var(--foreground));line-height:1.5;white-space:normal;}
+.people-overview .bani-fold {display:block;background:transparent;color:hsl(var(--muted-foreground));width:100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.6;}
+.people-overview .cost-bar {display:block;background:transparent;width:100%;color:hsl(var(--foreground));}
+.people-overview .cost-bar-track {display:block;width:100%;height:8px;}
+.people-overview .overview-team-table th:first-child {width:40%;}
+.people-overview .overview-team-table th:nth-child(2),.people-overview .overview-team-table th:nth-child(3),.people-overview .overview-team-table th:nth-child(4) {width:15%;}
+.people-overview .overview-team-table th:last-child {width:15%;}
+@media(max-width:640px){.people-overview .overview-team-table th:first-child{width:43%;}.people-overview .overview-team-table th:nth-child(2),.people-overview .overview-team-table th:nth-child(3),.people-overview .overview-team-table th:nth-child(4){width:19%;}.people-overview .bani-finding{font-size:13px;}}
+
+.people-overview .bani-finding:hover,.people-overview .bani-finding:focus,.people-overview .bani-fold:hover,.people-overview .bani-fold:focus {background:transparent!important;color:hsl(var(--foreground))!important;}
