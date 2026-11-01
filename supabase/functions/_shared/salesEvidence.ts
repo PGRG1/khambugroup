@@ -8,7 +8,7 @@ export async function captureExtraction(admin: any, tenantId: string, userId: st
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
   const { data, error } = await admin.from("sales_scan_extractions").insert({
     tenant_id: tenantId, scanned_by: userId, original_values: extractionSnapshot(raw), source_sha256: await sha256(bytes),
-    source_mime_type: mime, extractor_model: "google/gemini-2.5-flash", extractor_version: "parse-receipt-v1",
+    source_mime_type: mime, extractor_model: "google/gemini-3-flash-preview", extractor_version: "parse-receipt-context-v2",
     // No reliable POS/layout descriptor is currently extracted; never invent one.
     report_structure: null,
   }).select("id").single();

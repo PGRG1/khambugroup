@@ -1,6 +1,10 @@
 export interface SalesRecord {
   id?: string;
   date: string;
+  rawPrintedDate?: string;
+  printedWeekday?: string | null;
+  fieldConfidence?: Record<string, number>;
+  dateEvidence?: Record<string, unknown>;
   day: string;
   /** Venue name — must match `venues.name` in the master table. */
   venue: string;

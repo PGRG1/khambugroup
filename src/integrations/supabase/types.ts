@@ -1960,6 +1960,117 @@ export type Database = {
           },
         ]
       }
+      document_read_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extraction: Json | null
+          id: string
+          kind: string
+          mime_type: string
+          source_hash: string
+          source_name: string
+          source_path: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extraction?: Json | null
+          id?: string
+          kind: string
+          mime_type: string
+          source_hash: string
+          source_name: string
+          source_path: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extraction?: Json | null
+          id?: string
+          kind?: string
+          mime_type?: string
+          source_hash?: string
+          source_name?: string
+          source_path?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_read_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_source_archives: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          intake_id: string
+          operation_id: string
+          source_record_id: string
+          source_snapshot: Json
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          intake_id: string
+          operation_id: string
+          source_record_id: string
+          source_snapshot: Json
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          intake_id?: string
+          operation_id?: string
+          source_record_id?: string
+          source_snapshot?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_source_archives_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "sales_receipt_intakes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_source_archives_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "finance_source_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_source_archives_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           actual_guests: number | null
@@ -3319,6 +3430,228 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "finance_closed_periods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_source_operations: {
+        Row: {
+          actor_id: string
+          after_snapshot: Json
+          before_snapshot: Json
+          created_at: string
+          id: string
+          original_entry_id: string
+          reason: string
+          replacement_entry_id: string | null
+          reversal_entry_id: string
+          source_posting_id: string | null
+          tenant_id: string
+          undone_by: string | null
+        }
+        Insert: {
+          actor_id: string
+          after_snapshot?: Json
+          before_snapshot: Json
+          created_at?: string
+          id?: string
+          original_entry_id: string
+          reason: string
+          replacement_entry_id?: string | null
+          reversal_entry_id: string
+          source_posting_id?: string | null
+          tenant_id: string
+          undone_by?: string | null
+        }
+        Update: {
+          actor_id?: string
+          after_snapshot?: Json
+          before_snapshot?: Json
+          created_at?: string
+          id?: string
+          original_entry_id?: string
+          reason?: string
+          replacement_entry_id?: string | null
+          reversal_entry_id?: string
+          source_posting_id?: string | null
+          tenant_id?: string
+          undone_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_replacement_entry_id_fkey"
+            columns: ["replacement_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_source_posting_id_fkey"
+            columns: ["source_posting_id"]
+            isOneToOne: false
+            referencedRelation: "finance_source_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_operations_undone_by_fkey"
+            columns: ["undone_by"]
+            isOneToOne: false
+            referencedRelation: "finance_source_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_source_postings: {
+        Row: {
+          created_at: string
+          current_entry_id: string
+          id: string
+          original_entry_id: string
+          posting_role: string
+          revision: number
+          source_key: string
+          source_record_id: string | null
+          source_snapshot: Json
+          source_type: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_entry_id: string
+          id?: string
+          original_entry_id: string
+          posting_role?: string
+          revision?: number
+          source_key: string
+          source_record_id?: string | null
+          source_snapshot?: Json
+          source_type: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          current_entry_id?: string
+          id?: string
+          original_entry_id?: string
+          posting_role?: string
+          revision?: number
+          source_key?: string
+          source_record_id?: string | null
+          source_snapshot?: Json
+          source_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_current_entry_id_fkey"
+            columns: ["current_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_source_postings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -13386,6 +13719,20 @@ export type Database = {
         }
         Returns: string
       }
+      document_commit_receipt: {
+        Args: {
+          p_intake: string
+          p_path: string
+          p_values: Json
+          p_verification: Json
+        }
+        Returns: Json
+      }
+      document_sales_context: {
+        Args: { p_end: string; p_start: string; p_tenant: string }
+        Returns: Json
+      }
+      document_undo_receipt: { Args: { p_record: string }; Returns: string }
       ensure_revenue_manager_target_lines_month: {
         Args: {
           p_month: number
@@ -13486,6 +13833,23 @@ export type Database = {
         }
         Returns: undefined
       }
+      finance_source_date_correct: {
+        Args: {
+          p_date: string
+          p_entry: string
+          p_expected: Json
+          p_reason: string
+          p_reverse_only?: boolean
+        }
+        Returns: string
+      }
+      finance_source_drift: { Args: { p_tenant: string }; Returns: Json }
+      finance_source_drift_count: { Args: { p_tenant: string }; Returns: Json }
+      finance_source_operation_undo: {
+        Args: { p_operation: string }
+        Returns: string
+      }
+      finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
         Args: { _tenant_id: string; _venue_id: string }

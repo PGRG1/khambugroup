@@ -428,6 +428,55 @@
       "when": 1793494481335,
       "tag": "0060_settings_facts_and_automatic_behaviour",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793500208432,
+      "tag": "0061_document_context_and_source_posting_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793500259639,
+      "tag": "0062_atomic_source_date_drift_and_undo",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793500303784,
+      "tag": "0063_source_date_edit_sync_and_operation_undo",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793500352643,
+      "tag": "0064_atomic_verified_receipt_commit",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793500718174,
+      "tag": "0065_document_date_correction_learning",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1793500950812,
+      "tag": "0066_learning_rule_hash_schema_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1793501092949,
+      "tag": "0067_receipt_undo_and_retained_document_access",
+      "breakpoints": true
     }
   ]
 }

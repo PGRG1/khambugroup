@@ -12,7 +12,7 @@ function db(options: { denied?: boolean; scanHash?: string; previous?: boolean; 
   const upload = vi.fn(async () => ({ error: options.uploadFails ? new Error("upload failed") : null }));
   const tables: string[] = [];
   return { rpc, tables, upload, storage: { from: () => ({ upload, download: async () => ({ data: null }) }) }, from(name: string) {
-    tables.push(name); const q: any = { select() { return q; }, eq() { return q; }, limit() { return q; }, insert() { tables.push(`insert:${name}`); return q; }, then(r: any) { return Promise.resolve({ data: [], error: null }).then(r); }, maybeSingle: async () => ({ data: name === "venues" ? { id: "v" } : name === "sales_scan_extractions" ? { source_sha256: options.scanHash, original_values: { cash: null } } : options.previous ? { id: "prior", venue_id: "v" } : null, error: null }) }; return q;
+    tables.push(name); const q: any = { select() { return q; }, eq() { return q; }, limit() { return q; }, insert() { tables.push(`insert:${name}`); return q; }, then(r: any) { return Promise.resolve({ data: [], error: null }).then(r); }, maybeSingle: async () => ({ data: name === "venues" ? { id: "v" } : name === "sales_scan_extractions" ? { source_sha256: options.scanHash, original_values: { cash: null } } : options.previous ? { id: "prior", venue_id: "v", status: "posted" } : null, error: null }) }; return q;
   } };
 }
 describe("non-posting receipt intake", () => {
