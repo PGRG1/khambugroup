@@ -1,0 +1,22 @@
+import {describe,it,expect} from 'vitest';
+import {resolvePeopleSettings} from '@/utils/people';
+import {categorySuggestion,tenantMemberUsers} from '@/utils/settingsFacts';
+import {documentDateMismatch,unresolvedDateEntries} from '@/utils/booksReview';
+describe('Settings facts',()=>{
+ it('shows current tenant members only',()=>expect(tenantMemberUsers([{user_id:'khambu'},{user_id:'other'}],[{user_id:'khambu'}])).toEqual([{user_id:'khambu'}]));
+ it('admins can start a rota without shifts',()=>expect(resolvePeopleSettings({rota:false},{},{isAdmin:true}).rota).toBe(true));
+ it('rota remains hidden without shifts for non-admins',()=>expect(resolvePeopleSettings({rota:true}).rota).toBe(false));
+ it('coordinates enable venue-only clock-in',()=>expect(resolvePeopleSettings({clock_in:'off'},{},{hasLocation:true}).clock_in).toBe('venue_phone'));
+ it('clock-in stays off without coordinates regardless of legacy switch',()=>expect(resolvePeopleSettings({clock_in:'phone'}).clock_in).toBe('off'));
+ it('pay always uses rota even when typed monthly was saved',()=>expect(resolvePeopleSettings({pay_hours:'typed_monthly'}).pay_hours).toBe('rota'));
+ it('leave and sick notes are always available',()=>expect(resolvePeopleSettings({leave_requests:false,sick_notes:false})).toMatchObject({leave_requests:true,sick_notes:true}));
+ it('staff app and payslips are hidden until invitations exist',()=>expect(resolvePeopleSettings({staff_app:true,payslips:true})).toMatchObject({staff_app:false,payslips:false}));
+ it('reliability requires clock-in evidence',()=>{expect(resolvePeopleSettings({reliability:true}).reliability).toBe(false);expect(resolvePeopleSettings({reliability:false},{},{hasAttendance:true}).reliability).toBe(true);});
+ it('only no-show flags remain enabled',()=>expect(resolvePeopleSettings({flag_lateness:true,flag_extra_hours:true})).toMatchObject({flag_lateness:false,flag_extra_hours:false}));
+ it('preserves Strict approvals',()=>expect(resolvePeopleSettings({approvals:'strict'}).approvals).toBe('strict'));
+ it('Cleaning suggests 6100 only from the real active chart',()=>expect(categorySuggestion('Cleaning',[{id:'a',code:'6100',is_active:true}])?.id).toBe('a'));
+ it('does not guess Equipment asset threshold or missing accounts',()=>{expect(categorySuggestion('Equipment',[{id:'a',code:'1520'}])).toBeUndefined();expect(categorySuggestion('Food',[])).toBeUndefined();});
+ it('a document difference of exactly one year is not flagged',()=>expect(documentDateMismatch('2025-11-01','2026-11-01')).toBe(false));
+ it('a document difference over one year is flagged',()=>expect(documentDateMismatch('2025-10-31','2026-11-01')).toBe(true));
+ it('does not flag normal-range entries without a document mismatch',()=>expect(unresolvedDateEntries([{id:'a',entry_date:'2026-05-13',status:'posted',source_type:'invoice'}],[],'2025-10-01','2026-11-01')).toEqual([]));
+});

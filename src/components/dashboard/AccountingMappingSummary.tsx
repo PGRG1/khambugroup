@@ -4,8 +4,8 @@ import { ChevronDown, ChevronRight, ExternalLink, Settings2 } from "lucide-react
 import { useAccountMapping } from "@/hooks/useAccountMapping";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { Card } from "@/components/ui/card";
+import { useVenues } from "@/hooks/useVenues";
 
-const VENUES = ["Assembly", "Caliente", "Hanabi", "Events"];
 const PAYMENT_METHODS: { key: string; label: string }[] = [
   { key: "cash", label: "Cash" },
   { key: "visa", label: "Visa" },
@@ -19,6 +19,7 @@ const PAYMENT_METHODS: { key: string; label: string }[] = [
 ];
 
 export default function AccountingMappingSummary() {
+  const {venues}=useVenues();const VENUES=venues.filter(v=>v.is_active).map(v=>v.name);
   const { items: rules, loading: rulesLoading } = useAccountMapping();
   const { items: accounts, loading: accLoading } = useChartOfAccounts();
   const [open, setOpen] = useState(false);
@@ -64,7 +65,7 @@ export default function AccountingMappingSummary() {
           <span className="text-xs text-muted-foreground">— where each sales line lands in the books</span>
         </div>
         <Link
-          to="/finance/chart-of-accounts"
+          to="/settings?tab=business&section=accounts"
           onClick={(e) => e.stopPropagation()}
           className="hidden sm:inline-flex items-center gap-1 text-xs text-primary hover:underline"
         >

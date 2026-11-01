@@ -1,10 +1,12 @@
 import { probablyMisreadDate } from './financeClose';
 
 export type CorrectionLink = { original_entry_id: string; kind: string; line_id?: string | null; replacement_entry_id?: string | null; reversal_entry_id?: string | null };
-export function unresolvedDateEntries<T extends { id: string; entry_date: string; status: string; source_type: string }>(entries: T[], links: CorrectionLink[], first: string | undefined, today: string) {
+export function unresolvedDateEntries<T extends { id: string; entry_date: string; status: string; source_type: string; source_id?:string|null }>(entries: T[], links: CorrectionLink[], first: string | undefined, today: string, documents:Record<string,string>={}) {
   const resolved = new Set(links.filter(l => l.kind === 'date' || l.kind === 'reverse').map(l => l.original_entry_id));
-  return entries.filter(e => e.status === 'posted' && !resolved.has(e.id) && e.source_type !== 'adjustment' && probablyMisreadDate(e.entry_date, first, today));
+  return entries.filter(e => e.status === 'posted' && !resolved.has(e.id) && e.source_type !== 'adjustment' && (probablyMisreadDate(e.entry_date, first, today)||documentDateMismatch(e.entry_date,e.source_id?documents[`${e.source_type}:${e.source_id}`]:undefined)));
 }
+export function documentDateMismatch(entry:string,document:string|undefined){if(!document)return false;const a=new Date(`${entry.slice(0,10)}T00:00:00Z`),b=new Date(`${document.slice(0,10)}T00:00:00Z`);if(!Number.isFinite(a.getTime()+b.getTime()))return false;const early=a<b?a:b,late=a<b?b:a;const anniversary=new Date(early);anniversary.setUTCFullYear(anniversary.getUTCFullYear()+1);return late>anniversary;}
+export function bookDocumentDates(invoices:{id:string;invoice_date:string}[],bills:{id:string;bill_date:string}[],sales:{id:string;date:string}[]){return Object.fromEntries([...invoices.map(i=>[`invoice:${i.id}`,i.invoice_date]),...bills.map(b=>[`expense_bill:${b.id}`,b.bill_date]),...sales.map(s=>[`sales:${s.id}`,s.date])]);}
 export function unresolvedAccountLines<T extends { id: string; entry_id: string; mapping_status?: string | null; account_id?: string | null }>(lines: T[], links: CorrectionLink[], posted: Set<string>) {
   const resolved = new Set(links.filter(l => l.kind === 'account').map(l => l.line_id));
   const reversed = new Set(links.filter(l => ['date','reverse'].includes(l.kind)).map(l => l.original_entry_id));

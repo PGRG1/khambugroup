@@ -8,7 +8,7 @@ import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
 import {Label} from '@/components/ui/label';
 import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
-import {formatDateShort,formatTableInteger} from '@/utils/format';
+import {formatDate as formatDateShort,formatTableInteger} from '@/utils/format';
 import {learnedWords} from '@/utils/settingsFacts';
 import {toast} from 'sonner';
 export function BaniTab(){const {tenantId}=useActiveTenant();const bani=useBaniAccounting();const [rules,setRules]=useState<any[]>([]),[search,setSearch]=useState(''),[editing,setEditing]=useState<any>(null),[reason,setReason]=useState(''),[pattern,setPattern]=useState(''),[action,setAction]=useState('');

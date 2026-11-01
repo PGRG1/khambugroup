@@ -15,7 +15,7 @@ import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { toast } from "@/hooks/use-toast";
 import { useVenues } from "@/hooks/useVenues";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { formatCurrency,formatNumber,formatPercent } from "@/utils/format";
+import { formatCurrency,formatTableInteger as formatNumber,formatPercent } from "@/utils/format";
 
 const METRICS = [
   { value: "mtd_revenue", label: "MTD Revenue", unit: "HK$" },
@@ -169,7 +169,7 @@ export default function Notifications() {
           {rules.map((r) => {
             const m = METRICS.find((x) => x.value === r.metric);
             const op = OPS.find((x) => x.value === r.operator)?.label || r.operator;
-            const fmt = m?.unit === "HK$" ? formatCurrency(r.threshold) : m?.unit === "%" ? formatPercent(r.threshold/100) : formatNumber(r.threshold);
+            const fmt = m?.unit === "HK$" ? formatCurrency(r.threshold) : m?.unit === "%" ? formatPercent(r.threshold) : formatNumber(r.threshold);
             return (
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3">
                 <div className="min-w-0">

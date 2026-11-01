@@ -2,7 +2,7 @@ import {Link,useSearchParams} from 'react-router-dom';
 import {useAuth} from '@/hooks/useAuth';
 import {usePreviewMode} from '@/hooks/usePreviewMode';
 import {useUserPermissions} from '@/hooks/useUserPermissions';
-import {PageHeader} from '@/components/ui/page-header';
+import {PageTop as PageHeader} from '@/components/kit/PageTop';
 import {SectionPillRow} from '@/components/kit/SectionPillRow';
 import {BusinessTab} from '@/components/settings/BusinessTab';
 import {UsersTab} from '@/components/settings/UsersTab';
