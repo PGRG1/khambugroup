@@ -105,7 +105,7 @@ export default function Assistant() {
 
   useEffect(() => {
     if (!floating?.continueToPage[0] || !scopeReady || floating.scope[0] !== `${user?.id}:${tenantId}:false`) return;
-    const transferred: Msg[] = floating.messages[0].map(m => ({ ...m, content: [m.content, m.files?.length ? `Attached: ${m.files.join(", ")}` : "", m.outcome && !m.actionOutcome ? `Actual outcome: ${m.outcome}` : ""].filter(Boolean).join("\n"), actionCard: m.actionCard?.kind === "people" ? m.actionCard : undefined }));
+    const transferred: Msg[] = floating.messages[0].map(m => ({ ...m, content: [m.content, m.files?.length ? `Attached: ${m.files.join(", ")}` : "", m.outcome && !m.actionOutcome ? `Actual outcome: ${m.outcome}` : ""].filter(Boolean).join("\n"), actionCard: m.actionCard, actionOutcome: m.actionOutcome ?? (m.outcome ? { message: m.outcome } : undefined) }));
     const conversation = { ...createConversation<ChartSpec>(newId()), title: conversationTitle(transferred.find(m => m.role === "user")?.content ?? "Bani"), messages: transferred };
     setConversations(prev => upsertConversation(prev, conversation)); setActiveId(conversation.id);
     setInput(floating.draft[0]); setFiles(floating.files[0].map(f => f.file));
@@ -788,7 +788,7 @@ function MessageBlock({ msg, voiceMode = false, onOutcome, onChange }: { msg: Ms
         {msg.charts?.map((c, ci) => (
           <AssistantChart key={ci} spec={c} />
         ))}
-        {msg.actionCard?.kind === "people" && <PeopleActionCard card={msg.actionCard} outcome={msg.actionOutcome} onOutcome={onOutcome} onChange={onChange} />}
+        {msg.actionCard && <PeopleActionCard card={msg.actionCard} outcome={msg.actionOutcome} onOutcome={onOutcome} onChange={onChange} />}
       </div>
     </div>
   );

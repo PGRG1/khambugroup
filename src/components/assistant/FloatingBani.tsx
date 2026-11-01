@@ -245,8 +245,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const send = async (turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => {
     const typed = turn ? turn.text.trim() : draft.trim();
     const attached = filesRef.current;
-    if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn)) {
-      if (turn) throw new Error("Bani is not ready yet. Try again in a moment.");
+    if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn?.opts.voice)) {
+      if (turn?.opts.voice) throw new Error("Bani is not ready yet. Try again in a moment.");
       return;
     }
     const text = typed || FILES_ONLY_PROMPT;
@@ -464,7 +464,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 <Button size="sm" className="floating-bani-apply" onClick={() => { if (item.href) { setOpen(false); navigate(item.href); } else if (item.question) void send({ text: item.question, opts: { voice: false, voiceLanguage: "en" } }); }}>{item.label}</Button>
               </div>
             </section>)}
-            <div className="floating-bani-suggestions">{pageQuestions(pathname).map(question => <Button key={question} size="sm" variant="outline" dir="auto" className="floating-bani-suggestion" onClick={() => void send({ text: question, opts: { voice: false, voiceLanguage: "en" } })}>{question}</Button>)}</div>
+            <div className="floating-bani-suggestions">{pageQuestions(pathname).map(question => <Button key={question} disabled={busy} size="sm" variant="outline" dir="auto" className="floating-bani-suggestion" onClick={() => void send({ text: question, opts: { voice: false, voiceLanguage: "en" } })}>{question}</Button>)}</div>
           </div>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
