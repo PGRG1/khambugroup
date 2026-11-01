@@ -1,3 +1,10 @@
+## Rota to payroll flow
+- [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.
+- [x] Payroll PageTop/month menu, fixed 12 columns, immediate draft recalculation/override findings, saved read-only payslip/download, guarded owner approval via existing atomic accrual path.
+- [x] 33 focused rules tests/build OK; signed-in May totals 247407.70/239747.20/255068.20, Asim -1790.30 and Anita -600, identical May/Nov column widths, live unsaved Mirak OT 600 recalculation and 375px Payroll no overflow. All 85 payroll/2645 journals/21492 line fingerprints unchanged.
+- [ ] Remaining implementation: sickness/annual-cash eligibility and average wage evidence (blocked rather than guessed), monthly-only confirmation and automatic end-week delivery, richer per-amount evidence/confirmation detail and Bani settlement tool.
+- [ ] Not verified: real bank Save→Team readback, linked staff week at 375px, draft Save/owner approval and separate manager privacy; no production records were altered for tests.
+
 ## Team light follow-up
 - [x] Five-column Team, scoped title counts and single folded Bani finding; stacked phone rows.
 - [x] Evidence-only rest-day deadlines, separate attendance facts and consolidated person record; substitute rest days added to proposed copy/pattern rota drafts only, confirmation stays unchanged.
