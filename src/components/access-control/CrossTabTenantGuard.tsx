@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 export function CrossTabTenantGuard() {
   const [changed, setChanged] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -50,7 +51,9 @@ export function CrossTabTenantGuard() {
               localStorage.removeItem("khambu.enteredTenantId");
               localStorage.removeItem("khambu.activeTenantId");
             } catch {}
-            window.location.assign("/platform/clients");
+            setChanged(false);
+            window.dispatchEvent(new Event("khambu.activeTenantId.changed"));
+            navigate("/platform/clients");
           }}>
             Return to Platform
           </Button>
