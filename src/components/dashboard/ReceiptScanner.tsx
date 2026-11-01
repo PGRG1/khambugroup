@@ -176,7 +176,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       }
 
       const { data, error } = await supabase.functions.invoke("parse-receipt", {
-        body: { imageBase64: base64, mimeType: guessMimeType(file), venues: activeVenueNames, tenantId },
+        body: { imageBase64: base64, mimeType: guessMimeType(file), fileName: file.name, venues: activeVenueNames, tenantId },
       });
 
       if (error) {
@@ -216,6 +216,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
 
       const record: SalesRecord = {
         date: dateStr,
+        rawPrintedDate: raw.rawPrintedDate, printedWeekday: raw.printedWeekday, fieldConfidence: raw.fieldConfidence, dateEvidence: raw.dateEvidence,
         day: dayStr,
         venue: matched, // blank forces the user to pick if no match
         reportNumber: raw.reportNumber || "",
@@ -248,7 +249,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
       const result = await onSave(record, file, null, evidenceScanRef.current).finally(() => window.clearTimeout(stageTimer));
       setOutcome(result);
       if (result.status === "saved") { setBaniSales(null); setSavedRecord(record); }
-      else { setExtractedData(record); setShowDetails(true); }
+      else { setExtractedData(record); setShowDetails(false); }
       baniSay(salesOutcomeMessage(result));
       toast({ title: result.status === "failed" ? "Receipt not saved" : result.status === "saved" ? "Sales recorded" : "Receipt needs your review", description: salesOutcomeMessage(result), ...(result.status === "failed" ? { variant: "destructive" as const } : {}) });
     } catch (err) {
@@ -345,7 +346,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const diagnosis = extractedData ? diagnoseSalesScan(extractedData) : null;
   const flagged = new Set<string>(diagnosis?.fields ?? []);
   const ready = !!extractedData && !!diagnosis?.balanced && !venueUnmatched && !!extractedData.date;
-  const compact = false;
+  const compact = !showDetails;
   const flagCls = (f: string) => (flagged.has(f) ? " ring-2 ring-warning/60 border-warning/60" : "");
 
   const handleSave = async () => {
@@ -463,6 +464,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
           </div>
 
           {compact && extractedData && (
+            <div className="rounded-lg border border-warning/40 bg-warning/5 p-4 space-y-3">
+              <p className="text-sm" dir="auto">{outcome?.status === "flagged" ? outcome.reasons?.[0] : "Which printed field needs correcting?"}</p>
+              <Button variant="outline" onClick={() => setShowDetails(true)}>⋯ Check every field</Button>
+            </div>
+          )}
+          {false && compact && extractedData && (
             <div className="rounded-xl border border-success/40 bg-success/5 p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium text-success">
                 <Check className="h-4 w-4" /> All payments balance with Total Sales
@@ -477,7 +484,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
                 <div><div className="text-xs text-muted-foreground">Avg spend</div><div className="td-num text-base font-semibold">{extractedData.guests ? hkd(extractedData.totalSales / extractedData.guests) : "—"}</div></div>
               </div>
               <button type="button" onClick={() => setShowDetails(true)} className="text-xs text-primary hover:underline">
-                See all lines
+                ⋯ Check every field
               </button>
             </div>
           )}
@@ -656,12 +663,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
           <div className="flex items-center gap-3 pt-2">
             <Button
               onClick={handleSave}
-              disabled={saving || outcome?.status === "flagged"}
+              disabled={saving}
               className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               title={venueUnmatched ? "Select a venue from the master list first" : undefined}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {saving ? "Saving receipt for review…" : outcome?.status === "flagged" ? "Flagged · no sales posted" : "Retry saving receipt"}
+              {saving ? "Checking answer…" : "Check and post"}
             </Button>
             <button
               disabled={saving}
