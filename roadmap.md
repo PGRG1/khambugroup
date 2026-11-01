@@ -1,3 +1,7 @@
+## Shared page tops
+- [ ] Standardize shared title/controls/Bani layout and move existing list controls out of content cards; preserve all handlers and guards.
+- [ ] Check Sales records, Rota, Team, Payroll and Revenue overview at desktop/375px; report remaining exceptions.
+
 ## Rota to payroll flow
 - [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.
 - [x] Payroll PageTop/month menu, fixed 12 columns, immediate draft recalculation/override findings, saved read-only payslip/download, guarded owner approval via existing atomic accrual path.
