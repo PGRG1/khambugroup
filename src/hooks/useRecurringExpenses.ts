@@ -60,7 +60,7 @@ export function useRecurringExpenses() {
         col: "next_generation_date",
         asc: true,
       }, tenantId);
-      setRules(rows as RecurringRule[]);
+      setRules((rows as RecurringRule[]).map(r=>({...r,auto_approve:false})));
     } catch (e: any) {
       toast.error("Failed to load recurring rules: " + e.message);
     } finally {
@@ -96,7 +96,7 @@ export function useRecurringExpenses() {
         payment_due_day: r.payment_due_day ?? null,
         status,
         active: status === "active",
-        auto_approve: r.auto_approve ?? false,
+        auto_approve: false,
         notes: r.notes || null,
         document_source: r.document_source || null,
         document_notes: r.document_notes || null,
@@ -176,31 +176,7 @@ export function useRecurringExpenses() {
     const created = result?.created ?? 0;
     const skipped = result?.skipped_duplicate ?? 0;
 
-    const { data: autoBills } = await supabase
-      .from("expense_bills")
-      .select("id, recurring_rule_id")
-      .eq("tenant_id", tenantId)
-      .eq("approval_status", "pending_review")
-      .eq("source_type", "recurring_rule")
-      .not("recurring_rule_id", "is", null);
-    const autoRuleIds = new Set(
-      (await supabase.from("expense_recurring_rules").select("id").eq("tenant_id", tenantId).eq("auto_approve", true)).data?.map((r: any) => r.id) || []
-    );
-    let autoPosted = 0;
-    for (const b of autoBills || []) {
-      if (b.recurring_rule_id && autoRuleIds.has(b.recurring_rule_id)) {
-        await supabase.from("expense_bills").update({
-          approval_status: "approved",
-          approved_at: new Date().toISOString(),
-        }).eq("id", b.id).eq("tenant_id", tenantId);
-        const { error: postErr } = await supabase.rpc("post_expense_bill" as any, { p_bill_id: b.id });
-        if (!postErr) autoPosted++;
-      }
-    }
-
-    toast.success(
-      `Generated ${created} bill(s)${skipped ? ` · ${skipped} skipped` : ""}${autoPosted ? ` · ${autoPosted} auto-posted` : ""}`
-    );
+    toast.success(`Prepared ${created} bill(s)${skipped ? ` · ${skipped} skipped` : ""}; waiting for approval`);
     await refresh();
     return result;
   }, [refresh, tenantId]);
