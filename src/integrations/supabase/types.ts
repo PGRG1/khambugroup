@@ -3801,6 +3801,7 @@ export type Database = {
           reference: string
           release_months: number
           source_document: string | null
+          source_sales_id: string | null
           status: string
           tenant_id: string
           used_amount: number
@@ -3818,6 +3819,7 @@ export type Database = {
           reference: string
           release_months?: number
           source_document?: string | null
+          source_sales_id?: string | null
           status?: string
           tenant_id: string
           used_amount?: number
@@ -3835,12 +3837,27 @@ export type Database = {
           reference?: string
           release_months?: number
           source_document?: string | null
+          source_sales_id?: string | null
           status?: string
           tenant_id?: string
           used_amount?: number
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "finance_deferred_items_source_sales_id_fkey"
+            columns: ["source_sales_id"]
+            isOneToOne: false
+            referencedRelation: "sales_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_deferred_items_source_sales_id_fkey"
+            columns: ["source_sales_id"]
+            isOneToOne: false
+            referencedRelation: "sales_records"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "finance_deferred_items_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -11973,7 +11990,10 @@ export type Database = {
           created_at: string
           date: string
           day: string
+          deferred_feed: boolean
           deliveroo: number
+          deposits_taken: number
+          deposits_used: number
           discount: number
           event_id: string | null
           event_name: string | null
@@ -12002,6 +12022,8 @@ export type Database = {
           venue: string
           venue_id: string | null
           visa: number
+          vouchers_sold: number
+          vouchers_used: number
           wechat: number
         }
         Insert: {
@@ -12012,7 +12034,10 @@ export type Database = {
           created_at?: string
           date: string
           day: string
+          deferred_feed?: boolean
           deliveroo?: number
+          deposits_taken?: number
+          deposits_used?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
@@ -12041,6 +12066,8 @@ export type Database = {
           venue: string
           venue_id?: string | null
           visa?: number
+          vouchers_sold?: number
+          vouchers_used?: number
           wechat?: number
         }
         Update: {
@@ -12051,7 +12078,10 @@ export type Database = {
           created_at?: string
           date?: string
           day?: string
+          deferred_feed?: boolean
           deliveroo?: number
+          deposits_taken?: number
+          deposits_used?: number
           discount?: number
           event_id?: string | null
           event_name?: string | null
@@ -12080,6 +12110,8 @@ export type Database = {
           venue?: string
           venue_id?: string | null
           visa?: number
+          vouchers_sold?: number
+          vouchers_used?: number
           wechat?: number
         }
         Relationships: [
@@ -14912,6 +14944,10 @@ export type Database = {
           p_tenant: string
         }
         Returns: Json
+      }
+      finance_sales_deferred_save: {
+        Args: { p: Json; t: string }
+        Returns: string
       }
       finance_schedule_account: {
         Args: { c: string; k: string; n: string; t: string }

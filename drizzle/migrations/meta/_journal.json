@@ -722,6 +722,13 @@
       "when": 1793559462812,
       "tag": "0102_schedule_cancelled_asset_reproposal_and_source_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1793575471456,
+      "tag": "0103_deferred_sales_confirmed_draft_feed",
+      "breakpoints": true
     }
   ]
 }
