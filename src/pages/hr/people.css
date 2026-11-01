@@ -56,3 +56,5 @@
 .people-overview .overview-team-table th:nth-child(2),.people-overview .overview-team-table th:nth-child(3),.people-overview .overview-team-table th:nth-child(4) {width:15%;}
 .people-overview .overview-team-table th:last-child {width:15%;}
 @media(max-width:640px){.people-overview .overview-team-table th:first-child{width:43%;}.people-overview .overview-team-table th:nth-child(2),.people-overview .overview-team-table th:nth-child(3),.people-overview .overview-team-table th:nth-child(4){width:19%;}.people-overview .bani-finding{font-size:13px;}}
+
+.people-overview .bani-finding:hover,.people-overview .bani-finding:focus,.people-overview .bani-fold:hover,.people-overview .bani-fold:focus {background:transparent!important;color:hsl(var(--foreground))!important;}
