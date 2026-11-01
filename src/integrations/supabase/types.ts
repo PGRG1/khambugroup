@@ -2193,6 +2193,7 @@ export type Database = {
           reversal_entry_id: string | null
           source_key: string
           status: string
+          supplier_account_id: string | null
           supplier_id: string | null
           tenant_id: string
           venue: string | null
@@ -2216,6 +2217,7 @@ export type Database = {
           reversal_entry_id?: string | null
           source_key: string
           status?: string
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tenant_id: string
           venue?: string | null
@@ -2239,6 +2241,7 @@ export type Database = {
           reversal_entry_id?: string | null
           source_key?: string
           status?: string
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tenant_id?: string
           venue?: string | null
@@ -2330,6 +2333,13 @@ export type Database = {
             referencedColumns: ["entry_id"]
           },
           {
+            foreignKeyName: "expense_accrual_drafts_supplier_account_id_fkey"
+            columns: ["supplier_account_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expense_accrual_drafts_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -2361,6 +2371,7 @@ export type Database = {
           line_no: number
           notes: string | null
           salvage_value: number
+          supplier_account_id: string | null
           tax_amount: number
           tax_treatment: string
           tenant_id: string
@@ -2383,6 +2394,7 @@ export type Database = {
           line_no?: number
           notes?: string | null
           salvage_value?: number
+          supplier_account_id?: string | null
           tax_amount?: number
           tax_treatment?: string
           tenant_id?: string
@@ -2405,6 +2417,7 @@ export type Database = {
           line_no?: number
           notes?: string | null
           salvage_value?: number
+          supplier_account_id?: string | null
           tax_amount?: number
           tax_treatment?: string
           tenant_id?: string
@@ -2446,6 +2459,13 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_supplier_account_id_fkey"
+            columns: ["supplier_account_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -3270,6 +3290,48 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_supplier_aliases: {
+        Row: {
+          alias: string
+          created_at: string
+          id: string
+          source_supplier_id: string | null
+          supplier_id: string
+          tenant_id: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          id?: string
+          source_supplier_id?: string | null
+          supplier_id: string
+          tenant_id: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          id?: string
+          source_supplier_id?: string | null
+          supplier_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_supplier_aliases_source_supplier_id_fkey"
+            columns: ["source_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_supplier_aliases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -12413,6 +12475,8 @@ export type Database = {
       supplier_accounts: {
         Row: {
           account_number: string
+          billed_when: string
+          covers: Json
           created_at: string
           default_gl_account_id: string | null
           default_venue_id: string | null
@@ -12420,12 +12484,16 @@ export type Database = {
           is_active: boolean
           label: string | null
           notes: string | null
+          service_address: string | null
+          split_method: string
           supplier_id: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
           account_number: string
+          billed_when?: string
+          covers?: Json
           created_at?: string
           default_gl_account_id?: string | null
           default_venue_id?: string | null
@@ -12433,12 +12501,16 @@ export type Database = {
           is_active?: boolean
           label?: string | null
           notes?: string | null
+          service_address?: string | null
+          split_method?: string
           supplier_id: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
           account_number?: string
+          billed_when?: string
+          covers?: Json
           created_at?: string
           default_gl_account_id?: string | null
           default_venue_id?: string | null
@@ -12446,6 +12518,8 @@ export type Database = {
           is_active?: boolean
           label?: string | null
           notes?: string | null
+          service_address?: string | null
+          split_method?: string
           supplier_id?: string
           tenant_id?: string
           updated_at?: string
@@ -14356,6 +14430,7 @@ export type Database = {
         Returns: Json
       }
       expense_accrual_approve: { Args: { p_id: string }; Returns: string }
+      expense_bani_undo: { Args: { p_log: string }; Returns: undefined }
       expense_contract_bill_approve: {
         Args: { p_bill: string }
         Returns: string
@@ -14366,6 +14441,10 @@ export type Database = {
       }
       expense_correction_approve: { Args: { p_id: string }; Returns: string }
       expense_prepare_month: { Args: { m: string; t: string }; Returns: number }
+      expense_statement_check: {
+        Args: { p_account: string; p_date: string }
+        Returns: Json
+      }
       fetch_due_pending_rebuilds: {
         Args: { p_debounce_seconds?: number }
         Returns: {
