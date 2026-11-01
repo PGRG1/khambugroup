@@ -1,0 +1,7 @@
+import { HoverCard,HoverCardContent,HoverCardTrigger } from '@/components/ui/hover-card';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { bankBalance,validSettlement } from '@/utils/peopleWork';
+import { weekStart,type RotaRow } from '@/utils/peopleRota';
+import { formatDate,formatDecimal } from '@/utils/format';
+export function TimeBalance({personId,shifts}:{personId:string;shifts:RotaRow[]}){const balance=bankBalance(shifts,personId);return <HoverCard><HoverCardTrigger asChild><Button variant="ghost" className="p-0 h-auto text-xs font-normal">Time {balance.hours>0?'+':''}{formatDecimal(balance.hours,1)} h</Button></HoverCardTrigger><HoverCardContent className="bg-card text-card-foreground w-80 max-w-[calc(100vw-32px)] text-sm">{balance.lines.map(s=><p key={s.id} className="py-2 border-b border-border"><Link to={`/hr/schedule?week=${weekStart(s.shift_date)}&shift=${s.id}`}>{formatDate(s.shift_date)} · {Number(validSettlement(s)?.hours)>0?'+':''}{formatDecimal(Number(validSettlement(s)?.hours),1)} h · {validSettlement(s)?.note||validSettlement(s)?.reason}</Link></p>)}{!balance.lines.length&&<p>No banked shift decisions.</p>}</HoverCardContent></HoverCard>;}
