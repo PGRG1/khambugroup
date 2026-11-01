@@ -1,3 +1,10 @@
+## Finance part 3b
+- [ ] Draft-only schedule storage and selected monthly approval, with server closed-period/source checks.
+- [ ] Schedules register/detail, deferred revenue setup/items, stock basis and tax setup.
+- [ ] Month-close schedule reconciliations and month-end draft queue.
+- [ ] Safe 3a leftovers: manual proposals, aging PDFs, petty cash fields and other available guarded integrations.
+- [ ] Focused rules and populated desktop/375px check; protected counts/latest timestamps.
+
 ## Finance part 3a
 - [x] Six read-only report views, CSV/PDF, comparisons; existing typed management report preserved.
 - [x] Due-date tables, balance-capped editable payment-list proposals, ledger aging, merchant batch dialog; Bank views and reconciliation detail copy.
