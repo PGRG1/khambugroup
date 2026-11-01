@@ -32,3 +32,7 @@ describe('Punctuality never sets pay',()=>{
  it('early leave is a quiet fact',()=>expect(punctualityFacts(s,[{clock_in:'2026-05-02T01:00:00Z',clock_out:'2026-05-02T08:30:00Z',hours_worked:7.5}],now).earlyMinutes).toBe(30));
  it('legacy clock-in pay settings resolve to rota',()=>expect(resolvePeopleSettings({pay_hours:'clock_ins'}).pay_hours).toBe('rota'));
 });
+describe('Human hours and leave payments without rota',()=>{
+ it('uses exact 70 monthly hours from a last-paid starting point',()=>expect(payrollInstruction('Set Nabin Gurung hours to 70',[{...p,name:'Nabin Gurung',preparation:{source:'last_saved_payroll',pay_basis:'hour'}}],2026,11).changes[0]).toMatchObject({field:'forecast_allowances',value:70}));
+ it('records a human-specified statutory holiday pay line, not extra pay',()=>expect(payrollInstruction('Pay Asim Rana HK$600 statutory holiday pay',[p],2026,11).changes[0]).toMatchObject({field:'statutory_holiday_pay',value:600}));
+});
