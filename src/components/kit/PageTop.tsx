@@ -19,7 +19,7 @@ export function PageTop({ title, titleDetail, period, controls, actions, primary
         {(primaryAction || actionsBesideTitle && actions) && <div className="page-top-primary shrink-0">{primaryAction || actions}</div>}
       </div>
       <div className="page-top-controls flex flex-wrap items-center gap-2 min-h-9" aria-label="Page controls">
-        <div className="page-top-left flex flex-wrap items-center gap-2 min-w-0">{period}{controls}</div>
+        <div className="page-top-left flex flex-wrap items-center gap-2 min-w-0">{period}{controls}<div ref={host?.setLeft} className="page-top-controls-left-host flex flex-wrap items-center gap-2 min-w-0 empty:hidden" /></div>
         <div className="page-top-right flex flex-wrap items-center gap-2 min-w-0 ml-auto">{!actionsBesideTitle && actions}<div ref={host?.setTarget} className="page-top-controls-host flex flex-wrap items-center gap-2 min-w-0 empty:hidden" /></div>
       </div>
       {showBani && <BaniFindings findings={findings} />}
