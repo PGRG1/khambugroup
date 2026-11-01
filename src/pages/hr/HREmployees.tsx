@@ -1,3 +1,4 @@
+import {usePeopleRoles} from '@/hooks/usePeopleRoles';
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,16 +20,16 @@ import {usePeopleGrouping} from '@/hooks/usePeopleGrouping';
 import {PeopleGroupSwitch} from '@/components/hr/PeopleGroupSwitch';
 
 export default function HREmployees() {
-  const data=usePeopleData(),scope=useVenueScope(),settings=usePeopleSettings(),topic=useBaniTopic();
+  const rolesMap=usePeopleRoles();const data=usePeopleData(),scope=useVenueScope(),settings=usePeopleSettings(),topic=useBaniTopic();
   const [groupBy,setGroupBy]=usePeopleGrouping(data.owner,data.loading);
   const [view,setView]=useState('working'),[search,setSearch]=useState(''),[popup,setPopup]=useState<{title:string;lines:LeaveLine[]}|null>(null);
   const venue=(p:any)=>scope.venues.find(v=>v.id===p.venue_id||v.name===p.venue)?.name??'Venue not recorded';
   const scoped=data.employees.filter(p=>venue(p)==='Venue not recorded'?scope.isAll:scope.includesName(venue(p)));
   const current=scoped.filter(p=>workingPerson(p.status,p.hire_date,data.today,p.end_date));
   const rows=scoped.filter(p=>(view==='working'?workingPerson(p.status,p.hire_date,data.today,p.end_date):!workingPerson(p.status,p.hire_date,data.today,p.end_date))&&`${personName(p)} ${p.job_title??''}`.toLowerCase().includes(search.toLowerCase()));
-  const grouping=(p:any)=>groupBy==='Role'?roleGroup(p.job_title):venue(p);
+  const grouping=(p:any)=>groupBy==='Role'?roleGroup(p.job_title,rolesMap):venue(p);
   const groups=[...new Set(rows.map(grouping))].sort(),findings=peopleFindings(scoped,data);
-  const unset=current.filter(p=>roleGroup(p.job_title)==='No role set');
+  const unset=current.filter(p=>roleGroup(p.job_title,rolesMap)==='No role set');
   if(unset.length)findings.push({id:'people-roles',tone:'amber',title:`${unset.length} people need a role`,detail:unset.map(personName).join(' · '),label:'Check',question:`Ask me which role ${unset.map(personName).join(', ')} works in. Do not guess or suggest pay. Draft dated job title changes only for confirmation.`});
   useBaniWorkPublisher('/hr/employees',findings,!data.loading);
   const metricCells=(p:any)=>{const m=personMetrics(p,data),r=reliabilityLines(p,data,settings.forVenue(p.venue_id).clock_in!=='off');return [
