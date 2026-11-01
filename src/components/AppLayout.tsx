@@ -19,6 +19,7 @@ import { VenueScopeProvider } from "@/hooks/useVenueScope";
 import { VenueScopePicker } from "@/components/venue/VenueScopePicker";
 import "@/components/assistant/floating-bani.css";
 import "@/components/route-transitions.css";
+import { PageTopControlsProvider } from '@/components/kit/PageTopControls';
 
 const SIDEBAR_OPEN_KEY = "bani.sidebar.open";
 
@@ -61,7 +62,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {pathname.startsWith("/expenses") && <ExpensesNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
             <div key={`${tenantId}:${previewUserId}`} className="min-w-0">
-              <div key={pathname} className="route-content-enter min-w-0">{children}</div>
+              <div key={pathname} className="route-content-enter min-w-0"><PageTopControlsProvider>{children}</PageTopControlsProvider></div>
             </div>
           </div>
         </main>

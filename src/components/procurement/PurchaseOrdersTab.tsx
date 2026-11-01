@@ -1,3 +1,5 @@
+import { PageTop } from '@/components/kit/PageTop';
+import { PageControls } from '@/components/kit/PageTopControls';
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -312,10 +314,7 @@ export default function PurchaseOrdersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
-        {newPoButton}
-      </div>
+      <PageTop title="Purchase Orders" primaryAction={newPoButton}/>
 
       {!loading && pos.length === 0 ? (
         <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
@@ -324,17 +323,17 @@ export default function PurchaseOrdersTab() {
           {newPoButton}
         </div>
       ) : (<>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Status">
+        <PageControls>        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Status">
           {tabs.map((t) => (
             <button key={t.key} type="button" role="tab" aria-selected={statusFilter === t.key} onClick={() => setStatusFilter(t.key)}
               className={cn("rounded-full border px-3 py-1 text-xs transition-colors", statusFilter === t.key ? "border-primary bg-primary text-primary-foreground" : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground")}>
               {t.label} <span className="td-num ml-1 opacity-80">{t.count}</span>
             </button>
           ))}
-        </div>
+        </div></PageControls>
 
         <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
-          <div className="flex flex-col gap-2 border-b border-border/60 p-3 sm:flex-row">
+          <PageControls>          <div className="flex flex-col gap-2 border-b border-border/60 p-3 sm:flex-row">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search PO # or supplier" className="h-9 pl-8" />
@@ -355,7 +354,7 @@ export default function PurchaseOrdersTab() {
                 </SelectContent>
               </Select>
             )}
-          </div>
+          </div></PageControls>
 
           {loading ? <div className="h-40 animate-pulse bg-card/40" /> : rows.length === 0 ? (
             <p className="p-8 text-center text-sm text-muted-foreground">No purchase orders match.</p>

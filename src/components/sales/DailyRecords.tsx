@@ -1,3 +1,4 @@
+import { PageNotice } from '@/components/kit/PageTopControls';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -243,8 +244,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   );
 
   return (
-    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3" aria-labelledby="daily-records">
-      <h2 id="daily-records" className="text-base font-display font-semibold px-1">Daily records</h2>
+    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3" aria-label="Sales records list">
       <Toolbar
         filter={
           <FilterPanel activeCount={activeCount} onReset={() => setF(EMPTY)} width={340}>

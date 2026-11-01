@@ -214,11 +214,12 @@ const DataPage = () => {
     <div className="w-full mx-auto space-y-6">
       <RevenuePageTop
         title="Sales records"
+        titleDetail={<span>{periodName} · {periodRecords.length} records</span>}
         period={!isActionHidden("revenue.date_range") && (
           <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo}
             months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} includeMtd initialPeriod="MTD" labelled />
         )}
-        actions={actions}
+        primaryAction={actions}
       />
 
       {loading ? (

@@ -1,3 +1,4 @@
+import { PageControls } from '@/components/kit/PageTopControls';
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Ledger from "./Ledger";
@@ -21,8 +22,7 @@ export default function Books() {
   const view = params.get("view") ?? "journal";
   return (
     <div className="books-page min-w-0 space-y-3">
-      <h1 className="font-display text-2xl font-semibold">Books</h1>
-      <div className="md:hidden"><SectionPillRow label="Books views" items={views.map(([key,label])=>({label,path:`/finance/books?view=${key}`}))} activePath={`/finance/books?view=${view}`}/></div>
+      <PageControls side="left">      <div className="md:hidden"><SectionPillRow label="Books views" items={views.map(([key,label])=>({label,path:`/finance/books?view=${key}`}))} activePath={`/finance/books?view=${view}`}/></div>
       <div className="hidden md:flex flex-wrap gap-1 border-b border-border">
         {views.map(([key, label]) => (
           <Button
@@ -35,6 +35,7 @@ export default function Books() {
           </Button>
         ))}
       </div>
+</PageControls>
       {view === "journal" ? (
         <Journal />
       ) : view === "trial-balance" ? (

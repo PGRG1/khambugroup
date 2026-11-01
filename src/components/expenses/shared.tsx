@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useRef, useState } from "react";
+import { PageTop } from '@/components/kit/PageTop';
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -61,32 +62,7 @@ export function PageHeader({
   actions?: ReactNode;
   eyebrow?: ReactNode;
 }) {
-  return (
-    <div className="pb-5 border-b border-border/50">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
-        <div className="min-w-0">
-          {eyebrow && (
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5 font-medium">
-              {eyebrow}
-            </div>
-          )}
-          <h1 className="text-[20px] sm:text-[26px] leading-tight sm:leading-none font-display font-semibold tracking-tight break-words">
-            {title}
-          </h1>
-          {description && (
-            <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
-              {description}
-            </p>
-          )}
-        </div>
-        {actions && (
-          <div className="flex flex-wrap items-center gap-2 md:justify-end md:shrink-0 md:max-w-[60%]">
-            {actions}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <PageTop title={title} titleDetail={description} actions={actions} />;
 }
 
 /* ============================================================

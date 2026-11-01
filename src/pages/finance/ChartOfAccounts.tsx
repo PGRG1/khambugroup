@@ -1,3 +1,5 @@
+import { PageControls } from '@/components/kit/PageTopControls';
+import { PageTop } from '@/components/kit/PageTop';
 import { useMemo, useState } from "react";
 import {
   useChartOfAccounts, ChartAccount, AccountType, NormalSide,
@@ -226,15 +228,8 @@ export default function ChartOfAccountsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Chart of accounts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            The complete list of accounts used in your books. Edit codes, names, and how they appear on your statements.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="w-full space-y-4">
+      <PageTop title="Chart of accounts" actions={<div className="flex flex-wrap gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" disabled={rebuilding || !tenantId}>
@@ -255,8 +250,8 @@ export default function ChartOfAccountsPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </div>
-      </header>
+        </div>}/>
+
 
       <AccountReviewNote accounts={items} onSaved={()=>void fetchAll()}/>
       <Tabs defaultValue="accounts">
@@ -267,7 +262,7 @@ export default function ChartOfAccountsPage() {
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <PageControls>          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="relative flex-1 min-w-0 sm:max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
@@ -303,7 +298,7 @@ export default function ChartOfAccountsPage() {
                 <Plus className="h-4 w-4 mr-1" /> Add Account
               </Button>
             </div>
-          </div>
+          </div></PageControls>
 
           {/* Counter strip + scope line */}
           <div className="space-y-1">
@@ -313,7 +308,7 @@ export default function ChartOfAccountsPage() {
             <p className="text-xs text-muted-foreground/80">{scopeLine}</p>
           </div>
 
-          <section className="kit card-glass overflow-hidden"><div className="p-4"><h2 className="font-semibold">Chart of accounts</h2><p className="text-sm text-muted-foreground">{scopeLine}</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[20%] text-left">Code</th><th className="text-left">Account</th><th className="w-[25%] text-left">Type</th><th className="w-12"/></tr></thead><tbody>{filtered.map(a=><tr key={a.id} className="border-t border-border/50"><td className="p-4 font-mono">{a.code}</td><td className="break-words py-4 pr-2">{a.name}<p className="text-xs text-muted-foreground">{a.description}</p></td><td className="text-xs text-muted-foreground">{ACCOUNT_TYPE_LABEL[a.account_type]} · {a.is_active?'Active':'Inactive'}</td><td><Button variant="ghost" size="icon" aria-label={`Edit ${a.code}`} onClick={()=>openEdit(a)}><Pencil className="h-4 w-4"/></Button></td></tr>)}</tbody></table>{!filtered.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading accounts…':'No accounts found.'}</p>}</section>
+          <section className="kit card-glass overflow-hidden"><div className="p-4"><p className="text-sm text-muted-foreground">{scopeLine}</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[20%] text-left">Code</th><th className="text-left">Account</th><th className="w-[25%] text-left">Type</th><th className="w-12"/></tr></thead><tbody>{filtered.map(a=><tr key={a.id} className="border-t border-border/50"><td className="p-4 font-mono">{a.code}</td><td className="break-words py-4 pr-2">{a.name}<p className="text-xs text-muted-foreground">{a.description}</p></td><td className="text-xs text-muted-foreground">{ACCOUNT_TYPE_LABEL[a.account_type]} · {a.is_active?'Active':'Inactive'}</td><td><Button variant="ghost" size="icon" aria-label={`Edit ${a.code}`} onClick={()=>openEdit(a)}><Pencil className="h-4 w-4"/></Button></td></tr>)}</tbody></table>{!filtered.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading accounts…':'No accounts found.'}</p>}</section>
 
         </TabsContent>
 
