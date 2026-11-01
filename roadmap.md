@@ -1,3 +1,15 @@
+## Finance part 3a
+- [x] Six read-only report views, CSV/PDF, comparisons; existing typed management report preserved.
+- [x] Due-date tables, balance-capped editable payment-list proposals, ledger aging, merchant batch dialog; Bank views and reconciliation detail copy.
+- [x] Books source/account filters, entry links, prior-period ledger balance; Schedules/Tax placeholders.
+- [x] 19 focused tests, build OK; desktop/375px views render without page overflow; populated bank statement lines verified. No financial writes issued; counts retained. Original fingerprint serialization is unavailable, so whole-row fingerprint equality is unverified.
+- [ ] New journal → Approve needs an additive proposal/approval mechanism: existing APIs only post source records or correct posted entries, so direct posting was not introduced.
+- [ ] Single multi-file statement detection/drop handoff needs reader/classifier integration; existing separate reviewed import flows retained. Real reads/imports/matching/close/explanation saves not exercised.
+- [ ] Multi-item bank sum matching needs a guarded multi-candidate action; existing exact single-item confirm retained. Petty cash kept-by/top-up account fields are absent from current schema.
+- [ ] Account merge/owner-accountant editing workflow needs permission-backed guarded API; existing account editing retained unchanged.
+- [ ] Receivable aging is account-level FIFO, not merchant/month batch reconciliation; Last matched in the age table and PDF aging export remain incomplete. Historical payables use current unpaid values, not payment replay. Central report sharing uses no guessed allocation; configured sharing integration remains incomplete.
+- Actual 31 May assets 6,964,455 / liabilities 6,244,147 / equity 720,308; Jan–May cash change 1,017,391, opening 255,435 → closing 1,272,826. Requested equity/cash change differ by whole-dollar rounding; no books changes made.
+
 ## Finance part 2 — current
 - [x] Grouped Payables/payment selection-preview, merchant Receivables, Bank & cash/tills/petty cash and unmatched lines; existing guarded actions retained.
 - [x] Server reconciliation snapshots, tenant-scoped append-only explanations, Close log and server close guards.

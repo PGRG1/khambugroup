@@ -12,7 +12,9 @@ const views = [
   ["journal", "Journal"],
   ["ledger", "Ledger"],
   ["trial-balance", "Trial balance"],
-  ["chart-of-accounts", "Chart of accounts"],
+  ["chart-of-accounts", "Accounts"],
+  ["schedules", "Schedules"],
+  ["tax", "Tax"],
   ["documents", "Documents"],
   ["ledger-audit", "Audit"],
 ];
@@ -21,7 +23,7 @@ export default function Books() {
   const view = params.get("view") ?? "journal";
   return (
     <div className="books-page min-w-0 space-y-3">
-      <h1 className="font-display text-2xl font-semibold">Books</h1>
+      {['schedules','tax'].includes(view)&&<h1 className="font-display text-2xl font-semibold">Books</h1>}
       <div className="md:hidden"><SectionPillRow label="Books views" items={views.map(([key,label])=>({label,path:`/finance/books?view=${key}`}))} activePath={`/finance/books?view=${view}`}/></div>
       <div className="hidden md:flex flex-wrap gap-1 border-b border-border">
         {views.map(([key, label]) => (
@@ -41,6 +43,8 @@ export default function Books() {
         <TrialBalance />
       ) : view === "chart-of-accounts" ? (
         <ChartOfAccounts />
+      ) : view === "schedules" || view === "tax" ? (
+        <section className="kit card-glass p-4"><h2 className="font-semibold mb-4">{view === 'tax' ? 'Tax setup' : 'Schedules'}</h2><div className="divide-y divide-border">{(view === 'tax' ? ['Tax setup'] : ['Fixed assets','Prepayments','Accruals','Deposits','Deferred revenue','Goods received not invoiced']).map(name=><div key={name} className="py-3 flex justify-between gap-3 text-sm"><span>{name}</span><span className="text-muted-foreground">Coming in part 3b</span></div>)}</div></section>
       ) : view === "ledger-audit" ? (
         <LedgerAuditLog />
       ) : view === "documents" ? (

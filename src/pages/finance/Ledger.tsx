@@ -1,6 +1,6 @@
 import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams,Link } from "react-router-dom";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -19,6 +19,7 @@ const fmtWhole = (n:number) => formatDecimal(n,0);
 const fmtDate = (v:string|null|undefined) => v ? formatDate(v) : '—';
 
 interface GLRow {
+  entry_id: string;
   entry_date: string;
   entry_memo: string;
   source_type: string;
@@ -49,10 +50,11 @@ export default function Ledger() {
   const setToDate = (v: string) => setParam("to", v);
   const [rows, setRows] = useState<GLRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [opening,setOpening]=useState(0);
 
 
   useEffect(() => {
-    if (!accountId || !tenantId) { setRows([]); return; }
+    if (!accountId || !tenantId) { setRows([]); setOpening(0); return; }
     setLoading(true);
     let cancelled = false;
     (async () => {
@@ -69,6 +71,7 @@ export default function Ledger() {
         (!fromDate || r.entry_date >= fromDate) &&
         (!toDate || r.entry_date <= toDate)
       );
+      setOpening((all as GLRow[]).filter(r=>r.account_id===accountId&&!!fromDate&&r.entry_date<fromDate).reduce((n,r)=>n+(r.normal_side==='credit'?Number(r.credit)-Number(r.debit):Number(r.debit)-Number(r.credit)),0));
       setRows(filtered);
       setLoading(false);
     })();
@@ -78,20 +81,20 @@ export default function Ledger() {
   const account = accounts.find((a) => a.id === accountId);
 
   const withRunning = useMemo(() => {
-    let bal = 0;
+    let bal = opening;
     return rows.map((r) => {
       const delta = account?.normal_side === "credit" ? Number(r.credit) - Number(r.debit) : Number(r.debit) - Number(r.credit);
       bal += delta;
       return { ...r, running: bal };
     });
-  }, [rows, account]);
+  }, [rows, account,opening]);
 
   const totals = useMemo(() => ({
     debit: rows.reduce((s, r) => s + Number(r.debit), 0),
     credit: rows.reduce((s, r) => s + Number(r.credit), 0),
   }), [rows]);
 
-  const closing = withRunning[withRunning.length - 1]?.running ?? 0;
+  const closing = withRunning[withRunning.length - 1]?.running ?? opening;
 
   const exportCsv = () => {
     if (!account) return;
@@ -187,7 +190,7 @@ export default function Ledger() {
                   <TableRow key={i}>
                     <TableCell className="text-xs whitespace-nowrap">{fmtDate(r.entry_date)}</TableCell>
                     <TableCell><span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">{r.source_type}</span></TableCell>
-                    <TableCell className="text-sm">{r.entry_memo}{r.line_memo ? <span className="text-muted-foreground"> — {r.line_memo}</span> : null}</TableCell>
+                    <TableCell className="text-sm"><Link className="text-primary underline" to={`/finance/books?view=journal&entry=${r.entry_id}`}>{r.entry_memo}</Link>{r.line_memo ? <span className="text-muted-foreground"> — {r.line_memo}</span> : null}</TableCell>
                     <TableCell className="text-right tabular-nums text-sm">{Number(r.debit) ? fmt(Number(r.debit)) : ""}</TableCell>
                     <TableCell className="text-right tabular-nums text-sm">{Number(r.credit) ? fmt(Number(r.credit)) : ""}</TableCell>
                     <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(r.running)}</TableCell>
