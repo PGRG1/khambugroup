@@ -74,7 +74,7 @@ const AuditLog = () => {
         </p>
       </div>
 
-      <section className="overflow-hidden">
+      <section className="card-glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
             <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>

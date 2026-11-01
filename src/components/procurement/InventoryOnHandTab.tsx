@@ -344,7 +344,7 @@ function LegacyInventoryOnHandTab({ mode = "deposits" }: { mode?: "inventory" | 
       {/* Reorder Alerts (inventory only) */}
       {mode === "inventory" && (
         <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen}>
-          <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+          <div className="card-glass rounded-xl overflow-hidden">
             <CollapsibleTrigger asChild>
               <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition">
                 <div className="flex items-center gap-2">

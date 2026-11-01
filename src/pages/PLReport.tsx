@@ -256,7 +256,7 @@ export default function PLReport() {
       ) : selectedPeriods.length === 0 ? (
         <p className="text-sm text-muted-foreground">Select at least one period to view the Profit & Loss report.</p>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-x-auto relative shadow-card">
+        <div className="card-glass rounded-xl overflow-x-auto relative">
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr className="bg-muted/50">
