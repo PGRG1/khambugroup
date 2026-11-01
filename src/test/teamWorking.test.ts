@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {allocateTeamCost,resolveTeamWorking,splitCents,teamSuggestions} from '@/utils/teamWorking';
+import {allocateTeamCost,resolveTeamWorking,splitCents,teamSuggestions,venueStaffProfit} from '@/utils/teamWorking';
 const venues=[{id:'a',name:'Assembly'},{id:'c',name:'Caliente'}],people=[{id:'p',venue_id:'a',job_title:'Chef'}],pay=[{employee_id:'p',year:2026,month:5,gross_salary:247407.70,mpf_employer:7660.50}];
 const work=(v:string,date='2026-05-01',end='17:00')=>({employee_id:'p',venue_id:v,shift_date:date,start_time:'10:00',end_time:end,shift_type:'regular'});
 const allocate=(mode='own',shifts:any[]=[],p:Record<string,any>[]=pay)=>allocateTeamCost(p,people,shifts,[],venues,[{date:'2026-05-01',venue_id:'a',total_sales:782251}],'2026-05',resolveTeamWorking({default_mode:mode,role_modes:{}}));
@@ -15,6 +15,8 @@ describe('How your team works',()=>{
  it('May venue plus Central/not-on-rota equals exact saved 255068.20',()=>{const r=allocate('across',[work('a'),work('c')]);expect(Math.round((r.venues.reduce((n,v)=>n+v.cost,0)+r.central.cost+r.unallocated.cost)*100)).toBe(25506820);});
  it('rounding never loses a cent',()=>expect(splitCents(100,[1,1,1])).toEqual([34,33,33]));
  it('missing payroll remains unknown',()=>expect(allocate('own',[],[]).cost).toBeNull());
+ it('venue P&L deducts the shared cost exactly once from other costs',()=>expect(venueStaffProfit(782251,100000,50000,255068.2)).toBe(377182.8));
+ it('venue profit is unknown when payroll is missing',()=>expect(venueStaffProfit(782251,100000,50000,null)).toBeNull());
  it('cancelled and leave shifts do not allocate cost',()=>{const r=allocate('across',[{...work('a'),status:'cancelled'},{...work('c'),shift_type:'AL'}]);expect(r.unallocated.cost).toBe(255068.2);});
  it('never mutates saved rows',()=>{const before=JSON.stringify(pay);allocate('across',[work('a')]);expect(JSON.stringify(pay)).toBe(before);});
  it('suggestions need repeated cross-venue evidence and never set choices',()=>{const s=teamSuggestions(people,[work('a'),work('c'),work('a','2026-04-01'),work('c','2026-04-02')],[],venues);expect(s[0].mode).toBe('across');expect(resolveTeamWorking(null).role_modes).toEqual({});});

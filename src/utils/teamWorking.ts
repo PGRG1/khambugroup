@@ -1,4 +1,4 @@
-import {roleGroup,monthKey,payTotals} from '@/utils/peoplePresentation';
+import {roleGroup,monthKey} from '@/utils/peoplePresentation';
 import {personOnDate,shiftAt,shiftHours,type RotaRow} from '@/utils/peopleRota';
 export const TEAM_MODES = {own:'Each venue has its own team',across:'Staff work across venues',central:'One central team'} as const;
 export type TeamMode = keyof typeof TEAM_MODES;
@@ -6,6 +6,7 @@ export type TeamWorking = {default_mode:TeamMode;role_modes:Record<string,TeamMo
 export const DEFAULT_TEAM_WORKING:TeamWorking={default_mode:'own',role_modes:{}};
 export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.prototype.hasOwnProperty.call(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
 export const teamMethod=(m:TeamMode)=>({own:'own team',across:'share by hours',central:'central team'})[m];
+export function venueStaffProfit(sales:number,bought:number,otherRunning:number,staff:number|null){return staff===null?null:sales-bought-otherRunning-staff;}
 export type CostShare={venue_id:string|null;name:string;cents:number;hours:number;method:string};
 export type PersonCost={employee_id:string;mainVenue:string|null;cost:number;shares:CostShare[]};
 export type VenueCost={venue_id:string|null;name:string;cost:number;sales:number;percent:number|null;method:string};

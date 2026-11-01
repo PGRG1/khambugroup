@@ -6,7 +6,7 @@ Read nested AGENTS.md first.
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Mutable master fields use earlier evidence or are omitted; no snapshots.
-- Finance-team owns results; follow Bani accounting AGENTS.md.
+- Finance-team owns results; follow accounting AGENTS.md.
 - Section nav mounts once below headings; most-specific paths and effective guards. Purchasing uses server preview roles. Settings uses scoped fact editors/atomic category RPCs; People reads Approvals.
 - usePurchasingMode reads tenant-scoped app_config. Only ProcurementDashboardTab uses purchasingOverviewRows to bypass venue scope for central buying; invoices and revenue remain explicitly tenant-scoped, without changing other pages.
 - Purchasing uses purchasingOverview.ts; directoryRows unifies stock/expense profiles via reversible aliases without financial relinks.

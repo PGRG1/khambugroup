@@ -3,7 +3,7 @@ import {useTeamWorking} from '@/hooks/useTeamWorking';
 import {usePeopleData} from '@/hooks/usePeopleData';
 import {usePeopleRoles} from '@/hooks/usePeopleRoles';
 import {useVenues} from '@/hooks/useVenues';
-import {allocateTeamCost} from '@/utils/teamWorking';
+import {allocateTeamCost,venueStaffProfit} from '@/utils/teamWorking';
 import {TeamCostLines} from '@/components/hr/TeamCostLines';
 import {useQuery} from '@tanstack/react-query';
 import {fetchAllRows} from '@/utils/fetchAllRows';
@@ -123,7 +123,7 @@ export default function Reports() {
   const payrollAccountIds=new Set(payrollMappings.items.filter(r=>['payroll_salary_expense','payroll_mpf_expense'].includes(r.rule_type)).map(r=>r.account_id));
   const allocatedCost=(m:string,venue:string)=>{const c=staffCosts.find(c=>c.month===m);if(!c||c.cost===null)return null;return venue==='Central'?c.central.cost:venue==='Not on rota / venue not recorded'?c.unallocated.cost:c.venues.find(v=>v.name===venue)?.cost??0;};
   const venueRunning=(m:string,venue:string)=>books.accounts.filter(a=>plGroup(a.account_type)==='Running costs'&&!payrollAccountIds.has(a.id)).reduce((n,a)=>n+amount(a,m,venue),0);
-  const venueValue=(group:string,m:string,venue:string):number|null=>{if(group==='Staff cost')return allocatedCost(m,venue);if(group==='Running costs')return venueRunning(m,venue);if(group==='Profit'){const staff=allocatedCost(m,venue);return staff===null?null:total('Sales',m,venue)-total('Cost of sales',m,venue)-venueRunning(m,venue)-staff;}return total(group,m,venue);};
+  const venueValue=(group:string,m:string,venue:string):number|null=>{if(group==='Staff cost')return allocatedCost(m,venue);if(group==='Running costs')return venueRunning(m,venue);if(group==='Profit')return venueStaffProfit(total('Sales',m,venue),total('Cost of sales',m,venue),venueRunning(m,venue),allocatedCost(m,venue));return total(group,m,venue);};
   const profit = (m: string, venue?: string) =>
     total("Sales", m, venue) -
     total("Cost of sales", m, venue) -
