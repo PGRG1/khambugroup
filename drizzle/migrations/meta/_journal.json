@@ -701,6 +701,13 @@
       "when": 1793559250793,
       "tag": "0099_schedule_reconciliation_and_draft_source_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1793559339603,
+      "tag": "0100_schedule_depreciation_register_and_pending_reconciliation",
+      "breakpoints": true
     }
   ]
 }
