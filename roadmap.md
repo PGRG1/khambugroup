@@ -1,3 +1,9 @@
+## People and persistent navigation follow-ups
+- [ ] Remove unsupported saved-month running curves; preserve totals.
+- [ ] Own People page headers/actions and shared phone navigation, no desktop tabs.
+- [ ] Persistent tenant shell, unchanged content gates, identity-scoped permission/Overview caches, router links and reduced-motion fade.
+- [ ] One desktop navigation/preview/tenant pass and focused tests; list files and any verification limits.
+
 ## People Overview simplification
 - [x] Read-only month/year Overview, two findings plus folded line, accrued costs/projections, venue/role bars and dated team counts. Saved daily curve spreads saved totals over recorded days, or calendar days when daily evidence is absent; no payroll recomputation.
 - [x] Confirmed front/back role setting and orb draft support; Payroll venue header/split/subtotal methods removed; Rota unchanged.
