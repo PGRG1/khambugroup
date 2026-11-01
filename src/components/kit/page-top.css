@@ -35,7 +35,8 @@
 .page-bani-notices[data-expanded="false"][data-has-finding="true"] > *,
 .page-bani-notices[data-expanded="false"] > :not(:first-child) { display: none; }
 
-.page-top-title { min-height: 40px; }
+.page-top .page-top-title { min-height: 40px; }
+.page-top .bani-fold { display: flex; margin-top: 2px; }
 .page-top-detail { max-width: 100%; }
 .page-top-detail > :is(p, div, span) { font-size: 13px !important; font-weight: 400 !important; }
 .page-top-detail > p, .page-top-detail > div { font-size: 13px; font-weight: 400; }
