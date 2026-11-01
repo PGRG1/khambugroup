@@ -6,13 +6,14 @@ import { cn } from "@/lib/utils";
 import { SectionPillRow } from '@/components/kit/SectionPillRow';
 
 const tabs = [
+  { label: "Overview", path: "/hr/overview" },
   { label: "Team", path: "/hr/employees" },
   { label: "Rota", path: "/hr/schedule" },
   { label: "Payroll", path: "/hr/payroll" },
 ];
 
 export function peopleNavigationPath(pathname: string): string | undefined {
-  if(pathname==="/hr")return "/hr/employees";
+  if(pathname==="/hr")return "/hr/overview";
   if(pathname==="/hr/leave"||pathname==="/hr/clock")return "/hr/schedule";
   if(pathname==="/hr/payroll/payables")return undefined;
   return tabs.filter(tab => pathname === tab.path || (tab.path !== "/hr" && pathname.startsWith(`${tab.path}/`)))
