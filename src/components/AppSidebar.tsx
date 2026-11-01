@@ -334,7 +334,7 @@ export function AppSidebar() {
     || (to === "/kpis/setup" && ["/kpis/assignments", "/kpis/targets"].some((r) => pathname === r || pathname.startsWith(`${r}/`)));
   const peopleSettings=usePeopleSettings();const peopleScope=useVenueScope();
   const peopleChildren = [
-    { title: "Team", to: "/hr/employees" }, { title: "Rota & hours", to: "/hr/schedule" }, { title: "Payroll", to: "/hr/payroll" },
+    { title: "Team", to: "/hr/employees" }, { title: "Rota", to: "/hr/schedule" }, { title: "Payroll", to: "/hr/payroll" },
   ].filter(t=>t.to!=="/hr/schedule"||peopleScope.venues.some(v=>peopleScope.includesId(v.id)&&peopleSettings.forVenue(v.id).rota));
   const peopleActivePath = peopleNavigationPath(pathname);
   const showSubPages = !isMobile;

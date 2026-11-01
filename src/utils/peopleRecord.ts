@@ -79,14 +79,14 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
 export function personMetrics(person: EvidenceRow,data:PersonEvidence) {
   const year=data.today.slice(0,4), all=leaveStatement(person,data), lines=all.filter(l=>l.date?.startsWith(year)||l.event.includes(year));
   const balance=data.leave.find(b=>b.employee_id===person.id&&String(b.year)===year&&leaveKind(b.leave_type?.name)==='AL');
-  const taken=-lines.filter(l=>l.al<0).reduce((n,l)=>n+l.al,0);
+  const taken=Math.abs(lines.filter(l=>l.al<0).reduce((n,l)=>n+l.al,0));
   const entitlement=balance?Number(balance.total_days)+Number(balance.carried_forward??0)+Number(balance.adjustments??0):person.annual_leave==null?null:Number(person.annual_leave);
   const owed=all.filter(l=>l.sh>0).flatMap(l=>Array.from({length:l.sh},()=>l));
   let cleared=-all.filter(l=>l.sh<0).reduce((n,l)=>n+l.sh,0);
   // FIFO only for recorded substitute days; retain each outstanding holiday's deadline.
   const outstanding=owed.filter(()=>cleared-->0?false:true);
   const sick=lines.filter(l=>l.kind==='SL').reduce((n,l)=>n+Number(l.days??1),0);
-  return {all,lines,entitlement,taken,left:entitlement==null?null:entitlement-taken,shSoFar:lines.filter(l=>l.sh>0).reduce((n,l)=>n+l.sh,0),shTaken:-lines.filter(l=>l.sh<0).reduce((n,l)=>n+l.sh,0),shOwed:outstanding.length,outstanding,sick};
+  return {all,lines,entitlement,taken,left:entitlement==null?null:entitlement-taken,shSoFar:lines.filter(l=>l.sh>0).reduce((n,l)=>n+l.sh,0),shTaken:Math.abs(lines.filter(l=>l.sh<0).reduce((n,l)=>n+l.sh,0)),shOwed:outstanding.length,outstanding,sick};
 }
 export function reliabilityLines(person:EvidenceRow,data:PersonEvidence,clock:boolean) {
   const lines:LeaveLine[]=[], cutoff=addDaysIso(data.today,-56);
@@ -102,6 +102,7 @@ export function peopleFindings(people:EvidenceRow[],data:PersonEvidence):PageWor
   const findings:PageWorkItem[]=[];
   const add=(p:EvidenceRow,key:string,title:string,detail:string,question:string)=>findings.push({id:`${p.id}-${key}`,tone:'amber',title:`${personName(p)} · ${title}`,detail,label:'Check',question});
   for(const p of people) {
+    if(!['active','on_leave'].includes(p.status))continue;
     const pay=data.payroll.filter(r=>r.employee_id===p.id).sort((a,b)=>a.year-b.year||a.month-b.month),last=pay[pay.length-1],latest=last?`${last.year}-${String(last.month).padStart(2,'0')}-01`:null;
     if(['active','on_leave'].includes(p.status)&&(!latest||latest<addDaysIso(data.today,-62)))add(p,'working','Still working here?',latest?`Last saved payroll: ${formatMonthLabel(latest.slice(0,7))}`:'No saved payroll',`Check whether ${personName(p)} is still working here. Last saved payroll ${latest??'not recorded'}. Ask me; do not change their status without confirmation.`);
     if(/promoters|runner foh|kitchen dishwasher|cleaner cleaner/i.test(personName(p)))add(p,'identity','Person or role?', 'Name looks like a role, not a person',`Is ${personName(p)} a person or a role entry? Ask me for the actual person; never guess or delete.`);
