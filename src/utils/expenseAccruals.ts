@@ -1,4 +1,4 @@
-import {expenseMonths} from '@/utils/expensesOverview';
+function expenseMonths(first:string,last:string){const keys:string[]=[];for(let k=first.slice(0,7);k<=last.slice(0,7)&&keys.length<240;){keys.push(k);const d=new Date(`${k}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+1);k=d.toISOString().slice(0,7);}return keys;}
 export type ContractTerms={expected_amount:number;cadence:string;effective_from:string|null;contract_end?:string|null;rent_free_months?:string[];step_increases?:{month:string;amount:number}[];direction?:string;billed_when?:string};
 const cents=(n:number)=>Math.round(n*100);
 export function contractPlan(r:ContractTerms,from:string,to:string){
