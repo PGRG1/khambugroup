@@ -99,6 +99,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
   const scannedRef = useRef<SalesRecord | null>(null);
   const evidenceScanRef = useRef<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [answerField, setAnswerField] = useState("date");
+  const [answerText, setAnswerText] = useState("");
   const [outcome, setOutcome] = useState<SalesSaveResult | null>(null);
   const [stage, setStage] = useState("Reading receipt…");
   const [savedRecord, setSavedRecord] = useState<SalesRecord | null>(null);
@@ -466,6 +468,13 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
           {compact && extractedData && (
             <div className="rounded-lg border border-warning/40 bg-warning/5 p-4 space-y-3">
               <p className="text-sm" dir="auto">{outcome?.status === "flagged" ? outcome.reasons?.[0] : "Which printed field needs correcting?"}</p>
+              <div className="flex flex-wrap gap-2">
+                <select aria-label="Printed field to clarify" value={answerField} onChange={e => setAnswerField(e.target.value)} className="rounded-md border border-border bg-background p-2 text-sm">
+                  {Object.entries(fieldLabels).filter(([key]) => key !== "day").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+                <input aria-label="Printed answer" dir="auto" className="min-w-0 flex-1 rounded-md border border-border bg-background p-2 text-sm" value={answerText} onChange={e => setAnswerText(e.target.value)} />
+                <Button variant="outline" disabled={!answerText.trim() || saving} onClick={() => { handleFieldChange(answerField, answerText); setOutcome(null); setAnswerText(""); }}>Apply answer</Button>
+              </div>
               <Button variant="outline" onClick={() => setShowDetails(true)}>⋯ Check every field</Button>
             </div>
           )}
