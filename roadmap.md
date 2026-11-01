@@ -351,3 +351,8 @@
 - [x] Light desktop/phone check, focused tests, build and protected fingerprints.
 
 - Actual Jan–May posted profit is HK$42,631 (requested HK$42,636 differs by HK$5); books retained. Approval/close writes deliberately not exercised.
+
+## Shared period control — Finance first
+- [x] Three-mode shared control, bounded books window, fiscal shortcuts, daily identity-scoped session persistence, Accounting books start setting and date exception link.
+- [x] Overview, Month close, Payables, Receivables, Reports, Balance sheet, Trial balance, Journal, Ledger and Bank statement controls integrated; old Finance pickers removed.
+- [ ] Focused date-rule tests and signed-in desktop/375px checks; protected record read comparison.

@@ -38,3 +38,5 @@ Read nested AGENTS.md before changes: src/pages/finance has Finance rules; src/p
 - Regular-cost approvals use the atomic selected-items RPC; contract strips share the read-only regular plan. Expense documents fetch fresh signed links and validate bytes before rendering so errors never render as documents. Receipt evidence links append comma-separated paths without financial writes.
 - Schedule RPCs recheck sources at selected approval. Deferred sales bypass normal rebuilds and receipt auto-post. Atomic bank matches use recorded payments; account redirects preserve posted lines, reclassifications stay drafts. Merchant payout aging is separate from ledger aging; shared merchants stay combined.
 
+
+- PeriodControl/periodWindow owns Finance date windows and session selections; useBooksWindow resolves Accounting configuration and tax year, and Finance checks only request bounded months so malformed journal dates never create menu years or extra checks.
