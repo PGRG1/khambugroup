@@ -14867,6 +14867,10 @@ export type Database = {
         }
         Returns: string
       }
+      finance_reconciliation_base_rows: {
+        Args: { p_month: string; p_tenant: string }
+        Returns: Json
+      }
       finance_reconciliation_rows: {
         Args: { p_month: string; p_tenant: string }
         Returns: Json
