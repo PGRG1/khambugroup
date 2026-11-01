@@ -1,3 +1,4 @@
+import {RegularCostsApproval} from "@/components/expenses/RegularCostsApproval";
 import {ContractPostingPlan} from "@/components/expenses/ContractPostingPlan";
 import BillDropZone from "@/components/finance/bills/BillDropZone";
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +15,7 @@ import { useExpenseBills } from "@/hooks/useExpenseBills";
 import { usePeriodFilter } from "@/hooks/usePeriodFilter";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { regularBillGroups, isWaitingBill } from "@/utils/expenses";
-import { formatCurrency, formatMonthLabel } from "@/utils/format";
+import { formatCurrency, formatMonthLabel, formatDate } from "@/utils/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, PlayCircle, Repeat, Search } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -77,6 +78,7 @@ export default function RecurringExpenses() {
   const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
+  const [detailsOpen,setDetailsOpen]=useState(false),[uploadOpen,setUploadOpen]=useState(false),[readTerms,setReadTerms]=useState<Partial<RecurringRule>|null>(null),[year,setYear]=useState(new Date().getFullYear());
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
@@ -111,7 +113,7 @@ export default function RecurringExpenses() {
       expected_amount: 0,
       effective_from: new Date().toISOString().slice(0, 10),
     });
-    setOpen(true);
+    setDetailsOpen(true);setUploadOpen(false);setOpen(true);
   };
 
   const setField = (k: keyof RecurringRule, v: any) => setEditing((p) => ({ ...p, [k]: v }));
@@ -126,7 +128,7 @@ export default function RecurringExpenses() {
     if (!editing.account_id) { toast.error("Debit account is required"); return; }
     const confirmed=await confirm({title:editing.id?"Confirm regular bill changes":"Add as regular bill",description:`${editing.vendor_name||"Vendor"} · ${editing.name} · ${formatCurrency(Number(editing.expected_amount||0))} · ${editing.cadence||"monthly"}`,confirmLabel:"Confirm"});
     if(!confirmed)return;
-    const ok = await save(editing);
+    const ok = await save({...editing,auto_approve:false});
     if (ok) setOpen(false);
   };
 
@@ -159,62 +161,14 @@ export default function RecurringExpenses() {
   const usual=(r:RecurringRule)=>{const amounts=historyFor(r).map(b=>b.total_amount);return amounts.length?(Math.min(...amounts)===Math.max(...amounts)?formatCurrency(amounts[0]):`${formatCurrency(Math.min(...amounts))} – ${formatCurrency(Math.max(...amounts))}`):formatCurrency(r.expected_amount);};
   return (
     <div className="w-full min-w-0 space-y-5 pb-24">
-      <PageTop title="Regular bills" period={period.control} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add contract</Button>}/>
-      <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">{period.label} · {filteredRules.length} regular bills</h2><p className="text-sm text-muted-foreground">{activeCount} active</p><div className="flex flex-wrap gap-2"><Input className="flex-1 min-w-0" placeholder="Search regular bills" value={search} onChange={e=>setSearch(e.target.value)}/><Button variant="outline" onClick={generateNow}><PlayCircle className="h-4 w-4"/>Generate due</Button></div>{detected.map(g=>{const latest=g.rows.at(-1);if(!latest)return null;return <div key={g.key} className="kit-explain">{latest.vendor_name} · {latest.venue||'Unassigned venue'} · received in {new Set(g.rows.map(b=>b.bill_date.slice(0,7))).size} months. <Button variant="link" className="text-warning p-0 h-auto" onClick={async()=>{const lines=await fetchAllocations(latest.id);const cat=categories.find(c=>c.name===lines[0]?.expense_category);setEditing({name:latest.notes||latest.vendor_name||'Regular bill',supplier_id:latest.supplier_id,vendor_name:latest.vendor_name,venue_id:latest.venue_id,category_id:cat?.id,account_id:lines[0]?.account_id,expected_amount:latest.total_amount,cadence:'monthly',status:'draft',auto_approve:false,effective_from:new Date().toISOString().slice(0,10),recognition_day:latest.bill_date.slice(8,10)});setOpen(true);}}>Add as regular bill</Button></div>;})}</div>
-        {loading ? (
-          <TableSkeleton rows={4} cols={7} />
-        ) : (
-          <div className="overflow-auto">
-            <Table className="table-fixed w-full">
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="text-left">Bill</TableHead><TableHead className="text-left">Usually</TableHead><TableHead className="text-left">This year</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRules.map((r) => (
-                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
-                    <TableCell className="break-words">{r.vendor_name} · {r.name}<p className="text-xs text-muted-foreground">{venues.find(v=>v.id===r.venue_id)?.name||'Combined venues'} · {r.cadence}</p></TableCell><TableCell className="td-num break-words">{usual(r)}</TableCell><TableCell className="text-xs break-words">{yearFacts(r)}</TableCell>
-                  </TableRow>
-                ))}
-                {!rules.length && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="p-0">
-                      <EmptyState
-                        icon={<Repeat className="h-6 w-6" />}
-                        title="No recurring rules yet"
-                        description="Templates for rent, utilities, insurance — bills generate automatically each period so nothing is missed."
-                        action={
-                          <div className="flex gap-2">
-                            <Button size="sm" className="h-8" onClick={openNew}>
-                              <Plus className="h-3 w-3 mr-1" /> Add first rule
-                            </Button>
-                            <Link to="/expenses/vendors">
-                              <Button size="sm" variant="outline" className="h-8">Add a vendor first</Button>
-                            </Link>
-                          </div>
-                        }
-                      />
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </section>
+      <PageTop title="Regular bills" subtitle={`${filteredRules.length+detected.length} regular costs · ${formatCurrency(monthlyExpected)} a month`} period={<Select value={String(year)} onValueChange={v=>setYear(Number(v))}><SelectTrigger className="w-32" aria-label="Year"><SelectValue/></SelectTrigger><SelectContent>{[year-1,year,year+1].map(y=><SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add contract</Button>}/>
+      <RegularCostsApproval bills={bills} month={`${year}-10`}/>
+      <section className="kit card-glass rounded-xl p-3 sm:p-4 min-w-0 overflow-hidden">{loading?<TableSkeleton rows={4} cols={5}/>:<div className="overflow-x-auto"><Table className="min-w-[680px] w-full"><TableHeader><TableRow><TableHead>Regular cost</TableHead><TableHead>Covers</TableHead><TableHead>Usually</TableHead><TableHead>This year</TableHead><TableHead>Now</TableHead></TableRow></TableHeader><TableBody><TableRow className="bg-muted/40"><TableCell colSpan={5}>From contracts</TableCell></TableRow>{filteredRules.map(r=><TableRow key={r.id} className="cursor-pointer" onClick={()=>{setEditing(r);setDetailsOpen(false);setUploadOpen(false);setOpen(true);}}><TableCell>{/rent/i.test(r.name)?'Rent':r.name}<p className="text-xs text-muted-foreground">{r.vendor_name}</p></TableCell><TableCell>{venues.find(v=>v.id===r.venue_id)?.name||'Central · by sales'}</TableCell><TableCell className="td-num">{formatCurrency(r.expected_amount)}<p className="text-xs text-muted-foreground">{r.cadence}</p></TableCell><TableCell className="min-w-40"><ContractPostingPlan rule={r} bills={bills} year={year} compact/></TableCell><TableCell className="text-xs">{yearFacts(r)}</TableCell></TableRow>)}<TableRow className="bg-muted/40"><TableCell colSpan={5}>From bills</TableCell></TableRow>{detected.map(g=>{const b=g.rows.at(-1);if(!b)return null;return <TableRow key={g.key}><TableCell>{b.vendor_name}<p className="text-xs text-muted-foreground">{b.supplier_account_id?'Supplier account':'Regular bill'}</p></TableCell><TableCell>{b.venue||'Covers not set'}</TableCell><TableCell className="td-num">{formatCurrency(b.total_amount)}<p className="text-xs text-muted-foreground">Usually monthly</p></TableCell><TableCell><div className="grid grid-cols-12 gap-1">{Array.from({length:12},(_,i)=>{const k=`${year}-${String(i+1).padStart(2,'0')}`,bs=g.rows.filter(b=>(b.period_start??b.bill_date).startsWith(k));return <div key={k} title={formatMonthLabel(k)} className={`h-3 rounded-sm ${bs.some(b=>b.approval_status==='posted')?'bg-primary':bs.length?'bg-warning/30':'bg-muted'}`}/>;})}</div></TableCell><TableCell className="text-xs">{g.rows.filter(isWaitingBill).length} waiting</TableCell></TableRow>;})}</TableBody></Table></div>}</section>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing.id ? (editing.is_contract ? "Contract" : "Regular bill") : "New contract"}</DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              This rule is a template. Edits only affect future generated bills — approved or posted bills are untouched.
-            </p>
-          </DialogHeader>
-          <div className="space-y-3 mt-4">
-            <ContractPostingPlan rule={editing} bills={bills}/>
-            {!editing.id&&<details><summary className="text-sm text-primary cursor-pointer">Read a contract document</summary><BillDropZone onParsed={s=>{const c=(s as any).contract_terms??{};const supplier=suppliers.find(x=>x.name.toLowerCase()===s.vendor_name.toLowerCase());setEditing(p=>({...p,is_contract:true,name:c.name||s.notes||s.vendor_name,supplier_id:supplier?.id??null,vendor_name:s.vendor_name,expected_amount:c.amount??s.total_amount,cadence:c.cadence||'monthly',direction:c.direction||'cost',billed_when:c.billed_when||'arrears',effective_from:c.start||s.service_period_start||null,contract_end:c.end||s.service_period_end||null,payment_due_day:c.due_day??null,rent_free_months:c.rent_free_months??[],step_increases:c.step_increases??[],deposit_amount:c.deposit_amount??0,attachment_url:s.attachment_url,attachment_path:s.attachment_path}));}}/></details>}
+        <DialogContent className={detailsOpen||uploadOpen?"max-w-[460px] max-h-[85dvh] overflow-y-auto":"max-w-[460px] overflow-hidden"}>
+          <DialogHeader><DialogTitle>{/rent/i.test(editing.name??'')?'Rent':editing.name||'New contract'}</DialogTitle><p className="text-sm text-muted-foreground">{editing.vendor_name||'Supplier'} · lease · {venues.find(v=>v.id===editing.venue_id)?.name||'Central'}</p></DialogHeader>
+          {!detailsOpen&&!uploadOpen?<div className="space-y-5"><p className="text-3xl td-num">{formatCurrency(Number(editing.expected_amount??0)/(editing.cadence==='quarterly'?3:editing.cadence==='yearly'?12:1))}<span className="block text-sm text-muted-foreground">a month</span></p><ContractPostingPlan rule={editing} bills={bills} year={year}/><div className="flex gap-4"><Button variant="link" className="p-0 h-auto" onClick={()=>setDetailsOpen(true)}>Details</Button><Button variant="link" className="p-0 h-auto" onClick={async()=>{if(editing.attachment_path){const {data,error}=await supabase.storage.from('bill-attachments').createSignedUrl(editing.attachment_path,3600);if(error||!data){toast.error("File can't be opened right now");return;}window.open(data.signedUrl,'_blank','noopener,noreferrer');}else setUploadOpen(true);}}>{editing.attachment_path?'View lease':'Upload lease'}</Button>{editing.attachment_path&&<Button variant="link" className="p-0 h-auto" onClick={()=>setUploadOpen(true)}>Upload lease</Button>}</div></div>:uploadOpen?<div className="space-y-4">{readTerms?<><p className="text-sm">{formatCurrency(Number(readTerms.expected_amount??0))} · {readTerms.cadence} · {readTerms.effective_from?formatDate(readTerms.effective_from):'Start not read'} – {readTerms.contract_end?formatDate(readTerms.contract_end):'End not read'} · rent-free {(readTerms.rent_free_months??[]).join(', ')||'not read'} · {(readTerms.step_increases??[]).map(s=>`${formatCurrency(s.amount)} from ${s.month}`).join(' · ')||'increases not read'} · deposit {formatCurrency(Number(readTerms.deposit_amount??0))}</p><div className="flex gap-2"><Button onClick={async()=>{const next={...editing,...readTerms,auto_approve:false};if(!next.attachment_path){toast.error('Lease file was not stored; please retry');return;}if(await save(next)){setEditing(next);setReadTerms(null);setUploadOpen(false);}}}>Confirm</Button><Button variant="outline" onClick={()=>{setEditing(p=>({...p,...readTerms}));setReadTerms(null);setUploadOpen(false);setDetailsOpen(true);}}>Change</Button></div></>:<BillDropZone onParsed={s=>{const c=(s as any).contract_terms??{};setReadTerms({expected_amount:c.amount??s.total_amount,cadence:c.cadence||editing.cadence,direction:c.direction||editing.direction,billed_when:c.billed_when||editing.billed_when,effective_from:c.start||s.service_period_start||editing.effective_from,contract_end:c.end||s.service_period_end||editing.contract_end,payment_due_day:c.due_day??editing.payment_due_day,rent_free_months:c.rent_free_months??editing.rent_free_months,step_increases:c.step_increases??editing.step_increases,deposit_amount:c.deposit_amount??editing.deposit_amount,attachment_url:s.attachment_url,attachment_path:s.attachment_path});}}/>}<Button variant="ghost" onClick={()=>setUploadOpen(false)}>Back</Button></div>:<div className="space-y-3 mt-4">
             <div className="grid grid-cols-2 gap-3"><div><Label>Direction</Label><Select value={editing.direction||'cost'} onValueChange={v=>setField('direction',v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="cost">Cost</SelectItem><SelectItem value="income">Income</SelectItem></SelectContent></Select></div><div><Label>Billed</Label><Select value={editing.billed_when||'arrears'} onValueChange={v=>setField('billed_when',v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="arrears">In arrears</SelectItem><SelectItem value="advance">In advance</SelectItem></SelectContent></Select></div><div><Label>Contract end</Label><Input type="date" value={editing.contract_end||''} onChange={e=>setField('contract_end',e.target.value)}/></div><div><Label>Deposit</Label><Input type="number" value={editing.deposit_amount??0} onChange={e=>setField('deposit_amount',Number(e.target.value))}/></div><div className="col-span-2"><Label>Rent-free months (YYYY-MM, separated by commas)</Label><Input value={(editing.rent_free_months??[]).join(',')} onChange={e=>setField('rent_free_months',e.target.value.split(',').map(v=>v.trim()).filter(v=>/^\d{4}-\d{2}$/.test(v)))}/></div><div className="col-span-2"><Label>Fixed increases</Label>{(editing.step_increases??[]).map((step,i)=><div className="flex gap-2 mt-2" key={i}><Input type="month" value={step.month} onChange={e=>setField('step_increases',(editing.step_increases??[]).map((s,j)=>j===i?{...s,month:e.target.value}:s))}/><Input type="number" value={step.amount} onChange={e=>setField('step_increases',(editing.step_increases??[]).map((s,j)=>j===i?{...s,amount:Number(e.target.value)}:s))}/></div>)}<Button variant="outline" size="sm" onClick={()=>setField('step_increases',[...(editing.step_increases??[]),{month:'',amount:0}])}>Add increase</Button></div></div>
 
             <div>
@@ -350,15 +304,8 @@ export default function RecurringExpenses() {
                 <span className="text-muted-foreground">Next Generation Date (auto): </span>
                 <span className="font-mono">{fmtDate(editing.next_generation_date || previewNextGen)}</span>
               </div>
-              <div className="col-span-2 flex items-center gap-2">
-                <Switch checked={editing.auto_approve ?? false} onCheckedChange={(v) => setField("auto_approve", v)} />
-                <div>
-                  <Label>Auto-approve generated bills</Label>
-                  <p className="text-[10px] text-muted-foreground">Off by default. When on, generated bills skip approval and post immediately.</p>
-                </div>
-              </div>
             </div>
-            <div className="rounded-lg border border-dashed border-muted-foreground/25 p-4 space-y-3">
+            <details><summary className="text-sm cursor-pointer">More</summary><div className="rounded-lg border border-dashed border-muted-foreground/25 p-4 space-y-3">
               <h4 className="text-sm font-semibold text-foreground">Supporting Documents</h4>
               <div>
                 <Label>Document Source</Label>
@@ -382,7 +329,7 @@ export default function RecurringExpenses() {
                 />
               </div>
             </div>
-            <div>
+            </details><div>
               <Label>Notes</Label>
               <Textarea value={editing.notes || ""} onChange={(e) => setField("notes", e.target.value)} />
             </div>
@@ -390,7 +337,7 @@ export default function RecurringExpenses() {
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button onClick={handleSave}>Confirm</Button>
             </div>
-          </div>
+          </div>}
         </DialogContent>
       </Dialog>
       {confirmDialog}
