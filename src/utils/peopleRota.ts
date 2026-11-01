@@ -16,9 +16,9 @@ export function expectedSales(sales:RotaRow[],venue:RotaRow,day:string):number|n
 export function hourlyRate(person:RotaRow):number|null { if(person.pay_amount==null)return null;if(person.pay_basis==='hour')return Number(person.pay_amount);const hours=Number(person.weekly_hours??0);return hours>0?Number(person.pay_amount)*12/(52*hours):null; }
 export function daySummary(shifts:RotaRow[],people:RotaRow[],terms:RotaRow[],day:string,sales:number|null) {const rows=shifts.filter(s=>s.shift_date===day&&shiftHours(s)>0);let cost=0,known=true;for(const s of rows){const p=people.find(e=>e.id===s.employee_id);const rate=p?hourlyRate(personOnDate(p,terms,day)):null;if(rate===null)known=false;else cost+=rate*shiftHours(s);}return {people:new Set(rows.map(s=>s.employee_id)).size,hours:rows.reduce((n,s)=>n+shiftHours(s),0),cost:known?cost:null,percent:known&&sales&&sales>0?cost/sales*100:null};}
 export interface RotaIssue {key:string;kind:'cover'|'rest'|'contract'|'leave';day:string;employee_id?:string;role?:string;missing?:number;message:string;}
-export function rotaIssues(people:RotaRow[],terms:RotaRow[],shifts:RotaRow[],requests:RotaRow[],days:string[],history:RotaRow[]):RotaIssue[] {
+export function rotaIssues(people:RotaRow[],terms:RotaRow[],shifts:RotaRow[],requests:RotaRow[],days:string[],history:RotaRow[],personShifts:RotaRow[]=shifts):RotaIssue[] {
  const issues:RotaIssue[]=[];
- for(const p of people){const own=shifts.filter(s=>s.employee_id===p.id&&days.includes(s.shift_date));const total=own.reduce((n,s)=>n+shiftHours(s),0);const contract=Number(personOnDate(p,terms,days[0]).weekly_hours??0);if(contract>0&&total>contract)issues.push({key:`contract-${p.id}`,kind:'contract',employee_id:p.id,day:days[0],message:`${p.first_name}: hours over contract`});if(days.every(day=>own.some(s=>s.shift_date===day&&shiftHours(s)>0)))issues.push({key:`rest-${p.id}`,kind:'rest',employee_id:p.id,day:days[6],message:`${p.first_name}: no rest day in 7 days`});for(const s of own){if(shiftHours(s)>0&&leaveOnDay(requests,p.id,s.shift_date))issues.push({key:`leave-${s.id}`,kind:'leave',employee_id:p.id,day:s.shift_date,message:`${p.first_name}: scheduled during approved leave`});}}
+ for(const p of people){const own=personShifts.filter(s=>s.employee_id===p.id&&days.includes(s.shift_date));const total=own.reduce((n,s)=>n+shiftHours(s),0);const contract=Number(personOnDate(p,terms,days[0]).weekly_hours??0);if(contract>0&&total>contract)issues.push({key:`contract-${p.id}`,kind:'contract',employee_id:p.id,day:days[0],message:`${p.first_name}: hours over contract`});if(days.every(day=>own.some(s=>s.shift_date===day&&shiftHours(s)>0)))issues.push({key:`rest-${p.id}`,kind:'rest',employee_id:p.id,day:days[6],message:`${p.first_name}: no rest day in 7 days`});for(const s of own){if(shiftHours(s)>0&&leaveOnDay(requests,p.id,s.shift_date))issues.push({key:`leave-${s.id}`,kind:'leave',employee_id:p.id,day:s.shift_date,message:`${p.first_name}: scheduled during approved leave`});}}
  for(const day of days){const previous=[1,2,3,4].map(n=>addDays(day,-7*n));const roles=[...new Set(history.filter(s=>previous.includes(s.shift_date)&&shiftHours(s)>0).map(s=>s.role||people.find(p=>p.id===s.employee_id)?.job_title).filter(Boolean))];for(const role of roles){const counts=previous.map(d=>{const rows=history.filter(s=>s.shift_date===d&&shiftHours(s)>0);return rows.length?new Set(rows.filter(s=>(s.role||people.find(p=>p.id===s.employee_id)?.job_title)===role).map(s=>s.employee_id)).size:null;}).filter((x):x is number=>x!==null).sort((a,b)=>a-b);if(!counts.length)continue;const target=Math.ceil(counts[Math.floor(counts.length/2)]);const current=new Set(shifts.filter(s=>s.shift_date===day&&shiftHours(s)>0&&(s.role||people.find(p=>p.id===s.employee_id)?.job_title)===role).map(s=>s.employee_id)).size;if(target>current)issues.push({key:`cover-${day}-${role}`,kind:'cover',day,role,missing:target-current,message:`${role}: ${target-current} short of usual cover`});}}
  return issues;
 }
@@ -38,4 +38,23 @@ export function managerClockFlags(shift:RotaRow|undefined,records:RotaRow[],sett
  const facts=punctualityFacts(shift,records,now),flags:string[]=[];
  if(facts.noShow&&!shift.no_show_decision)flags.push('No-show');
  return flags;
+}
+/** Explicit Off/RD never overrides work at another venue on that date. */
+export function restVenueConflicts(shifts:RotaRow[],people:RotaRow[],venues:RotaRow[],days:string[],terms:RotaRow[]=[]){
+ const at=(s:RotaRow)=>venues.find(v=>shiftAt(s,v,people,terms));
+ return shifts.filter(s=>days.includes(s.shift_date)&&['off','rd','rest','rest_day'].includes(String(s.shift_type).toLowerCase())).flatMap(off=>{
+  const work=shifts.filter(s=>s.employee_id===off.employee_id&&s.shift_date===off.shift_date&&shiftHours(s)>0&&at(s)?.id!==at(off)?.id);
+  return work.map(s=>({off,work:s,person:people.find(p=>p.id===s.employee_id),offVenue:at(off),workVenue:at(s)}));
+ });
+}
+export function personWeekSent(employeeId:string,days:string[],shifts:RotaRow[],weeks:RotaRow[],people:RotaRow[],venues:RotaRow[],terms:RotaRow[]=[]){
+ const own=shifts.filter(s=>s.employee_id===employeeId&&days.includes(s.shift_date));
+ return own.length>0&&own.every(s=>{const v=venues.find(v=>shiftAt(s,v,people,terms));return v&&weeks.some(w=>w.venue_id===v.id&&w.week_start===weekStart(s.shift_date)&&w.status==='sent');});
+}
+/** HK continuous-contract 4-68 rule: four evidenced weeks, 17 h each or 68 h over four weeks. */
+export function continuousWorkCheck(employeeId:string,shifts:RotaRow[],end:string){
+ const starts=[3,2,1,0].map(n=>addDays(weekStart(end),-7*n));
+ const hours=starts.map(w=>shifts.filter(s=>s.employee_id===employeeId&&weekStart(s.shift_date)===w).reduce((n,s)=>n+shiftHours(s),0));
+ const evidenced=starts.every(w=>shifts.some(s=>s.employee_id===employeeId&&weekStart(s.shift_date)===w));
+ return {hours,total:hours.reduce((a,b)=>a+b,0),evidenced,qualifies:evidenced&&(hours.every(h=>h>=17)||hours.reduce((a,b)=>a+b,0)>=68)};
 }

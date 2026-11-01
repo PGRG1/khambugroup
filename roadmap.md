@@ -1,7 +1,9 @@
 ## Cross-venue Rota and Expenses overview
-- [ ] Person-wide rest/hour checks, save warnings and all-venue sent readiness; role/venue grids.
-- [ ] Read-only Expenses overview with complete-month figures, factual findings, charts and regular-cost matrix; existing bill flow/navigation.
-- [ ] Focused rules tests and one signed-in desktop/375px pass; preserve saved payroll, posted bills and journals.
+- [x] Person-wide rest/hour/4–68 checks, pre-save warnings and server all-venue sent readiness; remembered role/venue grids.
+- [x] Read-only Expenses overview with complete-month figures, factual findings, charts and regular-cost matrix; existing bill flow/navigation.
+- [x] 58 focused tests; signed-in desktop/375px role/venue, browser-only Anjana conflict, no page overflow, rent 4 bills/1.52M and Add bill/review flows verified without saves; build OK.
+- [ ] Requested 50.8%/5,016,483 denominator blocked by actual Revenue sales 4,588,183: overview truthfully shows 55.6% with costs 2,550,086.36, Jan–Jun. No financial corrections authorized.
+- [ ] Live shift saving and linked employee whole-week response not exercised to avoid altering records; readiness guard and pure rules tested/read.
 
 ## Payroll table and Rota top presentation
 - [x] Payroll number-only edits/dots, single shaded group subtotal, grouped Bani findings and readiness bar; no calculation or record changes.

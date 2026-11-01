@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {shiftHours,expectedSales,daySummary,rotaIssues,coverCandidates,copyWeek,attendanceDifference,withinVenue,weekStart,personOnDate,addDays} from '@/utils/peopleRota';
+import {shiftHours,expectedSales,daySummary,rotaIssues,coverCandidates,copyWeek,attendanceDifference,withinVenue,weekStart,personOnDate,addDays,restVenueConflicts,personWeekSent,continuousWorkCheck} from '@/utils/peopleRota';
 const p={id:'a',first_name:'A',job_title:'Server',status:'active',hire_date:'2020-01-01',weekly_hours:45,pay_amount:75,pay_basis:'hour'};
 describe('Rota & hours rules',()=>{
  it('Monday begins the seven day week',()=>expect(weekStart('2026-10-31')).toBe('2026-10-26'));
@@ -21,4 +21,11 @@ describe('Rota & hours rules',()=>{
  it('venue clock refuses beyond 150 m',()=>expect(withinVenue(22.3,114.17,22.3015,114.17,20)).toBe(false));
  it('venue clock refuses inaccurate locations',()=>expect(withinVenue(22.3,114.17,22.3,114.17,151)).toBe(false));
  it('historic venue uses dated employment terms',()=>expect(personOnDate({...p,venue_id:'old'},[{employee_id:'a',effective_date:'2026-11-01',values:{venue_id:'new'}}],'2026-10-31').venue_id).toBe('old'));
+});
+describe('Person-wide multi-venue rota',()=>{
+ const days=Array.from({length:7},(_,i)=>addDays('2026-11-02',i)),venues=[{id:'a',name:'Assembly'},{id:'c',name:'Caliente'}];
+ const shifts=days.map((d,i)=>({id:`s${i}`,employee_id:'a',venue_id:i%2?'c':'a',shift_date:d,start_time:'09:00',end_time:'17:00',shift_type:'regular'}));
+ it('off at Assembly while working Caliente is worked, not rest',()=>{const all=[...shifts,{id:'off',employee_id:'a',venue_id:'a',shift_date:'2026-11-05',shift_type:'RD'}];expect(restVenueConflicts(all,[p],venues,days)).toHaveLength(1);expect(rotaIssues([p],[],all.filter(s=>s.venue_id==='a'),[],days,[],all).filter(i=>i.kind==='rest')).toHaveLength(1);expect(rotaIssues([p],[],all.filter(s=>s.venue_id==='a'),[],days,[],all).filter(i=>i.kind==='contract')).toHaveLength(1);});
+ it('both venues must send before the person can confirm their week once',()=>{const weeks=[{venue_id:'a',week_start:days[0],status:'sent'},{venue_id:'c',week_start:days[0],status:'draft'}];expect(personWeekSent('a',days,shifts,weeks,[p],venues)).toBe(false);expect(personWeekSent('a',days,shifts,weeks.map(w=>({...w,status:'sent'})),[p],venues)).toBe(true);});
+ it('4-68 check counts all venues across four evidenced weeks',()=>{const all=[0,1,2,3].flatMap(w=>[0,1].map((d)=>({employee_id:'a',venue_id:d?'c':'a',shift_date:addDays('2026-10-12',w*7+d),start_time:'09:00',end_time:d?'19:00':'17:00'})));expect(continuousWorkCheck('a',all,'2026-11-08')).toMatchObject({total:72,evidenced:true,qualifies:true});expect(continuousWorkCheck('a',all.filter(s=>s.venue_id==='a'),'2026-11-08').qualifies).toBe(false);});
 });

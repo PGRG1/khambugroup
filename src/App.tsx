@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
+import { BrowserRouter, useLocation, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { resolveAuthRoute } from "@/utils/authRouting";
 
@@ -125,6 +125,7 @@ import HRPayroll from "./pages/hr/HRPayroll";
 
 
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
+import ExpensesOverview from "./pages/expenses/ExpensesOverview";
 
 import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
@@ -133,6 +134,7 @@ import ExpenseVendorAccountPage from "./pages/expenses/VendorAccount";
 
 import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
 
+function ExpensesEntry(){const location=useLocation();return <Navigate to={{pathname:location.search?'/expenses/bills':'/expenses/overview',search:location.search}} state={location.state} replace/>;}
 const queryClient = new QueryClient();
 
 const pageKeyMap: Record<string, string> = {
@@ -366,8 +368,9 @@ function App() {
                 <Route path="/hr/payroll/payables" element={<Navigate to="/finance/payables" replace />} />
 
 
-                <Route path="/expenses" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
-                <Route path="/expenses/bills" element={<Navigate to="/expenses" replace />} />
+                <Route path="/expenses" element={<ExpensesEntry />} />
+                <Route path="/expenses/overview" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
+                <Route path="/expenses/bills" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
                 <Route path="/expenses/claims" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
                 
                 <Route path="/expenses/bank-detected" element={<Navigate to="/finance/payables" replace />} />
