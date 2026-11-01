@@ -1,3 +1,8 @@
+## People Overview simplification
+- [ ] Read-only month/year Overview, compact findings, accrued costs/projections, venue/role bars and dated team counts.
+- [ ] Confirmed front/back role setting; remove Payroll venue extras without changing Rota or saved records.
+- [ ] Focused rules tests, signed-in desktop/375px May/year/November and settings checks; unchanged payroll/journal fingerprints.
+
 ## People venue staff-cost correction
 - [x] Company default and role overrides beside How you buy; evidence-based orb suggestions and confirmed guarded settings; KHAMBU has zero saved choices.
 - [x] Shared read-only allocations in Overview, Payroll and Finance venue P&L; exact cents and explicit Central/not-on-rota. Venue P&L replaces only mapped payroll cost in presentation; posted books unchanged.
