@@ -743,6 +743,13 @@
       "when": 1793575564825,
       "tag": "0105_bank_atomic_multi_source_matching",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1793575615322,
+      "tag": "0106_future_account_redirect_with_reclassification_drafts",
+      "breakpoints": true
     }
   ]
 }

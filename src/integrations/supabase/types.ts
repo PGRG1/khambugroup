@@ -1569,6 +1569,7 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          future_account_id: string | null
           id: string
           is_active: boolean
           is_cash: boolean
@@ -1585,6 +1586,7 @@ export type Database = {
           code: string
           created_at?: string
           description?: string | null
+          future_account_id?: string | null
           id?: string
           is_active?: boolean
           is_cash?: boolean
@@ -1601,6 +1603,7 @@ export type Database = {
           code?: string
           created_at?: string
           description?: string | null
+          future_account_id?: string | null
           id?: string
           is_active?: boolean
           is_cash?: boolean
@@ -1612,6 +1615,34 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_future_account_id_fkey"
+            columns: ["future_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
           {
             foreignKeyName: "chart_of_accounts_parent_id_fkey"
             columns: ["parent_id"]
@@ -14831,6 +14862,16 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      finance_account_merge: {
+        Args: {
+          d: string
+          reclass?: boolean
+          source: string
+          t: string
+          target: string
+        }
+        Returns: string
       }
       finance_apply_account_review: {
         Args: {
