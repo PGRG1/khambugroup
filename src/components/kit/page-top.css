@@ -32,3 +32,5 @@
 .page-bani:has(.page-bani-notice) .text-muted-foreground.mt-1 { display: none; }
 .page-top-controls-host .kit > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .page-top-controls-host .kit-search { order: 0 !important; flex-basis: auto !important; }
+.page-bani-notices[data-expanded="false"][data-has-finding="true"] > *,
+.page-bani-notices[data-expanded="false"] > :not(:first-child) { display: none; }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { BaniOrb } from '@/components/assistant/BaniOrb';
 import { useBaniTopic } from '@/components/assistant/FloatingBaniContext';
@@ -25,14 +25,25 @@ export function BaniFindings({ findings }: { findings: PageWorkItem[] }) {
   const [expanded, setExpanded] = useState(false);
   const topic = useBaniTopic(), grouped = groupFindings(findings);
   const host = usePageTopControls();
+  const [noticeCount, setNoticeCount] = useState(0);
+  useEffect(() => {
+    const node = host?.warnings;
+    if (!node) return;
+    const update = () => setNoticeCount(node.children.length);
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(node, { childList: true });
+    return () => observer.disconnect();
+  }, [host?.warnings]);
+  const more = Math.max(0, grouped.length + noticeCount - 1);
   return <section className="page-bani glass-surface border border-border rounded-lg px-4 py-3 min-w-0" aria-label="Bani findings">
     <div className="flex items-start gap-3">
       <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 p-0" aria-label="Open Bani" onClick={() => topic(grouped[0]?.question ?? '')}><BaniOrb size={32} mode="idle" /></Button>
       <div className="min-w-0 flex-1">
         <h2 className="font-display font-semibold text-sm">Bani</h2>
         {grouped.length ? (expanded ? grouped : grouped.slice(0, 1)).map(f => <Button key={f.id} variant="ghost" className="bani-finding w-full h-auto justify-start whitespace-normal text-left px-0 py-1 text-sm" onClick={() => topic(f.question)}>{f.title}{f.id.endsWith('-conflict') ? ` · ${f.detail}` : ''}</Button>) : <p className="text-sm text-muted-foreground mt-1">Nothing needs a look.</p>}
-        {grouped.length > 1 && <Button variant="ghost" className="bani-fold h-auto p-0 text-xs text-muted-foreground text-left justify-start whitespace-normal" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show less' : `${grouped.length - 1} more: ${grouped.slice(1, 3).map(f => f.title).join(' · ')}`}</Button>}
-        <div ref={host?.setWarnings} className="page-bani-notices space-y-2 empty:hidden" />
+        <div ref={host?.setWarnings} data-expanded={expanded} data-has-finding={grouped.length > 0} className="page-bani-notices space-y-2 empty:hidden" />
+        {more > 0 && <Button variant="ghost" className="bani-fold h-auto p-0 text-xs text-muted-foreground text-left justify-start whitespace-normal" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show less' : `${more} more: ${grouped.slice(1, 3).map(f => f.title).join(' · ') || 'checks needing review'}`}</Button>}
       </div>
     </div>
   </section>;
