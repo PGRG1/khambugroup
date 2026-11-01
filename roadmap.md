@@ -1,3 +1,9 @@
+## Bani document reading and source-linked books
+- [ ] Plan contextual self-checked extraction, sure-only atomic save/post, one-question exceptions and retained uploads
+- [ ] Stable source links, unique live posting, atomic edit/delete/Undo and closed-period compensation
+- [ ] Tenant correction learning, source drift review and authorized seven-entry cleanup with audit/Undo
+- [ ] Tests/live verification, before/after drift and affected-period P&L reconciliation (invoice year changes may change 2026 P&L)
+
 ## Floating Bani redesign
 - [x] Light chat, contextual no-AI opening cards, orb attention note and identity-scoped conversation continuation
 - [x] RTL messages/cards/composers; existing server prompt explicitly mirrors language and live Arabic reply verified; scanner/actions/voice/gestures retained
