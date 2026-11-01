@@ -39,5 +39,5 @@ export function formatSupplierDueDate(value: string): string {
 }
 
 export function formatMonthLabel(value: string): string {
-  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`));
+  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`)).replace('Sept', 'Sep');
 }
