@@ -24,7 +24,7 @@ export function PeopleNavigation() {
   const { pathname, search } = useLocation();
   const activePath = peopleNavigationPath(pathname);
   const settings=usePeopleSettings();const scope=useVenueScope();
-  const visible=tabs.filter(t=>t.path!=="/hr/schedule"||scope.venues.some(v=>scope.includesId(v.id)&&settings.forVenue(v.id).rota));
+  const visible=tabs;
   return (
     <div className="min-w-0">
       <div className="md:hidden"><SectionPillRow label="People" items={visible} activePath={activePath??pathname}/></div>

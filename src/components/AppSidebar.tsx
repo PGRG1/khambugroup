@@ -335,7 +335,7 @@ export function AppSidebar() {
   const peopleSettings=usePeopleSettings();const peopleScope=useVenueScope();
   const peopleChildren = [
     { title: "Overview", to: "/hr/overview" }, { title: "Team", to: "/hr/employees" }, { title: "Rota", to: "/hr/schedule" }, { title: "Payroll", to: "/hr/payroll" },
-  ].filter(t=>t.to!=="/hr/schedule"||peopleScope.venues.some(v=>peopleScope.includesId(v.id)&&peopleSettings.forVenue(v.id).rota));
+  ];
   const peopleActivePath = peopleNavigationPath(pathname);
   const showSubPages = !isMobile;
 

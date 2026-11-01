@@ -16,3 +16,9 @@ describe('People role and saved payroll facts',()=>{
  it('overnight overlapping shifts are checked across days',()=>expect(crossVenueClashes([shift('a','a','2026-11-09','22:00','03:00'),shift('b','c','2026-11-10','01:00','04:00')],['2026-11-09'])).toHaveLength(1));
  it('weekday hours use recorded rota weeks not pay',()=>{const result=weekdayVenueHours([shift('a','a'),shift('b','a','2026-11-16','10:00','14:00')],[{id:'a',name:'Assembly'}],[],[]);expect(result[0].weeks).toBe(2);expect(result[0].hours[0]).toBe(6);});
 });
+import {usualRotaDraft} from '../../supabase/functions/_shared/peopleRotaPattern';
+describe('usual rota drafts',()=>{
+ it('copies latest recorded same weekday without guessed hours',()=>{expect(usualRotaDraft([shift('old','a','2026-11-02','11:00','19:00')],[],'2026-11-09',[])[0]).toMatchObject({shift_date:'2026-11-09',start_time:'11:00',end_time:'19:00'});});
+ it('preserves approved leave instead of adding work',()=>expect(usualRotaDraft([shift('old','a','2026-11-02')],[],'2026-11-09',[{employee_id:'asim',status:'approved',start_date:'2026-11-09',end_date:'2026-11-09'}])).toEqual([]));
+ it('does not replace an existing shift',()=>expect(usualRotaDraft([shift('old','a','2026-11-02')],[shift('now','a')],'2026-11-09',[])).toEqual([]));
+});
