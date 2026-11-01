@@ -18,7 +18,7 @@ import {useBaniWorkPublisher} from '@/components/assistant/FloatingBaniContext';
 import {hongKongDay,type RotaRow} from '@/utils/peopleRota';
 import {monthKey,savedPayrollMonth} from '@/utils/peoplePresentation';
 import {calculateWorkPay,savedWorkAmounts,type WorkAmounts} from '@/utils/peopleWork';
-import {formatMonthLabel,formatCurrency,formatPercent,formatDate,formatDecimal} from '@/utils/format';
+import {formatMonthLabel,formatMenuCurrency as formatCurrency,formatPercent,formatDate,formatDecimal} from '@/utils/format';
 import {downloadCSV} from '@/utils/csvDownload';
 import {supabase} from '@/integrations/supabase/client';
 import {toast} from 'sonner';

@@ -7,7 +7,7 @@ import {Label} from '@/components/ui/label';
 import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
 import {bankBalance,observedShift,reasonLabels,settlementChoices,validSettlement,roundPay} from '@/utils/peopleWork';
 import {shiftHours,personOnDate,type RotaRow} from '@/utils/peopleRota';
-import {formatDate,formatDecimal,formatCurrency} from '@/utils/format';
+import {formatDate,formatDecimal,formatMenuCurrency as formatCurrency} from '@/utils/format';
 import {supabase} from '@/integrations/supabase/client';
 import {toast} from 'sonner';
 export function ShiftSettlementDialog({shift,person,shifts,attendance,terms,tenantId,onClose,onSaved}:{shift:RotaRow;person:RotaRow;shifts:RotaRow[];attendance:RotaRow[];terms:RotaRow[];tenantId:string;onClose:()=>void;onSaved:()=>Promise<void>}){
