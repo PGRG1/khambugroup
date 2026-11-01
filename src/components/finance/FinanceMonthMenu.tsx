@@ -1,0 +1,3 @@
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
+import {formatMonthLabel} from '@/utils/format';
+export function FinanceMonthMenu({month,months,onChange}:{month:string;months:string[];onChange:(month:string)=>void}){return <div className="flex items-center gap-2 text-sm"><span className="text-muted-foreground">Period</span><Select value={month} onValueChange={onChange}><SelectTrigger className="w-40" aria-label="Finance month"><SelectValue/></SelectTrigger><SelectContent>{[...new Set([month,...months])].sort().reverse().map(m=><SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>)}</SelectContent></Select></div>;}
