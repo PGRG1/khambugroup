@@ -1,19 +1,15 @@
-import { useAuth } from "@/hooks/useAuth";
-import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { Link, useLocation } from "react-router-dom";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { SectionPillRow, useActiveNavigationScroll } from "@/components/kit/SectionPillRow";
-import { SUPPLIER_DIRECTORY_TAB, isStockMenuRoute, matchesPurchasingPath, purchasingAnalysisPages, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
+import { isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
 
 /** URL-only navigation; existing page guards and content remain independent. */
 export function PurchasingNavigation() {
   const { pathname } = useLocation();
   const { canOpen, loading } = usePurchasingNavigationAccess();
-  const { isAdmin } = useAuth();
-  const { isPreviewActive } = usePreviewMode();
   const [tabHost, setTabHost] = useState<Element | null>(null);
   const invoiceTabsRef = useActiveNavigationScroll(pathname, tabHost);
   const invoiceFamily = ["/procurement/invoices", "/procurement/inventory"].includes(purchasingParentPath(pathname));
@@ -26,7 +22,6 @@ export function PurchasingNavigation() {
   }, [pathname]);
   if (loading) return null;
   const sectionPages = purchasingSectionPagesForPath(pathname);
-  // Supplier directory stays in Purchasing under existing access rights.
   const pages = sectionPages.filter(canOpen);
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
   const parentPath = purchasingParentPath(pathname);

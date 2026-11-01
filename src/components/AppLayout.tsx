@@ -1,3 +1,4 @@
+import { SupplierProfileDialog } from "@/components/vendors/SupplierProfileDialog";
 import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -60,6 +61,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+      <SupplierProfileDialog />
       <FloatingBani />
     </SidebarProvider></FloatingBaniProvider></VenueScopeProvider>
   );
