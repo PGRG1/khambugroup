@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { ArrowUp, AudioLines, Mic, MicOff, Square, Plus, History, X, ChevronRight, Check, FileText } from "lucide-react";
 import { ATTACH_TYPES, attachmentError } from "@/utils/floatingBaniUi";
 import { compressImageFile } from "@/utils/imageCompression";
+import { useFloatingBaniStore } from "@/components/assistant/FloatingBaniContext";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
@@ -49,6 +50,7 @@ const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `c-${Date.now()}-${Math.random()}`;
 
 export default function Assistant() {
+  const floating = useFloatingBaniStore();
   const { session, user } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
 
@@ -100,6 +102,15 @@ export default function Assistant() {
     window.addEventListener("bani-people-change", change);
     return () => window.removeEventListener("bani-people-change", change);
   }, []);
+
+  useEffect(() => {
+    if (!floating?.continueToPage[0] || !scopeReady || floating.scope[0] !== `${user?.id}:${tenantId}:false`) return;
+    const transferred: Msg[] = floating.messages[0].map(m => ({ ...m, content: [m.content, m.files?.length ? `Attached: ${m.files.join(", ")}` : "", m.outcome && !m.actionOutcome ? `Actual outcome: ${m.outcome}` : ""].filter(Boolean).join("\n"), actionCard: m.actionCard?.kind === "people" ? m.actionCard : undefined }));
+    const conversation = { ...createConversation<ChartSpec>(newId()), title: conversationTitle(transferred.find(m => m.role === "user")?.content ?? "Bani"), messages: transferred };
+    setConversations(prev => upsertConversation(prev, conversation)); setActiveId(conversation.id);
+    setInput(floating.draft[0]); setFiles(floating.files[0].map(f => f.file));
+    floating.continueToPage[1](false);
+  }, [floating, scopeReady, user?.id, tenantId]);
 
   // Only auto-scroll when the user is already at the bottom.
   const onScroll = () => {
@@ -492,7 +503,7 @@ export default function Assistant() {
             <Plus className="h-[18px] w-[18px]" />
           </button>
         )}
-        <textarea
+        <textarea dir="auto"
           ref={taRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -729,7 +740,7 @@ export default function Assistant() {
 function MessageBlock({ msg, voiceMode = false, onOutcome, onChange }: { msg: Msg; voiceMode?: boolean; onOutcome: (result: PeopleOutcome) => void; onChange: (text: string) => void }) {
   if (msg.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div dir="auto" className="bani-message-direction flex justify-end">
         <div
           className="bani-user-message max-w-[75%] px-3.5 py-2 text-[14.5px] leading-[1.45]"
           style={{ background: "rgba(255,255,255,0.42)", color: "#10302C", borderRadius: "18px 18px 4px 18px" }}
@@ -741,7 +752,7 @@ function MessageBlock({ msg, voiceMode = false, onOutcome, onChange }: { msg: Ms
   }
 
   return (
-    <div className={voiceMode ? "bani-voice-answer bani-fade" : "bani-answer bani-fade"}>
+    <div dir="auto" className={`bani-message-direction ${voiceMode ? "bani-voice-answer bani-fade" : "bani-answer bani-fade"}`}>
       <CheckedLine steps={msg.steps} durationMs={msg.durationMs} />
       <div className="min-w-0 space-y-3">
         <div className="prose prose-sm max-w-none text-inherit

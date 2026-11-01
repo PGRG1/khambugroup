@@ -23,16 +23,16 @@ export function PeopleActionCard({ card, outcome, onOutcome, onChange }: { card:
     } catch (e) { setError(e instanceof Error ? e.message : "Nothing changed. Try again."); }
     finally { setBusy(false); }
   };
-  return <section className="my-3 min-w-0 rounded-lg border border-border bg-card p-3 text-sm text-card-foreground" aria-label="People action">
-    <p className="font-medium break-words">{card.title}</p>
-    {card.detail && <div className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{card.detail}</div>}
-    {outcome ? <p className="mt-2" role="status">{outcome.message} {outcome.link && <Link className="underline underline-offset-4" to={outcome.link}>View in People</Link>}</p> : <div className="mt-3 flex flex-wrap gap-2">
-      <Button size="sm" disabled={busy || preview.isPreviewActive} onClick={() => void decide("confirm")}>Confirm</Button>
-      <Button size="sm" variant="outline" disabled={busy || preview.isPreviewActive} onClick={() => void decide("change")}>Change</Button>
+  return <section dir="auto" className="bani-people-card my-3 min-w-0 rounded-lg border border-border bg-card p-3 text-sm text-card-foreground" aria-label="People action">
+    <p dir="auto" className="font-medium break-words">{card.title}</p>
+    {card.detail && <div dir="auto" className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{card.detail}</div>}
+    {outcome ? <p dir="auto" className="bani-people-outcome mt-2" role="status">{outcome.undo_available && "✓ "}{outcome.message} {outcome.link && <Link className="underline underline-offset-4" to={outcome.link}>View in People</Link>}</p> : <div className="mt-3 flex flex-wrap gap-2">
+      <Button data-variant="default" size="sm" disabled={busy || preview.isPreviewActive} onClick={() => void decide("confirm")}>Confirm</Button>
+      <Button size="sm" variant="outline" data-variant="outline" disabled={busy || preview.isPreviewActive} onClick={() => void decide("change")}>Change</Button>
       <Button size="sm" variant="ghost" disabled={busy || preview.isPreviewActive} onClick={() => void decide("cancel")}>Cancel</Button>
     </div>}
     {outcome?.undo_available && <div className="mt-2 flex flex-wrap items-center gap-2">
-      {undoReview ? <><span className="text-xs text-muted-foreground">Restore the previous rota or leave records?</span><Button size="sm" disabled={busy || preview.isPreviewActive} onClick={() => void decide("undo")}>Confirm undo</Button><Button size="sm" variant="ghost" onClick={() => setUndoReview(false)}>Cancel</Button></> : <Button size="sm" variant="outline" disabled={busy || preview.isPreviewActive} onClick={() => setUndoReview(true)}>Undo</Button>}
+      {undoReview ? <><span className="text-xs text-muted-foreground">Restore the previous rota or leave records?</span><Button size="sm" disabled={busy || preview.isPreviewActive} onClick={() => void decide("undo")}>Confirm undo</Button><Button size="sm" variant="ghost" onClick={() => setUndoReview(false)}>Cancel</Button></> : <Button size="sm" variant="outline" data-variant="outline" disabled={busy || preview.isPreviewActive} onClick={() => setUndoReview(true)}>Undo</Button>}
     </div>}
     {busy && <p role="status" className="mt-2 text-xs text-muted-foreground">Working on it…</p>}
     {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}

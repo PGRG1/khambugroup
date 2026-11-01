@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import type { Point } from "@/utils/floatingBaniUi";
 import type { SalesRecord } from "@/types/sales";
