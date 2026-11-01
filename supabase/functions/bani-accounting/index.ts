@@ -39,14 +39,13 @@ async function processTenant(admin:Client,req:Request,tenant:string,userId:strin
     if(records.length){const {error}=await admin.from('bani_accounting_reviews').upsert(records.map(r=>({...r,tenant_id:tenant})),{onConflict:'tenant_id,source_type,source_id',ignoreDuplicates:true});if(error)throw error;}
     let q=admin.from('bani_accounting_reviews').select('*').eq('tenant_id',tenant).eq('status','queued').order('created_at').limit(BATCH);if(sourceId)q=q.eq('source_id',sourceId);const {data:queue,error:qe}=await q;if(qe)throw qe;
     if(!queue?.length)return {posted,asked,outcomes};
-    if(!settings.enabled){for(const r of queue){await checked(admin,'bani_accounting_reviews',{status:'asked',reasons:['Automatic posting is off'],checked_at:new Date().toISOString()},r.id);asked++;}return {posted,asked,outcomes};}
     let unavailable=settings.paused_reason as string|null;
     // One availability check per bounded run, never probe a paused job.
     if(!unavailable)try{const result=await verify(req,{availability_check:true});if(!result.sure){unavailable=result.reason||AI_UNAVAILABLE;await pause(admin,tenant,new Error(unavailable));}}catch(e){unavailable=AI_UNAVAILABLE;await pause(admin,tenant,e);}
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());const firstDate=sales.map(s=>s.date).sort()[0]??null;
     for(const r of queue){
       const record=r.source_type==='expense_bill'?bills.find(b=>b.id===r.source_id):r.source_type==='invoice'?invoices.find(i=>i.id===r.source_id):bank.find(b=>b.id===r.source_id);if(!record){await checked(admin,'bani_accounting_reviews',{status:'resolved'},r.id);continue;}
-      const supplier=suppliers.find(s=>s.id===record.supplier_id);const contextual=examples.filter(e=>e.supplier_id===record.supplier_id&&e.venue===record.venue).sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,20);
+      const supplier=suppliers.find(s=>s.id===record.supplier_id);const contextual=examples.filter(e=>!e.disabled_at&&e.supplier_id===record.supplier_id&&e.venue===record.venue).sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,20);
       const conflict=contextual.some(e=>e.conflict_with&&!e.resolved_at);
       let targetType:string|null=null,targetId:string|null=null;let placed=false,balanced=false,humanCount:boolean|undefined;let usualReason:string|null=null;let document:any;
       const lines=r.source_type==='expense_bill'?allocs.filter(l=>l.bill_id===record.id):invoiceLines.filter(l=>l.invoice_id===record.id);
@@ -71,7 +70,7 @@ async function processTenant(admin:Client,req:Request,tenant:string,userId:strin
         if(path&&!unavailable){const {data,error}=await admin.storage.from(bucket).download(path);if(!error&&data&&data.size<=15*1024*1024)document={data:new Uint8Array(await data.arrayBuffer()),mime:data.type||'application/pdf'};}
       }
       const siblings=r.source_type==='expense_bill'?bills:invoices;const duplicate=r.source_type==='bank_transaction'?bank.some(b=>b.id!==record.id&&b.bank_account_id===record.bank_account_id&&b.txn_date===record.txn_date&&b.reference===record.reference&&Number(b.money_in)===Number(record.money_in)&&Number(b.money_out)===Number(record.money_out)):siblings.some(b=>b.id!==record.id&&b.supplier_id===record.supplier_id&&((record.bill_number||record.invoice_number)&&(b.bill_number||b.invoice_number)===(record.bill_number||record.invoice_number)||(b.bill_date||b.invoice_date)===(record.bill_date||record.invoice_date)&&Number(b.total_amount)===Number(record.total_amount)));
-      const reasons=postingReasons({enabled:settings.enabled,amount:Number(r.amount),limit:settings.ask_above===null?null:Number(settings.ask_above),supplierKnown:r.source_type==='bank_transaction'||!!supplier,documentRead:r.source_type==='bank_transaction'?!!record.import_id:!!document,placed,balanced,duplicate,date:r.source_date,firstDate,today,closed:closed.some(c=>!c.reopened_at&&c.month_start===`${r.source_date.slice(0,7)}-01`),usualReason,humanCount,conflict,currency:record.currency??'HKD'});
+      const reasons=postingReasons({enabled:true,amount:Number(r.amount),limit:null,supplierKnown:r.source_type==='bank_transaction'||!!supplier,documentRead:r.source_type==='bank_transaction'?!!record.import_id:!!document,placed,balanced,duplicate,date:r.source_date,firstDate,today,closed:closed.some(c=>!c.reopened_at&&c.month_start===`${r.source_date.slice(0,7)}-01`),usualReason,humanCount,conflict,currency:record.currency??'HKD'});
       if(unavailable)reasons.unshift(AI_UNAVAILABLE);
       if(!reasons.length){
         const {data:snapshot,error}=await admin.rpc('bani_accounting_snapshot',{p_type:r.source_type,p_id:r.source_id});if(error)throw error;

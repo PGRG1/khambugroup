@@ -24,6 +24,7 @@ import YourTeam from "./pages/YourTeam";
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
 import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
 import KpiHome from "./pages/kpis/KpiHome";
 import KpiSetup from "./pages/kpis/KpiSetup";
 import KpiPlanner from "./pages/kpis/KpiPlanner";
@@ -245,17 +246,17 @@ function App() {
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
                 <Route path="/revenue/reconciliation" element={<ProtectedRoute pageKey="revenue"><Reconciliation /></ProtectedRoute>} />
                 <Route path="/revenue/analysis" element={<ProtectedRoute pageKey="revenue"><RevenueAnalysis /></ProtectedRoute>} />
-                <Route path="/revenue/setup" element={<ProtectedRoute pageKey="revenue"><RevenueSetup /></ProtectedRoute>} />
+                <Route path="/revenue/setup" element={<Navigate to="/settings?tab=business" replace />} />
                 {/* Legacy routes consolidated into Revenue Setup / Sales Records */}
-                <Route path="/revenue/service-periods" element={<Navigate to="/revenue/setup?tab=service-periods" replace />} />
-                <Route path="/revenue/mapping" element={<Navigate to="/revenue/setup?tab=mapping" replace />} />
+                <Route path="/revenue/service-periods" element={<Navigate to="/settings?tab=business" replace />} />
+                <Route path="/revenue/mapping" element={<Navigate to="/settings?tab=business&section=accounts" replace />} />
                 <Route path="/revenue/other" element={<Navigate to="/sales-data?view=other" replace />} />
 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
                 <Route path="/revenue/targets-new" element={<ProtectedRoute pageKey="forecast"><RevenueTargetsNew /></ProtectedRoute>} />
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
 
-                <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
+                <Route path="/activity-log" element={<Navigate to="/settings?tab=users&view=activity" replace />} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><Navigate to="/finance/reports?view=pl" replace /></ProtectedRoute>} />
                 <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
                 <Route path="/finance/dashboard" element={<Navigate to="/finance" replace />} />
@@ -294,15 +295,15 @@ function App() {
                 <Route path="/petty-cash/replenishments" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/replenishments") ?? "/finance/cash"} replace /></AdminRoute>} />
                 <Route path="/petty-cash/floats" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/floats") ?? "/finance/cash"} replace /></AdminRoute>} />
                 <Route path="/petty-cash/classifications" element={<AdminRoute><Navigate to={legacyFinanceDestination("/petty-cash/classifications") ?? "/finance/cash"} replace /></AdminRoute>} />
-                <Route path="/settings" element={<Navigate to="/admin/preferences" replace />} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/admin/system-configuration" element={<Navigate to="/admin/structure" replace />} />
-                <Route path="/admin/structure" element={<AdminRoute><BusinessStructure /></AdminRoute>} />
-                <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
-                <Route path="/admin/people" element={<AdminRoute><PeopleSettings /></AdminRoute>} />
-                <Route path="/admin/accounting" element={<AdminRoute><AccountingSettings /></AdminRoute>} />
-                <Route path="/admin/accounting/card-processors" element={<AdminRoute><CardProcessors /></AdminRoute>} />
-                <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
-                <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
+                <Route path="/admin/structure" element={<Navigate to="/settings?tab=business" replace />} />
+                <Route path="/admin/master-data" element={<Navigate to="/settings?tab=business" replace />} />
+                <Route path="/admin/people" element={<Navigate to="/settings?tab=users" replace />} />
+                <Route path="/admin/accounting" element={<Navigate to="/settings?tab=accounting" replace />} />
+                <Route path="/admin/accounting/card-processors" element={<Navigate to="/settings?tab=accounting&view=processors" replace />} />
+                <Route path="/admin/preferences" element={<Navigate to="/settings" replace />} />
+                <Route path="/admin/ai-rules" element={<Navigate to="/settings?tab=bani" replace />} />
 
 
                 {/* Platform admin — hard-separated under /platform/*. Old /admin/clients* redirects. */}
@@ -316,7 +317,7 @@ function App() {
 
 
 
-                <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
+                <Route path="/user-access" element={<Navigate to="/settings?tab=users" replace />} />
                 
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
                 <Route path="/procurement/dashboard" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="dashboard" /></ProtectedRoute>} />
@@ -341,7 +342,7 @@ function App() {
                 <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/finance/suppliers?view=invoice" replace /></ProtectedRoute>} />
-                <Route path="/procurement/finance/onboarding" element={<ProtectedRoute pageKey="invoices"><OpeningBalances /></ProtectedRoute>} />
+                <Route path="/procurement/finance/onboarding" element={<Navigate to="/settings?tab=accounting&view=opening" replace />} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
 
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
@@ -381,9 +382,9 @@ function App() {
                 
                 <Route path="/expenses/bank-detected" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
-                <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
+                <Route path="/expenses/categories" element={<Navigate to="/settings?tab=accounting&view=categories" replace />} />
                 <Route path="/expenses/vendors" element={<Navigate to="/procurement/suppliers" replace />} />
-                <Route path="/expenses/mapping" element={<AdminRoute><ExpenseMappingPage /></AdminRoute>} />
+                <Route path="/expenses/mapping" element={<Navigate to="/settings?tab=accounting&view=categories" replace />} />
                 
                 <Route path="/expenses/approvals" element={<Navigate to="/expenses?status=waiting" replace />} />
                 <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
@@ -394,7 +395,7 @@ function App() {
                 <Route path="/expenses/finance/payables" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/finance-team" element={<ProtectedRoute pageKey="finance"><FinanceTeam /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
+                <Route path="/notifications" element={<Navigate to="/settings?tab=alerts" replace />} />
                 <Route path="/kpis" element={<Navigate to="/kpis/my-cards" replace />} />
                 <Route path="/kpis/my-cards" element={<KpiRoute><KpiHome /></KpiRoute>} />
                 <Route path="/kpis/setup" element={<KpiRoute need="admin"><KpiSetup /></KpiRoute>} />

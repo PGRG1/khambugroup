@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useVenues } from "@/hooks/useVenues";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { resolvePurchasingMode } from "@/utils/purchasingMode";
 
@@ -112,7 +113,7 @@ export function RevenueSourcesCard() {
 
 // ---------- Procurement configuration ----------
 type StockLocation = { id: string; venue: string; name: string; sort_order: number; is_active: boolean };
-const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
+
 const REF_MODES = [
   { value: "none", title: "None — blind count", desc: "No reference shown. Best for unbiased counts.", pill: null as null | { label: string; cls: string }, disabled: false },
   { value: "last_count", title: "Last count qty", desc: "Shows qty from the most recent approved count.", pill: { label: "Recommended", cls: "bg-primary/10 text-primary" }, disabled: false },
@@ -121,12 +122,13 @@ const REF_MODES = [
 
 function ProcurementCard() {
   const { tenantId } = useActiveTenant();
+  const {venues}=useVenues(); const VENUES=venues.filter(v=>v.is_active).map(v=>v.name);
   const purchasing = usePurchasingMode();
   const queryClient = useQueryClient();
   const [savingPurchasing, setSavingPurchasing] = useState(false);
   const [refMode, setRefMode] = useState<string>("last_count");
   const [locations, setLocations] = useState<StockLocation[]>([]);
-  const [activeVenue, setActiveVenue] = useState<string>("Assembly");
+  const [activeVenue, setActiveVenue] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [newName, setNewName] = useState("");
@@ -234,7 +236,7 @@ function ProcurementCard() {
           <div className="text-sm font-medium">Stock count reference quantity</div>
           <div className="text-xs text-muted-foreground mb-3">Controls what counters see alongside each item.</div>
           <div className="space-y-2">
-            {REF_MODES.map((opt) => {
+            {REF_MODES.filter(opt=>!opt.disabled).map((opt) => {
               const selected = refMode === opt.value;
               return (
                 <div
@@ -305,24 +307,4 @@ function ProcurementCard() {
   );
 }
 
-export default function MasterData() {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <Navigate to="/" replace/>;
-  return (
-    <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <PageHeader
-        title="Master Data"
-        description="Module-level master data — revenue channels and procurement configuration. Organizations and venues live in Business Structure."
-      />
-      <RevenueSourcesCard/>
-      <ProcurementCard/>
-      <Link to="/procurement/suppliers" className="card-glass flex items-center justify-between rounded-xl border p-4 hover:bg-accent/40 transition-colors">
-        <div>
-          <div className="font-medium">Suppliers & Vendors</div>
-          <div className="text-sm text-muted-foreground">Open the supplier directory used by purchasing and invoices.</div>
-        </div>
-        <span className="text-sm text-primary">Open →</span>
-      </Link>
-    </div>
-  );
-}
+export default function MasterData(){return <Navigate to="/settings?tab=business" replace/>;}

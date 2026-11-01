@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { X, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { logAuditEvent } from "@/utils/auditLog";
@@ -169,14 +170,13 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <div className="w-full max-w-2xl bg-background border-l border-border overflow-y-auto animate-in slide-in-from-right">
-        <div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between z-10">
-          <h2 className="font-display font-semibold text-lg">
+    <Dialog open onOpenChange={o=>!o&&onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="break-words pr-5">
             Edit User: <span className="text-primary">{user.email}</span>
-          </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="p-6 space-y-8">
           {/* Basic Info */}
@@ -259,11 +259,12 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Page Access</h3>
             <div className="space-y-3">
               {ALL_PAGES.map(page => {
-                const perm = pages.find(p => p.page_key === page.key)!;
+                const perm = pages.find(p => p.page_key === page.key);
+                if (!perm) return null;
                 const actions = PAGE_ACTIONS[page.key] || [];
                 return (
                   <div key={page.key} className="border border-border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-3 items-center justify-between">
                       <span className="font-medium text-sm">{page.label}</span>
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-xs">
@@ -325,7 +326,7 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

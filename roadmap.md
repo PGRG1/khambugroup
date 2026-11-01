@@ -1,3 +1,9 @@
+## Settings rebuild
+- [x] Single Settings page, redirects/sidebar, Business venue editors, tenant-only Users and centred editing
+- [x] Automatic People rules/posting defaults, merged category mapping RPC, learned rules/examples and Alerts
+- [x] Data-driven venue choices; strict date rules plus >one-year document check; 118 tests/build OK and signed-in five-tab desktop/375px checks, centred user/category dialogs, alert venue options and redirects. Four venues (3 open/1 closed), six distinct users (two lack profiles), 27 category rows without accounts, 606 date candidates remain (605 predate first sales, one future). No financial writes.
+- [ ] Real phone push/geolocation and manager/owner concurrent approval checks need devices/accounts; successful AI resume needs restored workspace access. Historical first-sales range is data-dependent; no dates corrected. Existing category creation and processor/opening editor phone details not fully redesigned; learning action edits for accounting examples are reason/forget only.
+
 ## Finance — Part 3
 - [x] Six Books views restyled; journal source/account reasons, 1,935 stored documents searched, bank PDF opened; uploads stage in existing Bani composer
 - [x] Atomic confirmed date/reclassification/reversal RPC, originals retained, snapshot/period/access checks, linked audit; no live financial records changed

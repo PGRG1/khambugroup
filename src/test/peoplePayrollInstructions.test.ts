@@ -27,8 +27,8 @@ describe('Punctuality never sets pay',()=>{
  const s={shift_date:'2026-05-02',start_time:'09:00',end_time:'17:00',shift_type:'regular'},a=[{clock_in:'2026-05-02T01:20:00Z',clock_out:'2026-05-02T10:00:00Z',hours_worked:8.67}],now=new Date('2026-05-02T12:00:00Z');
  it('default lateness and extra hours flags are off',()=>expect(managerClockFlags(s,a,resolvePeopleSettings(),now)).toEqual([]));
  it('no-show is flagged only after rota shift ends',()=>{expect(managerClockFlags(s,[],resolvePeopleSettings(),now)).toEqual(['No-show']);expect(managerClockFlags(s,[],resolvePeopleSettings(),new Date('2026-05-02T02:00:00Z'))).toEqual([]);});
- it('optional lateness flags strictly above N minutes',()=>{expect(managerClockFlags(s,a,resolvePeopleSettings({flag_lateness:true,lateness_minutes:20}),now)).toEqual([]);expect(managerClockFlags(s,a,resolvePeopleSettings({flag_lateness:true,lateness_minutes:19}),now)).toEqual(['Late 20 min']);});
- it('optional extra time flags strictly above N minutes',()=>expect(managerClockFlags(s,a,resolvePeopleSettings({flag_extra_hours:true,extra_hours_minutes:30}),now)).toEqual(['Extra hours 40 min']));
+ it('retired lateness switch cannot enable flags',()=>expect(managerClockFlags(s,a,resolvePeopleSettings({flag_lateness:true,lateness_minutes:19}),now)).toEqual([]));
+ it('retired extra time switch cannot enable flags',()=>expect(managerClockFlags(s,a,resolvePeopleSettings({flag_extra_hours:true,extra_hours_minutes:30}),now)).toEqual([]));
  it('early leave is a quiet fact',()=>expect(punctualityFacts(s,[{clock_in:'2026-05-02T01:00:00Z',clock_out:'2026-05-02T08:30:00Z',hours_worked:7.5}],now).earlyMinutes).toBe(30));
  it('legacy clock-in pay settings resolve to rota',()=>expect(resolvePeopleSettings({pay_hours:'clock_ins'}).pay_hours).toBe('rota'));
 });

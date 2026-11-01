@@ -421,6 +421,13 @@
       "when": 1793464681031,
       "tag": "0059_finance_confirmed_book_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793494481335,
+      "tag": "0060_settings_facts_and_automatic_behaviour",
+      "breakpoints": true
     }
   ]
 }

@@ -1,71 +1,14 @@
-import { usePageVisibility } from "@/hooks/usePageVisibility";
-import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
-import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Palette } from "lucide-react";
-import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
-
-const Settings = () => {
-  const { isAdmin } = useAuth();
-  const { pages, loading, toggleVisibility } = usePageVisibility();
-
-  if (!isAdmin) return <Navigate to="/" replace />;
-
-  return (
-    <div className="max-w-[800px] mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">Settings</span>
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">Admin configuration</p>
-      </div>
-
-      <div className="card-glass rounded-xl p-6">
-        <h2 className="text-lg font-display font-semibold text-foreground flex items-center gap-2 mb-1">
-          <Palette className="h-5 w-5 text-primary" />
-          Appearance
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Choose your preferred theme. This setting is saved to your account and applies across devices.
-        </p>
-        <ThemeSwitcher />
-      </div>
-
-      <div className="card-glass rounded-xl p-6">
-        <h2 className="text-lg font-display font-semibold text-foreground flex items-center gap-2 mb-4">
-          <SettingsIcon className="h-5 w-5 text-primary" />
-          Page Visibility
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Control which pages are visible to non-admin users. Admins always see all pages.
-        </p>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : (
-          <div className="space-y-3">
-            {pages.map((page) => (
-              <div
-                key={page.page_key}
-                className="flex items-center justify-between py-3 px-4 rounded-lg border border-border bg-secondary/50"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">{page.page_label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {page.visible_to_all ? "Visible to all users" : "Admin only"}
-                  </p>
-                </div>
-                <Switch
-                  checked={page.visible_to_all}
-                  onCheckedChange={(checked) => toggleVisibility(page.page_key, checked)}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Settings;
+import {Link,useSearchParams} from 'react-router-dom';
+import {useAuth} from '@/hooks/useAuth';
+import {usePreviewMode} from '@/hooks/usePreviewMode';
+import {useUserPermissions} from '@/hooks/useUserPermissions';
+import {PageTop as PageHeader} from '@/components/kit/PageTop';
+import {SectionPillRow} from '@/components/kit/SectionPillRow';
+import {BusinessTab} from '@/components/settings/BusinessTab';
+import {UsersTab} from '@/components/settings/UsersTab';
+import {AccountingTab} from '@/components/settings/AccountingTab';
+import {BaniTab} from '@/components/settings/BaniTab';
+import Notifications from '@/pages/Notifications';
+import {settingsTabs} from '@/utils/settingsFacts';
+import AccessDenied from '@/pages/AccessDenied';
+export default function Settings(){const [params]=useSearchParams();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();const permissions=useUserPermissions(isPreviewActive?previewUserId??undefined:user?.id);const admin=isAdmin&&!isPreviewActive;const tabs=settingsTabs.filter(t=>admin||t==='Alerts'&&permissions.canAccessPage('notifications'));const key=params.get('tab')??(admin?'business':'alerts');const tab=tabs.find(t=>t.toLowerCase()===key);if(!tab)return <AccessDenied/>;return <div className="min-w-0 space-y-5 settings-page"><PageHeader title="Settings"/><div className="sm:hidden"><SectionPillRow label="Settings tabs" items={tabs.map(t=>({label:t,path:`/settings?tab=${t.toLowerCase()}`}))} activePath={`/settings?tab=${tab.toLowerCase()}`}/></div><nav aria-label="Settings tabs" className="hidden sm:flex gap-6 border-b border-border">{tabs.map(t=><Link key={t} to={`/settings?tab=${t.toLowerCase()}`} aria-current={t===tab?'page':undefined} className={`py-3 text-sm border-b-2 ${t===tab?'border-primary text-foreground':'border-transparent text-muted-foreground'}`}>{t}</Link>)}</nav><section className="kit card-glass overflow-hidden min-w-0">{tab==='Business'?<BusinessTab/>:tab==='Users'?<UsersTab/>:tab==='Accounting'?<AccountingTab/>:tab==='Bani'?<BaniTab/>:<Notifications/>}</section></div>;}

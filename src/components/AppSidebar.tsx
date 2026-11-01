@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -284,7 +285,7 @@ export function AppSidebar() {
   const stockMenuActive = isStockMenuRoute(pathname);
   const { isAdmin: authIsAdmin } = useAuth();
   const { isPreviewActive: previewActive } = usePreviewMode();
-  const supplierDirectoryInSettings = authIsAdmin && !previewActive;
+  const supplierDirectoryInSettings = false;
   const purchasingActive = pathname.startsWith("/procurement/") && !stockMenuActive && !(supplierDirectoryInSettings && isSupplierDirectoryRoute(pathname));
   const purchasingChildren = [...purchasingSectionPages, ...(supplierDirectoryInSettings ? [] : [SUPPLIER_DIRECTORY_TAB])].filter(purchasingAccess.canOpen);
   const stockMenuChildren = stockMenuSectionPages.filter(purchasingAccess.canOpen);
@@ -349,13 +350,13 @@ export function AppSidebar() {
   const visibleItems = navItems.filter(item => {
     if (item.pageKey === "home") return true;
     if (isAdmin && !isPreviewActive) return true;
-    return showInSidebar(item.pageKey!);
+    return !!item.pageKey && showInSidebar(item.pageKey) && canAccessPage(item.pageKey);
   });
 
   const canSeeSection = (pageKey: string): boolean => {
     if (isPlatformAdmin) return true;
     if (isAdmin && !isPreviewActive) return true;
-    return showInSidebar(pageKey);
+    return showInSidebar(pageKey) && canAccessPage(pageKey);
   };
 
   const showFinance     = canSeeSection("finance");
@@ -421,7 +422,7 @@ export function AppSidebar() {
           ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
 
-          ...(showAdmin ? [{ title: "Settings", to: "/user-access", icon: Settings, active: ["/notifications", "/user-access", "/admin", "/revenue/setup", "/activity-log", "/procurement/suppliers"].some((r) => pathname.startsWith(r)) }] : []),
+          ...(showAdmin ? [{ title: "Settings", to: "/settings", icon: Settings, active: pathname === "/settings" }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
@@ -527,34 +528,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} /></SidebarMenu></SidebarGroup>}
 
-        {showAdmin && (
-          <CollapsibleNavGroup
-            label="Settings"
-            icon={Settings}
-            defaultOpen={groupState.admin}
-            onOpenChange={(o) => setGroup("admin", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              {[
-                { title: "Notifications", url: "/notifications" },
-                { title: "User Access", url: "/user-access" },
-                { title: "Business & venues", url: "/admin/structure" },
-                { title: "Revenue setup", url: "/revenue/setup" },
-                { title: "People", url: "/admin/people" },
-                { title: "Accounting", url: "/admin/accounting" },
-                { title: "Master Data", url: "/admin/master-data" },
-                { title: "Expense categories", url: "/expenses/categories" },
-                { title: "Expense mapping", url: "/expenses/mapping" },
-                { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
-                { title: "AI Learned Rules", url: "/admin/ai-rules" },
-                
-                { title: "Preferences", url: "/admin/preferences" },
-                { title: "Activity Log", url: "/activity-log" },
-                { title: "Opening Balances", url: "/procurement/finance/onboarding" },
-              ].map((it) => <ChildLink key={it.url} item={it} />)}
-            </SidebarMenu>
-          </CollapsibleNavGroup>
-        )}
+        {showAdmin && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:"/settings",icon:Settings}} /></SidebarMenu></SidebarGroup>}
 
         {showPlatform && (
           <CollapsibleNavGroup
@@ -576,13 +550,14 @@ export function AppSidebar() {
         {user && (
           <p className="text-[11px] text-muted-foreground mb-2 truncate px-1">{user.email}</p>
         )}
-        <button
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start" aria-label="Profile and appearance"><UserRound className="h-4 w-4"/>Profile</Button></DropdownMenuTrigger><DropdownMenuContent side="top"><DropdownMenuItem disabled>Appearance · Bani light</DropdownMenuItem><DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+        <Button variant="ghost"
           onClick={signOut}
           className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
-        </button>
+        </Button>
       </SidebarFooter>}
     </Sidebar>
   );

@@ -13,6 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Bell, BellOff, Plus, Trash2, Send } from "lucide-react";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { toast } from "@/hooks/use-toast";
+import { useVenues } from "@/hooks/useVenues";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { formatCurrency,formatTableInteger as formatNumber,formatPercent } from "@/utils/format";
 
 const METRICS = [
   { value: "mtd_revenue", label: "MTD Revenue", unit: "HK$" },
@@ -28,7 +31,6 @@ const OPS = [
   { value: "gt", label: "is above (>)" },
   { value: "gte", label: "is at least (≥)" },
 ];
-const VENUES = ["", "Assembly", "Caliente", "Hanabi", "Events"];
 const SEVERITY = ["info", "warning", "critical"] as const;
 
 type Rule = {
@@ -41,6 +43,8 @@ type Event = { id: string; rule_id: string; fired_for_date: string; metric_value
 export default function Notifications() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const {venues}=useVenues();const {tenantId}=useActiveTenant();
+  const [deleting,setDeleting]=useState<Rule|null>(null);
   const { status, busy, subscribe, unsubscribe, sendTest } = usePushSubscription();
   const [rules, setRules] = useState<Rule[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -48,20 +52,22 @@ export default function Notifications() {
   const [running, setRunning] = useState(false);
 
   const load = async () => {
+    if(!tenantId){setRules([]);setEvents([]);return;}
     const [{ data: r }, { data: e }] = await Promise.all([
-      supabase.from("alert_rules").select("*").order("created_at", { ascending: false }),
-      supabase.from("alert_events").select("*").order("fired_for_date", { ascending: false }).limit(30),
+      supabase.from("alert_rules").select("*").eq('tenant_id',tenantId).order("created_at", { ascending: false }),
+      supabase.from("alert_events").select("*").eq('tenant_id',tenantId).order("fired_for_date", { ascending: false }).limit(30),
     ]);
     setRules((r as any) || []);
     setEvents((e as any) || []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [tenantId]);
 
   const saveRule = async () => {
     if (!editing || !editing.name || !editing.metric || !editing.operator || editing.threshold == null) {
       toast({ title: "Missing fields", variant: "destructive" }); return;
     }
     const payload: any = {
+      tenant_id:tenantId,
       name: editing.name,
       metric: editing.metric,
       venue: editing.venue || null,
@@ -82,8 +88,10 @@ export default function Notifications() {
   };
 
   const deleteRule = async (id: string) => {
-    if (!confirm("Delete this rule?")) return;
-    await supabase.from("alert_rules").delete().eq("id", id);
+    if(!tenantId)return;
+    const {error}=await supabase.from("alert_rules").delete().eq("id", id).eq('tenant_id',tenantId);
+    if(error){toast({title:error.message,variant:'destructive'});return;}
+    setDeleting(null);
     load();
   };
 
@@ -113,20 +121,19 @@ export default function Notifications() {
   }[status];
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-5 space-y-6 min-w-0">
       <div>
-        <h1 className="text-2xl font-semibold">Business Pulse</h1>
-        <p className="text-sm text-muted-foreground">Daily push notifications when your KPIs cross thresholds you define.</p>
+        <h2 className="text-lg font-display font-semibold">Alerts</h2>
+        <p className="text-sm text-muted-foreground">{formatNumber(rules.length)} alert rules · Bani</p>
       </div>
 
       {/* This device */}
-      <Card className="p-5 space-y-4">
+      <section className="space-y-4 border-b pb-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Bell className="h-5 w-5 text-primary" />
             <div>
-              <div className="font-medium">This device</div>
-              <div className="text-xs text-muted-foreground">Install Khambu to your home screen, then enable push.</div>
+              <div className="font-medium">This phone · push is {status==='subscribed'?'on':'off'}</div>
             </div>
           </div>
           {statusBadge}
@@ -135,23 +142,19 @@ export default function Notifications() {
           {status === "subscribed" ? (
             <>
               <Button variant="outline" onClick={sendTest}><Send className="h-4 w-4 mr-2" />Send test</Button>
-              <Button variant="ghost" onClick={unsubscribe} disabled={busy}><BellOff className="h-4 w-4 mr-2" />Disable on this device</Button>
+              <Button variant="ghost" onClick={unsubscribe} disabled={busy}><BellOff className="h-4 w-4 mr-2" />Turn off</Button>
             </>
           ) : (
             <Button onClick={subscribe} disabled={busy || status === "unsupported" || status === "denied"}>
-              <Bell className="h-4 w-4 mr-2" />Enable push on this device
+              <Bell className="h-4 w-4 mr-2" />Turn on
             </Button>
           )}
           <Button variant="outline" onClick={runNow} disabled={running}>Run evaluation now</Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          iPhone: open Safari → Share → Add to Home Screen, then open the installed app to enable push.
-          Cron runs daily at 21:00 HKT.
-        </p>
-      </Card>
+      </section>
 
       {/* Rules */}
-      <Card className="p-5">
+      <section>
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="font-medium">My alert rules</div>
@@ -162,13 +165,13 @@ export default function Notifications() {
           </Button>
         </div>
         <div className="space-y-2">
-          {rules.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">No rules yet. Add one to get a push when revenue or COGS hit your threshold.</div>}
+          {rules.length === 0 && <div className="text-sm text-muted-foreground py-6">No alerts yet. Tell Bani, e.g. “tell me if Caliente sales are under HK$20,000 by 9pm”, or add one.</div>}
           {rules.map((r) => {
             const m = METRICS.find((x) => x.value === r.metric);
             const op = OPS.find((x) => x.value === r.operator)?.label || r.operator;
-            const fmt = m?.unit === "HK$" ? `HK$ ${Number(r.threshold).toLocaleString()}` : m?.unit === "%" ? `${r.threshold}%` : String(r.threshold);
+            const fmt = m?.unit === "HK$" ? formatCurrency(r.threshold) : m?.unit === "%" ? formatPercent(r.threshold) : formatNumber(r.threshold);
             return (
-              <div key={r.id} className="flex items-center justify-between gap-3 border rounded-md p-3">
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3">
                 <div className="min-w-0">
                   <div className="font-medium truncate">{r.name}</div>
                   <div className="text-xs text-muted-foreground truncate">
@@ -179,16 +182,16 @@ export default function Notifications() {
                   <Badge variant={r.severity === "critical" ? "destructive" : r.severity === "warning" ? "default" : "secondary"}>{r.severity}</Badge>
                   <Switch checked={r.enabled} onCheckedChange={() => toggleRule(r)} />
                   <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>Edit</Button>
-                  <Button size="sm" variant="ghost" onClick={() => deleteRule(r.id)}><Trash2 className="h-4 w-4" /></Button>
+                  <Button size="sm" variant="ghost" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             );
           })}
         </div>
-      </Card>
+      </section>
 
       {/* Events */}
-      <Card className="p-5">
+      <section className="border-t pt-5">
         <div className="font-medium mb-3">Recent alerts (last 30)</div>
         {events.length === 0 ? (
           <div className="text-sm text-muted-foreground py-6 text-center">No alerts have fired yet.</div>
@@ -206,7 +209,7 @@ export default function Notifications() {
             ))}
           </div>
         )}
-      </Card>
+      </section>
 
       {/* Rule dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
@@ -232,7 +235,7 @@ export default function Notifications() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all">All venues</SelectItem>
-                      {VENUES.filter(Boolean).map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                      {venues.filter(v=>v.is_active&&v.name.trim()).map((v) => <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -267,6 +270,7 @@ export default function Notifications() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={!!deleting} onOpenChange={o=>!o&&setDeleting(null)}><DialogContent><DialogHeader><DialogTitle>Delete alert rule?</DialogTitle></DialogHeader><p>{deleting?.name}</p><DialogFooter><Button variant="outline" onClick={()=>setDeleting(null)}>Cancel</Button><Button variant="destructive" onClick={()=>deleting&&deleteRule(deleting.id)}>Delete</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 }

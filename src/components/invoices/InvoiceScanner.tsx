@@ -84,6 +84,7 @@ import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/uti
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useVenues } from "@/hooks/useVenues";
 
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -363,6 +364,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
 
   const current = invoices[currentIdx] || null;
   const { tenantId } = useActiveTenant();
+  const { venues: scannerVenues } = useVenues();
   const { user: baniUser, isAdmin: baniAdmin, roleLoading: baniRoleLoading } = useAuth();
   const { isPreviewActive: baniPreview } = usePreviewMode();
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
@@ -804,7 +806,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         parsedInvoices.push({
           supplier_name: canonicalSupplierName,
           supplier_id: supplierId,
-          venue: handoffVenueRef.current || raw?.venue || (handoffActiveRef.current ? "" : "Hanabi"),
+          venue: handoffVenueRef.current || raw?.venue || "",
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
@@ -2412,7 +2414,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               </div>
               <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
                 <SelectTrigger className="h-8 w-full min-w-0 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground md:text-xs [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>span]:line-clamp-none [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0 [&>svg]:opacity-50"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="Assembly">Assembly</SelectItem><SelectItem value="Caliente">Caliente</SelectItem><SelectItem value="Hanabi">Hanabi</SelectItem></SelectContent>
+                <SelectContent>{scannerVenues.filter(v=>v.is_active&&v.name.trim()).map(v=><SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div data-review-field="invoice_number" tabIndex={-1} className="min-w-0 space-y-1">
