@@ -32,7 +32,7 @@ export function regularBillGroups(bills: ExpenseBill[]) {
   const groups = new Map<string, ExpenseBill[]>();
   for (const b of bills) {
     if (!b.supplier_id || ['void', 'reversed', 'rejected'].includes(b.approval_status)) continue;
-    const key = `${b.supplier_id}|${b.venue_id ?? ''}`;
+    const key = b.supplier_account_id?`account:${b.supplier_account_id}`:`${b.supplier_id}|${b.venue_id ?? ''}`;
     groups.set(key, [...(groups.get(key) ?? []), b]);
   }
   return [...groups.entries()].filter(([, rows]) => {

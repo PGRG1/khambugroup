@@ -9,7 +9,7 @@ export function isRunningAccount(a:ExpenseRow){return ['opex','other_expense'].i
 export function isQuotation(b:ExpenseRow){return /\bquotation\b|\bquote\b|報價/i.test([b.notes,b.bill_number,b.meta?.document_type,b.meta?.type].filter(Boolean).join(' '));}
 export function expenseType(a:ExpenseRow){return /\brent\b|rental/i.test(a.name)?'Rent':/utilit|electric|gas|phone|\bhkt\b|water/i.test(a.name)?'Utilities':'Everything else';}
 export type RegularCell={amount:number;manual:boolean;status:'posted'|'waiting'|'missing'|'inactive';bills:string[];method?:string;cadence?:string};
-export function buildExpensesOverview({bills,allocations,entries,lines,accounts,sales,from,to,today,includesId,includesName,contracts=[],accruals=[],proposals=[]}:{bills:ExpenseBill[];allocations:ExpenseRow[];entries:ExpenseRow[];lines:ExpenseRow[];accounts:ExpenseRow[];sales:ExpenseRow[];from:string;to:string;today:string;includesId:(id:string|null)=>boolean;includesName:(name:string|null)=>boolean;contracts?:ExpenseRow[];accruals?:ExpenseRow[];proposals?:ExpenseRow[]}){
+export function buildExpensesOverview({bills,allocations,entries,lines,accounts,sales,from,to,today,includesId,includesName,contracts=[],accruals=[],proposals=[],supplierAccounts=[]}:{bills:ExpenseBill[];allocations:ExpenseRow[];entries:ExpenseRow[];lines:ExpenseRow[];accounts:ExpenseRow[];sales:ExpenseRow[];from:string;to:string;today:string;includesId:(id:string|null)=>boolean;includesName:(name:string|null)=>boolean;contracts?:ExpenseRow[];accruals?:ExpenseRow[];proposals?:ExpenseRow[];supplierAccounts?:ExpenseRow[]}){
  const accountMap=new Map(accounts.filter(isRunningAccount).map(a=>[a.id,a]));
  const quotes=bills.filter(isQuotation),quoteIds=new Set(quotes.map(b=>b.id)),quoteEntries=new Set(quotes.map(b=>b.journal_entry_id).filter(Boolean));
  const posted=new Map(entries.filter(e=>e.status==='posted'&&!quoteEntries.has(e.id)&&!(e.source_type==='expense_bill'&&quoteIds.has(e.source_id))).map(e=>[e.id,e]));
@@ -22,6 +22,7 @@ export function buildExpensesOverview({bills,allocations,entries,lines,accounts,
  const groups=regularBillGroups(eligible).filter(g=>g.rows.some(b=>allocations.some(l=>l.bill_id===b.id&&accountMap.has(l.account_id))||costs.some(c=>billLinked(c,b))));
  const keys=expenseMonths(from,to),prior=new Date(`${today.slice(0,7)}-01T00:00:00Z`);prior.setUTCMonth(prior.getUTCMonth()-1);const lastMonth=prior.toISOString().slice(0,7);
  const findings:PageWorkItem[]=[];
+ for(const meter of supplierAccounts.filter(a=>!a.covers?.length)){findings.push({id:`meter-${meter.id}`,tone:'amber',title:`a/c ${meter.account_number}: which venues does it cover?`,detail:'Account coverage is not confirmed; existing bills retain their original books.',label:'Answer',question:`Set coverage for supplier account ${meter.id} (${meter.account_number})`});}
  const contractRules=contracts.filter(r=>r.is_contract&&r.status==='active'&&(r.venue_id?includesId(r.venue_id):includesName(null)));
  const candidateNames=[...new Set([...manual.filter(c=>/building management|hkt|openrice|arca/i.test(c.account.name+' '+c.entry.memo)).map(c=>c.account.name),...eligible.filter(b=>/hkt|openrice|arca/i.test(b.vendor_name??'')).map(b=>b.vendor_name)])];
  if(candidateNames.length)findings.push({id:'contract-candidates',detail:'Only evidenced contracts; confirm their terms before adding.',tone:'amber',title:`These look like contracts: ${candidateNames.join(', ')} — add their contracts?`,label:'Show',href:'/expenses/recurring'});
@@ -29,15 +30,17 @@ export function buildExpensesOverview({bills,allocations,entries,lines,accounts,
  if(proposals.length)findings.push({id:'correction-drafts',detail:'Review the original source and proposed change before owner approval.',tone:'amber',title:`${proposals.filter(p=>p.status==='draft').length} book corrections prepared for owner review; originals unchanged`,label:'Show',href:'/expenses/overview#correction-drafts'});
  const regular=groups.map(g=>{
   const first=g.rows[0],start=first.bill_date.slice(0,7),last=g.rows[g.rows.length-1].bill_date.slice(0,7),accountIds=new Set(allocations.filter(l=>g.rows.some(b=>b.id===l.bill_id)&&accountMap.has(l.account_id)).map(l=>l.account_id));
-  const name=first.vendor_name??'Supplier',label=`${name} · ${first.venue??'Group'}`;
+  const meter=supplierAccounts.find(a=>a.id===first.supplier_account_id);
+  const names=(meter?.covers??[]).map((v:ExpenseRow)=>v.venue_name??v.venue_id);
+  const name=first.vendor_name?.startsWith('CLP')?'CLP':first.vendor_name??'Supplier',label=meter?`${name} · a/c ${meter.account_number} · ${names.length?names.join(' + '):'Covers unknown'}`:`${name} · ${first.venue??'Group'}`;
   const cells:Record<string,RegularCell>={},waiting:ExpenseBill[]=[],missing:string[]=[],covered:string[]=[];
-  for(const key of keys){const bs=g.rows.filter(b=>b.bill_date.startsWith(key)),linked=costs.filter(c=>c.month===key&&g.rows.some(b=>billLinked(c,b)));
+  for(const key of keys){const bs=g.rows.filter(b=>{const a=(b.service_period_start??b.period_start??b.bill_date).slice(0,7),z=(b.service_period_end??b.period_end??b.bill_date).slice(0,7);return key>=a&&key<=z;}),linked=costs.filter(c=>c.month===key&&g.rows.some(b=>billLinked(c,b)));
    // Manual evidence must match account, month and exact amount; a null venue remains explicitly group-wide evidence.
    const matched=manual.filter(c=>c.month===key&&accountIds.has(c.account_id)&&(!first.venue||!c.venue||c.venue===first.venue)&&bs.some(b=>Math.abs(c.amount-Number(b.total_amount))<.01));
    const booked=[...new Map([...linked,...matched].map(c=>[c.id,c])).values()],amount=booked.reduce((n,c)=>n+c.amount,0);
    const wait=bs.filter(b=>['draft','pending_review'].includes(b.approval_status));
    const status:RegularCell['status']=amount>0?'posted':wait.length?'waiting':key>=start&&key<=lastMonth?'missing':'inactive';
-   const accrual=accruals.find(d=>d.status==='posted'&&d.month_start.startsWith(key)&&d.supplier_id===first.supplier_id&&(d.venue_id??null)===(first.venue_id??null));
+   const accrual=accruals.find(d=>d.status==='posted'&&d.month_start.startsWith(key)&&(first.supplier_account_id?d.supplier_account_id===first.supplier_account_id:d.supplier_id===first.supplier_id&&(d.venue_id??null)===(first.venue_id??null)));
    cells[key]={amount:accrual&&!amount?Number(accrual.amount):amount,manual:matched.length>0,status:accrual?'posted':status,bills:bs.map(b=>b.id),method:accrual?.kind==='estimate'?'estimate':'bill'};
    if(key>=from.slice(0,7)&&key<=to.slice(0,7)){if(status==='waiting')waiting.push(...wait);if(status==='missing'&&key>last)missing.push(key);if(matched.length&&wait.length)covered.push(key);}
   }
