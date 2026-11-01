@@ -5,7 +5,7 @@ export function shiftMonth(month: string, offset: number) {
   const [year, m] = month.split('-').map(Number);
   return new Date(Date.UTC(year, m - 1 + offset, 1)).toISOString().slice(0, 7);
 }
-export function monthEnd(month: string) { return new Date(`${shiftMonth(month, 1)}-01T00:00:00Z`).toISOString().slice(0, 10).replace(/-01$/, '-01') && new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10); }
+export function monthEnd(month: string) { return new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10); }
 export function periodMonths(start: string, today: string, futureEnd?: string) {
   const end = futureEnd && futureEnd > today.slice(0, 7) ? futureEnd.slice(0, 7) : today.slice(0, 7);
   const months: string[] = [];
