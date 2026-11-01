@@ -100,9 +100,9 @@ export function reliabilityLines(person:EvidenceRow,data:PersonEvidence,clock:bo
   for(const swap of data.swaps.filter(s=>s.replacement_employee_id===person.id&&s.status==='approved')) {const s=data.shifts.find(s=>s.id===swap.shift_id);if(s&&s.shift_date>=cutoff&&s.shift_date<=data.today)lines.push({id:swap.id,date:s.shift_date,event:'Shift covered',al:0,sh:0,kind:'fact',how:'Approved cover',author:swap.approved_by??'Not recorded',source:'Rota'});}
   return lines;
 }
-export function peopleFindings(people:EvidenceRow[],data:PersonEvidence):PageWorkItem[] {
-  const findings:PageWorkItem[]=[];
-  const add=(p:EvidenceRow,key:string,title:string,detail:string,question:string)=>findings.push({id:`${p.id}-${key}`,tone:'amber',title:`${personName(p)} · ${title}`,detail,label:'Check',question});
+export function peopleFindings(people:EvidenceRow[],data:PersonEvidence):(PageWorkItem&{group?:string;groupTitle?:(n:number)=>string})[] {
+  const findings:(PageWorkItem&{group?:string;groupTitle?:(n:number)=>string})[]=[];
+  const add=(p:EvidenceRow,key:string,title:string,detail:string,question:string)=>findings.push({id:`${p.id}-${key}`,tone:'amber',title:`${personName(p)} · ${title}`,detail,label:'Check',question,group:`person-${key}`,groupTitle:(n:number)=>`${n} people: ${title.charAt(0).toLowerCase()}${title.slice(1)}`});
   for(const p of people) {
     if(!['active','on_leave'].includes(p.status))continue;
     const pay=data.payroll.filter(r=>r.employee_id===p.id).sort((a,b)=>a.year-b.year||a.month-b.month),last=pay[pay.length-1],latest=last?`${last.year}-${String(last.month).padStart(2,'0')}-01`:null;

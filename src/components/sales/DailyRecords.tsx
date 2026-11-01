@@ -244,7 +244,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
 
   return (
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3" aria-labelledby="daily-records">
-      <h2 id="daily-records" className="text-base font-display font-semibold px-1">Daily records</h2>
+      <h2 id="daily-records" className="sr-only">Daily records</h2>
       <Toolbar
         filter={
           <FilterPanel activeCount={activeCount} onReset={() => setF(EMPTY)} width={340}>
