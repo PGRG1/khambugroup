@@ -1,0 +1,21 @@
+import {describe,it,expect} from 'vitest';
+import {allocateTeamCost,resolveTeamWorking,splitCents,teamSuggestions} from '@/utils/teamWorking';
+const venues=[{id:'a',name:'Assembly'},{id:'c',name:'Caliente'}],people=[{id:'p',venue_id:'a',job_title:'Chef'}],pay=[{employee_id:'p',year:2026,month:5,gross_salary:247407.70,mpf_employer:7660.50}];
+const work=(v:string,date='2026-05-01',end='17:00')=>({employee_id:'p',venue_id:v,shift_date:date,start_time:'10:00',end_time:end,shift_type:'regular'});
+const allocate=(mode='own',shifts:any[]=[],p=pay)=>allocateTeamCost(p,people,shifts,[],venues,[{date:'2026-05-01',venue_id:'a',total_sales:782251}],'2026-05',resolveTeamWorking({default_mode:mode,role_modes:{}}));
+describe('How your team works',()=>{
+ it('unset business uses own team without a stored choice',()=>expect(resolveTeamWorking(null)).toEqual({default_mode:'own',role_modes:{}}));
+ it('own team assigns the whole saved cost to the work venue',()=>{const r=allocate();expect(r.venues[0].cost).toBe(255068.2);expect(r.central.cost+r.unallocated.cost).toBe(0);});
+ it('monthly cost spreads 70/30 by month rota hours',()=>{const r=allocate('across',[work('a'),work('c','2026-05-02','13:00')]);expect(r.venues.map(v=>v.cost)).toEqual([178547.74,76520.46]);});
+ it('across venues with no hours is not on rota, not guessed',()=>{const r=allocate('across');expect(r.unallocated.cost).toBe(255068.2);expect(r.venues.every(v=>v.cost===0)).toBe(true);});
+ it('central cost stays unsplit',()=>{const r=allocate('central',[work('a')]);expect(r.central.cost).toBe(255068.2);expect(r.venues.every(v=>v.cost===0)).toBe(true);});
+ it('role choice overrides company default',()=>{const r=allocateTeamCost(pay,people,[],[],venues,[],'2026-05',{default_mode:'own',role_modes:{Kitchen:'central'}});expect(r.central.cost).toBe(255068.2);});
+ it('hourly costs use hours times rate and retain non-hour payments explicitly',()=>{const r=allocate('across',[work('a','2026-05-01','14:00'),work('c','2026-05-02','12:00')],[{...pay[0],gross_salary:800,mpf_employer:40,preparation:{pay_basis:'hour',hourly_rate:100}}]);expect(r.venues.map(v=>v.cost)).toEqual([420,210]);expect(r.unallocated.cost).toBe(210);expect(r.cost).toBe(840);});
+ it('hourly missing rate does not guess',()=>{const r=allocate('across',[work('a')],[{...pay[0],forecast_base_salary:null,preparation:{pay_basis:'hour'}}]);expect(r.unallocated.cost).toBe(255068.2);});
+ it('May venue plus Central/not-on-rota equals exact saved 255068.20',()=>{const r=allocate('across',[work('a'),work('c')]);expect(Math.round((r.venues.reduce((n,v)=>n+v.cost,0)+r.central.cost+r.unallocated.cost)*100)).toBe(25506820);});
+ it('rounding never loses a cent',()=>expect(splitCents(100,[1,1,1])).toEqual([34,33,33]));
+ it('missing payroll remains unknown',()=>expect(allocate('own',[],[]).cost).toBeNull());
+ it('cancelled and leave shifts do not allocate cost',()=>{const r=allocate('across',[{...work('a'),status:'cancelled'},{...work('c'),shift_type:'AL'}]);expect(r.unallocated.cost).toBe(255068.2);});
+ it('never mutates saved rows',()=>{const before=JSON.stringify(pay);allocate('across',[work('a')]);expect(JSON.stringify(pay)).toBe(before);});
+ it('suggestions need repeated cross-venue evidence and never set choices',()=>{const s=teamSuggestions(people,[work('a'),work('c'),work('a','2026-04-01'),work('c','2026-04-02')],[],venues);expect(s[0].mode).toBe('across');expect(resolveTeamWorking(null).role_modes).toEqual({});});
+});
