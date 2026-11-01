@@ -342,8 +342,8 @@ function App() {
                 <Route path="/procurement/finance/onboarding" element={<Navigate to="/settings?tab=accounting&view=opening" replace />} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
 
-                <Route path="/procurement/purchase-analysis" element={<AdminRoute><Navigate to="/procurement/dashboard" replace /></AdminRoute>} />
-                <Route path="/procurement/supplier-pricing" element={<AdminRoute><Navigate to="/procurement/dashboard" replace /></AdminRoute>} />
+                <Route path="/procurement/purchase-analysis" element={<Navigate to="/procurement/dashboard" replace />} />
+                <Route path="/procurement/supplier-pricing" element={<Navigate to="/procurement/dashboard" replace />} />
 
                 <Route path="/bank" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank") ?? "/finance/cash"} replace /></AdminRoute>} />
                 <Route path="/bank/dashboard" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/dashboard") ?? "/finance/cash"} replace /></AdminRoute>} />
