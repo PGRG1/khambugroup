@@ -1,0 +1,9 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { formatDate, formatDecimal } from '@/utils/format';
+import type { LeaveLine } from '@/utils/peopleRecord';
+import { useBaniTopic } from '@/components/assistant/FloatingBaniContext';
+export function PeopleEvidenceDialog({value,onClose,today}:{value:{title:string;lines:LeaveLine[]}|null;onClose:()=>void;today:string}) {
+  const topic=useBaniTopic();
+  return <Dialog open={!!value} onOpenChange={o=>!o&&onClose()}><DialogContent className="max-w-xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{value?.title}</DialogTitle></DialogHeader><div className="space-y-3">{value?.lines.map((l,i)=><div key={`${l.id}-${i}`} className="border-b border-border pb-3 text-sm"><p className="font-medium">{l.date?formatDate(l.date):'Date not recorded'} · {l.event}</p><p className="text-muted-foreground">{l.al?`${formatDecimal(Math.abs(l.al),1)} days · `:l.sh?`${formatDecimal(Math.abs(l.sh),1)} holiday days · `:''}{l.source} · {l.how}</p>{l.due&&<p className={l.due<today?'text-warning':'text-muted-foreground'}>Due by {formatDate(l.due)}{l.due<today?' · overdue':''}</p>}{l.conflict&&<Button variant="link" className="text-warning p-0 h-auto whitespace-normal text-left" onClick={()=>{onClose();topic(`Review ${value.title}: ${l.conflict}. Show recorded evidence; do not change payroll.`);}}>{l.conflict}</Button>}</div>)}{!value?.lines.length&&<p className="text-sm text-muted-foreground">No dated lines recorded.</p>}</div></DialogContent></Dialog>;
+}
