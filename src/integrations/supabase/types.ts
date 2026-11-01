@@ -14941,6 +14941,10 @@ export type Database = {
         Args: { m: string; t: string }
         Returns: number
       }
+      finance_schedule_prepare_sources: {
+        Args: { m: string; t: string }
+        Returns: number
+      }
       finance_schedule_save_settings: {
         Args: { p: Json; t: string }
         Returns: undefined
