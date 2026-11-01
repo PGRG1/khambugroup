@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {overviewMonth,datedHeadcount,importDateFlags,teamRows} from '@/utils/peopleOverview';
+import {overviewMonth,overviewRole,datedHeadcount,importDateFlags,teamRows} from '@/utils/peopleOverview';
 import {houseSide} from '@/utils/teamWorking';
 const setting={default_mode:'own' as const,role_modes:{}};
 const person={id:'p',first_name:'Asim',last_name:'Rana',hire_date:'2026-01-01',venue_id:'a',pay_basis:'month',pay_amount:20000,job_title:'Chef',employment_type:'full_time'};
@@ -21,4 +21,7 @@ describe('Overview reporting only',()=>{
  it.each(['Bar','Floor','Promotions','Management'])('%s defaults front',r=>expect(houseSide(r,setting)).toBe('front'));
  it.each(['Kitchen','Cleaning'])('%s defaults back',r=>expect(houseSide(r,setting)).toBe('back'));
  it('confirmed house override wins and missing title remains unset',()=>{expect(houseSide('Kitchen',{...setting,role_house:{Kitchen:'front'}})).toBe('front');expect(houseSide('No role set',setting)).toBeNull();});
+ it('May role cost buckets reconcile exactly to the requested saved total',()=>{const rows=[['Chef',66900],['Bartender',59545.2],['Server',46150],['Manager',47100],['Promoter',10023],[null,25350]];const people=rows.map(([job_title],i)=>({...person,id:String(i),job_title}));const payroll=rows.map(([,gross_salary],i)=>({employee_id:String(i),year:2026,month:5,gross_salary,mpf_employer:0}));const r=overviewMonth({...base,key:'2026-05',people,payroll});expect(r.roleBars.map(b=>b.so)).toEqual([66900,59545.2,46150,47100,10023,25350]);expect(r.cost).toBe(255068.2);});
+ it('Overview Cook / Runner cost follows the requested Kitchen bucket without changing the title',()=>expect(overviewRole('Cook / Runner',{})).toBe('Kitchen'));
+ it.each([[1,282698.5],[2,230607],[3,238992.5],[4,256463.5],[5,255068.2]])('saved month %s preserves the requested employment cost', (month,cost)=>{const r=overviewMonth({...base,key:`2026-${String(month).padStart(2,'0')}`,payroll:[{employee_id:'p',year:2026,month,gross_salary:cost,mpf_employer:0}]});expect(r.cost).toBe(cost);});
 });
