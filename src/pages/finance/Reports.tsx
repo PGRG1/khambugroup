@@ -1,3 +1,4 @@
+import {useAccountMapping} from '@/hooks/useAccountMapping';
 import {useTeamWorking} from '@/hooks/useTeamWorking';
 import {usePeopleData} from '@/hooks/usePeopleData';
 import {usePeopleRoles} from '@/hooks/usePeopleRoles';
@@ -54,6 +55,7 @@ import {
 } from "@/utils/cashflowStatementClassifier";
 import PLReport from "@/pages/PLReport";
 export default function Reports() {
+  const payrollMappings=useAccountMapping();
   const team=useTeamWorking(),people=usePeopleData(),roles=usePeopleRoles(),allVenues=useVenues();
   const staffSales=useQuery({queryKey:['team-cost-sales',people.tenantId],enabled:!!people.tenantId,queryFn:()=>fetchAllRows('sales_records','date,venue_id,venue,total_sales',undefined,people.tenantId??undefined)});
   const [params, setParams] = useSearchParams();
@@ -118,6 +120,10 @@ export default function Reports() {
     books.accounts
       .filter((a) => plGroup(a.account_type) === group)
       .reduce((s, a) => s + amount(a, m, venue), 0);
+  const payrollAccountIds=new Set(payrollMappings.items.filter(r=>['payroll_salary_expense','payroll_mpf_expense'].includes(r.rule_type)).map(r=>r.account_id));
+  const allocatedCost=(m:string,venue:string)=>{const c=staffCosts.find(c=>c.month===m);if(!c||c.cost===null)return null;return venue==='Central'?c.central.cost:venue==='Not on rota / venue not recorded'?c.unallocated.cost:c.venues.find(v=>v.name===venue)?.cost??0;};
+  const venueRunning=(m:string,venue:string)=>books.accounts.filter(a=>plGroup(a.account_type)==='Running costs'&&!payrollAccountIds.has(a.id)).reduce((n,a)=>n+amount(a,m,venue),0);
+  const venueValue=(group:string,m:string,venue:string):number|null=>{if(group==='Staff cost')return allocatedCost(m,venue);if(group==='Running costs')return venueRunning(m,venue);if(group==='Profit'){const staff=allocatedCost(m,venue);return staff===null?null:total('Sales',m,venue)-total('Cost of sales',m,venue)-venueRunning(m,venue)-staff;}return total(group,m,venue);};
   const profit = (m: string, venue?: string) =>
     total("Sales", m, venue) -
     total("Cost of sales", m, venue) -
@@ -495,6 +501,7 @@ export default function Reports() {
           {period.label} · {scope.label} ·{" "}
           {books.loading ? "Loading books…" : "Posted journal entries"}
         </p>
+        {view==="venue"&&<p className="text-xs text-muted-foreground mb-3">Staff cost uses saved gross pay + employer MPF and How your team works. Mapped salary and employer MPF are replaced for this venue view only; posted books remain unchanged. Missing payroll leaves profit unknown.</p>}
         {view === "pl" || view === "venue" ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -510,10 +517,10 @@ export default function Reports() {
               </thead>
               <tbody>
                 {(view === "venue"
-                  ? [...new Set(scoped.map((l) => l.venue ?? "Unassigned"))]
+                  ? [...new Set([...scope.selectedNames,...scoped.map((l) => l.venue ?? "Unassigned"),...(!scope.restricted?["Central","Not on rota / venue not recorded"]:[])])]
                   : [""]
                 ).flatMap((venue) =>
-                  ["Sales", "Cost of sales", "Running costs", "Profit"].map(
+                  (view==="venue"?["Sales", "Cost of sales", "Running costs", "Staff cost", "Profit"]:["Sales", "Cost of sales", "Running costs", "Profit"]).map(
                     (group) => {
                       const key = venue + group;
                       const open = expanded.includes(key);
@@ -531,7 +538,7 @@ export default function Reports() {
                           )}
                           <tr className="border-t border-border font-medium">
                             <td className="p-3">
-                              {group !== "Profit" ? (
+                              {group !== "Profit" && group !== "Staff cost" ? (
                                 <Button
                                   variant="ghost"
                                   className="px-0 h-7"
@@ -548,10 +555,10 @@ export default function Reports() {
                                   ) : (
                                     <ChevronRight className="h-4 w-4 mr-2" />
                                   )}
-                                  {group}
+                                  {view==="venue"&&group==="Running costs"?"Running costs excluding mapped payroll":group}
                                 </Button>
                               ) : (
-                                group
+                                group==="Staff cost"?`Staff cost · ${staffCosts.flatMap(c=>c.venues).find(v=>v.name===venue)?.method??(venue==="Central"?"central team":"not on rota")}`:group
                               )}
                             </td>
                             {months.map((m) => (
@@ -559,11 +566,7 @@ export default function Reports() {
                                 key={m}
                                 className="p-3 td-num whitespace-nowrap"
                               >
-                                {formatCurrency(
-                                  group === "Profit"
-                                    ? profit(m, venue || undefined)
-                                    : total(group, m, venue || undefined),
-                                )}
+                                {view==="venue"?(venueValue(group,m,venue)===null?'Payroll missing':formatCurrency(venueValue(group,m,venue)??0)):formatCurrency(group === "Profit" ? profit(m) : total(group,m))}
                               </td>
                             ))}
                           </tr>
