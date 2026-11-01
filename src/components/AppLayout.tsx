@@ -56,6 +56,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
               {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {pathname.startsWith("/hr") && <PeopleNavigation />}
+              {pathname.startsWith("/expenses") && <ExpensesNavigation />}
               </div>
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
