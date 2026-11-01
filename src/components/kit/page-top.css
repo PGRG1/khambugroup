@@ -34,3 +34,15 @@
 .page-top-controls-host .kit-search { order: 0 !important; flex-basis: auto !important; }
 .page-bani-notices[data-expanded="false"][data-has-finding="true"] > *,
 .page-bani-notices[data-expanded="false"] > :not(:first-child) { display: none; }
+
+.page-top-title { min-height: 40px; }
+.page-top-detail { max-width: 100%; }
+.page-top-detail > p, .page-top-detail > div { font-size: 13px; font-weight: 400; }
+.page-top-controls-host { order: 2; }
+.page-top-right > button[aria-label^="Download"], .page-top-right > button:has(svg.lucide-download) { margin-left: auto; }
+@media (max-width: 639px) {
+ .page-top-right { justify-content: flex-end; }
+ .page-top-left { width: 100%; }
+ .page-top-detail { max-height: 40px; overflow: auto; }
+ .page-top-controls-host > .kit-seg { flex-shrink: 0; }
+}

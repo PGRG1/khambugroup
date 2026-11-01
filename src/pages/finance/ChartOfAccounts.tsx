@@ -1,3 +1,4 @@
+import { PageControls } from '@/components/kit/PageTopControls';
 import { PageTop } from '@/components/kit/PageTop';
 import { useMemo, useState } from "react";
 import {
@@ -261,7 +262,7 @@ export default function ChartOfAccountsPage() {
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <PageControls>          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="relative flex-1 min-w-0 sm:max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
@@ -297,7 +298,7 @@ export default function ChartOfAccountsPage() {
                 <Plus className="h-4 w-4 mr-1" /> Add Account
               </Button>
             </div>
-          </div>
+          </div></PageControls>
 
           {/* Counter strip + scope line */}
           <div className="space-y-1">
