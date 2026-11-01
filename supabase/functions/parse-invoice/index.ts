@@ -1,3 +1,4 @@
+import { retainDocument } from "../_shared/documentRetention.ts";
 import { documentContext } from "../_shared/documentContext.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
 import { requireAuth } from "../_shared/auth.ts";
@@ -37,6 +38,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    for (let i = 0; i < fileEntries.length; i++) await retainDocument(scoped.admin, scoped.tenantId, auth.user.id, "invoice", fileEntries[i].base64, fileEntries[i].mimeType, body.fileNames?.[i] || "invoice");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(

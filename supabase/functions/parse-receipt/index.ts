@@ -3,6 +3,7 @@ import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from "../_shared/salesEvidence.ts";
 import { z } from "npm:zod@3";
 import { receiptIntake } from "./intake.ts";
+import { retainDocument } from "../_shared/documentRetention.ts";
 import { documentContext } from "../_shared/documentContext.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
 
@@ -140,6 +141,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    const jobId = await retainDocument(scoped.admin, scoped.tenantId, auth.user.id, "sales", imageBase64, mimeType || "image/jpeg", body.fileName || "report");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -223,6 +225,7 @@ Rules:
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
+      await scoped.admin.from("document_read_jobs").update({ status: response.status === 402 || response.status === 403 ? "paused" : "failed", error_message: payload.message || payload.error?.message || "Document reading unavailable" }).eq("id", jobId);
       const safe = payload.message || payload.error?.message || "Bani cannot read this document right now";
       return new Response(JSON.stringify({ success: false, error: safe, aiStatus: response.status }), { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -247,6 +250,7 @@ Rules:
       );
     }
 
+    await scoped.admin.from("document_read_jobs").update({ status: "needs_answer", extraction: extractedData }).eq("id", jobId);
     let scanEvidenceId: string | null = null;
     try {
       const admin = adminClient();
