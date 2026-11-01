@@ -666,6 +666,13 @@
       "when": 1793554758167,
       "tag": "0094_finance_schedule_source_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1793554871655,
+      "tag": "0095_finance_schedule_reconciliation_snapshot_fix",
+      "breakpoints": true
     }
   ]
 }
