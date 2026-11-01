@@ -15,7 +15,7 @@ export function PageTop({ title, titleDetail, period, controls, actions, primary
   return (
     <div className="page-top space-y-3 min-w-0">
       <div className="page-top-title flex items-center justify-between gap-3 min-h-9">
-        <div className="flex items-center gap-3 min-w-0">{leading}<div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0"><h1 className="text-xl sm:text-2xl font-display font-semibold">{title}</h1>{titleDetail && <div className="page-top-detail text-sm text-muted-foreground min-w-0">{titleDetail}</div>}</div></div>
+        <div className="flex items-center gap-3 min-w-0">{leading}<div className="page-top-heading flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0"><h1 className="text-xl sm:text-2xl font-display font-semibold">{title}</h1>{titleDetail && <div className="page-top-detail text-sm text-muted-foreground min-w-0">{titleDetail}</div>}</div></div>
         {(primaryAction || actionsBesideTitle && actions) && <div className="page-top-primary shrink-0">{primaryAction || actions}</div>}
       </div>
       <div className="page-top-controls flex flex-wrap items-center gap-2 min-h-9" aria-label="Page controls">

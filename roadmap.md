@@ -1,6 +1,7 @@
 ## Shared page tops
-- [ ] Standardize shared title/controls/Bani layout and move existing list controls out of content cards; preserve all handlers and guards.
-- [ ] Check Sales records, Rota, Team, Payroll and Revenue overview at desktop/375px; report remaining exceptions.
+- [x] Shared PageTop title/control/Bani rows, route-scoped presentation portals, 36px controls, final download icons; grouped People findings with original evidence/questions retained. Applied to active Revenue, Purchasing/Stock/menu, People, Expenses, Finance/Books, Settings and KPI tops; no schema/permission edits.
+- [x] 44 focused regressions pass; build OK. Signed-in requested five-page desktop/375px checks: same desktop x/y positions, 40px title and 36px controls; wrapping phone controls, no overflow, Team orb/6 grouped extras expand, saved May net unchanged. No saved-record actions exercised.
+- [ ] Remaining exceptions: detailed supplier/vendor records and Settings nested editors retain some legacy internal controls; not every loose Finance/Expenses warning is folded, and some views lack pre-existing download actions. Broader page interaction checks intentionally omitted.
 
 ## Rota to payroll flow
 - [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.

@@ -56,3 +56,9 @@
 
 .page-top .kit-search button { height: 20px; min-height: 20px; width: 20px; padding: 0; border: 0; background: transparent; }
 .page-top-controls-host > nav, .page-top-controls-left-host > nav { max-width: 100%; }
+@media (max-width: 639px) {
+ .page-top-heading { flex-wrap: nowrap; gap: 10px; }
+ .page-top-heading h1 { flex-shrink: 0; }
+ .page-top-heading .page-top-detail { max-height: 40px; font-size: 12px; }
+ .page-top-heading .page-top-detail > * { font-size: 12px !important; line-height: 16px; }
+}
