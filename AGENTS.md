@@ -1,5 +1,5 @@
 # Project Architecture Rules
-Read nested AGENTS.md first.
+Read nested AGENTS.md.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
