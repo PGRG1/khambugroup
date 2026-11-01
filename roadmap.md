@@ -1,3 +1,8 @@
+## Payroll table and Rota top presentation
+- [ ] Payroll number-only edits/dots, single shaded group subtotal, grouped Bani findings and readiness bar; no calculation or record changes.
+- [ ] Rota two-row top, combined week control/Fill week menu and leave/off/day totals presentation; existing actions unchanged.
+- [ ] One signed-in quick check of November edit, May totals, Rota controls and build status.
+
 ## Rota to payroll flow
 - [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.
 - [x] Payroll PageTop/month menu, fixed 12 columns, immediate draft recalculation/override findings, saved read-only payslip/download, guarded owner approval via existing atomic accrual path.
