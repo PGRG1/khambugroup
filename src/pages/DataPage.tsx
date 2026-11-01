@@ -173,7 +173,7 @@ const DataPage = () => {
   const actions = isAdmin && (canUpload || canScan || canType || canOther) ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" className="h-10">
+        <Button size="sm">
           <span>Add sales</span>
           <ChevronDown className="h-4 w-4" />
         </Button>
@@ -218,7 +218,8 @@ const DataPage = () => {
           <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo}
             months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} includeMtd initialPeriod="MTD" labelled />
         )}
-        actions={actions}
+        titleDetail={!loading && `${periodName} · ${periodRecords.length} ${periodRecords.length === 1 ? "record" : "records"}`}
+        primary={actions || undefined}
       />
 
       {loading ? (
