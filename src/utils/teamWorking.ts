@@ -2,9 +2,11 @@ import {roleGroup,monthKey} from '@/utils/peoplePresentation';
 import {personOnDate,shiftAt,shiftHours,type RotaRow} from '@/utils/peopleRota';
 export const TEAM_MODES = {own:'Each venue has its own team',across:'Staff work across venues',central:'One central team'} as const;
 export type TeamMode = keyof typeof TEAM_MODES;
-export type TeamWorking = {default_mode:TeamMode;role_modes:Record<string,TeamMode>};
+export type HouseSide='front'|'back';
+export type TeamWorking = {default_mode:TeamMode;role_modes:Record<string,TeamMode>;role_house?:Record<string,HouseSide>};
+export function houseSide(role:string,setting:TeamWorking):HouseSide|null {return setting.role_house?.[role]??(['Bar','Floor','Promotions','Management'].includes(role)?'front':['Kitchen','Cleaning'].includes(role)?'back':null);}
 export const DEFAULT_TEAM_WORKING:TeamWorking={default_mode:'own',role_modes:{}};
-export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.prototype.hasOwnProperty.call(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
+export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.prototype.hasOwnProperty.call(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m))),...(v?.role_house?{role_house:Object.fromEntries(Object.entries(v.role_house).filter(([,m])=>m==='front'||m==='back'))}: {})};}
 export const teamMethod=(m:TeamMode)=>({own:'own team',across:'share by hours',central:'central team'})[m];
 export function venueStaffProfit(sales:number,bought:number,otherRunning:number,staff:number|null){return staff===null?null:sales-bought-otherRunning-staff;}
 export type CostShare={venue_id:string|null;name:string;cents:number;hours:number;method:string};

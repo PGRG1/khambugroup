@@ -4,6 +4,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, ChevronDown } from "lucide-react";
 import { monthSoFarLabel } from "@/utils/revenueOverview";
+import { Button } from '@/components/ui/button';
 
 interface DateFilterProps {
   from: Date | undefined;
@@ -14,6 +15,7 @@ interface DateFilterProps {
   onPeriodSelect: (period: string) => void;
   /** Adds a "{Month} so far" option (value "MTD") to the period menu. */
   includeMtd?: boolean;
+  includeThisYear?: boolean;
   /** Adds a "Last 12 months" option (value "Last 12 months"). */
   includeLast12?: boolean;
   /** Value selected before the user picks a period. Defaults to "All Time". */
@@ -22,14 +24,14 @@ interface DateFilterProps {
   labelled?: boolean;
 }
 
-const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect, includeMtd, includeLast12, initialPeriod, labelled }: DateFilterProps) => {
+const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect, includeMtd, includeThisYear, includeLast12, initialPeriod, labelled }: DateFilterProps) => {
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod ?? "All Time");
   const [showCustom, setShowCustom] = useState(false);
 
-  const options = [...(includeMtd ? ["MTD"] : []), ...(includeLast12 ? ["Last 12 months"] : []), "All Time", ...months, "Custom"];
+  const options = [...(includeMtd ? ["MTD"] : []), ...(includeThisYear ? ["This year"] : []), ...(includeLast12 ? ["Last 12 months"] : []), "All Time", ...months, "Custom"];
   const display = (o: string) => (o === "MTD" ? monthSoFarLabel() : o === "All Time" ? "All time" : o === "Custom" ? "Custom range" : o);
 
   const handleSelect = (option: string) => {
@@ -49,7 +51,7 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
     <div className="flex items-center gap-3 flex-wrap">
       {labelled && <span id="period-label" className="text-[12px] font-medium text-muted-foreground">Period</span>}
       <div className="relative">
-        <button
+        <Button variant="outline"
           aria-labelledby={labelled ? "period-label" : undefined}
           aria-haspopup="listbox"
           onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -57,11 +59,11 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
         >
           {display(selectedPeriod)}
           <ChevronDown className="h-3.5 w-3.5" />
-        </button>
+        </Button>
         {dropdownOpen && (
           <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[170px] max-h-[60vh] overflow-y-auto">
             {options.map((option) => (
-              <button
+              <Button variant="ghost"
                 key={option}
                 onClick={() => handleSelect(option)}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors ${
@@ -69,7 +71,7 @@ const DateFilter = ({ from, to, onFromChange, onToChange, months, onPeriodSelect
                 }`}
               >
                 {display(option)}
-              </button>
+              </Button>
             ))}
           </div>
         )}
