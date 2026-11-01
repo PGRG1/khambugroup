@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export interface ScannedBill {
+  statement_check?: import('@/utils/expenseSupplierAccounts').UtilityStatement;
+  service_address?: string;
   vendor_name: string;
   bill_number: string;
   account_number?: string;
@@ -32,7 +34,7 @@ export interface ScannedBill {
   } | null;
   notes: string;
   suggested_document_type: string;
-  allocations: { expense_category: string; amount: number; notes: string }[];
+  allocations: { expense_category: string; amount: number; notes: string; account_number?: string }[];
   attachment_url?: string;
   attachment_path?: string;
 }
