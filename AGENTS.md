@@ -1,11 +1,11 @@
 # Project Architecture Rules
 Read nested AGENTS.md first.
 
-- ThemeProvider fixes light mode, without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform styles/overlay stacking.
+- ThemeProvider fixes light mode, without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform stacking.
 
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
-- Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Later mutable master fields use earlier invoice evidence or are omitted (no snapshots).
+- Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Mutable master fields use earlier evidence or are omitted; no snapshots.
 - Finance-team owns results; Bani accounting follows its nested AGENTS.md.
 - Section nav mounts once below headings; most-specific paths and effective guards. Purchasing uses server preview roles. Settings uses scoped fact editors/atomic category RPCs; People reads Approvals.
 - usePurchasingMode reads tenant-scoped app_config. Only ProcurementDashboardTab uses purchasingOverviewRows to bypass venue scope for central buying; invoices and revenue remain explicitly tenant-scoped, without changing other pages.
@@ -29,7 +29,7 @@ Read nested AGENTS.md first.
 - Revenue/Purchasing/Stock share SectionPillRow/portaled tabs; Register/GRNs reuse Invoices; lists use usePeriodFilter. purchaseRegister owns item math; stockPresentation owns On hand. StockCountScreen/useStockCount use user-RLS save_stock_count_area for locked area totals/unknowns; stockCountReview owns gaps; read-stock-count reuses MATCHER_MODEL and validated candidates. Sent counts are immutable with whole-count approval; browser speech is stock-only. Downloads filtered; Documents redirects.
 - Lists use kit; salesRecordChecks owns Sales checks; menuCosts owns RLS-refreshed menu math/bought drafts. supplierAccounts/supplierDeposits own lists/received Assets; invoker confirmations/idempotent returns never sync invoices/POs.
 - Sales notes store Closed early / Weather / Private event / POS problem explanations for drops.
-- DailyRecords uses a fixed-column semantic table with optional user-keyed column preferences; missing runs derive from full scoped sales history and tenant-local dates through salesRecordChecks, so period filtering never invents trading start dates.
+- DailyRecords uses a fixed-column semantic table with optional user-keyed column preferences; missing runs derive from full scoped sales history and tenant-local dates through salesRecordChecks, so period filtering never invents starts.
 - Closed days live in `venue_closures` (single days) and `venue_closure_rules` (every-weekday / ranges), resolved only through `src/utils/venueClosures.ts` (client) and the finance-team loader; `venue_closed_days` is deprecated and only kept in sync, so every check agrees on which days were closed.
 - Bani action cards: chat-assistant `propose_action` writes a row to `bani_pending_actions` (service-role only, no client grants) and streams an `action_card` event; FloatingBani renders Confirm/Cancel and calls back with `action_id`+`decision`, where the server re-validates ownership, expiry (30 min), single-use status, and re-checks sales conflicts before executing. Card titles for closed days are computed server-side from the validated venue/dates — never trust the model's title. Closed days are only markable for yesterday or earlier (Asia/Hong_Kong).
 - Bani must never infer missing sales days from aggregates: `get_missing_sales_days` (chat-assistant) is the authoritative check (no sales AND no closure, through yesterday); `get_venue_closures` exposes closed days so they are never flagged as missing.

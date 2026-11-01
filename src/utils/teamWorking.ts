@@ -4,7 +4,7 @@ export const TEAM_MODES = {own:'Each venue has its own team',across:'Staff work 
 export type TeamMode = keyof typeof TEAM_MODES;
 export type TeamWorking = {default_mode:TeamMode;role_modes:Record<string,TeamMode>};
 export const DEFAULT_TEAM_WORKING:TeamWorking={default_mode:'own',role_modes:{}};
-export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.hasOwn(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
+export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.prototype.hasOwnProperty.call(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
 export const teamMethod=(m:TeamMode)=>({own:'own team',across:'share by hours',central:'central team'})[m];
 export type CostShare={venue_id:string|null;name:string;cents:number;hours:number;method:string};
 export type PersonCost={employee_id:string;mainVenue:string|null;cost:number;shares:CostShare[]};
