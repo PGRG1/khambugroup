@@ -14356,6 +14356,10 @@ export type Database = {
         Returns: Json
       }
       expense_accrual_approve: { Args: { p_id: string }; Returns: string }
+      expense_contract_bill_approve: {
+        Args: { p_bill: string }
+        Returns: string
+      }
       expense_contract_month_amount: {
         Args: { p_month: string; p_rule: string }
         Returns: number
