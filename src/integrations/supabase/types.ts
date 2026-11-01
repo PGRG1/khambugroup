@@ -14986,6 +14986,10 @@ export type Database = {
         Args: { forget?: boolean; i: string; r: string; t: string }
         Returns: undefined
       }
+      settlement_clearing_venue: {
+        Args: { b: string; line_venue: string; t: string }
+        Returns: string
+      }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
