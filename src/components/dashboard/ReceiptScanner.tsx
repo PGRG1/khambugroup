@@ -265,6 +265,12 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     } catch (err) {
       console.error("Receipt scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
+      const pending = scannedRef.current;
+      if (pending && (deferredSalesAmounts(pending).sold || deferredSalesAmounts(pending).used)) {
+        setExtractedData(pending); setShowDetails(true);
+        baniSay('Deferred revenue needs your confirmation; nothing saved.');
+        return;
+      }
       const result = await onSave(scannedRef.current ?? { ...emptyRecord }, file, null, evidenceScanRef.current).catch(() => ({ status: "failed" as const, error: "Receipt was not saved" }));
       setOutcome(result); setExtractedData(scannedRef.current ?? { ...emptyRecord });
       baniSay(salesOutcomeMessage(result));

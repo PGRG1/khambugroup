@@ -64,6 +64,7 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
   // Decide whether this receipt may be recorded on its own.
   const t = input.tentative;
   const problems = figureProblems(t, !!venue, hkToday());
+  if (['vouchersSold','depositsTaken','vouchersUsed','depositsUsed'].some(k => Number(t[k] ?? 0) > 0)) problems.push('Deferred revenue requires confirmation and monthly draft approval');
   if (!input.scanId) problems.push("Original scan audit unavailable");
   if (venue && !problems.some(p => p.startsWith("Trading date"))) {
     const date = String(t.date);
