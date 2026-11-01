@@ -54,7 +54,7 @@ export default function Ledger() {
 
 
   useEffect(() => {
-    if (!accountId || !tenantId) { setRows([]); return; }
+    if (!accountId || !tenantId) { setRows([]); setOpening(0); return; }
     setLoading(true);
     let cancelled = false;
     (async () => {
@@ -71,7 +71,7 @@ export default function Ledger() {
         (!fromDate || r.entry_date >= fromDate) &&
         (!toDate || r.entry_date <= toDate)
       );
-      setOpening((all as GLRow[]).filter(r=>r.account_id===accountId&&!!fromDate&&r.entry_date<fromDate).reduce((n,r)=>n+(accounts.find(a=>a.id===accountId)?.normal_side==='credit'?Number(r.credit)-Number(r.debit):Number(r.debit)-Number(r.credit)),0));
+      setOpening((all as GLRow[]).filter(r=>r.account_id===accountId&&!!fromDate&&r.entry_date<fromDate).reduce((n,r)=>n+(r.normal_side==='credit'?Number(r.credit)-Number(r.debit):Number(r.debit)-Number(r.credit)),0));
       setRows(filtered);
       setLoading(false);
     })();
@@ -94,7 +94,7 @@ export default function Ledger() {
     credit: rows.reduce((s, r) => s + Number(r.credit), 0),
   }), [rows]);
 
-  const closing = withRunning[withRunning.length - 1]?.running ?? 0;
+  const closing = withRunning[withRunning.length - 1]?.running ?? opening;
 
   const exportCsv = () => {
     if (!account) return;
