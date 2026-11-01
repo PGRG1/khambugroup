@@ -266,6 +266,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     setBusy(true); setError(""); setStepLabel("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
     try {
+      if(attached.length && page?.path===pathname && page.person && page.retainFiles) {
+        setStepLabel('Saving employee documents');
+        await page.retainFiles(attached.map(a=>a.file));
+        if(controller.signal.aborted)return;
+      }
       const attachments = attached.length ? await Promise.all(attached.map(async f => {
         const prepared = f.type.startsWith("image/") ? await compressImageFile(f.file) : f.file;
         return { name: f.name, type: prepared.type || f.type, data: await toBase64(prepared, controller.signal) };

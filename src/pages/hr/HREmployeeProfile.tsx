@@ -18,29 +18,31 @@ import './people.css';
 
 export default function HREmployeeProfile() {
   const {id}=useParams(),{pathname}=useLocation(),data=usePeopleData(),scope=useVenueScope(),permissions=usePagePermissions(),{user}=useAuth();
-  const topic=useBaniTopic(),attach=useFloatingBaniAttach(),setPage=useFloatingBaniPage(),picker=useRef<HTMLInputElement>(null);
+  const topic=useBaniTopic(),attach=useFloatingBaniAttach(),setPage=useFloatingBaniPage(),picker=useRef<HTMLInputElement>(null),retained=useRef(new WeakSet<File>());
   const [notes,setNotes]=useState<EvidenceRow[]>([]),[note,setNote]=useState(''),[busy,setBusy]=useState(false);
   const person=data.employees.find(p=>p.id===id),name=person?personName(person):'Employee',metrics=person?personMetrics(person,data):null;
   const findings=person?peopleFindings([person],data):[];
   useBaniWorkPublisher(pathname,findings,!data.loading);
   const venue=scope.venues.find(v=>v.id===person?.venue_id||v.name===person?.venue)?.name??'Venue not recorded';
-  useEffect(()=>{if(!person)return;setPage({path:pathname,detail:venue,person:{id:person.id,name},facts:findings.map(f=>`${f.title}: ${f.detail}`).join('; ')});return()=>setPage(null);},[pathname,person?.id,name,venue,JSON.stringify(findings),setPage]);
+  useEffect(()=>{if(!person)return;setPage({path:pathname,detail:venue,person:{id:person.id,name},facts:findings.map(f=>`${f.title}: ${f.detail}`).join('; '),...(data.canDocuments&&!data.isPreviewActive?{retainFiles:saveOriginals}:{})});return()=>setPage(null);},[pathname,person?.id,name,venue,JSON.stringify(findings),data.canDocuments,data.isPreviewActive,setPage]);
   const loadNotes=async()=>{if(!data.tenantId||!id||!data.canDocuments)return;const rows=await fetchAllRows('hr_person_notes','*',undefined,data.tenantId);setNotes(rows.filter(r=>r.employee_id===id));};
   useEffect(()=>{loadNotes().catch(()=>toast.error('Notes could not be loaded'));},[data.tenantId,id,data.canDocuments]);
   const author=(uid:string|null)=>data.authors.find(a=>a.id===uid)?.display_name??'Not recorded';
   const canPay=!permissions.loading&&(data.owner||data.canDocuments&&!permissions.isActionHidden('people.view_salary'));
   const documents=data.documents.filter(d=>d.employee_id===id),history=data.history.filter(h=>h.employee_id===id).sort((a,b)=>b.effective_date.localeCompare(a.effective_date)),payroll=data.payroll.filter(p=>p.employee_id===id).sort((a,b)=>b.year-a.year||b.month-a.month);
   const viewFile=async(d:EvidenceRow)=>{const {data:link,error}=await supabase.storage.from('hr-private-documents').createSignedUrl(d.storage_path,60);if(error)toast.error(error.message);else if(link)window.open(link.signedUrl,'_blank','noopener,noreferrer');};
-  // Store the original immediately using the existing private registration path; reading/actions stay in the orb.
-  const storeFiles=async(files:File[])=>{
+  // Both page drops and orb uploads use one existing private registration path.
+  async function saveOriginals(files:File[]) {
     if(!person||!data.tenantId||!data.canDocuments||data.isPreviewActive)return;
-    setBusy(true);const stored:File[]=[];
-    try{for(const file of files){if(file.size>4*1024*1024||!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Use a PDF or photo under 4 MB');
+    for(const file of files){if(retained.current.has(file))continue;if(file.size>4*1024*1024||!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Use a PDF or photo under 4 MB');
       const path=`${data.tenantId}/${person.id}/${crypto.randomUUID()}/${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
       const uploaded=await supabase.storage.from('hr-private-documents').upload(path,file,{upsert:false});if(uploaded.error)throw uploaded.error;
-      const registered=await supabase.rpc('register_people_document',{t:data.tenantId,e:person.id,k:'letter',p:path,n:file.name,m:file.type,expiry:null});if(registered.error)throw registered.error;stored.push(file);}
-      await data.reload();attach(stored);topic(`Read these saved documents for ${name}. State printed dates, pay terms and leave days; draft any People change for my confirmation. Do not change payroll or financial records.`);
-    }catch(e){toast.error((e as Error).message);if(stored.length)attach(stored);}finally{setBusy(false);}
+      const registered=await supabase.rpc('register_people_document',{t:data.tenantId,e:person.id,k:'letter',p:path,n:file.name,m:file.type,expiry:null});if(registered.error)throw registered.error;retained.current.add(file);}
+    await data.reload();
+  }
+  const storeFiles=async(files:File[])=>{
+    setBusy(true);
+    try{await saveOriginals(files);attach(files);topic(`Read these saved documents for ${name}. State printed dates, pay terms and leave days; draft any People change for my confirmation. Do not change payroll or financial records.`);}catch(e){toast.error((e as Error).message);}finally{setBusy(false);}
   };
   const saveNote=async()=>{if(!id||!user||!data.tenantId||!note.trim()||!data.canDocuments||data.isPreviewActive)return;setBusy(true);const {error}=await supabase.from('hr_person_notes').insert({tenant_id:data.tenantId,employee_id:id,body:note.trim(),created_by:user.id});setBusy(false);if(error)toast.error(error.message);else{setNote('');await loadNotes();}};
   const changeLetter=(h:EvidenceRow)=>{if(!person)return;const body=`DRAFT — Employment change letter\n\n${name}\nEffective from: ${formatDate(h.effective_date)}\n\nRecorded change: ${String(h.field_changed??h.change_type).replace(/_/g,' ')}\nPrevious: ${h.old_value??'Not recorded'}\nNew: ${h.new_value??'Not recorded'}\n\nThis draft reflects only the recorded change. Unchanged employment terms continue.\n\nEmployer signature: __________________\nEmployee signature: __________________\nDate: __________________\n`;const url=URL.createObjectURL(new Blob([body],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`${name.replace(/\W/g,'_')}-change-${h.effective_date}.txt`;a.click();URL.revokeObjectURL(url);};
