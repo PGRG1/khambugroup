@@ -14356,6 +14356,7 @@ export type Database = {
         Returns: Json
       }
       expense_accrual_approve: { Args: { p_id: string }; Returns: string }
+      expense_correction_approve: { Args: { p_id: string }; Returns: string }
       fetch_due_pending_rebuilds: {
         Args: { p_debounce_seconds?: number }
         Returns: {
