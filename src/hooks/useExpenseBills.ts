@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import {statementCharges,statementDifferences} from '@/utils/expenseSupplierAccounts';
 
 export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void" | "reversed";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
@@ -80,6 +81,7 @@ export interface ExpenseBill {
 
 
 export interface ExpenseBillAllocation {
+  supplier_account_id?: string | null;
   id?: string;
   bill_id?: string;
   line_no: number;
@@ -159,6 +161,12 @@ export function useExpenseBills() {
           }
         }
 
+        const statement=header.meta?.statement_check;
+        let statementMeta=header.meta??{};
+        if(statement){const amount=statementCharges(statement);header={...header,total_amount:amount,subtotal:amount-Number(header.tax_amount??0)};statementMeta={...statementMeta,statement_check:{...statement,current_charges:amount}};if(header.supplier_account_id&&header.bill_date){const {data,error}=await supabase.rpc('expense_statement_check',{p_account:header.supplier_account_id,p_date:header.bill_date});if(error)throw error;statementMeta={...statementMeta,statement_books:data,statement_differences:statementDifferences(statement,(data??{}) as Record<string,number>)};}}
+        const splitLines:ExpenseBillAllocation[]=[];
+        for(const line of allocations){const meter=line.supplier_account_id??header.supplier_account_id;if(!meter){splitLines.push(line);continue;}const {data,error}=await supabase.rpc('expense_meter_split',{p_account:meter,p_month:`${(header.service_period_start??header.bill_date??'').slice(0,7)}-01`,p_amount:line.amount});if(error)throw error;for(const part of data??[])splitLines.push({...line,supplier_account_id:meter,venue:part.venue,amount:part.amount});}
+        allocations=splitLines;
         const headerPayload: any = {
           supplier_id: header.supplier_id || null,
           supplier_account_id: (header as any).supplier_account_id || null,
@@ -184,7 +192,7 @@ export function useExpenseBills() {
             header.statement_total === null || header.statement_total === undefined
               ? null
               : Number(header.statement_total),
-          meta: header.meta ?? {},
+          meta: statementMeta,
           cost_allocation_mode: (header as any).cost_allocation_mode || "single",
         };
 
@@ -216,6 +224,7 @@ export function useExpenseBills() {
             line_no: i + 1,
             expense_category: a.expense_category || null,
             account_id: a.account_id || null,
+            supplier_account_id: a.supplier_account_id || header.supplier_account_id || null,
             venue: a.venue || null,
             department: a.department || null,
             amount: Number(a.amount || 0),

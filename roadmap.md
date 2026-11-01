@@ -1,9 +1,17 @@
+## Expenses supplier accounts and month-end
+- [x] Existing CLP/Towngas meters retained; coverage fields, account-first matching, alias metadata and account grid rows. Unknown covers remain questions.
+- [x] Current-charge statement extraction/save guard, per-account line links, meter split on save and confirmed Bani coverage cards.
+- [x] Month-end runner and 23:50 HKT last-day schedule; auto-on contract posting, account estimates/reversals and funded-existing-prepaid release guard.
+- [x] Six category defaults and CLP/Town Gas aliases logged Done by Bani with owner Undo; 40 tests/build and unchanged protected fingerprints.
+- [ ] New advance-bill prepaid schedule creation, new-meter automatic creation/unknown-company orb confirmation, automatic discovered-alias logging and complete deposit/payment-interval reconciliation remain incomplete; existing source evidence must be supplied rather than guessed.
+- [ ] Posting/owner Undo/coverage Confirm not live-exercised on production; tests cover pure rules, not database transactions.
+
 ## Expense contracts, accruals, bill details and KPay
 - [x] Rent rule extended to contract; terms/document prefill, Jan–Dec plan, quarterly/straight-line/day-share math, guarded on-demand drafts.
 - [x] Added accrued expense/income accounts, approved accrual source and actual bill coverage/estimate reversal triggers; owner-only fingerprinted proposal approval.
 - [x] Read-first bill details; explicit KPay venue clearing guard; 34 owner proposals (27 KPay, five expense evidence reviews, rent transfer, duplicate AP).
 - [x] 34 focused tests and signed-in desktop/375px rent plan/rent/CLP dialogs; no page overflow; protected 85 payroll, 2645 journals, 21492 lines and 23 bills fingerprints unchanged.
-- [ ] Advance/prepayment release workflow and automatic month-end/contract-auto posting remain unimplemented; advance posting blocked safely. Estimate and contract differences need richer question/settlement UI; no live posting/approval tested.
+- [ ] New advance-bill prepaid schedule creation remains incomplete; existing funded schedules can release through part 2 month-end. No live posting/approval tested.
 - [ ] KPay historical splits require venue evidence absent from existing batch lines; 27 drafts remain blocked. Other unconfirmed contract terms and missing CLP document remain unknown; no guesses made.
 
 ## Cross-venue Rota and Expenses overview

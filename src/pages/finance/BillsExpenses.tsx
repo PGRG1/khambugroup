@@ -1,3 +1,4 @@
+import {matchExpenseSupplier,type MeterAccount} from '@/utils/expenseSupplierAccounts';
 import {BillReadDetails} from "@/components/expenses/BillReadDetails";
 import {SupplierNameLink} from "@/components/vendors/SupplierProfileDialog";
 import { useEffect, useMemo, useState } from "react";
@@ -115,6 +116,7 @@ export default function BillsExpenses() {
     try { localStorage.setItem(ALLOC_COLS_KEY, JSON.stringify(allocColPrefs)); } catch {}
   }, [allocColPrefs]);
 
+  const [allMeters,setAllMeters]=useState<MeterAccount[]>([]),[aliases,setAliases]=useState<{supplier_id:string;alias:string}[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -171,6 +173,8 @@ export default function BillsExpenses() {
       setVenues((v.data || []) as Venue[]);
       setBankAccounts((b.data || []) as BankAccount[]);
       setCategories((c.data || []) as Category[]);
+      const [meters,aliasRows]=await Promise.all([supabase.from('supplier_accounts').select('*').eq('tenant_id',tenantId),supabase.from('expense_supplier_aliases').select('*').eq('tenant_id',tenantId)]);
+      setAllMeters((meters.data??[]).map(m=>({...m,covers:Array.isArray(m.covers)?m.covers.filter((v):v is {venue_id:string;weight?:number}=>!!v&&typeof v==='object'&&!Array.isArray(v)&&typeof v.venue_id==='string'):[]})));setAliases(aliasRows.data??[]);
     })();
   }, [tenantId,lookupRevision]);
 
@@ -291,7 +295,9 @@ export default function BillsExpenses() {
   const linkedBillIds=new URLSearchParams(location.search).get("bills")?.split(",").filter(Boolean);
   const filtered = scopedBills.filter(b => (!linkedBillIds||linkedBillIds.includes(b.id)) && !cashBoxOnly && (statusFilter === "all" || statusFilter === "waiting" && isWaitingBill(b) || statusFilter === "to-pay" && b.approval_status === "posted" && b.payment_status !== "paid" || statusFilter === "paid" && b.payment_status === "paid") && (vendorFilter === "all" || b.supplier_id === vendorFilter) && (categoryFilter === "all" || lineIndex[b.id]?.includes(categoryFilter)) && `${supplierName(b.supplier_id)} ${b.vendor_name ?? ''} ${b.notes ?? ''} ${b.bill_number ?? ''}`.toLowerCase().includes(search.toLowerCase()));
   const waiting = scopedBills.filter(isWaitingBill);
-  useBaniWorkPublisher(location.pathname, waiting.length ? [{ id: "waiting-bills", tone: "amber", title: `${waiting.length} bills waiting for you`, detail: `${period.label} · ${formatCurrency(waiting.reduce((n,b) => n + b.total_amount, 0))}`, label: "Check", href: "/expenses?status=waiting" }] : [], !loading);
+  const questions=allMeters.filter(m=>!m.covers?.length).map(m=>({id:`meter-${m.id}`,tone:'amber' as const,title:`${supplierName(m.supplier_id)} · a/c ${m.account_number}: which venues does it cover?`,detail:'Confirm once; historical bills stay unchanged.',label:'Answer',question:`Set coverage for supplier account ${m.id} (${m.account_number})`}));
+  for(const b of scopedBills){const q=b.meta?.bani_question||(b.meta?.statement_differences?.length?`${b.vendor_name}: statement differs on ${b.meta.statement_differences.join(', ')}`:null);if(q)questions.push({id:`bill-question-${b.id}`,tone:'amber',title:q,detail:'Source evidence needs your answer.',label:'Answer',question:q});}
+  useBaniWorkPublisher(location.pathname,[...questions,...(waiting.length?[{id:'waiting-bills',tone:'amber' as const,title:`${waiting.length} bills waiting for you`,detail:period.label,label:'Check',href:'/expenses/bills?status=waiting'}]:[])],!loading);
   useEffect(() => { if (!tenantId) return; supabase.from('expense_bill_allocations').select('bill_id,expense_category').eq('tenant_id',tenantId).then(({data})=>{ const index:Record<string,string[]>={}; for(const a of data??[]) index[a.bill_id]=[...(index[a.bill_id]??[]),a.expense_category??'']; setLineIndex(index); }); },[tenantId,bills]);
   const missingCategories = categories.filter(c=>!c.default_account_id);
   const vendorPairs = similarVendors(suppliers.filter(s=>s.vendor_type==='expense'));
@@ -368,21 +374,8 @@ export default function BillsExpenses() {
   };
 
   const handleScanned = (s: ScannedBill) => {
-    // Match supplier by trimmed case-insensitive name, then fall back to account_number.
-    const vName = (s.vendor_name || "").trim().toLowerCase();
-    const nameMatches = suppliers.filter(
-      (sp) => (sp.vendor_type || "expense") === "expense" && sp.name.trim().toLowerCase() === vName
-    );
-    let matched: Supplier | undefined = nameMatches.length === 1 ? nameMatches[0] : undefined;
-    if (!matched && s.account_number) {
-      const acct = String(s.account_number).trim().toLowerCase();
-      const acctMatches = suppliers.filter(
-        (sp) =>
-          (sp.vendor_type || "expense") === "expense" &&
-          (sp.account_number || "").trim().toLowerCase() === acct
-      );
-      if (acctMatches.length === 1) matched = acctMatches[0];
-    }
+    const match=matchExpenseSupplier(s,allMeters,suppliers,aliases);
+    const matched='supplier_id' in match?suppliers.find(sp=>sp.id===match.supplier_id):undefined;
     const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
     const bf = Number(s.brought_forward || 0);
     const stTotal =
@@ -390,9 +383,14 @@ export default function BillsExpenses() {
     const meta: Record<string, any> = {};
     if (s.account_number) meta.account_number = s.account_number;
     if (s.consumption) meta.consumption = s.consumption;
+    if(s.statement_check)meta.statement_check=s.statement_check;
+    if(s.service_address)meta.service_address=s.service_address;
+    if(match.kind==='question')meta.bani_question=`${s.vendor_name}: create this new supplier?`;
+    if(match.kind==='company'&&s.account_number)meta.bani_question=`${s.vendor_name} · a/c ${s.account_number}: which venues does it cover?`;
     setEditing(null);
     setHeader({
       supplier_id: matched?.id || null,
+      supplier_account_id:match.kind==='account'?match.account_id:null,
       vendor_name: s.vendor_name || null,
       bill_number: s.bill_number || null,
       bill_date: s.bill_date || new Date().toISOString().slice(0, 10),
@@ -417,6 +415,7 @@ export default function BillsExpenses() {
       (s.allocations.length ? s.allocations : [{ expense_category: "Other Operating Expenses", amount: s.subtotal || s.total_amount, notes: "" }]).map((a, i) => ({
         line_no: i + 1,
         expense_category: a.expense_category,
+        supplier_account_id:allMeters.find(m=>m.supplier_id===matched?.id&&normAcct(m.account_number)===normAcct(('account_number' in a?String(a.account_number):'')||s.account_number))?.id??null,
         account_id: categories.find(c=>c.name.toLowerCase()===a.expense_category.toLowerCase())?.default_account_id || proposedCategoryAccount(a.expense_category,accounts) || null,
         venue: ven?.name || s.venue || null,
         department: null,
@@ -571,8 +570,6 @@ export default function BillsExpenses() {
         <div className="p-4 sm:p-5 space-y-3">
           <h2 className="text-base font-semibold break-words">{period.label} · {scopedBills.length} bills · {formatCurrency(scopedBills.reduce((n,b)=>n+b.total_amount,0))}</h2>
           <p className="text-sm text-muted-foreground">{waiting.length} waiting for you ({formatCurrency(waiting.reduce((n,b)=>n+b.total_amount,0))})</p>
-          {missingCategories.length>0&&<div className="kit-explain">{missingCategories.length} categories aren't linked to an account. <Button variant="link" className="p-0 h-auto text-warning" onClick={()=>{setCategoryLinks(Object.fromEntries(missingCategories.map(c=>[c.id,proposedCategoryAccount(c.name,accounts)])));setCategoryOpen(true);}}>Check accounts</Button></div>}
-          {vendorPairs.length>0&&<div className="kit-explain">Merge? {vendorPairs.map(pair=><div key={pair.a.id+pair.b.id} className="flex flex-wrap gap-2 items-center"><span>{pair.a.name} / {pair.b.name}</span><Button variant="link" className="p-0 h-auto text-warning" disabled={!canWrite||busy} onClick={async()=>{if(!tenantId)return;const ok=await confirm({title:'Merge these expense vendors?',description:`Relink editable bills and regular rules from ${pair.a.name} to ${pair.b.name}. Booked bills and Purchasing records stay unchanged.`,confirmLabel:'Confirm merge'});if(!ok)return;setBusy(true);const {error}=await supabase.rpc('merge_expense_vendor',{p_tenant:tenantId,p_from:pair.a.id,p_into:pair.b.id});setBusy(false);if(error)toast.error(error.message);else{toast.success('Expense vendors linked');setLookupRevision(n=>n+1);}}}>Check merge</Button></div>)}</div>}
           <QuickFilter label="Bills" value={statusFilter} onChange={setStatusFilter} options={[{key:'all',label:'All'},{key:'waiting',label:'Waiting for you'},{key:'to-pay',label:'To pay'},{key:'paid',label:'Paid'}]}/>
           <Toolbar search={search} onSearch={setSearch} placeholder="Search bills" mobileSearchBelow searchAfterControls filter={<FilterPanel activeCount={Number(vendorFilter!=='all')+Number(categoryFilter!=='all')} onReset={()=>{setVendorFilter('all');setCategoryFilter('all');}} resultLabel={`Show ${filtered.length} bills`}><FilterGroup title="Venue"><span className="text-sm">{scope.label}</span></FilterGroup><FilterGroup title="Vendor"><Select value={vendorFilter} onValueChange={setVendorFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All vendors</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Category"><Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map(c=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></FilterGroup></FilterPanel>} onDownload={()=>downloadCSV(filtered.map(b=>({date:b.bill_date,vendor:b.vendor_name,amount:b.total_amount,status:expenseStatus(b)})),[{key:'date',label:'Date'},{key:'vendor',label:'From'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],'expenses')}/>
           <form className="flex gap-2" onSubmit={e=>{e.preventDefault();void askBani();}}><Input aria-label="Ask Bani about expenses" placeholder="Ask Bani" value={ask} onChange={e=>setAsk(e.target.value)}/><Button variant="outline" type="submit">Ask</Button></form>
@@ -589,7 +586,7 @@ export default function BillsExpenses() {
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
-          <BillReadDetails header={header} setHeader={setHeader} allocations={allocations} setAllocations={setAllocations} suppliers={suppliers} accounts={accounts} venues={venues} canWrite={canWrite} busy={busy} onApprove={handlePost} onPay={()=>{if(!editing)return;setPayForm({...payForm,amount:String(editing.total_amount-editing.paid_amount)});setPayDialogOpen(true);}} onVoid={async()=>{const ok=await confirm({title:"Void this bill?",description:"The draft stays in the audit record and is excluded from totals.",confirmLabel:"Void bill"});if(ok)await handleSave("void");}} onAttach={()=>{setEditorOpen(false);setScanOpen(true);}}/>
+          <BillReadDetails header={header} setHeader={setHeader} allocations={allocations} setAllocations={setAllocations} suppliers={suppliers} supplierAccounts={allMeters.filter(m=>m.supplier_id===header.supplier_id)} accounts={accounts} venues={venues} canWrite={canWrite} busy={busy} onApprove={handlePost} onPay={()=>{if(!editing)return;setPayForm({...payForm,amount:String(editing.total_amount-editing.paid_amount)});setPayDialogOpen(true);}} onVoid={async()=>{const ok=await confirm({title:"Void this bill?",description:"The draft stays in the audit record and is excluded from totals.",confirmLabel:"Void bill"});if(ok)await handleSave("void");}} onAttach={()=>{setEditorOpen(false);setScanOpen(true);}}/>
         </DialogContent>
       </Dialog>
 

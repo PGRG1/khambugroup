@@ -6,6 +6,8 @@ import { DataTableShell, DataTablePagination } from "@/components/common/data-ta
 import { Card } from "@/components/ui/card";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import {formatDate,formatTableInteger} from '@/utils/format';
+import {Button} from '@/components/ui/button';
+import {toast} from 'sonner';
 
 interface AuditEntry {
   id: string;
@@ -18,6 +20,8 @@ interface AuditEntry {
 }
 
 const actionLabels: Record<string, { label: string; color: string }> = {
+  bani_done: {label:'Done by Bani',color:'text-muted-foreground bg-muted'},
+  bani_undo: {label:'Undone',color:'text-muted-foreground bg-muted'},
   insert: { label: "Created", color: "text-emerald-600 bg-emerald-500/10" },
   update: { label: "Edited", color: "text-amber-600 bg-amber-500/10" },
   delete: { label: "Deleted", color: "text-red-500 bg-red-500/10" },
@@ -106,14 +110,15 @@ const AuditLog = () => {
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${action.color}`}>
                           {action.label}
                         </span>
+                        {entry.action==='bani_done'&&!entry.details?.undone&&<Button variant="link" size="sm" className="h-auto p-1" onClick={async()=>{const {error}=await supabase.rpc('expense_bani_undo',{p_log:entry.id});if(error)toast.error(error.message);else{setEntries(rows=>rows.map(r=>r.id===entry.id?{...r,details:{...r.details,undone:true}}:r));toast.success('Bani change undone');}}}>Undo</Button>}
                       </TableCell>
                       <TableCell className="text-xs hidden sm:table-cell break-words">{entityLabels[entry.entity_type] || entry.entity_type}</TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono hidden sm:table-cell break-all">{entry.entity_id || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-words">
                         {entry.details && Object.keys(entry.details).length > 0
-                          ? entry.action === "bulk_upload"
+                          ? entry.details.title??(entry.action === "bulk_upload"
                             ? `${entry.details.count} records`
-                            : JSON.stringify(entry.details).slice(0, 80)
+                            : JSON.stringify(entry.details).slice(0, 80))
                           : "—"}
                       </TableCell>
                     </TableRow>

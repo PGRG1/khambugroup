@@ -1,0 +1,29 @@
+ALTER TABLE public.supplier_accounts ADD COLUMN IF NOT EXISTS service_address text, ADD COLUMN IF NOT EXISTS split_method text NOT NULL DEFAULT 'unknown', ADD COLUMN IF NOT EXISTS covers jsonb NOT NULL DEFAULT '[]', ADD COLUMN IF NOT EXISTS billed_when text NOT NULL DEFAULT 'arrears';
+ALTER TABLE public.expense_bill_allocations ADD COLUMN IF NOT EXISTS supplier_account_id uuid REFERENCES public.supplier_accounts(id);
+ALTER TABLE public.expense_accrual_drafts ADD COLUMN IF NOT EXISTS supplier_account_id uuid REFERENCES public.supplier_accounts(id);
+CREATE TABLE public.expense_supplier_aliases(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,supplier_id uuid NOT NULL REFERENCES public.suppliers(id),alias text NOT NULL,source_supplier_id uuid REFERENCES public.suppliers(id),created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(tenant_id,alias));
+GRANT SELECT,INSERT ON public.expense_supplier_aliases TO authenticated;GRANT ALL ON public.expense_supplier_aliases TO service_role;
+ALTER TABLE public.expense_supplier_aliases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY alias_read ON public.expense_supplier_aliases FOR SELECT TO authenticated USING(public.user_has_tenant(auth.uid(),tenant_id));
+CREATE POLICY alias_add ON public.expense_supplier_aliases FOR INSERT TO authenticated WITH CHECK(public.user_has_tenant(auth.uid(),tenant_id) AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager')) AND EXISTS(SELECT 1 FROM public.suppliers s WHERE s.id=supplier_id AND s.tenant_id=expense_supplier_aliases.tenant_id));
+CREATE OR REPLACE FUNCTION public.expense_meter_validate() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ DECLARE v jsonb;w numeric:=0;n int:=0;BEGIN
+IF NEW.split_method NOT IN ('unknown','single','fixed','floor_area','sales','central') OR jsonb_typeof(NEW.covers)<>'array' THEN RAISE EXCEPTION 'Invalid meter split';END IF;
+FOR v IN SELECT * FROM jsonb_array_elements(NEW.covers) LOOP
+IF NOT EXISTS(SELECT 1 FROM public.venues WHERE id=(v->>'venue_id')::uuid AND tenant_id=NEW.tenant_id) THEN RAISE EXCEPTION 'Venue outside account company';END IF;n:=n+1;w:=w+coalesce((v->>'weight')::numeric,0);IF coalesce((v->>'weight')::numeric,0)<0 THEN RAISE EXCEPTION 'Negative split';END IF;END LOOP;
+IF (SELECT count(DISTINCT x->>'venue_id') FROM jsonb_array_elements(NEW.covers) x)<>n OR (NEW.split_method='single' AND n<>1) OR (NEW.split_method='fixed' AND w<>100) OR (NEW.split_method='floor_area' AND w<=0) OR (NEW.split_method IN ('sales','central') AND n=0) THEN RAISE EXCEPTION 'Complete the account coverage split';END IF;RETURN NEW;END $$;
+CREATE TRIGGER expense_meter_validate BEFORE INSERT OR UPDATE OF covers,split_method ON public.supplier_accounts FOR EACH ROW EXECUTE FUNCTION public.expense_meter_validate();
+CREATE OR REPLACE FUNCTION public.expense_statement_check(p_account uuid,p_date date) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$ DECLARE a public.supplier_accounts%ROWTYPE;prior numeric;paid numeric;due numeric;BEGIN
+SELECT * INTO a FROM public.supplier_accounts WHERE id=p_account;IF NOT FOUND OR NOT public.user_has_tenant(auth.uid(),a.tenant_id) OR EXISTS(SELECT 1 FROM jsonb_array_elements(a.covers) x WHERE NOT public.user_has_venue(auth.uid(),(x->>'venue_id')::uuid)) THEN RAISE EXCEPTION 'Account access required';END IF;
+SELECT coalesce(sum(total_amount-paid_amount),0) INTO prior FROM public.expense_bills WHERE tenant_id=a.tenant_id AND supplier_account_id=a.id AND approval_status='posted' AND bill_date<p_date;
+SELECT coalesce(sum(p.amount),0) INTO paid FROM public.expense_bill_payments p JOIN public.expense_bills b ON b.id=p.bill_id WHERE b.tenant_id=a.tenant_id AND b.supplier_account_id=a.id AND p.payment_date>=date_trunc('month',p_date)::date AND p.payment_date<=p_date;
+SELECT coalesce(sum(total_amount-paid_amount),0) INTO due FROM public.expense_bills WHERE tenant_id=a.tenant_id AND supplier_account_id=a.id AND approval_status='posted' AND bill_date<=p_date;
+RETURN jsonb_build_object('previous_balance',prior,'payments_received',paid,'amount_due',due);END $$;
+REVOKE ALL ON FUNCTION public.expense_statement_check(uuid,date) FROM PUBLIC;GRANT EXECUTE ON FUNCTION public.expense_statement_check(uuid,date) TO authenticated;
+CREATE OR REPLACE FUNCTION public.expense_bani_undo(p_log uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE a public.audit_log%ROWTYPE;BEGIN
+SELECT * INTO a FROM public.audit_log WHERE id=p_log FOR UPDATE;IF NOT FOUND OR a.action<>'bani_done' OR NOT public.people_owner(a.tenant_id,auth.uid()) OR a.details->>'undone'='true' THEN RAISE EXCEPTION 'Owner undo required';END IF;
+IF a.entity_type='expense_category' THEN UPDATE public.expense_categories SET default_account_id=NULL WHERE id=a.entity_id::uuid AND tenant_id=a.tenant_id AND default_account_id=(a.details->>'account_id')::uuid;IF NOT FOUND THEN RAISE EXCEPTION 'Category changed since Bani linked it';END IF;
+ELSIF a.entity_type='expense_supplier_alias' THEN DELETE FROM public.expense_supplier_aliases WHERE id=a.entity_id::uuid AND tenant_id=a.tenant_id;ELSE RAISE EXCEPTION 'This action has no metadata undo';END IF;
+UPDATE public.audit_log SET details=details||'{"undone":true}'::jsonb WHERE id=a.id;
+INSERT INTO public.audit_log(tenant_id,user_id,user_display_name,action,entity_type,entity_id,details) VALUES(a.tenant_id,auth.uid(),'Owner','bani_undo',a.entity_type,a.entity_id,jsonb_build_object('original_log',a.id));END $$;
+REVOKE ALL ON FUNCTION public.expense_bani_undo(uuid) FROM PUBLIC;GRANT EXECUTE ON FUNCTION public.expense_bani_undo(uuid) TO authenticated;
+COMMENT ON COLUMN public.supplier_accounts.default_venue_id IS 'Legacy bill entry default only; confirmed covers governs expense allocation.';

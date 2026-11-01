@@ -16,3 +16,4 @@ export function splitCoverage(amount:number,start:string,end:string){
 }
 export function estimateFromBills(rows:{amount:number;period:string}[],month:string){const prior=rows.filter(r=>r.period<month&&r.amount>0).sort((a,b)=>b.period.localeCompare(a.period)).slice(0,3);return prior.length?Math.round(prior.reduce((n,r)=>n+r.amount,0)/prior.length*100)/100:null;}
 export function estimateReversal(estimate:{amount:number;expenseAccount:string;accrualAccount:string},actualAmount:number){return {reversal:[{account:estimate.expenseAccount,debit:0,credit:estimate.amount},{account:estimate.accrualAccount,debit:estimate.amount,credit:0}],actualAmount,difference:Math.round((actualAmount-estimate.amount)*100)/100};}
+export function prepaymentRelease(total:number,start:string,end:string,month:string,remaining:number){const share=splitCoverage(total,start,end).find(p=>p.month===month)?.amount??0;return Math.max(0,Math.min(share,remaining));}
