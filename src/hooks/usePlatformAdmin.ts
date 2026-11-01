@@ -18,6 +18,7 @@ export function usePlatformAdmin() {
     queryKey: ["platform-admin", user?.id, tenantId, previewUserId],
     enabled: !!user,
     ...sessionQueryTiming,
+    staleTime: Infinity,
     queryFn: async () => {
       if (!user) return false;
       const { data, error } = await supabase

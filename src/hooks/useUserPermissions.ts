@@ -25,6 +25,7 @@ export function useUserPermissions(userId: string | undefined) {
     queryKey: ["user-permissions", user?.id, tenantId, userId, previewUserId],
     enabled: !!userId,
     ...sessionQueryTiming,
+    staleTime: Infinity,
     queryFn: async (): Promise<MyPermissions | null> => {
     if (!userId) return null;
     // Scope permission lookups to the active tenant so super-admins switching

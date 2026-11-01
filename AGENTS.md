@@ -1,7 +1,7 @@
 # Project Architecture Rules
 Read nested AGENTS.md first.
 
-- ThemeProvider fixes light mode, without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform stacking.
+- ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
