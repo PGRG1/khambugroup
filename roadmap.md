@@ -1,3 +1,9 @@
+## People redesign — Part 2
+- [ ] Overview, role grouping/defaults and role-based Team with retained evidence dialogs
+- [ ] Venue/role Rota grids, cross-venue same-day labels and orb findings; no venue costs
+- [ ] Saved-month payroll read-only safety, full calculations/group totals, due-month workflow and leave-payment evidence
+- [ ] Tests and signed-in desktop/375px checks; compare immutable payroll/finance fingerprints and report limitations
+
 ## People redesign — Part 1
 - [x] Team grouped by venue and full-page records with evidence pop-ups; 49 records, 27 working (Assembly 18 / Caliente 9). Unknown entitlements/dates retained; no payroll/financial writes.
 - [x] Title-first Team/Rota/Payroll and phone pills; page ask boxes removed, shared tab divider fixed, factual findings and mistake-prevention markers open orb topics.
