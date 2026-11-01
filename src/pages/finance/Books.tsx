@@ -21,7 +21,6 @@ export default function Books() {
   const view = params.get("view") ?? "journal";
   return (
     <div className="books-page min-w-0 space-y-3">
-      <h1 className="font-display text-2xl font-semibold">Books</h1>
       <div className="md:hidden"><SectionPillRow label="Books views" items={views.map(([key,label])=>({label,path:`/finance/books?view=${key}`}))} activePath={`/finance/books?view=${view}`}/></div>
       <div className="hidden md:flex flex-wrap gap-1 border-b border-border">
         {views.map(([key, label]) => (

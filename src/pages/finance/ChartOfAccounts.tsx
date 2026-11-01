@@ -1,3 +1,4 @@
+import { PageTop } from '@/components/kit/PageTop';
 import { useMemo, useState } from "react";
 import {
   useChartOfAccounts, ChartAccount, AccountType, NormalSide,
@@ -226,15 +227,8 @@ export default function ChartOfAccountsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Chart of accounts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            The complete list of accounts used in your books. Edit codes, names, and how they appear on your statements.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="w-full space-y-4">
+      <PageTop title="Chart of accounts" actions={<div className="flex flex-wrap gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" disabled={rebuilding || !tenantId}>
@@ -255,8 +249,8 @@ export default function ChartOfAccountsPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </div>
-      </header>
+        </div>}/>
+
 
       <AccountReviewNote accounts={items} onSaved={()=>void fetchAll()}/>
       <Tabs defaultValue="accounts">
