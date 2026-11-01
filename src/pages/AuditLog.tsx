@@ -4,6 +4,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { FileText } from "lucide-react";
 import { DataTableShell, DataTablePagination } from "@/components/common/data-table";
 import { Card } from "@/components/ui/card";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import {formatDate,formatTableInteger} from '@/utils/format';
 
 interface AuditEntry {
   id: string;
@@ -29,6 +31,7 @@ const entityLabels: Record<string, string> = {
 };
 
 const AuditLog = () => {
+  const {tenantId}=useActiveTenant();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -37,6 +40,7 @@ const AuditLog = () => {
 
   useEffect(() => {
     const fetchLogs = async () => {
+      if(!tenantId){setEntries([]);setTotal(0);setLoading(false);return;}
       setLoading(true);
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -44,6 +48,7 @@ const AuditLog = () => {
       const { data, count, error } = await supabase
         .from("audit_log")
         .select("*", { count: "exact" })
+        .eq('tenant_id',tenantId)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -54,31 +59,22 @@ const AuditLog = () => {
       setLoading(false);
     };
     fetchLogs();
-  }, [page, pageSize]);
+  }, [page, pageSize,tenantId]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(total, page * pageSize);
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-AU", {
-      day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  };
-
   return (
     <div className="w-full mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">Activity Log</span>
-        </h1>
+        <h2 className="text-lg font-semibold font-display">Activity</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          {total} entries — all data changes are recorded here
+          {formatTableInteger(total)} entries · Current company
         </p>
       </div>
 
-      <Card className="card-glass overflow-hidden">
+      <section className="overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
             <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>
@@ -88,15 +84,15 @@ const AuditLog = () => {
               <p className="text-muted-foreground text-sm">No activity recorded yet.</p>
             </div>
           ) : (
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Date & Time</TableHead>
                   <TableHead className="text-xs">User</TableHead>
                   <TableHead className="text-xs">Action</TableHead>
-                  <TableHead className="text-xs">Type</TableHead>
-                  <TableHead className="text-xs">Record</TableHead>
-                  <TableHead className="text-xs">Details</TableHead>
+                  <TableHead className="text-xs hidden sm:table-cell">Type</TableHead>
+                  <TableHead className="text-xs hidden sm:table-cell">Record</TableHead>
+                  <TableHead className="text-xs hidden sm:table-cell">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -104,16 +100,16 @@ const AuditLog = () => {
                   const action = actionLabels[entry.action] || { label: entry.action, color: "text-muted-foreground bg-muted" };
                   return (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDate(entry.created_at)}</TableCell>
-                      <TableCell className="text-xs font-medium">{entry.user_display_name}</TableCell>
+                      <TableCell className="text-xs break-words">{formatDate(entry.created_at)}</TableCell>
+                      <TableCell className="text-xs font-medium break-words">{entry.user_display_name}</TableCell>
                       <TableCell>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${action.color}`}>
                           {action.label}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs">{entityLabels[entry.entity_type] || entry.entity_type}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">{entry.entity_id || "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                      <TableCell className="text-xs hidden sm:table-cell break-words">{entityLabels[entry.entity_type] || entry.entity_type}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-mono hidden sm:table-cell break-all">{entry.entity_id || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-words">
                         {entry.details && Object.keys(entry.details).length > 0
                           ? entry.action === "bulk_upload"
                             ? `${entry.details.count} records`
@@ -137,7 +133,7 @@ const AuditLog = () => {
           onPageChange={setPage}
           onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
         />
-      </Card>
+      </section>
     </div>
   );
 };

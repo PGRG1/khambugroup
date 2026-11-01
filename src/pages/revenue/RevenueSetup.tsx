@@ -243,7 +243,7 @@ export default function RevenueSetup() {
                     {unmappedCount === 1 ? "1 venue isn't linked to its accounts yet" : `${unmappedCount} venues aren't linked to their accounts yet`}
                     {unmappedVenues.length ? `: ${unmappedVenues.join(", ")}` : ""}.
                   </span>
-                  <Link to="/finance/chart-of-accounts?tab=mappings" className="ml-auto text-[13px] font-medium underline" style={{ color: "#2F5E5A" }}>Fix it</Link>
+                  <Link to={`/settings?tab=business&section=accounts${activeVenues.find(v=>unmappedVenues.includes(v.name))?`&venue=${activeVenues.find(v=>unmappedVenues.includes(v.name))?.id}`:''}`} className="ml-auto text-[13px] font-medium underline text-primary">Fix it</Link>
                 </div>
               )}
               <section className="card-glass rounded-xl p-4 space-y-2">
