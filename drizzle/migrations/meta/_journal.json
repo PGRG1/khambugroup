@@ -512,6 +512,13 @@
       "when": 1793521929722,
       "tag": "0072_team_working_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793528367643,
+      "tag": "0073_team_role_house_setting",
+      "breakpoints": true
     }
   ]
 }

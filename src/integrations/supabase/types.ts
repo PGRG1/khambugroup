@@ -12228,6 +12228,7 @@ export type Database = {
       team_working_settings: {
         Row: {
           default_mode: string
+          role_house: Json
           role_modes: Json
           tenant_id: string
           updated_at: string
@@ -12235,6 +12236,7 @@ export type Database = {
         }
         Insert: {
           default_mode?: string
+          role_house?: Json
           role_modes?: Json
           tenant_id: string
           updated_at?: string
@@ -12242,6 +12244,7 @@ export type Database = {
         }
         Update: {
           default_mode?: string
+          role_house?: Json
           role_modes?: Json
           tenant_id?: string
           updated_at?: string
