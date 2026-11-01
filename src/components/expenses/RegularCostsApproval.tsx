@@ -1,0 +1,24 @@
+import {useState} from 'react';
+import {useQueryClient} from '@tanstack/react-query';
+import {Button} from '@/components/ui/button';
+import {Checkbox} from '@/components/ui/checkbox';
+import {Dialog,DialogContent,DialogTitle} from '@/components/ui/dialog';
+import {useExpenseRegularPlan,manuallyBooked} from '@/hooks/useExpenseRegularPlan';
+import {useActiveTenant} from '@/hooks/useActiveTenant';
+import {useAuth} from '@/hooks/useAuth';
+import {usePreviewMode} from '@/hooks/usePreviewMode';
+import {supabase} from '@/integrations/supabase/client';
+import {formatCurrency,formatMonthLabel} from '@/utils/format';
+import {approveSelectedDrafts,type MonthlyDraft} from '@/utils/expenseMonthlyApproval';
+import type {ExpenseBill} from '@/hooks/useExpenseBills';
+import {toast} from 'sonner';
+export function RegularCostsApproval({bills,month}:{bills:ExpenseBill[];month:string}){
+ const query=useExpenseRegularPlan(),{tenantId,memberships}=useActiveTenant(),auth=useAuth(),preview=usePreviewMode(),cache=useQueryClient();const [open,setOpen]=useState(false),[checked,setChecked]=useState<Record<string,boolean>>({}),[busy,setBusy]=useState(false);const data=query.data;
+ const rows:MonthlyDraft[]=[];
+ for(const d of data?.drafts??[]){if(d.status!=='waiting'||!d.month_start.startsWith(month))continue;const r=data?.rules.find(r=>r.id===d.recurring_rule_id),meter=data?.meters.find(a=>a.id===d.supplier_account_id);rows.push({id:d.id,kind:'accrual',name:r?.name??`a/c ${meter?.account_number??'Regular cost'}`,amount:Number(d.amount),estimate:d.kind==='estimate',note:d.reason,blocked:manuallyBooked(data,d.account_id,month,Number(d.amount))});}
+ for(const b of bills){if(!['draft','pending_review','approved'].includes(b.approval_status)||(b.service_period_start??b.period_start??b.bill_date).slice(0,7)!==month)continue;const r=data?.rules.find(r=>r.id===b.recurring_rule_id);if(!r&&!b.supplier_account_id)continue;if(rows.some(d=>d.kind==='accrual'&&data?.drafts.find(a=>a.id===d.id)?.recurring_rule_id===r?.id&&r))continue;rows.push({id:b.id,kind:'bill',name:r?.name??b.vendor_name??'Regular bill',amount:b.total_amount,note:b.meta?.bani_question,blocked:r?manuallyBooked(data,r.account_id,month,Number(r.expected_amount)):false});}
+ for(const l of data?.prepaid??[]){if(l.status!=='pending'||!l.period.startsWith(month))continue;const s=data?.schedules.find(s=>s.id===l.schedule_id);if(s?.status==='active')rows.push({id:l.id,kind:'prepaid',name:s.description??'Prepayment release',amount:Number(l.planned_amount),note:'Monthly prepayment release'});}
+ if(query.isLoading)return <p className="text-sm text-muted-foreground">Loading regular costs…</p>;if(query.isError)return <p role="alert" className="text-sm text-muted-foreground">Regular costs could not be loaded. <Button variant="link" onClick={()=>void query.refetch()}>Retry</Button></p>;
+ const ready=rows.filter(r=>!r.blocked),canApprove=!preview.isPreviewActive&&(auth.isAdmin||memberships.some(m=>m.tenant_id===tenantId&&m.role==='owner'));const label=new Date(month+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long'});
+ return <><Button variant="ghost" className="h-auto px-0 text-left justify-start whitespace-normal" onClick={()=>{setChecked(Object.fromEntries(ready.map(r=>[r.id,true])));setOpen(true);}}>{label} regular costs · {ready.length} ready · {formatCurrency(ready.reduce((n,r)=>n+r.amount,0))}</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto"><DialogTitle>{label} regular costs</DialogTitle><div className="divide-y divide-border">{rows.map(r=><label key={r.id} className="flex items-start gap-3 py-3"><Checkbox aria-label={`Approve ${r.name}`} disabled={r.blocked||busy} checked={!!checked[r.id]} onCheckedChange={v=>setChecked(c=>({...c,[r.id]:v===true}))}/><span className="min-w-0 flex-1 text-sm">{r.name}{r.estimate&&<span className="text-xs text-muted-foreground"> · estimate</span>}<span className="block text-xs text-muted-foreground">{r.blocked?'Booked by hand':r.note}</span></span><span className="td-num text-sm shrink-0">{formatCurrency(r.amount)}</span></label>)}{!rows.length&&<p className="text-sm text-muted-foreground py-3">No drafts waiting.</p>}</div><Button disabled={!canApprove||busy||!ready.some(r=>checked[r.id])} onClick={async()=>{if(!tenantId)return;setBusy(true);try{await approveSelectedDrafts(rows,checked,async items=>{const {error}=await supabase.rpc('expense_month_approve',{t:tenantId,m:month+'-01',p_items:items});if(error)throw error;});toast.success('Selected regular costs approved');setOpen(false);await cache.invalidateQueries();}catch(e){toast.error(e instanceof Error?e.message:'Approval could not finish');}finally{setBusy(false);}}}>Approve {label}</Button></DialogContent></Dialog></>;
+}

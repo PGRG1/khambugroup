@@ -14448,6 +14448,10 @@ export type Database = {
         Returns: number
       }
       expense_correction_approve: { Args: { p_id: string }; Returns: string }
+      expense_manual_booked: {
+        Args: { a: string; amt: number; m: string; t: string }
+        Returns: boolean
+      }
       expense_meter_split: {
         Args: { p_account: string; p_amount: number; p_month: string }
         Returns: {
@@ -14455,6 +14459,10 @@ export type Database = {
           venue: string
           venue_id: string
         }[]
+      }
+      expense_month_approve: {
+        Args: { m: string; p_items: Json; t: string }
+        Returns: Json
       }
       expense_monthend_run: { Args: { m: string; t: string }; Returns: Json }
       expense_monthend_scheduled: { Args: never; Returns: undefined }

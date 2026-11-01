@@ -79,6 +79,7 @@ function fromDbRecord(r: any): SalesRecord {
     foodpanda: Number(r.foodpanda ?? 0),
     keeta: Number(r.keeta ?? 0),
     cardTips: normalizeCardTips(Number(r.card_tips)),
+    createdAt: r.created_at,
     receiptFileUrl: r.receipt_file_url ?? null,
     receiptFileName: r.receipt_file_name ?? null,
     servicePeriodId: r.service_period_id ?? null,

@@ -1,3 +1,4 @@
+import {ExpenseDocumentPreview} from "@/components/expenses/ExpenseDocumentPreview";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -93,7 +94,7 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
               <span className="td-num">{formatTableInteger(r.guests)} guests</span><span>·</span>
               <span className="td-num">{formatTableInteger(r.orders)} orders</span><span>·</span>
               <span>Report # {r.reportNumber || "—"}</span><span>·</span>
-              {r.receiptFileUrl ? <button type="button" className="kit-link !text-[13px]" onClick={p.onViewReceipt}>Receipt</button> : <span>No receipt</span>}
+              {r.receiptFileUrl ? <button type="button" className="kit-link !text-[13px]" onClick={p.onViewReceipt}>Receipt</button> : <span>{r.createdAt?.startsWith("2026-02-12T02:46:54")||r.createdAt?.startsWith("2026-02-12 02:46:54")?"Imported · no receipt":"No receipt"}</span>}
             </div>;
             return <>
               <div className="space-y-1.5 pr-8">
@@ -127,6 +128,7 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
                 </section>
               </div>
               {invalid && <p className="text-[13px]" style={{ color: "#C53030" }}>Use numbers only.</p>}
+              {r.receiptFileUrl&&<ExpenseDocumentPreview path={r.receiptFileUrl} bucket="sales-receipts" label="Receipt photo"/>}
               {!editing && <section className="space-y-2"><h3 className="kit-group-h">Notes</h3>
                 {x.notes.length > 0 && <ol className="space-y-2.5">
                   {x.notes.map((n) => (
