@@ -2174,6 +2174,177 @@ export type Database = {
           },
         ]
       }
+      expense_accrual_drafts: {
+        Row: {
+          account_id: string | null
+          actual_bill_id: string | null
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          month_start: string
+          reason: string
+          recurring_rule_id: string | null
+          reversal_entry_id: string | null
+          source_key: string
+          status: string
+          supplier_id: string | null
+          tenant_id: string
+          venue: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          actual_bill_id?: string | null
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          month_start: string
+          reason?: string
+          recurring_rule_id?: string | null
+          reversal_entry_id?: string | null
+          source_key: string
+          status?: string
+          supplier_id?: string | null
+          tenant_id: string
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          actual_bill_id?: string | null
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          month_start?: string
+          reason?: string
+          recurring_rule_id?: string | null
+          reversal_entry_id?: string | null
+          source_key?: string
+          status?: string
+          supplier_id?: string | null
+          tenant_id?: string
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_accrual_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_actual_bill_id_fkey"
+            columns: ["actual_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "expense_recurring_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_accrual_drafts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_bill_allocations: {
         Row: {
           account_id: string | null
@@ -2763,6 +2934,94 @@ export type Database = {
           },
         ]
       }
+      expense_correction_proposals: {
+        Row: {
+          adjustment_entry_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          kind: string
+          original_entry_id: string | null
+          payload: Json
+          reason: string
+          status: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          adjustment_entry_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          original_entry_id?: string | null
+          payload?: Json
+          reason: string
+          status?: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          adjustment_entry_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          original_entry_id?: string | null
+          payload?: Json
+          reason?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_correction_proposals_adjustment_entry_id_fkey"
+            columns: ["adjustment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_correction_proposals_adjustment_entry_id_fkey"
+            columns: ["adjustment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_correction_proposals_adjustment_entry_id_fkey"
+            columns: ["adjustment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_correction_proposals_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_correction_proposals_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_correction_proposals_original_entry_id_fkey"
+            columns: ["original_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
       expense_payment_terms: {
         Row: {
           created_at: string
@@ -2805,21 +3064,29 @@ export type Database = {
         Row: {
           account_id: string | null
           active: boolean
+          attachment_path: string | null
+          attachment_url: string | null
           auto_approve: boolean
+          billed_when: string
           cadence: string
           category_id: string | null
+          central_share_method: string
           combined_venues: boolean
+          contract_end: string | null
           created_at: string
           created_by: string | null
           credit_account_id: string | null
           currency: string
           day_of_month: number | null
           department: string | null
+          deposit_amount: number
+          direction: string
           document_notes: string | null
           document_source: string | null
           effective_from: string | null
           expected_amount: number
           id: string
+          is_contract: boolean
           last_generated_at: string | null
           name: string
           next_due_date: string | null
@@ -2827,7 +3094,9 @@ export type Database = {
           notes: string | null
           payment_due_day: number | null
           recognition_day: string | null
+          rent_free_months: Json
           status: string
+          step_increases: Json
           supplier_id: string | null
           tenant_id: string
           updated_at: string
@@ -2837,21 +3106,29 @@ export type Database = {
         Insert: {
           account_id?: string | null
           active?: boolean
+          attachment_path?: string | null
+          attachment_url?: string | null
           auto_approve?: boolean
+          billed_when?: string
           cadence?: string
           category_id?: string | null
+          central_share_method?: string
           combined_venues?: boolean
+          contract_end?: string | null
           created_at?: string
           created_by?: string | null
           credit_account_id?: string | null
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          deposit_amount?: number
+          direction?: string
           document_notes?: string | null
           document_source?: string | null
           effective_from?: string | null
           expected_amount?: number
           id?: string
+          is_contract?: boolean
           last_generated_at?: string | null
           name: string
           next_due_date?: string | null
@@ -2859,7 +3136,9 @@ export type Database = {
           notes?: string | null
           payment_due_day?: number | null
           recognition_day?: string | null
+          rent_free_months?: Json
           status?: string
+          step_increases?: Json
           supplier_id?: string | null
           tenant_id?: string
           updated_at?: string
@@ -2869,21 +3148,29 @@ export type Database = {
         Update: {
           account_id?: string | null
           active?: boolean
+          attachment_path?: string | null
+          attachment_url?: string | null
           auto_approve?: boolean
+          billed_when?: string
           cadence?: string
           category_id?: string | null
+          central_share_method?: string
           combined_venues?: boolean
+          contract_end?: string | null
           created_at?: string
           created_by?: string | null
           credit_account_id?: string | null
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          deposit_amount?: number
+          direction?: string
           document_notes?: string | null
           document_source?: string | null
           effective_from?: string | null
           expected_amount?: number
           id?: string
+          is_contract?: boolean
           last_generated_at?: string | null
           name?: string
           next_due_date?: string | null
@@ -2891,7 +3178,9 @@ export type Database = {
           notes?: string | null
           payment_due_day?: number | null
           recognition_day?: string | null
+          rent_free_months?: Json
           status?: string
+          step_increases?: Json
           supplier_id?: string | null
           tenant_id?: string
           updated_at?: string
@@ -9113,6 +9402,7 @@ export type Database = {
           payment_type: string
           payment_type_label: string
           tenant_id: string
+          venue: string | null
         }
         Insert: {
           audit_note?: string
@@ -9129,6 +9419,7 @@ export type Database = {
           payment_type: string
           payment_type_label?: string
           tenant_id?: string
+          venue?: string | null
         }
         Update: {
           audit_note?: string
@@ -9145,6 +9436,7 @@ export type Database = {
           payment_type?: string
           payment_type_label?: string
           tenant_id?: string
+          venue?: string | null
         }
         Relationships: [
           {
@@ -14063,6 +14355,17 @@ export type Database = {
         }
         Returns: Json
       }
+      expense_accrual_approve: { Args: { p_id: string }; Returns: string }
+      expense_contract_bill_approve: {
+        Args: { p_bill: string }
+        Returns: string
+      }
+      expense_contract_month_amount: {
+        Args: { p_month: string; p_rule: string }
+        Returns: number
+      }
+      expense_correction_approve: { Args: { p_id: string }; Returns: string }
+      expense_prepare_month: { Args: { m: string; t: string }; Returns: number }
       fetch_due_pending_rebuilds: {
         Args: { p_debounce_seconds?: number }
         Returns: {
@@ -14692,6 +14995,10 @@ export type Database = {
       settings_edit_accounting_example: {
         Args: { forget?: boolean; i: string; r: string; t: string }
         Returns: undefined
+      }
+      settlement_clearing_venue: {
+        Args: { b: string; line_venue: string; t: string }
+        Returns: string
       }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
       sync_grn_from_invoice: {

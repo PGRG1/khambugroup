@@ -554,6 +554,41 @@
       "when": 1793540371641,
       "tag": "0078_rota_person_week_sent_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793544318854,
+      "tag": "0079_expense_contracts_and_accrual_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793544404892,
+      "tag": "0080_settlement_venue_evidence_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1793544552776,
+      "tag": "0081_expense_actual_coverage_and_owner_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793544670376,
+      "tag": "0082_expense_accrual_validation_and_draft_preparation",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793544728188,
+      "tag": "0083_contract_approval_recheck_and_bill_guard",
+      "breakpoints": true
     }
   ]
 }

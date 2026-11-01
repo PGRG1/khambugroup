@@ -1,3 +1,11 @@
+## Expense contracts, accruals, bill details and KPay
+- [x] Rent rule extended to contract; terms/document prefill, Jan–Dec plan, quarterly/straight-line/day-share math, guarded on-demand drafts.
+- [x] Added accrued expense/income accounts, approved accrual source and actual bill coverage/estimate reversal triggers; owner-only fingerprinted proposal approval.
+- [x] Read-first bill details; explicit KPay venue clearing guard; 34 owner proposals (27 KPay, five expense evidence reviews, rent transfer, duplicate AP).
+- [x] 34 focused tests and signed-in desktop/375px rent plan/rent/CLP dialogs; no page overflow; protected 85 payroll, 2645 journals, 21492 lines and 23 bills fingerprints unchanged.
+- [ ] Advance/prepayment release workflow and automatic month-end/contract-auto posting remain unimplemented; advance posting blocked safely. Estimate and contract differences need richer question/settlement UI; no live posting/approval tested.
+- [ ] KPay historical splits require venue evidence absent from existing batch lines; 27 drafts remain blocked. Other unconfirmed contract terms and missing CLP document remain unknown; no guesses made.
+
 ## Cross-venue Rota and Expenses overview
 - [x] Person-wide rest/hour/4–68 checks, pre-save warnings and server all-venue sent readiness; remembered role/venue grids.
 - [x] Read-only Expenses overview with complete-month figures, factual findings, charts and regular-cost matrix; existing bill flow/navigation.

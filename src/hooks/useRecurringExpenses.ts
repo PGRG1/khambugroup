@@ -7,6 +7,16 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 export type RecurringRuleStatus = "draft" | "active" | "paused" | "ended";
 
 export interface RecurringRule {
+  is_contract?: boolean;
+  direction?: string;
+  billed_when?: string;
+  contract_end?: string | null;
+  central_share_method?: string;
+  rent_free_months?: string[];
+  step_increases?: {month:string;amount:number}[];
+  deposit_amount?: number;
+  attachment_path?: string | null;
+  attachment_url?: string | null;
   id: string;
   name: string;
   supplier_id: string | null;
@@ -67,6 +77,7 @@ export function useRecurringExpenses() {
       if (!tenantId) return false;
       const status: RecurringRuleStatus = (r.status as RecurringRuleStatus) || "draft";
       const payload: any = {
+        is_contract:r.is_contract??false,direction:r.direction??'cost',billed_when:r.billed_when??'arrears',contract_end:r.contract_end||null,central_share_method:r.central_share_method??'sales',rent_free_months:r.rent_free_months??[],step_increases:r.step_increases??[],deposit_amount:Number(r.deposit_amount??0),attachment_path:r.attachment_path??null,attachment_url:r.attachment_url??null,
         name: r.name,
         supplier_id: r.supplier_id || null,
         vendor_name: r.vendor_name || null,
