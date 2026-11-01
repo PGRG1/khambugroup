@@ -315,6 +315,15 @@ export default function Reports() {
       group === "Profit" ? profit(m) : total(group, m),
     ),
   }));
+  if(view==='venue'){
+    pdfRows.length=0;
+    for(const venue of [...scope.selectedNames,...(!scope.restricted?['Central','Not on rota / venue not recorded']:[])]){
+      for(const group of ['Sales','Cost of sales','Running costs','Staff cost','Profit']){
+        const missing=months.filter(m=>venueValue(group,m,venue)===null);
+        pdfRows.push({label:`${venue} · ${group}${group==='Running costs'?' excluding mapped payroll':''}${missing.length?' (payroll missing: '+missing.map(formatMonthLabel).join(', ')+')':''}`,depth:0,cells:months.map(m=>venueValue(group,m,venue)??0)});
+      }
+    }
+  }
   pdfRows.push({
     label: "Adjustments (typed, not in books)",
     depth: 0,
