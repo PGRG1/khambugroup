@@ -13608,6 +13608,15 @@ export type Database = {
         }
         Returns: string
       }
+      document_commit_receipt: {
+        Args: {
+          p_intake: string
+          p_path: string
+          p_values: Json
+          p_verification: Json
+        }
+        Returns: Json
+      }
       document_sales_context: {
         Args: { p_end: string; p_start: string; p_tenant: string }
         Returns: Json
