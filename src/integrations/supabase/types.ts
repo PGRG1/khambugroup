@@ -14341,6 +14341,10 @@ export type Database = {
         Args: { d: string; e: string; t: string }
         Returns: Json
       }
+      people_week_sent: {
+        Args: { e: string; first_day: string; last_day: string; t: string }
+        Returns: boolean
+      }
       people_work_fingerprint: {
         Args: { e: string; first_day: string; last_day: string; t: string }
         Returns: string
