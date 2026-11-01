@@ -1,3 +1,8 @@
+## Cross-venue Rota and Expenses overview
+- [ ] Person-wide rest/hour checks, save warnings and all-venue sent readiness; role/venue grids.
+- [ ] Read-only Expenses overview with complete-month figures, factual findings, charts and regular-cost matrix; existing bill flow/navigation.
+- [ ] Focused rules tests and one signed-in desktop/375px pass; preserve saved payroll, posted bills and journals.
+
 ## Payroll table and Rota top presentation
 - [x] Payroll number-only edits/dots, single shaded group subtotal, grouped Bani findings and readiness bar; no calculation or record changes.
 - [x] Rota two-row top, combined week control/Fill week menu and leave/off/day totals presentation; existing actions unchanged.
