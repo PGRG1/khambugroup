@@ -3788,6 +3788,178 @@ export type Database = {
           },
         ]
       }
+      finance_deferred_items: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          expires_on: string | null
+          guest_event: string
+          id: string
+          issued_date: string
+          kind: string
+          reference: string
+          release_months: number
+          source_document: string | null
+          status: string
+          tenant_id: string
+          used_amount: number
+          venue: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string
+          expires_on?: string | null
+          guest_event?: string
+          id?: string
+          issued_date: string
+          kind: string
+          reference: string
+          release_months?: number
+          source_document?: string | null
+          status?: string
+          tenant_id: string
+          used_amount?: number
+          venue?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          expires_on?: string | null
+          guest_event?: string
+          id?: string
+          issued_date?: string
+          kind?: string
+          reference?: string
+          release_months?: number
+          source_document?: string | null
+          status?: string
+          tenant_id?: string
+          used_amount?: number
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_deferred_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_entry_drafts: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          label: string
+          lines: Json
+          linked_entry_id: string | null
+          reason: string
+          source_data: Json
+          source_document: string | null
+          source_key: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          entry_date: string
+          id?: string
+          journal_entry_id?: string | null
+          kind: string
+          label: string
+          lines: Json
+          linked_entry_id?: string | null
+          reason?: string
+          source_data?: Json
+          source_document?: string | null
+          source_key: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          entry_date?: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          label?: string
+          lines?: Json
+          linked_entry_id?: string | null
+          reason?: string
+          source_data?: Json
+          source_document?: string | null
+          source_key?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_entry_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_linked_entry_id_fkey"
+            columns: ["linked_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_linked_entry_id_fkey"
+            columns: ["linked_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_linked_entry_id_fkey"
+            columns: ["linked_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "finance_entry_drafts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_reconciliation_explanations: {
         Row: {
           created_at: string
@@ -3824,6 +3996,71 @@ export type Database = {
             foreignKeyName: "finance_reconciliation_explanations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_schedule_settings: {
+        Row: {
+          assessment_dates: Json
+          business_type: string
+          capitalisation_limit: number
+          deposit_enabled: boolean
+          filed_by: string
+          jurisdiction: string
+          package_enabled: boolean
+          stock_basis: string
+          tax_enabled: boolean
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          voucher_enabled: boolean
+          voucher_expiry_months: number
+          year_end_day: number
+          year_end_month: number
+        }
+        Insert: {
+          assessment_dates?: Json
+          business_type?: string
+          capitalisation_limit?: number
+          deposit_enabled?: boolean
+          filed_by?: string
+          jurisdiction?: string
+          package_enabled?: boolean
+          stock_basis?: string
+          tax_enabled?: boolean
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          voucher_enabled?: boolean
+          voucher_expiry_months?: number
+          year_end_day?: number
+          year_end_month?: number
+        }
+        Update: {
+          assessment_dates?: Json
+          business_type?: string
+          capitalisation_limit?: number
+          deposit_enabled?: boolean
+          filed_by?: string
+          jurisdiction?: string
+          package_enabled?: boolean
+          stock_basis?: string
+          tax_enabled?: boolean
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          voucher_enabled?: boolean
+          voucher_expiry_months?: number
+          year_end_day?: number
+          year_end_month?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_schedule_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -9882,10 +10119,12 @@ export type Database = {
           gl_account_id: string | null
           id: string
           is_active: boolean
+          kept_by: string
           name: string
           notes: string | null
           replenish_threshold: number
           tenant_id: string
+          topup_account_id: string | null
           venue: string
         }
         Insert: {
@@ -9894,10 +10133,12 @@ export type Database = {
           gl_account_id?: string | null
           id?: string
           is_active?: boolean
+          kept_by?: string
           name: string
           notes?: string | null
           replenish_threshold?: number
           tenant_id: string
+          topup_account_id?: string | null
           venue: string
         }
         Update: {
@@ -9906,10 +10147,12 @@ export type Database = {
           gl_account_id?: string | null
           id?: string
           is_active?: boolean
+          kept_by?: string
           name?: string
           notes?: string | null
           replenish_threshold?: number
           tenant_id?: string
+          topup_account_id?: string | null
           venue?: string
         }
         Relationships: [
@@ -9946,6 +10189,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_floats_topup_account_id_fkey"
+            columns: ["topup_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -14579,6 +14829,18 @@ export type Database = {
         }
         Returns: string
       }
+      finance_deferred_add: { Args: { p: Json; t: string }; Returns: string }
+      finance_deferred_use: {
+        Args: {
+          account: string
+          action: string
+          amount: number
+          d: string
+          ident: string
+          t: string
+        }
+        Returns: string
+      }
       finance_explain_reconciliation: {
         Args: {
           p_key: string
@@ -14591,6 +14853,23 @@ export type Database = {
       }
       finance_month_checks: {
         Args: { p_month: string; p_tenant_id: string }
+        Returns: Json
+      }
+      finance_opening_asset: { Args: { p: Json; t: string }; Returns: string }
+      finance_propose_journal: {
+        Args: {
+          d: string
+          doc?: string
+          linked?: string
+          ls: Json
+          t: string
+          title: string
+          why: string
+        }
+        Returns: string
+      }
+      finance_reconciliation_base_rows: {
+        Args: { p_month: string; p_tenant: string }
         Returns: Json
       }
       finance_reconciliation_rows: {
@@ -14608,6 +14887,38 @@ export type Database = {
           p_tenant: string
         }
         Returns: Json
+      }
+      finance_schedule_account: {
+        Args: { c: string; k: string; n: string; t: string }
+        Returns: string
+      }
+      finance_schedule_approve: {
+        Args: { ident: string; m: string; t: string }
+        Returns: string
+      }
+      finance_schedule_enqueue: {
+        Args: {
+          d: string
+          doc?: string
+          k: string
+          key: string
+          linked?: string
+          ls: Json
+          meta?: Json
+          t: string
+          title: string
+          why: string
+        }
+        Returns: string
+      }
+      finance_schedule_manager: { Args: { t: string }; Returns: boolean }
+      finance_schedule_prepare: {
+        Args: { m: string; t: string }
+        Returns: number
+      }
+      finance_schedule_save_settings: {
+        Args: { p: Json; t: string }
+        Returns: undefined
       }
       finance_set_month_closed: {
         Args: {

@@ -1,5 +1,5 @@
 # Project Architecture Rules
-Read nested AGENTS.md before changes: src/pages/hr has People rules; src/components/assistant has voice rules, also required for related hooks and server voice integrations.
+Read nested AGENTS.md before changes: src/pages/finance has Finance rules; src/pages/hr has People rules; src/components/assistant has voice rules, also required for related hooks and server voice integrations.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
@@ -37,4 +37,3 @@ Read nested AGENTS.md before changes: src/pages/hr has People rules; src/compone
 
 - Regular-cost approvals use the atomic selected-items RPC; contract strips share the read-only regular plan. Expense documents fetch fresh signed links and validate bytes before rendering so errors never render as documents. Receipt evidence links append comma-separated paths without financial writes.
 
-- Finance reports use financeReportViews/FinanceAging for read-only balances, due terms and capped payment proposals; ManagementReports retains typed adjustments. Overview shares read-only facts. Month close uses server snapshots and append-only explanations; triggers require completeness and block unexplained/matching/correction exceptions. Guarded actions own writes.

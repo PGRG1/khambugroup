@@ -4,6 +4,8 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type PettyFloat = {
+  kept_by: string;
+  topup_account_id: string | null;
   id: string;
   tenant_id: string;
   name: string;

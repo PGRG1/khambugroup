@@ -638,6 +638,41 @@
       "when": 1793551604296,
       "tag": "0090_finance_close_correction_exceptions",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1793554540602,
+      "tag": "0091_finance_schedule_draft_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1793554576883,
+      "tag": "0092_finance_schedule_selected_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1793554685039,
+      "tag": "0093_finance_schedule_close_reconciliations",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1793554758167,
+      "tag": "0094_finance_schedule_source_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1793554871655,
+      "tag": "0095_finance_schedule_reconciliation_snapshot_fix",
+      "breakpoints": true
     }
   ]
 }
