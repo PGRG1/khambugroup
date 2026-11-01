@@ -13723,6 +13723,11 @@ export type Database = {
         Returns: string
       }
       finance_source_drift: { Args: { p_tenant: string }; Returns: Json }
+      finance_source_drift_count: { Args: { p_tenant: string }; Returns: Json }
+      finance_source_operation_undo: {
+        Args: { p_operation: string }
+        Returns: string
+      }
       finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {

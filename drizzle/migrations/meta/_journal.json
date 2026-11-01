@@ -442,6 +442,13 @@
       "when": 1793500259639,
       "tag": "0062_atomic_source_date_drift_and_undo",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793500303784,
+      "tag": "0063_source_date_edit_sync_and_operation_undo",
+      "breakpoints": true
     }
   ]
 }
