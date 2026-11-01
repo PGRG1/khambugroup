@@ -15,9 +15,10 @@ export function workComparisonWindow(today: string) {
 
 export function revenuePageWork(sales: WorkSale[], venues: { id: string; name: string }[], today: string, isClosed: (id: string, date: string) => unknown): PageWorkItem[] {
   const history = sales as SalesRecord[];
-  const from = addDaysIso(today, -7), closed = new Set<string>();
+  const first = firstSaleDates(history);
+  const from = [...first.values()].sort()[0] ?? today, closed = new Set<string>();
   for (let day = from; day < today; day = addDaysIso(day, 1)) for (const venue of venues) if (isClosed(venue.id, day)) closed.add(`${venue.id}|${day}`);
-  const gaps = missingDays(history, venues, from, addDaysIso(today, -1), today, firstSaleDates(history), closed);
+  const gaps = missingDays(history, venues, from, addDaysIso(today, -1), today, first, closed);
   // Latest missing past day for each venue, grouped by date so every scoped venue is represented.
   const latest = new Map<string, typeof gaps[number]>();
   for (const gap of gaps) latest.set(gap.venueId, gap);
