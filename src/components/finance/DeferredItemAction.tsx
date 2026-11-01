@@ -1,0 +1,17 @@
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatCurrency } from '@/utils/format';
+import { tenantToday } from '@/utils/salesRecordChecks';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export function DeferredItemAction({ tenantId, item, accounts, disabled }: { tenantId: string | null; item: { id: string; reference: string; amount: number; used_amount: number; status: string }; accounts: { id: string; name: string; code: string; account_type: string }[]; disabled?: boolean }) {
+  const cache = useQueryClient(), [action, setAction] = useState<'used' | 'refund' | null>(null), [date, setDate] = useState(tenantToday()), [amount, setAmount] = useState(''), [account, setAccount] = useState(''), [busy, setBusy] = useState(false);
+  const balance = Number(item.amount) - Number(item.used_amount), value = Number(amount);
+  return <><div className="flex gap-2"><Button variant="outline" size="sm" disabled={disabled || item.status !== 'active' || balance <= 0} onClick={() => { setAction('used'); setAccount(''); setAmount(''); }}>Record use</Button><Button variant="ghost" size="sm" disabled={disabled || item.status !== 'active' || balance <= 0} onClick={() => { setAction('refund'); setAccount(''); setAmount(''); }}>Refund</Button></div><Dialog open={!!action} onOpenChange={v => !v && setAction(null)}><DialogContent><DialogHeader><DialogTitle>{action === 'refund' ? 'Refund' : 'Record use'} · {item.reference}</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Balance · {formatCurrency(balance)}</p><Label htmlFor={'deferred-date-' + item.id}>Date</Label><Input id={'deferred-date-' + item.id} type="date" value={date} onChange={e => setDate(e.target.value)} /><Label htmlFor={'deferred-amount-' + item.id}>Amount</Label><Input id={'deferred-amount-' + item.id} type="number" min="0.01" max={balance} step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /><Label>{action === 'refund' ? 'Cash / bank account' : 'Sales account'}</Label><Select value={account || 'none'} onValueChange={v => setAccount(v === 'none' ? '' : v)}><SelectTrigger aria-label="Deferred movement account"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Choose account</SelectItem>{accounts.filter(a => a.account_type === (action === 'refund' ? 'asset' : 'revenue')).map(a => <SelectItem value={a.id} key={a.id}>{a.code} · {a.name}</SelectItem>)}</SelectContent></Select><Button disabled={busy || !tenantId || !account || !date || !Number.isFinite(value) || value <= 0 || value > balance} onClick={async () => { if (!tenantId || !action) return; setBusy(true); try { const { error } = await supabase.rpc('finance_deferred_use', { t: tenantId, ident: item.id, d: date, amount: value, action, account }); if (error) throw error; await cache.invalidateQueries({ queryKey: ['finance-schedules'] }); setAction(null); toast.success('Deferred revenue draft created'); } catch (e) { toast.error(e instanceof Error ? e.message : 'Draft could not be created'); } finally { setBusy(false); } }}>Create draft</Button></DialogContent></Dialog></>;
+}
