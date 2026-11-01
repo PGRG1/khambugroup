@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       if (!body.entry_id) throw new Error('Choose an entry');
       const {data: entry,error: ee}=await client.from('journal_entries').select('*').eq('tenant_id',body.tenant_id).eq('id',body.entry_id).single();
       if(ee||!entry||entry.status!=='posted'||entry.source_type.startsWith('payroll')) throw new Error('Posted non-payroll entry required');
-      const [accounts,examples]=await Promise.all([all('chart_of_accounts','id,code,name,account_type,is_active'),all('bani_accounting_examples','supplier_id,item_key,venue,field,after_value,reason,conflict_with,resolved_at')]);
+      const [accounts,examples]=await Promise.all([all('chart_of_accounts','id,code,name,account_type,is_active'),all('bani_accounting_examples','supplier_id,item_key,venue,field,after_value,reason,conflict_with,resolved_at,disabled_at')]);
       const {data:lines,error: le}=await client.from('journal_lines').select('*').eq('tenant_id',body.tenant_id).eq('entry_id',entry.id); if(le)throw le;
       let record:any=null;let bucket='';let paths:string[]=[];
       if(entry.source_type==='invoice'){
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
         if(entry.source_type==='sales')q=q.eq('id',entry.source_id);else q=q.eq('date',entry.entry_date).eq('venue',entry.venue);
         const {data:r}=await q.limit(20);record=r;bucket='sales-receipts';paths=(r??[]).map(x=>x.receipt_file_url).filter(Boolean);
       }
-      const relevant=examples.filter(e=>record&&!Array.isArray(record)&&e.supplier_id&&e.supplier_id===record.supplier_id&&e.venue===record.venue).slice(-20);
+      const relevant=examples.filter(e=>!e.disabled_at&&record&&!Array.isArray(record)&&e.supplier_id&&e.supplier_id===record.supplier_id&&e.venue===record.venue).slice(-20);
       if(relevant.some(e=>e.conflict_with&&!e.resolved_at))throw new Error('Conflicting learned examples require resolution');
       const content:any[]=[{type:'text',text:JSON.stringify({entry,lines:body.line_id?lines?.filter(l=>l.id===body.line_id):lines,record,examples:relevant,accounts:accounts.filter(a=>a.is_active),instruction:body.instruction})}];
       let bytes=0;

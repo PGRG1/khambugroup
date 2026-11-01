@@ -71,6 +71,7 @@ const UserAccessControl = () => {
 
     const approverIds = new Set((approvers || []).map(a => a.user_id));
     const userMap = new Map<string, UserAccessRecord>();
+    for(const id of new Set(memberIds))userMap.set(id,{user_id:id,email:emailMap.get(id)||'Invited member',display_name:null,position:'viewer',status:'active',is_approver:approverIds.has(id),pages:[],venue_ids:venueByUser.get(id)||[]});
 
     for (const p of (profiles || [])) {
       userMap.set(p.user_id, {
