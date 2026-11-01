@@ -1,0 +1,24 @@
+import {describe,it,expect} from 'vitest';
+import {overviewMonth,datedHeadcount,importDateFlags,teamRows} from '@/utils/peopleOverview';
+import {houseSide} from '@/utils/teamWorking';
+const setting={default_mode:'own' as const,role_modes:{}};
+const person={id:'p',first_name:'Asim',last_name:'Rana',hire_date:'2026-01-01',venue_id:'a',pay_basis:'month',pay_amount:20000,job_title:'Chef',employment_type:'full_time'};
+const shift=(date:string)=>({employee_id:'p',shift_date:date,venue_id:'a',start_time:'10:00',end_time:'18:00'});
+const base={key:'2026-11',today:'2026-11-01',payroll:[],people:[person],terms:[],shifts:[],attendance:[],venues:[{id:'a',name:'Assembly'}],sales:[],setting};
+describe('Overview reporting only',()=>{
+ it('November without rota or clock-in stays unknown',()=>{const r=overviewMonth(base);expect(r.cost).toBeNull();expect(r.percent).toBeNull();expect(r.could).toBeNull();});
+ it('monthly pay spreads only over rostered days and rest carries nothing',()=>{const r=overviewMonth({...base,shifts:[shift('2026-11-01'),shift('2026-11-03')]});expect(r.cost).toBe(10500);expect(r.could).toBe(21000);expect(r.chart.find(d=>d.day===2)?.total).toBe(10500);});
+ it('hourly staff use actual hours where present, rota otherwise',()=>{const r=overviewMonth({...base,people:[{...person,pay_basis:'hour',pay_amount:100}],shifts:[shift('2026-11-01'),shift('2026-11-02')],attendance:[{employee_id:'p',date:'2026-11-01',clock_in:'2026-11-01T10:00:00Z',clock_out:'2026-11-01T14:00:00Z',hours_worked:4}]});expect(r.cost).toBe(420);expect(r.could).toBe(1260);expect(r.hours).toBe(4);});
+ it('MPF is 5% capped at 1500 per person per month',()=>{const r=overviewMonth({...base,people:[{...person,pay_amount:60000}],shifts:[shift('2026-11-01')]});expect(r.employer).toBe(1500);expect(r.cost).toBe(61500);});
+ it('saved May uses exact real totals without mutation',()=>{const pay=[{employee_id:'p',year:2026,month:5,gross_salary:247407.7,mpf_employer:7660.5}];const before=JSON.stringify(pay);const r=overviewMonth({...base,key:'2026-05',payroll:pay,sales:[{date:'2026-05-01',total_sales:782251}]});expect(r.cost).toBe(255068.2);expect(r.percent).toBeCloseTo(32.6,1);expect(r.roleBars[0].so).toBe(255068.2);expect(JSON.stringify(pay)).toBe(before);});
+ it('missing hourly staff prevents a misleading percentage',()=>{const r=overviewMonth({...base,people:[person,{...person,id:'h',pay_basis:'hour',pay_amount:100}],shifts:[shift('2026-11-01')],sales:[{date:'2026-11-01',total_sales:10000}]});expect(r.known).toBe(false);expect(r.percent).toBeNull();});
+ it('projection stops at last recorded rota day',()=>{const r=overviewMonth({...base,shifts:[shift('2026-11-01'),shift('2026-11-15')]});expect(r.horizon).toBe('2026-11-15');expect(r.chart.at(-1)?.day).toBe(15);});
+ it('no target or same date last year means no projected percentage',()=>{const r=overviewMonth({...base,shifts:[shift('2026-11-01'),shift('2026-11-02')],sales:[{date:'2026-11-01',total_sales:50000}]});expect(r.projectPercent).toBeNull();expect(r.could).toBe(21000);});
+ it('target takes precedence over same date last year',()=>{const r=overviewMonth({...base,shifts:[shift('2026-11-01'),shift('2026-11-02')],sales:[{date:'2026-11-01',total_sales:10000},{date:'2025-11-02',venue_id:'a',total_sales:10000}],targets:[{target_date:'2026-11-02',venue_id:'a',projected_sales:20000}]});expect(r.projectSales).toBe(30000);expect(r.projectPercent).toBe(70);});
+ it('dated headcount includes leavers before their end date',()=>{const p={...person,status:'resigned',end_date:'2026-03-08'};expect(datedHeadcount([p],'2026-02-28')).toHaveLength(1);expect(datedHeadcount([p],'2026-03-31')).toHaveLength(0);});
+ it('casual counts as part-time',()=>expect(teamRows([{...person,employment_type:'casual'}],'2026-01-31',{},setting).part).toBe(1));
+ it('bulk start and leave dates are flagged without correction',()=>{const people=Array.from({length:6},(_,i)=>({...person,id:String(i),hire_date:'2026-07-20',end_date:'2026-03-08'}));expect(importDateFlags(people).map(f=>f.date)).toEqual(['2026-07-20','2026-03-08']);});
+ it.each(['Bar','Floor','Promotions','Management'])('%s defaults front',r=>expect(houseSide(r,setting)).toBe('front'));
+ it.each(['Kitchen','Cleaning'])('%s defaults back',r=>expect(houseSide(r,setting)).toBe('back'));
+ it('confirmed house override wins and missing title remains unset',()=>{expect(houseSide('Kitchen',{...setting,role_house:{Kitchen:'front'}})).toBe('front');expect(houseSide('No role set',setting)).toBeNull();});
+});
