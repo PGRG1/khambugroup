@@ -58,3 +58,26 @@
 @media(max-width:640px){.people-overview .overview-team-table th:first-child{width:43%;}.people-overview .overview-team-table th:nth-child(2),.people-overview .overview-team-table th:nth-child(3),.people-overview .overview-team-table th:nth-child(4){width:19%;}.people-overview .bani-finding{font-size:13px;}}
 
 .people-overview .bani-finding:hover,.people-overview .bani-finding:focus,.people-overview .bani-fold:hover,.people-overview .bani-fold:focus {background:transparent!important;color:hsl(var(--foreground))!important;}
+
+.people-findings .bani-finding {background:transparent;line-height:1.5;white-space:normal;}
+.people-findings .bani-fold {background:transparent;display:block;width:100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.6;}
+.people-findings .bani-finding:hover,.people-findings .bani-fold:hover {background:transparent;}
+.team-light .team-evidence-table {font-size:13px;}
+.team-light .team-evidence-table th:first-child {width:25%;}
+.team-light .team-evidence-table th:nth-child(2) {width:15%;}
+.team-light .team-evidence-table th:nth-child(3) {width:13%;}
+.team-light .team-evidence-table th:nth-child(4) {width:16%;}
+.team-light .team-evidence-table th:last-child {width:31%;}
+.team-light .team-leave-line {line-height:1.6;}
+.team-light .team-leave-line .text-warning {display:inline;margin:0;}
+@media(max-width:767px){
+ .team-light .team-person-row {grid-template-columns:minmax(0,max-content) minmax(0,1fr);gap:4px 8px;}
+ .team-light .team-person-row td {padding:0;}
+ .team-light .team-person-row td:first-child,.team-light .team-person-row td:last-child {grid-column:1/-1;}
+ .team-light .team-person-row td:nth-child(4) {display:none;}
+ .team-light .team-person-row td:not(:first-child)::before {display:none;}
+ .team-light .team-person-row td:nth-child(3)::before {content:'· ';display:inline;color:hsl(var(--muted-foreground));}
+ .team-light .team-person-row td:nth-child(2),.team-light .team-person-row td:nth-child(3) {color:hsl(var(--muted-foreground));font-size:12px;}
+ .team-light .team-person-row td:last-child {margin-top:3px;}
+ .employee-record .employee-statement td:nth-child(2) {grid-column:1/-1;}
+}

@@ -1,3 +1,9 @@
+## Team light follow-up
+- [x] Five-column Team, scoped title counts and single folded Bani finding; stacked phone rows.
+- [x] Evidence-only rest-day deadlines, separate attendance facts and consolidated person record; substitute rest days added to proposed copy/pattern rota drafts only, confirmation stays unchanged.
+- [x] 59 focused tests passed; build log OK; signed-in desktop/375px Team and Asim record checks passed without sideways scroll. 27 working (Assembly 18, Caliente 9); Gun Maya RAI and Nira RAI each have one evidence-backed RD owed, all other working rows AL not set / SH 0 / RD 0. No saved payroll, ledger, financial or permission writes.
+- [ ] Not verified: live Bani rota draft/confirmation and separate manager view; deliberately no confirmation or saved-record changes. Native canvas prevents the default jsdom runner; focused rules ran under isolated Node configuration.
+
 ## People and persistent navigation follow-ups
 - [x] Saved months without work evidence retain totals and have no running curve; May total/quiet note verified.
 - [x] Four own People PageTop headers/actions; no desktop tabs, shell-mounted phone navigation.
