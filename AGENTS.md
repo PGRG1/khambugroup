@@ -1,12 +1,12 @@
 # Project Architecture Rules
-Subdirectories have AGENTS.md; read before editing.
+Read subdirectory AGENTS.md before editing.
 
 - ThemeProvider fixes light mode without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform styles/overlay stacking.
 
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Later mutable master fields use earlier invoice evidence or are omitted (no snapshots).
-- Finance-team owns finished snapshots; Bani accounting follows its nested AGENTS.md.
+- Finance-team owns snapshots; Bani accounting follows its nested AGENTS.md.
 - Section navigation mounts once with effective-user rights; Purchasing uses server-backed preview roles; People uses the most-specific path. Keep guards. Settings uses tenant-scoped query tabs and existing fact editors; category RPC atomically updates defaults/mappings. People reads only Approvals; stock areas retain names plus tenant/venue IDs.
 - usePurchasingMode reads tenant-scoped app_config. Only ProcurementDashboardTab uses purchasingOverviewRows to bypass venue scope for central buying; invoices and revenue remain explicitly tenant-scoped, without changing other pages.
 - Purchasing math uses purchasingOverview.ts; directoryRows unifies stock/expense profiles via reversible aliases without financial relinks.

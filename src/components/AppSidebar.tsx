@@ -466,7 +466,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {showSubPages && purchasingActive && purchasingChildren.map((item) => <React.Fragment key={item.url}>
-                {["/procurement/purchase-orders", "/procurement/purchase-analysis", "/procurement/suppliers"].includes(item.url) && !(item.url === "/procurement/suppliers" && purchasingChildren.some(c => c.url === "/procurement/purchase-analysis")) && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
+                {item.url === "/procurement/purchase-orders" && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
                 <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
               </React.Fragment>)}
             </SidebarMenu>
