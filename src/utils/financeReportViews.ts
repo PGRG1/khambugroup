@@ -1,4 +1,4 @@
-import {bookAmount,plGroup,type BookAccount,type BookEntry,type BookLine} from './financeClose';
+import {plGroup,type BookAccount,type BookEntry,type BookLine} from './financeClose';
 export const payableBuckets=['Not due','1–30','31–60','61–90','Over 90','No due date'] as const;
 export const receivableBuckets=['0–30','31–60','61–90','Over 90'] as const;
 export function daysBetween(date:string,asAt:string){return Math.floor((Date.parse(asAt+'T00:00:00Z')-Date.parse(date+'T00:00:00Z'))/86400000);}
