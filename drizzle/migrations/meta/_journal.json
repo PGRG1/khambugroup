@@ -631,6 +631,13 @@
       "when": 1793550962487,
       "tag": "0089_finance_reconciliation_explanations",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793551604296,
+      "tag": "0090_finance_close_correction_exceptions",
+      "breakpoints": true
     }
   ]
 }

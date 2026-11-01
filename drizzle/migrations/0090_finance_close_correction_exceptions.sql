@@ -1,0 +1,3 @@
+CREATE OR REPLACE FUNCTION public.finance_close_correction_guard() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN
+IF NEW.reopened_at IS NULL AND EXISTS(SELECT 1 FROM public.expense_correction_proposals p JOIN public.journal_entries e ON e.id=p.original_entry_id WHERE p.tenant_id=NEW.tenant_id AND p.status='draft' AND date_trunc('month',e.entry_date)::date=NEW.month_start) THEN RAISE EXCEPTION 'Open correction proposals remain'; END IF; RETURN NEW; END $$;
+CREATE TRIGGER finance_close_correction_exceptions BEFORE INSERT OR UPDATE ON public.finance_closed_periods FOR EACH ROW EXECUTE FUNCTION public.finance_close_correction_guard();
