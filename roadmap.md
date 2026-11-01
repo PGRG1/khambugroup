@@ -1,3 +1,8 @@
+## Finance part 2 — current
+- [ ] Simplify Payables, Receivables and Bank & cash while retaining guarded actions.
+- [ ] Read-only as-at reconciliations, tenant-scoped explanations and close log; stricter close gate.
+- [ ] Focused rules tests, desktop/375px checks and unchanged financial fingerprints.
+
 ## Expenses part 3
 - [x] Draft-only month-end, explicit selected monthly RPC and fixture tests; same-account/month/amount manual guard and legacy automatic expense commit blocked.
 - [x] Compact contract strip, existing lease upload/confirmation and invoice-style bills with safe signed-document retry.
