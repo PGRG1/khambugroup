@@ -1,4 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import KpiAssignmentBoard from "@/pages/kpis/KpiAssignmentBoard";
@@ -23,9 +22,14 @@ export default function KpiSetup() {
   };
 
   return (
-    <div className="w-full space-y-4">
-      <PageTop title="KPI Setup"/>
-
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+      <header>
+        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Performance</div>
+        <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Setup</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">
+          Assign each KPI to a named person and give it a usable target.
+        </p>
+      </header>
 
       <div className="flex items-center gap-1 border-b border-border/60">
         <TabButton active={tab === "assignments"} onClick={() => go("assignments")}>Assignments</TabButton>

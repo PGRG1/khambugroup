@@ -1,5 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
-import { PageControls } from '@/components/kit/PageTopControls';
 import { useMemo, useState } from "react";
 import { useKpiCards, useKpiTargets, type KpiTarget } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
@@ -73,7 +71,32 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
 
   return (
     <div className={embedded ? "space-y-5" : "p-4 sm:p-6 max-w-6xl mx-auto space-y-5"}>
-      {!embedded && <PageTop title="KPI Targets"/>}<PageControls side="left"><div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-w-md gap-3">
+      <header className="space-y-3">
+        {!embedded && (
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Targets</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              Type a value next to each KPI and press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">Enter</kbd> to save.
+            </p>
+          </div>
+        )}
+        {embedded && (
+          <p className="text-[13px] text-muted-foreground">
+            Type a value next to each KPI and press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs">Enter</kbd> to save.
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:max-w-md gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">Venue</Label>
+            <Select value={venueFilter} onValueChange={setVenueFilter}>
+              <SelectTrigger className="w-full h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All Venues</SelectItem>
+                {activeVenues.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <Label className="text-xs text-muted-foreground">Period</Label>
             <Select value={period} onValueChange={setPeriod}>
@@ -85,18 +108,8 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Venue</Label>
-            <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger className="w-full h-10"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All Venues</SelectItem>
-                {activeVenues.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div></PageControls>
-
+        </div>
+      </header>
 
       {/* Desktop table */}
       <Card className="hidden md:block card-glass border-border/60">

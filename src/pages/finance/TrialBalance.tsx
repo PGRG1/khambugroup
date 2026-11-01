@@ -1,4 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
 import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -131,8 +130,13 @@ export default function TrialBalance() {
     `/finance/books?view=ledger&account=${accountId}${fromDate ? `&from=${fromDate}` : ""}${toDate ? `&to=${toDate}` : ""}`;
 
   return (
-    <div className="w-full space-y-4">
-      <PageTop title="Trial balance" actions={<div className="flex flex-wrap items-center gap-2">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
+      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Trial balance</h1>
+          <p className="text-sm text-muted-foreground mt-1">Total debits and credits per account. The bottom row must always balance.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Input type="date" value={fromDate} onChange={(e) => setParam("from", e.target.value)} className="h-9 w-40" placeholder="From" />
           <Input type="date" value={toDate} onChange={(e) => setParam("to", e.target.value)} className="h-9 w-40" placeholder="To" />
           <Button
@@ -145,8 +149,8 @@ export default function TrialBalance() {
           </Button>
           <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
           <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> PDF</Button>
-        </div>}/>
-
+        </div>
+      </header>
 
       <p className="text-xs text-muted-foreground -mt-2">
         {scopeLabel}

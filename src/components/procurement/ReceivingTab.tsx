@@ -460,11 +460,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
   return (
     <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
-      <RevenuePageTop title="Goods received" titleDetail={<div className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">
-          <span>{period.label}</span>
-          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} deliveries · {formatTableCurrency(kpis.value)} ·</span>
-          <span className={`text-[13px] font-normal ${kpis.short > 0 ? "text-warning" : "text-muted-foreground"}`}>{formatTableInteger(kpis.short)} short</span>
-        </div>} period={period.control}
+      <RevenuePageTop title="Goods received" actionsBesideTitle period={period.control}
         actions={showMore ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary h-9" aria-label="More"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
@@ -479,7 +475,11 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
       <div data-invoice-tabs-host />
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Goods received records">
-        
+        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">
+          <span>{period.label}</span>
+          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} deliveries · {formatTableCurrency(kpis.value)} ·</span>
+          <span className={`text-[13px] font-normal ${kpis.short > 0 ? "text-warning" : "text-muted-foreground"}`}>{formatTableInteger(kpis.short)} short</span>
+        </h2>
         <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search supplier, invoice # or GRN #"
           filter={filterPanel}
           sort={<div className="max-[640px]:hidden"><SortMenu value={sort} onChange={setSort} options={sortOptions} /></div>}

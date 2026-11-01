@@ -1,4 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -121,8 +120,15 @@ export default function LedgerAuditLog() {
   }, [eventFilter, tenantId, tenantLoading]);
 
   return (
-    <div className="w-full space-y-4">
-      <PageTop title="Audit" actions={<Select value={eventFilter} onValueChange={setEventFilter}>
+    <div className="p-4 sm:p-6 w-full max-w-[1200px] mx-auto space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Audit</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Recorded ledger events
+          </p>
+        </div>
+        <Select value={eventFilter} onValueChange={setEventFilter}>
           <SelectTrigger className="h-9 w-full sm:w-[240px]">
             <SelectValue placeholder="Filter by event" />
           </SelectTrigger>
@@ -132,10 +138,10 @@ export default function LedgerAuditLog() {
               <SelectItem key={k} value={k}>{v}</SelectItem>
             ))}
           </SelectContent>
-        </Select>}/>
+        </Select>
+      </header>
 
-
-      <section className="kit card-glass overflow-hidden"><div className="p-4"><p className="text-sm text-muted-foreground">{rows.length} recorded events</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[24%] text-left">Date</th><th className="text-left">What changed</th><th className="w-[22%] text-left">Who</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-t border-border/50"><td className="p-4 align-top">{formatDate(r.created_at)}</td><td className="py-4 pr-3 break-words">{EVENT_LABELS[r.event_type]??r.event_type.replace(/_/g,' ')}<p className="text-xs text-muted-foreground">{r.notes}</p>{r.journal_entry_id&&<Link className="text-primary underline text-xs" to={`/finance/books?view=journal&entry=${r.journal_entry_id}`}>Entry</Link>}</td><td className="pr-4 align-top py-4 break-words">{r.user_display_name??'Not recorded'}<p className="text-xs text-muted-foreground">{STATUS_LABEL[r.status]??r.status}</p></td></tr>)}</tbody></table>{!rows.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading audit…':'No audit records.'}</p>}</section>
+      <section className="kit card-glass overflow-hidden"><div className="p-4"><h2 className="font-semibold">Audit</h2><p className="text-sm text-muted-foreground">{rows.length} recorded events</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[24%] text-left">Date</th><th className="text-left">What changed</th><th className="w-[22%] text-left">Who</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-t border-border/50"><td className="p-4 align-top">{formatDate(r.created_at)}</td><td className="py-4 pr-3 break-words">{EVENT_LABELS[r.event_type]??r.event_type.replace(/_/g,' ')}<p className="text-xs text-muted-foreground">{r.notes}</p>{r.journal_entry_id&&<Link className="text-primary underline text-xs" to={`/finance/books?view=journal&entry=${r.journal_entry_id}`}>Entry</Link>}</td><td className="pr-4 align-top py-4 break-words">{r.user_display_name??'Not recorded'}<p className="text-xs text-muted-foreground">{STATUS_LABEL[r.status]??r.status}</p></td></tr>)}</tbody></table>{!rows.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading audit…':'No audit records.'}</p>}</section>
 
     </div>
   );

@@ -1,4 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
 import { useEffect, useMemo, useState } from "react";
 import { useKpiCards, type KpiVisibility } from "@/hooks/useKpi";
 import { useKpiAssignmentRows } from "@/hooks/useKpiAssignmentRows";
@@ -151,8 +150,9 @@ export default function KpiAssignmentBoard({ embedded = false, onOpenTargets }: 
   return (
     <div className={embedded ? "space-y-5 pb-24" : "p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5 pb-24"}>
       {!embedded && (
-        <PageTop title="KPI Assignment"/>
-
+        <header>
+          <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Assignment</h1>
+        </header>
       )}
       <p className="text-[13px] text-muted-foreground">
         Every usable KPI belongs to one named person. Tap or drag a card / bundle, then tap a person to assign.

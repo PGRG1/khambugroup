@@ -1,4 +1,3 @@
-import { PageNotice } from '@/components/kit/PageTopControls';
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
@@ -232,21 +231,21 @@ export default function CreditNotes() {
 
   return (
     <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
-      <RevenuePageTop title="Credit & Debit Notes" titleDetail={        <div className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5">
-          <span>{period.label}</span>
-          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(filtered.length)} credit note{filtered.length === 1 ? "" : "s"} · {formatTableCurrency(leftToUse)} left to use</span>
-        </div>} actionsBesideTitle
+      <RevenuePageTop title="Credit & Debit Notes" actionsBesideTitle
         actions={<Button onClick={() => setCnDialogOpen(true)} className="h-9 px-3 min-[641px]:h-10"><Plus className="h-4 w-4 mr-1.5" /><span className="min-[641px]:hidden">Add</span><span className="max-[640px]:hidden">Add credit note</span></Button>}
         period={period.control} />
       <div data-invoice-tabs-host />
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Credit notes">
-
+        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5">
+          <span>{period.label}</span>
+          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(filtered.length)} credit note{filtered.length === 1 ? "" : "s"} · {formatTableCurrency(leftToUse)} left to use</span>
+        </h2>
         {disputedCount > 0 && (
-          <PageNotice><p className="px-1 text-[13px] text-warning">
+          <p className="px-1 text-[13px] text-warning">
             {disputedCount} disputed invoice{disputedCount === 1 ? "" : "s"} may need a credit note from the supplier ·{" "}
             <Link to="/procurement/invoices?status=disputed" className="underline underline-offset-2 font-medium">View</Link>
-          </p></PageNotice>
+          </p>
         )}
         <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search note #, supplier or invoice #"
           filter={<>{segmented}{filter}</>}

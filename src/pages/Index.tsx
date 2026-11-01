@@ -9,8 +9,7 @@ import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { useScopedProjections } from "@/hooks/useScopedProjections";
 import DateFilter from "@/components/dashboard/DateFilter";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
-import { FileText, Download } from "lucide-react";
-import { downloadCSV } from '@/utils/csvDownload';
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { SoFarCard } from "@/components/revenue-overview/SoFarCard";
@@ -113,9 +112,9 @@ const Index = () => {
           />
         )}
         actions={isAdmin && (
-          <><Button variant="outline" size="sm" className="h-10" onClick={() => setShowMTDText(true)}>
+          <Button variant="outline" size="sm" className="h-10" onClick={() => setShowMTDText(true)}>
             <FileText className="h-4 w-4" /> Text summary
-          </Button><Button variant="outline" size="icon" aria-label="Download Revenue overview" onClick={() => downloadCSV(filtered, [{key:'date',label:'Date'},{key:'venue',label:'Venue'},{key:'totalSales',label:'Total sales'},{key:'guests',label:'Guests'}], 'revenue-overview')}><Download className="h-4 w-4"/></Button></>
+          </Button>
         )}
       />
 

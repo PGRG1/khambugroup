@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import { Download, Search, X } from "lucide-react";
 import "./kit.css";
-import { PageControls } from './PageTopControls';
-import { Button } from '@/components/ui/button';
 
 export interface ActiveChip { key: string; label: string; onRemove: () => void }
 
@@ -21,15 +19,18 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
     {search && <button type="button" onClick={() => onSearch("")} aria-label="Clear search"><X className="h-3.5 w-3.5" /></button>}
   </label>;
   return (
-    <><PageControls side="left"><div className="kit flex flex-wrap items-center gap-2 min-w-0">{searchControl}{filter}</div></PageControls><PageControls><div className="kit space-y-2">
+    <div className="kit space-y-2">
       <div className={mobileSearchBelow ? "flex flex-wrap min-[641px]:flex-nowrap items-center gap-2 [&>.kit-search]:min-w-0 [&>.kit-search]:min-[641px]:flex-1 [&>.kit-search]:max-[640px]:order-last [&>.kit-search]:max-[640px]:basis-full [&>.kit-search]:max-[640px]:w-full" : "flex flex-wrap items-center gap-2"}>
+        {!searchAfterControls && searchControl}
+        {filter}
         {sort}
         {columns}
+        {searchAfterControls && searchControl}
         {downloadControl && <div className="ml-auto">{downloadControl}</div>}
         {onDownload && (
-          <Button variant="outline" size="icon" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
+          <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
             <Download className="h-4 w-4" />
-          </Button>
+          </button>
         )}
       </div>
       {chips.length > 0 && (
@@ -42,6 +43,6 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
           {onClear && <button type="button" className="kit-link ml-1" onClick={onClear}>Clear filters</button>}
         </div>
       )}
-    </div></PageControls></>
+    </div>
   );
 }

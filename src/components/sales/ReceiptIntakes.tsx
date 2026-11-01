@@ -1,4 +1,3 @@
-import { PageNotice } from '@/components/kit/PageTopControls';
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +45,7 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
   const [sourceError, setSourceError] = useState("");
   if (q.isError) return <p className="text-sm text-warning">Flagged receipts could not be loaded.</p>;
   if (!rows.length) return null;
-  return <PageNotice><section className="space-y-2">
+  return <section className="mb-4 space-y-2">
     <h3 className="text-sm font-semibold text-warning">Receipts needing review · no sales posted</h3>
     {rows.map(r => <div key={r.id} className="flex min-w-0 items-center justify-between gap-2 border-b border-border py-2 text-sm">
       <span className="min-w-0 break-all">{r.source_name}</span>
@@ -69,5 +68,5 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
         </>}
       </DialogContent>
     </Dialog>
-  </section></PageNotice>;
+  </section>;
 }

@@ -1,8 +1,3 @@
-## Shared page tops
-- [x] Shared PageTop title/control/Bani rows, route-scoped presentation portals, 36px controls, final download icons; grouped People findings with original evidence/questions retained. Applied to active Revenue, Purchasing/Stock/menu, People, Expenses, Finance/Books, Settings and KPI tops; no schema/permission edits.
-- [x] 44 focused regressions pass; build OK. Signed-in requested five-page desktop/375px checks: same desktop x/y positions, 40px title and 36px controls; wrapping phone controls, no overflow, Team orb/6 grouped extras expand, saved May net unchanged. No saved-record actions exercised.
-- [ ] Remaining exceptions: detailed supplier/vendor records and Settings nested editors retain some legacy internal controls; not every loose Finance/Expenses warning is folded, and some views lack pre-existing download actions. Broader page interaction checks intentionally omitted.
-
 ## Rota to payroll flow
 - [x] Added guarded shift pay/bank decisions, signed Team/record time balances, staff week response and manager dispute findings; source-linked separate payroll drafts. No saved payroll/journal writes.
 - [x] Payroll PageTop/month menu, fixed 12 columns, immediate draft recalculation/override findings, saved read-only payslip/download, guarded owner approval via existing atomic accrual path.

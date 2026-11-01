@@ -2129,13 +2129,13 @@ function InvoiceTableSection({
   const sortKey = `${sortColumns[0]?.key || "invoice_date"}:${sortColumns[0]?.dir || "desc"}`;
   const sortOptions = [{key:"invoice_date:desc",label:"Newest first",compactLabel:"Newest"},{key:"invoice_date:asc",label:"Oldest first",compactLabel:"Oldest"},{key:"supplier_name:asc",label:"Supplier A–Z"},{key:"total_amount:desc",label:"Amount: highest first"},{key:"total_amount:asc",label:"Amount: lowest first"},{key:"review_status:asc",label:"Status"}];
   return <div className="space-y-6 min-w-0 max-[640px]:pb-24">
-    <RevenuePageTop title="Invoices" titleDetail={      <div className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></div>} actionsBesideTitle period={<DateFilter from={periodFrom} to={periodTo}
+    <RevenuePageTop title="Invoices" actionsBesideTitle period={<DateFilter from={periodFrom} to={periodTo}
       onFromChange={date => { setMonthFilter("custom"); setPeriodFrom(date); }} onToChange={date => { setMonthFilter("custom"); setPeriodTo(date); }}
       months={months.map(fmtMonth)} labelled includeMtd initialPeriod="MTD"
       onPeriodSelect={selection => { if (selection === "MTD") { const range = mtdRange(); setMonthFilter("MTD"); setPeriodFrom(range.from); setPeriodTo(range.to); return; } const next = selection === "All Time" ? "all" : months.find(month => fmtMonth(month) === selection); if (next) { setMonthFilter(next); setPeriodFrom(undefined); setPeriodTo(undefined); } }} />} actions={upload} />
     <div data-invoice-tabs-host />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Invoice records">
-
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></h2>
       <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
         filter={<FilterPanel activeCount={Number(supplierFilter !== "all") + Number(reviewStatusFilter !== "all")} onReset={() => { setSupplierFilter("all"); setReviewStatusFilter("all"); }} width={340}>
           <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup>

@@ -14,7 +14,7 @@ import { formatCurrency, formatDate, formatDecimal, formatMonthLabel, formatHong
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/utils/fetchAllRows';
 import { toast } from 'sonner';
-import { PageTop } from '@/components/kit/PageTop';
+import { PeopleFindings } from '@/components/hr/PeopleFindings';
 import { attendanceMetrics, restDayMetrics, employmentType } from '@/utils/peopleAttendance';
 import './people.css';
 
@@ -53,7 +53,8 @@ export default function HREmployeeProfile() {
   if(data.loading)return <p>Loading employee record…</p>;
   if(!person||!metrics)return <div><Button asChild variant="ghost"><Link to="/hr/employees"><ArrowLeft/>Team</Link></Button><p>Employee record not available.</p></div>;
   const dated=[...metrics.all,...(attendance?.lines??[]),...(rest?.lines??[])].sort((a,b)=>(b.date??'').localeCompare(a.date??'')||a.id.localeCompare(b.id));
-  return <div className="people-page employee-record kit space-y-5"><PageTop title={name} leading={<Button asChild variant="ghost" size="icon" aria-label="Back to Team"><Link to="/hr/employees"><ArrowLeft className="h-5 w-5"/></Link></Button>} titleDetail={<span>{person.job_title??'Role not recorded'} · {venue} · {employmentType(person.employment_type)} · started {person.hire_date?formatDate(person.hire_date):'not recorded'}</span>}/>
+  return <div className="people-page employee-record kit space-y-5"><div className="flex items-start gap-3"><Button asChild variant="ghost" size="icon" aria-label="Back to Team"><Link to="/hr/employees"><ArrowLeft className="h-5 w-5"/></Link></Button><div className="min-w-0"><h1 className="font-display text-2xl font-semibold">{name}</h1><p className="text-sm text-muted-foreground mt-1">{person.job_title??'Role not recorded'} · {venue} · {employmentType(person.employment_type)} · started {person.hire_date?formatDate(person.hire_date):'not recorded'}</p></div></div>
+    <PeopleFindings findings={findings}/>
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Leave summary">
       <article className="border border-border rounded-lg bg-card p-4"><h2 className="font-medium text-sm">Time balance</h2><div className="mt-2"><TimeBalance personId={person.id} shifts={data.shifts}/></div></article>
       <article className="border border-border rounded-lg bg-card p-4"><h2 className="font-medium text-sm">Annual leave {data.today.slice(0,4)}</h2><p className="text-sm mt-2">{formatDecimal(metrics.taken,metrics.taken%1?1:0)} taken</p><p className="text-sm text-muted-foreground">{metrics.left==null?'Entitlement not set':`${formatDecimal(metrics.left,metrics.left%1?1:0)} left`}</p></article>

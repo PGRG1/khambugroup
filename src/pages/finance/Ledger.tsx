@@ -1,4 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
 import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -120,8 +119,19 @@ export default function Ledger() {
   const scopeLabel = `${fromDate ? fmtDate(fromDate) : "Beginning"} → ${toDate ? fmtDate(toDate) : "Today"}`;
 
   return (
-    <div className="w-full space-y-4">
-      <PageTop title="Ledger" controls={<Select value={accountId} onValueChange={setAccountId}>
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
+      <header className="space-y-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Ledger</h1>
+          <p className="text-sm text-muted-foreground mt-1">Posted entries · running balance</p>
+        </div>
+
+        {/* Primary control: account selector */}
+        <Card className="card-glass p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="flex-1 min-w-0">
+              <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Account</label>
+              <Select value={accountId} onValueChange={setAccountId}>
                 <SelectTrigger className="h-10 mt-1 md:w-[420px]"><SelectValue placeholder="Select account…" /></SelectTrigger>
                 <SelectContent>
                   {accounts.filter((a) => a.is_active).map((a) => (
@@ -130,10 +140,20 @@ export default function Ledger() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>} period={<div className="flex flex-wrap gap-2"><span className="text-sm text-muted-foreground">Period</span><Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
               <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
-              <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button></div>}/>
+              <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+            </div>
+          </div>
+          {account && <p className="text-xs text-muted-foreground mt-3">{scopeLabel} · Normal side <span className="uppercase">{account.normal_side}</span></p>}
+        </Card>
 
+        {account && <p className="text-sm text-muted-foreground">{rows.length} lines · Debits {formatCurrency(totals.debit)} · Credits {formatCurrency(totals.credit)} · Closing {formatCurrency(closing)}</p>}
+
+      </header>
 
       {!accountId ? (
         <Card className="card-glass p-12 text-center">

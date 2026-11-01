@@ -1,5 +1,3 @@
-import { PageTop } from '@/components/kit/PageTop';
-import { PageControls } from '@/components/kit/PageTopControls';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useKpiCards, useKpiTargets, useKpiActuals } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
@@ -135,10 +133,14 @@ export default function KpiPlanner() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
-      <PageTop title="KPI Planner"/>
+      <header>
+        <h1 className="text-xl sm:text-2xl font-semibold font-display tracking-tight">KPI Planner</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">
+          Monthly target drives daily minimums. Minimums rise when behind, but never relax below the original baseline.
+        </p>
+      </header>
 
-
-      <PageControls side="left">
+      <Card className="p-3 sm:p-4 card-glass border-border/60">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">KPI</Label>
@@ -169,7 +171,7 @@ export default function KpiPlanner() {
             </Select>
           </div>
         </div>
-      </PageControls>
+      </Card>
 
       {!recovery && (
         <Card className="p-8 text-center text-muted-foreground card-glass border-border/60">
