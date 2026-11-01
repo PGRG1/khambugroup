@@ -663,7 +663,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           files: preparedFiles.map((file) => ({ base64: file.base64, mimeType: file.mimeType })),
           productMaster: productMaster || [],
           suppliers,
-          userId,
+          userId, tenantId,
         },
       });
 
