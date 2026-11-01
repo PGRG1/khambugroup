@@ -115,10 +115,7 @@ export default function ExpenseAnalytics() {
 
   return (
     <div className="w-full min-w-0 space-y-5 pb-24">
-      <PageTop title="Trends"/>
-      <section className="kit card-glass p-4 sm:p-5 space-y-5"><h2 className="font-semibold">{sinceLabel} · Monthly trend and top vendors</h2><p className="text-sm text-muted-foreground">{formatCurrency(totals.grand)} booked</p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+      <PageTop title="Trends" period={<div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Period</span><Select value={period} onValueChange={(v: any) => setPeriod(v)}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="3m">Last 3 months</SelectItem>
@@ -126,11 +123,9 @@ export default function ExpenseAnalytics() {
             <SelectItem value="12m">Last 12 months</SelectItem>
             <SelectItem value="ytd">Year to date</SelectItem>
           </SelectContent>
-        </Select>
-        <ScopeLine>
-          {sinceLabel} · from {fmtDate(sinceISO)} · posted bills + statements
-        </ScopeLine>
-      </div>
+        </Select></div>}/>
+      <section className="kit card-glass p-4 sm:p-5 space-y-5"><h2 className="font-semibold">{sinceLabel} · Monthly trend and top vendors</h2><p className="text-sm text-muted-foreground">{formatCurrency(totals.grand)} booked</p>
+
 
       {!hasData && !loading ? (
         <div>

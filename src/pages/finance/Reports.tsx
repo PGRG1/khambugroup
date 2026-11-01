@@ -1,3 +1,4 @@
+import { PageControls } from '@/components/kit/PageTopControls';
 import {useAccountMapping} from '@/hooks/useAccountMapping';
 import {useTeamWorking} from '@/hooks/useTeamWorking';
 import {usePeopleData} from '@/hooks/usePeopleData';
@@ -440,15 +441,7 @@ export default function Reports() {
         period={period.control}
         actions={
           <>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Download report"
-              title="Download CSV"
-              onClick={csv}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+
             <Button
               variant="outline"
               size="icon"
@@ -458,10 +451,18 @@ export default function Reports() {
             >
               <FileText className="h-4 w-4" />
             </Button>
-          </>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Download report"
+              title="Download CSV"
+              onClick={csv}
+            >
+              <Download className="h-4 w-4" />
+            </Button>          </>
         }
       />
-      <div className="flex flex-wrap border-b border-border gap-1">
+      <PageControls>      <div className="flex flex-wrap border-b border-border gap-1">
         {[
           ["pl", "P&L"],
           ["bs", "Balance sheet"],
@@ -481,7 +482,7 @@ export default function Reports() {
             {label}
           </Button>
         ))}
-      </div>
+      </div></PageControls>
       {books.error && (
         <p role="alert" className="text-destructive">
           {books.error}
