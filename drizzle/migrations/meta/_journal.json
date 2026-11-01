@@ -757,6 +757,13 @@
       "when": 1793575767221,
       "tag": "0107_deferred_sales_source_validation_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1793576214350,
+      "tag": "0108_protect_future_account_redirects",
+      "breakpoints": true
     }
   ]
 }
