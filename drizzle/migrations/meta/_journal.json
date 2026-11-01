@@ -673,6 +673,13 @@
       "when": 1793554871655,
       "tag": "0095_finance_schedule_reconciliation_snapshot_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1793558875321,
+      "tag": "0096_schedule_assets_and_bill_drafts",
+      "breakpoints": true
     }
   ]
 }
