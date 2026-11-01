@@ -1,3 +1,8 @@
+## Purchasing clean-up
+- [ ] Consolidate suppliers in Settings Master data, profiles and duplicate review without financial writes
+- [ ] Overview category split, same-unit price changes, factual top notes and incomplete-invoice masking
+- [ ] Remove analysis pages/navigation; verify tests and signed-in desktop/375px September/October and Master data
+
 ## Bani document reading and source-linked books
 - [x] Contextual extraction with requested model, printed date/confidence, retained originals and receipt commit RPC; original BA260803767 reread confirms 19 Aug 2026
 - [x] Seven authorized journal corrections retain originals and operation Undo; seven tenant correction examples saved; wrong-year target revenue nets to zero
