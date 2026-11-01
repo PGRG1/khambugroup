@@ -330,7 +330,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         else if (salesAction) runSalesAction(salesAction, attached);
       }
     } catch (e) {
-      if (turn) { if (!controller.signal.aborted && !turn.hidden) setMessages(prev => prev.slice(0, -1)); throw e; }
+      if (turn?.opts.voice) { if (!controller.signal.aborted && !turn.hidden) setMessages(prev => prev.slice(0, -1)); throw e; }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) { restore(); setError(e instanceof Error ? e.message : "Bani could not reply."); }
     } finally { if (abort.current === controller) { setBusy(false); abort.current = null; } }
   };
