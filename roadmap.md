@@ -1,4 +1,8 @@
-## Finance part 2 — current
+## Finance part 3a
+- [ ] Reports: six read-only views, comparison and exports.
+- [ ] Due-date payment selection, receivable ages/batch details, bank views and reconciliation dialogs.
+- [ ] Books views, source filters/details and retained guarded actions.
+- [ ] Focused tests, desktop/phone checks, unchanged financial fingerprints.## Finance part 2 — current
 - [x] Grouped Payables/payment selection-preview, merchant Receivables, Bank & cash/tills/petty cash and unmatched lines; existing guarded actions retained.
 - [x] Server reconciliation snapshots, tenant-scoped append-only explanations, Close log and server close guards.
 - [x] 29 focused tests; populated desktop/375px checks and cancelled payment previews; no page overflow.
