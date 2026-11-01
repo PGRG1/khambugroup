@@ -28,6 +28,7 @@ import { PayrollMappingMatrix } from "@/components/finance/PayrollMappingMatrix"
 import { ExpenseMappingMatrix } from "@/components/finance/ExpenseMappingMatrix";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import {AccountMerge} from '@/components/finance/AccountMerge';
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 type ActiveFilter = "active" | "inactive" | "all";
@@ -235,6 +236,7 @@ export default function ChartOfAccountsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <AccountMerge accounts={items} onSaved={()=>void fetchAll()}/>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" disabled={rebuilding || !tenantId}>
