@@ -1,4 +1,4 @@
-import {useMemo,useState,type ReactNode} from 'react';
+import {useMemo,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Download,ArrowUpRight,Check} from 'lucide-react';
 import {useFinanceBooks} from '@/hooks/useFinanceBooks';
@@ -42,7 +42,7 @@ export default function FinanceDashboard(){
  const stopped=Number(!bankDate||bankDate.slice(0,7)<month)+['KPay','YeahPay'].filter(name=>{const ids=new Set((data?.processors??[]).filter(p=>p.name.toLowerCase().includes(name.toLowerCase())).map(p=>p.id));return !batches.some(b=>ids.has(b.processor_id)&&b.transaction_date.slice(0,7)>=month);}).length+Number(!payrollMonth||payrollMonth<month);
  const work=useMemo<PageWorkItem[]>(()=>[...approve,...exceptions,...feeds].map(l=>({id:l.id,title:l.label,detail:l.amount===undefined?'':formatCurrency(l.amount),tone:'amber',label:'Show',href:l.href})),[JSON.stringify(approve),JSON.stringify(exceptions),JSON.stringify(feeds)]);
  useBaniWorkPublisher('/finance',work,!loading);
- const completeMonths=[...new Set(payroll.filter(p=>books.entries.some(e=>e.id===p.accrual_journal_entry_id&&e.status==='posted')).map(p=>`${p.year}-${String(p.month).padStart(2,'0')}`))].filter(m=>m<=month&&m<today.slice(0,7)&&books.entries.some(e=>e.status==='posted'&&e.entry_date.startsWith(m)&&e.source_type==='sales'));
+ const completeMonths=[...new Set(payroll.filter(p=>books.entries.some(e=>e.id===p.accrual_journal_entry_id&&e.status==='posted')).map(p=>`${p.year}-${String(p.month).padStart(2,'0')}`))].filter(m=>m<=month&&m<today.slice(0,7)&&books.entries.some(e=>e.status==='posted'&&e.entry_date.startsWith(m)&&e.source_type==='sales_summary'));
  const profitMonth=latest(completeMonths),profit=profitMonth?financeProfit(books.entries,books.lines,books.accounts,payroll,profitMonth):null;
  const ytd=profitMonth?Array.from({length:Number(profitMonth.slice(5))},(_,i)=>financeProfit(books.entries,books.lines,books.accounts,payroll,`${profitMonth.slice(0,4)}-${String(i+1).padStart(2,'0')}`).profit).reduce((n,p)=>n+p,0):null;
  const money=reliable?financeMoney(books.entries,books.lines,books.accounts,reliable):null;
