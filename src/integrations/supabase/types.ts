@@ -6027,6 +6027,41 @@ export type Database = {
           },
         ]
       }
+      hr_role_groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          tenant_id: string
+          titles: string[]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          tenant_id: string
+          titles?: string[]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          tenant_id?: string
+          titles?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_role_groups_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_rota_weeks: {
         Row: {
           id: string
@@ -14051,6 +14086,10 @@ export type Database = {
       people_person_access: {
         Args: { e: string; t: string; u: string }
         Returns: boolean
+      }
+      people_save_role_group: {
+        Args: { n: string; t: string; titles: string[] }
+        Returns: string
       }
       people_terms_at: {
         Args: { d: string; e: string; t: string }
