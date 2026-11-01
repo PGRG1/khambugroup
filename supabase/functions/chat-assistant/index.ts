@@ -12,6 +12,7 @@ import { draftReview } from "./draftReview.ts";
 import { salesReview } from "./salesReview.ts";
 import { analyzeFiles, openSalesScannerTool, validateFiles } from "./floatingFiles.ts";
 import { draftPeopleAction, peopleContext, peopleTool, peopleContextTool } from "./peopleActions.ts";
+import {expenseContextTool,expenseAccountContext} from './expenseContext.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
