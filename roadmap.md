@@ -1,3 +1,9 @@
+## Finance part 3c-1
+- [ ] Asset intake/disposal and confirmed bill capitalisation; draft-only register lifecycle.
+- [ ] Advance prepayment funding/releases, GRNI/reversal and approved-count stock drafts with source revalidation.
+- [ ] Deferred sales-day/POS feed, use/refund/expiry/package drafts and monthly selected approval.
+- [ ] Focused fixtures, desktop/375px screens, build and protected counts/timestamps; database check failed twice (pooler unavailable).
+
 ## Finance part 3b
 - [x] Tenant-protected schedule settings, deferred items, source-required manual proposals; explicit selected approval integration (0091–0095), no page-load posting.
 - [x] Schedules table/source lists, HK tax/stock/deferred setup, Month-close reconciliations and draft-review trigger; deposits read HK$164,552.
