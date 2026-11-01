@@ -17,6 +17,6 @@ export function financeProfit(entries:BookEntry[],lines:BookLine[],accounts:Book
  for(const l of lines){const e=posted.get(l.entry_id),a=l.account_id?acc.get(l.account_id):undefined;if(!e?.entry_date.startsWith(month)||!a)continue;const amount=bookAmount(l,a);if(plGroup(a.account_type)==='Sales')sales+=amount;else if(a.code.startsWith('5'))food+=amount;else if(plGroup(a.account_type)==='Running costs'){opex+=amount;if(['6000','6010','6020'].includes(a.code))staffBooked+=amount;}}
  const people=payroll.filter(p=>`${p.year}-${String(p.month).padStart(2,'0')}`===month&&!!p.accrual_journal_entry_id&&posted.has(p.accrual_journal_entry_id));
  const staff=people.length?people.reduce((n,p)=>n+Number(p.gross_salary)+Number(p.mpf_employer),0):null;
- return {sales,food,staff,running:opex-staffBooked,profit:sales-food-opex};
+ return {sales,food,staff,running:opex-(staff??staffBooked),profit:sales-food-opex};
 }
 export function financeMoney(entries:BookEntry[],lines:BookLine[],accounts:BookAccount[],through:string){const posted=new Set(entries.filter(e=>e.status==='posted'&&e.entry_date.slice(0,7)<=through).map(e=>e.id));let bank=0,owed=0,owe=0;for(const a of accounts){const balance=lines.filter(l=>l.account_id===a.id&&posted.has(l.entry_id)).reduce((n,l)=>n+Number(l.debit)-Number(l.credit),0);if(a.is_cash&&/bank|bochk/i.test(a.name))bank+=balance;else if(a.account_type==='asset'&&/receivable|clearing|accrued income/i.test(a.name))owed+=balance;else if(a.account_type==='liability'&&/payable|accrued|salary|mpf/i.test(a.name))owe-=balance;}return {bank,owed,owe};}

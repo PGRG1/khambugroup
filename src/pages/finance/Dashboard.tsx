@@ -1,393 +1,51 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useFinanceBooks } from "@/hooks/useFinanceBooks";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
-import { usePreviewMode } from "@/hooks/usePreviewMode";
-import { PageTop } from "@/components/kit/PageTop";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { ArrowRight, Send, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import {
-  formatCurrency,
-  formatMonthLabel,
-  formatTableInteger,
-} from "@/utils/format";
-import {
-  canCloseMonth,
-  probablyMisreadDate,
-  type MonthCheck,
-} from "@/utils/financeClose";
-import { toast } from "sonner";
-import { BaniAccountingReview } from '@/components/finance/BaniAccountingReview';
-import { useBaniAccounting } from '@/hooks/useBaniAccounting';
-import { useBookReview } from '@/hooks/useBookReview';
-import { unresolvedAccountLines, unresolvedDateEntries, bookDocumentDates } from '@/utils/booksReview';
-export default function FinanceDashboard() {
-  const bookReview = useBookReview();
-  const bani = useBaniAccounting();
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const [year, setYear] = useState(Number(today.slice(0, 4)));
-  const books = useFinanceBooks(year);
-  const period = usePeriodFilter(
-    books.entries.map((e) => e.entry_date),
-    "all",
-  );
-  const { isPreviewActive } = usePreviewMode();
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [asking, setAsking] = useState(false);
-  const [confirm, setConfirm] = useState<{
-    check: MonthCheck;
-    close: boolean;
-  } | null>(null);
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-  const needs = useMemo(() => {
-    const posted = new Set(
-      books.entries.filter((e) => e.status === "posted").map((e) => e.id),
-    );
-    const invoicePosted = new Set(
-      books.entries
-        .filter((e) => e.status === "posted" && e.source_type === "invoice")
-        .map((e) => e.source_id),
-    );
-    const bills = books.bills.filter(
-      (b) =>
-        ["draft", "pending_review"].includes(b.approval_status) &&
-        !bani.reviews.some(r=>r.source_id===b.id&&['asked','posted','reversed'].includes(r.status)) &&
-        period.inPeriod(b.bill_date),
-    );
-    const missing = unresolvedAccountLines(books.lines,bookReview.corrections,posted);
-    const first = books.sales.map((s) => s.date).sort()[0];
-    const dates = unresolvedDateEntries(books.entries,bookReview.corrections,first,today,bookDocumentDates(books.invoices,books.bills,books.sales));
-    const unposted =
-      books.invoices.filter(
-        (i) =>
-          i.review_status === "Approved" &&
-          !invoicePosted.has(i.id) &&
-          period.inPeriod(i.invoice_date),
-      ).length +
-      books.bills.filter(
-        (b) =>
-          b.approval_status === "approved" &&
-          !posted.has(b.journal_entry_id) &&
-          period.inPeriod(b.bill_date),
-      ).length;
-    return [
-      {
-        count: bills.length,
-        label: `${formatTableInteger(bills.length)} bills waiting for approval · ${formatCurrency(bills.reduce((s, b) => s + Number(b.total_amount), 0))}`,
-        link: "/expenses?status=waiting",
-      },
-      {
-        count: missing.length,
-        label: `${formatTableInteger(missing.length)} journal lines with no account`,
-        link: "/finance/books?view=journal&issue=accounts",
-      },
-      {
-        count: dates.length,
-        label: `${formatTableInteger(dates.length)} posted entries with probably misread dates`,
-        link: "/finance/books?view=journal&issue=dates",
-      },
-      {
-        count: unposted,
-        label: `${formatTableInteger(unposted)} approved items not posted`,
-        link: "/finance/payables",
-      },
-    ].filter((x) => x.count > 0);
-  }, [books, bookReview.corrections, bani.reviews, period.fromIso, period.toIso, today]);
-  async function ask() {
-    if (!question.trim() || !books.tenantId) return;
-    setAsking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "finance-review",
-        {
-          body: {
-            tenant_id: books.tenantId,
-            instruction: question,
-            year,
-            mode: "question",
-          },
-        },
-      );
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      setAnswer(data.answer);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not answer");
-    } finally {
-      setAsking(false);
-    }
-  }
-  async function setClosed() {
-    if (!confirm || !books.tenantId || isPreviewActive) return;
-    setSaving(true);
-    const { error } = await supabase.rpc("finance_set_month_closed", {
-      p_tenant_id: books.tenantId,
-      p_month: `${confirm.check.month}-01`,
-      p_close: confirm.close,
-      p_reason: reason || null,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(confirm.close ? "Month closed" : "Month reopened");
-    setConfirm(null);
-    await books.refetch();
-  }
-  return (
-    <div className="space-y-5 min-w-0">
-      <PageTop
-        title="Finance"
-        period={period.control}
-        actions={
-          <Button
-            size="icon"
-            variant="outline"
-            aria-label="Refresh Finance"
-            onClick={() => books.refetch()}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        }
-      />
-      {books.error && (
-        <p role="alert" className="text-destructive">
-          {books.error}
-        </p>
-      )}
-      <BaniAccountingReview />
-      {needs.length > 0 && (
-        <Card className="card-glass p-5">
-          <h2 className="font-display text-lg">Needs you</h2>
-          <p className="text-sm text-muted-foreground mb-3">
-            {period.label} · {formatTableInteger(needs.length)} checks
-          </p>
-          {needs.map((n) => (
-            <Link
-              className="flex items-center justify-between gap-3 py-3 border-t border-border text-sm"
-              key={n.link}
-              to={n.link}
-            >
-              <span>{n.label}</span>
-              <ArrowRight className="h-4 w-4 shrink-0" />
-            </Link>
-          ))}
-        </Card>
-      )}
-      <Card className="card-glass p-4 sm:p-5 min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display text-lg">Month close · {year}</h2>
-            <p className="text-sm text-muted-foreground">
-              {books.loading
-                ? "Loading books…"
-                : `${books.checks.filter((c) => c.complete && c.month.startsWith(String(year))).length} complete · ${books.closed.filter((c) => !c.reopened_at && c.month_start.startsWith(String(year))).length} closed`}
-            </p>
-          </div>
-          <Select
-            value={String(year)}
-            onValueChange={(v) => setYear(Number(v))}
-          >
-            <SelectTrigger aria-label="Month close year" className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[
-                ...new Set([
-                  Number(today.slice(0, 4)),
-                  ...books.entries.map((e) => Number(e.entry_date.slice(0, 4))),
-                ]),
-              ]
-                .sort((a, b) => b - a)
-                .map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                {[
-                  "Month",
-                  "Sales days",
-                  "Invoices",
-                  "Payroll",
-                  "Rent & bills",
-                  "Bank",
-                  "To close",
-                  "",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left font-medium text-muted-foreground px-3 py-3 whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {books.checks
-                .filter((c) => c.month.startsWith(String(year)))
-                .map((c) => {
-                  const closed = books.closed.some(
-                    (p) => p.month_start === `${c.month}-01` && !p.reopened_at,
-                  );
-                  const current = c.month >= today.slice(0, 7);
-                  return (
-                    <tr key={c.month} className="border-t border-border">
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {formatMonthLabel(c.month)}
-                      </td>
-                      <td className="px-3 py-3 td-num">
-                        {formatTableInteger(c.sales_days)}
-                      </td>
-                      <td className="px-3 py-3 td-num">
-                        {formatTableInteger(c.invoices)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {c.payroll ? "✓" : "missing"}
-                      </td>
-                      <td className="px-3 py-3">
-                        {c.rent === "complete" ? "✓" : c.rent}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {c.bank_lines
-                          ? `${formatTableInteger(c.bank_lines)} loaded`
-                          : "not loaded"}
-                      </td>
-                      <td className="px-3 py-3 min-w-40">
-                        {closed
-                          ? "Closed"
-                          : current
-                            ? "In progress"
-                            : c.missing.join(", ") || "Everything in"}
-                        <p className="text-xs text-muted-foreground mt-1">Bani posted {formatTableInteger(bani.reviews.filter(r=>r.source_date?.startsWith(c.month)&&r.posted_at).length)}, asked about {formatTableInteger(bani.reviews.filter(r=>r.source_date?.startsWith(c.month)&&r.checked_at&&!r.posted_at).length)}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        {closed ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isPreviewActive}
-                            onClick={() => {
-                              setReason("");
-                              setConfirm({ check: c, close: false });
-                            }}
-                          >
-                            Reopen
-                          </Button>
-                        ) : (
-                          canCloseMonth(c, today) && (
-                            <Button
-                              size="sm"
-                              disabled={isPreviewActive}
-                              onClick={() =>
-                                setConfirm({ check: c, close: true })
-                              }
-                            >
-                              Close month
-                            </Button>
-                          )
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-        <div className="border-t border-border mt-4 pt-4">
-          <div className="flex gap-2">
-            <Input
-              aria-label="Ask Bani about Finance"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && ask()}
-              placeholder="Ask Bani"
-            />
-            <Button
-              aria-label="Send Finance question"
-              size="icon"
-              onClick={ask}
-              disabled={asking || books.loading}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          {asking && (
-            <p className="text-sm text-muted-foreground mt-3">
-              Reading the books…
-            </p>
-          )}
-          {answer && (
-            <p className="text-sm whitespace-pre-wrap mt-3">{answer}</p>
-          )}
-        </div>
-      </Card>
-      <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {confirm?.close ? "Close month" : "Reopen month"} ·{" "}
-              {confirm && formatMonthLabel(confirm.check.month)}
-            </DialogTitle>
-            <DialogDescription>
-              {confirm?.close
-                ? "New posts and changes to posted entries in this month will be blocked until the owner reopens it."
-                : "Only the owner can reopen this month. Existing posted amounts stay unchanged."}
-            </DialogDescription>
-          </DialogHeader>
-          {!confirm?.close && (
-            <Input
-              aria-label="Reason for reopening"
-              placeholder="Reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={setClosed}
-              disabled={saving || (!confirm?.close && !reason.trim())}
-            >
-              Confirm
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+import {useMemo,useState} from 'react';
+import {Link} from 'react-router-dom';
+import {Download,ArrowUpRight,Check} from 'lucide-react';
+import {useFinanceBooks} from '@/hooks/useFinanceBooks';
+import {useFinanceOverviewData} from '@/hooks/useFinanceOverviewData';
+import {useExpenseRegularPlan,manuallyBooked} from '@/hooks/useExpenseRegularPlan';
+import {PageTop} from '@/components/kit/PageTop';
+import {FinanceMonthMenu} from '@/components/finance/FinanceMonthMenu';
+import {RegularCostsApproval} from '@/components/expenses/RegularCostsApproval';
+import {useBaniWorkPublisher} from '@/components/assistant/FloatingBaniContext';
+import {Button} from '@/components/ui/button';
+import {Progress} from '@/components/ui/progress';
+import {closeRows,financeProfit,financeMoney,reliableFinanceMonth} from '@/utils/financeOverview';
+import {bankSettled} from '@/utils/financeWorkingCapital';
+import {outstandingAfterHold} from '@/utils/invoiceStatus';
+import {formatCurrency,formatMonthLabel,formatPercent,formatDate,formatTableInteger} from '@/utils/format';
+import {tenantToday} from '@/utils/salesRecordChecks';
+import {downloadCSV} from '@/utils/csvDownload';
+import type {ExpenseBill} from '@/hooks/useExpenseBills';
+import type {PageWorkItem} from '@/utils/baniPageWork';
+const card='kit card-glass rounded-xl p-3 sm:p-4 min-w-0';
+type QueueLine={id:string;label:string;amount?:number;href:string;regularMonth?:string};
+function Queue({title,count,lines,bills}:{title:string;count:number;lines:QueueLine[];bills:ExpenseBill[]}){return <section className={card}><div className="flex items-center justify-between mb-3"><h2 className="font-display font-semibold">{title}</h2><span className="td-num text-2xl">{formatTableInteger(count)}</span></div><div className="divide-y divide-border">{lines.slice(0,3).map(l=>{const content=<span className="flex w-full items-start justify-between gap-3 py-3 text-sm"><span className="min-w-0 break-words">{l.label}{l.amount!==undefined&&<span className="block td-num text-xs mt-1">{formatCurrency(l.amount)}</span>}</span><ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground"/></span>;return l.regularMonth?<RegularCostsApproval key={l.id} month={l.regularMonth} bills={bills} trigger={content}/>:<Link key={l.id} to={l.href} className="block">{content}</Link>;})}{!lines.length&&<p className="py-3 text-sm text-muted-foreground">Nothing waiting</p>}</div>{lines.length>3&&<Link className="text-xs text-muted-foreground" to={title==='Approve'?'/expenses/recurring':title==='Exceptions'?'/finance/books':'/finance/cash'}>{formatTableInteger(lines.length-3)} more</Link>}</section>;}
+function Metric({label,value,sales}:{label:string;value:number|null;sales?:number}){return <div className="flex items-center justify-between gap-3 py-2 text-sm"><span>{label}</span><span className="flex gap-3 items-center shrink-0"><span className="td-num">{value===null?'—':formatCurrency(value)}</span>{sales!==undefined&&<span className="td-num text-muted-foreground w-12 text-right">{formatPercent(value===null||!sales?null:value/sales*100)}</span>}</span></div>;}
+export default function FinanceDashboard(){
+ const today=tenantToday(),[month,setMonth]=useState(today.slice(0,7)),year=Number(month.slice(0,4)),books=useFinanceBooks(year),facts=useFinanceOverviewData(),plan=useExpenseRegularPlan(),data=facts.data,loading=books.loading||facts.isPending||plan.isPending;
+ const bank=data?.bank??[],batches=data?.batches??[],payroll=data?.payroll??[],check=books.checks.find(c=>c.month===month),rows=closeRows(check,bank,batches),reliable=reliableFinanceMonth(books.checks,batches,bank,today);
+ const latest=(dates:string[])=>dates.filter(Boolean).sort().pop();
+ const bankDate=latest(bank.map(t=>t.txn_date)),cardDate=latest(batches.map(b=>b.transaction_date)),payrollMonth=latest(payroll.filter(p=>books.entries.some(e=>e.id===p.accrual_journal_entry_id&&e.status==='posted')).map(p=>`${p.year}-${String(p.month).padStart(2,'0')}`));
+ const postedSources=new Set(books.entries.filter(e=>e.status==='posted').map(e=>e.source_id)),postedInvoices=books.invoices.filter(i=>i.invoice_date?.startsWith(month)&&postedSources.has(i.id)).length,postedSales=books.sales.filter(s=>s.date?.startsWith(month)&&postedSources.has(s.id)).length;
+ const regularDrafts=(plan.data?.drafts??[]).filter(d=>d.status==='waiting'&&!manuallyBooked(plan.data,d.account_id,d.month_start.slice(0,7),Number(d.amount)));
+ const regularMonths=[...new Set(regularDrafts.map(d=>d.month_start.slice(0,7)))].sort();
+ const regularBills=books.bills.filter(b=>{if(!['draft','pending_review'].includes(b.approval_status)||(!b.recurring_rule_id&&!b.supplier_account_id))return false;const r=plan.data?.rules.find(r=>r.id===b.recurring_rule_id);return !r||!manuallyBooked(plan.data,r.account_id,(b.service_period_start??b.period_start??b.bill_date).slice(0,7),Number(r.expected_amount));});
+ const prepaid=(plan.data?.prepaid??[]).filter(l=>l.status==='pending'&&plan.data?.schedules.some(s=>s.id===l.schedule_id&&s.status==='active'));
+ const approvalMonths=[...new Set([...regularMonths,...regularBills.map(b=>(b.service_period_start??b.period_start??b.bill_date).slice(0,7)),...prepaid.map(p=>p.period.slice(0,7))])].sort();
+ const corrections=(data?.corrections??[]).filter(p=>p.status==='draft'),waitingBills=books.bills.filter(b=>['draft','pending_review'].includes(b.approval_status)&&!b.recurring_rule_id&&!b.supplier_account_id);
+ const approve:QueueLine[]=[...approvalMonths.map(m=>({id:`regular-${m}`,label:`${formatMonthLabel(m)} regular costs`,amount:regularDrafts.filter(d=>d.month_start.startsWith(m)).reduce((n,d)=>n+Number(d.amount),0)+regularBills.filter(b=>(b.service_period_start??b.period_start??b.bill_date).startsWith(m)&&!regularDrafts.some(d=>d.recurring_rule_id&&d.recurring_rule_id===b.recurring_rule_id&&d.month_start.startsWith(m))).reduce((n,b)=>n+Number(b.total_amount),0)+prepaid.filter(p=>p.period.startsWith(m)).reduce((n,p)=>n+Number(p.planned_amount),0),href:'/expenses/recurring',regularMonth:m})),...corrections.map(p=>({id:p.id,label:p.title,href:'/expenses/overview#correction-drafts'})),...waitingBills.map(b=>({id:b.id,label:b.vendor_name??b.bill_number??'Bill waiting approval',amount:Number(b.total_amount),href:`/expenses/bills?bill=${b.id}`}))];
+ const clearing=books.accounts.filter(a=>['1290','1295'].includes(a.code));const lastMatched=latest(batches.filter(b=>bank.some(t=>t.id===b.bank_transaction_id&&bankSettled(t))).map(b=>b.transaction_date));const postedEntries=new Set(books.entries.filter(e=>e.status==='posted'&&(!lastMatched||e.entry_date>lastMatched)).map(e=>e.id));
+ const unpaid=books.invoices.filter(i=>!['Draft','Voided'].includes(i.review_status)&&Number(i.amount_paid??0)===0&&outstandingAfterHold(Number(i.total_amount),Number(i.amount_paid??0),Number(i.held_amount??0))>0);
+ const exceptions:QueueLine[]=[...clearing.map(a=>({id:a.id,label:`${a.name} · not matched to bank${lastMatched?` since ${formatDate(lastMatched)}`:''}`,amount:books.lines.filter(l=>l.account_id===a.id&&postedEntries.has(l.entry_id)).reduce((n,l)=>n+Number(l.debit)-Number(l.credit),0),href:'/finance/receivables?view=payouts'})).filter(l=>Math.abs(l.amount)>.005),...(unpaid.length?[{id:'unpaid',label:`${formatTableInteger(unpaid.length)} purchase invoices · no payment recorded`,amount:unpaid.reduce((n,i)=>n+outstandingAfterHold(Number(i.total_amount),0,Number(i.held_amount??0)),0),href:'/finance/payables'}]:[]),...corrections.filter(p=>/kpay|venue|clearing/i.test(`${p.title} ${p.kind}`)).map(p=>({id:p.id,label:p.title,href:'/expenses/overview#correction-drafts'}))];
+ const feeds:QueueLine[]=[{id:'bank',label:`BOCHK statements · ${bankDate?`since ${formatDate(bankDate)}`:'not loaded'}`,href:'/finance/cash?view=transactions'},...['KPay','YeahPay'].map(name=>{const ids=new Set((data?.processors??[]).filter(p=>p.name.toLowerCase().includes(name.toLowerCase())).map(p=>p.id));const date=latest(batches.filter(b=>ids.has(b.processor_id)).map(b=>b.transaction_date));return {id:name,label:`${name} statements · ${date?`since ${formatDate(date)}`:'not loaded'}`,href:'/finance/cash?view=transactions'};}),{id:'payroll',label:`Payroll · ${payrollMonth?`since ${formatMonthLabel(payrollMonth)}`:'not run'}`,href:'/finance/cash?view=transactions'}];
+ const stopped=Number(!bankDate||bankDate.slice(0,7)<month)+['KPay','YeahPay'].filter(name=>{const ids=new Set((data?.processors??[]).filter(p=>p.name.toLowerCase().includes(name.toLowerCase())).map(p=>p.id));return !batches.some(b=>ids.has(b.processor_id)&&b.transaction_date.slice(0,7)>=month);}).length+Number(!payrollMonth||payrollMonth<month);
+ const work=useMemo<PageWorkItem[]>(()=>[...approve,...exceptions,...feeds].map(l=>({id:l.id,title:l.label,detail:l.amount===undefined?'':formatCurrency(l.amount),tone:'amber',label:'Show',href:l.href})),[JSON.stringify(approve),JSON.stringify(exceptions),JSON.stringify(feeds)]);
+ useBaniWorkPublisher('/finance',work,!loading);
+ const completeMonths=[...new Set(payroll.filter(p=>books.entries.some(e=>e.id===p.accrual_journal_entry_id&&e.status==='posted')).map(p=>`${p.year}-${String(p.month).padStart(2,'0')}`))].filter(m=>m<=month&&m<today.slice(0,7)&&books.entries.some(e=>e.status==='posted'&&e.entry_date.startsWith(m)&&e.source_type==='sales_summary'));
+ const profitMonth=latest(completeMonths),profit=profitMonth?financeProfit(books.entries,books.lines,books.accounts,payroll,profitMonth):null;
+ const ytd=profitMonth?Array.from({length:Number(profitMonth.slice(5))},(_,i)=>financeProfit(books.entries,books.lines,books.accounts,payroll,`${profitMonth.slice(0,4)}-${String(i+1).padStart(2,'0')}`).profit).reduce((n,p)=>n+p,0):null;
+ const money=reliable?financeMoney(books.entries,books.lines,books.accounts,reliable):null;
+ const chips=rows.map(r=>({...r,name:r.name==='Bank matched'?'Bank':r.name==='Card payouts matched'?'Card payouts':r.name==='Tax set aside'?'Tax':r.name,detail:r.name==='Sales'?`${formatTableInteger(postedSales)} days posted`:r.name==='Purchases'?`${formatTableInteger(postedInvoices)} invoices posted`:r.name==='Regular costs'?`${formatTableInteger(regularDrafts.filter(d=>d.month_start.startsWith(month)).length)} drafts waiting · ${r.detail}`:r.name==='Bank matched'?`Statement ${bankDate?`up to ${formatDate(bankDate)}`:'not loaded'}`:r.name==='Card payouts matched'?`Statements ${cardDate?`up to ${formatDate(cardDate)}`:'not loaded'}`:r.detail}));
+ return <div className="min-w-0 space-y-5"><PageTop title="Finance overview" titleDetail={<span className="text-sm text-muted-foreground">{formatMonthLabel(month)} in progress · books reliable to {reliable?formatMonthLabel(reliable):'not yet matched'}</span>} period={<FinanceMonthMenu month={month} months={books.checks.map(c=>c.month)} onChange={setMonth}/>} actions={<Button variant="outline" size="icon" aria-label="Download Finance overview" disabled={loading} onClick={()=>downloadCSV([...approve,...exceptions,...feeds].map(l=>({kind:approve.includes(l)?'Approve':exceptions.includes(l)?'Exceptions':'Feeds',item:l.label,amount:l.amount??null})),[{key:'kind',label:'Queue'},{key:'item',label:'Item'},{key:'amount',label:'Amount'}],`finance-${month}`)}><Download className="h-4 w-4"/></Button>}/>{(books.error||facts.isError||plan.isError)&&<p role="alert" className="text-destructive">{books.error||'Finance checks could not be loaded.'}</p>}{loading?<p role="status" className="text-muted-foreground">Reading books…</p>:<><section className={card}><h2 className="font-display font-semibold mb-4">{formatMonthLabel(month)} so far</h2><Progress aria-label="Month progress" className="h-1 mb-4" value={rows.filter(r=>r.state==='done').length/rows.length*100}/><div className="flex flex-wrap gap-2">{chips.map(r=><Link key={r.name} to={r.href} className={`${r.state==='done'?'bg-success/10 text-success':'bg-warning/10 text-warning'} flex items-center gap-2 px-2 py-1 text-xs`}><span>{r.state==='done'&&<Check className="inline h-3 w-3 mr-1"/>}{r.name} · {r.detail}</span></Link>)}</div></section><div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><Queue title="Approve" count={regularDrafts.length+regularBills.filter(b=>!regularDrafts.some(d=>d.recurring_rule_id&&d.recurring_rule_id===b.recurring_rule_id)).length+prepaid.length+corrections.length+waitingBills.length} lines={approve} bills={books.bills}/><Queue title="Exceptions" count={exceptions.length} lines={exceptions} bills={books.bills}/><Queue title="Feeds" count={stopped} lines={feeds} bills={books.bills}/></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><section className={card}><Link className="flex justify-between items-center mb-3" to="/finance/reports?view=pl"><h2 className="font-display font-semibold">Profit · {profitMonth?formatMonthLabel(profitMonth):'no complete month'}</h2><ArrowUpRight className="h-4 w-4"/></Link>{profit?<><div className="divide-y divide-border"><Metric label="Sales" value={profit.sales} sales={profit.sales}/><Metric label="Food & drink" value={profit.food} sales={profit.sales}/><Metric label="Staff" value={profit.staff} sales={profit.sales}/><Metric label="Running costs" value={profit.running} sales={profit.sales}/><Metric label="Profit before tax" value={profit.profit} sales={profit.sales}/></div><p className="text-xs text-muted-foreground mt-3">Year to date · Jan–{formatMonthLabel(profitMonth??month)} · {formatCurrency(ytd??0)}</p></>:<p className="text-sm text-muted-foreground">No month with posted sales and payroll yet.</p>}</section><section className={card}><Link className="flex justify-between items-center gap-3 mb-3" to="/finance/cash"><h2 className="font-display font-semibold">Money · books · reliable to {reliable?formatMonthLabel(reliable):'—'}</h2><ArrowUpRight className="h-4 w-4 shrink-0"/></Link><Metric label="Bank" value={money?.bank??null}/><Metric label="Owed to you" value={money?.owed??null}/><Metric label="You owe" value={money?.owe??null}/>{!reliable&&<p className="text-xs text-muted-foreground mt-3">Bank and card statements are not both matched for a month yet.</p>}</section></div><section className={card}><h2 className="font-display font-semibold mb-3">Months · {year}</h2><div className="grid grid-cols-3 sm:grid-cols-6 xl:grid-cols-12 gap-2">{Array.from({length:12},(_,i)=>{const m=`${year}-${String(i+1).padStart(2,'0')}`,c=books.checks.find(c=>c.month===m),closed=books.closed.some(p=>p.month_start===m+'-01'&&!p.reopened_at),booked=books.entries.some(e=>e.status==='posted'&&e.entry_date.startsWith(m)),state=closed?'Closed':m===today.slice(0,7)?'In progress':c?.complete?'Booked':booked?`${closeRows(c,bank,batches).filter(r=>r.state==='open').length} open`:'—';return <Link key={m} to={`/finance/close?month=${m}`} className="bg-muted/50 rounded-md p-3 text-center min-w-0"><span className="block text-sm font-medium">{formatMonthLabel(m).split(' ')[0]}</span><span className={`block text-xs mt-2 ${closed?'text-success':'text-muted-foreground'}`}>{state}</span></Link>;})}</div></section></>}</div>;
 }
