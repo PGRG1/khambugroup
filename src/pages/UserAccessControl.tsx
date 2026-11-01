@@ -14,6 +14,8 @@ import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
 import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { tenantMemberUsers } from "@/utils/settingsFacts";
+import { formatTableInteger } from "@/utils/format";
 
 const UserAccessControl = () => {
   const { isAdmin } = useAuth();
@@ -29,7 +31,12 @@ const UserAccessControl = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const fetchUsers = useCallback(async () => {
+    if (!tenantId) { setUsers([]); setLoading(false); return; }
     setLoading(true);
+    const {data:members,error:memberError}=await supabase.from('tenant_members').select('user_id').eq('tenant_id',tenantId);
+    if(memberError){setUsers([]);setLoading(false);toast({title:memberError.message,variant:'destructive'});return;}
+    const memberIds=(members??[]).map(m=>m.user_id);
+    if(!memberIds.length){setUsers([]);setLoading(false);return;}
     const emailRes = await supabase.functions.invoke("list-users");
     const emailMap = new Map<string, string>();
     if (emailRes.data?.users) {
@@ -39,10 +46,10 @@ const UserAccessControl = () => {
     }
 
     const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }, { data: venueAccess }, { data: allVenues }] = await Promise.all([
-      supabase.from("profiles").select("user_id, display_name"),
-      supabase.from("user_access_control").select("*"),
-      supabase.from("user_page_permissions").select("*"),
-      supabase.from("forecast_approvers").select("user_id"),
+      supabase.from("profiles").select("user_id, display_name").in('user_id',memberIds),
+      supabase.from("user_access_control").select("*").eq('tenant_id',tenantId).in('user_id',memberIds),
+      supabase.from("user_page_permissions").select("*").eq('tenant_id',tenantId).in('user_id',memberIds),
+      supabase.from("forecast_approvers").select("user_id").in('user_id',memberIds),
       tenantId
         ? supabase.from("user_venue_access").select("user_id, venue_id").eq("tenant_id", tenantId)
         : Promise.resolve({ data: [] as any[] }),
@@ -99,7 +106,7 @@ const UserAccessControl = () => {
       }
     }
 
-    setUsers(Array.from(userMap.values()));
+    setUsers(tenantMemberUsers(Array.from(userMap.values()),members??[]));
     setLoading(false);
   }, [tenantId]);
 
@@ -142,13 +149,13 @@ const UserAccessControl = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">User Access Control</span>
+            <span>People</span>
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">Manage per-user page access, permissions, and visibility</p>
+          <p className="text-xs text-muted-foreground mt-1">{formatTableInteger(users.length)} members · Current company</p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
-          Create User
+          Invite
         </Button>
       </div>
 
@@ -187,33 +194,26 @@ const UserAccessControl = () => {
       </div>
 
       {/* Users Table */}
-      <div className="card-glass rounded-xl overflow-hidden">
+      <div className="overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">Loading users...</div>
         ) : (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">User</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Name</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Position</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Venues</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Pages</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Approver</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Actions</TableHead>
+                <TableHead className="w-[38%] sm:w-[26%]">Person · venues</TableHead>
+                <TableHead className="hidden sm:table-cell w-[12%]">Role</TableHead>
+                <TableHead className="hidden sm:table-cell">Pages they can open</TableHead>
+                <TableHead className="w-[24%] sm:w-[12%]">Status</TableHead>
+                <TableHead className="w-[38%] sm:w-[18%]">Preview as</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((user, idx) => (
                 <TableRow key={user.user_id} className={idx % 2 === 1 ? "bg-muted/30" : undefined}>
-                  <TableCell className="font-mono text-xs">{user.email}</TableCell>
-                  <TableCell>{user.display_name || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">{user.position}</Badge>
-                  </TableCell>
-                  <TableCell>{renderVenueBadge(user)}</TableCell>
-                  <TableCell>
+                  <TableCell className="break-words align-top"><span className="font-medium">{user.display_name||user.email}</span><p className="text-xs text-muted-foreground">{user.email}</p><p className="text-xs text-muted-foreground">{user.venue_ids?.length?user.venue_ids.map(id=>venueNameMap[id]).filter(Boolean).join(', '):'All venues'}</p><p className="sm:hidden text-xs mt-1">{user.position} · {user.pages.filter(p=>p.can_access).map(p=>ALL_PAGES.find(a=>a.key===p.page_key)?.label??p.page_key).join(', ')||'No pages'}</p></TableCell>
+                  <TableCell className="hidden sm:table-cell capitalize align-top">{user.position}</TableCell>
+                  <TableCell className="hidden sm:table-cell align-top">
                     <div className="flex flex-wrap gap-1">
                       {user.pages.filter(p => p.can_access).map(p => (
                         <Badge key={p.page_key} variant="secondary" className="text-[10px]">
@@ -226,20 +226,13 @@ const UserAccessControl = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {user.is_approver ? (
-                      <Badge className="bg-primary/20 text-primary border-primary/30">Yes</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
                     <Badge variant={user.status === "active" ? "default" : "destructive"} className="capitalize">
                       {user.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => handlePreviewAs(user)} title="Preview as this user">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => handlePreviewAs(user)} title="Preview as this user" aria-label={`Preview as ${user.display_name||user.email}`}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingUser(user)}>
@@ -251,7 +244,7 @@ const UserAccessControl = () => {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
