@@ -64,43 +64,18 @@ describe("Purchasing navigation access", () => {
   it("preserves the signed-in admin bypass outside preview", () => {
     expect(canOpenPurchasingTab(standard, { ...access, isAdmin: true, canAccessInvoices: false })).toBe(true);
   });
-  it("shows Spend Summary to users with invoices access but not Purchase Analysis", () => {
-    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, access)).map(tab => tab.url)).toEqual(["/procurement/finance/spend"]);
-    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, { ...access, canAccessInvoices: false }))).toEqual([]);
-  });
-  it("keeps Supplier Pricing admin-only and reachable from the Purchasing Analysis tab row", () => {
-    expect(purchasingSectionPages.some(tab => tab.url === "/procurement/supplier-pricing")).toBe(false);
-    expect(purchasingParentPath("/procurement/supplier-pricing")).toBe("/procurement/purchase-analysis");
-    const pricing = purchasingTabsForPath("/procurement/supplier-pricing")?.find(tab => tab.url === "/procurement/supplier-pricing");
-    expect(pricing).toBeDefined();
-    if (!pricing) return;
-    expect(canOpenPurchasingTab(pricing, access)).toBe(false);
-    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true })).toBe(true);
-    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true, isPreviewActive: true })).toBe(false);
-    expect(canOpenPurchasingTab(pricing, { ...access, isAdmin: true, isPreviewActive: true, previewIsAdmin: true })).toBe(true);
-  });
-  it("applies previewed page access to Spend Summary independently of admin-only analysis", () => {
-    const preview = { ...access, isAdmin: true, isPreviewActive: true };
-    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, preview)).map(tab => tab.url)).toEqual(["/procurement/finance/spend"]);
-    expect(purchasingAnalysisPages.filter(tab => canOpenPurchasingTab(tab, { ...preview, canAccessInvoices: false }))).toEqual([]);
+  it("removes all Purchasing analysis tabs", () => {
+    expect(purchasingAnalysisPages).toEqual([]);
+    for(const path of ['purchase-analysis','finance/spend','supplier-pricing']) expect(purchasingTabsForPath(`/procurement/${path}`)).toBeUndefined();
   });
 });
 
 describe("Purchasing section destinations", () => {
-  it("lists the five Purchasing links in the approved order", () => {
+  it("lists the four Purchasing links in the approved order", () => {
     expect(purchasingSectionPages.map(page => page.url)).toEqual([
       "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/invoices",
-      "/procurement/finance/suppliers", "/procurement/purchase-analysis",
+      "/procurement/finance/suppliers",
     ]);
-  });
-  it("keeps Purchasing Analysis admin-only while Spend Summary stays open to invoice users", () => {
-    const access = { isAdmin: false, isPreviewActive: false, previewIsAdmin: false, canAccessInvoices: true };
-    const analysis = purchasingSectionPages.find(p => p.url === "/procurement/purchase-analysis")!;
-    expect(canOpenPurchasingTab(analysis, access)).toBe(false);
-    expect(canOpenPurchasingTab(analysis, { ...access, isAdmin: true, isPreviewActive: true })).toBe(false);
-    expect(canOpenPurchasingTab(analysis, { ...access, isAdmin: true })).toBe(true);
-    const spend = purchasingTabsForPath("/procurement/finance/spend")!.find(t => t.url === "/procurement/finance/spend")!;
-    expect(canOpenPurchasingTab(spend, access)).toBe(true);
   });
   it("keeps the supplier directory route and its non-admin invoice access unchanged", () => {
     expect(SUPPLIER_DIRECTORY_TAB.url).toBe("/procurement/suppliers");

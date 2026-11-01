@@ -65,7 +65,7 @@ export function itemRanking(lines: OverviewLine[], previous: OverviewLine[], pro
     const value = rows.reduce((n, row) => n + Number(row.total), 0);
     const oldValue = old.reduce((n, row) => n + Number(row.total), 0);
     return { id, name: product?.internal_product_name ?? "", value, change: changePercent(value, oldValue), isNew: old.length === 0,
-      unit, price: units.size === 1 ? avg : null,
+      unit, price: units.size === 1 ? avg : null, previousPrice: comparable ? oldAvg : null, priceChange: comparable ? changePercent(Number(avg), Number(oldAvg)) : null,
       priceComparison: !comparable ? "Can't compare" : Math.abs(Number(avg) - Number(oldAvg)) < 0.005 ? "Same" : "Changed" };
   }).sort((a, b) => b.value - a.value);
 }
@@ -77,6 +77,15 @@ export function categoryRanking(lines: OverviewLine[], invoices: OverviewInvoice
   const result = [...map].map(([name, value]) => ({ id: name, name, value, share: percentage(value, sumSpend(invoices)) })).sort((a, b) => b.value - a.value);
   if (deductions) result.push({ id: "deductions", name: "Discount / Refund", value: -deductions, share: percentage(-deductions, sumSpend(invoices)) });
   return result;
+}
+
+export function purchasingChecks(current: OverviewInvoice[], previous: OverviewInvoice[], revenue: number, previousRevenue: number) {
+  const waiting = previous.length > 0 && current.length / previous.length < 0.25;
+  const ratio = percentage(sumSpend(current), revenue), priorRatio = percentage(sumSpend(previous), previousRevenue);
+  return { waiting, ratio, priorRatio, pointChange: !waiting && ratio != null && priorRatio != null && Math.abs(ratio-priorRatio)>3 ? ratio-priorRatio : null };
+}
+export function priceMoves(items: ReturnType<typeof itemRanking>, threshold = 5) {
+  return items.filter(row=>row.priceChange != null && Math.abs(row.priceChange)>threshold).sort((a,b)=>Math.abs(b.priceChange??0)-Math.abs(a.priceChange??0));
 }
 
 export function monthPace(month: string, invoices: OverviewInvoice[], sales: OverviewSale[], cutoff?: number) {

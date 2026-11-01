@@ -1,3 +1,9 @@
+## Purchasing clean-up
+- [x] Consolidated Settings Master data and shared profiles; 31 active / 7 archived / 4 possible duplicate pairs, financial records unchanged
+- [x] Overview Food/Drink split, up to six same-unit price moves, factual top notes and under-25% invoice masking
+- [x] Removed three analysis pages and supplier Purchasing wrapper; 91 tests/build and signed-in desktop/375px September/October/Master data/profile checked without page overflow; five redirects verified; Town Gas/Towngas merge + Undo readback verified and original directory restored
+- [ ] Separate non-admin/preview permissions, concurrent merges and profile Save not live-tested; retained existing RLS. Merge is directory-only, not financial relinking; recent invoice links go to existing lists rather than an individual detail.
+
 ## Bani document reading and source-linked books
 - [x] Contextual extraction with requested model, printed date/confidence, retained originals and receipt commit RPC; original BA260803767 reread confirms 19 Aug 2026
 - [x] Seven authorized journal corrections retain originals and operation Undo; seven tenant correction examples saved; wrong-year target revenue nets to zero

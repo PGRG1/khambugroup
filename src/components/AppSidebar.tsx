@@ -285,7 +285,7 @@ export function AppSidebar() {
   const stockMenuActive = isStockMenuRoute(pathname);
   const { isAdmin: authIsAdmin } = useAuth();
   const { isPreviewActive: previewActive } = usePreviewMode();
-  const supplierDirectoryInSettings = false;
+  const supplierDirectoryInSettings = true;
   const purchasingActive = pathname.startsWith("/procurement/") && !stockMenuActive && !(supplierDirectoryInSettings && isSupplierDirectoryRoute(pathname));
   const purchasingChildren = [...purchasingSectionPages, ...(supplierDirectoryInSettings ? [] : [SUPPLIER_DIRECTORY_TAB])].filter(purchasingAccess.canOpen);
   const stockMenuChildren = stockMenuSectionPages.filter(purchasingAccess.canOpen);
@@ -466,7 +466,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {showSubPages && purchasingActive && purchasingChildren.map((item) => <React.Fragment key={item.url}>
-                {["/procurement/purchase-orders", "/procurement/purchase-analysis", "/procurement/suppliers"].includes(item.url) && !(item.url === "/procurement/suppliers" && purchasingChildren.some(c => c.url === "/procurement/purchase-analysis")) && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
+                {item.url === "/procurement/purchase-orders" && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
                 <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
               </React.Fragment>)}
             </SidebarMenu>
@@ -528,7 +528,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} /></SidebarMenu></SidebarGroup>}
 
-        {showAdmin && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:"/settings",icon:Settings}} /></SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} /></SidebarMenu></SidebarGroup>}
 
         {showPlatform && (
           <CollapsibleNavGroup

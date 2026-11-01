@@ -3,7 +3,6 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/expenses/shared";
 
 const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
-const SuppliersTab = lazy(() => import("@/components/procurement/SuppliersTab"));
 const ProductMasterTab = lazy(() => import("@/components/procurement/ProductMasterTab"));
 const CategoriesTab = lazy(() => import("@/components/procurement/CategoriesTab"));
 const ProcurementInvoicesTab = lazy(() => import("@/components/procurement/ProcurementInvoicesTab"));
@@ -16,7 +15,6 @@ const MenuCostingTab = lazy(() => import("@/components/procurement/MenuCostingTa
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
-  suppliers: "Suppliers & Vendors",
   "product-master": "Items Master",
   categories: "Categories & Units",
   invoices: "Invoices",
@@ -61,7 +59,6 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
       <Tabs value={activeTab}>
         <Suspense fallback={<TabFallback />}>
           <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
-          <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
           <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
           <TabsContent value="categories"><CategoriesTab /></TabsContent>
           <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
