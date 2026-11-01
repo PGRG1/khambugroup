@@ -29,7 +29,7 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
     const dates: string[]=[];
     for(let day=r.start_date;day<=r.end_date;day=addDaysIso(day,1)) if(!occupied.has(`${kind}|${day}`))dates.push(day);
     if(!dates.length)continue;
-    const days=Math.min(dates.length,Number(r.total_days??dates.length));
+    const days=Math.min(dates.length,Number(r.days??r.total_days??dates.length));
     dates.forEach(day=>occupied.add(`${kind}|${day}`));
     lines.push({id:r.id,date:r.start_date,event:`${labels[kind]} · ${formatDate(r.start_date)}–${formatDate(r.end_date)} · ${days} days`,al:kind==='AL'?-days:0,sh:kind==='SH'?-days:0,kind,days,how:'Day off',author:r.approved_by??'Not recorded',source:'Leave request'});
   }
@@ -58,7 +58,7 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
       const npl=lines.some(l=>l.kind==='NPL'&&l.date?.startsWith(month));
       const conflict=annual.length?`rota: AL · payroll: no-pay · ${formatCurrency(p.unpaid_leave_deduction)} · ${formatMonthLabel(month)}`:undefined;
       annual.forEach(l=>l.conflict=conflict);
-      lines.push({id:`payroll-npl-${p.id}`,date:null,event:npl?`No-pay leave deduction · ${formatMonthLabel(month)}`:`No-pay leave deducted in payroll, dates not recorded · ${formatMonthLabel(month)}`,al:0,sh:0,kind:'NPL',how:`Deducted ${formatCurrency(p.unpaid_leave_deduction)}`,author:'Not recorded',source:'Saved payroll',conflict});
+      lines.push({id:`payroll-npl-${p.id}`,date:null,year:p.year,event:npl?`No-pay leave deduction · ${formatMonthLabel(month)}`:`No-pay leave deducted in payroll, dates not recorded · ${formatMonthLabel(month)}`,al:0,sh:0,kind:'NPL',how:`Deducted ${formatCurrency(p.unpaid_leave_deduction)}`,author:'Not recorded',source:'Saved payroll',conflict});
     }
     // Money alone never proves how many holiday days were paid. Only explicit linked dates settle owed days.
     const paidDates=Array.isArray(p.preparation?.statutory_holiday_paid_dates)?p.preparation.statutory_holiday_paid_dates:[];
@@ -77,7 +77,7 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
   return lines.map(l=>{const y=l.year??Number(l.date?.slice(0,4)??data.today.slice(0,4));const al=(balances.get(y)??0)+l.al;balances.set(y,al);sh+=l.sh;return {...l,alLeft:known?al:null,shOwed:Math.max(0,sh)};});
 }
 export function personMetrics(person: EvidenceRow,data:PersonEvidence) {
-  const year=data.today.slice(0,4), all=leaveStatement(person,data), lines=all.filter(l=>l.date?.startsWith(year)||l.event.includes(year));
+  const year=data.today.slice(0,4), all=leaveStatement(person,data), lines=all.filter(l=>l.date?l.date.startsWith(year)&&l.date<=data.today:String(l.year??'')===year||l.event.includes(year));
   const balance=data.leave.find(b=>b.employee_id===person.id&&String(b.year)===year&&leaveKind(b.leave_type?.name)==='AL');
   const taken=Math.abs(lines.filter(l=>l.al<0).reduce((n,l)=>n+l.al,0));
   const entitlement=balance?Number(balance.total_days)+Number(balance.carried_forward??0)+Number(balance.adjustments??0):person.annual_leave==null?null:Number(person.annual_leave);
@@ -93,7 +93,7 @@ export function reliabilityLines(person:EvidenceRow,data:PersonEvidence,clock:bo
   for(const s of data.shifts.filter(s=>s.employee_id===person.id&&s.shift_date>=cutoff&&s.shift_date<data.today&&s.status!=='cancelled'&&!leaveKind(s.shift_type)&&!['off','rest','rest_day'].includes(normal(s.shift_type)))) {
     const a=data.attendance.find(a=>a.employee_id===person.id&&a.date===s.shift_date);
     if(s.no_show||clock&&data.attendance.some(a=>a.venue_id===s.venue_id&&a.clock_in)&&!a?.clock_in)lines.push({id:s.id,date:s.shift_date,event:'No clock-in for rostered shift',al:0,sh:0,kind:'fact',how:s.no_show?'Recorded no-show':'Clock-in missing · check with manager',author:'Not recorded',source:'Rota'});
-    if(clock&&a?.clock_in){const actual=new Date(a.clock_in),minutes=actual.getUTCHours()*60+actual.getUTCMinutes()+480;const expected=Number(s.start_time.slice(0,2))*60+Number(s.start_time.slice(3,5));const late=(minutes%1440)-expected;if(late>0)lines.push({id:`late-${s.id}`,date:s.shift_date,event:`Late arrival · ${late} minutes`,al:0,sh:0,kind:'fact',how:'Clock-in',author:'Not recorded',source:'Attendance'});if(a.clock_out){const out=new Date(a.clock_out),end=(out.getUTCHours()*60+out.getUTCMinutes()+480)%1440,expectedEnd=Number(s.end_time.slice(0,2))*60+Number(s.end_time.slice(3,5));if(end<expectedEnd)lines.push({id:`early-${s.id}`,date:s.shift_date,event:`Early leave · ${expectedEnd-end} minutes`,al:0,sh:0,kind:'fact',how:'Clock-out',author:'Not recorded',source:'Attendance'});}}
+    if(clock&&a?.clock_in){const start=Date.parse(`${s.shift_date}T${s.start_time}+08:00`);let end=Date.parse(`${s.shift_date}T${s.end_time}+08:00`);if(end<=start)end+=86400000;const late=Math.round((Date.parse(a.clock_in)-start)/60000);if(late>0)lines.push({id:`late-${s.id}`,date:s.shift_date,event:`Late arrival · ${late} minutes`,al:0,sh:0,kind:'fact',how:'Clock-in',author:'Not recorded',source:'Attendance'});if(a.clock_out){const early=Math.round((end-Date.parse(a.clock_out))/60000);if(early>0)lines.push({id:`early-${s.id}`,date:s.shift_date,event:`Early leave · ${early} minutes`,al:0,sh:0,kind:'fact',how:'Clock-out',author:'Not recorded',source:'Attendance'});}}
   }
   for(const swap of data.swaps.filter(s=>s.replacement_employee_id===person.id&&s.status==='approved')) {const s=data.shifts.find(s=>s.id===swap.shift_id);if(s&&s.shift_date>=cutoff&&s.shift_date<=data.today)lines.push({id:swap.id,date:s.shift_date,event:'Shift covered',al:0,sh:0,kind:'fact',how:'Approved cover',author:swap.approved_by??'Not recorded',source:'Rota'});}
   return lines;
