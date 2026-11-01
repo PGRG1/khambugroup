@@ -505,6 +505,13 @@
       "when": 1793520863381,
       "tag": "0071_people_explicit_pay_inputs_and_source_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1793521929722,
+      "tag": "0072_team_working_settings",
+      "breakpoints": true
     }
   ]
 }

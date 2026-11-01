@@ -25,7 +25,7 @@ export function instructedPay(text: string, value: number) {
   const amounts = [...text.matchAll(/(?:HK\s*\$\s*|HKD\s*|\$\s*)(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:HKD|dollars?)\b/gi)].map(m => Number((m[1] ?? m[2]).replace(/,/g, "")));
   if (!Number.isFinite(value) || value < 0 || !amounts.includes(value)) throw new Error("Please give the exact pay amount in HK dollars; I will not invent one.");
 }
-export const PEOPLE_OPERATIONS = ["role_group", "rota_pattern", "rota_edit", "rota_copy", "rota_send", "leave", "team_change", "team_approve", "payroll_instruction", "payroll_prepare"] as const;
+export const PEOPLE_OPERATIONS = ["team_working", "role_group", "rota_pattern", "rota_edit", "rota_copy", "rota_send", "leave", "team_change", "team_approve", "payroll_instruction", "payroll_prepare"] as const;
 export function establishedScope(text: string, value: string, label: string) {
   const normalized = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   if (!value || !(` ${normalized(text)} `).includes(` ${normalized(value)} `)) throw new Error(`Which ${label} do you mean? Please specify it explicitly.`);

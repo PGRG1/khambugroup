@@ -1,3 +1,9 @@
+## People venue staff-cost correction
+- [x] Company default and role overrides beside How you buy; evidence-based orb suggestions and confirmed guarded settings; KHAMBU has zero saved choices.
+- [x] Shared read-only allocations in Overview, Payroll and Finance venue P&L; exact cents and explicit Central/not-on-rota. Venue P&L replaces only mapped payroll cost in presentation; posted books unchanged.
+- [x] 73 focused tests/build OK; signed-in desktop/375px Settings, Overview and May payroll verified with no overflow; mobile Kitchen choice cancelled. May Assembly 116993.20 + Caliente 138075.00 + Central/unallocated 0 = 255068.20. Jan–May 85 payroll rows and all journal entry/line fingerprints unchanged.
+- [ ] Verification only: live owner orb confirmation/settings save and concurrency not exercised because KHAMBU must remain unconfigured; separate venue-manager session unavailable. Finance loaded November missing-payroll view verified; populated May P&L/export readback remains untested. Hourly non-hour residuals remain explicit, not allocated by guess.
+
 ## People redesign — Part 2
 - [x] Overview and remembered Role/Venue Team; 27 working, Assembly 18 / Caliente 9; 6 missing titles plus 1 ambiguous title; no guessed roles. Custom groups are owner-confirmed orb actions.
 - [x] Stacked venue/role Rota grids, cross-venue same-day labels, overlap findings, confirmed drag-copy and usual-pattern orb drafts; venue costs removed, including legacy People views.

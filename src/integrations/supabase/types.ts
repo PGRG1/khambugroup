@@ -12225,6 +12225,38 @@ export type Database = {
           },
         ]
       }
+      team_working_settings: {
+        Row: {
+          default_mode: string
+          role_modes: Json
+          tenant_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          default_mode?: string
+          role_modes?: Json
+          tenant_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          default_mode?: string
+          role_modes?: Json
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_working_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_members: {
         Row: {
           created_at: string
@@ -14401,6 +14433,10 @@ export type Database = {
           p_remove_unknown?: string
           p_session: string
         }
+        Returns: undefined
+      }
+      save_team_working_settings: {
+        Args: { expected: Json; p: Json; t: string }
         Returns: undefined
       }
       set_supplier_directory_alias: {

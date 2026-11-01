@@ -1,0 +1,5 @@
+import {useQuery,useQueryClient} from '@tanstack/react-query';
+import {useActiveTenant} from '@/hooks/useActiveTenant';
+import {supabase} from '@/integrations/supabase/client';
+import {resolveTeamWorking,type TeamWorking} from '@/utils/teamWorking';
+export function useTeamWorking(){const {tenantId}=useActiveTenant(),cache=useQueryClient();const query=useQuery({queryKey:['team-working',tenantId],enabled:!!tenantId,queryFn:async()=>{if(!tenantId)return null;const {data,error}=await supabase.from('team_working_settings').select('*').eq('tenant_id',tenantId).maybeSingle();if(error)throw error;return data;}});return {...query,setting:resolveTeamWorking(query.data),chosen:!!query.data,save:async(value:TeamWorking)=>{if(!tenantId)throw new Error('Choose a business first');const {error}=await supabase.rpc('save_team_working_settings',{t:tenantId,p:value,expected:query.data??null});if(error)throw error;await cache.invalidateQueries({queryKey:['team-working',tenantId]});}};}
