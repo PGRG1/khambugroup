@@ -1,3 +1,9 @@
+## Expense contracts, accruals, bill details and KPay
+- [ ] Extend contracts from rent rule without guessing terms; coverage math and guarded month drafts.
+- [ ] Accrual/estimate/prepayment integration and closed-month overview evidence.
+- [ ] Read-first bill pop-up; KPay venue clearing fix and owner correction drafts.
+- [ ] Focused tests, desktop/375px check and protected-data fingerprints.
+
 ## Cross-venue Rota and Expenses overview
 - [x] Person-wide rest/hour/4–68 checks, pre-save warnings and server all-venue sent readiness; remembered role/venue grids.
 - [x] Read-only Expenses overview with complete-month figures, factual findings, charts and regular-cost matrix; existing bill flow/navigation.
