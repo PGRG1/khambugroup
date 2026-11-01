@@ -1,3 +1,9 @@
+## Expenses supplier accounts and month-end
+- [ ] Meter coverage/splits, evidence links and supplier aliases without changing posted bills.
+- [ ] Current-charge statements, account-first scanner matching and lightweight Bani questions.
+- [ ] Month-end auto contracts, account estimates/reversals and prepaid release safeguards.
+- [ ] Certain category fixes with undoable audit; one focused tests/browser/fingerprint check.
+
 ## Expense contracts, accruals, bill details and KPay
 - [x] Rent rule extended to contract; terms/document prefill, Jan–Dec plan, quarterly/straight-line/day-share math, guarded on-demand drafts.
 - [x] Added accrued expense/income accounts, approved accrual source and actual bill coverage/estimate reversal triggers; owner-only fingerprinted proposal approval.
