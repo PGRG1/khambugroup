@@ -750,6 +750,13 @@
       "when": 1793575615322,
       "tag": "0106_future_account_redirect_with_reclassification_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1793575767221,
+      "tag": "0107_deferred_sales_source_validation_hardening",
+      "breakpoints": true
     }
   ]
 }
