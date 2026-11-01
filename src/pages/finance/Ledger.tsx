@@ -4,6 +4,7 @@ import { useSearchParams,Link } from "react-router-dom";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import {useFinancePeriod} from '@/components/kit/PeriodControl';
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,8 +39,9 @@ export default function Ledger() {
   const [params, setParams] = useSearchParams();
   const today = new Date();
   const accountId = params.get("account") || "";
-  const fromDate = params.get("from") ?? `${today.getFullYear()}-01-01`;
-  const toDate = params.get("to") ?? "";
+  const period = useFinancePeriod('period');
+  const fromDate = period.fromIso;
+  const toDate = period.toIso;
   const setParam = (k: string, v: string | null) => {
     const next = new URLSearchParams(params);
     if (v == null || v === "") next.delete(k); else next.set(k, v);
@@ -146,8 +148,7 @@ export default function Ledger() {
               </Select>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
+              {period.control}
               <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
             </div>
           </div>
