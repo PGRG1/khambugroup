@@ -687,6 +687,13 @@
       "when": 1793558909201,
       "tag": "0097_schedule_source_generation_and_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1793559014560,
+      "tag": "0098_schedule_draft_refresh_and_prepaid_guards",
+      "breakpoints": true
     }
   ]
 }

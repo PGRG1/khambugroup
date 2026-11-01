@@ -14921,6 +14921,10 @@ export type Database = {
         Args: { ident: string; m: string; t: string }
         Returns: string
       }
+      finance_schedule_cancel: {
+        Args: { ident: string; t: string }
+        Returns: undefined
+      }
       finance_schedule_enqueue: {
         Args: {
           d: string
