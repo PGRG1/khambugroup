@@ -296,6 +296,8 @@
 - [x] Sidebar: People before Expenses; Activity Log only under Settings
 
 ## Finance overview and Month close
-- [ ] Rebuild read-only overview queues, progress, profit, money and month strip.
-- [ ] Add Month close using existing guarded close/reopen workflow and navigation.
-- [ ] Light desktop/phone check, focused tests, build and protected fingerprints.
+- [x] Rebuild read-only overview queues, progress, profit, money and month strip.
+- [x] Add Month close using existing guarded close/reopen workflow and navigation.
+- [x] Light desktop/phone check, focused tests, build and protected fingerprints.
+
+- Actual Jan–May posted profit is HK$42,631 (requested HK$42,636 differs by HK$5); books retained. Approval/close writes deliberately not exercised.
