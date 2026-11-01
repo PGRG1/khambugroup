@@ -708,6 +708,13 @@
       "when": 1793559339603,
       "tag": "0100_schedule_depreciation_register_and_pending_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1793559353492,
+      "tag": "0101_schedule_depreciation_register_loop_scope",
+      "breakpoints": true
     }
   ]
 }
