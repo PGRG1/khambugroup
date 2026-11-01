@@ -20,7 +20,7 @@ import { aggregate, mtdRange } from "@/components/revenue-overview/utils";
 import { MONTHS, comparisonSentence, comparisonWindow, iso, monthSoFarLabel, targetPace } from "@/utils/revenueOverview";
 
 const Index = () => {
-  const { data, loading } = useSalesData();
+  const { data, loading } = useSalesData(true);
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const access = useRevenueNavigationAccess();

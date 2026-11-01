@@ -1,4 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { usePreviewMode } from '@/hooks/usePreviewMode';
+import { sessionQueryTiming, sameSessionPrevious } from '@/utils/sessionQuery';
+import { useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { SalesRecord } from "@/types/sales";
@@ -81,33 +85,28 @@ function fromDbRecord(r: any): SalesRecord {
   };
 }
 
-export function useSalesData() {
+export function useSalesData(cached = false) {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
-  const [data, setData] = useState<SalesRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const { user } = useAuth();
+  const { previewUserId } = usePreviewMode();
+  const cache = useQueryClient();
+  const key = ["sales-records", user?.id, tenantId, previewUserId];
+  const query = useQuery({
+    queryKey: key, enabled: !!tenantId && !tenantLoading,
+    ...sessionQueryTiming, staleTime: cached ? sessionQueryTiming.staleTime : 0,
+    placeholderData: (previous, previousQuery) => sameSessionPrevious(previous, previousQuery, key),
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const rows = await fetchAllRows("sales_records", "*", { col: "date", asc: true }, tenantId);
+      return rows.map(fromDbRecord);
+    },
+  });
+  const data = query.data ?? [];
+  const loading = (tenantLoading && !query.data) || (!!tenantId && query.isPending);
   const fetchData = useCallback(async () => {
-    if (tenantLoading) return;
-    if (!tenantId) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
-    const rows = await fetchAllRows(
-      "sales_records",
-      "*",
-      { col: "date", asc: true },
-      tenantId,
-    );
-    setData(rows.map(fromDbRecord));
-    setLoading(false);
-  }, [tenantId, tenantLoading]);
-
-  useEffect(() => {
-    if (!tenantLoading) setLoading(true);
-    fetchData();
-  }, [fetchData]);
+    if (!tenantId || tenantLoading) return;
+    await cache.invalidateQueries({ queryKey: ["sales-records", user?.id, tenantId, previewUserId], exact: true });
+  }, [cache, tenantId, tenantLoading, user?.id, previewUserId]);
 
   // Keep the table live: refetch when sales rows change anywhere (scanner, Bani, other tabs) or the tab regains focus.
   useEffect(() => {

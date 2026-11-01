@@ -1,13 +1,14 @@
 # Project Architecture Rules
-Read nested AGENTS.md first.
+Read nested AGENTS.md.
 
-- ThemeProvider fixes light mode, without profile/OS hydration. AppLayout's first tenant child is one pointer-inert fixed atmosphere behind sidebar/content; tenant glass tokens include mobile portals and preserve platform stacking.
+- ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
 - Scanner links use `buildMatchLinkPatch` atomically; display copies never alter evidence, AI, validation or saves.
 - Scanner prices write the supplier entry first, then sync canonical costs through its conversion. Finance-team figures come only from `_shared/financeTeamReview.ts`; AI wording rejects unknown numbers or finding keys.
 - Isolated matcher owns its model, pre-date context and hard checks; admin backtest writes only match_backtest_results, never scanner or financial data. Mutable master fields use earlier evidence or are omitted; no snapshots.
 - Finance-team owns results; follow accounting AGENTS.md.
-- Section nav mounts once below headings; most-specific paths and effective guards. Purchasing uses server preview roles. Settings uses scoped fact editors/atomic category RPCs; People reads Approvals.
+- Tenant shell owns Outlet/auth redirects; content gates retain page/admin/preview/KPI checks. Cache keys isolate user/tenant/preview; no cross-identity placeholders. Only Revenue/People Overview reuse fresh data; Sales realtime invalidates. Tenant/preview changes remount content, not shell.
+- Section nav mounts once; People uses shell phone pills, sidebar desktop and PageTop, no tabs. Purchasing uses server preview roles; Settings uses scoped editors/atomic category RPCs; People reads Approvals.
 - usePurchasingMode reads tenant-scoped app_config. Only ProcurementDashboardTab uses purchasingOverviewRows to bypass venue scope for central buying; invoices and revenue remain explicitly tenant-scoped, without changing other pages.
 - Purchasing uses purchasingOverview.ts; directoryRows unifies stock/expense profiles via reversible aliases without financial relinks.
 - Purchasing budgets use invoker save_purchasing_budgets for atomic RLS budget/history; purchasingOverview.ts owns budget math and full-month per-venue buildProjectionRows forecast aggregation, usePurchasingBudgets loads picked months independently. Suggestions pass unsaved maps to the editor. Budget history replays per venue/category with Hong Kong day boundaries while preserving untouched venue contributions, preventing split history or conflated venues.
@@ -23,9 +24,9 @@ Read nested AGENTS.md first.
 - Bani contextual memory lives in chat-assistant `contextMemory.ts`: past record notes plus `bani_memory_notes` (server-written, venue/supplier scoped) are injected as untrusted background, never as rules; post-scan verdicts come from deterministic scanner checks, not extra model calls.
 - Scan Invoice calls match-invoice-lines once per draft/supplier; sure uses buildMatchLinkPatch with stable-line/unchanged-input guards. Manual choices write tenant-scoped match_feedback. Other pages keep their matcher; save guards stay unchanged.
 - Scanned sales receipts auto-record only through parse-receipt `intake.ts` using pure rules in `_shared/receiptAutoPost.ts`: figures must balance, venue/date valid, no existing same-venue-day sales or closure, and an independent second model read must agree field-by-field; insert/journal run as the user; otherwise a non-posting intake with reasons.
-- Launchpad (`/`) is the tenant front door; its drop zone stages files into the shared Floating Bani composer (`useFloatingBaniAttach`) so classification/routing stays in one place. `/assistant` and `/finance-team` remain routable but are not top-level sidebar links.
+- Launchpad `/` stages drops via useFloatingBaniAttach; Bani alone classifies/routes. `/assistant` and `/finance-team` stay routable, not sidebar links.
 - Venue filtering is one portal-wide scope (`useVenueScope` in `src/hooks/useVenueScope.tsx`, pure rules in `src/utils/venueScope.ts`) mounted once in AppLayout with the top-bar picker and page reminder; pages must not add their own venue view filters (data-entry venue fields are separate), so every page agrees on which venues are shown.
-- Venue seats come only from `venue_seat_history` (via `useSeatHistory` + `src/utils/seatHistory.ts`); every seat-based number uses the count that applied on each day, and `venues.seats` is a trigger-maintained mirror of the latest row, so seat history is never lost.
+- Seats use dated venue_seat_history via useSeatHistory/seatHistory.ts; venues.seats is only the trigger-maintained latest mirror.
 - Revenue/Purchasing/Stock share SectionPillRow/portaled tabs; Register/GRNs reuse Invoices; lists use usePeriodFilter. purchaseRegister owns item math; stockPresentation owns On hand. StockCountScreen/useStockCount use user-RLS save_stock_count_area for locked area totals/unknowns; stockCountReview owns gaps; read-stock-count reuses MATCHER_MODEL and validated candidates. Sent counts are immutable with whole-count approval; browser speech is stock-only. Downloads filtered; Documents redirects.
 - Lists use kit; salesRecordChecks owns Sales checks; menuCosts owns RLS-refreshed menu math/bought drafts. supplierAccounts/supplierDeposits own lists/received Assets; invoker confirmations/idempotent returns never sync invoices/POs.
 - Sales notes store Closed early / Weather / Private event / POS problem explanations for drops.

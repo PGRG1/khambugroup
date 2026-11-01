@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { resolveAuthRoute } from "@/utils/authRouting";
 
@@ -146,50 +146,39 @@ const pageKeyMap: Record<string, string> = {
   "/assistant": "assistant",
 };
 
-const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
-  const { session, loading, roleLoading, isAdmin, user } = useAuth();
+/** One tenant shell; auth redirects never belong to individual pages. */
+const TenantShell = () => {
+  const { session, loading, roleLoading } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
+  if (!loading && !roleLoading && !platLoading) {
+    const decision = resolveAuthRoute({ session, isPlatformAdmin,
+      enteredTenantId: localStorage.getItem("khambu.enteredTenantId") });
+    if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
+  }
+  return <AppLayout>{loading || roleLoading || platLoading
+    ? <p className="p-6 text-muted-foreground" role="status">Checking access…</p>
+    : <Outlet />}</AppLayout>;
+};
+
+const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
+  const { isAdmin, user } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
-  const { canAccessPage, loading: permLoading } = useUserPermissions(effectiveUserId || undefined);
-
-  if (loading || roleLoading || permLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
-  const decision = resolveAuthRoute({
-    session,
-    isPlatformAdmin,
-    enteredTenantId: typeof window !== "undefined" ? localStorage.getItem("khambu.enteredTenantId") : null,
-  });
-  if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
-
-  // Check page access (admins bypass unless previewing)
-  if (pageKey && !isAdmin && !canAccessPage(pageKey)) {
-    return <AppLayout><AccessDenied /></AppLayout>;
-  }
-  if (pageKey && isPreviewActive && isAdmin && !canAccessPage(pageKey)) {
-    return <AppLayout><AccessDenied /></AppLayout>;
-  }
-
-  return <AppLayout>{children}</AppLayout>;
+  const { canAccessPage, loading } = useUserPermissions(effectiveUserId || undefined);
+  if (loading) return <p className="p-6 text-muted-foreground" role="status">Checking access…</p>;
+  if (pageKey && (!isAdmin || isPreviewActive) && !canAccessPage(pageKey)) return <AccessDenied />;
+  return <>{children}</>;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading, roleLoading, isAdmin } = useAuth();
-  const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
-  if (loading || roleLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
-  const decision = resolveAuthRoute({
-    session,
-    isPlatformAdmin,
-    enteredTenantId: typeof window !== "undefined" ? localStorage.getItem("khambu.enteredTenantId") : null,
-  });
-  if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
-  if (!isAdmin) return <Navigate to="/" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  const { isAdmin } = useAuth();
+  return isAdmin ? <>{children}</> : <AccessDenied />;
 };
 
 /** Authority-aware KPI gate: view_only < edit < admin. */
 const KpiAuthorityGate = ({ children, need }: { children: React.ReactNode; need: "view_only" | "edit" | "admin" }) => {
   const { authority, loading } = useKpiCapability();
-  if (loading) return <p className="p-6 text-muted-foreground">Loading...</p>;
+  if (loading) return <p className="p-6 text-muted-foreground" role="status">Checking access…</p>;
   const rank = { view_only: 0, edit: 1, admin: 2 } as const;
   if (rank[authority] < rank[need]) return <AccessDenied />;
   return <>{children}</>;
@@ -237,6 +226,15 @@ function App() {
               <CrossTabTenantGuard />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/admin/clients" element={<Navigate to="/platform/clients" replace />} />
+                <Route path="/admin/clients/:tenantId" element={<RedirectClientDetail />} />
+                <Route path="/admin/clients/:tenantId/onboarding" element={<RedirectClientOnboarding />} />
+                <Route path="/platform" element={<Navigate to="/platform/clients" replace />} />
+                <Route path="/platform/clients" element={<PlatformRoute><Clients /></PlatformRoute>} />
+                <Route path="/platform/clients/:tenantId" element={<PlatformRoute><ClientDetail /></PlatformRoute>} />
+                <Route path="/platform/clients/:tenantId/onboarding" element={<PlatformRoute><ClientOnboarding /></PlatformRoute>} />
+                <Route path="*" element={<NotFound />} />
+                <Route element={<TenantShell />}>
 <Route path="/" element={<ProtectedRoute><YourTeam /></ProtectedRoute>} />
                 <Route path="/overview" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
@@ -305,13 +303,6 @@ function App() {
 
 
                 {/* Platform admin — hard-separated under /platform/*. Old /admin/clients* redirects. */}
-                <Route path="/admin/clients" element={<Navigate to="/platform/clients" replace />} />
-                <Route path="/admin/clients/:tenantId" element={<RedirectClientDetail />} />
-                <Route path="/admin/clients/:tenantId/onboarding" element={<RedirectClientOnboarding />} />
-                <Route path="/platform" element={<Navigate to="/platform/clients" replace />} />
-                <Route path="/platform/clients" element={<PlatformRoute><Clients /></PlatformRoute>} />
-                <Route path="/platform/clients/:tenantId" element={<PlatformRoute><ClientDetail /></PlatformRoute>} />
-                <Route path="/platform/clients/:tenantId/onboarding" element={<PlatformRoute><ClientOnboarding /></PlatformRoute>} />
 
 
 
@@ -401,7 +392,7 @@ function App() {
                 <Route path="/kpis/assignments" element={<Navigate to="/kpis/setup?tab=assignments" replace />} />
                 <Route path="/kpis/targets" element={<Navigate to="/kpis/setup?tab=targets" replace />} />
                 <Route path="/kpis/planner" element={<KpiRoute need="edit"><KpiPlanner /></KpiRoute>} />
-                <Route path="*" element={<NotFound />} />
+                </Route>
               </Routes>
             </BrowserRouter>
             </PreviewModeProvider>

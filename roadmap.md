@@ -1,8 +1,15 @@
+## People and persistent navigation follow-ups
+- [x] Saved months without work evidence retain totals and have no running curve; May total/quiet note verified.
+- [x] Four own People PageTop headers/actions; no desktop tabs, shell-mounted phone navigation.
+- [x] Persistent tenant shell/content gates, identity-scoped permission/Overview caches, router links and reduced-motion fade; no database or permission-rule edits.
+- [x] 41 focused tests and build OK; signed-in desktop requested sequence preserved sidebar/topbar nodes with no fullscreen Loading. Four headings/no tabs checked; existing staff preview shows Settings AccessDenied in content; Test Client All time does not inherit KHAMBU sales.
+- [ ] Verification limits: no venue-manager member exists in available six-member list, so exact venue-manager hidden-page/direct-URL check not performed. Existing platform-admin sidebar bypass retained rather than changing rules. Preview resets on full navigation by existing design; denied Settings tested in active SPA preview. Physical phone checks not requested; shared phone navigation unchanged. Native canvas dependency blocks default jsdom tests; 41 focused rules tests pass with existing isolated Node config.
+
 ## People Overview simplification
-- [x] Read-only month/year Overview, two findings plus folded line, accrued costs/projections, venue/role bars and dated team counts. Saved daily curve spreads saved totals over recorded days, or calendar days when daily evidence is absent; no payroll recomputation.
+- [x] Read-only month/year Overview, two findings plus folded line, accrued costs/projections, venue/role bars and dated team counts. Saved daily curves require work evidence; absent evidence shows totals only, no payroll recomputation.
 - [x] Confirmed front/back role setting and orb draft support; Payroll venue header/split/subtotal methods removed; Rota unchanged.
 - [x] 103 rules tests and build OK; signed-in desktop/375px November unknown, May 255068.20/32.6%, requested role/venue totals, Jan–May chart, headcounts Jan–Oct 23/24/19/20/20/20/26/27/27/27 with March/July flags, settings dialog cancel and May Payroll checked without overflow. All 85 payroll/2645 journals/21492 lines fingerprints unchanged.
-- [ ] Verification limits: real unsaved current-month accrual/projection has no November rota/clock-in data; unit-tested only. Live setting/orb Confirm and concurrent saves deliberately not exercised; separate venue-manager session unavailable. Custom range edge cases not browser-tested. Saved months without daily work evidence cannot supply a factual daily cost curve; calendar spreading is presentation, not real daily payroll evidence.
+- [ ] Verification limits: real unsaved current-month accrual/projection has no November rota/clock-in data; unit-tested only. Live setting/orb Confirm and concurrent saves deliberately not exercised; separate venue-manager session unavailable. Custom range edge cases not browser-tested.
 
 ## People venue staff-cost correction
 - [x] Company default and role overrides beside How you buy; evidence-based orb suggestions and confirmed guarded settings; KHAMBU has zero saved choices.

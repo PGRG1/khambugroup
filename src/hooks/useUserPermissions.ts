@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { PageKey, Authority } from "@/utils/permissions";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { sessionQueryTiming } from "@/utils/sessionQuery";
 
 export interface MyPermissions {
   status: string;
@@ -15,19 +19,25 @@ export interface MyPermissions {
 
 export function useUserPermissions(userId: string | undefined) {
   const { tenantId } = useActiveTenant();
-  const [permissions, setPermissions] = useState<MyPermissions | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchPermissions = useCallback(async () => {
-    if (!userId) { setLoading(false); return; }
+  const { user } = useAuth();
+  const { previewUserId } = usePreviewMode();
+  const query = useQuery({
+    queryKey: ["user-permissions", user?.id, tenantId, userId, previewUserId],
+    enabled: !!userId,
+    ...sessionQueryTiming,
+    staleTime: Infinity,
+    queryFn: async (): Promise<MyPermissions | null> => {
+    if (!userId) return null;
     // Scope permission lookups to the active tenant so super-admins switching
     // tenants see the correct access set for each.
     const accessQ = supabase.from("user_access_control").select("status").eq("user_id", userId);
     const pagesQ = supabase.from("user_page_permissions").select("*").eq("user_id", userId);
-    const [{ data: access }, { data: pages }] = await Promise.all([
+    const [{ data: access, error: accessError }, { data: pages, error: pagesError }] = await Promise.all([
       tenantId ? accessQ.eq("tenant_id", tenantId).maybeSingle() : accessQ.maybeSingle(),
       tenantId ? pagesQ.eq("tenant_id", tenantId) : pagesQ,
     ]);
+    if (accessError) throw accessError;
+    if (pagesError) throw pagesError;
 
     const pagesMap: MyPermissions["pages"] = {};
     if (pages) {
@@ -41,15 +51,14 @@ export function useUserPermissions(userId: string | undefined) {
       }
     }
 
-    setPermissions({
+    return {
       status: access?.status || "active",
       pages: pagesMap,
-    });
-    setLoading(false);
-  }, [userId, tenantId]);
-
-  useEffect(() => { fetchPermissions(); }, [fetchPermissions]);
-
+    };
+    },
+  });
+  const permissions = query.data ?? null;
+  const loading = !!userId && query.isPending;
 
   const canAccessPage = useCallback((pageKey: string) => {
     if (!permissions) return true;
@@ -86,6 +95,6 @@ export function useUserPermissions(userId: string | undefined) {
     showInSidebar,
     isActionHidden,
     getAuthority,
-    refetch: fetchPermissions,
+    refetch: query.refetch,
   };
 }

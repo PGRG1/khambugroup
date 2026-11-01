@@ -29,7 +29,7 @@ export const TenantSwitcher = () => {
   const onPick = (id: string) => {
     if (id === tenantId) return;
     setTenantId(id);
-    if (typeof window !== "undefined") window.location.reload();
+
   };
 
   return (
