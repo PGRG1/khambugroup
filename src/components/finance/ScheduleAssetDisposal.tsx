@@ -1,0 +1,14 @@
+import {useState} from 'react';
+import {useQueryClient} from '@tanstack/react-query';
+import {Button} from '@/components/ui/button';
+import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
+import {supabase} from '@/integrations/supabase/client';
+import {tenantToday} from '@/utils/salesRecordChecks';
+import {toast} from 'sonner';
+export function ScheduleAssetDisposal({tenantId,asset,accounts,disabled}:{tenantId:string|null;asset:{id:string;name:string;status:string;notes?:string|null};accounts:{id:string;code:string;name:string;account_type:string}[];disabled?:boolean}){
+ const cache=useQueryClient(),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[date,setDate]=useState(tenantToday()),[proceeds,setProceeds]=useState('0'),[account,setAccount]=useState('');const value=Number(proceeds);
+ return <><Button size="sm" variant="outline" disabled={disabled||!['active','fully_depreciated'].includes(asset.status)||asset.notes?.includes('awaiting approval')} onClick={()=>setOpen(true)}>Dispose</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Dispose · {asset.name}</DialogTitle></DialogHeader><Label htmlFor={'disposal-date-'+asset.id}>Disposal date</Label><Input id={'disposal-date-'+asset.id} type="date" value={date} onChange={e=>setDate(e.target.value)}/><Label htmlFor={'disposal-proceeds-'+asset.id}>Proceeds</Label><Input id={'disposal-proceeds-'+asset.id} type="number" min="0" step="0.01" value={proceeds} onChange={e=>setProceeds(e.target.value)}/><Label>Proceeds account</Label><Select value={account||'none'} onValueChange={v=>setAccount(v==='none'?'':v)}><SelectTrigger aria-label="Disposal proceeds account"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="none">Choose account</SelectItem>{accounts.filter(a=>a.account_type==='asset').map(a=><SelectItem key={a.id} value={a.id}>{a.code} · {a.name}</SelectItem>)}</SelectContent></Select><Button disabled={busy||!tenantId||!date||!Number.isFinite(value)||value<0||value>0&&!account} onClick={async()=>{if(!tenantId)return;setBusy(true);try{const {error}=await supabase.rpc('finance_asset_propose',{t:tenantId,p:{action:'disposal',asset:asset.id,date,proceeds:value,contra_account_id:account||null}});if(error)throw error;await cache.invalidateQueries({queryKey:['finance-schedules']});setOpen(false);toast.success('Disposal draft created');}catch(e){toast.error(e instanceof Error?e.message:'Disposal draft could not be created');}finally{setBusy(false);}}}>Create disposal draft</Button></DialogContent></Dialog></>;
+}

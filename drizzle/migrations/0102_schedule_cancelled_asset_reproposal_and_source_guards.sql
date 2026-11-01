@@ -1,0 +1,5 @@
+DO $$ DECLARE def text;BEGIN
+SELECT pg_get_functiondef('public.finance_bill_schedule_propose(uuid,jsonb)'::regprocedure) INTO def;def:=replace(def,'source_allocation_id=a.id)','source_allocation_id=a.id AND notes IS DISTINCT FROM ''Cancelled proposal; no journal posted'')');EXECUTE def;
+SELECT pg_get_functiondef('public.finance_schedule_approve(uuid,uuid,date)'::regprocedure) INTO def;
+def:=replace(def,'IF q.kind=''asset_disposal'' AND EXISTS','IF q.kind=''depreciation'' AND EXISTS(SELECT 1 FROM finance_entry_drafts x WHERE x.tenant_id=t AND x.kind=''depreciation'' AND x.status=''approved'' AND x.source_data->>''asset''=q.source_data->>''asset'' AND x.entry_date>q.entry_date) THEN RAISE EXCEPTION ''Later depreciation already approved'';END IF;IF q.kind=''asset_disposal'' AND EXISTS');EXECUTE def;
+END $$;

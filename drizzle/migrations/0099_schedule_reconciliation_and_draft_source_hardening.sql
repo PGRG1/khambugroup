@@ -1,0 +1,11 @@
+DO $$ DECLARE def text;BEGIN
+SELECT pg_get_functiondef('public.finance_schedule_source(uuid,text,uuid)'::regprocedure) INTO def;def:=replace(def,'p.status=''approved'' AND p.count_date<s.count_date','p.status=''approved'' AND p.count_type=''full'' AND p.count_date<s.count_date');EXECUTE def;
+SELECT pg_get_functiondef('public.finance_schedule_approve(uuid,uuid,date)'::regprocedure) INTO def;
+def:=replace(def,'IF q.kind=''depreciation'' AND NOT EXISTS','IF q.kind=''asset_disposal'' AND EXISTS(SELECT 1 FROM finance_entry_drafts WHERE tenant_id=t AND status=''waiting'' AND kind=''depreciation'' AND source_data->>''asset''=q.source_data->>''asset'') THEN RAISE EXCEPTION ''Review depreciation drafts before disposal'';END IF;IF q.kind=''depreciation'' AND NOT EXISTS');
+def:=replace(def,'status=''active'' AND amount_depreciated=', 'status=''active'' AND notes NOT IN(''Opening proposal awaiting approval'',''Acquisition proposal awaiting approval'') AND amount_depreciated=');EXECUTE def;
+SELECT pg_get_functiondef('public.finance_reconciliation_rows(uuid,date)'::regprocedure) INTO def;
+def:=replace(def,'in_service_date<=ending AND status<>''disposed''','in_service_date<=ending AND status<>''disposed'' AND notes IS DISTINCT FROM ''Opening proposal awaiting approval'' AND notes IS DISTINCT FROM ''Acquisition proposal awaiting approval''');
+def:=replace(def,'start_period<=ending AND status=''active''','start_period<=ending AND status=''active'' AND initial_journal_entry_id IS NOT NULL');
+def:=replace(def,'g.invoice_id IS NULL AND g.status IN(''received'',''approved'',''completed'')','NOT EXISTS(SELECT 1 FROM journal_entries e WHERE e.tenant_id=p_tenant AND e.source_type=''invoice'' AND e.source_id=g.invoice_id::text AND e.status=''posted'' AND e.entry_date<=ending) AND g.status IN(''received'',''approved'',''completed'',''confirmed'')');
+def:=replace(def,'status=''approved'' AND count_date<=ending','status=''approved'' AND count_type=''full'' AND count_date<=ending');EXECUTE def;
+END $$;

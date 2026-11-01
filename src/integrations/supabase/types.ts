@@ -4756,6 +4756,7 @@ export type Database = {
           method: string
           name: string
           notes: string | null
+          proposal_draft_id: string | null
           purchase_date: string
           salvage_value: number
           source_allocation_id: string | null
@@ -4788,6 +4789,7 @@ export type Database = {
           method?: string
           name: string
           notes?: string | null
+          proposal_draft_id?: string | null
           purchase_date: string
           salvage_value?: number
           source_allocation_id?: string | null
@@ -4820,6 +4822,7 @@ export type Database = {
           method?: string
           name?: string
           notes?: string | null
+          proposal_draft_id?: string | null
           purchase_date?: string
           salvage_value?: number
           source_allocation_id?: string | null
@@ -4937,6 +4940,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_proposal_draft_id_fkey"
+            columns: ["proposal_draft_id"]
+            isOneToOne: false
+            referencedRelation: "finance_entry_drafts"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fixed_assets_source_allocation_id_fkey"
@@ -10558,6 +10568,7 @@ export type Database = {
           created_at: string
           description: string
           expense_account_id: string
+          funding_draft_id: string | null
           id: string
           initial_journal_entry_id: string | null
           method: string
@@ -10579,6 +10590,7 @@ export type Database = {
           created_at?: string
           description?: string
           expense_account_id: string
+          funding_draft_id?: string | null
           id?: string
           initial_journal_entry_id?: string | null
           method?: string
@@ -10600,6 +10612,7 @@ export type Database = {
           created_at?: string
           description?: string
           expense_account_id?: string
+          funding_draft_id?: string | null
           id?: string
           initial_journal_entry_id?: string | null
           method?: string
@@ -10643,6 +10656,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_funding_draft_id_fkey"
+            columns: ["funding_draft_id"]
+            isOneToOne: false
+            referencedRelation: "finance_entry_drafts"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "prepaid_schedules_initial_journal_entry_id_fkey"
@@ -14794,6 +14814,11 @@ export type Database = {
         Args: { d: string; t: string }
         Returns: undefined
       }
+      finance_asset_propose: { Args: { p: Json; t: string }; Returns: string }
+      finance_bill_schedule_propose: {
+        Args: { p: Json; t: string }
+        Returns: string
+      }
       finance_close_bank_period: {
         Args: { p_import: string; p_note?: string; p_tenant: string }
         Returns: string
@@ -14896,6 +14921,10 @@ export type Database = {
         Args: { ident: string; m: string; t: string }
         Returns: string
       }
+      finance_schedule_cancel: {
+        Args: { ident: string; t: string }
+        Returns: undefined
+      }
       finance_schedule_enqueue: {
         Args: {
           d: string
@@ -14916,9 +14945,17 @@ export type Database = {
         Args: { m: string; t: string }
         Returns: number
       }
+      finance_schedule_prepare_sources: {
+        Args: { m: string; t: string }
+        Returns: number
+      }
       finance_schedule_save_settings: {
         Args: { p: Json; t: string }
         Returns: undefined
+      }
+      finance_schedule_source: {
+        Args: { ident: string; k: string; t: string }
+        Returns: Json
       }
       finance_set_month_closed: {
         Args: {

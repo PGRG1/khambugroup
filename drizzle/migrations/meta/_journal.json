@@ -673,6 +673,55 @@
       "when": 1793554871655,
       "tag": "0095_finance_schedule_reconciliation_snapshot_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1793558875321,
+      "tag": "0096_schedule_assets_and_bill_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1793558909201,
+      "tag": "0097_schedule_source_generation_and_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1793559014560,
+      "tag": "0098_schedule_draft_refresh_and_prepaid_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1793559250793,
+      "tag": "0099_schedule_reconciliation_and_draft_source_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1793559339603,
+      "tag": "0100_schedule_depreciation_register_and_pending_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1793559353492,
+      "tag": "0101_schedule_depreciation_register_loop_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1793559462812,
+      "tag": "0102_schedule_cancelled_asset_reproposal_and_source_guards",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,11 @@
 ## Finance part 3c-1
-- [x] Opening-asset dialog calls existing finance_opening_asset; deferred item Record use/Refund call existing finance_deferred_use. Preview writes disabled; all controls create only drafts. GRNI list includes confirmed deliveries.
-- [x] Non-persisting fixtures cover opening/capitalisation/disposal/depreciation, advance funding/day-based release, GRNI/reversal, deferred sold/used/refund/expiry and opt-in approved stock change; 35 focused tests passed; build OK.
-- [ ] Acquisition/disposal RPC and bill/invoice capitalisation integration blocked: database rejected additive disposal migration with connection checkout timeout; no migration applied or staged file remains.
-- [ ] Advance prepayment funding/releases, GRNI/reversal and approved-count stock live generators/source revalidation blocked by unavailable database; fixture functions are not wired to production posting.
-- [ ] Deferred sales-day/POS fields/feed and new-post accounting integration blocked by unavailable schema changes. Existing expiry/package draft generator and monthly queue remain unchanged; tax/stock/GRNI approval still blocked safely.
-- [ ] Signed-in KHAMBU desktop/375px rendering and live draft readback blocked: access gate remains Checking access while database is unavailable. Browser attempt issued no saves. Protected before/after counts/max timestamps unavailable: exact read retried once, both failed; no financial writes issued.
+- [x] Cloud reachable; additive migrations 0096–0102 applied. Asset acquisition/disposal, posted expense-bill capitalisation/prepaid funding proposals, GRNI/reversal and opt-in full-count stock draft generators connect to source-rechecked selected monthly approval.
+- [x] Pending prepayment releases use the existing monthly approval; unfunded releases blocked. Depreciation register integration, cancellation/reprepare, source drift and closed-period guards added. No page-load generation or autonomous posting introduced.
+- [x] 33 focused financial-rule tests pass using Node environment (default canvas unavailable); latest build OK. Populated KHAMBU schedules and opening-asset form render on desktop/375px; temporary opening draft saved, read back and cancelled without approval.
+- [x] Protected counts and latest timestamps match baseline: journals 2645, invoices 1365, bills 23, payroll 85, sales 744. Whole-row fingerprints not comparable to the earlier serialization; no protected financial writes issued.
+- [ ] Deferred sales-day/POS fields, receipt extraction and new-sale liability integration remain unimplemented; existing independent item sold/use/refund/expiry/package drafts remain available.
+- [ ] Capitalisation of unposted bills/purchase-invoice lines and automatic advance-contract prepayment creation remain unimplemented; current proposals support posted expense-bill allocations only, leaving sources unchanged.
+- [ ] Live approval/closed-period/concurrency tests for depreciation, bill capitalisation, prepaid releases, GRNI/reversal and stock not exercised on production books; pure fixtures pass. Dedicated end-to-end fixtures still needed before claiming these flows fully verified.
 
 ## Finance part 3b
 - [x] Tenant-protected schedule settings, deferred items, source-required manual proposals; explicit selected approval integration (0091–0095), no page-load posting.

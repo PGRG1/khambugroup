@@ -603,6 +603,10 @@ html:not(.dark) body:has(.tenant-portal) :is([data-radix-popper-content-wrapper]
   --popover: 0 0% 100%;
   --background: 0 0% 100%;
 }
+html:not(.dark) body:has(.tenant-portal) [role="dialog"].schedule-dialog {
+  background: hsl(var(--surface-panel));
+  backdrop-filter: none;
+}
 
 /* Sage-to-bone page background (light mode, all tenant pages except Bani AI). */
 html:not(.dark) .tenant-portal .app-shell.app-bg-sage {
