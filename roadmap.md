@@ -1,4 +1,5 @@
 ## Finance part 3c-1
+- [ ] Resume completion now that Cloud is reachable: safe live draft generators, source-rechecked selected approval, deferred source connection, and desktop/phone verification with protected fingerprints.
 - [x] Opening-asset dialog calls existing finance_opening_asset; deferred item Record use/Refund call existing finance_deferred_use. Preview writes disabled; all controls create only drafts. GRNI list includes confirmed deliveries.
 - [x] Non-persisting fixtures cover opening/capitalisation/disposal/depreciation, advance funding/day-based release, GRNI/reversal, deferred sold/used/refund/expiry and opt-in approved stock change; 35 focused tests passed; build OK.
 - [ ] Acquisition/disposal RPC and bill/invoice capitalisation integration blocked: database rejected additive disposal migration with connection checkout timeout; no migration applied or staged file remains.
