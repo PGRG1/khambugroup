@@ -1,3 +1,8 @@
+## People venue staff-cost correction
+- [ ] Company default and role overrides beside How you buy; evidence-based orb suggestions, no automatic choices.
+- [ ] Shared read-only allocations in Overview, Payroll and Finance venue P&L; exact reconciliation with explicit Central/not-on-rota.
+- [ ] Focused tests, signed-in desktop/375px checks and unchanged saved payroll/financial fingerprints.
+
 ## People redesign — Part 2
 - [x] Overview and remembered Role/Venue Team; 27 working, Assembly 18 / Caliente 9; 6 missing titles plus 1 ambiguous title; no guessed roles. Custom groups are owner-confirmed orb actions.
 - [x] Stacked venue/role Rota grids, cross-venue same-day labels, overlap findings, confirmed drag-copy and usual-pattern orb drafts; venue costs removed, including legacy People views.
