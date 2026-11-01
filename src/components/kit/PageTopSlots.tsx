@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /** Slots the shared PageTop exposes so content (tables, Bani notices) can place controls in row 2 and findings in the Bani card position. */
@@ -10,9 +10,10 @@ const SlotContext = createContext<Ctx | null>(null);
 export function PageTopSlotProvider({ children }: { children: ReactNode }) {
   const [slots, setSlots] = useState<Slots>({});
   const owner = useRef<object | null>(null);
-  const register = (s: PageTopSlot, el: HTMLElement | null) => setSlots((cur) => (cur[s] === el ? cur : { ...cur, [s]: el }));
-  const claim = (id: object) => { if (!owner.current) owner.current = id; return owner.current === id; };
-  return <SlotContext.Provider value={{ slots, register, claim }}>{children}</SlotContext.Provider>;
+  const register = useCallback((s: PageTopSlot, el: HTMLElement | null) => setSlots((cur) => (cur[s] === el ? cur : { ...cur, [s]: el })), []);
+  const claim = useCallback((id: object) => { if (!owner.current) owner.current = id; return owner.current === id; }, []);
+  const value = useMemo(() => ({ slots, register, claim }), [slots, register, claim]);
+  return <SlotContext.Provider value={value}>{children}</SlotContext.Provider>;
 }
 
 export function usePageTopSlots() { return useContext(SlotContext); }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { usePageTopSlots, type PageTopSlot } from "./PageTopSlots";
 
 /**
@@ -12,7 +12,9 @@ export function PageTop({ title, titleDetail, primary, period, controls, actions
   actions?: ReactNode; download?: ReactNode; bani?: ReactNode; back?: ReactNode; actionsBesideTitle?: boolean;
 }) {
   const ctx = usePageTopSlots();
-  const slot = (s: PageTopSlot) => (el: HTMLDivElement | null) => ctx?.register(s, el);
+  const register = ctx?.register;
+  const refs = useMemo(() => Object.fromEntries((["left", "tools", "download", "bani"] as PageTopSlot[]).map((s) => [s, (el: HTMLDivElement | null) => register?.(s, el)])) as Record<PageTopSlot, (el: HTMLDivElement | null) => void>, [register]);
+  const slot = (s: PageTopSlot) => refs[s];
   const main = primary ?? (actionsBesideTitle ? actions : undefined);
   const rightActions = actionsBesideTitle ? undefined : actions;
   return (
