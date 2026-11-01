@@ -25,18 +25,19 @@ export function payrollInstruction(text:string, people:Row[], year:number, month
  if(/(?:HK\s*\$|\$|HKD)\s*-\s*\d|-\s*\d/.test(instruction))return empty('Please state whether this is an addition or deduction, with a positive amount.');
  if(!Number.isFinite(amount)||amount<0||amount>10000000||/\b(percent|percentage)\b|%/.test(lower))return empty('Please give the exact amount in HK dollars, or exact typed monthly hours.');
  const hours=/\bhours?\b/i.test(instruction), base=/\b(base|basic|earned)\s*(pay|salary)?\b/i.test(instruction), bonus=/\bbonus\b/i.test(instruction), overtime=/\b(overtime|OT)\b/i.test(instruction), cut=/\b(deduct|cut|reduce|subtract)\b/i.test(instruction);
- if(hours&&person.preparation?.source!=='typed_monthly')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
- if(/\b(net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base||!hours&&!base&&!bonus&&!overtime&&!cut&&!/\b(extra|adjustment)\b/i.test(instruction))return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
- const field=hours?'forecast_allowances':base?'earned_salary_override':bonus?'actual_bonus':overtime?'actual_overtime':'adjustments_override';
+ if(hours&&person.preparation?.source!=='typed_monthly'&&person.preparation?.source!=='last_saved_payroll'&&person.preparation?.source!=='human_instruction')return empty('Hours for pay come from the rota. Which rota shift needs its hours edited?');
+ if(/\b(net|rate|contract|raise|salary increase)\b/i.test(instruction)&&!base||!hours&&!base&&!bonus&&!overtime&&!cut&&!/\b(extra|adjustment|holiday|statutory|annual leave|sickness allowance)\b/i.test(instruction))return empty('Which pay line should change, and is the amount an addition, deduction, or a new total?');
+ const holiday=/\b(holiday|statutory)\b/i.test(instruction),annual=/\b(annual leave|AL paid|leave payout)\b/i.test(instruction),sickness=/\b(sickness allowance)\b/i.test(instruction);
+ const field=hours?'forecast_allowances':holiday?'statutory_holiday_pay':annual?'annual_leave_pay':sickness?'sickness_allowance':base?'earned_salary_override':bonus?'actual_bonus':overtime?'actual_overtime':'adjustments_override';
  const set=/\b(set|to|total|make)\b/i.test(instruction.split(/\b(?:for|because)\b/i)[0])&&!/(?:give|add|extra)\b/i.test(instruction.split(/\b(?:for|because)\b/i)[0]);
- const old=Number(person[field]??0), value=hours||set?amount:old+(cut?-amount:amount);
+ const old=Number(field==='sickness_allowance'?person.preparation?.sickness_allowance??0:person[field]??0), value=hours||set?amount:old+(cut?-amount:amount);
  const reason=instruction.match(/\b(?:because|for)\s+(.+?)(?:\s+(?:this month only|every month))?\s*$/i)?.[1]?.trim()??instruction;
  return {...empty(''),changes:[{employee_id:person.employee_id,field,value,previous:old,reason,amount,delta:value-old}],repeat:/\b(every month|monthly|each month)\b/i.test(instruction)};
 }
 export function payrollNetAfter(p:Row,c:Row) {
  const next:Row={...p,[c.field]:c.value};
  const earned=c.field==='forecast_allowances'?Number(p.forecast_base_salary)*c.value:Number(next.earned_salary_override??next.actual_base_salary??next.forecast_base_salary??0);
- const gross=earned+Number(next.actual_overtime??0)+Number(next.actual_bonus??0)+Number(next.annual_leave_pay??0)-Number(next.unpaid_leave_deduction??0)+Number(next.adjustments_override??0);
+ const gross=earned+Number(next.actual_overtime??0)+Number(next.actual_bonus??0)+Number(next.annual_leave_pay??0)+Number(next.statutory_holiday_pay??0)+Number(c.field==='sickness_allowance'?c.value:next.preparation?.sickness_allowance??0)-Number(next.unpaid_leave_deduction??0)-Number(next.sick_leave_deduction??0)+Number(next.adjustments_override??0);
  return gross-Number(next.mpf_employee_override??Math.min(1500,gross*.05))-Number(next.other_deductions??0);
 }
 export function payrollRotaFact(reason:string,shifts:Row[],employeeId:string,year:number,month:number) {

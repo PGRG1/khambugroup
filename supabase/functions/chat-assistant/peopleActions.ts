@@ -1,9 +1,10 @@
 import { z } from "npm:zod@4";
 import { addDays, checkedDate, exactPerson, establishedScope, establishedPeriod, instructedPay, monday, PEOPLE_OPERATIONS } from "./peopleRules.ts";
+import {usualRotaDraft} from '../_shared/peopleRotaPattern.ts';
 type Client = any;
 const uuid = z.string().uuid();
 const Args = z.object({
-  operation: z.enum(PEOPLE_OPERATIONS), instruction: z.string().min(1).max(3000),
+  name:z.string().min(1).max(80).optional(), titles:z.array(z.string().min(1).max(100)).max(50).optional(), operation: z.enum(PEOPLE_OPERATIONS), instruction: z.string().min(1).max(3000),
   venue: z.string().optional(), week_start: z.string().optional(), person: z.string().optional(),
   date_from: z.string().optional(), date_to: z.string().optional(), leave_type: z.string().optional(),
   request_id: uuid.optional(), change_id: uuid.optional(), month: z.string().optional(),
@@ -13,9 +14,9 @@ const Args = z.object({
 });
 export const peopleTool = { type: "function", function: {
   name: "draft_people_action",
-  description: "Draft a People write for Confirm/Change/Cancel. NEVER saves before Confirm. Reuse previous explicit user context for names/dates but ask if unclear. No pay advice. Payroll approval is NEVER supported. Use exact user instruction, not your paraphrase. Rota copy copies saved last week into empty days; from scratch requires explicit person/day/times; cover requires a named replacement. leave shows balance first. team_change handles joiner, dated type/promotion/pay/venue/leaver. team_approve requires owner and change_id. payroll_instruction invokes the exact page instruction parser; month must be explicitly established. No guessed person/venue/week/month/amount.",
+  description: "Draft a People write for Confirm/Change/Cancel. NEVER saves before Confirm. Reuse previous explicit user context for names/dates but ask if unclear. No pay advice. Payroll approval is NEVER supported. Use exact user instruction, not your paraphrase. Rota copy copies saved last week into empty days; from scratch requires explicit person/day/times; cover requires a named replacement. leave shows balance first. team_change handles joiner, dated type/promotion/pay/venue/leaver. team_approve requires owner and change_id. payroll_instruction invokes the exact page instruction parser; month must be explicitly established. No guessed person/venue/week/month/amount. role_group saves an owner-confirmed custom role name plus explicit job titles (not authorization roles). rota_pattern drafts from the last four recorded same-weekday shifts and approved leave, never invented times. Missing/ambiguous job titles require a question; normalize Promotor/Promoter/Promoters for display. People has no venue staff costs; group-only costs.",
   parameters: { type: "object", properties: {
-    operation: { type: "string", enum: [...PEOPLE_OPERATIONS] }, instruction: { type: "string" }, venue: { type: "string" }, week_start: { type: "string", description: "Monday YYYY-MM-DD" }, person: { type: "string" },
+    name:{type:"string",description:"Explicit custom role group name"},titles:{type:"array",items:{type:"string"},description:"Explicit job titles in this group"}, operation: { type: "string", enum: [...PEOPLE_OPERATIONS] }, instruction: { type: "string" }, venue: { type: "string" }, week_start: { type: "string", description: "Monday YYYY-MM-DD" }, person: { type: "string" },
     date_from: { type: "string" }, date_to: { type: "string" }, leave_type: { type: "string", description: "Exact Annual leave, Sick leave or Unpaid type; never invent paid balance" }, request_id: { type: "string" }, change_id: { type: "string" }, month: { type: "string", description: "YYYY-MM, explicitly established by user" }, effective_date: { type: "string" }, change_type: { type: "string", enum: ["joined", "promotion", "pay_change", "type_change", "venue_move", "left", "details"] }, values: { type: "object", description: "Only explicitly stated Team fields, canonical English names; no invented pay" },
     shifts: { type: "array", items: { type: "object", properties: { id: { type: "string" }, person: { type: "string" }, date: { type: "string" }, start_time: { type: "string" }, end_time: { type: "string" }, break_minutes: { type: "integer" }, role: { type: "string" }, rest: { type: "boolean" }, remove: { type: "boolean" }, replacement: { type: "string" } }, required: ["person", "date"] } },
   }, required: ["operation", "instruction"] },
@@ -55,14 +56,23 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
   const venue = () => { establishedScope(scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
   const p: any = { operation: a.operation, instruction };
   let title = "People", detail = "", link = "/hr/employees";
-  if (a.operation.startsWith("rota_")) {
+  if(a.operation==='role_group'){
+ if(!await rpc(client,'people_owner',{t:tenant,u:user}))throw new Error('An owner must confirm custom role groups.');
+ if(!a.name||!a.titles?.length)throw new Error('What is the role group name, and which job titles belong in it?');
+ establishedScope(scopeText,a.name,'role group');for(const title of a.titles)establishedScope(scopeText,title,'job title');
+ p.name=a.name;p.titles=a.titles;p.before=(await all(client,'hr_role_groups',tenant,q=>q.eq('name',a.name))).sort((a,b)=>a.id.localeCompare(b.id));title=`Role group · ${a.name}`;detail=a.titles.join(' · ');
+ }else if (a.operation.startsWith("rota_")) {
     const v = venue(), w = monday(a.week_start ?? ""); const end = addDays(w, 6);
     establishedPeriod(scopeText, w, "week start");
     p.venue_id = v.id; p.week_start = w; link = `/hr/schedule?week=${w}&venue=${v.id}`;
     const own = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", w).lte("shift_date", end))).filter(s => s.venue_id === v.id || !s.venue_id && ctx.people.some(e => e.id === s.employee_id && e.venue_id === v.id));
     p.before = own; p.week_before = await all(client, "hr_rota_weeks", tenant, q => q.eq("venue_id", v.id).eq("week_start", w));
     if (a.operation === "rota_send") { detail = `Send saved rota · ${own.length} entries`; }
-    else if (a.operation === "rota_copy") {
+    else if(a.operation==='rota_pattern'){
+ const history=(await all(client,'hr_shifts',tenant,q=>q.gte('shift_date',addDays(w,-28)).lt('shift_date',w))).filter(s=>s.venue_id===v.id||!s.venue_id&&ctx.people.some(e=>e.id===s.employee_id&&e.venue_id===v.id));
+ const leave=await all(client,'hr_leave_requests',tenant,q=>q.eq('status','approved'));
+ p.changes=usualRotaDraft(history,own,w,leave);if(!p.changes.length)throw new Error('No recorded usual shifts for this week. Tell me the people and times; I will not invent them.');p.operation='rota_edit';detail='Draft from the latest recorded same weekdays; approved leave and existing entries stay unchanged.';
+ }else if (a.operation === "rota_copy") {
       if (!/\bcopy\b/i.test(instruction)) throw new Error("Would you like to copy last week's saved rota?");
       const prior = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", addDays(w, -7)).lt("shift_date", w))).filter(s => s.venue_id === v.id || !s.venue_id && ctx.people.some(e => e.id === s.employee_id && e.venue_id === v.id));
       p.changes = prior.map(s => ({ employee_id: s.employee_id, shift_date: addDays(s.shift_date, 7), start_time: s.start_time, end_time: s.end_time, break_minutes: s.break_minutes, role: s.role, shift_type: s.shift_type })).filter(s => !own.some(o => o.employee_id === s.employee_id && o.shift_date === s.shift_date));
@@ -74,8 +84,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
         establishedScope(scopeText, s.person, "person");
         if (s.replacement) establishedScope(scopeText, s.replacement, "cover person");
         const e = exactPerson(s.person, ctx.people); const date = checkedDate(s.date);
-        const record = ctx.people.find(p => p.id === e.id);
-        if (record?.venue_id !== v.id) throw new Error(`${s.person} is not assigned to ${v.name}; specify their assigned venue or record a dated venue change first.`);
+        
         if (date < w || date > end) throw new Error("A shift falls outside that week. Which week should change?");
         const candidates = own.filter(o => o.employee_id === e.id && o.shift_date === date && (!s.id || o.id === s.id));
         if (candidates.length > 1) throw new Error(`Which ${s.person} shift on ${date} do you mean?`);
@@ -90,7 +99,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
       detail = p.changes.map((c: any) => { const s = own.find(o => o.id === c.swap_id); const e = ctx.people.find(e => e.id === (c.employee_id ?? s?.employee_id)); const r = ctx.people.find(e => e.id === c.replacement); return `${e?.first_name} ${e?.last_name} · ${c.shift_date ?? s?.shift_date} · ${c.swap_id ? `cover ${r?.first_name} ${r?.last_name}` : c.remove ? "remove shift" : c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min${c.role ? ` · ${c.role}` : ""}`}`; }).join("\n");
     }
     p.display_changes = p.changes ?? []; title = `Rota · ${v.name} · week of ${w}`;
-    if (a.operation === "rota_copy") detail += "\n" + p.changes.map((c: any) => { const e = ctx.people.find(e => e.id === c.employee_id); return `${e?.first_name} ${e?.last_name} · ${c.shift_date} · ${c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min`}`; }).join("\n");
+    if (a.operation === "rota_copy"||a.operation === "rota_pattern") detail += "\n" + p.changes.map((c: any) => { const e = ctx.people.find(e => e.id === c.employee_id); return `${e?.first_name} ${e?.last_name} · ${c.shift_date} · ${c.shift_type === "RD" ? "Rest day" : `${c.start_time}–${c.end_time} · break ${c.break_minutes} min`}`; }).join("\n");
   } else if (a.operation === "leave") {
     const e = person(); p.employee_id = e.id; p.date_from = checkedDate(a.date_from ?? ""); p.date_to = checkedDate(a.date_to ?? a.date_from ?? "");
     establishedPeriod(scopeText, p.date_from, "leave date"); establishedPeriod(scopeText, p.date_to, "leave end date");
@@ -136,9 +145,12 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
     const [y, m] = String(a.month).split("-").map(Number); p.year = y; p.month = m; link = `/hr/payroll?year=${y}&month=${m}`;
     establishedPeriod(scopeText, String(a.month), "payroll month");
     if (!await rpc(client, "payroll_manager", { t: tenant, u: user })) throw new Error("Payroll manager access required");
+    const stored=await all(client,'hr_payroll',tenant,q=>q.eq('year',y).eq('month',m));
+    if(a.operation==='payroll_prepare'&&stored.length)throw new Error('This month already has saved payroll and will not be re-prepared. Open it on Payroll.');
+    if(a.operation==='payroll_prepare'&&a.month!==new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit'}).format(new Date()).slice(0,7))throw new Error('Only the current due month can be prepared.');
     const preview = await rpc(client, "payroll_preview", { t: tenant, y, m });
     const period = await all(client, "hr_payroll_months", tenant, q => q.eq("year", y).eq("month", m)); p.period_before = period;
-    if (a.operation === "payroll_prepare") { p.preview_before = preview; title = `Prepare payroll · ${a.month}`; detail = `${preview.length} people · calculate from dated contracts, rota/typed hours and leave. Missing inputs remain flagged; no approval.`; }
+    if (a.operation === "payroll_prepare") { p.preview_before = preview; title = `Prepare payroll · ${a.month}`; detail = `${preview.length} people · start from each person’s last saved payroll; new people use dated contracts and explicit hours. Rota is not required for pay. Confirm what changed; no approval.`; }
     else {
       const { data: draft, error } = await client.functions.invoke("people-payroll-draft", { body: { tenant_id: tenant, year: y, month: m, text: instruction } });
       if (error) throw new Error(error.message); if (!draft?.changes?.length) throw new Error(draft?.answer || "What exact pay instruction do you want carried out?");

@@ -28,3 +28,22 @@
  .employee-record .employee-statement td {display:block;border:0;padding:4px 0;}
  .employee-record .employee-statement td::before {content:attr(data-label);display:block;color:hsl(var(--muted-foreground));font-size:11px;}
 }
+.people-page .payroll-facts-table {font-size:11px;table-layout:fixed;}
+.people-page .payroll-facts-table th:first-child {width:17%;}
+.people-page .payroll-facts-table td,.people-page .payroll-facts-table th {padding:12px 5px;text-align:left;}
+.payroll-group-row th {background:hsl(var(--muted));color:hsl(var(--foreground));}
+.payroll-subtotal-row,.payroll-total-row {font-weight:600;border-top:1px solid hsl(var(--border));}
+.payroll-total-row {border-top:3px double hsl(var(--border));}
+@media(max-width:767px){
+ .people-page .payroll-facts-table thead,.people-page .hours-weekdays thead {display:none;}
+ .people-page .payroll-facts-table,.people-page .payroll-facts-table tbody {display:block;}
+ .payroll-person-row,.payroll-subtotal-row,.payroll-total-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;border-bottom:1px solid hsl(var(--border));padding:14px 0;}
+ .people-page .payroll-facts-table td {display:block;border:0;min-width:0;}
+ .payroll-person-row td:first-child,.payroll-subtotal-row th,.payroll-total-row th {grid-column:1/-1;width:auto!important;}
+ .payroll-person-row td:not(:first-child)::before,.payroll-subtotal-row td::before,.payroll-total-row td::before {content:attr(data-label);display:block;font-size:11px;color:hsl(var(--muted-foreground));margin-bottom:4px;}
+ .payroll-group-row,.payroll-group-row th {display:block;width:auto!important;}
+ .people-page .hours-weekdays tr {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+ .people-page .hours-weekdays td:first-child {grid-column:1/-1;}
+ .people-page .hours-weekdays td {border:0;}
+ .people-page .hours-weekdays td:not(:first-child)::before {content:attr(data-label);display:block;font-size:11px;color:hsl(var(--muted-foreground));}
+}

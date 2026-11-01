@@ -627,20 +627,14 @@ export function PayrollTab({ payroll, employees, shifts: scheduledShifts = [], o
           </div>
         </div>
         <div className="glass-surface rounded-xl border border-border/60 p-4">
-          <SectionLabel>MPF & Venue Breakdown</SectionLabel>
+          <SectionLabel>MPF · KHAMBU totals</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
             <Stat label="MPF cap" value={`HK$ ${fmt(MPF_CAP)}`} />
             <Stat label="Total MPF (EE)" value={`HK$ ${fmt(grandTotal.mpfEE)}`} />
             <Stat label="Total MPF (ER)" value={`HK$ ${fmt(grandTotal.mpfER)}`} />
             <Stat label="Total cost" value={`HK$ ${fmt(grandTotal.totalCost)}`} strong />
           </div>
-          {Object.keys(venueSubtotals).length > 0 && (
-            <div className="mt-4 pt-3 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-              {Object.entries(venueSubtotals).map(([venue, sub]) => (
-                <Stat key={venue} label={venue} value={`HK$ ${fmt(sub.grossPay)}`} />
-              ))}
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -950,28 +944,7 @@ function VenueGroup({
           </tr>
         );
       })}
-      {/* Venue subtotal */}
-      <tr className="bg-muted/40 border-t border-border/60">
-        <td className={`${stickyCol0} bg-muted/40 px-2 py-2`} />
-        <td colSpan={4} className={`px-2 py-2 text-[11px] uppercase tracking-[0.1em] font-semibold text-muted-foreground ${clusterEnd}`}>{venue} subtotal</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.baseSalary || 0)}</td>
-        <td />
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.earnedSalary || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.overtime || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.bonus || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.alPay || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.npDed || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.adjustments || 0)}</td>
-        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.grossPay || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.otherDed || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfEE || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfER || 0)}</td>
-        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalMPF || 0)}</td>
-        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.netPay || 0)}</td>
-        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalCost || 0)}</td>
-        <td />
-      </tr>
-      
+
     </>
   );
 }

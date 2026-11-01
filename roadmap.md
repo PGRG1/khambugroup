@@ -1,3 +1,10 @@
+## People redesign — Part 2
+- [x] Overview and remembered Role/Venue Team; 27 working, Assembly 18 / Caliente 9; 6 missing titles plus 1 ambiguous title; no guessed roles. Custom groups are owner-confirmed orb actions.
+- [x] Stacked venue/role Rota grids, cross-venue same-day labels, overlap findings, confirmed drag-copy and usual-pattern orb drafts; venue costs removed, including legacy People views.
+- [x] Saved-month UI/server read-only guards, full calculation dialogs and KHAMBU total, due-month orb preparation, last-saved starting point and shared source leave-payment evidence. Two DDL changes; no saved payroll/financial writes.
+- [x] 138 focused tests and build OK; signed-in desktop/375px Overview, Team Role/Venue/all/Assembly, populated March Rota/all/Assembly and May payroll/Asim/leave pop-up verified without page overflow. May gross 247407.70 / net 239747.20 / MPF 7660.50 each; zero prepare/preview calls on view; all Jan–May row fingerprints and 2645 journals/21492 lines unchanged.
+- [ ] Remaining: bulk “same as May” exact instruction parser; explicit holiday-date linking (money appears on leave record, unknown days stay unknown); historical daily-rate formula is absent and not invented; note author role unavailable. Live owner/manager role-group saves, rota drag/save, payroll prepare/instructions/approval and concurrent writes deliberately untested on production records. Existing Team AdminRoute retained.
+
 ## People redesign — Part 1
 - [x] Team grouped by venue and full-page records with evidence pop-ups; 49 records, 27 working (Assembly 18 / Caliente 9). Unknown entitlements/dates retained; no payroll/financial writes.
 - [x] Title-first Team/Rota/Payroll and phone pills; page ask boxes removed, shared tab divider fixed, factual findings and mistake-prevention markers open orb topics.

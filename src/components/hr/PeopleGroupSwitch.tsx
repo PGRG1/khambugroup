@@ -1,0 +1,2 @@
+import {Button} from '@/components/ui/button';
+export function PeopleGroupSwitch({value,onChange}:{value:'Role'|'Venue';onChange:(value:'Role'|'Venue')=>void}){return <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Group by:</span><div className="kit-seg" role="group" aria-label="Group by">{(['Role','Venue'] as const).map(v=><Button key={v} variant="ghost" aria-pressed={value===v} onClick={()=>onChange(v)}>{v}</Button>)}</div></div>;}

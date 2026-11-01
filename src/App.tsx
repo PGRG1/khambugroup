@@ -111,6 +111,7 @@ import PettyCashFloatsPage from "./pages/petty-cash/PettyCashFloatsPage";
 import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassificationsPage";
 
 import HREmployees from "./pages/hr/HREmployees";
+import PeopleOverview, {PeopleEntry} from "./pages/hr/PeopleOverview";
 import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
 import PeopleSettings from "./pages/admin/PeopleSettings";
 import AccountingSettings from "./pages/admin/Accounting";
@@ -362,7 +363,8 @@ function App() {
                 
 
                 
-                <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
+                <Route path="/hr" element={<ProtectedRoute pageKey="people"><PeopleEntry /></ProtectedRoute>} />
+                <Route path="/hr/overview" element={<ProtectedRoute pageKey="people"><PeopleOverview /></ProtectedRoute>} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
                 <Route path="/hr/employees/:id" element={<AdminRoute><HREmployeeProfile /></AdminRoute>} />
                 

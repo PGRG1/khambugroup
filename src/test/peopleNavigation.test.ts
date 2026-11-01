@@ -3,7 +3,7 @@ import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
 
 describe("People navigation routes", () => {
   it("selects each existing HR destination", () => {
-    for (const path of ["/hr/employees", "/hr/schedule", "/hr/payroll"]) {
+    for (const path of ["/hr/overview", "/hr/employees", "/hr/schedule", "/hr/payroll"]) {
       expect(peopleNavigationPath(path)).toBe(path);
     }
   });
@@ -12,7 +12,7 @@ describe("People navigation routes", () => {
   });
   it("selects Payroll Payables rather than its Payroll parent", () => {
     expect(peopleNavigationPath("/hr/payroll/payables")).toBeUndefined();
-    expect(peopleNavigationPath("/hr")).toBe("/hr/employees");
+    expect(peopleNavigationPath("/hr")).toBe("/hr/overview");
     expect(peopleNavigationPath("/hr/leave")).toBe("/hr/schedule");
   });
   it("does not select unrelated prefix matches", () => {

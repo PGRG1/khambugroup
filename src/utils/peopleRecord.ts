@@ -61,6 +61,8 @@ export function leaveStatement(person: EvidenceRow, data: PersonEvidence): Leave
       lines.push({id:`payroll-npl-${p.id}`,date:null,year:p.year,event:npl?`No-pay leave deduction · ${formatMonthLabel(month)}`:`No-pay leave deducted in payroll, dates not recorded · ${formatMonthLabel(month)}`,al:0,sh:0,kind:'NPL',how:`Deducted ${formatCurrency(p.unpaid_leave_deduction)}`,author:'Not recorded',source:'Saved payroll',conflict});
     }
     // Money alone never proves how many holiday days were paid. Only explicit linked dates settle owed days.
+    const annualDates=Array.isArray(p.preparation?.annual_leave_paid_dates)?p.preparation.annual_leave_paid_dates:[];
+    if(Number(p.annual_leave_pay)>0)lines.push({id:`payroll-al-${p.id}`,date:annualDates[0]??null,year:p.year,event:`Annual leave pay · ${formatMonthLabel(month)}${annualDates.length?'':' · leave dates not recorded'}`,al:annualDates.length?-annualDates.length:0,sh:0,kind:'AL',how:`Paid ${formatCurrency(p.annual_leave_pay)}`,author:'Not recorded',source:`Saved payroll · ${p.id}`});
     const paidDates=Array.isArray(p.preparation?.statutory_holiday_paid_dates)?p.preparation.statutory_holiday_paid_dates:[];
     if(Number(p.statutory_holiday_pay)>0)lines.push({id:`payroll-sh-${p.id}`,date:paidDates[0]??null,event:`Statutory holiday pay · ${formatMonthLabel(month)}${paidDates.length?'':' · holiday dates not recorded'}`,al:0,sh:-paidDates.length,kind:'SH',how:`Paid ${formatCurrency(p.statutory_holiday_pay)} · ${formatMonthLabel(month)}`,author:'Not recorded',source:'Saved payroll'});
   }
