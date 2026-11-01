@@ -7,7 +7,6 @@ export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Purchase Orders", url: PURCHASE_ORDERS_URL },
   { title: "Invoices", url: "/procurement/invoices" },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
-  { title: "Purchasing Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
 ];
 
 /** Supplier directory: listed under Settings → Master Data for admins; non-admins keep it in Purchasing. */
@@ -19,10 +18,7 @@ export const stockMenuSectionPages: PurchasingTab[] = [
   { title: "Menu costs", url: "/procurement/menu-costing" },
 ];
 
-export const purchasingAnalysisPages: PurchasingTab[] = [
-  { title: "Purchase Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
-  { title: "Spend Summary", url: "/procurement/finance/spend" },
-];
+export const purchasingAnalysisPages: PurchasingTab[] = [];
 
 export function purchasingSectionPagesForPath(pathname: string) {
   return isStockMenuRoute(pathname) ? stockMenuSectionPages : purchasingSectionPages;
@@ -34,11 +30,6 @@ export const purchasingTabGroups: PurchasingTab[][] = [
     { title: "Purchase Register", url: "/procurement/line-items" },
     { title: "Credit & Debit Notes", url: "/procurement/credit-notes", adminOnly: true },
     { title: "Goods received", url: "/procurement/receiving" },
-  ],
-  [
-    { title: "Purchase Analysis", url: "/procurement/purchase-analysis", adminOnly: true },
-    { title: "Spend Summary", url: "/procurement/finance/spend" },
-    { title: "Supplier Pricing", url: "/procurement/supplier-pricing", adminOnly: true },
   ],
   [
     { title: "On hand", url: "/procurement/inventory" },

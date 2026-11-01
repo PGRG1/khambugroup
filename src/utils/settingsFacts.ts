@@ -1,4 +1,5 @@
-export const settingsTabs = ['Business','Users','Accounting','Bani','Alerts'] as const;
+export const settingsTabs = ['Business','Users','Accounting','Master data','Bani','Alerts'] as const;
+export const settingsTabKey = (tab: string) => tab.toLowerCase().replace(/ /g,'-');
 export const approvalWords: Record<string,string> = {
  owner_run: "Owner's changes count straight away; others wait for the owner",
  managed: "Managers' changes need the owner",

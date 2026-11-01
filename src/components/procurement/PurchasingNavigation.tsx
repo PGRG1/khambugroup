@@ -27,9 +27,8 @@ export function PurchasingNavigation() {
   if (loading) return null;
   const sectionPages = purchasingSectionPagesForPath(pathname);
   // Supplier directory stays in Purchasing under existing access rights.
-  const pages = (isStockMenuRoute(pathname) ? sectionPages : [...sectionPages, SUPPLIER_DIRECTORY_TAB]).filter(canOpen);
+  const pages = sectionPages.filter(canOpen);
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
-  const analysis = pathname === "/procurement/dashboard" ? purchasingAnalysisPages.filter(canOpen) : [];
   const parentPath = purchasingParentPath(pathname);
   return <>
     {!isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
@@ -38,9 +37,6 @@ export function PurchasingNavigation() {
     {isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
       <SectionPillRow label="Stock & menu" items={pages.map(page => ({ label: page.title, path: page.url }))} activePath={parentPath} />
     </div>}
-    {analysis.length > 0 && <nav aria-label="Purchasing analysis" className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-      {analysis.map(page => <Link key={page.url} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={page.url}>{page.title}</Link>)}
-    </nav>}
     {!!tabs?.length && invoiceFamily && tabHost && createPortal(<div className="relative min-w-0"><nav ref={invoiceTabsRef} aria-label="Purchasing pages" className="max-w-full overflow-x-auto border-b border-border"><div className="flex w-max gap-5 pr-5">{tabs.map(tab => <Link key={tab.url} to={tab.url} aria-current={matchesPurchasingPath(pathname, tab.url) ? "page" : undefined} className={cn("py-3 text-[13px] font-medium whitespace-nowrap border-b-2", matchesPurchasingPath(pathname, tab.url) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab.url === "/procurement/credit-notes" ? <><span className="max-[640px]:hidden">{tab.title}</span><span className="min-[641px]:hidden">Credit &amp; Debit</span></> : tab.title}</Link>)}</div></nav><div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent min-[641px]:hidden" /></div>, tabHost)}
     {!!tabs?.length && !invoiceFamily && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
     <div className="inline-flex w-max items-center gap-1 rounded-lg bg-muted/40 p-1 border border-border/50">

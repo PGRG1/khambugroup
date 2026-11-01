@@ -58,11 +58,8 @@ import Procurement from "./pages/Procurement";
 import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
 import StockMovementsTab from "./components/procurement/StockMovementsTab";
-import SpendSummaryPage from "./pages/procurement/SpendSummary";
 import SupplierAccountsPage from "./pages/procurement/SupplierAccounts";
 import SupplierAccountPage from "./pages/procurement/SupplierAccount";
-import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
-import SupplierPricing from "./pages/procurement/SupplierPricing";
 import OpeningBalances from "./pages/procurement/OpeningBalances";
 
 import Cashflow from "./pages/finance/Cashflow";
@@ -321,7 +318,7 @@ function App() {
                 
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
                 <Route path="/procurement/dashboard" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="dashboard" /></ProtectedRoute>} />
-                <Route path="/procurement/suppliers" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="suppliers" /></ProtectedRoute>} />
+                <Route path="/procurement/suppliers" element={<ProtectedRoute pageKey="invoices"><Navigate to="/settings?tab=master-data" replace /></ProtectedRoute>} />
                 <Route path="/procurement/products" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="product-master" /></ProtectedRoute>} />
                 <Route path="/procurement/categories" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="categories" /></ProtectedRoute>} />
                 <Route path="/procurement/invoices" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="invoices" /></ProtectedRoute>} />
@@ -339,14 +336,14 @@ function App() {
                 <Route path="/procurement/waste" element={<AdminRoute><Navigate to="/procurement/movements?type=waste" replace /></AdminRoute>} />
 
                 <Route path="/procurement/finance" element={<Navigate to="/procurement/finance/spend" replace />} />
-                <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
+                <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/dashboard" replace /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/finance/suppliers?view=invoice" replace /></ProtectedRoute>} />
                 <Route path="/procurement/finance/onboarding" element={<Navigate to="/settings?tab=accounting&view=opening" replace />} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
 
-                <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
-                <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
+                <Route path="/procurement/purchase-analysis" element={<AdminRoute><Navigate to="/procurement/dashboard" replace /></AdminRoute>} />
+                <Route path="/procurement/supplier-pricing" element={<AdminRoute><Navigate to="/procurement/dashboard" replace /></AdminRoute>} />
 
                 <Route path="/bank" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank") ?? "/finance/cash"} replace /></AdminRoute>} />
                 <Route path="/bank/dashboard" element={<AdminRoute><Navigate to={legacyFinanceDestination("/bank/dashboard") ?? "/finance/cash"} replace /></AdminRoute>} />
@@ -383,7 +380,7 @@ function App() {
                 <Route path="/expenses/bank-detected" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/categories" element={<Navigate to="/settings?tab=accounting&view=categories" replace />} />
-                <Route path="/expenses/vendors" element={<Navigate to="/procurement/suppliers" replace />} />
+                <Route path="/expenses/vendors" element={<Navigate to="/settings?tab=master-data" replace />} />
                 <Route path="/expenses/mapping" element={<Navigate to="/settings?tab=accounting&view=categories" replace />} />
                 
                 <Route path="/expenses/approvals" element={<Navigate to="/expenses?status=waiting" replace />} />
