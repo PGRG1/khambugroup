@@ -4,7 +4,7 @@ export const TEAM_MODES = {own:'Each venue has its own team',across:'Staff work 
 export type TeamMode = keyof typeof TEAM_MODES;
 export type TeamWorking = {default_mode:TeamMode;role_modes:Record<string,TeamMode>};
 export const DEFAULT_TEAM_WORKING:TeamWorking={default_mode:'own',role_modes:{}};
-export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&m in TEAM_MODES;return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
+export function resolveTeamWorking(value:unknown):TeamWorking {const v=value as Partial<TeamWorking>|null;const valid=(m:unknown):m is TeamMode=>typeof m==='string'&&Object.hasOwn(TEAM_MODES,m);return {default_mode:valid(v?.default_mode)?v.default_mode:'own',role_modes:Object.fromEntries(Object.entries(v?.role_modes??{}).filter(([,m])=>valid(m)))};}
 export const teamMethod=(m:TeamMode)=>({own:'own team',across:'share by hours',central:'central team'})[m];
 export type CostShare={venue_id:string|null;name:string;cents:number;hours:number;method:string};
 export type PersonCost={employee_id:string;mainVenue:string|null;cost:number;shares:CostShare[]};
@@ -19,7 +19,7 @@ export function allocateTeamCost(payroll:RotaRow[],people:RotaRow[],shifts:RotaR
   const primary=venues.find(v=>person?.venue_id?person.venue_id===v.id:person?.venue===v.name),cents=Math.round((Number(p.gross_salary??0)+Number(p.mpf_employer??0))*100);
   const own=shifts.filter(s=>s.employee_id===p.employee_id&&String(s.shift_date).startsWith(month)&&s.status!=='cancelled'&&!s.no_show_decision&&shiftHours(s)>0);
   const hours=venues.map(v=>own.filter(s=>shiftAt(s,v,people,terms)).reduce((n,s)=>n+shiftHours(s),0)),sumHours=hours.reduce((n,h)=>n+h,0);
-  const main=primary?.id??venues[hours.indexOf(Math.max(...hours))]?.id??null;let shares:CostShare[]=[];
+  const main=primary?.id??(sumHours>0?venues[hours.indexOf(Math.max(...hours))]?.id:null)??null;let shares:CostShare[]=[];
   if(mode==='central')shares=[{venue_id:null,name:'Central',cents,hours:sumHours,method:'central team'}];
   else if(mode==='own')shares=[{venue_id:primary?.id??null,name:primary?.name??'Not on rota / venue not recorded',cents,hours:sumHours,method:primary?'own team':'venue not recorded'}];
   else if(sumHours<=0)shares=[{venue_id:null,name:'Not on rota / venue not recorded',cents,hours:0,method:'no month rota hours'}];
@@ -36,7 +36,7 @@ export function allocateTeamCost(payroll:RotaRow[],people:RotaRow[],shifts:RotaR
   return {employee_id:p.employee_id,mainVenue:main,cost:cents/100,shares};
  });
  const bucket=(id:string|null,name:string):VenueCost=>{const shares=persons.flatMap(p=>p.shares).filter(s=>id?s.venue_id===id:s.name===name);const cost=shares.reduce((n,s)=>n+s.cents,0)/100,totalSales=id?sales.filter(s=>String(s.date).startsWith(month)&&(s.venue_id?s.venue_id===id:s.venue===name)).reduce((n,s)=>n+Number(s.total_sales??0),0):0;return {venue_id:id,name,cost,sales:totalSales,percent:rows.length&&totalSales>0?cost/totalSales*100:null,method:[...new Set(shares.map(s=>s.method))].join(' + ')||teamMethod(setting.default_mode)};};
- return {month,cost:rows.length?Math.round(payTotals(rows).cost*100)/100:null,people:persons,venues:venues.map(v=>bucket(v.id,v.name)),central:bucket(null,'Central'),unallocated:bucket(null,'Not on rota / venue not recorded')};
+ return {month,cost:rows.length?persons.reduce((n,p)=>n+Math.round(p.cost*100),0)/100:null,people:persons,venues:venues.map(v=>bucket(v.id,v.name)),central:bucket(null,'Central'),unallocated:bucket(null,'Not on rota / venue not recorded')};
 }
 export function teamSuggestions(people:RotaRow[],shifts:RotaRow[],terms:RotaRow[],venues:RotaRow[],roles:Record<string,string>={}){
  return [...new Set(people.map(e=>roleGroup(e.job_title,roles)))].filter(r=>r!=='No role set').sort().map(role=>{const members=people.filter(e=>roleGroup(e.job_title,roles)===role);const across=members.filter(e=>{const work=shifts.filter(s=>s.employee_id===e.id&&s.status!=='cancelled'&&shiftHours(s)>0);const months=[...new Set(work.map(s=>String(s.shift_date).slice(0,7)))];return months.filter(m=>venues.filter(v=>work.some(s=>String(s.shift_date).startsWith(m)&&shiftAt(s,v,people,terms))).length>1).length>=2;});const count=members.filter(e=>shifts.some(s=>s.employee_id===e.id&&s.status!=='cancelled'&&shiftHours(s)>0)).length;return {role,mode:(across.length?'across':'own') as TeamMode,evidence:across.length?`${across.length} people worked at multiple venues in at least two recorded months`:count?`${count} people have rota records; no repeated cross-venue pattern`:'No rota pattern recorded; default remains own team'};});
