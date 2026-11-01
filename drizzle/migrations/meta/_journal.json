@@ -498,6 +498,13 @@
       "when": 1793520772498,
       "tag": "0070_people_saved_payroll_safety_and_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1793520863381,
+      "tag": "0071_people_explicit_pay_inputs_and_source_evidence",
+      "breakpoints": true
     }
   ]
 }
