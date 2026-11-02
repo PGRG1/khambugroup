@@ -1,7 +1,8 @@
 ## Shared period control — remaining pages
-- [ ] Migrate remaining period/month/planning controls and bounded legacy comparisons; retire old controls.
-- [ ] Bound import/analytics years, standardize labels, and keep the Rota week control.
-- [ ] Focused date-rule tests, desktop/375px page checks, build and read-only record comparison.
+- [x] Migrate remaining period/month/planning controls and bounded legacy comparisons; retire all three old controls.
+- [x] Bound import/analytics years, standardize period labels, and retain Rota week navigation; contract plans explicitly extend to planned dates.
+- [x] Sixteen focused date-rule tests and build passed; all eight requested pages selected Sep 2026 on desktop/375px. Protected counts/latest timestamps unchanged.
+- Verification limits: secondary pages, future plans, legacy comparison interaction and first-unapproved fallback were not browser-exercised; fixtures cover date rules. Payroll selected screenshot captured its loading transition, not the settled table. Custom two-month ranges and selected-item scroll position were not rechecked in this pass.
 
 ## Finance part 3c-2
 - [x] A: New-sales deferred fields, receipt confirmation, liability drafts and schedule items connected; existing sales edits stay immutable. Live draft approval and card-tip receipts not verified/supported.

@@ -34,6 +34,7 @@ export function selectionLabel(value: PeriodSelection, mode: PeriodMode, today: 
   if (mode === 'month' || /^\d{4}-\d{2}$/.test(value.key)) return formatMonthLabel(value.from.slice(0, 7));
   if (value.key === 'mtd') return `${formatMonthLabel(today.slice(0, 7)).split(' ')[0]} so far`;
   if (value.key === 'last-month') return formatMonthLabel(value.from.slice(0, 7));
+  if (value.key === 'last-12') return 'Last 12 months';
   if (value.key === 'this-year' || value.key === 'last-year' || value.key === 'ytd') {
     const y = Number(value.from.slice(0, 4)); return fiscalStart === 1 ? String(y) : `FY ${y}/${String(y + 1).slice(-2)}`;
   }
