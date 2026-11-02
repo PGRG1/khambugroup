@@ -1,4 +1,5 @@
-import {baseSymbol} from '@/utils/money';
+import {baseSymbol,currencySymbol,getBaseCurrency,baseAmount,formatMoney} from '@/utils/money';
+import {lookupFxRate} from '@/hooks/useFxRate';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, Plus, Pencil, Trash2, Ban } from "lucide-react";
@@ -148,18 +149,18 @@ function SupplierPayablesSection({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SupplierOB | null>(null);
-  const [form, setForm] = useState({ supplier_id: "", amount: "", venue: "", notes: "" });
+  const [form, setForm] = useState({ supplier_id: "", amount: "", venue: "", notes: "", currency: "" });
 
   const startAdd = () => {
     setEditing(null);
-    setForm({ supplier_id: "", amount: "", venue: "", notes: "" });
+    setForm({ supplier_id: "", amount: "", venue: "", notes: "", currency: "" });
     setOpen(true);
   };
   const startEdit = (r: SupplierOB) => {
     setEditing(r);
     setForm({
-      supplier_id: r.supplier_id, amount: String(r.amount),
-      venue: r.venue || "", notes: r.notes || "",
+      supplier_id: r.supplier_id, amount: String((r as any).original_amount ?? r.amount),
+      venue: r.venue || "", notes: r.notes || "", currency: (r as any).currency || "",
     });
     setOpen(true);
   };
@@ -170,10 +171,20 @@ function SupplierPayablesSection({
       toast({ title: "Missing fields", description: "Supplier and positive amount required.", variant: "destructive" });
       return;
     }
+    // Foreign balances keep the original amount at the as-of-date (historical) rate; amount stays base.
+    const base = getBaseCurrency(), cur = (form.currency || base).toUpperCase();
+    let fx: Record<string, unknown> = { currency: cur, original_amount: null, fx_rate: null }, baseAmt = amt;
+    if (cur !== base) {
+      const hit = tenantId ? await lookupFxRate(tenantId, goLiveISO, cur).catch(() => null) : null;
+      if (!hit?.rate) { toast({ title: "No exchange rate", description: `No ${cur} rate on ${goLiveISO}.`, variant: "destructive" }); return; }
+      baseAmt = baseAmount(amt, hit.rate, base);
+      fx = { currency: cur, original_amount: amt, fx_rate: hit.rate };
+    }
     const payload: any = {
       tenant_id: tenantId,
       supplier_id: form.supplier_id,
-      amount: amt,
+      amount: baseAmt,
+      ...fx,
       venue: form.venue || null,
       notes: form.notes || "",
       as_of_date: goLiveISO,
@@ -228,7 +239,7 @@ function SupplierPayablesSection({
             ) : rows.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{supplierMap.get(r.supplier_id) || "—"}</TableCell>
-                <TableCell className="text-right td-num">{fmtMoney(Number(r.amount))}</TableCell>
+                <TableCell className="text-right td-num">{(r as any).original_amount!=null&&(r as any).currency&&(r as any).currency!==getBaseCurrency()?<>{formatMoney(Number((r as any).original_amount),(r as any).currency)}<span className="block text-xs text-muted-foreground">{fmtMoney(Number(r.amount))}</span></>:fmtMoney(Number(r.amount))}</TableCell>
                 <TableCell>{r.venue || "—"}</TableCell>
                 <TableCell>{fmtDate(r.as_of_date)}</TableCell>
                 <TableCell className="max-w-xs truncate">{r.notes || "—"}</TableCell>
@@ -256,7 +267,9 @@ function SupplierPayablesSection({
               </Select>
             </div>
             <div>
-              <Label>Amount ({baseSymbol()})</Label>
+              <Label>Currency</Label>
+              <Input aria-label="Opening balance currency" maxLength={3} placeholder={getBaseCurrency()} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} />
+              <Label>Amount ({currencySymbol(form.currency || getBaseCurrency())})</Label>
               <Input type="number" step="0.01" min="0" value={form.amount}
                 onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
             </div>

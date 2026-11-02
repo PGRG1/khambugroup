@@ -1,3 +1,5 @@
+import {owedInCurrency} from '@/utils/fxDocument';
+import {getBaseCurrency,formatMoney} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus, MoreHorizontal, ArrowUpRight } from "lucide-react";
@@ -555,7 +557,7 @@ export default function SupplierAccountPage() {
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><h1 className="text-2xl font-semibold font-display break-words">{supplierName || "—"}</h1>
             <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
-              {outstanding!==0&&<span>{fmtMoney(outstanding)} owed</span>}
+              {outstanding!==0&&<span>{fmtMoney(outstanding)} owed{owedInCurrency(supplierInvoices.filter(i=>i.outstanding_amount>0&&i.payment_status!=='voided'),getBaseCurrency())?` (${owedInCurrency(supplierInvoices.filter(i=>i.outstanding_amount>0&&i.payment_status!=='voided'),getBaseCurrency())})`:''}</span>}
               {overdue!==0&&<span className="text-warning">· {fmtMoney(overdue)} overdue</span>}
               {openInvoicesList.length>0&&<span>· {openInvoicesList.length} open invoices</span>}
               {receivedDepositsHeld!==0&&<span>{outstanding!==0||overdue!==0||openInvoicesList.length>0?"· ":""}{fmtMoney(receivedDepositsHeld)} deposits held</span>}
@@ -704,7 +706,7 @@ export default function SupplierAccountPage() {
                         <td data-label="Total" className="py-2 pr-4 text-right td-num tabular-nums">{fmt(inv.total_amount)}</td>
                         <td data-label="Paid" className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmt(inv.amount_paid)}</td>
                         <td className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.held_amount > 0 ? fmt(inv.held_amount) : ""}</td>
-                        <td data-label="Open" className="py-2 pr-4 text-right td-num tabular-nums text-warning">{fmt(inv.outstanding_amount)}</td>
+                        <td data-label="Open" className="py-2 pr-4 text-right td-num tabular-nums text-warning">{inv.owed_in_currency!=null&&inv.currency?<>{formatMoney(inv.owed_in_currency,inv.currency)}<span className="block text-xs text-muted-foreground">{fmt(inv.outstanding_amount)}</span></>:fmt(inv.outstanding_amount)}</td>
                         <td className={`py-2 pr-4 text-right td-num tabular-nums ${inv.age_days > 60 ? "text-destructive" : ""}`}>{inv.age_days}d</td>
                         <td className="py-2 text-right whitespace-nowrap">
                           <Button size="sm" variant="outline" onClick={() => handlePayInvoice(inv)}>Pay this</Button>

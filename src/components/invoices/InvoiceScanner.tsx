@@ -1683,7 +1683,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           venue: inv.venue,
           invoice_number: inv.invoice_number,
           invoice_date: inv.invoice_date,
-          currency: inv.currency || getBaseCurrency(),
+          currency: inv.currency || (suppliers.find(s=>s.id===inv.supplier_id) as any)?.default_currency || getBaseCurrency(),
           fx_rate: Number(inv.fx_rate)||null,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
@@ -2441,7 +2441,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Due date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["due_date"]} /></div>
               <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
-            <label className="min-w-0 space-y-1 text-xs text-muted-foreground">Currency<Input aria-label="Scanned invoice currency" maxLength={3} value={current.currency||''} placeholder={getBaseCurrency()} onChange={e=>updateField('currency',e.target.value.toUpperCase())}/></label>
+            <label className="min-w-0 space-y-1 text-xs text-muted-foreground">Currency<Input aria-label="Scanned invoice currency" maxLength={3} value={current.currency||''} placeholder={(suppliers.find(s=>s.id===current.supplier_id) as any)?.default_currency||getBaseCurrency()} onChange={e=>updateField('currency',e.target.value.toUpperCase())}/></label>
             <label className="min-w-0 space-y-1 text-xs text-muted-foreground">Rate on invoice date<Input aria-label="Scanned invoice rate" inputMode="decimal" value={current.fx_rate||''} placeholder="Daily reference rate" onChange={e=>updateField('fx_rate',e.target.value)}/></label>
             <div className="col-span-2 min-w-0 space-y-1">
               {!(noteOpen || current.notes) ? <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setNoteOpen(true)}>+ Add note</Button> : <Label className="text-[11px] font-medium text-muted-foreground">Notes</Label>}

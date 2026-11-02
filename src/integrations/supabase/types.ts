@@ -90,10 +90,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit: number
+          currency: string | null
           debit: number
+          fx_rate: number | null
           id: string
           notes: string | null
           organization_id: string
+          original_amount: number | null
           posted_journal_id: string | null
           status: string
           tenant_id: string
@@ -105,10 +108,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit?: number
+          currency?: string | null
           debit?: number
+          fx_rate?: number | null
           id?: string
           notes?: string | null
           organization_id: string
+          original_amount?: number | null
           posted_journal_id?: string | null
           status?: string
           tenant_id: string
@@ -120,10 +126,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit?: number
+          currency?: string | null
           debit?: number
+          fx_rate?: number | null
           id?: string
           notes?: string | null
           organization_id?: string
+          original_amount?: number | null
           posted_journal_id?: string | null
           status?: string
           tenant_id?: string
@@ -1312,7 +1321,9 @@ export type Database = {
           linked_gl_account_id: string | null
           notes: string
           opening_balance: number
+          opening_base_value: number | null
           opening_date: string
+          opening_fx_rate: number | null
           organization_id: string | null
           sort_order: number
           tenant_id: string
@@ -1335,7 +1346,9 @@ export type Database = {
           linked_gl_account_id?: string | null
           notes?: string
           opening_balance?: number
+          opening_base_value?: number | null
           opening_date?: string
+          opening_fx_rate?: number | null
           organization_id?: string | null
           sort_order?: number
           tenant_id?: string
@@ -1358,7 +1371,9 @@ export type Database = {
           linked_gl_account_id?: string | null
           notes?: string
           opening_balance?: number
+          opening_base_value?: number | null
           opening_date?: string
+          opening_fx_rate?: number | null
           organization_id?: string | null
           sort_order?: number
           tenant_id?: string
@@ -2196,11 +2211,15 @@ export type Database = {
           created_by: string | null
           credit_note_date: string
           credit_note_number: string
+          currency: string | null
+          fx_rate: number | null
           id: string
           is_opening_balance: boolean
           journal_entry_id: string | null
           notes: string
           original_amount: number
+          original_currency_amount: number | null
+          original_remaining: number | null
           remaining_balance: number
           source_invoice_id: string | null
           status: string
@@ -2215,11 +2234,15 @@ export type Database = {
           created_by?: string | null
           credit_note_date?: string
           credit_note_number?: string
+          currency?: string | null
+          fx_rate?: number | null
           id?: string
           is_opening_balance?: boolean
           journal_entry_id?: string | null
           notes?: string
           original_amount: number
+          original_currency_amount?: number | null
+          original_remaining?: number | null
           remaining_balance?: number
           source_invoice_id?: string | null
           status?: string
@@ -2234,11 +2257,15 @@ export type Database = {
           created_by?: string | null
           credit_note_date?: string
           credit_note_number?: string
+          currency?: string | null
+          fx_rate?: number | null
           id?: string
           is_opening_balance?: boolean
           journal_entry_id?: string | null
           notes?: string
           original_amount?: number
+          original_currency_amount?: number | null
+          original_remaining?: number | null
           remaining_balance?: number
           source_invoice_id?: string | null
           status?: string
@@ -2886,6 +2913,7 @@ export type Database = {
           in_service_date: string | null
           line_no: number
           notes: string | null
+          original_amount: number | null
           prepaid_expense_account_id: string | null
           prepaid_schedule_id: string | null
           salvage_value: number
@@ -2911,6 +2939,7 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          original_amount?: number | null
           prepaid_expense_account_id?: string | null
           prepaid_schedule_id?: string | null
           salvage_value?: number
@@ -2936,6 +2965,7 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          original_amount?: number | null
           prepaid_expense_account_id?: string | null
           prepaid_schedule_id?: string | null
           salvage_value?: number
@@ -3268,6 +3298,7 @@ export type Database = {
           journal_entry_id: string | null
           meta: Json
           notes: string | null
+          original_balance: number | null
           original_total: number | null
           paid_amount: number
           payment_status: string
@@ -3319,6 +3350,7 @@ export type Database = {
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_balance?: number | null
           original_total?: number | null
           paid_amount?: number
           payment_status?: string
@@ -3370,6 +3402,7 @@ export type Database = {
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_balance?: number | null
           original_total?: number | null
           paid_amount?: number
           payment_status?: string
@@ -8191,6 +8224,8 @@ export type Database = {
           net_unit_cost: number
           normalized_unit_cost: number | null
           notes: string | null
+          original_total: number | null
+          original_unit_price: number | null
           pack_size: string | null
           pack_size_norm: string | null
           price_disputed: boolean
@@ -8232,6 +8267,8 @@ export type Database = {
           net_unit_cost?: number
           normalized_unit_cost?: number | null
           notes?: string | null
+          original_total?: number | null
+          original_unit_price?: number | null
           pack_size?: string | null
           pack_size_norm?: string | null
           price_disputed?: boolean
@@ -8273,6 +8310,8 @@ export type Database = {
           net_unit_cost?: number
           normalized_unit_cost?: number | null
           notes?: string | null
+          original_total?: number | null
+          original_unit_price?: number | null
           pack_size?: string | null
           pack_size_norm?: string | null
           price_disputed?: boolean
@@ -8481,6 +8520,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name: string | null
           notes: string | null
+          original_balance: number | null
           original_total: number | null
           payment_method: string | null
           payment_status: string
@@ -8537,6 +8577,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_balance?: number | null
           original_total?: number | null
           payment_method?: string | null
           payment_status?: string
@@ -8593,6 +8634,7 @@ export type Database = {
           invoice_number?: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_balance?: number | null
           original_total?: number | null
           payment_method?: string | null
           payment_status?: string
@@ -13707,8 +13749,11 @@ export type Database = {
           as_of_date: string
           created_at: string
           created_by: string | null
+          currency: string | null
+          fx_rate: number | null
           id: string
           notes: string
+          original_amount: number | null
           supplier_id: string
           tenant_id: string
           updated_at: string
@@ -13719,8 +13764,11 @@ export type Database = {
           as_of_date?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_rate?: number | null
           id?: string
           notes?: string
+          original_amount?: number | null
           supplier_id: string
           tenant_id: string
           updated_at?: string
@@ -13731,8 +13779,11 @@ export type Database = {
           as_of_date?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_rate?: number | null
           id?: string
           notes?: string
+          original_amount?: number | null
           supplier_id?: string
           tenant_id?: string
           updated_at?: string
@@ -13763,6 +13814,7 @@ export type Database = {
           code: string | null
           contact_person: string | null
           created_at: string
+          default_currency: string | null
           delivery_days: string[]
           directory_merged_into: string | null
           email: string | null
@@ -13789,6 +13841,7 @@ export type Database = {
           code?: string | null
           contact_person?: string | null
           created_at?: string
+          default_currency?: string | null
           delivery_days?: string[]
           directory_merged_into?: string | null
           email?: string | null
@@ -13815,6 +13868,7 @@ export type Database = {
           code?: string | null
           contact_person?: string | null
           created_at?: string
+          default_currency?: string | null
           delivery_days?: string[]
           directory_merged_into?: string | null
           email?: string | null

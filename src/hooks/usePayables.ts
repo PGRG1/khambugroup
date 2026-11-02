@@ -1,3 +1,4 @@
+import { getBaseCurrency } from '@/utils/money';
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -34,6 +35,11 @@ export type APInvoice = {
   review_status: string | null;
   is_disputed: boolean;
   dispute_notes: string | null;
+  /** Document currency (null/base = base). */
+  currency?: string | null;
+  /** Remaining owed in document currency for foreign items; null when base. */
+  owed_in_currency?: number | null;
+  original_total?: number | null;
 };
 
 export type APSupplierSummary = {
@@ -69,6 +75,9 @@ export type APCreditNote = {
   venue: string | null;
   notes: string;
   source_invoice_id: string | null;
+  currency?: string | null;
+  original_remaining?: number | null;
+  original_currency_amount?: number | null;
   source_invoice_number: string | null;
 };
 
@@ -135,7 +144,7 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, held_amount, remaining_balance, payment_status, payment_method, status, review_status, dispute_notes, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, held_amount, remaining_balance, payment_status, payment_method, status, review_status, dispute_notes, bank_match_status, scheduled_payment_date, exception_note, file_url, currency, original_total, original_balance, suppliers(name)",
         undefined,
         tenantId,
       );
@@ -293,6 +302,9 @@ export function usePayables() {
           amount_paid: paid,
           held_amount: Math.round(held * 100) / 100,
           outstanding_amount: Math.round(remaining * 100) / 100,
+          currency: i.currency || null,
+          original_total: i.original_total != null ? Number(i.original_total) : null,
+          owed_in_currency: i.original_balance != null && i.currency && i.currency !== getBaseCurrency() ? Number(i.original_balance) : null,
           age_days: ageDays,
           bucket: bucketOf(ageDays),
           payment_status: derived,
@@ -378,7 +390,7 @@ export function usePayables() {
       // Credit notes (all)
       const cns = await fetchAllRows(
         "credit_notes",
-        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id",
+        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id, currency, original_currency_amount, original_remaining",
         undefined,
         tenantId,
       );
@@ -398,6 +410,9 @@ export function usePayables() {
           venue: c.venue || null,
           notes: c.notes || "",
           source_invoice_id: c.source_invoice_id || null,
+          currency: c.currency || null,
+          original_remaining: c.original_remaining != null ? Number(c.original_remaining) : null,
+          original_currency_amount: c.original_currency_amount != null ? Number(c.original_currency_amount) : null,
           source_invoice_number: c.source_invoice_id ? (invoiceNumberById.get(c.source_invoice_id) || null) : null,
         };
       });
