@@ -476,9 +476,9 @@ export default function BillsExpenses() {
     try {
       if(editing?.recurring_rule_id&&!header.attachment_path&&!header.attachment_url){
         if(!tenantId)return;
-        const {data:rule,error:ruleError}=await supabase.from('expense_recurring_rules').select('is_contract').eq('id',editing.recurring_rule_id).eq('tenant_id',tenantId).single();
+        const {data:rule,error:ruleError}=await supabase.from('expense_recurring_rules').select('is_contract,billed_when').eq('id',editing.recurring_rule_id).eq('tenant_id',tenantId).single();
         if(ruleError){toast.error('Could not check the regular bill rule. Please try again.');return;}
-        if(usesContractBillApproval(rule.is_contract,header.attachment_path,header.attachment_url)){
+        if(rule.billed_when!=='advance'&&usesContractBillApproval(rule.is_contract,header.attachment_path,header.attachment_url)){
           const {error}=await supabase.rpc('expense_contract_bill_approve',{p_bill:editing.id});if(error)toast.error(error.message);else{toast.success('Contract accrual booked; bill retained unchanged');setEditorOpen(false);}return;
         }
       }
@@ -486,7 +486,7 @@ export default function BillsExpenses() {
       const id = await saveBill({...header, approval_status:'pending_review'}, allocations);
       if (!id) return;
       if (tenantId) await saveVenueSplit({tenantId,ownerType:'expense_bill',ownerId:id,mode:splitDraft.mode,lines:splitDraft.lines,baseAmount:Number(header.total_amount||0)});
-      if(allocations.some(a=>a.capitalize)){toast.success('Asset bill saved for monthly approval');setEditorOpen(false);return;}
+      if(allocations.some(a=>a.capitalize)||header.recurring_rule_id){toast.success('Bill saved for monthly approval');setEditorOpen(false);return;}
       const ok = await postBill(id);
       if (ok) setEditorOpen(false);
     } finally { setBusy(false); }

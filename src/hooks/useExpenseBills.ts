@@ -87,6 +87,8 @@ export interface ExpenseBillAllocation {
   useful_life_months?: number | null;
   in_service_date?: string | null;
   salvage_value?: number | null;
+  prepaid_schedule_id?: string | null;
+  prepaid_expense_account_id?: string | null;
   supplier_account_id?: string | null;
   id?: string;
   bill_id?: string;
@@ -229,7 +231,7 @@ export function useExpenseBills() {
             bill_id: billId,
             line_no: i + 1,
             expense_category: a.expense_category || null,
-            account_id: a.account_id || null,
+            account_id: a.prepaid_expense_account_id || a.account_id || null,
             supplier_account_id: a.supplier_account_id || header.supplier_account_id || null,
             venue: a.venue || null,
             department: a.department || null,
@@ -248,6 +250,7 @@ export function useExpenseBills() {
           for(const row of payload){const existing=existingLines?.find(l=>l.line_no===row.line_no);const result=existing?await supabase.from('expense_bill_allocations').update(row).eq('id',existing.id).eq('tenant_id',tenantId):await supabase.from('expense_bill_allocations').insert(row);if(result.error)throw result.error;}
         }
 
+        if(header.recurring_rule_id){const {error}=await supabase.rpc('finance_advance_contract_prepare',{t:tenantId,ident:billId});if(error)throw error;}
         await refresh();
         return billId ?? null;
       } catch (e: any) {
