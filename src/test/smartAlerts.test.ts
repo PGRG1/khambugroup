@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {salesBaseline,salesChange,priceIncrease,muteMatches,isSuppressed,lifecycle,detect} from '../../supabase/functions/evaluate-alerts/rules';
+import {salesBaseline,salesChange,priceIncrease,muteMatches,isSuppressed,lifecycle,detectSignals as detect} from '../../supabase/functions/evaluate-alerts/rules';
 const a={kind:'sales_low',area:'sales',venue_id:'v',subject:'2026-11-01',severity:'urgent' as const,title:'Test',why:'Test',baseline:100,actual:50,action_path:'/sales-data',date:'2026-11-01',payload:{change_percent:50}};
 describe('Smart Alerts own-normal rules',()=>{
  it('sales uses total sales including discounts, not revenue',()=>{const data={venues:[{id:'v',name:'Place',is_active:true}],sales_records:['2026-10-04','2026-10-11','2026-10-18','2026-10-25'].map(date=>({venue_id:'v',date,total_sales:100,subtotal:100,service_charge:0})).concat([{venue_id:'v',date:'2026-11-01',total_sales:50,subtotal:100,service_charge:0}])};const alert=detect(data,'2026-11-01','USD','2026-01-01').find(a=>a.kind==='sales_low');expect(alert?.actual).toBe(50);expect(alert?.baseline).toBe(100);});
