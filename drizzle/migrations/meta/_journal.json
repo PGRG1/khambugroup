@@ -897,6 +897,13 @@
       "when": 1793589799442,
       "tag": "0127_bani_alert_ask_card_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1793589838266,
+      "tag": "0128_smart_alert_ranked_sync_cap",
+      "breakpoints": true
     }
   ]
 }
