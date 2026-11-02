@@ -1,4 +1,9 @@
-## Smart Alerts part one — current request
+## Smart Alerts part two — current request
+- [ ] Coverage/root grouping, confidence, grace, fourteen-day sales recovery, closed-weekday questions, ten-item cap and summary lifecycle.
+- [ ] Settings coverage/watch/role/delivery/ask controls; confirmed Bani ask cards and engine evaluation.
+- [ ] Learning card, tenant-time digest/quiet-hour delivery; focused fixtures, isolated QA save/readback/cleanup, KHAMBU evaluation and desktop/375px checks.
+
+## Smart Alerts part one — previous request
 - [x] Automatic tenant-scoped detectors, additive alert schema, atomic lifecycle/mutes/questions, urgent-only push and local-day schedule (one hourly wakeup, each tenant once daily).
 - [x] Bell inbox, light desktop/375px panels, sales evidence dialog and Tell me less; Settings Alerts unchanged. Sales links open the requested day without altering portal scope.
 - [x] 19 rule fixtures; isolated QA chart/mute save-readback/unmute/Done/Reopen; real KHAMBU inbox and missing-day link; current build OK. Repeated evaluation creates zero duplicates. KHAMBU journals/invoices/bills/sales/payroll whole-row fingerprints identical. Temporary QA alert removed.
