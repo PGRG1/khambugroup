@@ -1,4 +1,9 @@
-## Foreign currency part 1 — current request
+## Foreign currency part 2 — current request
+- [ ] Finish invoice and statement original/base currency paths and phone Currencies layout; rerun failed tests.
+- [ ] Guarded realised FX payment adjustments, month-end revaluation draft and next-month reversal; base-currency report lines and original columns.
+- [ ] Isolated QA approval/readback/cleanup, KHAMBU October read-only preview, desktop and 375px verification.
+
+## Foreign currency part 1 — previous request
 - [x] Base currency setting/lock, global daily rates + history backfill + manual overrides, fx_rate lookup, ISO formatter and HK$ sweep, original amounts/rates on documents and new journal lines, Books › Currencies, foreign Bank & cash balances, bill currency/rate edit, scanner currency detection.
 - [ ] Invoice scanner currency/rate entry UI, bank/settlement parser currency detection, base-amount conversion for foreign invoices/settlements (columns and auto-rate are ready). Part 2: gains/losses and revaluation.
 
