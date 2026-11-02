@@ -14,7 +14,8 @@ export function formatDecimal(value: number, digits = 2): string {
 
 /** Tenant-aware money for cross-business alerts, without changing legacy displays. */
 export function formatTenantCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "code", maximumFractionDigits: 2 }).format(value);
+  const parts = new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "symbol", minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(Math.abs(value));
+  return `${value < 0 ? "-" : ""}${parts.find(p => p.type === "currency")?.value ?? currency} ${parts.filter(p => !["currency", "literal"].includes(p.type)).map(p => p.value).join("")}`;
 }
 
 export function formatCurrency(value: number): string {
