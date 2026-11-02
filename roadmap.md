@@ -1,3 +1,12 @@
+## Finance 3c-2 leftovers — current request
+- [ ] Unposted bill/invoice asset treatment; advance-contract prepayment drafts.
+- [ ] Tax assessment read/review and payable due items.
+- [ ] Unified multi-file statement review and direct unpaid multi-match drafts.
+- [ ] Accountant account merge guards.
+- [ ] Central sharing and sales-derived merchant aging.
+- [ ] Deferred sales edit/correction drafts and card tips.
+- [ ] Fixture tests, desktop/375px checks and protected-record comparison.
+
 ## Shared period control — remaining pages
 - [x] Migrate remaining period/month/planning controls and bounded legacy comparisons; retire all three old controls.
 - [x] Bound import/analytics years, standardize period labels, and retain Rota week navigation; contract plans explicitly extend to planned dates.
