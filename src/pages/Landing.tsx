@@ -100,6 +100,8 @@ export default function Landing() {
   const vs = useVenueScope();
   const openTopic = useBaniTopic();
   const attach = useFloatingBaniAttach();
+  const [msg, setMsg] = useState("");
+  const dict = useDictation((t) => setMsg((p) => (p ? `${p} ${t}` : t)));
   const [ref, width, left] = useWidth();
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -342,7 +344,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="ld-dock" style={{ left: left + width / 2, width: Math.min(760, width - 32) }}><Composer placeholder="Ask Bani, or drop a file" onSend={ask} onAttach={(f) => attach(f)} /></div>
+      <div className="ld-dock" style={{ left: left + width / 2, width: Math.min(760, width - 32) }}><Composer placeholder="Ask Bani, or drop a file" onSend={ask} onAttach={(f) => attach(f)} text={msg} onText={setMsg} dict={dict} /></div>
       {panel && <SidePanel panel={panel} sheet={size === "ph"} onClose={() => setPanel(null)} onAsk={ask} />}
     </div>
   );
