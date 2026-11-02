@@ -16,7 +16,6 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
 import Index from "./pages/Index";
-import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 
 import DataPage from "./pages/DataPage";
@@ -208,7 +207,7 @@ function App() {
                 <Route element={<TenantShell />}>
 <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
                 <Route path="/your-team" element={<Navigate to="/" replace />} />
-                <Route path="/overview" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                <Route path="/overview" element={<Navigate to="/" replace />} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
