@@ -1,5 +1,5 @@
 # Smart Alerts engine
 - rules.ts re-exports pure detectors from _shared/smartAlerts, shared with confirmed Bani asks; index.ts reads financial sources only, never posts or repairs records. Shared tenantCurrency owns portal/server amount formatting.
 - Server-only smart_alert_sync atomically dedupes and closes resolved conditions; explicit smart_alert_action owns answers and preferences.
-- Scheduled calls authenticate with private database tokens; user calls revalidate tenant manager membership. Push only urgent, permission- and mute-scoped recipients.
-- Coverage roots suppress unjudgeable downstream conditions; ten-item ranking sends overflow to summary. Delivery waits through tenant quiet hours and claims each per-user daily digest once.
+- Scheduled calls authenticate with private database tokens; dry runs require manager access, inbox/work actions revalidate membership, protected roles and page/venue access. channels.ts separates informational business notifications from never-pushed housekeeping.
+- Coverage roots suppress downstream payment/payout symptoms. Inbox/dry-run reads never sync or push; explicit work completion materializes only its authorised event and delegates to smart_alert_action. Delivery respects phone subscription, personal mutes and quiet hours.
