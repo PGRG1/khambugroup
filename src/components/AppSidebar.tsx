@@ -111,7 +111,7 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
 const navItems: (Item & { icon: any })[] = [
-  { title: "Home", url: "/", icon: HomeOrb, pageKey: "home", end: true },
+  { title: "BANI TEAM", url: "/", icon: HomeOrb, pageKey: "home", end: true },
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
