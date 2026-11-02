@@ -15880,7 +15880,6 @@ export type Database = {
         Args: { m: string; t: string }
         Returns: Json
       }
-      finance_fx_verify_qa: { Args: never; Returns: Json }
       finance_invoice_asset_account: {
         Args: { line_id: string; original: string; t: string }
         Returns: string
