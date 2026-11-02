@@ -865,8 +865,8 @@ export default function RevenueTargets() {
         const remaining = monthly.managerRevenue - monthly.actualRevenue;
 
         const paceValue =
-          remainingDays === 0 ? "HK$ 0"
-          : remaining <= 0 ? "HK$ 0"
+          remainingDays === 0 ? `${baseSymbol()} 0`
+          : remaining <= 0 ? `${baseSymbol()} 0`
           : `${fmtHKD(remaining / remainingDays)}/day`;
         const paceHint =
           remainingDays === 0 ? "Month complete"
@@ -1020,7 +1020,7 @@ export default function RevenueTargets() {
               label="Needed per remaining day"
               value={remainingDays > 0 && monthly.managerRevenue - monthly.actualRevenue > 0
                 ? fmtHKD((monthly.managerRevenue - monthly.actualRevenue) / remainingDays)
-                : "HK$ 0"}
+                : `${baseSymbol()} 0`}
               strong
             />
             <SummaryRow

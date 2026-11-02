@@ -135,7 +135,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
               const display = draft ?? (existing ? String(existing.target_value) : "");
               const isCost = card.kpi_category === "cost";
               const mode = (existing?.target_mode ?? "absolute") as "absolute" | "ratio_of_revenue";
-              const suffix = mode === "ratio_of_revenue" ? "% of revenue" : (card.unit === "currency" ? "HK$" : card.unit);
+              const suffix = mode === "ratio_of_revenue" ? "% of revenue" : (card.unit === "currency" ? `${baseSymbol()}` : card.unit);
               return (
                 <TableRow key={card.id} className={cn("transition-colors", flashKey === key && "bg-primary/5")}>
                   <TableCell className="font-medium">
@@ -210,7 +210,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
           const display = draft ?? (existing ? String(existing.target_value) : "");
           const isCost = card.kpi_category === "cost";
           const mode = (existing?.target_mode ?? "absolute") as "absolute" | "ratio_of_revenue";
-          const suffix = mode === "ratio_of_revenue" ? "% rev" : (card.unit === "currency" ? "HK$" : card.unit);
+          const suffix = mode === "ratio_of_revenue" ? "% rev" : (card.unit === "currency" ? `${baseSymbol()}` : card.unit);
           return (
             <div key={card.id} className={cn(
               "rounded-xl border border-border/60 card-glass p-3 space-y-2.5 transition-colors",

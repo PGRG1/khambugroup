@@ -205,7 +205,7 @@ export default function ExpenseSpendSummaryPage() {
             <div className="flex items-end gap-3 h-40">
               {trend.map((t) => (
                 <div key={t.label} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <div className="text-[10px] td-num text-muted-foreground">{t.amount > 0 ? fmtMoney(t.amount).replace("HK$ ", "") : ""}</div>
+                  <div className="text-[10px] td-num text-muted-foreground">{t.amount > 0 ? fmtMoney(t.amount).replace(`${baseSymbol()} `, "") : ""}</div>
                   <div className="w-full rounded-t bg-amber-400/70" style={{ height: `${(t.amount / trendMax) * 100}%`, minHeight: t.amount > 0 ? 2 : 0 }} />
                   <div className="text-[10px] text-muted-foreground">{t.label}</div>
                 </div>

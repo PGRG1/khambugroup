@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import type { ExpenseBill } from '@/hooks/useExpenseBills';
 
 export const expenseTabs = [
@@ -46,7 +47,7 @@ export function claimChecks(claim: { id?: string; claim_date: string; amount: nu
   const reasons: string[] = [];
   if (!claim.receipt_path && !claim.receipt_url) reasons.push('No attached receipt — readability cannot be checked');
   if ((Date.parse(today) - Date.parse(claim.claim_date)) / 86400000 > 60) reasons.push('Older than 60 days');
-  if (claim.amount > 300) reasons.push('Over HK$300 — owner approval required');
+  if (claim.amount > 300) reasons.push(`Over ${baseSymbol()}300 — owner approval required`);
   if (others.some(o => o.id !== claim.id && ((!!claim.receipt_hash && o.receipt_hash === claim.receipt_hash) || (!!claim.receipt_path && o.receipt_path === claim.receipt_path) || (!!claim.receipt_shop && !!claim.receipt_time && claim.receipt_shop.toLowerCase()===o.receipt_shop?.toLowerCase() && claim.receipt_time===o.receipt_time && claim.claim_date===o.claim_date && claim.amount===o.amount) || (o.claim_date === claim.claim_date && o.amount === claim.amount && o.description.trim().toLowerCase() === claim.description.trim().toLowerCase())))) reasons.push('Possible duplicate receipt or same description, date and amount');
   return reasons;
 }

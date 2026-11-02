@@ -109,7 +109,7 @@ export function VenueSplitEditor({ ownerType, ownerId, mode, baseAmount, onChang
                 onClick={() => setSplitMode(m)}
                 className={`px-2.5 h-8 text-xs rounded ${splitMode === m ? "bg-background shadow-sm" : "text-muted-foreground"}`}
               >
-                {m === "percent" ? "%" : "HK$"}
+                {m === "percent" ? "%" : `${baseSymbol()}`}
               </button>
             ))}
           </div>
@@ -140,7 +140,7 @@ export function VenueSplitEditor({ ownerType, ownerId, mode, baseAmount, onChang
                 }}
                 className="w-28 h-8 text-right tabular-nums"
               />
-              <span className="text-xs text-muted-foreground w-8">{splitMode === "percent" ? "%" : "HK$"}</span>
+              <span className="text-xs text-muted-foreground w-8">{splitMode === "percent" ? "%" : `${baseSymbol()}`}</span>
               <button type="button" onClick={() => removeLine(i)} className="p-1 rounded hover:bg-accent/20">
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground/70" />
               </button>

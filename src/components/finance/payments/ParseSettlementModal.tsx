@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -402,7 +403,7 @@ export function ParseSettlementModal({
               <TabsContent value="monthly" className="mt-3">
                 <Banner
                   ok={!reconAnomalies}
-                  okText="All batches reconcile to the Settlement details (HK$1 settlement fee accounted for)."
+                  okText={`All batches reconcile to the Settlement details (${baseSymbol()}1 settlement fee accounted for).`}
                   warnText={`${audit?.reconciliation_off} batch(es) don't reconcile. Net Δ ${fmtMoney(monthlyTotals.variance)}.`}
                 />
 
