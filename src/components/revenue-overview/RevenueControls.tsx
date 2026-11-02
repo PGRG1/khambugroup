@@ -62,7 +62,7 @@ export function RevenueControls({
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-2 flex-wrap ml-auto">
         {!hideDateRange && (
-          {datePeriod.control}
+          datePeriod.control
         )}
         {!hideViewToggle && (
           <div className="flex gap-[3px] p-[3px] bg-muted rounded-md">

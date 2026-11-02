@@ -1,3 +1,6 @@
+import {usePlannedMonths} from '@/hooks/usePlannedMonths';
+import {usePagePeriod} from '@/hooks/usePagePeriod';
+import {formatMonthLabel} from '@/utils/format';
 import { useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -40,7 +43,9 @@ export default function RevenueTargetsNew() {
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const [venueId, setVenueId] = useState<string | null>(null);
-  const [ym, setYm] = useState(todayIso.slice(0, 7));
+  const plan=usePlannedMonths("targets");
+  const period=usePagePeriod(plan.months.map(m=>m+"-01"),"mtd","month",{allowFuture:plan.end});
+  const ym=period.month;
   const [year, month] = ym.split("-").map(Number);
 
   // The venue a target is saved to: the single scoped venue, or the one picked in the target box.
@@ -62,14 +67,7 @@ export default function RevenueTargetsNew() {
   const [editing, setEditing] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
 
-  const monthOptions = useMemo(() => {
-    const out: string[] = [];
-    for (let i = -12; i <= 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-    }
-    return out;
-  }, [now.getFullYear(), now.getMonth()]);
+
 
   const chartData = useMemo(() => {
     let t = 0;
@@ -115,7 +113,7 @@ export default function RevenueTargetsNew() {
 
   const pct = summary.target > 0 ? (summary.actual / summary.target) * 100 : null;
   const kpis = [
-    { label: "Monthly target", value: summary.target > 0 ? formatHkd(summary.target) : "—", sub: `${MONTH_LABELS[month - 1]} ${year}` },
+    { label: "Monthly target", value: summary.target > 0 ? formatHkd(summary.target) : "—", sub: formatMonthLabel(ym) },
     { label: "Sold so far", value: formatHkd(summary.actual), sub: pct === null ? "No target yet" : `${pct.toFixed(1)}% of target` },
     {
       label: "Ahead or behind",
@@ -136,16 +134,7 @@ export default function RevenueTargetsNew() {
         title="Targets"
         period={
           <div className="flex items-center gap-3">
-            <span id="targets-period" className="text-[12px] font-medium text-muted-foreground">Period</span>
-            <Select value={ym} onValueChange={setYm}>
-              <SelectTrigger aria-labelledby="targets-period" className="h-10 w-[170px] text-sm"><SelectValue placeholder="Month" /></SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((m) => {
-                  const [y, mo] = m.split("-").map(Number);
-                  return <SelectItem key={m} value={m}>{`${MONTH_LABELS[mo - 1]} ${y}`}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
+            {period.control}
             {loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}
           </div>
         }

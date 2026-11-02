@@ -27,7 +27,9 @@ import RevenueTargetPanel from "@/components/forecast/RevenueTargetPanel";
 import ThreeWaySummary from "@/components/forecast/ThreeWaySummary";
 import ThreeWayChart from "@/components/forecast/ThreeWayChart";
 import VenueBreakdownTable from "@/components/forecast/VenueBreakdownTable";
-import DateFilter from "@/components/dashboard/DateFilter";
+import {usePagePeriod} from "@/hooks/usePagePeriod";
+import {usePlannedMonths} from "@/hooks/usePlannedMonths";
+import {formatMonthLabel} from "@/utils/format";
 import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -47,15 +49,10 @@ const ForecastInput = () => {
 
   // Single source of truth for the currently viewed month across the whole page.
   const todayForInit = useMemo(() => new Date(), []);
-  const [selectedYear, setSelectedYear] = useState(todayForInit.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(todayForInit.getMonth() + 1);
-  const goToMonth = (delta: number) => {
-    const d = new Date(selectedYear, selectedMonth - 1 + delta, 1);
-    setSelectedYear(d.getFullYear());
-    setSelectedMonth(d.getMonth() + 1);
-  };
-
-
+  const plan=usePlannedMonths('targets');
+  const datePeriod=usePagePeriod(plan.months.map(m=>m+'-01'),'mtd','month',{allowFuture:plan.end});
+  const selectedYear=Number(datePeriod.month.slice(0,4)),selectedMonth=Number(datePeriod.month.slice(5,7));
+  const goToMonth=(delta:number)=>{const d=new Date(selectedYear,selectedMonth-1+delta,1);const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(m>=datePeriod.booksStart.slice(0,7)&&m<=plan.end)datePeriod.onChange({from:m+'-01',to:new Date(Date.UTC(d.getFullYear(),d.getMonth()+1,0)).toISOString().slice(0,10),key:m});};
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(
     () =>
@@ -146,8 +143,7 @@ const ForecastInput = () => {
   useEffect(() => {
     localStorage.setItem("forecast.vizMode", vizMode);
   }, [vizMode]);
-  const [from, setFrom] = useState<Date | undefined>();
-  const [to, setTo] = useState<Date | undefined>();
+  const {from,to}=datePeriod;
 
   const [date, setDate] = useState("");
   const [entryVenue, setEntryVenue] = useState<ForecastVenue>(primaryVenue);
@@ -218,23 +214,6 @@ const ForecastInput = () => {
       : forecastsWithActualsByVenue,
     [forecastsWithActualsByVenue, isMulti]
   );
-
-  // Period filter
-  const months = useMemo(() => {
-    const allDates = forecastsWithActuals.map((d) => d.date);
-    const keys = [...new Set(allDates.map((d) => getMonthKey(d)))].sort();
-    return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
-  }, [forecastsWithActuals]);
-
-  const handlePeriodSelect = (period: string) => {
-    if (period === "All Time") { setFrom(undefined); setTo(undefined); return; }
-    if (period === "Custom") return;
-    const month = months.find((m) => m.label === period);
-    if (!month) return;
-    const [y, m] = month.key.split("-");
-    setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
-    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
-  };
 
   const filteredData = useMemo(() => {
     return forecastsWithActuals.filter((d) => {
@@ -436,7 +415,7 @@ const ForecastInput = () => {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="px-3 py-2 text-sm font-medium td-num min-w-[140px] text-center bg-secondary">
-              {monthName(selectedMonth)} {selectedYear}
+              {formatMonthLabel(datePeriod.month)}
             </span>
             <button
               type="button"
@@ -483,7 +462,7 @@ const ForecastInput = () => {
       </div>
 
       {/* Period Filter */}
-      {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
+      {!hideDateRange && datePeriod.control}
 
       {/* Three-way Summary */}
       <ThreeWaySummary

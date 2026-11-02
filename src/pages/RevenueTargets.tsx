@@ -1,3 +1,5 @@
+import {usePlannedMonths} from '@/hooks/usePlannedMonths';
+import {usePagePeriod} from '@/hooks/usePagePeriod';
 import { useVenueScope } from "@/hooks/useVenueScope";
 import React, { useMemo, useState, useCallback } from "react";
 import {
@@ -208,7 +210,10 @@ export default function RevenueTargets() {
 
   const { filters, setMonth, setPeriods, setWeekdays, setStatuses } =
     useRevenueTargetFilters({ year: today.getFullYear(), month: today.getMonth() + 1 });
-  const { year, month, servicePeriodIds, weekdays, operatingStatuses } = filters;
+  const plan=usePlannedMonths("targets");
+  const period=usePagePeriod(plan.months.map(m=>m+"-01"),"mtd","month",{allowFuture:plan.end});
+  const year=Number(period.month.slice(0,4)),month=Number(period.month.slice(5,7));
+  const {servicePeriodIds, weekdays, operatingStatuses}=filters;
   const vs = useVenueScope();
 
   const { venues, loading: venuesLoading } = useVenues();
@@ -745,20 +750,7 @@ export default function RevenueTargets() {
 
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Month navigation */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-border/60 px-1 h-8">
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
-              onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-[12px] font-medium min-w-[104px] text-center tabular-nums">
-              {monthName(month)} {year}
-            </div>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
-              onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          {period.control}
 
           <Button variant="outline" size="sm" className="h-8" onClick={exportCsv}>
             <Download className="h-4 w-4" /> Export

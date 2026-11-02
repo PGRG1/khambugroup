@@ -199,7 +199,7 @@ const DataPage = () => {
       <RevenuePageTop
         title="Sales records"
         period={!isActionHidden("revenue.date_range") && (
-          {datePeriod.control}
+          datePeriod.control
         )}
         actions={actions}
       />

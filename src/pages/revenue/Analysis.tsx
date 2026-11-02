@@ -25,7 +25,7 @@ export default function RevenueAnalysis() {
       <RevenuePageTop
         title="Trends"
         period={!hideDateRange && (
-          {f.datePeriod.control}
+          f.datePeriod.control
         )}
       />
 

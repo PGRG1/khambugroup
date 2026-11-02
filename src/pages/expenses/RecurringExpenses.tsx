@@ -72,13 +72,14 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 
 export default function RecurringExpenses() {
   const { bills, fetchAllocations } = useExpenseBills();
-  const scope=useVenueScope(), period=usePagePeriod(bills.map(b=>b.bill_date),"mtd");
+  const scope=useVenueScope(), period=usePagePeriod(bills.map(b=>b.bill_date),"mtd","month",{hints:Object.fromEntries([...new Set(bills.map(b=>b.bill_date.slice(0,7)))].map(k=>[k,`${bills.filter(b=>b.bill_date.startsWith(k)&&isWaitingBill(b)).length} waiting`]))});
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
+  const year=Number(period.month.slice(0,4));
   const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
-  const [detailsOpen,setDetailsOpen]=useState(false),[uploadOpen,setUploadOpen]=useState(false),[readTerms,setReadTerms]=useState<Partial<RecurringRule>|null>(null),[year,setYear]=useState(new Date().getFullYear());
+  const [detailsOpen,setDetailsOpen]=useState(false),[uploadOpen,setUploadOpen]=useState(false),[readTerms,setReadTerms]=useState<Partial<RecurringRule>|null>(null);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
@@ -161,8 +162,8 @@ export default function RecurringExpenses() {
   const usual=(r:RecurringRule)=>{const amounts=historyFor(r).map(b=>b.total_amount);return amounts.length?(Math.min(...amounts)===Math.max(...amounts)?formatCurrency(amounts[0]):`${formatCurrency(Math.min(...amounts))} – ${formatCurrency(Math.max(...amounts))}`):formatCurrency(r.expected_amount);};
   return (
     <div className="w-full min-w-0 space-y-5 pb-24">
-      <PageTop title="Regular bills" titleDetail={<span className="text-sm text-muted-foreground">{filteredRules.length+detected.length} regular costs · {formatCurrency(monthlyExpected)} a month</span>} period={<Select value={String(year)} onValueChange={v=>setYear(Number(v))}><SelectTrigger className="w-32" aria-label="Year"><SelectValue/></SelectTrigger><SelectContent>{[year-1,year,year+1].map(y=><SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add contract</Button>}/>
-      <RegularCostsApproval bills={bills} month={`${year}-${String(new Date().getMonth()||12).padStart(2,'0')}`}/>
+      <PageTop title="Regular bills" titleDetail={<span className="text-sm text-muted-foreground">{filteredRules.length+detected.length} regular costs · {formatCurrency(monthlyExpected)} a month</span>} period={period.control} actionsBesideTitle actions={<Button onClick={openNew}><Plus className="h-4 w-4"/>Add contract</Button>}/>
+      <RegularCostsApproval bills={bills} month={period.month}/>
       <section className="kit card-glass rounded-xl p-3 sm:p-4 min-w-0 overflow-hidden">{loading?<TableSkeleton rows={4} cols={5}/>:<div className="overflow-x-auto"><Table className="min-w-[680px] w-full"><TableHeader><TableRow><TableHead>Regular cost</TableHead><TableHead>Covers</TableHead><TableHead>Usually</TableHead><TableHead>This year</TableHead><TableHead>Now</TableHead></TableRow></TableHeader><TableBody><TableRow className="bg-muted/40"><TableCell colSpan={5}>From contracts</TableCell></TableRow>{filteredRules.map(r=><TableRow key={r.id} className="cursor-pointer" onClick={()=>{setEditing(r);setDetailsOpen(false);setUploadOpen(false);setOpen(true);}}><TableCell>{/rent/i.test(r.name)?'Rent':r.name}<p className="text-xs text-muted-foreground">{r.vendor_name}</p></TableCell><TableCell>{venues.find(v=>v.id===r.venue_id)?.name||'Central · by sales'}</TableCell><TableCell className="td-num">{formatCurrency(r.expected_amount)}<p className="text-xs text-muted-foreground">{r.cadence}</p></TableCell><TableCell className="min-w-40"><ContractPostingPlan rule={r} bills={bills} year={year} compact/></TableCell><TableCell className="text-xs">{yearFacts(r)}</TableCell></TableRow>)}<TableRow className="bg-muted/40"><TableCell colSpan={5}>From bills</TableCell></TableRow>{detected.map(g=>{const b=g.rows.at(-1);if(!b)return null;return <TableRow key={g.key}><TableCell>{b.vendor_name}<p className="text-xs text-muted-foreground">{b.supplier_account_id?'Supplier account':'Regular bill'}</p></TableCell><TableCell>{b.venue||'Covers not set'}</TableCell><TableCell className="td-num">{formatCurrency(b.total_amount)}<p className="text-xs text-muted-foreground">Usually monthly</p></TableCell><TableCell><div className="grid grid-cols-12 gap-1">{Array.from({length:12},(_,i)=>{const k=`${year}-${String(i+1).padStart(2,'0')}`,bs=g.rows.filter(b=>(b.period_start??b.bill_date).startsWith(k));return <div key={k} title={formatMonthLabel(k)} className={`h-3 rounded-sm ${bs.some(b=>b.approval_status==='posted')?'bg-primary':bs.length?'bg-warning/30':'bg-muted'}`}/>;})}</div></TableCell><TableCell className="text-xs">{g.rows.filter(isWaitingBill).length} waiting</TableCell></TableRow>;})}</TableBody></Table></div>}</section>
 
       <Dialog open={open} onOpenChange={setOpen}>

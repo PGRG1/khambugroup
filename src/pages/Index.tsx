@@ -81,7 +81,7 @@ const Index = () => {
       <RevenuePageTop
         title="Revenue overview"
         period={!hideDateRange && (
-          {datePeriod.control}
+          datePeriod.control
         )}
         actions={isAdmin && (
           <Button variant="outline" size="sm" className="h-10" onClick={() => setShowMTDText(true)}>

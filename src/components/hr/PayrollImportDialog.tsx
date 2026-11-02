@@ -1,3 +1,5 @@
+import {useBooksWindow} from '@/hooks/useBooksWindow';
+import {periodYears} from '@/utils/periodWindow';
 import { useRef, useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +143,7 @@ export default function PayrollImportDialog({
   const [scanning, setScanning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const books=useBooksWindow();
   const [periodYear, setPeriodYear] = useState<number>(targetYear);
   const [periodMonth, setPeriodMonth] = useState<number>(targetMonth);
 
@@ -286,7 +289,7 @@ export default function PayrollImportDialog({
               <Select value={String(periodYear)} onValueChange={(v) => setPeriodYear(Number(v))}>
                 <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 7 }, (_, i) => targetYear - 3 + i).map((y) => (
+                  {periodYears(books.start,books.today).map((y) => (
                     <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                   ))}
                 </SelectContent>
