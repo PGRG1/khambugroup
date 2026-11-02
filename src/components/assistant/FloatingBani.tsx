@@ -140,7 +140,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   }, [setPanelPos]);
 
   const openedAt = useRef(0);
-  useEffect(() => { if (open) openedAt.current = performance.now(); if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
+  useEffect(() => { if (open) openedAt.current = performance.now(); if (!open) { voiceEndRef.current(); setVoiceMode(false); } }, [open]);
   useEffect(() => () => voiceEndRef.current(), []);
 
   const queryClient = useQueryClient();
@@ -151,7 +151,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [finished,setFinished] = useState<string[]>([]);
   const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
   const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`:'That is everything pending in your scope.',eventId:item?(item.id??item.kind+'|'+item.subject):undefined}]); };
-  const openWork = () => {setWorkStart(pendingItems.length);if(!activeItem)nextWork();setHidden(false);setOpen(true);};
+  const openWork = () => {setWorkStart(pendingItems.length);if(!activeItem)nextWork();setOpen(true);};
   const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await supabase.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}}});if(error)throw error;if(data.error)throw new Error(data.error);};
   const dismissEvent = async (id:string) => {try{const item=pendingItems.find(a=>a.id===id||a.kind+'|'+a.subject===id);if(item)await completeWork(item,'done');else await alerts.action(id,'done');if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a!==item));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');
@@ -160,7 +160,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const lastPath = useRef(pathname);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; setOpen(false); }, [pathname, hosted, setOpen]);
-  useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setHidden(false);setOpen(true);},[locationSearch,pending.data,setMessages,setHidden,setOpen]);
+  useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
