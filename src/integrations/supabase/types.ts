@@ -14058,6 +14058,47 @@ export type Database = {
           },
         ]
       }
+      tenant_access_changes: {
+        Row: {
+          after: Json | null
+          before: Json | null
+          change: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          after?: Json | null
+          before?: Json | null
+          change: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          after?: Json | null
+          before?: Json | null
+          change?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_access_changes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_members: {
         Row: {
           created_at: string
@@ -14133,6 +14174,218 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: true
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_roles: {
+        Row: {
+          expenses: number
+          finance: number
+          id: string
+          job_titles: string[]
+          money: string
+          name: string
+          payroll: number
+          people: number
+          purchasing: number
+          revenue: number
+          role_key: string
+          settings: number
+          sort_order: number
+          stock: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          expenses: number
+          finance: number
+          id?: string
+          job_titles?: string[]
+          money: string
+          name: string
+          payroll: number
+          people: number
+          purchasing: number
+          revenue: number
+          role_key: string
+          settings: number
+          sort_order?: number
+          stock: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          expenses?: number
+          finance?: number
+          id?: string
+          job_titles?: string[]
+          money?: string
+          name?: string
+          payroll?: number
+          people?: number
+          purchasing?: number
+          revenue?: number
+          role_key?: string
+          settings?: number
+          sort_order?: number
+          stock?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_user_access: {
+        Row: {
+          all_venues: boolean
+          employee_id: string | null
+          id: string
+          mapping_note: string | null
+          reports_to: string | null
+          role_key: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          all_venues?: boolean
+          employee_id?: string | null
+          id?: string
+          mapping_note?: string | null
+          reports_to?: string | null
+          role_key?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          all_venues?: boolean
+          employee_id?: string | null
+          id?: string
+          mapping_note?: string | null
+          reports_to?: string | null
+          role_key?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_user_access_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_user_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_user_access_tenant_id_role_key_fkey"
+            columns: ["tenant_id", "role_key"]
+            isOneToOne: false
+            referencedRelation: "tenant_roles"
+            referencedColumns: ["tenant_id", "role_key"]
+          },
+        ]
+      }
+      tenant_user_exceptions: {
+        Row: {
+          area: string
+          created_at: string
+          id: string
+          level: number | null
+          money: string | null
+          reason: string
+          set_by: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          id?: string
+          level?: number | null
+          money?: string | null
+          reason: string
+          set_by?: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          id?: string
+          level?: number | null
+          money?: string | null
+          reason?: string
+          set_by?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_user_exceptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_user_venues: {
+        Row: {
+          created_at: string
+          tenant_id: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          tenant_id: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          tenant_id?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_user_venues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_user_venues_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -15471,6 +15724,7 @@ export type Database = {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
       }
+      access_level: { Args: { area: string; t: string }; Returns: number }
       add_revenue_event_with_replacement: {
         Args: {
           p_event_mode: string
@@ -15568,6 +15822,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      can_see_venue: { Args: { t: string; v: string }; Returns: boolean }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
         Returns: string
@@ -16155,6 +16410,7 @@ export type Database = {
         Args: { p_name: string }
         Returns: boolean
       }
+      is_owner: { Args: { t: string }; Returns: boolean }
       is_platform_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
@@ -16193,6 +16449,7 @@ export type Database = {
         Args: { p_from: string; p_into: string; p_tenant: string }
         Returns: number
       }
+      money_level: { Args: { t: string }; Returns: string }
       payroll_apply_repeats: {
         Args: { m: number; t: string; y: number }
         Returns: undefined
@@ -16614,6 +16871,7 @@ export type Database = {
         Args: { expected: Json; p: Json; t: string }
         Returns: undefined
       }
+      seed_tenant_roles: { Args: { t: string }; Returns: undefined }
       set_base_currency: {
         Args: { p_currency: string; p_tenant: string }
         Returns: undefined
