@@ -1,4 +1,4 @@
-import {alertDate as formatDate,formatTenantCurrency} from '../tenantCurrency.ts';
+import {alertDate as formatDate,formatEventCurrency as formatTenantCurrency} from '../tenantCurrency.ts';
 import type {Candidate,Row} from './rules.ts';
 export type Feed={id:string;kind:string;name:string;venue_id:string|null;complete_up_to:string|null;status:'up to date'|'behind'|'never connected';subject:string};
 const latest=(rows:Row[],field:string)=>rows.map(r=>r[field]?.slice(0,10)).filter(Boolean).sort().pop()??null;

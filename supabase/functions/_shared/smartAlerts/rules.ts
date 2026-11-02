@@ -1,4 +1,4 @@
-import {formatTenantCurrency} from '../tenantCurrency.ts';
+import {formatEventCurrency as formatTenantCurrency} from '../tenantCurrency.ts';
 import {rootAlerts,capAlerts,learningProgress} from './coverage.ts';
 export type Row = Record<string, any>;
 export interface Candidate {kind:string;area:string;venue_id:string|null;subject:string;severity:'urgent'|'normal'|'info';title:string;why:string;baseline:number|null;actual:number|null;action_path:string;date:string;payload:Row}
