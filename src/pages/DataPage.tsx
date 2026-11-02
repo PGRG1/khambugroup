@@ -131,6 +131,17 @@ const DataPage = () => {
   const periodNameOf = (id?: string | null) => (id ? allPeriods.find((p: any) => p.id === id)?.name : undefined);
 
   const [openItem, setOpenItem] = useState<DayItem | null>(null);
+  // Alerts open the requested day without changing the portal-wide venue scope or saved period.
+  useEffect(() => {
+    const date = params.get('date'), venueId = params.get('venue');
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || loading || !vs.ready) return;
+    const venue = vs.selectedVenues.find(v => v.id === venueId);
+    const record = scopedData.find(r => r.date === date && (!venueId || r.venue === venue?.name));
+    if (record) setOpenItem({ kind: 'record', r: record });
+    else if (venue) setPrefill({ date, venue: venue.name });
+    const next = new URLSearchParams(params); next.delete('date'); next.delete('venue');
+    setParams(next, { replace: true });
+  }, [params, loading, vs.ready, scopedData, vs.selectedVenues, setParams]);
   const openRecord = openItem?.kind === "record" ? openItem.r : null;
   const closures = useVenueClosures(vs.selectedVenues.map((v) => v.id));
   const venueIdByName = useMemo(() => new Map(vs.selectedVenues.map((v) => [v.name, v.id])), [vs.selectedVenues]);
