@@ -476,7 +476,7 @@ export function AppSidebar() {
       {collapsed ? (
         <div className={cn(isPreviewActive && "mt-10")} />
       ) : (
-      <div className={cn("pb-3 border-b border-sidebar-border space-y-2.5", isPreviewActive && "mt-10")}>
+      <div className={cn("pb-3 space-y-2.5", isPreviewActive && "mt-10")}>
         <div className="bani-sidebar-head flex h-[52px] items-center gap-2 px-4">
           <BaniLoginMark className="bani-brand-mark h-[30px] w-[18px] shrink-0" />
           <span className="bani-brand-word font-light tracking-tight leading-none">Bani</span>
