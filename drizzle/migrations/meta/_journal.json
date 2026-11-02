@@ -869,6 +869,13 @@
       "when": 1793587799685,
       "tag": "0123_smart_alert_lifecycle_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1793587845157,
+      "tag": "0124_smart_alert_close_reconciliation_reader",
+      "breakpoints": true
     }
   ]
 }

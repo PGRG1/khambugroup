@@ -15912,6 +15912,14 @@ export type Database = {
         Args: { m_input: string; t: string }
         Returns: Json
       }
+      smart_alert_reconciliation_base: {
+        Args: { p_month: string; p_tenant: string }
+        Returns: Json
+      }
+      smart_alert_reconciliations: {
+        Args: { p_month: string; p_tenant: string }
+        Returns: Json
+      }
       smart_alert_sync: {
         Args: { candidates: Json; day: string; t: string }
         Returns: Json
