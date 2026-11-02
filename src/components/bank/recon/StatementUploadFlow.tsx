@@ -11,7 +11,7 @@ import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { classifyTxn } from "@/utils/bankTxnRules";
 import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
 import type { BankAccount } from "@/hooks/useBankModule";
-import { formatCurrency } from "@/utils/salesUtils";
+import { formatMoney } from '@/utils/money';
 
 type ExtractedTxn = {
   txn_date: string;
@@ -137,6 +137,7 @@ export function StatementUploadFlow({
       const reconRules = await loadReconMappingRules();
       for (let i = 0; i < extracted.accounts.length; i++) {
         const a = extracted.accounts[i];
+        if (!/^[A-Z]{3}$/.test(a.currency||'')) throw new Error('Confirm the statement currency before importing');
         const m = mappings[i];
         if (!m || m.bank_account_id === "__skip__") continue;
 
@@ -153,6 +154,7 @@ export function StatementUploadFlow({
               opening_balance: a.opening_balance || 0,
               opening_date: extracted.statement_date,
               tenant_id: tenantId,
+              currency: a.currency,
             } as any)
             .select("id")
             .single();
@@ -286,11 +288,13 @@ export function StatementUploadFlow({
                       <div className="text-xs text-muted-foreground">{a.account_number} · {a.currency}</div>
                     </div>
                     <div className="text-xs text-right">
-                      <div>Open: <span className="td-num">{formatCurrency(a.opening_balance)}</span></div>
-                      <div>Close: <span className="td-num">{formatCurrency(a.closing_balance)}</span></div>
+                      <div>Open: <span className="td-num">{formatMoney(a.opening_balance,a.currency)}</span></div>
+                      <div>Close: <span className="td-num">{formatMoney(a.closing_balance,a.currency)}</span></div>
                       <div className="text-muted-foreground">{a.transactions.length} txns</div>
                     </div>
                   </div>
+
+                  <label className="block text-xs">Statement currency<Input aria-label={`Statement currency ${i+1}`} maxLength={3} value={a.currency||''} onChange={e=>setExtracted({...extracted,accounts:extracted.accounts.map((account,index)=>index===i?{...account,currency:e.target.value.toUpperCase()}:account)})}/></label>
 
                   <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
                     <div>

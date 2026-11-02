@@ -1,4 +1,4 @@
-import {baseSymbol} from '@/utils/money';
+import {baseSymbol,getBaseCurrency} from '@/utils/money';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
@@ -194,6 +194,8 @@ interface ReviewCorrection {
 }
 
 interface ScannedInvoice {
+  currency?: string;
+  fx_rate?: string;
   _baniDraftId?: string;
   _baniRevision?: number;
   supplier_name: string;
@@ -229,6 +231,8 @@ interface InvoiceScannerProps {
   /** Called after a supplier is created inline so the parent can refetch suppliers. */
   onSuppliersChanged?: () => void | Promise<void>;
   onSave: (invoice: {
+    currency?: string;
+    fx_rate?: number | null;
     supplier_id: string;
     venue: string;
     invoice_number: string;
@@ -810,6 +814,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           venue: handoffVenueRef.current || raw?.venue || "",
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
+          currency: raw?.currency || '',
+          fx_rate: raw?.fx_rate ? String(raw.fx_rate) : '',
           due_date: raw?.due_date || "",
           notes: "",
           invoice_status: "outstanding",
@@ -1677,6 +1683,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           venue: inv.venue,
           invoice_number: inv.invoice_number,
           invoice_date: inv.invoice_date,
+          currency: inv.currency || getBaseCurrency(),
+          fx_rate: Number(inv.fx_rate)||null,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
           discount: discResults.headerDiscountAmount,
@@ -2433,6 +2441,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
               <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Due date</Label><CorrectionChip className="" corrections={current.review_corrections} warnings={displayInvoice?.review_warnings} blocking={current.review_blocking} fieldAliases={["due_date"]} /></div>
               <Input className="h-8 px-2.5 py-0 font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
+            <label className="min-w-0 space-y-1 text-xs text-muted-foreground">Currency<Input aria-label="Scanned invoice currency" maxLength={3} value={current.currency||''} placeholder={getBaseCurrency()} onChange={e=>updateField('currency',e.target.value.toUpperCase())}/></label>
+            <label className="min-w-0 space-y-1 text-xs text-muted-foreground">Rate on invoice date<Input aria-label="Scanned invoice rate" inputMode="decimal" value={current.fx_rate||''} placeholder="Daily reference rate" onChange={e=>updateField('fx_rate',e.target.value)}/></label>
             <div className="col-span-2 min-w-0 space-y-1">
               {!(noteOpen || current.notes) ? <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setNoteOpen(true)}>+ Add note</Button> : <Label className="text-[11px] font-medium text-muted-foreground">Notes</Label>}
               {(noteOpen || current.notes) && <Textarea aria-label="Invoice notes" className="min-h-8 px-2.5 py-[7px] font-sans text-xs font-normal leading-4 text-foreground placeholder:text-xs placeholder:text-muted-foreground md:text-xs" value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />}
