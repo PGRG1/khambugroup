@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { formatMoney, formatWithBase, currencyDecimals, baseAmount, setBaseCurrency } from '@/utils/money';
 import { convertDocument } from '@/utils/fxDocument';
