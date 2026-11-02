@@ -1787,6 +1787,8 @@ export type Database = {
         Row: {
           attachment_urls: string[] | null
           bank_account_id: string
+          base_money_in: number | null
+          base_money_out: number | null
           category_account_id: string | null
           counterparty: string
           created_at: string
@@ -1808,6 +1810,7 @@ export type Database = {
           money_in: number
           money_out: number
           notes: string
+          original_amount: number | null
           parent_txn_id: string | null
           reference: string
           running_balance: number | null
@@ -1826,6 +1829,8 @@ export type Database = {
         Insert: {
           attachment_urls?: string[] | null
           bank_account_id: string
+          base_money_in?: number | null
+          base_money_out?: number | null
           category_account_id?: string | null
           counterparty?: string
           created_at?: string
@@ -1847,6 +1852,7 @@ export type Database = {
           money_in?: number
           money_out?: number
           notes?: string
+          original_amount?: number | null
           parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
@@ -1865,6 +1871,8 @@ export type Database = {
         Update: {
           attachment_urls?: string[] | null
           bank_account_id?: string
+          base_money_in?: number | null
+          base_money_out?: number | null
           category_account_id?: string | null
           counterparty?: string
           created_at?: string
@@ -1886,6 +1894,7 @@ export type Database = {
           money_in?: number
           money_out?: number
           notes?: string
+          original_amount?: number | null
           parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
@@ -2380,9 +2389,12 @@ export type Database = {
           as_of_date: string
           created_at: string
           created_by: string | null
+          currency: string | null
           description: string
+          fx_rate: number | null
           id: string
           notes: string
+          original_total: number | null
           product_master_id: string | null
           quantity: number
           sku: string
@@ -2397,9 +2409,12 @@ export type Database = {
           as_of_date?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           description: string
+          fx_rate?: number | null
           id?: string
           notes?: string
+          original_total?: number | null
           product_master_id?: string | null
           quantity?: number
           sku?: string
@@ -2414,9 +2429,12 @@ export type Database = {
           as_of_date?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           description?: string
+          fx_rate?: number | null
           id?: string
           notes?: string
+          original_total?: number | null
           product_master_id?: string | null
           quantity?: number
           sku?: string
@@ -10218,15 +10236,18 @@ export type Database = {
           bank_transfer_fee: number
           clearing_journal_entry_id: string | null
           created_at: string
+          currency: string | null
           fee_amount: number
           fee_variance: number
           frozen_amount: number
+          fx_rate: number | null
           gross_amount: number
           id: string
           import_id: string | null
           merchant_id: string
           net_settlement: number
           notes: string
+          original_amounts: Json | null
           points_offset: number
           processor_id: string
           settlement_date: string
@@ -10244,15 +10265,18 @@ export type Database = {
           bank_transfer_fee?: number
           clearing_journal_entry_id?: string | null
           created_at?: string
+          currency?: string | null
           fee_amount?: number
           fee_variance?: number
           frozen_amount?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           import_id?: string | null
           merchant_id: string
           net_settlement?: number
           notes?: string
+          original_amounts?: Json | null
           points_offset?: number
           processor_id: string
           settlement_date: string
@@ -10270,15 +10294,18 @@ export type Database = {
           bank_transfer_fee?: number
           clearing_journal_entry_id?: string | null
           created_at?: string
+          currency?: string | null
           fee_amount?: number
           fee_variance?: number
           frozen_amount?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           import_id?: string | null
           merchant_id?: string
           net_settlement?: number
           notes?: string
+          original_amounts?: Json | null
           points_offset?: number
           processor_id?: string
           settlement_date?: string
@@ -10410,12 +10437,15 @@ export type Database = {
           batch_id: string
           count: number
           created_at: string
+          currency: string | null
           expected_fee: number
           fee_amount: number
           fee_variance: number
+          fx_rate: number | null
           gross_amount: number
           id: string
           net_amount: number
+          original_amounts: Json | null
           payment_type: string
           payment_type_label: string
           tenant_id: string
@@ -10427,12 +10457,15 @@ export type Database = {
           batch_id: string
           count?: number
           created_at?: string
+          currency?: string | null
           expected_fee?: number
           fee_amount?: number
           fee_variance?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           net_amount?: number
+          original_amounts?: Json | null
           payment_type: string
           payment_type_label?: string
           tenant_id?: string
@@ -10444,12 +10477,15 @@ export type Database = {
           batch_id?: string
           count?: number
           created_at?: string
+          currency?: string | null
           expected_fee?: number
           fee_amount?: number
           fee_variance?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           net_amount?: number
+          original_amounts?: Json | null
           payment_type?: string
           payment_type_label?: string
           tenant_id?: string
@@ -10477,14 +10513,17 @@ export type Database = {
           audit_status: string
           batch_id: string
           created_at: string
+          currency: string | null
           expected_fee: number
           fee_amount: number
           fee_variance: number
+          fx_rate: number | null
           gross_amount: number
           id: string
           locality: string
           merchant_number: string
           net_amount: number
+          original_amounts: Json | null
           payment_method_key: string
           payment_method_raw: string
           reference: string
@@ -10496,14 +10535,17 @@ export type Database = {
           audit_status?: string
           batch_id: string
           created_at?: string
+          currency?: string | null
           expected_fee?: number
           fee_amount?: number
           fee_variance?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           locality?: string
           merchant_number?: string
           net_amount?: number
+          original_amounts?: Json | null
           payment_method_key?: string
           payment_method_raw?: string
           reference?: string
@@ -10515,14 +10557,17 @@ export type Database = {
           audit_status?: string
           batch_id?: string
           created_at?: string
+          currency?: string | null
           expected_fee?: number
           fee_amount?: number
           fee_variance?: number
+          fx_rate?: number | null
           gross_amount?: number
           id?: string
           locality?: string
           merchant_number?: string
           net_amount?: number
+          original_amounts?: Json | null
           payment_method_key?: string
           payment_method_raw?: string
           reference?: string
@@ -15597,6 +15642,10 @@ export type Database = {
       finance_invoice_asset_source: {
         Args: { ident: string; t: string }
         Returns: Json
+      }
+      finance_invoice_fx_set: {
+        Args: { c: string; ident: string; r: number; t: string }
+        Returns: undefined
       }
       finance_month_checks: {
         Args: { p_month: string; p_tenant_id: string }
