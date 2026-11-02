@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { UserMenu } from "@/components/UserMenu";
+import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 import { useLocation } from "react-router-dom";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
@@ -48,6 +49,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {pathname === "/assistant" && <div id="assistant-topbar-actions" className="flex items-center gap-2" />}
               <div id="floating-bani-restore" className="flex items-center" />
               <VenueScopePicker />
+              <AlertsPanel key={`${tenantId}:${previewUserId}`} />
               <div className="shrink-0"><UserMenu /></div>
             </div>
           </header>
