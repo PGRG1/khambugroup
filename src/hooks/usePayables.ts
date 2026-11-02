@@ -36,9 +36,9 @@ export type APInvoice = {
   is_disputed: boolean;
   dispute_notes: string | null;
   /** Document currency (null/base = base). */
-  currency: string | null;
+  currency?: string | null;
   /** Remaining owed in document currency for foreign items; null when base. */
-  owed_in_currency: number | null;
+  owed_in_currency?: number | null;
 };
 
 export type APSupplierSummary = {
