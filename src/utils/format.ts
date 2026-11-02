@@ -12,6 +12,11 @@ export function formatDecimal(value: number, digits = 2): string {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }
 
+/** Tenant-aware money for cross-business alerts, without changing legacy displays. */
+export function formatTenantCurrency(value: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "code", maximumFractionDigits: 2 }).format(value);
+}
+
 export function formatCurrency(value: number): string {
   return `${value < 0 ? "-" : ""}HK$ ${formatTableInteger(Math.abs(value))}`;
 }
