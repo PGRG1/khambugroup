@@ -95,7 +95,7 @@ function AmountCell({ value, onChange }: { value: number; onChange: (n: number) 
 
 export default function BillsExpenses() {
   const baniAccounting=useBaniAccounting();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
   const { confirm, dialog: confirmDialog } = useConfirm();
