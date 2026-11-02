@@ -1631,6 +1631,8 @@ Deno.serve(async (req) => {
                       ? await notificationPreferences(args,createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:req.headers.get('Authorization')??''}}}),tenantId,user?.id??'')
                     : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) { writeCompleted = true; emit({ action: { type: "closures_changed" } }); }
+                if(tc.function.name==='notification_preferences'&&args.operation==='list'&&Array.isArray(result?.preferences))emit({action:{type:'notification_preferences',preferences:result.preferences}});
+                if(tc.function.name==='notification_preferences'&&result?.message){writeCompleted=true;emit({action:{type:'preferences_changed'}});}
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
                 if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
