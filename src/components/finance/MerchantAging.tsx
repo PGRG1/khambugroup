@@ -1,7 +1,8 @@
 import {usePaymentSettlements} from '@/hooks/usePaymentSettlements';
 import {useBankModule} from '@/hooks/useBankModule';
 import {useVenueScope} from '@/hooks/useVenueScope';
-import {merchantAging} from '@/utils/merchantAging';
+import {salesMerchantAging} from '@/utils/merchantAging';
+import {useFinanceReceipts} from '@/hooks/useFinanceReceipts';
 import {receivableBuckets} from '@/utils/financeReportViews';
 import {formatMenuCurrency,formatDate} from '@/utils/format';
 export function MerchantAging({asAt}:{asAt:string}){const q=usePaymentSettlements(),bank=useBankModule(),scope=useVenueScope(),aged=merchantAging(q.batches,bank.matches,bank.transactions,asAt);return <section className="space-y-2"><h3 className="text-sm font-medium">Merchant payouts · statement evidence</h3><div className="kit card-glass overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead><tr><th className="p-3 text-left">Merchant</th>{receivableBuckets.map(k=><th key={k} className="p-3 text-right">{k}</th>)}<th className="p-3 text-right">Total</th><th className="p-3 text-left">Last matched</th></tr></thead><tbody>{q.merchants.filter(m=>!scope.restricted||[m.venue,...m.shared_venues].some(v=>v&&scope.includesName(v))).map(m=>{const a=aged.get(m.id)??{buckets:[0,0,0,0],lastMatched:null};return <tr key={m.id} className="border-t border-border"><td className="p-3">{q.processors.find(p=>p.id===m.processor_id)?.name} · {m.display_name}</td>{a.buckets.map((n,i)=><td key={i} className="p-3 text-right td-num">{formatMenuCurrency(n)}</td>)}<td className="p-3 text-right td-num">{formatMenuCurrency(a.buckets.reduce((n,v)=>n+v,0))}</td><td className="p-3">{a.lastMatched?formatDate(a.lastMatched):'—'}</td></tr>;})}</tbody></table></div><p className="text-xs text-muted-foreground">Unmatched statement net payouts, aged from transaction date; separate from ledger receivables. Shared merchants remain combined.</p></section>;}

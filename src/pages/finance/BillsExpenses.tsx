@@ -486,6 +486,7 @@ export default function BillsExpenses() {
       const id = await saveBill({...header, approval_status:'pending_review'}, allocations);
       if (!id) return;
       if (tenantId) await saveVenueSplit({tenantId,ownerType:'expense_bill',ownerId:id,mode:splitDraft.mode,lines:splitDraft.lines,baseAmount:Number(header.total_amount||0)});
+      if(allocations.some(a=>a.capitalize)){toast.success('Asset bill saved for monthly approval');setEditorOpen(false);return;}
       const ok = await postBill(id);
       if (ok) setEditorOpen(false);
     } finally { setBusy(false); }
