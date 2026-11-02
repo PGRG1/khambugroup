@@ -974,6 +974,13 @@
       "when": 1793609220379,
       "tag": "0138_fx_approval_fail_closed_until_verified",
       "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1793627150370,
+      "tag": "0139_fx_document_currency_balances",
+      "breakpoints": true
     }
   ]
 }
