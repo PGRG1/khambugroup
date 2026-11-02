@@ -1002,6 +1002,13 @@
       "when": 1793628702352,
       "tag": "0142_fx_invoice_payment_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1793628787344,
+      "tag": "0143_is_platform_admin_current_user",
+      "breakpoints": true
     }
   ]
 }
