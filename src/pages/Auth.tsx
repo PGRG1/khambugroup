@@ -55,7 +55,9 @@ const Auth = () => {
     e.preventDefault();
     setError(""); setMessage(""); setLoading(true);
     try { localStorage.removeItem("khambu.enteredTenantId"); } catch { /* no-op */ }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Demo username alias: "Demo" signs in to the isolated YC demo account.
+    const login = email.trim().toLowerCase() === "demo" ? "demo@usebani.com" : email.trim();
+    const { data, error } = await supabase.auth.signInWithPassword({ email: login, password });
     if (error) {
       setError(error.message);
     } else if (!data?.session) {
@@ -153,11 +155,12 @@ const Auth = () => {
               <form onSubmit={handleSubmit} className="space-y-7">
                 <div>
                   <label htmlFor="auth-email" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
-                    Email
+                    Email or username
                   </label>
                   <input
                     id="auth-email"
-                    type="email"
+                    type="text"
+                    autoComplete="username"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
