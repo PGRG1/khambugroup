@@ -114,7 +114,7 @@
 .floating-bani-suggestion { max-width: 100%; height: auto; min-height: 32px; font-size: 12px; white-space: normal; border: 1px solid var(--fb-line); border-radius: 20px; color: var(--fb-ink); background: var(--fb-panel); }
 .floating-bani-voice-hint { font-size: 11px; line-height: 1.5; color: var(--fb-muted); text-align: center; }
 .floating-bani-waveform { width: 140px; height: 22px; }
-.floating-bani-attention { position: fixed; right: 76px; bottom: max(24px, env(safe-area-inset-bottom)); border: 1px solid var(--fb-line); border-radius: 10px; padding: 7px 10px; background: var(--fb-panel); color: var(--fb-ink); box-shadow: var(--fb-orb-shadow); font-size: 12px; pointer-events: none; }
+.floating-bani-attention { position: fixed; right: 76px; bottom: max(24px, env(safe-area-inset-bottom)); border: 1px solid var(--fb-line); border-radius: 20px; padding: 7px 10px; background: var(--fb-panel); color: var(--fb-ink); box-shadow: var(--fb-orb-shadow); font-size: 12px; pointer-events: auto; height: 34px; max-width: calc(100vw - 90px); }
 .floating-bani .bani-people-card { border-color: var(--fb-line); border-radius: 12px; background: var(--fb-glass); color: var(--fb-ink); }
 .floating-bani .bani-people-card .text-muted-foreground { color: var(--fb-muted); }
 .floating-bani .bani-people-card button[data-variant="default"] { background: var(--fb-ink); color: var(--fb-on-primary); }

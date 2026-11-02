@@ -9,9 +9,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { useState } from "react";
 
 export const UserMenu = () => {
   const { user, signOut } = useAuth();
+  const push = usePushSubscription();
+  const [error,setError] = useState('');
 
   if (!user) return null;
   const initials = (user.email || "?").slice(0, 2).toUpperCase();
@@ -19,13 +25,13 @@ export const UserMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button variant="ghost"
           type="button"
           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
           aria-label="User menu"
         >
           {initials}
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="flex items-center gap-2">
@@ -37,6 +43,9 @@ export const UserMenu = () => {
           Workspace
         </DropdownMenuLabel>
         <TenantSwitcher />
+        <DropdownMenuSeparator />
+        <div className="flex items-center justify-between gap-3 px-2 py-2 text-sm"><span>Notifications on this phone</span><Switch aria-label="Notifications on this phone" checked={push.status==='subscribed'} disabled={push.busy||push.status==='unsupported'||push.status==='denied'} onCheckedChange={on=>{setError('');void (on?push.subscribe():push.unsubscribe()).catch(()=>setError('Could not change phone notifications.'));}} /></div>
+        {error&&<p role="alert" className="px-2 text-xs text-destructive">{error}</p>}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()} className="text-sm">
           <LogOut className="h-4 w-4 mr-2" />
