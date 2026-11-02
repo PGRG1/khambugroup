@@ -1,15 +1,14 @@
 ## Alerts follow-up — current request
-- [ ] Feed health tracking, delayed admin break/recovery delivery, scoped stale PageTop/answer lines; no customer work for Bani outages.
-- [ ] Evidenced deadline reminders and amber pending pill; grouped everything-pending conversation.
-- [ ] Compact event currency, evidence-backed overtime/cost movement and protected named-person routing.
-- [ ] Read-only KHAMBU feed/deadline report, isolated QA lifecycle cleanup, focused tests and desktop/375px checks.
+- [x] Feed health storage/server-result RPC, delayed admin break/recovery delivery and scoped stale PageTop/answer context; internal failures status-only. Imported coverage never falsely called a connection failure.
+- [x] Evidence-only deadline reminders/working-day rule, amber pending pill and grouped all-pending conversation; compact currency, recorded overtime, complete-week cost windows and admin-protected named-user routing.
+- [x] 60 pure tests; signed-in KHAMBU root conversation/all-pending desktop and 375px; QA health/reminder readback and cleanup. No posted-finance writes or test pushes. KHAMBU sales last upload 31 Oct/coverage 30 Oct; bank/card last upload 8 May/coverage 30 Apr; CNY bank and Arca sales never uploaded. No confirmed upcoming payroll/MPF, tax or late-fee bill deadlines.
+- [ ] Actual connection adapters/retry callbacks cannot be verified: no live connector heartbeat/error source exists in this project. Service-only feed-result entry point is ready, but old manual uploads are not proof of outages. Physical break/recovery/deadline push, live named-user save/forget and populated weekly-cost delivery remain unverified. Monthly payroll has no recorded weekly cost period; no fabricated weekly allocation.
 
 ## Alerts final shape — previous request
 - [x] Removed bell, alert pop-ups and Settings Alerts; one phone switch in User menu. Bani role-scoped pending pill, root-first typed work, owner factual greeting/team counts, push event opening, retained guarded People/scanner actions, reviewed statement handoff and conversational mute list/forget.
 - [x] Reused detectors, grouping and lifecycle; informational sales/record-day/supplier-price/sick-leave/recorded no-show/late/delivery-short events separated from never-pushed work. Existing approval/missing-feed/payroll/leave/swap/timesheet records grouped by venue. Read-only KHAMBU last-week dry run: owner 9, venue manager 5, staff 0; Caliente +72%, Assembly +58% usual.
 - [x] 47 pure fixtures; desktop/375px, pending conversation, phone switch and isolated QA typed done→1 to 0→readback checked. Temporary QA bill removed and pre-existing work state restored. No posted finance writes or actual verification pushes.
-- [ ] Individual-person notification reassignment needs a protected routing action; current preference tool supports existing authorised roles only.
-- [ ] Weekly food/staff-cost movement, refund/void and impending overtime detectors remain unimplemented; no live POS/stock-out prediction. Existing data sources need explicit comparable coverage before claiming these notifications.
+- [x] Follow-up adds protected individual-person notification routing and recorded overtime/comparable weekly cost detectors. Refund/void and live stock-out prediction remain skipped without a data source; monthly payroll is not silently prorated into weeks.
 - [ ] Full owner last-week prose review and exact after-close delivery are not complete: current owner greeting is yesterday-only, digest wakeup uses 22:00 and Monday 08:30 with once-per-day claims. Physical push receipt, approvals-through-typed-chat and statement import completion remain unverified; existing approval screens remain authoritative.
 
 ## Smart Alerts part two — previous request
