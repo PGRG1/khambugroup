@@ -13,6 +13,8 @@ import { ExpensesNavigation } from "@/components/expenses/ExpensesNavigation";
 import { PurchasingNavigation } from "@/components/procurement/PurchasingNavigation";
 import { PeopleNavigation } from "@/components/hr/PeopleNavigation";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useBaseCurrency } from "@/hooks/useFxRate";
+import { setBaseCurrency } from "@/utils/money";
 import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
 import { FloatingBani } from "@/components/assistant/FloatingBani";
 import { VenueScopeProvider } from "@/hooks/useVenueScope";
@@ -26,6 +28,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const { isPreviewActive, previewUserId } = usePreviewMode();
   const { tenantId } = useActiveTenant();
+  const baseCurrency = useBaseCurrency().data?.base ?? "HKD";
+  setBaseCurrency(baseCurrency);
   const topPad = isPreviewActive ? "pt-10" : "";
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0"; } catch { return true; }
@@ -60,7 +64,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
-            <div key={`${tenantId}:${previewUserId}`} className="min-w-0">
+            <div key={`${tenantId}:${previewUserId}:${baseCurrency}`} className="min-w-0">
               <div key={pathname} className="route-content-enter min-w-0">{children}</div>
             </div>
           </div>
