@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
+import {useFeedHealth} from '@/hooks/useFeedHealth';
 
 /** Shared page top: title, then Period (left) and actions (right). */
 export function PageTop({ title, titleDetail, period, actions, actionsBesideTitle = false }: { title: string; titleDetail?: ReactNode; period?: ReactNode; actions?: ReactNode; actionsBesideTitle?: boolean }) {
+  const areas:Record<string,string[]>={'Sales records':['sales'],'Bank & cash':['bank'],'Receivables':['payments'],'Finance overview':['sales','payments','bank','finance']};
+  const status=useFeedHealth(areas[title]??[]);
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -14,6 +17,7 @@ export function PageTop({ title, titleDetail, period, actions, actionsBesideTitl
           {!actionsBesideTitle && actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
       )}
+      {status&&<p role="status" className="text-xs text-muted-foreground">{status}</p>}
     </div>
   );
 }
