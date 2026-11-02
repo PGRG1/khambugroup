@@ -381,7 +381,7 @@ export function RecordPaymentDialog({
             </div>
             <div>
               {fxCur && (<div className="mb-2"><Label>Pay {fxCur} (owed {formatMoney(fxOwed, fxCur)})</Label><Input aria-label={`Pay ${fxCur}`} inputMode="decimal" value={origPay} onChange={(e) => setOrigPay(e.target.value)} /></div>)}
-              <Label>{fxCur ? `${baseSymbol()} that left the bank` : "Payment Amount (" + baseSymbol() + ")"}</Label>
+              <Label>{fxCur ? `${baseSymbol()} that left the bank` : <>Payment Amount ({baseSymbol()})</>}</Label>
               <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Use 0 if fully settling with a credit note.
