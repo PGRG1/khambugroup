@@ -1,7 +1,7 @@
 import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
 import {createClient} from 'npm:@supabase/supabase-js@2';
 import {z} from 'npm:zod@3';
-import {detect,addDays,isSuppressed,muteMatches,type Row} from './rules.ts';
+import {detect,addDays,muteMatches,type Row} from './rules.ts';
 const Body=z.object({tenant_id:z.string().uuid().optional(),scheduled:z.boolean().optional(),token:z.string().optional()});
 const response=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...corsHeaders,'Content-Type':'application/json'}});
 Deno.serve(async(req)=>{
@@ -23,7 +23,8 @@ Deno.serve(async(req)=>{
  const result=sync.data as Row;const members=await read('tenant_members',t.id,'id,user_id,role');const access=await read('user_venue_access',t.id);const pages=await read('user_page_permissions',t.id);const statuses=await read('user_access_control',t.id);const fired=(result.fired??[]) as Row[];const pushErrors:string[]=[];
  for(const a of fired.filter(a=>a.severity==='urgent'&&a.status==='open')){const routes=data.alert_mutes.filter(m=>m.scope==='route_to_role'&&muteMatches(m,a,day));const recipients=members.filter(m=>!statuses.some(s=>s.user_id===m.user_id&&s.status==='disabled')&&!pages.some(p=>p.user_id===m.user_id&&p.page_key===(a.area==='sales'?'revenue':a.area)&&!p.can_access)&&(!a.venue_id||!access.some(x=>x.user_id===m.user_id)||access.some(x=>x.user_id===m.user_id&&x.venue_id===a.venue_id))&&(!routes.length||routes.every(r=>m.role===r.target_role&&m.user_id!==r.created_by))).map(m=>m.user_id);if(!recipients.length)continue;
  const push=await fetch(url+'/functions/v1/send-push',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({user_ids:recipients,payload:{title:a.title,body:a.why,url:a.action_path,tag:'smart-'+a.id,requireInteraction:true}})});if(!push.ok)pushErrors.push(a.title);else{const sent=await push.json();await admin.from('alert_events').update({sent_count:Number(sent.sent??0)}).eq('id',a.id).eq('tenant_id',t.id);}}
- // Good news and explicit summary preferences are persisted as summary-only inbox events, never pushed.
+ // Good news is kept out of the open inbox and collected into the opted-in daily summary.
+
  results.push({tenant_id:t.id,day,titles:fired.map(a=>a.title),evaluated:candidates.length,push_unavailable:pushErrors});
  }
  return response({rules_fired:results.reduce((s,r)=>s+r.titles.length,0),per_tenant:results});
