@@ -65,7 +65,7 @@ export function StatementUploadFlow({
   const [file, setFile] = useState<File | null>(initial?.file??null);
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedStatement | null>(initial?.extracted??null);
-  const [mappings, setMappings] = useState<Record<number, Mapping>>(()=>Object.fromEntries((initial?.extracted.accounts??[]).map((a,i)=>[i,{bank_account_id:accounts.filter(x=>x.account_number_last4===a.account_number_last4).length===1?accounts.find(x=>x.account_number_last4===a.account_number_last4)?.id??"__skip__":"__skip__"}])));
+  const [mappings, setMappings] = useState<Record<number, Mapping>>(()=>Object.fromEntries((initial?.extracted.accounts??[]).map((a,i)=>[i,{bank_account_id:matchPocket(accounts as any,a,getBaseCurrency())??"__ask__"}])));
   const [filePath, setFilePath] = useState<string | null>(null);
 
   const reset = () => {
