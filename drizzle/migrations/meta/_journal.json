@@ -764,6 +764,13 @@
       "when": 1793576214350,
       "tag": "0108_protect_future_account_redirects",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1793581691322,
+      "tag": "0109_accountant_merge_and_deferred_card_tips",
+      "breakpoints": true
     }
   ]
 }

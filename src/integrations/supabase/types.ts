@@ -14892,6 +14892,7 @@ export type Database = {
         Args: { p: Json; t: string }
         Returns: string
       }
+      finance_can_merge_accounts: { Args: { t: string }; Returns: boolean }
       finance_close_bank_period: {
         Args: { p_import: string; p_note?: string; p_tenant: string }
         Returns: string
