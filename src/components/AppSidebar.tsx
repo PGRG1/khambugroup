@@ -1,5 +1,5 @@
 import {
-  LogOut, Users, Building2, UserRound,
+  LogOut, Users, UserRound, Search,
   TrendingUp, Scale, ChevronDown,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
   Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, Package,
@@ -15,6 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { useNavigate } from "react-router-dom";
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
@@ -80,14 +83,14 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
 }
 
 type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean };
-function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () => void }) {
+function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
   return (
     <SidebarContent className="bani-rail items-center gap-1 pb-2">
       <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="bani-rail-expand inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-              <ChevronsRight className="h-4 w-4" />
+            <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="bani-rail-expand bani-rail-logo inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <BaniLoginMark className="bani-rail-mark h-[26px] w-[16px]" /><ChevronsRight className="bani-rail-chev h-4 w-4" />
             </button>
           </TooltipTrigger>
           <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Expand sidebar</TooltipContent></TooltipPortal>
@@ -104,14 +107,60 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
           <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
         </Tooltip>
       ))}
+      {footer && <div className="mt-auto pt-2">{footer}</div>}
     </SidebarContent>
   );
+}
+
+/** Navigation-only page finder (⌘K). Never sends anything to Bani. */
+function GoToPage({ pages }: { pages: { title: string; to: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen((o) => !o); } };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, []);
+  return <>
+    <button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-goto mx-3 flex items-center gap-2 rounded-md px-2.5 h-9 text-[13px]">
+      <Search className="h-4 w-4 shrink-0" /><span className="flex-1 text-left">Go to a page</span><kbd className="text-[11px]">⌘K</kbd>
+    </button>
+    <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandInput placeholder="Go to a page" aria-label="Go to a page" />
+      <CommandList>
+        <CommandEmpty>No page found.</CommandEmpty>
+        {pages.map((p) => <CommandItem key={p.to + p.title} value={p.title + " " + p.to} onSelect={() => { setOpen(false); navigate(p.to); }}>{p.title}</CommandItem>)}
+      </CommandList>
+    </CommandDialog>
+  </>;
+}
+
+/** Small centred account pop-up: name, email, password reset and sign out. */
+function AccountDialog({ open, onOpenChange, name, email, onSignOut }: { open: boolean; onOpenChange: (o: boolean) => void; name: string; email: string; onSignOut: () => void }) {
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!open) setMsg(""); }, [open]);
+  const reset = async () => {
+    if (!email) return; setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    setMsg(error ? error.message : "We've emailed you a link to change your password."); setBusy(false);
+  };
+  return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="max-w-[400px]">
+      <DialogHeader><DialogTitle>Your account</DialogTitle></DialogHeader>
+      <div className="space-y-1"><p className="font-medium">{name || "—"}</p><p className="text-sm text-muted-foreground break-all">{email}</p></div>
+      {msg && <p className="text-sm text-muted-foreground" role="status">{msg}</p>}
+      <div className="flex flex-wrap justify-end gap-2 pt-2">
+        <Button variant="outline" disabled={busy || !email} onClick={() => void reset()}>Change password</Button>
+        <Button onClick={onSignOut}><LogOut className="h-4 w-4" />Sign out</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
 }
 
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
 const navItems: (Item & { icon: any })[] = [
-  { title: "BANI TEAM", url: "/", icon: HomeOrb, pageKey: "home", end: true },
+  { title: "Bani team", url: "/", icon: HomeOrb, pageKey: "home", end: true },
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
@@ -318,6 +367,7 @@ export function AppSidebar() {
   const { showInSidebar, canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveUserId || undefined);
   const team = useTeamOpenCounts();
   const [sp] = useSearchParams();
+  const [accountOpen, setAccountOpen] = useState(false);
   const { memberships } = useActiveTenant();
   const myRole = roleWords(memberships.find((m) => m.tenant_id === activeTenantId)?.role ?? (isPlatformAdmin ? "platform_admin" : undefined));
   const nameQ = useQuery({
@@ -391,7 +441,35 @@ export function AppSidebar() {
   const showPayments    = canSeeSection("payments");
   const showPettyCash   = canSeeSection("pettycash");
   const showAdmin       = isAdmin && !isPreviewActive;
-  const showPlatform    = isPlatformAdmin && !isPreviewActive;
+  const showSettings = showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB);
+  // "Bani team" = the sum of the section counts this person can see (waiting items only).
+  const homeBadge = (revenueDestination ? team.counts.revenue : 0) + (showProcurement ? team.counts.purchasing : 0) + (showHR ? team.counts.people : 0) + (showFinance ? team.counts.finance : 0);
+  const goPages = [
+    { title: "Bani team", to: "/" },
+    ...(revenueDestination ? revenueChildren.map((c) => ({ title: `Revenue · ${c.title}`, to: c.to })) : []),
+    ...(showProcurement ? purchasingChildren.map((c) => ({ title: `Purchasing · ${c.title}`, to: c.url })) : []),
+    ...(showProcurement ? stockMenuChildren.map((c) => ({ title: `Stock & menu · ${c.title}`, to: c.url })) : []),
+    ...(showHR ? peopleChildren.map((c) => ({ title: `People · ${c.title}`, to: c.to })) : []),
+    ...(showFinance ? expenseNav.map((t) => ({ title: `Expenses · ${t.label}`, to: t.path })) : []),
+    ...(showFinance ? financeTabs.map((t) => ({ title: `Finance · ${t.label}`, to: t.path })) : []),
+    ...(showSettings ? settingsChildren.map((c) => ({ title: `Settings · ${c.title}`, to: c.to })) : []),
+  ];
+  const me = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {collapsed
+          ? <button type="button" className="bani-me inline-flex h-[38px] w-[38px] items-center justify-center rounded-full" aria-label="Your account and sign out"><span className="bani-me-initials">{initialsOf(myName || user?.email || "") || "?"}</span></button>
+          : <button type="button" className="bani-me flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left" aria-label="Your account and sign out">
+              <span className="bani-me-initials">{initialsOf(myName || user?.email || "") || "?"}</span>
+              <span className="min-w-0"><span className="block truncate text-[13px] font-medium">{myName}</span>{myRole && <span className="block text-[11.5px] bani-me-role">{myRole}</span>}</span>
+            </button>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={collapsed ? "right" : "top"} align={collapsed ? "end" : "start"} className="w-52">
+        <DropdownMenuItem className="gap-2.5" onSelect={() => setAccountOpen(true)}><UserRound className="h-4 w-4" />Your account</DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5" onSelect={signOut}><LogOut className="h-4 w-4" />Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="bani-side">
@@ -431,12 +509,13 @@ export function AppSidebar() {
             </Button>
           </div>
         )}
+        <GoToPage pages={goPages} />
       </div>
       )}
 
       {collapsed ? (
-        <CollapsedRail onExpand={() => setOpen(true)} items={[
-          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/"), dot: it.url === "/" && team.total > 0 })),
+        <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={[
+          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/"), dot: it.url === "/" && homeBadge > 0 })),
           ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, dot: team.counts.revenue > 0 }] : []),
           ...(showProcurement ? [
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, dot: team.counts.purchasing > 0 },
@@ -446,8 +525,7 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", dot: team.counts.finance > 0 }] : []),
 
-          ...((showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
-          ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
         ]} />
       ) : (
       <SidebarContent className="py-2 gap-3">
@@ -455,7 +533,7 @@ export function AppSidebar() {
         <SidebarGroup className="py-0 px-2">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {visibleItems.map((it) => <TopLink key={it.url} item={it} badge={it.url === "/" ? team.total : 0} />)}
+              {visibleItems.map((it) => <TopLink key={it.url} item={it} badge={it.url === "/" ? homeBadge : 0} />)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -489,10 +567,7 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {showSubPages && purchasingActive && purchasingChildren.map((item) => <React.Fragment key={item.url}>
-                {item.url === "/procurement/purchase-orders" && <li role="separator" className="mx-3 my-2 h-px bg-sidebar-border/60" />}
-                <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
-              </React.Fragment>)}
+              {showSubPages && purchasingActive && purchasingChildren.map((item) => <FlagChildLink key={item.url} title={item.title} to={item.url} active={purchasingChildActive(item.url)} />)}
             </SidebarMenu>
           </SidebarGroup>
         )}
@@ -539,36 +614,12 @@ export function AppSidebar() {
 
         {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
 
-        {showPlatform && (
-          <CollapsibleNavGroup
-            label="Platform"
-            icon={Building2}
-            defaultOpen={groupState.platform}
-            onOpenChange={(o) => setGroup("platform", o)}
-          >
-            <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={{ title: "Clients", url: "/platform/clients" }} />
-            </SidebarMenu>
-          </CollapsibleNavGroup>
-        )}
 
       </SidebarContent>
       )}
 
-      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="bani-me flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left" aria-label="Your account and sign out">
-              <span className="bani-me-initials">{initialsOf(myName || user?.email || "") || "?"}</span>
-              <span className="min-w-0"><span className="block truncate text-[13px] font-medium">{myName}</span>{myRole && <span className="block text-[11.5px] bani-me-role">{myRole}</span>}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-52">
-            <DropdownMenuItem asChild><Link to="/settings?tab=business"><UserRound className="h-4 w-4" />Your account</Link></DropdownMenuItem>
-            <DropdownMenuItem onSelect={signOut}><LogOut className="h-4 w-4" />Sign out</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarFooter>}
+      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-2">{me}</SidebarFooter>}
+      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} name={myName} email={user?.email ?? ""} onSignOut={() => { setAccountOpen(false); void signOut(); }} />
     </Sidebar>
   );
 }

@@ -4,9 +4,9 @@ export const PURCHASE_ORDERS_URL = "/procurement/purchase-orders";
 
 export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Overview", url: "/procurement/dashboard" },
-  { title: "Purchase Orders", url: PURCHASE_ORDERS_URL },
+  { title: "Purchase orders", url: PURCHASE_ORDERS_URL },
   { title: "Invoices", url: "/procurement/invoices" },
-  { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
+  { title: "Supplier accounts", url: "/procurement/finance/suppliers" },
 ];
 
 /** Supplier directory: listed under Settings → Master Data for admins; non-admins keep it in Purchasing. */
