@@ -59,7 +59,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="hidden md:block" />
             <div className="flex min-w-0 items-center gap-2">
               {pathname === "/assistant" && <div id="assistant-topbar-actions" className="flex items-center gap-2" />}
-              <div id="floating-bani-restore" className="flex items-center" />
               <VenueScopePicker />
               <div className="shrink-0"><UserMenu /></div>
             </div>

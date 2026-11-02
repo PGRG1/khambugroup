@@ -17,7 +17,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
-import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
+import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -47,7 +47,6 @@ const SALES_LABELS: Record<string, string> = {
 };
 const showSales = (field: string, v: unknown) => typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
 const SPHERE = 44;
-const HOLD_MS = 320;
 const FILES_ONLY_PROMPT = "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.";
 
 const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resolve, reject) => {
@@ -75,22 +74,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [stepLabel, setStepLabel] = useState("");
   const [error, setError] = useState("");
   const [dropping, setDropping] = useState(false);
-  const [drag, setDrag] = useState<Point | null>(null);
-  const [holding, setHolding] = useState(false);
-  const [overX, setOverX] = useState(false);
   const [vv, setVv] = useState({ top: 0, h: typeof window !== "undefined" ? window.innerHeight : 800 });
   const abort = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const sphereEl = useRef<HTMLButtonElement>(null);
-  const gesture = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; t: number; held: boolean; moved: number; timer: number; last: Point; over: boolean } | null>(null);
   const panelDrag = useRef<{ id: number; ox: number; oy: number } | null>(null);
   const panelEl = useRef<HTMLElement>(null);
-  const springRaf = useRef(0);
-  const vel = useRef({ x: 0, y: 0, t: 0, px: 0, py: 0 });
   const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
-  useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
   const dictation = useDictation({ getAuth: () => ({ token: session?.access_token ?? null, tenantId }), onError: msg => setError(msg) });
   dictation.setOnAutoFinish(t => setDraft(d => joinDraft(d, t)));
   // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
@@ -111,8 +102,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [files, setFiles] = store?.files ?? [[], () => {}];
   const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
-  const [hidden, setHidden] = store?.hidden ?? [false, () => {}];
-  const [sphere, setSphere] = store?.sphere ?? [null, () => {}];
   const [panelPos, setPanelPos] = store?.panel ?? [null, () => {}];
   const page = store?.page[0] ?? null;
   const host = store?.host ?? null;
@@ -131,11 +120,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!store || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
-    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
+    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
-  useEffect(() => () => { abort.current?.abort(); if (gesture.current) clearTimeout(gesture.current.timer); }, []);
-  useEffect(() => { if (openSignal) { setHidden(false); setOpen(true); } }, [openSignal, setHidden, setOpen]);
+  useEffect(() => () => { abort.current?.abort(); }, []);
+  useEffect(() => { if (openSignal) setOpen(true); }, [openSignal, setOpen]);
   useEffect(() => { if (open && !isMobile && window.matchMedia?.("(pointer: fine)").matches) input.current?.focus(); }, [open, isMobile]);
   useEffect(() => { const s = end.current?.parentElement; if (s) s.scrollTop = s.scrollHeight; }, [messages, busy, open]);
   useEffect(() => {
@@ -143,16 +132,15 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const update = () => {
       setVv({ top: v?.offsetTop ?? 0, h: v?.height ?? window.innerHeight });
       const w = window.innerWidth, h = window.innerHeight;
-      setSphere(p => p ? clampPoint(p, SPHERE, w, h) : p);
       setPanelPos(p => p && panelEl.current ? clampPoint(p, 0, w - panelEl.current.offsetWidth, h - panelEl.current.offsetHeight, 8) : p);
     };
     update();
     v?.addEventListener("resize", update); v?.addEventListener("scroll", update); window.addEventListener("resize", update);
     return () => { v?.removeEventListener("resize", update); v?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
-  }, [setSphere, setPanelPos]);
+  }, [setPanelPos]);
 
   const openedAt = useRef(0);
-  useEffect(() => { if (open) openedAt.current = performance.now(); if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
+  useEffect(() => { if (open) openedAt.current = performance.now(); if (!open) { voiceEndRef.current(); setVoiceMode(false); } }, [open]);
   useEffect(() => () => voiceEndRef.current(), []);
 
   const queryClient = useQueryClient();
@@ -163,7 +151,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [finished,setFinished] = useState<string[]>([]);
   const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
   const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`:'That is everything pending in your scope.',eventId:item?(item.id??item.kind+'|'+item.subject):undefined}]); };
-  const openWork = () => {setWorkStart(pendingItems.length);if(!activeItem)nextWork();setHidden(false);setOpen(true);};
+  const openWork = () => {setWorkStart(pendingItems.length);if(!activeItem)nextWork();setOpen(true);};
   const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await supabase.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}}});if(error)throw error;if(data.error)throw new Error(data.error);};
   const dismissEvent = async (id:string) => {try{const item=pendingItems.find(a=>a.id===id||a.kind+'|'+a.subject===id);if(item)await completeWork(item,'done');else await alerts.action(id,'done');if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a!==item));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');
@@ -172,7 +160,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const lastPath = useRef(pathname);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; setOpen(false); }, [pathname, hosted, setOpen]);
-  useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setHidden(false);setOpen(true);},[locationSearch,pending.data,setMessages,setHidden,setOpen]);
+  useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
@@ -366,68 +354,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   sendRef.current = send;
 
-  // Sphere: tap opens; moving past the slop drags it immediately (direct DOM, no React per frame).
-  // Release springs to the nearest side edge with carried velocity; near the × it is pulled in.
-  const dismissCentre = () => ({ x: window.innerWidth / 2, y: window.innerHeight - 72 });
-  const place = (p: Point, scale = 1) => { const el = sphereEl.current; if (!el) return; el.style.left = `${p.x}px`; el.style.top = `${p.y}px`; el.style.right = "auto"; el.style.bottom = "auto"; el.style.transform = `scale(${scale})`; };
-  const resetGesture = () => { const g = gesture.current; if (g) clearTimeout(g.timer); gesture.current = null; setHolding(false); setOverX(false); setDrag(null); };
-  const springTo = (from: Point, v: Point, to: Point, done: () => void, endScale = 1) => {
-    cancelAnimationFrame(springRaf.current);
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) { place(to, endScale); done(); return; }
-    let x = from.x, y = from.y, vx = v.x, vy = v.y, s = 1, last = performance.now();
-    const k = 260, c = 22; // slightly under-damped: a soft elastic settle
-    const tick = (now: number) => {
-      const dt = Math.min(0.032, (now - last) / 1000); last = now;
-      vx += (k * (to.x - x) - c * vx) * dt; vy += (k * (to.y - y) - c * vy) * dt;
-      x += vx * dt; y += vy * dt; s += (endScale - s) * Math.min(1, dt * 14);
-      if (Math.hypot(to.x - x, to.y - y) < 0.5 && Math.hypot(vx, vy) < 10 && Math.abs(endScale - s) < 0.02) { place(to, endScale); done(); return; }
-      place({ x, y }, s); springRaf.current = requestAnimationFrame(tick);
-    };
-    springRaf.current = requestAnimationFrame(tick);
-  };
-  const onSphereDown = (e: RPointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0 || !sphereEl.current) return;
-    cancelAnimationFrame(springRaf.current);
-    const r = sphereEl.current.getBoundingClientRect();
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
-    const start = { x: r.left, y: r.top };
-    gesture.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, t: performance.now(), held: false, moved: 0, last: start, over: false, timer: 0 };
-    vel.current = { x: 0, y: 0, t: e.timeStamp, px: e.clientX, py: e.clientY };
-  };
-  const onSphereMove = (e: RPointerEvent<HTMLButtonElement>) => {
-    const g = gesture.current; if (!g || g.id !== e.pointerId) return;
-    g.moved = Math.max(g.moved, Math.hypot(e.clientX - g.sx, e.clientY - g.sy));
-    if (!g.held) { if (g.moved < 8) return; g.held = true; setHolding(true); setDrag(g.last); }
-    const dt = Math.max(1, e.timeStamp - vel.current.t);
-    vel.current = { x: 0.6 * vel.current.x + 0.4 * ((e.clientX - vel.current.px) * 1000 / dt), y: 0.6 * vel.current.y + 0.4 * ((e.clientY - vel.current.py) * 1000 / dt), t: e.timeStamp, px: e.clientX, py: e.clientY };
-    let p = clampPoint({ x: e.clientX - g.ox, y: e.clientY - g.oy }, SPHERE, window.innerWidth, window.innerHeight);
-    const c = dismissCentre(); const target = { x: c.x - SPHERE / 2, y: c.y - SPHERE / 2 };
-    const d = Math.hypot(p.x - target.x, p.y - target.y);
-    if (d < 90) { const pull = 1 - d / 90; p = { x: p.x + (target.x - p.x) * pull * 0.7, y: p.y + (target.y - p.y) * pull * 0.7 }; }
-    g.last = p; const over = overDismiss(p, SPHERE, c.x, c.y) || d < 40;
-    place(p, over ? 0.92 : 1.08);
-    if (over !== g.over) { g.over = over; setOverX(over); }
-  };
-  const onSphereUp = (e: RPointerEvent<HTMLButtonElement>, cancelled = false) => {
-    const g = gesture.current; if (!g || g.id !== e.pointerId) return;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    if (!cancelled && g.held) {
-      const w = window.innerWidth, h = window.innerHeight; const v = { x: vel.current.x, y: vel.current.y };
-      if (g.over) {
-        const c = dismissCentre(); gesture.current = null; setOverX(true);
-        springTo(g.last, { x: 0, y: 0 }, { x: c.x - SPHERE / 2, y: c.y - SPHERE / 2 }, () => { resetGesture(); setHidden(true); setOpen(false); }, 0.01);
-        return;
-      }
-      const projX = g.last.x + SPHERE / 2 + v.x * 0.18;
-      const to = clampPoint({ x: projX < w / 2 ? 0 : w, y: g.last.y + v.y * 0.18 }, SPHERE, w, h);
-      gesture.current = null; setHolding(false); setOverX(false);
-      springTo(g.last, v, to, () => { setSphere(to); setDrag(null); });
-      return;
-    }
-    if (!cancelled && isTap(g.moved, performance.now() - g.t, HOLD_MS)) openSphere();
-    resetGesture();
-  };
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
@@ -466,17 +392,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const onDrag = (e: DragEvent) => { if (!Array.from(e.dataTransfer.types).includes("Files")) return; e.preventDefault(); setDropping(e.type !== "dragleave"); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
 
-  const sphereStyle = drag ? { left: drag.x, top: drag.y } : sphere ? { left: sphere.x, top: sphere.y } : undefined;
   const mobileH = Math.min(620, vv.h - 16);
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
   const panelStyle = home ? undefined
     : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
     : typeof window !== "undefined" && window.innerWidth < 700 ? { top: vv.top + 24, height: vv.h - 96, maxHeight: vv.h - 96, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
-  const restore = <Button variant="ghost" type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></Button>;
-  const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
-    {hidden && !home ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : (open || home) ? (
+    {(open || home) ? (
       <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {home ? (open && <div className="floating-bani-homeback"><button type="button" onClick={() => setOpen(false)}><ChevronLeft className="h-4 w-4" />Back to today</button>{working && <span className="floating-bani-context">{context}</span>}</div>) :
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
@@ -487,10 +410,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
-          {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
-            {message.preferenceId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Forget Bani preference" onClick={async()=>{try{await alerts.unmute(message.preferenceId??'');setMessages(prev=>prev.map((m,i)=>i===index?{...m,outcome:'Forgotten'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not forget');}}}><X className="h-3 w-3"/></Button>}
-            {message.eventId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Dismiss Bani event" onClick={()=>void dismissEvent(message.eventId??'')}><X className="h-3 w-3"/></Button>}
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
@@ -589,16 +509,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </form>
       </section>
     ) : null}
-    {!home && !(hidden && !home) && (!open || !hosted) && <>
-      <Button variant="ghost" ref={sphereEl} type="button" className={`floating-bani-sphere ${drag ? "is-dragging" : ""} ${overX ? "is-over" : ""}`} style={sphereStyle} aria-label="Open Bani" title="Ask Bani"
-        onPointerDown={onSphereDown} onPointerMove={onSphereMove} onPointerUp={e => onSphereUp(e)} onPointerCancel={e => onSphereUp(e, true)} onLostPointerCapture={() => { if (gesture.current) resetGesture(); }}
-        onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) openSphere(); }}>
+    {!home && (!open || !hosted) && (
+      <Button variant="ghost" type="button" className="floating-bani-sphere" aria-label="Open Bani" title="Ask Bani" onClick={() => openSphere()}>
         <BaniOrb size={SPHERE} mode="idle" />
-        {attention > 0 && !holding && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
+        {attention > 0 && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
       </Button>
-      <Button variant="ghost" type="button" className="floating-bani-hide sr-only focus:not-sr-only" onClick={() => { setHidden(true); setOpen(false); }}>Hide assistant</Button>
-      {holding && <div className={`floating-bani-target ${overX ? "is-active" : ""}`} aria-hidden="true"><X className="h-6 w-6" /></div>}
-    </>}
+    )}
   </div>;
   // A modal owns focus and inertness: portal into that modal, never above it.
   return hosted ? createPortal(surface, host?.node.closest('[role="dialog"]') || document.body) : surface;

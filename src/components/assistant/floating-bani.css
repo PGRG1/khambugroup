@@ -4,16 +4,10 @@
 .floating-bani > * { pointer-events: auto; }
 
 /* Sphere launcher: the orb itself, no button chrome. */
-.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; box-shadow: var(--fb-orb-shadow); }
+.floating-bani-sphere { position: fixed; right: 1rem; bottom: max(1rem, env(safe-area-inset-bottom)); width: 48px; height: 48px; padding: 0; border: 0; background: none; border-radius: 50%; user-select: none; -webkit-user-select: none; cursor: pointer; box-shadow: var(--fb-orb-shadow); }
 .floating-bani-sphere:focus-visible { outline: 2px solid var(--fb-accent); outline-offset: 3px; }
-.floating-bani-sphere { will-change: left, top, transform; transition: transform 140ms cubic-bezier(.34,1.56,.64,1); }
 .floating-bani-sphere:active { transform: scale(1.06); }
-.floating-bani-sphere.is-dragging { z-index: 2; right: auto; bottom: auto; cursor: grabbing; }
-.floating-bani-hide { position: fixed; right: 1rem; bottom: 4.5rem; padding: .4rem .7rem; border-radius: 999px; background: var(--fb-panel); color: var(--fb-ink); font-size: .8rem; }
-.floating-bani-target { position: fixed; left: 50%; bottom: calc(72px - 32px + env(safe-area-inset-bottom)); width: 64px; height: 64px; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; color: var(--fb-ink); background: var(--fb-panel); border: 1px solid var(--fb-line); backdrop-filter: blur(12px); pointer-events: none; transition: transform 140ms ease, box-shadow 140ms ease; }
-.floating-bani-target.is-active { transform: scale(1.18); box-shadow: 0 0 0 3px var(--fb-ring); }
-.floating-bani-restore { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; background: none; border-radius: 50%; cursor: pointer; }
-.floating-bani-restore-fixed { position: fixed; top: max(.5rem, env(safe-area-inset-top)); right: 3.5rem; }
+
 
 /* Light tenant chat — existing dimensions and interaction mechanics retained. */
 .floating-bani-panel { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; width: min(390px, calc(100vw - 2rem)); height: min(620px, calc(100dvh - 6rem)); color: var(--fb-ink); border: 1px solid var(--fb-line); border-radius: 20px; background: var(--fb-panel); box-shadow: var(--fb-shadow); overflow: hidden; }
@@ -69,7 +63,7 @@
   .floating-bani-panel { left: .75rem; right: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); width: auto; height: min(620px, calc(100dvh - 1rem)); padding-bottom: env(safe-area-inset-bottom); }
 }
 @media (prefers-reduced-motion: no-preference) { .floating-bani-panel { animation: floating-bani-enter 140ms ease-out; } @keyframes floating-bani-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } } }
-@media (prefers-reduced-motion: reduce) { .floating-bani-sphere, .floating-bani-target { transition: none; } .floating-bani-typing span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .floating-bani-typing span { animation: none; } }
 
 /* Mobile sheet: swipe the header/grab bar down to close. */
 .floating-bani-panel.is-mobile .floating-bani-header, .floating-bani-grab { touch-action: none; }
@@ -127,7 +121,6 @@
 .floating-bani-voice-pill .floating-bani-input { font-size: 16px; }
 .floating-bani .floating-bani-send, .floating-bani .floating-bani-plus, .floating-bani .floating-bani-icon, .floating-bani .floating-bani-mic, .floating-bani .floating-bani-voice-mute, .floating-bani .floating-bani-voice-end, .floating-bani .floating-bani-sphere { border-radius: 50%; }
 .floating-bani .floating-bani-voice-orb { width: 64px; height: 64px; min-height: 64px; padding: 0; background: none; border-radius: 50%; }
-.floating-bani .floating-bani-restore { padding: 0; border-radius: 50%; }
 .floating-bani-attention.is-due { border-color: var(--fb-warning); color: var(--fb-warning); background: hsl(var(--warning) / .1); }
 
 /* Small sphere on every page except Home: 44px, 24px from the edges (16px on phones). */
