@@ -17,7 +17,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
-import { ATTACH_TYPES, attachmentError, clampPoint, isTap, moduleLabel, overDismiss, type Point } from "@/utils/floatingBaniUi";
+import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -47,7 +47,6 @@ const SALES_LABELS: Record<string, string> = {
 };
 const showSales = (field: string, v: unknown) => typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
 const SPHERE = 44;
-const HOLD_MS = 320;
 const FILES_ONLY_PROMPT = "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.";
 
 const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resolve, reject) => {
@@ -75,22 +74,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [stepLabel, setStepLabel] = useState("");
   const [error, setError] = useState("");
   const [dropping, setDropping] = useState(false);
-  const [drag, setDrag] = useState<Point | null>(null);
-  const [holding, setHolding] = useState(false);
-  const [overX, setOverX] = useState(false);
   const [vv, setVv] = useState({ top: 0, h: typeof window !== "undefined" ? window.innerHeight : 800 });
   const abort = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const sphereEl = useRef<HTMLButtonElement>(null);
-  const gesture = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; t: number; held: boolean; moved: number; timer: number; last: Point; over: boolean } | null>(null);
   const panelDrag = useRef<{ id: number; ox: number; oy: number } | null>(null);
   const panelEl = useRef<HTMLElement>(null);
-  const springRaf = useRef(0);
-  const vel = useRef({ x: 0, y: 0, t: 0, px: 0, py: 0 });
   const sheet = useRef<{ id: number; sy: number; dy: number; t: number } | null>(null);
-  useEffect(() => () => cancelAnimationFrame(springRaf.current), []);
   const dictation = useDictation({ getAuth: () => ({ token: session?.access_token ?? null, tenantId }), onError: msg => setError(msg) });
   dictation.setOnAutoFinish(t => setDraft(d => joinDraft(d, t)));
   // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
