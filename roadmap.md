@@ -1,11 +1,15 @@
 ## Finance 3c-2 leftovers — current request
-- [ ] Unposted bill/invoice asset treatment; advance-contract prepayment drafts.
-- [ ] Tax assessment read/review and payable due items.
-- [ ] Unified multi-file statement review and direct unpaid multi-match drafts.
-- [ ] Accountant account merge guards.
-- [ ] Central sharing and sales-derived merchant aging.
-- [ ] Deferred sales edit/correction drafts and card tips.
-- [ ] Fixture tests, desktop/375px checks and protected-record comparison.
+- [x] Unposted expense bill asset selection saved for monthly approval; posting capitalizes register atomically. Advance bill save and monthly approval prepare day-based prepaid items/releases, funded only by approval.
+- [x] Tax notice upload reading + manual review, append-only due items shown separately in Payables (no posting).
+- [x] Direct unpaid invoice/bill exact-total bank payment drafts reuse guarded payment+match actions only on selected monthly approval.
+- [x] Accountant merge uses tenant accountant membership or active Finance position with edit/admin Finance permission; schedule authority unchanged.
+- [x] Read-only Central sharing setting (sales default/equal), separately labelled report shares; sales tender aging vs matched gross payout evidence, ambiguous merchants not guessed.
+- [x] Deferred new-sales card tips use negative deduction, Tips Payable per venue and balanced drafts.
+- [ ] Purchase invoice-line capitalization: still unconnected; needs source-specific approval integration, not a standalone acquisition double-post.
+- [ ] Unified multi-file bank/card upload: existing separate reviewed import flows retained; no unified queue/classifier implemented.
+- [ ] Deferred-field editing on existing unposted/posted sales: source-safe replacement/correction and schedule balance approval integration unfinished.
+- [x] 27 fixture tests and current build pass. Database reachable, protected full-row fingerprints/counts/timestamps unchanged: journals 2645, invoices 1365, bills 23, payroll 85, sales 744 (sales has no updated_at column).
+- [ ] Live approval/concurrency/closed-period fixtures, tax upload/save readback, bill pop-up/invoice detail and bank matching were not exercised end-to-end. Desktop/375px pages + unsaved tax review rendered; several captures were still loading, so populated-page verification remains incomplete.
 
 ## Shared period control — remaining pages
 - [x] Migrate remaining period/month/planning controls and bounded legacy comparisons; retire all three old controls.
