@@ -59,6 +59,7 @@ export interface Invoice {
   fx_rate?: number | null;
   fx_rate_source?: string | null;
   original_total?: number | null;
+  original_balance?: number | null;
   id: string;
   supplier_id: string;
   supplier_name?: string;
