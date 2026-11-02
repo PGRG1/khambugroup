@@ -883,6 +883,13 @@
       "when": 1793589335330,
       "tag": "0125_smart_alert_roots_settings_asks_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1793589769647,
+      "tag": "0126_smart_alert_actual_roles_and_cap_guards",
+      "breakpoints": true
     }
   ]
 }
