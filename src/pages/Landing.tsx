@@ -244,7 +244,7 @@ export default function Landing() {
   };
   const meta = (r: Role) => ROLES.find((x) => x.key === r)!;
 
-  if (talking) return <div ref={ref} className={`ld ${size}`} aria-label="Conversation with Bani" />;
+  if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
 
   return (
     <div ref={ref} className={`ld ${size}`}>

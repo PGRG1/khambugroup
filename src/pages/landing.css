@@ -95,3 +95,4 @@
 .ld-item .grow{flex:1;min-width:0}
 .ld-whyd summary{cursor:pointer;color:#1F6B5E;font-size:13px;font-weight:500}
 .ld-whyd[open]{flex-basis:100%;order:3}
+.ld.talking{min-height:calc(100dvh - 120px)}
