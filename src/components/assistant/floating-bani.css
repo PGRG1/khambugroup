@@ -131,7 +131,7 @@
 .floating-bani-attention.is-due { border-color: var(--fb-warning); color: var(--fb-warning); background: hsl(var(--warning) / .1); }
 
 /* Small sphere on every page except Home: 44px, 24px from the edges (16px on phones). */
-.floating-bani-sphere { right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); }
+.floating-bani-sphere { width: 44px !important; height: 44px !important; min-width: 0 !important; right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); }
 @media (max-width: 767px) { .floating-bani-sphere { right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); } }
 .floating-bani-count { position: absolute; top: -4px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #E08A3C; color: #fff; font: 600 11px/18px "IBM Plex Sans", system-ui, sans-serif; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 .floating-bani-count.is-due { background: #C2410C; }
@@ -140,11 +140,11 @@
 
 /* Centred chat pop-up on every page except Home. */
 .floating-bani-backdrop { position: fixed; inset: 0; background: rgba(18,21,16,.28); }
-.floating-bani-panel.is-centred:not(.is-mobile) { left: 50%; top: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 2rem)); height: min(80dvh, calc(100dvh - 2rem)); border-radius: 18px; }
+.floating-bani-panel.is-centred:not(.is-mobile) { inset: 0; margin: auto; width: min(720px, calc(100vw - 2rem)); height: min(80dvh, calc(100dvh - 2rem)); border-radius: 18px; }
 .floating-bani-panel.is-centred.is-mobile { border-radius: 18px; }
 
 /* Home: the bottom bar is the only typing box; talking turns the page into the conversation. */
-.floating-bani-panel.is-home { left: var(--home-mid, 50%); right: auto; top: auto; bottom: 18px; transform: translateX(-50%); width: min(760px, var(--home-w, calc(100vw - 32px))); height: auto; border: 0; background: transparent; box-shadow: none; overflow: visible; pointer-events: none; }
+.floating-bani-panel.is-home { --hw: min(760px, var(--home-w, calc(100vw - 32px))); left: calc(var(--home-mid, 50vw) - var(--hw) / 2); right: auto; top: auto; bottom: 18px; width: var(--hw); height: auto; border: 0; background: transparent; box-shadow: none; overflow: visible; pointer-events: none; }
 .floating-bani-panel.is-home > * { pointer-events: auto; }
 .floating-bani-panel.is-home.is-talking { top: 64px; bottom: 0; padding-bottom: 18px; }
 .floating-bani-panel.is-home .floating-bani-composer { margin: 0; border-radius: 999px; box-shadow: 0 10px 30px -10px rgba(18,21,16,.25); border-color: #E3E1DA; }
