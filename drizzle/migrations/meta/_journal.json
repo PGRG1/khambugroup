@@ -841,6 +841,13 @@
       "when": 1793583424110,
       "tag": "0119_invoice_asset_approval_source_normalization",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1793583614887,
+      "tag": "0120_source_proposal_sibling_guards",
+      "breakpoints": true
     }
   ]
 }
