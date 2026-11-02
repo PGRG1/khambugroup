@@ -137,8 +137,8 @@ const DataPage = () => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || loading || !vs.ready) return;
     const venue = vs.selectedVenues.find(v => v.id === venueId);
     const record = scopedData.find(r => r.date === date && (!venueId || r.venue === venue?.name));
-    if (record) setOpenItem({ kind: 'record', r: record });
-    else if (venue) setPrefill({ date, venue: venue.name });
+    if (record) setOpenItem({ kind: 'record', r: record, reason: null, notes: [], closed: null });
+    else if (venue) setOpenItem({ kind: 'missing', date, venue: venue.name, venueId: venue.id });
     const next = new URLSearchParams(params); next.delete('date'); next.delete('venue');
     setParams(next, { replace: true });
   }, [params, loading, vs.ready, scopedData, vs.selectedVenues, setParams]);
