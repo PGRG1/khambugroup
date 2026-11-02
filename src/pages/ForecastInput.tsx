@@ -504,7 +504,7 @@ const ForecastInput = () => {
           venueIdByName={Object.fromEntries(activeVenues.map((v) => [v.name, v.id]))}
           year={selectedYear}
           month={selectedMonth}
-          onMonthChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
+          onMonthChange={(y, m) => { const key=`${y}-${String(m).padStart(2,"0")}`; if(key>=datePeriod.booksStart.slice(0,7)&&key<=plan.end)datePeriod.onChange({from:key+"-01",to:new Date(Date.UTC(y,m,0)).toISOString().slice(0,10),key}); }}
           onStatisticalGenerated={refetchStatistical}
           generateStatistical={generateStatistical}
           generatingStatistical={generatingStatistical}

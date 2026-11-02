@@ -38,7 +38,7 @@ export default function StaffReimbursements() {
   const {user}=useAuth(); const {isPreviewActive}=usePreviewMode();
   const [owner,setOwner]=useState(false),[review,setReview]=useState<StaffReimbursement|null>(null),[payout,setPayout]=useState("bank"),[approving,setApproving]=useState(false);
   useEffect(()=>{if(sr.tenantId&&user)supabase.rpc("people_owner",{t:sr.tenantId,u:user.id}).then(({data})=>setOwner(data===true));},[sr.tenantId,user]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("mtd");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);

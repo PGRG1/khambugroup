@@ -1919,8 +1919,6 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
         loading={loading}
         periodFrom={periodFrom}
         periodTo={periodTo}
-        setPeriodFrom={setPeriodFrom}
-        setPeriodTo={setPeriodTo}
         totalAmount={totalAmount}
         columns={columns}
         sortColumns={sortColumns}
@@ -1935,8 +1933,8 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
         setVenueFilter={setVenueFilter}
         reviewStatusFilter={reviewStatusFilter}
         setReviewStatusFilter={setReviewStatusFilter}
-        monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
-        setMonthFilter={setMonthFilter}
+        monthFilter={monthFilter}
+        datePeriod={datePeriod}
         months={months}
         fmtMonth={fmtMonth}
         openDetail={openDetail}
@@ -2023,8 +2021,6 @@ interface InvoiceTableSectionProps {
   loading: boolean;
   periodFrom: Date | undefined;
   periodTo: Date | undefined;
-  setPeriodFrom: (value: Date | undefined) => void;
-  setPeriodTo: (value: Date | undefined) => void;
   totalAmount: number;
   columns: { key: string; label: string; align?: "right" }[];
   sortColumns: SortColumn[];
@@ -2040,7 +2036,7 @@ interface InvoiceTableSectionProps {
   reviewStatusFilter: string;
   setReviewStatusFilter: (v: string) => void;
   monthFilter: string;
-  setMonthFilter: (v: string) => void;
+  datePeriod: ReturnType<typeof usePagePeriod>;
   months: string[];
   fmtMonth: (ym: string) => string;
   openDetail: (inv: Invoice) => void;
@@ -2056,9 +2052,9 @@ interface InvoiceTableSectionProps {
 function InvoiceTableSection({
   filtered, suppliers, kpis, columns, sortColumns, setSortColumns,
   search, setSearch, supplierFilter, setSupplierFilter,
-  reviewStatusFilter, setReviewStatusFilter, monthFilter, setMonthFilter, months, fmtMonth,
+  reviewStatusFilter, setReviewStatusFilter, monthFilter, datePeriod, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
-  invoiceVarianceMap, onAttachSource, loading, periodFrom, periodTo, setPeriodFrom, setPeriodTo,
+  invoiceVarianceMap, onAttachSource, loading, periodFrom, periodTo,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
   const isMobile = useIsMobile();

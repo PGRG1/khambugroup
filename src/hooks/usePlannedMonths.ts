@@ -17,9 +17,9 @@ export function usePlannedMonths(kind: 'targets' | 'contracts') {
         if (error) throw error;
         return (data ?? []).map(r => r.target_date.slice(0,7));
       }
-      const { data, error } = await supabase.from('expense_recurring_rules').select('end_date').eq('tenant_id', books.tenantId).eq('is_contract', true).order('end_date', { ascending: false, nullsFirst: false }).limit(1);
+      const { data, error } = await supabase.from('expense_recurring_rules').select('contract_end').eq('tenant_id', books.tenantId).eq('is_contract', true).order('contract_end', { ascending: false, nullsFirst: false }).limit(1);
       if (error) throw error;
-      return (data ?? []).flatMap(r => r.end_date ? [r.end_date.slice(0,7)] : []);
+      return (data ?? []).flatMap(r => r.contract_end ? [r.contract_end.slice(0,7)] : []);
     },
   });
   const months = query.data ?? [];
