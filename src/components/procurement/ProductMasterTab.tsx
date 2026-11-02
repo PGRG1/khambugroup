@@ -125,7 +125,7 @@ function SetupStatusBadge({ row }: { row: FlatRow }) {
   );
 }
 
-export default function ProductMasterTab() {
+export default function ProductMasterTab({ popup = false }: { popup?: boolean } = {}) {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { tenantId } = useActiveTenant();
   const { toast } = useToast();
@@ -1061,9 +1061,9 @@ export default function ProductMasterTab() {
                 </TableRow>
               )}
               {pageItems.map((r) => (
-                <TableRow key={r.rowKey} className={cn(r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]")}>
+                <TableRow key={r.rowKey} onClick={popup ? (e) => { if (!(e.target as HTMLElement).closest("button,a,[role=menuitem]")) openEdit(r); } : undefined} className={cn(r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]", popup && "settings-row")}>
                   <TableCell className="font-medium max-w-[280px] truncate" title={r.internal_product_name}>{r.internal_product_name}</TableCell>
-                  <TableCell className="truncate max-w-[180px]" title={r.supplier}>{r.supplier}</TableCell>
+                  <TableCell className="truncate max-w-[180px]" title={r.supplier}>{r.supplier || <span className="settings-amber">Not set</span>}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level1_category}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level2_category}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level3_category}</TableCell>
@@ -1159,7 +1159,7 @@ export default function ProductMasterTab() {
           side={isMobile ? "bottom" : "right"}
           className={cn(
             "flex flex-col p-0 gap-0",
-            isMobile
+            popup ? "settings-wide" : isMobile
               ? "h-[92vh] rounded-t-2xl border-t sm:max-w-full w-full"
               : "w-full sm:max-w-[560px]",
           )}
