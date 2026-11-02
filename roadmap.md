@@ -1,4 +1,10 @@
-## Alerts final shape — current request
+## Alerts follow-up — current request
+- [ ] Feed health tracking, delayed admin break/recovery delivery, scoped stale PageTop/answer lines; no customer work for Bani outages.
+- [ ] Evidenced deadline reminders and amber pending pill; grouped everything-pending conversation.
+- [ ] Compact event currency, evidence-backed overtime/cost movement and protected named-person routing.
+- [ ] Read-only KHAMBU feed/deadline report, isolated QA lifecycle cleanup, focused tests and desktop/375px checks.
+
+## Alerts final shape — previous request
 - [x] Removed bell, alert pop-ups and Settings Alerts; one phone switch in User menu. Bani role-scoped pending pill, root-first typed work, owner factual greeting/team counts, push event opening, retained guarded People/scanner actions, reviewed statement handoff and conversational mute list/forget.
 - [x] Reused detectors, grouping and lifecycle; informational sales/record-day/supplier-price/sick-leave/recorded no-show/late/delivery-short events separated from never-pushed work. Existing approval/missing-feed/payroll/leave/swap/timesheet records grouped by venue. Read-only KHAMBU last-week dry run: owner 9, venue manager 5, staff 0; Caliente +72%, Assembly +58% usual.
 - [x] 47 pure fixtures; desktop/375px, pending conversation, phone switch and isolated QA typed done→1 to 0→readback checked. Temporary QA bill removed and pre-existing work state restored. No posted finance writes or actual verification pushes.
