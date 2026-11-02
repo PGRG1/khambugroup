@@ -14932,6 +14932,10 @@ export type Database = {
         Returns: undefined
       }
       finance_asset_propose: { Args: { p: Json; t: string }; Returns: string }
+      finance_bank_unpaid_draft: {
+        Args: { items: Json; notes?: string; t: string; txn: string }
+        Returns: string
+      }
       finance_bill_schedule_propose: {
         Args: { p: Json; t: string }
         Returns: string
