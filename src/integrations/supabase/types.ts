@@ -15895,6 +15895,10 @@ export type Database = {
         Args: { decision: string; ident: string; options?: Json; t: string }
         Returns: undefined
       }
+      smart_alert_allowed_event: {
+        Args: { ident: string; t: string }
+        Returns: boolean
+      }
       smart_alert_can_read: {
         Args: { a: string; t: string; v: string }
         Returns: boolean

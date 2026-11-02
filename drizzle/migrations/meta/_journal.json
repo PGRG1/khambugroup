@@ -862,6 +862,13 @@
       "when": 1793587401464,
       "tag": "0122_smart_alert_secure_reads_and_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1793587799685,
+      "tag": "0123_smart_alert_lifecycle_hardening",
+      "breakpoints": true
     }
   ]
 }
