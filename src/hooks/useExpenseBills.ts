@@ -81,6 +81,12 @@ export interface ExpenseBill {
 
 
 export interface ExpenseBillAllocation {
+  capitalize?: boolean;
+  asset_name?: string | null;
+  asset_category?: string | null;
+  useful_life_months?: number | null;
+  in_service_date?: string | null;
+  salvage_value?: number | null;
   supplier_account_id?: string | null;
   id?: string;
   bill_id?: string;
@@ -231,6 +237,12 @@ export function useExpenseBills() {
             tax_treatment: a.tax_treatment || "none",
             tax_amount: Number(a.tax_amount || 0),
             notes: a.notes || null,
+            capitalize: a.capitalize ?? false,
+            asset_name: a.asset_name ?? null,
+            asset_category: a.asset_category ?? null,
+            useful_life_months: a.useful_life_months ?? null,
+            in_service_date: a.in_service_date ?? null,
+            salvage_value: a.salvage_value ?? 0,
             tenant_id: tenantId,
           }));
           for(const row of payload){const existing=existingLines?.find(l=>l.line_no===row.line_no);const result=existing?await supabase.from('expense_bill_allocations').update(row).eq('id',existing.id).eq('tenant_id',tenantId):await supabase.from('expense_bill_allocations').insert(row);if(result.error)throw result.error;}

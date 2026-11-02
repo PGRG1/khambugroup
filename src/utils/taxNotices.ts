@@ -1,0 +1,2 @@
+export type TaxNotice={id?:string;reference:string;tax_year:string;due_date:string;amount:number;source_document?:string|null;created_at?:string};
+export function validTaxNotice(n:TaxNotice){return !!n.reference.trim()&&/^\d{4}-\d{2}-\d{2}$/.test(n.due_date)&&new Date(n.due_date+'T00:00:00Z').toISOString().slice(0,10)===n.due_date&&Number.isFinite(n.amount)&&n.amount>0&&Math.abs(Math.round(n.amount*100)-n.amount*100)<.000001;}
