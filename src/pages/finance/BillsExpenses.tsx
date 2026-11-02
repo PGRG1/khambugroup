@@ -1,3 +1,4 @@
+import {takeStatementBill} from "@/utils/statementBillHandoff";
 import {matchExpenseSupplier,type MeterAccount} from '@/utils/expenseSupplierAccounts';
 import {BillReadDetails} from "@/components/expenses/BillReadDetails";
 import {SupplierNameLink} from "@/components/vendors/SupplierProfileDialog";
@@ -94,7 +95,7 @@ function AmountCell({ value, onChange }: { value: number; onChange: (n: number) 
 
 export default function BillsExpenses() {
   const baniAccounting=useBaniAccounting();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -431,6 +432,8 @@ export default function BillsExpenses() {
     setScanOpen(false);
     setEditorOpen(true);
   };
+
+  useEffect(()=>{if(!tenantId||!user?.id)return;const bill=takeStatementBill(`${user.id}:${tenantId}`);if(bill)handleScanned(bill);},[tenantId,user?.id]);
 
   const allocTotal = allocations.reduce((s, a) => s + Number(a.amount || 0), 0);
   const expectedAllocTotal = Number(header.subtotal || 0) || (Number(header.total_amount || 0) - Number(header.tax_amount || 0));

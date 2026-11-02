@@ -1,3 +1,4 @@
+import {InvoiceAssetProposal} from "@/components/finance/InvoiceAssetProposal";
 import {SupplierNameLink} from "@/components/vendors/SupplierProfileDialog";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -268,6 +269,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailPosted,setDetailPosted]=useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Invoice>>({});
   const [editLines, setEditLines] = useState<EditableInvoiceLine[]>([]);
@@ -581,6 +583,9 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
 
   const openDetail = async (inv: Invoice) => {
     setSelectedInvoice(inv);
+    setDetailPosted(true);
+    const posted=await supabase.from("journal_entries").select("id").eq("tenant_id",tenantId??"").eq("source_type","invoice").eq("source_id",inv.id).eq("status","posted").limit(1);
+    setDetailPosted(!!posted.error||!!posted.data?.length);
     const items = await fetchLineItems(inv.id);
     setLineItems(items);
     // Load GRN items linked to this invoice (confirmed or disputed GRNs)
@@ -1979,14 +1984,14 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
               <BaniScanSummary invoiceId={inv.id} compact deliverySummary={short.length ? `${short.length} line${short.length === 1 ? "" : "s"} short: ${deliverySummary}` : deliverySummary} deliveryProblem={changed.length > 0}
                 moreActions={<>
                   {!hasDurableAttachment(inv.file_url) && <DropdownMenuItem onClick={() => setAttachTarget(inv)}>Attach source</DropdownMenuItem>}
-                  <DropdownMenuItem className="text-destructive" onClick={() => { setDrawerOpen(false); setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
+                  <DropdownMenuItem disabled={detailPosted} className="text-destructive" onClick={() => { setDrawerOpen(false); setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
                 </>}
                 footerActions={<>
                   {rs !== "Voided" && <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={() => setProblemTarget({ invoiceId: inv.id, supplierName: inv.supplier_name || "Supplier", total: Number(inv.total_amount) || 0, invoiceDate: inv.invoice_date, lines: lineItems.map(line => { const gi = giByLine.get(line.id); return { invoice_line_item_id: line.id, description: line.description || "(no description)", unit: line.unit || "each", quantity_invoiced: Number(line.quantity) || 0, quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0, unit_price: Number(line.unit_price) || 0 }; }) })}>Report a problem</Button>}
-                  <Button className="kit-btn kit-btn-primary" onClick={startEditing}><Pencil className="h-4 w-4" />Edit</Button>
+                  <Button className="kit-btn kit-btn-primary" disabled={detailPosted} onClick={startEditing}><Pencil className="h-4 w-4" />Edit</Button>
                 </>}>
-                <div className="hidden min-[641px]:block overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}</td><td className="td-num text-right px-1">{formatDecimal(invQty)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty)}</td>}<td className="td-num text-right px-1">{formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
-                <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
+                <div className="hidden min-[641px]:block overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}<InvoiceAssetProposal invoice={inv} line={line}/></td><td className="td-num text-right px-1">{formatDecimal(invQty)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty)}</td>}<td className="td-num text-right px-1">{formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
+                <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><InvoiceAssetProposal invoice={inv} line={line}/><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
                 {inv.notes && <p className="text-[13px] whitespace-pre-wrap"><span className="kit-group-h">Notes</span><br />{inv.notes}</p>}
                 <InvoiceAttachmentPreview invoice={inv} onView={() => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); }} onAttach={() => setAttachTarget(inv)} />
               </BaniScanSummary>

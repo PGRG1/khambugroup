@@ -813,6 +813,41 @@
       "when": 1793582099946,
       "tag": "0115_accountant_reclass_draft_authorization",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1793583157301,
+      "tag": "0116_invoice_line_asset_selected_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1793583262331,
+      "tag": "0117_posted_sales_deferred_rebook_proposals",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1793583293969,
+      "tag": "0118_unposted_sales_deferred_edit",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1793583424110,
+      "tag": "0119_invoice_asset_approval_source_normalization",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1793583614887,
+      "tag": "0120_source_proposal_sibling_guards",
+      "breakpoints": true
     }
   ]
 }

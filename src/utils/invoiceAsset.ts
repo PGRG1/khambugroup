@@ -1,0 +1,1 @@
+export function invoiceAssetEligible(amount:number,limit:number) {return Number.isFinite(amount)&&Number.isFinite(limit)&&amount>limit;}

@@ -39,7 +39,7 @@ type ExtractedAccount = {
   transactions: ExtractedTxn[];
 };
 
-type ExtractedStatement = {
+export type ExtractedStatement = {
   bank_name: string;
   company_name: string;
   statement_date: string;
@@ -49,8 +49,9 @@ type ExtractedStatement = {
 type Mapping = { bank_account_id: string | "__create__" | "__skip__"; new_account_name?: string };
 
 export function StatementUploadFlow({
-  open, onClose, onCommitted, accounts, reload, tenantId,
+  open, onClose, onCommitted, accounts, reload, tenantId, initial,
 }: {
+  initial?: {file: File; extracted: ExtractedStatement};
   open: boolean;
   onClose: () => void;
   onCommitted: () => void;
@@ -58,11 +59,11 @@ export function StatementUploadFlow({
   reload: () => void;
   tenantId: string | null;
 }) {
-  const [step, setStep] = useState<"upload" | "preview" | "saving" | "done">("upload");
-  const [file, setFile] = useState<File | null>(null);
+  const [step, setStep] = useState<"upload" | "preview" | "saving" | "done">(initial ? "preview" : "upload");
+  const [file, setFile] = useState<File | null>(initial?.file??null);
   const [extracting, setExtracting] = useState(false);
-  const [extracted, setExtracted] = useState<ExtractedStatement | null>(null);
-  const [mappings, setMappings] = useState<Record<number, Mapping>>({});
+  const [extracted, setExtracted] = useState<ExtractedStatement | null>(initial?.extracted??null);
+  const [mappings, setMappings] = useState<Record<number, Mapping>>(()=>Object.fromEntries((initial?.extracted.accounts??[]).map((a,i)=>[i,{bank_account_id:accounts.filter(x=>x.account_number_last4===a.account_number_last4).length===1?accounts.find(x=>x.account_number_last4===a.account_number_last4)?.id??"__skip__":"__skip__"}])));
   const [filePath, setFilePath] = useState<string | null>(null);
 
   const reset = () => {
@@ -130,6 +131,9 @@ export function StatementUploadFlow({
     if (!extracted) return;
     setStep("saving");
     try {
+      if(!tenantId)throw new Error("Choose a tenant");
+      let storedPath=filePath;
+      if(!storedPath&&file){storedPath=`${tenantId}/${crypto.randomUUID()}-${file.name}`;const uploaded=await supabase.storage.from("bank-statements").upload(storedPath,file);if(uploaded.error)throw uploaded.error;setFilePath(storedPath);}
       const reconRules = await loadReconMappingRules();
       for (let i = 0; i < extracted.accounts.length; i++) {
         const a = extracted.accounts[i];
@@ -178,7 +182,7 @@ export function StatementUploadFlow({
             period_end: periodEnd,
             opening_balance: a.opening_balance || 0,
             closing_balance: a.closing_balance || 0,
-            file_url: filePath,
+            file_url: storedPath,
             file_name: file?.name || null,
             status: "imported",
             tenant_id: tenantId,
