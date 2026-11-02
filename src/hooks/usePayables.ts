@@ -73,6 +73,7 @@ export type APCreditNote = {
 };
 
 export type APPaymentRow = {
+  receipt_count?: number;
   id: string;
   payment_date: string;
   amount: number;
@@ -197,6 +198,9 @@ export function usePayables() {
         tenantId,
       );
       const allocByPayment = new Map<string, any[]>();
+      const receiptRows = await fetchAllRows('payment_receipts','payment_id',undefined,tenantId);
+      const receiptCounts = new Map<string,number>();
+      for(const row of receiptRows)receiptCounts.set(row.payment_id,(receiptCounts.get(row.payment_id)??0)+1);
       for (const a of allocRows as any[]) {
         const arr = allocByPayment.get(a.payment_id) || [];
         arr.push(a);
@@ -217,6 +221,7 @@ export function usePayables() {
         );
         return {
           id: p.id,
+          receipt_count: receiptCounts.get(p.id)??0,
           payment_date: p.payment_date,
           amount,
           payment_method: p.payment_method || "",
