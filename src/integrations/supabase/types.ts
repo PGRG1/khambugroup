@@ -4894,6 +4894,7 @@ export type Database = {
           salvage_value: number
           source_allocation_id: string | null
           source_bill_id: string | null
+          source_invoice_line_id: string | null
           status: string
           supplier_id: string | null
           tenant_id: string
@@ -4927,6 +4928,7 @@ export type Database = {
           salvage_value?: number
           source_allocation_id?: string | null
           source_bill_id?: string | null
+          source_invoice_line_id?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
@@ -4960,6 +4962,7 @@ export type Database = {
           salvage_value?: number
           source_allocation_id?: string | null
           source_bill_id?: string | null
+          source_invoice_line_id?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
@@ -5093,6 +5096,13 @@ export type Database = {
             columns: ["source_bill_id"]
             isOneToOne: false
             referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_source_invoice_line_id_fkey"
+            columns: ["source_invoice_line_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_line_items"
             referencedColumns: ["id"]
           },
           {
@@ -15046,6 +15056,22 @@ export type Database = {
           p_tenant: string
         }
         Returns: undefined
+      }
+      finance_invoice_asset_account: {
+        Args: { line_id: string; original: string; t: string }
+        Returns: string
+      }
+      finance_invoice_asset_approve: {
+        Args: { ident: string; m: string; t: string }
+        Returns: string
+      }
+      finance_invoice_asset_propose: {
+        Args: { p: Json; t: string }
+        Returns: string
+      }
+      finance_invoice_asset_source: {
+        Args: { ident: string; t: string }
+        Returns: Json
       }
       finance_month_checks: {
         Args: { p_month: string; p_tenant_id: string }
