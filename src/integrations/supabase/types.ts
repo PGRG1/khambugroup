@@ -3142,11 +3142,16 @@ export type Database = {
           amount: number
           bank_account_id: string | null
           bill_id: string
+          cash_base_amount: number | null
           created_at: string
           created_by: string | null
+          currency: string | null
+          fx_gain_loss: number | null
+          fx_rate: number | null
           id: string
           journal_entry_id: string | null
           notes: string | null
+          original_amount: number | null
           payment_date: string
           payment_method: string
           reference: string | null
@@ -3157,11 +3162,16 @@ export type Database = {
           amount: number
           bank_account_id?: string | null
           bill_id: string
+          cash_base_amount?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           journal_entry_id?: string | null
           notes?: string | null
+          original_amount?: number | null
           payment_date: string
           payment_method?: string
           reference?: string | null
@@ -3172,11 +3182,16 @@ export type Database = {
           amount?: number
           bank_account_id?: string | null
           bill_id?: string
+          cash_base_amount?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           journal_entry_id?: string | null
           notes?: string | null
+          original_amount?: number | null
           payment_date?: string
           payment_method?: string
           reference?: string | null
@@ -10596,13 +10611,18 @@ export type Database = {
         Row: {
           amount: number
           bank_transaction_id: string | null
+          cash_base_amount: number | null
           cheque_number: string
           created_at: string
           created_by: string | null
+          currency: string | null
+          fx_gain_loss: number | null
+          fx_rate: number | null
           id: string
           journal_entry_id: string | null
           match_status: string
           notes: string
+          original_amount: number | null
           paid_from_account_id: string | null
           payment_date: string
           payment_method: string
@@ -10614,13 +10634,18 @@ export type Database = {
         Insert: {
           amount: number
           bank_transaction_id?: string | null
+          cash_base_amount?: number | null
           cheque_number?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           journal_entry_id?: string | null
           match_status?: string
           notes?: string
+          original_amount?: number | null
           paid_from_account_id?: string | null
           payment_date: string
           payment_method: string
@@ -10632,13 +10657,18 @@ export type Database = {
         Update: {
           amount?: number
           bank_transaction_id?: string | null
+          cash_base_amount?: number | null
           cheque_number?: string
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           journal_entry_id?: string | null
           match_status?: string
           notes?: string
+          original_amount?: number | null
           paid_from_account_id?: string | null
           payment_date?: string
           payment_method?: string
@@ -15625,6 +15655,50 @@ export type Database = {
           p_tenant: string
         }
         Returns: undefined
+      }
+      finance_fx_account: {
+        Args: { realised: boolean; t: string }
+        Returns: string
+      }
+      finance_fx_draft_check: {
+        Args: {
+          q: Database["public"]["Tables"]["finance_entry_drafts"]["Row"]
+          t: string
+        }
+        Returns: undefined
+      }
+      finance_fx_draft_finish: {
+        Args: {
+          j: string
+          q: Database["public"]["Tables"]["finance_entry_drafts"]["Row"]
+          t: string
+        }
+        Returns: undefined
+      }
+      finance_fx_payment_prepare: {
+        Args: {
+          bank: string
+          d: string
+          ident: string
+          original: number
+          paid_rate: number
+          ref?: string
+          src: string
+          t: string
+        }
+        Returns: string
+      }
+      finance_fx_payment_source: {
+        Args: { ident: string; src: string; t: string }
+        Returns: Json
+      }
+      finance_fx_revaluation_prepare: {
+        Args: { m: string; t: string }
+        Returns: string
+      }
+      finance_fx_revaluation_preview: {
+        Args: { m: string; t: string }
+        Returns: Json
       }
       finance_invoice_asset_account: {
         Args: { line_id: string; original: string; t: string }

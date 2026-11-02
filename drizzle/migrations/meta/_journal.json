@@ -939,6 +939,13 @@
       "when": 1793608415726,
       "tag": "0133_fx_original_imports_and_invoice_review",
       "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1793608492834,
+      "tag": "0134_fx_payment_and_revaluation_drafts",
+      "breakpoints": true
     }
   ]
 }
