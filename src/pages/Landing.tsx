@@ -26,14 +26,14 @@ type Card = { label: string; cmp: Compare; fmt: (n: number) => string; unit: str
 
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(1200);
+  const [box, setBox] = useState({ w: 1200, left: 0 });
   useEffect(() => {
-    if (!ref.current) return;
-    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
-    ro.observe(ref.current);
-    return () => ro.disconnect();
+    const el = ref.current; if (!el) return;
+    const read = () => { const r = el.getBoundingClientRect(); setBox({ w: r.width, left: r.left }); };
+    const ro = new ResizeObserver(read); ro.observe(el); window.addEventListener("resize", read); read();
+    return () => { ro.disconnect(); window.removeEventListener("resize", read); };
   }, []);
-  return [ref, w] as const;
+  return [ref, box.w, box.left] as const;
 }
 
 function useDictation(onText: (t: string) => void) {
@@ -68,6 +68,25 @@ function Composer({ placeholder, onSend, onAttach }: { placeholder: string; onSe
   );
 }
 
+const roleLabel = (r: string) => (["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : r ? "Team" : "");
+/** Short next step (2–4 words) from the finding's evidence label or recommendation. */
+function stepLabel(f: Finding): string {
+  const ev = f.evidence?.[0]?.label?.trim();
+  if (ev && ev.split(/\s+/).length <= 4 && !/^open$/i.test(ev)) return ev;
+  const rec = (f.recommendation ?? "").split(/[.,;:—–(]/)[0].trim().split(/\s+/).slice(0, 4).join(" ");
+  return rec ? rec.charAt(0).toUpperCase() + rec.slice(1) : "Take a look";
+}
+const AREA: Record<Role, { label: string; to: string }> = {
+  revenue: { label: "Open Revenue", to: "/revenue" }, procurement: { label: "Open invoices", to: "/procurement/invoices" },
+  people: { label: "Open payroll", to: "/hr/payroll" }, accountant: { label: "Open Books", to: "/finance/books" }, controller: { label: "Open Bank & cash", to: "/finance/cash" },
+};
+function findingLink(r: Role, key: string) {
+  if (/missing|payment_mismatch|sales_records/.test(key) && r === "revenue") return { label: "Open sales records", to: "/sales-data" };
+  if (/bank|settlement/.test(key)) return { label: "Open Bank & cash", to: "/finance/cash" };
+  if (/invoice|bill|payable|supplier|price|dispute/.test(key)) return { label: "Open invoices", to: "/procurement/invoices" };
+  if (/payroll|overtime|leave|roster/.test(key)) return { label: "Open payroll", to: "/hr/payroll" };
+  return AREA[r];
+}
 const pct = (c: number | null) => (c == null ? null : `${c > 0 ? "+" : c < 0 ? "−" : ""}${Math.abs(Math.round(c))}%`);
 
 export default function Landing() {
@@ -76,7 +95,7 @@ export default function Landing() {
   const vs = useVenueScope();
   const openTopic = useBaniTopic();
   const attach = useFloatingBaniAttach();
-  const [ref, width] = useWidth();
+  const [ref, width, left] = useWidth();
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
   const [panel, setPanel] = useState<Panel | null>(null);
   const scopeIds = vs.filterIds;
@@ -126,7 +145,8 @@ export default function Landing() {
       const inR = (a: string, b: string) => rows.filter((r) => r.date >= a && r.date <= b);
       const weekStart = new Date(now); weekStart.setDate(now.getDate() - 6);
       const iso = (d: Date) => d.toISOString().slice(0, 10);
-      return { cur: inR(win.from, win.to), ly: inR(win.lyFrom, win.lyTo), week: inR(iso(weekStart), iso(now)) };
+      const eightAgo = new Date(now); eightAgo.setDate(now.getDate() - 56);
+      return { cur: inR(win.from, win.to), ly: inR(win.lyFrom, win.lyTo), week: inR(iso(weekStart), iso(now)), recent: inR(iso(eightAgo), iso(now)) };
     },
   });
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -194,14 +214,14 @@ export default function Landing() {
       facts: [...done.map((w) => [w.label, String(w.count)] as [string, string]), ...wait.map((f) => ["Waiting on you", f.title] as [string, string])],
       whys: wait.map((f) => `Why: ${f.statement}`),
       actions: wait.flatMap((f) => f.evidence.slice(0, 1).map((e) => ({ label: e.label, to: e.route }))),
-      link: { label: "Open the full team page", to: "/finance-team" },
+      link: AREA[r],
     });
   };
   const openFinding = (r: Role, f: Finding) => setPanel({
     title: f.title, role: r, paras: [f.statement, f.recommendation ? `Suggested: ${f.recommendation}` : ""].filter(Boolean),
     facts: f.figures.map((x) => [x.label, x.display] as [string, string]),
     actions: f.evidence.map((e) => ({ label: e.label, to: e.route })),
-    link: { label: "Open the full team page", to: "/finance-team" },
+    link: findingLink(r, f.key),
   });
   const openCard = (c: Card) => {
     const isSales = c.unit === "a day" && c.label.includes("ales");
@@ -221,15 +241,27 @@ export default function Landing() {
   const weekList = useMemo(() => {
     const s = salesQ.data; if (!s) return [];
     const out: { d: string; t: string }[] = [];
-    for (let i = 1; i <= 7; i++) {
-      const d = new Date(now); d.setDate(now.getDate() - i);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const rows = s.week.filter((r) => r.date === iso);
-      const tot = rows.reduce((a, r) => a + (Number(r.subtotal) || 0) + (Number(r.service_charge) || 0), 0);
-      out.push({ d: `${WEEKDAYS[d.getDay()]} ${d.getDate()}`, t: rows.length ? `${formatCurrency(Math.round(tot)).replace(/\.00$/, "")} sales · ${rows.length} record${rows.length > 1 ? "s" : ""}` : "No sales record yet" });
+    const lbl = (d: Date) => `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${d.toLocaleString("en-GB", { month: "short" })}`;
+    // Usual open days per venue over the last 8 weeks (a weekday counts when it traded in at least 3 of 8 weeks).
+    const opens = new Map<string, Set<number>>();
+    for (const v of shownVenues) {
+      const counts = Array(7).fill(0);
+      new Set(s.recent.filter((r) => r.venue_id === v.id).map((r) => r.date)).forEach((d) => counts[new Date(`${d}T00:00:00`).getDay()]++);
+      const set = new Set(counts.map((c, i) => (c >= 3 ? i : -1)).filter((i) => i >= 0));
+      if (set.size) opens.set(v.name, set);
     }
-    return out;
-  }, [salesQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+    const weekendTraders = [...opens.values()].some((x) => x.has(0) || x.has(6));
+    const dow = now.getDay();
+    if (weekendTraders && dow >= 1 && dow <= 6) {
+      const mon = new Date(now); mon.setDate(now.getDate() + ((8 - dow) % 7 || 7));
+      out.push({ d: lbl(mon), t: "Z-reports for the weekend are due" });
+    }
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    if ((monthEnd.getTime() - now.getTime()) / 864e5 <= 7) out.push({ d: lbl(monthEnd), t: `Month end: ${monthEnd.toLocaleString("en-GB", { month: "long" })}'s invoices and statements close` });
+    const order = [1, 2, 3, 4, 5, 6, 0];
+    for (const [name, set] of opens) if (set.size < 7) out.push({ d: "This week", t: `${name} usually opens ${order.filter((i) => set.has(i)).map((i) => WEEKDAYS[i]).join(", ")}` });
+    return out.slice(0, 3);
+  }, [salesQ.data, shownVenues]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const status = (r: Role): [string, "ok" | "amb" | "quiet"] => {
     const v = viewOf(r); const w = forYou(v).length; const d = (v?.workDone ?? []).reduce((a, x) => a + x.count, 0);
@@ -244,15 +276,18 @@ export default function Landing() {
           <BaniOrb size={size === "ph" ? 44 : 56} mode="idle" />
           <div style={{ minWidth: 0 }}>
             <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
-            <div className="ld-sub">{formatDate(now.toISOString().slice(0, 10))}{role ? ` · ${role.replace(/_/g, " ")}` : ""}</div>
+            <div className="ld-sub">{formatDate(now.toISOString().slice(0, 10))}{roleLabel(role) ? ` · ${roleLabel(role)}` : ""}</div>
           </div>
         </div>
+        <div>
+        {size === "wide" && reviewQ.data?.generated_at && <div className="ld-teamh">Your Bani team since {formatDate(reviewQ.data.generated_at.slice(0, 10))}</div>}
         <div className="ld-team" aria-label="Your Bani team">
           {ORDER.map((r) => { const [t, c] = status(r); return (
             <button key={r} className="ld-mate" onClick={() => openMate(r)}>
               <PixelAvatar seed={meta(r).seed} palette={meta(r).pal} size={size === "ph" ? 32 : 40} />
               <b>{SHORT[r]}</b><span><i className={`ld-dot ${c}`} />{t}</span>
             </button>); })}
+        </div>
         </div>
       </div>
 
@@ -270,11 +305,11 @@ export default function Landing() {
       {gaps.length > 0 && <div className="ld-gap">{gaps.join(" · ")}.</div>}
 
       <div className="ld-brief">{brief.join(" ")}</div>
-      <div className="ld-qs">{questions.map((q) => <button key={q} className="ld-chip" onClick={() => ask(q)}>{q}</button>)}</div>
+      <div className="ld-qs">{questions.map((q, i) => <button key={q} className={`ld-chip ${i ? "" : "solid"}`} onClick={() => ask(q)}>{q}</button>)}</div>
 
       <div className="ld-cols">
+        <div><h2 className="ld-h2">Needs you · {needs.length}</h2>
         <section className="ld-card">
-          <h2 className="ld-h2">Needs you · {needs.length}</h2>
           {mixed ? <div className="ld-empty">Pick one venue or all venues to see what your team found.</div>
             : !reviewQ.data && !reviewQ.isLoading ? <div className="ld-empty">Your team hasn't prepared an update for this view yet.</div>
             : needs.length === 0 ? <div className="ld-empty">Nothing needs you right now.</div>
@@ -282,19 +317,20 @@ export default function Landing() {
               <div key={f.key} className="ld-row">
                 <i className={`ld-dot ${f.severity === "action" ? "amb" : "quiet"}`} />
                 <div className="grow"><div className="t">{f.title}</div><div className="c">{f.statement}</div></div>
-                <button className="ld-btn" onClick={() => openFinding(r, f)}>{f.severity === "action" ? "Look" : "See"}</button>
+                <button className="ld-btn" onClick={() => openFinding(r, f)}>{stepLabel(f)}</button>
               </div>))}
-        </section>
+        </section></div>
         <div className="ld-side">
-          <section className="ld-card" style={{ paddingBottom: 10 }}>
-            <h2 className="ld-h2">This week</h2>
+          <div><h2 className="ld-h2">This week</h2>
+          <section className="ld-card" style={{ padding: "8px 0" }}>
+            {weekList.length === 0 && <div className="ld-empty">Nothing scheduled this week</div>}
             {weekList.map((w) => <div key={w.d} className="ld-week"><span className="d">{w.d}</span><span>{w.t}</span></div>)}
-          </section>
-          <section className="ld-card"><h2 className="ld-h2">Agreed</h2><div className="ld-empty">Nothing agreed yet</div></section>
+          </section></div>
+          <div><h2 className="ld-h2">Agreed</h2><section className="ld-card"><div className="ld-empty">Nothing agreed yet</div></section></div>
         </div>
       </div>
 
-      <div className="ld-dock"><Composer placeholder="Ask Bani, or drop a file" onSend={ask} onAttach={(f) => attach(f)} /></div>
+      <div className="ld-dock" style={{ left: left + width / 2, width: Math.min(760, width - 32) }}><Composer placeholder="Ask Bani, or drop a file" onSend={ask} onAttach={(f) => attach(f)} /></div>
       {panel && <SidePanel panel={panel} sheet={size === "ph"} onClose={() => setPanel(null)} onAsk={ask} />}
     </div>
   );
