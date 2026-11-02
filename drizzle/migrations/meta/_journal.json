@@ -1072,6 +1072,13 @@
       "when": 1793631306569,
       "tag": "0152_fix_bank_matches_notes_param",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1793632668904,
+      "tag": "0153_fx_month_end_revaluation_fix",
+      "breakpoints": true
     }
   ]
 }
