@@ -17,7 +17,7 @@ export function useFxRate(date: string | null | undefined, currency: string | nu
   return useQuery({
     queryKey: ['fx-rate', tenantId, date, currency],
     enabled: !!tenantId && !!date && !!currency,
-    queryFn: () => lookupFxRate(tenantId!, date!, currency!),
+    queryFn: () => { if (!tenantId || !date || !currency) throw new Error('Choose a currency and date'); return lookupFxRate(tenantId, date, currency); },
     staleTime: 3600_000,
   });
 }
@@ -31,9 +31,10 @@ export function useBaseCurrency() {
     queryKey: ['base-currency', tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
+      if (!tenantId) throw new Error('Choose a business');
       const [{ data, error }, posted] = await Promise.all([
-        supabase.from('tenants').select('base_currency').eq('id', tenantId!).maybeSingle(),
-        supabase.from('journal_entries').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId!).eq('status', 'posted'),
+        supabase.from('tenants').select('base_currency').eq('id', tenantId).maybeSingle(),
+        supabase.from('journal_entries').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'posted'),
       ]);
       if (error) throw error;
       return { base: (data?.base_currency as string) || 'HKD', locked: (posted.count ?? 0) > 0 };

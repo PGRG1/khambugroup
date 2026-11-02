@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { getBaseCurrency } from '@/utils/money';
+import { convertDocument } from '@/utils/fxDocument';
+import { lookupFxRate } from '@/hooks/useFxRate';
 
 export interface Supplier {
   id: string;
@@ -52,6 +55,10 @@ export interface InvoiceLineItem {
 }
 
 export interface Invoice {
+  currency?: string | null;
+  fx_rate?: number | null;
+  fx_rate_source?: string | null;
+  original_total?: number | null;
   id: string;
   supplier_id: string;
   supplier_name?: string;
@@ -249,10 +256,15 @@ export function useInvoiceData() {
     // reviewer accepted. A null link stays null rather than being silently attached
     // to some other supplier's product by a global first-hit matcher.
     const reviewedLines = lineItems.map((li) => ({ ...li }));
+    const currency = invoice.currency || getBaseCurrency();
+    const lookup = currency!==getBaseCurrency() && !invoice.fx_rate ? await lookupFxRate(tenantId,invoice.invoice_date,currency) : null;
+    const conversion = convertDocument({...invoice,currency,total_amount:Number(invoice.total_amount)},getBaseCurrency(),Number(invoice.fx_rate)||lookup?.rate||null);
+    const monetaryKeys = ['unit_price','total','tax_amount','discount','accepted_price','net_unit_cost','normalized_unit_cost','line_discount_amount','header_discount_share'];
+    const convertedLines = reviewedLines.map(line=>{const next:Record<string,unknown>={...line};for(const key of monetaryKeys){if(next[key]!=null)next[key]=Number(next[key])*conversion.factor;}return next;});
     const { data, error } = await (supabase as any).rpc("create_scanner_invoice_with_attachments", {
       p_tenant_id: tenantId,
-      p_invoice: invoice,
-      p_line_items: reviewedLines,
+      p_invoice: {...conversion.doc,discount:Number(invoice.discount??0)*conversion.factor,held_amount:Number(invoice.held_amount??0)*conversion.factor,fx_rate_source:invoice.fx_rate?'document':lookup?.source},
+      p_line_items: convertedLines,
       p_attachments: attachments,
     });
     if (error) throw new Error(error.message);

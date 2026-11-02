@@ -1,0 +1,43 @@
+CREATE OR REPLACE FUNCTION public.finance_fx_verify_qa() RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE t uuid:='ff000000-0000-4000-8000-000000000001';ap uuid;cash uuid;expense uuid;bank uuid;cny uuid;b uuid;b2 uuid;j uuid;opening uuid;q uuid;reval uuid;posted uuid;report jsonb:='{}';loss numeric;rev uuid;BEGIN
+IF NOT finance_schedule_manager(t) THEN RAISE EXCEPTION 'QA manager access required';END IF;
+BEGIN
+INSERT INTO chart_of_accounts(tenant_id,code,name,account_type,normal_side,is_cash) VALUES(t,'FX-QA-AP','Accounts payable · FX QA','liability','credit',false) RETURNING id INTO ap;
+INSERT INTO chart_of_accounts(tenant_id,code,name,account_type,normal_side,is_cash) VALUES(t,'FX-QA-BANK','FX QA Bank','asset','debit',true) RETURNING id INTO cash;
+SELECT id INTO expense FROM chart_of_accounts WHERE tenant_id=t AND code='6900';
+INSERT INTO account_mapping_rules(tenant_id,rule_type,match_key,account_id) VALUES(t,'accounts_payable','',ap);
+INSERT INTO bank_accounts(tenant_id,account_name,currency,opening_balance,opening_date,linked_gl_account_id) VALUES(t,'FX QA HKD bank','HKD',0,'2026-10-01',cash) RETURNING id INTO bank;
+INSERT INTO expense_bills(tenant_id,vendor_name,bill_number,bill_date,currency,fx_rate,original_total,subtotal,total_amount,approval_status) VALUES(t,'FX QA supplier','FX-QA-PAID','2026-10-01','USD',7.783,1200,9339.6,9339.6,'draft') RETURNING id INTO b;
+INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b,1,'QA expense',expense,9339.6,0);
+j:=approve_and_post_expense_bill(b);
+q:=finance_fx_payment_prepare(t,'bill',b,'2026-10-20',1200,7.803,bank,'Isolated verification');
+posted:=finance_schedule_approve(t,q,'2026-10-01');
+SELECT debit-credit INTO loss FROM journal_lines WHERE tenant_id=t AND entry_id=posted AND account_id IN(SELECT id FROM chart_of_accounts WHERE tenant_id=t AND code='FX-R');
+IF loss IS DISTINCT FROM 24 THEN RAISE EXCEPTION 'Expected realised loss 24, got %',loss;END IF;
+IF NOT EXISTS(SELECT 1 FROM expense_bill_payments WHERE tenant_id=t AND bill_id=b AND amount=9339.6 AND cash_base_amount=9363.6 AND fx_gain_loss=24) THEN RAISE EXCEPTION 'Payment readback failed';END IF;
+report:=report||jsonb_build_object('realised_loss',loss,'payment_readback',true);
+INSERT INTO expense_bills(tenant_id,vendor_name,bill_number,bill_date,currency,fx_rate,original_total,subtotal,total_amount,approval_status) VALUES(t,'FX QA open supplier','FX-QA-OPEN','2026-10-01','USD',7.783,1000,7783,7783,'draft') RETURNING id INTO b2;
+INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b2,1,'QA expense',expense,7783,0);
+PERFORM approve_and_post_expense_bill(b2);
+INSERT INTO chart_of_accounts(tenant_id,code,name,account_type,normal_side,is_cash) VALUES(t,'FX-QA-CNY','FX QA CNY Bank','asset','debit',true) RETURNING id INTO cny;
+INSERT INTO bank_accounts(tenant_id,account_name,currency,opening_balance,opening_date,linked_gl_account_id) VALUES(t,'FX QA CNY bank','CNY',4373.92,'2026-10-01',cny);
+INSERT INTO journal_entries(tenant_id,entry_date,memo,source_type,status) VALUES(t,'2026-10-01','FX QA opening','manual','draft') RETURNING id INTO opening;
+INSERT INTO journal_lines(tenant_id,entry_id,account_id,debit,credit,line_no) VALUES(t,opening,cny,5000,0,1),(t,opening,ap,0,5000,2);
+UPDATE journal_entries SET status='posted',posted_at=now() WHERE tenant_id=t AND id=opening;
+reval:=finance_fx_revaluation_prepare(t,'2026-10-01');
+IF reval IS NULL THEN RAISE EXCEPTION 'Revaluation draft missing';END IF;
+posted:=finance_schedule_approve(t,reval,'2026-10-01');
+SELECT (source_data->>'reversal_entry_id')::uuid INTO rev FROM finance_entry_drafts WHERE tenant_id=t AND id=reval;
+IF NOT EXISTS(SELECT 1 FROM journal_entries WHERE tenant_id=t AND id=rev AND entry_date='2026-11-01' AND status='posted') THEN RAISE EXCEPTION 'Next-month reversal missing';END IF;
+IF EXISTS(SELECT account_id,sum(debit-credit) FROM journal_lines WHERE tenant_id=t AND entry_id IN(posted,rev) GROUP BY account_id HAVING sum(debit-credit)<>0) THEN RAISE EXCEPTION 'Reversal not exact';END IF;
+report:=report||jsonb_build_object('revaluation_approved',true,'next_month_reversal',true,'pnl_fx_accounts',(SELECT count(*) FROM chart_of_accounts WHERE tenant_id=t AND code IN('FX-R','FX-U') AND account_type='other_expense'));
+RAISE EXCEPTION USING MESSAGE='FX_QA_ROLLBACK',ERRCODE='P0002';
+EXCEPTION WHEN no_data_found THEN IF SQLERRM<>'FX_QA_ROLLBACK' THEN RAISE;END IF;
+END;
+RETURN report||jsonb_build_object('fixtures_rolled_back',true);
+END $$;
+REVOKE ALL ON FUNCTION public.finance_fx_verify_qa() FROM PUBLIC,anon;GRANT EXECUTE ON FUNCTION public.finance_fx_verify_qa() TO authenticated;
+-- Payment/revaluation helper functions are private delegates, with validation owned by selected approval.
+COMMENT ON FUNCTION public.finance_fx_verify_qa() IS 'Isolated QA-only FX verification; all generated fixtures are rolled back in a subtransaction.';
+CREATE OR REPLACE FUNCTION public.finance_fx_payment_history_guard() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE t uuid;b text;BEGIN t:=NEW.tenant_id;SELECT coalesce(base_currency,'HKD') INTO b FROM tenants WHERE id=t;IF NEW.fx_rate IS NOT NULL AND NEW.currency IS DISTINCT FROM b AND (NEW.original_amount IS NULL OR NEW.cash_base_amount IS NULL OR NEW.journal_entry_id IS NULL) THEN RAISE EXCEPTION 'Foreign payments require an approved source-linked draft';END IF;RETURN NEW;END $$;
+CREATE TRIGGER fx_payment_history_guard BEFORE INSERT ON public.expense_bill_payments FOR EACH ROW EXECUTE FUNCTION public.finance_fx_payment_history_guard();
+CREATE TRIGGER fx_payment_history_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION public.finance_fx_payment_history_guard();

@@ -932,6 +932,48 @@
       "when": 1793606709544,
       "tag": "0132_fx_currencies_in_use",
       "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1793608415726,
+      "tag": "0133_fx_original_imports_and_invoice_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1793608492834,
+      "tag": "0134_fx_payment_and_revaluation_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1793609089745,
+      "tag": "0135_fx_guardrails_and_isolated_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1793609126718,
+      "tag": "0136_fx_qa_supplier_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1793609159682,
+      "tag": "0137_fx_source_uuid_comparisons",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1793609220379,
+      "tag": "0138_fx_approval_fail_closed_until_verified",
+      "breakpoints": true
     }
   ]
 }

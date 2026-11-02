@@ -1,6 +1,8 @@
-## Foreign currency part 1 — current request
-- [x] Base currency setting/lock, global daily rates + history backfill + manual overrides, fx_rate lookup, ISO formatter and HK$ sweep, original amounts/rates on documents and new journal lines, Books › Currencies, foreign Bank & cash balances, bill currency/rate edit, scanner currency detection.
-- [ ] Invoice scanner currency/rate entry UI, bank/settlement parser currency detection, base-amount conversion for foreign invoices/settlements (columns and auto-rate are ready). Part 2: gains/losses and revaluation.
+## Foreign currency part 2 — current request
+- [x] Invoice/scanner currency-rate fields, native/base bank and card import paths, phone Currencies cards and base P&L FX lines added; 1,306 tests passed and latest build OK.
+- [x] KHAMBU October read-only CNY preview and desktop/375px currency cards checked: ¥4,373.92 = HK$5,158.12; carrying balance is absent, so gain/loss is unknown and preparation is blocked.
+- [ ] FX selected approval/payment/reversal verification failed with a UUID/text comparison error. FX approval is explicitly fail-closed; drafts remain unposted. Foreign deposits and matching need verified implementations. QA fixtures run in a rollback-only function, leaving no test rows.
+- [ ] Populated invoice and foreign statement browser round trips remain unverified; do not describe these as complete.
 
 ## Alerts follow-up — current request
 - [x] Feed health storage/server-result RPC, delayed admin break/recovery delivery and scoped stale PageTop/answer context; internal failures status-only. Imported coverage never falsely called a connection failure.

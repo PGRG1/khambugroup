@@ -519,10 +519,12 @@ Deno.serve(async (req) => {
 
     const { data: imp, error: ie } = await admin
       .from("payment_settlement_imports")
-      .select("id, file_url, file_name, processor_id")
+      .select("id, file_url, file_name, processor_id, tenant_id, currency")
       .eq("id", import_id)
       .single();
     if (ie || !imp) return json({ error: ie?.message || "Import not found" }, 404);
+    const member = await admin.from('tenant_members').select('id').eq('tenant_id',imp.tenant_id).eq('user_id',auth.user?.id??'').maybeSingle();
+    if (!member.data) return json({error:'Not authorised for this business'},403);
     if (!imp.file_url) return json({ error: "Import has no file" }, 400);
 
     const dl = await admin.storage.from("payment-statements").download(imp.file_url);
@@ -542,6 +544,10 @@ Deno.serve(async (req) => {
     const rates: FeeRate[] = (rateRows || []) as any;
 
     const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
+    const cells = wb.SheetNames.flatMap(name => XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name],{header:1})).flat().map(String);
+    const codes = new Set<string>();
+    for (const text of cells) { const matches=text.toUpperCase().match(/\b(?:HKD|USD|CNY|RMB|JPY|EUR|GBP|AUD|CAD|SGD|CHF|KWD|AED|THB|INR|MYR|PHP|IDR|NZD)\b/g)??[]; for(const code of matches) codes.add(code==='RMB'?'CNY':code); if(/HK\$/i.test(text))codes.add('HKD'); if(/US\$/i.test(text))codes.add('USD'); }
+    const detected_currency=codes.size===1?[...codes][0]:null;
     const { batches, monthly_audit } = parseKPayWorkbook(wb, rates);
 
     // Annotate flagged batches via Gemini (best-effort)
@@ -560,11 +566,11 @@ Deno.serve(async (req) => {
 
     const knownMerchants = await admin
       .from("payment_processor_merchants")
-      .select("id, merchant_number, display_name");
+      .select("id, merchant_number, display_name").eq('tenant_id',imp.tenant_id);
     const known = new Set((knownMerchants.data || []).map((m: any) => m.merchant_number));
     const unknown_merchants = Array.from(new Set(batches.map((b) => b.merchant_number).filter((n) => n && !known.has(n))));
 
-    return json({ batches, monthly_audit, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
+    return json({ batches, monthly_audit, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames, currency:detected_currency, currency_needs_check:!detected_currency });
   } catch (e: any) {
     console.error("parse-kpay-settlement error:", e);
     return json({ error: e?.message || "Unknown error" }, 500);

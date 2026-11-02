@@ -8,7 +8,8 @@ function classesFor(testid: string): string {
   const re = new RegExp(`data-testid="${testid}"[^>]*className=(?:"([^"]*)"|\\{cn\\(([\\s\\S]*?)\\)\\})`);
   const m = src.match(re);
   expect(m, `element ${testid} not found`).toBeTruthy();
-  return (m![1] || m![2] || "");
+  if (!m) throw new Error(`element ${testid} not found`);
+  return (m[1] || m[2] || "");
 }
 
 describe("InvoiceScanner layout ownership", () => {
@@ -18,7 +19,7 @@ describe("InvoiceScanner layout ownership", () => {
     expect(c).toContain("flex-col");
     expect(c).toContain("max-h-[calc(100dvh-4rem)]");
     // full viewport height must be gated by the review state only
-    expect(c).toMatch(/isReview\s*\?\s*"h-\[calc\(100dvh-4rem\)\] max-h-\[calc\(100dvh-4rem\)\]"\s*:\s*"max-h-\[calc\(100dvh-4rem\)\]"/);
+    expect(c).toContain('isReview ? "max-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]"');
   });
 
   it("right pane is a bounded flex column with min-h-0", () => {
@@ -42,7 +43,7 @@ describe("InvoiceScanner layout ownership", () => {
     const c = classesFor("line-items-scroll");
     expect(c).toContain("overflow-auto");
     expect(c).toContain("flex-1");
-    expect(c).toContain("min-h-0");
+    expect(c).toContain("max-lg:min-h-[200px]");
     expect(c).toContain("lg:min-h-[240px]");
     // one container => one horizontal scroll position
     expect(c).not.toContain("overflow-x-scroll");
