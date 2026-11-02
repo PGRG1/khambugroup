@@ -1314,6 +1314,7 @@ export type Database = {
           created_at: string
           currency: string
           entity: string | null
+          group_label: string | null
           id: string
           is_active: boolean
           last_reconciled_date: string | null
@@ -1339,6 +1340,7 @@ export type Database = {
           created_at?: string
           currency?: string
           entity?: string | null
+          group_label?: string | null
           id?: string
           is_active?: boolean
           last_reconciled_date?: string | null
@@ -1364,6 +1366,7 @@ export type Database = {
           created_at?: string
           currency?: string
           entity?: string | null
+          group_label?: string | null
           id?: string
           is_active?: boolean
           last_reconciled_date?: string | null
@@ -2212,6 +2215,7 @@ export type Database = {
           credit_note_date: string
           credit_note_number: string
           currency: string | null
+          fx_base_cleared: number
           fx_rate: number | null
           id: string
           is_opening_balance: boolean
@@ -2235,6 +2239,7 @@ export type Database = {
           credit_note_date?: string
           credit_note_number?: string
           currency?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           id?: string
           is_opening_balance?: boolean
@@ -2258,6 +2263,7 @@ export type Database = {
           credit_note_date?: string
           credit_note_number?: string
           currency?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           id?: string
           is_opening_balance?: boolean
@@ -3292,6 +3298,7 @@ export type Database = {
           document_requirement: string
           document_type: string | null
           due_date: string | null
+          fx_base_cleared: number
           fx_rate: number | null
           fx_rate_source: string | null
           id: string
@@ -3344,6 +3351,7 @@ export type Database = {
           document_requirement?: string
           document_type?: string | null
           due_date?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
@@ -3396,6 +3404,7 @@ export type Database = {
           document_requirement?: string
           document_type?: string | null
           due_date?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
@@ -8510,6 +8519,7 @@ export type Database = {
           exception_note: string
           file_name: string | null
           file_url: string | null
+          fx_base_cleared: number
           fx_rate: number | null
           fx_rate_source: string | null
           grn_id: string | null
@@ -8567,6 +8577,7 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
           grn_id?: string | null
@@ -8624,6 +8635,7 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          fx_base_cleared?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
           grn_id?: string | null
@@ -15729,6 +15741,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      finance_fx_fee_account: { Args: { t: string }; Returns: string }
       finance_fx_payment_prepare: {
         Args: {
           bank: string
@@ -15923,6 +15936,10 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string; _venue_id: string }
         Returns: boolean
       }
+      fx_card_charge: {
+        Args: { doc_id: string; doc_type: string; t: string; txn: string }
+        Returns: Json
+      }
       fx_currencies_in_use: {
         Args: { p_tenant: string }
         Returns: {
@@ -15945,6 +15962,19 @@ export type Database = {
           rate_date: string
           source: string
         }[]
+      }
+      fx_realised_account: { Args: { t: string }; Returns: string }
+      fx_settle: {
+        Args: {
+          apply?: boolean
+          cash_base: number
+          doc_id: string
+          doc_type: string
+          original_paid: number
+          pay_date: string
+          t: string
+        }
+        Returns: Json
       }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }

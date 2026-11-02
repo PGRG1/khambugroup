@@ -988,6 +988,13 @@
       "when": 1793627192302,
       "tag": "0140_scanner_invoice_line_originals",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1793628551815,
+      "tag": "0141_fx_settlement_rule",
+      "breakpoints": true
     }
   ]
 }
