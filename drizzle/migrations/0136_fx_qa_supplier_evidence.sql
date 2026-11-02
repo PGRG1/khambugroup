@@ -1,0 +1,6 @@
+DO $$ DECLARE def text;BEGIN SELECT pg_get_functiondef('public.finance_fx_verify_qa()'::regprocedure) INTO def;def:=replace(def,'BEGIN
+INSERT INTO chart_of_accounts','BEGIN
+INSERT INTO suppliers(tenant_id,name,vendor_type) VALUES(t,''FX QA supplier'',''expense'');
+INSERT INTO chart_of_accounts');def:=replace(def,'INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b,','UPDATE expense_bills SET supplier_id=(SELECT id FROM suppliers WHERE tenant_id=t AND name=''FX QA supplier'' LIMIT 1) WHERE tenant_id=t AND id=b;
+INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b,');def:=replace(def,'INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b2,','UPDATE expense_bills SET supplier_id=(SELECT id FROM suppliers WHERE tenant_id=t AND name=''FX QA supplier'' LIMIT 1) WHERE tenant_id=t AND id=b2;
+INSERT INTO expense_bill_allocations(tenant_id,bill_id,line_no,expense_category,account_id,amount,tax_amount) VALUES(t,b2,');EXECUTE def;END $$;
