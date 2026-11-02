@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AudioLines, Mic, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -21,7 +21,7 @@ import "./landing.css";
 
 const SHORT: Record<Role, string> = { revenue: "Sales", procurement: "Purchasing", people: "People", accountant: "Books", controller: "Cash" };
 const ORDER: Role[] = ["revenue", "procurement", "people", "accountant", "controller"];
-type Panel = { title: string; role?: Role; paras: string[]; facts?: [string, string][]; whys?: string[]; actions?: { label: string; to: string }[]; link?: { label: string; to: string } };
+type Panel = { title: string; role?: Role; summary: string; facts?: [string, string][]; done: { label: string; why: string }[]; waiting: { title: string; label: string; to?: string }[]; link?: { label: string; to: string } };
 type Card = { label: string; cmp: Compare; fmt: (n: number) => string; unit: string; rows: [SaleRow[], SaleRow[]] };
 
 function useWidth() {
@@ -36,38 +36,6 @@ function useWidth() {
   return [ref, box.w, box.left] as const;
 }
 
-function useDictation(onText: (t: string) => void) {
-  const [on, setOn] = useState(false);
-  const recRef = useRef<any>(null);
-  const SR = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
-  const toggle = () => {
-    if (!SR) return;
-    if (on) { recRef.current?.stop(); return; }
-    const rec = new SR(); rec.interimResults = false;
-    rec.onresult = (e: any) => onText(Array.from(e.results).map((r: any) => r[0].transcript).join(" "));
-    rec.onend = () => setOn(false);
-    recRef.current = rec; rec.start(); setOn(true);
-  };
-  return { on, toggle, supported: !!SR };
-}
-
-function Composer({ placeholder, onSend, onAttach }: { placeholder: string; onSend: (t: string) => void; onAttach?: (f: File[]) => void }) {
-  const [text, setText] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-  const dict = useDictation((t) => setText((p) => (p ? `${p} ${t}` : t)));
-  return (
-    <form className="ld-pill" onSubmit={(e) => { e.preventDefault(); onSend(text.trim()); setText(""); }}>
-      {onAttach && (<>
-        <button type="button" className="ld-ic" aria-label="Attach a file" onClick={() => fileRef.current?.click()}><Plus size={18} /></button>
-        <input ref={fileRef} type="file" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) onAttach(f); e.target.value = ""; }} />
-      </>)}
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-      {dict.supported && <button type="button" className={`ld-ic ${dict.on ? "on" : ""}`} aria-label="Dictate" onClick={dict.toggle}><Mic size={18} /></button>}
-      <button type="button" className="ld-ic dark" aria-label="Talk to Bani" onClick={() => onSend(text.trim())}><AudioLines size={18} /></button>
-    </form>
-  );
-}
-
 const roleLabel = (r: string) => (["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : r ? "Team" : "");
 /** Short next step (2–4 words) from the finding's evidence label or recommendation. */
 function stepLabel(f: Finding): string {
@@ -77,8 +45,8 @@ function stepLabel(f: Finding): string {
   return rec ? rec.charAt(0).toUpperCase() + rec.slice(1) : "Take a look";
 }
 const AREA: Record<Role, { label: string; to: string }> = {
-  revenue: { label: "Open Revenue", to: "/revenue" }, procurement: { label: "Open invoices", to: "/procurement/invoices" },
-  people: { label: "Open payroll", to: "/hr/payroll" }, accountant: { label: "Open Books", to: "/finance/books" }, controller: { label: "Open Bank & cash", to: "/finance/cash" },
+  revenue: { label: "Open Revenue", to: "/revenue" }, procurement: { label: "Open Purchasing", to: "/procurement/invoices" },
+  people: { label: "Open People", to: "/hr" }, accountant: { label: "Open Books", to: "/finance/books" }, controller: { label: "Open Bank & cash", to: "/finance/cash" },
 };
 function findingLink(r: Role, key: string) {
   if (/missing|payment_mismatch|sales_records/.test(key) && r === "revenue") return { label: "Open sales records", to: "/sales-data" };
@@ -216,19 +184,18 @@ export default function Landing() {
     const wait = forYou(v);
     setPanel({
       title: SHORT[r], role: r,
-      paras: [v?.summary || (reviewQ.data ? `${m.sub}. Nothing to report.` : "Your team hasn't prepared an update for this view yet."),
-        done.length ? "" : "Nothing done in the last day.", "Bani never sends, approves or pays anything by itself."].filter(Boolean),
-      facts: [...done.map((w) => [w.label, String(w.count)] as [string, string]), ...wait.map((f) => ["Waiting on you", f.title] as [string, string])],
-      whys: wait.map((f) => `Why: ${f.statement}`),
-      actions: wait.flatMap((f) => f.evidence.slice(0, 1).map((e) => ({ label: e.label, to: e.route }))),
+      summary: v?.summary || (reviewQ.data ? `${m.sub}. Nothing to report.` : "Your team hasn't prepared an update for this view yet."),
+      done: done.map((w) => ({ label: `${w.label} · ${w.count}`, why: `Recorded by your ${SHORT[r]} team in its latest review. Bani never sends, approves or pays anything by itself.` })),
+      waiting: wait.map((f) => ({ title: f.title, label: stepLabel(f), to: f.evidence[0]?.route ?? findingLink(r, f.key).to })),
       link: AREA[r],
     });
   };
   const openFinding = (r: Role, f: Finding) => setPanel({
-    title: f.title, role: r, paras: [f.statement, f.recommendation ? `Suggested: ${f.recommendation}` : ""].filter(Boolean),
+    title: f.title, role: r, summary: f.statement,
     facts: f.figures.map((x) => [x.label, x.display] as [string, string]),
-    actions: f.evidence.map((e) => ({ label: e.label, to: e.route })),
-    link: findingLink(r, f.key),
+    done: [],
+    waiting: f.evidence.length ? f.evidence.map((e) => ({ title: f.recommendation || f.title, label: e.label, to: e.route })) : [{ title: f.recommendation || f.title, label: stepLabel(f), to: findingLink(r, f.key).to }],
+    link: AREA[r],
   });
   const openCard = (c: Card) => {
     const isSales = c.unit === "a day" && c.label.includes("ales");
@@ -236,9 +203,10 @@ export default function Landing() {
     const ty = byWeekday(a), ly = byWeekday(b);
     setPanel({
       title: c.label,
-      paras: [c.cmp.now.value != null ? `This month to date: ${c.fmt(c.cmp.now.value)} ${c.unit}.` : `Can't be worked out: ${c.cmp.now.why}.`,
+      summary: [c.cmp.now.value != null ? `This month to date: ${c.fmt(c.cmp.now.value)} ${c.unit}.` : `Can't be worked out: ${c.cmp.now.why}.`,
         c.cmp.last.value != null ? `Same days last year: ${c.fmt(c.cmp.last.value)} ${c.unit}.` : `Last year: ${c.cmp.last.why ?? "nothing to compare"}.`,
-        isSales ? "Sales a day by weekday, this year vs last:" : `${a.length} sales records this month, ${b.length} for the same days last year.`],
+        isSales ? "By weekday, this year · last year:" : `${a.length} sales records this month, ${b.length} for the same days last year.`].join(" "),
+      done: [], waiting: [],
       facts: isSales ? WEEKDAYS.map((d, i) => [d, `${ty[i] != null ? c.fmt(ty[i]!) : "—"} · ${ly[i] != null ? c.fmt(ly[i]!) : "—"}`] as [string, string]) : undefined,
       link: { label: "Open Revenue", to: "/revenue" },
     });
