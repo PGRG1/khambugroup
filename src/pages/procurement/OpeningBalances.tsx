@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, Plus, Pencil, Trash2, Ban } from "lucide-react";
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 const fmtMoney = (n: number) =>
-  `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${baseSymbol()} ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d?: string | null) => (d ? format(new Date(d), "dd MMM yyyy") : "—");
 
 type Supplier = { id: string; name: string };
@@ -255,7 +256,7 @@ function SupplierPayablesSection({
               </Select>
             </div>
             <div>
-              <Label>Amount (HK$)</Label>
+              <Label>Amount ({baseSymbol()})</Label>
               <Input type="number" step="0.01" min="0" value={form.amount}
                 onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
             </div>
@@ -397,7 +398,7 @@ function CreditNotesSection({
                 onChange={(e) => setForm((f) => ({ ...f, credit_note_number: e.target.value }))} />
             </div>
             <div>
-              <Label>Amount (HK$)</Label>
+              <Label>Amount ({baseSymbol()})</Label>
               <Input type="number" step="0.01" min="0" value={form.amount}
                 onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
             </div>

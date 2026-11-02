@@ -1,3 +1,7 @@
+## Foreign currency part 1 — current request
+- [x] Base currency setting/lock, global daily rates + history backfill + manual overrides, fx_rate lookup, ISO formatter and HK$ sweep, original amounts/rates on documents and new journal lines, Books › Currencies, foreign Bank & cash balances, bill currency/rate edit, scanner currency detection.
+- [ ] Invoice scanner currency/rate entry UI, bank/settlement parser currency detection, base-amount conversion for foreign invoices/settlements (columns and auto-rate are ready). Part 2: gains/losses and revaluation.
+
 ## Alerts follow-up — current request
 - [x] Feed health storage/server-result RPC, delayed admin break/recovery delivery and scoped stale PageTop/answer context; internal failures status-only. Imported coverage never falsely called a connection failure.
 - [x] Evidence-only deadline reminders/working-day rule, amber pending pill and grouped all-pending conversation; compact currency, recorded overtime, complete-week cost windows and admin-protected named-user routing.

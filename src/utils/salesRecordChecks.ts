@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 // Pure rules for the Sales records page: "doesn't add up", missing days, unusual days, week groups.
 import type { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
@@ -68,7 +69,7 @@ export function salesListCounts(records: SalesRecord[], missing: readonly unknow
 /** One-line reason a record doesn't add up, or null when it does. */
 export function attentionReason(r: SalesRecord): string | null {
   const c = checkRecord(r);
-  const hk = (v: number) => `HK$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
+  const hk = (v: number) => `${baseSymbol()}${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
   if (c.paymentsWrong) return `Payments are ${hk(c.paymentGap)} ${c.paymentGap < 0 ? "short" : "over"}`;
   if (c.partsWrong) return `Food & drink, service charge and discounts add up to ${hk(c.partsTotal)}, not ${hk(r.totalSales)}`;
   return null;

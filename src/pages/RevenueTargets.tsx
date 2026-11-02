@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import {formatMonthLabel} from '@/utils/format';
 import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
@@ -69,7 +70,7 @@ const STATUSES: OperatingStatus[] = ["normal", "mixed", "events_only", "closed"]
 const monthName = (m: number) =>
   new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 const fmtHKD = (v: number | null | undefined) =>
-  v == null || !isFinite(v) ? "—" : `HK$ ${formatCurrency(Number(v))}`;
+  v == null || !isFinite(v) ? "—" : `${baseSymbol()} ${formatCurrency(Number(v))}`;
 const fmtInt = (v: number | null | undefined) =>
   v == null ? "—" : Math.round(Number(v)).toLocaleString("en-US");
 const fmtPct = (v: number | null | undefined) =>
@@ -864,8 +865,8 @@ export default function RevenueTargets() {
         const remaining = monthly.managerRevenue - monthly.actualRevenue;
 
         const paceValue =
-          remainingDays === 0 ? "HK$ 0"
-          : remaining <= 0 ? "HK$ 0"
+          remainingDays === 0 ? `${baseSymbol()} 0`
+          : remaining <= 0 ? `${baseSymbol()} 0`
           : `${fmtHKD(remaining / remainingDays)}/day`;
         const paceHint =
           remainingDays === 0 ? "Month complete"
@@ -1019,7 +1020,7 @@ export default function RevenueTargets() {
               label="Needed per remaining day"
               value={remainingDays > 0 && monthly.managerRevenue - monthly.actualRevenue > 0
                 ? fmtHKD((monthly.managerRevenue - monthly.actualRevenue) / remainingDays)
-                : "HK$ 0"}
+                : `${baseSymbol()} 0`}
               strong
             />
             <SummaryRow

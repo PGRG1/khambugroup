@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { SalesRecord, VenueFilter } from "@/types/sales";
 import { fmtHKD, fmtNum, pctDelta } from "./utils";
@@ -46,7 +47,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[13px] font-medium">{r.name}</span>
                   <div className="text-[12px] tabular-nums">
-                    <span className="font-semibold">HK${fmtHKD(r.revenue, true)}</span>
+                    <span className="font-semibold">{baseSymbol()}{fmtHKD(r.revenue, true)}</span>
                     <span className="text-muted-foreground ml-2">{share.toFixed(1)}%</span>
                   </div>
                 </div>
@@ -57,7 +58,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
                   />
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">
-                  {fmtNum(r.guests)} covers · HK${fmtHKD(spg)}/guest
+                  {fmtNum(r.guests)} covers · {baseSymbol()}{fmtHKD(spg)}/guest
                 </div>
               </div>
             );
@@ -111,7 +112,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
         <>
           <Row
             label="Sales per seat per day"
-            value={`HK$${fmtHKD(revPerSeat ?? 0)}`}
+            value={`${baseSymbol()}${fmtHKD(revPerSeat ?? 0)}`}
             delta={prevRevPerSeat ? pctDelta(revPerSeat ?? 0, prevRevPerSeat) : null}
           />
           <Row
@@ -122,7 +123,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
           />
           <Row
             label="Spent per guest"
-            value={`HK$${fmtHKD(spg)}`}
+            value={`${baseSymbol()}${fmtHKD(spg)}`}
             delta={prevSpg ? pctDelta(spg, prevSpg) : null}
           />
         </>

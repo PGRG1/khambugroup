@@ -1488,6 +1488,8 @@ export type Database = {
           from_currency: string
           id: string
           notes: string | null
+          overridden_at: string
+          overridden_by: string | null
           rate: number
           rate_date: string
           source: string | null
@@ -1499,6 +1501,8 @@ export type Database = {
           from_currency: string
           id?: string
           notes?: string | null
+          overridden_at?: string
+          overridden_by?: string | null
           rate: number
           rate_date: string
           source?: string | null
@@ -1510,6 +1514,8 @@ export type Database = {
           from_currency?: string
           id?: string
           notes?: string | null
+          overridden_at?: string
+          overridden_by?: string | null
           rate?: number
           rate_date?: string
           source?: string | null
@@ -1790,6 +1796,7 @@ export type Database = {
           extraction_confidence: number | null
           fx_gain_loss: number | null
           fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           import_id: string | null
           is_manual: boolean | null
@@ -1828,6 +1835,7 @@ export type Database = {
           extraction_confidence?: number | null
           fx_gain_loss?: number | null
           fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           import_id?: string | null
           is_manual?: boolean | null
@@ -1866,6 +1874,7 @@ export type Database = {
           extraction_confidence?: number | null
           fx_gain_loss?: number | null
           fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           import_id?: string | null
           is_manual?: boolean | null
@@ -2296,6 +2305,7 @@ export type Database = {
           currency: string
           customer_name: string
           due_date: string | null
+          fx_rate: number | null
           id: string
           invoice_date: string | null
           invoice_no: string | null
@@ -2312,9 +2322,10 @@ export type Database = {
           as_of_date: string
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           customer_name: string
           due_date?: string | null
+          fx_rate?: number | null
           id?: string
           invoice_date?: string | null
           invoice_no?: string | null
@@ -2334,6 +2345,7 @@ export type Database = {
           currency?: string
           customer_name?: string
           due_date?: string | null
+          fx_rate?: number | null
           id?: string
           invoice_date?: string | null
           invoice_no?: string | null
@@ -3217,10 +3229,13 @@ export type Database = {
           document_requirement: string
           document_type: string | null
           due_date: string | null
+          fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           journal_entry_id: string | null
           meta: Json
           notes: string | null
+          original_total: number | null
           paid_amount: number
           payment_status: string
           period_end: string | null
@@ -3260,15 +3275,18 @@ export type Database = {
           cost_allocation_mode?: string
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           department?: string | null
           document_requirement?: string
           document_type?: string | null
           due_date?: string | null
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_total?: number | null
           paid_amount?: number
           payment_status?: string
           period_end?: string | null
@@ -3313,10 +3331,13 @@ export type Database = {
           document_requirement?: string
           document_type?: string | null
           due_date?: string | null
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_total?: number | null
           paid_amount?: number
           payment_status?: string
           period_end?: string | null
@@ -5730,6 +5751,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fx_reference_rates: {
+        Row: {
+          fetched_at: string
+          quote_currency: string
+          rate_date: string
+          source: string
+          usd_rate: number
+        }
+        Insert: {
+          fetched_at?: string
+          quote_currency: string
+          rate_date: string
+          source: string
+          usd_rate: number
+        }
+        Update: {
+          fetched_at?: string
+          quote_currency?: string
+          rate_date?: string
+          source?: string
+          usd_rate?: number
+        }
+        Relationships: []
       }
       goods_received_notes: {
         Row: {
@@ -8380,6 +8425,7 @@ export type Database = {
           approved_by: string | null
           bank_match_status: string
           created_at: string
+          currency: string | null
           discount: number
           discount_mode: string
           discount_rate: number
@@ -8392,6 +8438,8 @@ export type Database = {
           exception_note: string
           file_name: string | null
           file_url: string | null
+          fx_rate: number | null
+          fx_rate_source: string | null
           grn_id: string | null
           has_disputes: boolean
           held_amount: number
@@ -8400,6 +8448,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name: string | null
           notes: string | null
+          original_total: number | null
           payment_method: string | null
           payment_status: string
           received_date: string | null
@@ -8432,6 +8481,7 @@ export type Database = {
           approved_by?: string | null
           bank_match_status?: string
           created_at?: string
+          currency?: string | null
           discount?: number
           discount_mode?: string
           discount_rate?: number
@@ -8444,6 +8494,8 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           grn_id?: string | null
           has_disputes?: boolean
           held_amount?: number
@@ -8452,6 +8504,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_total?: number | null
           payment_method?: string | null
           payment_status?: string
           received_date?: string | null
@@ -8484,6 +8537,7 @@ export type Database = {
           approved_by?: string | null
           bank_match_status?: string
           created_at?: string
+          currency?: string | null
           discount?: number
           discount_mode?: string
           discount_rate?: number
@@ -8496,6 +8550,8 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           grn_id?: string | null
           has_disputes?: boolean
           held_amount?: number
@@ -8504,6 +8560,7 @@ export type Database = {
           invoice_number?: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_total?: number | null
           payment_method?: string | null
           payment_status?: string
           received_date?: string | null
@@ -8717,8 +8774,10 @@ export type Database = {
           category_l1: string | null
           created_at: string
           credit: number
+          currency: string | null
           debit: number
           entry_id: string
+          fx_rate: number | null
           id: string
           legacy_venue_name: string | null
           line_no: number
@@ -8726,6 +8785,7 @@ export type Database = {
           mapping_rule_type: string | null
           mapping_status: string | null
           memo: string | null
+          original_amount: number | null
           payment_method: string | null
           source_amount: number | null
           tenant_id: string
@@ -8737,8 +8797,10 @@ export type Database = {
           category_l1?: string | null
           created_at?: string
           credit?: number
+          currency?: string | null
           debit?: number
           entry_id: string
+          fx_rate?: number | null
           id?: string
           legacy_venue_name?: string | null
           line_no?: number
@@ -8746,6 +8808,7 @@ export type Database = {
           mapping_rule_type?: string | null
           mapping_status?: string | null
           memo?: string | null
+          original_amount?: number | null
           payment_method?: string | null
           source_amount?: number | null
           tenant_id?: string
@@ -8757,8 +8820,10 @@ export type Database = {
           category_l1?: string | null
           created_at?: string
           credit?: number
+          currency?: string | null
           debit?: number
           entry_id?: string
+          fx_rate?: number | null
           id?: string
           legacy_venue_name?: string | null
           line_no?: number
@@ -8766,6 +8831,7 @@ export type Database = {
           mapping_rule_type?: string | null
           mapping_status?: string | null
           memo?: string | null
+          original_amount?: number | null
           payment_method?: string | null
           source_amount?: number | null
           tenant_id?: string
@@ -10279,6 +10345,7 @@ export type Database = {
           currency: string
           file_name: string | null
           file_url: string | null
+          fx_rate: number | null
           id: string
           notes: string
           period_end: string
@@ -10290,9 +10357,10 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
-          currency?: string
+          currency: string
           file_name?: string | null
           file_url?: string | null
+          fx_rate?: number | null
           id?: string
           notes?: string
           period_end: string
@@ -10307,6 +10375,7 @@ export type Database = {
           currency?: string
           file_name?: string | null
           file_url?: string | null
+          fx_rate?: number | null
           id?: string
           notes?: string
           period_end?: string
@@ -15676,6 +15745,29 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string; _venue_id: string }
         Returns: boolean
       }
+      fx_currencies_in_use: {
+        Args: { p_tenant: string }
+        Returns: {
+          currency: string
+          first_used: string
+          month_end_date: string
+          month_end_nearest: boolean
+          month_end_rate: number
+          today_date: string
+          today_nearest: boolean
+          today_rate: number
+          used_in: string
+        }[]
+      }
+      fx_rate: {
+        Args: { p_currency: string; p_date: string; p_tenant: string }
+        Returns: {
+          nearest: boolean
+          rate: number
+          rate_date: string
+          source: string
+        }[]
+      }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
       generate_revenue_statistical_targets_month_v2: {
@@ -16172,6 +16264,10 @@ export type Database = {
       }
       save_team_working_settings: {
         Args: { expected: Json; p: Json; t: string }
+        Returns: undefined
+      }
+      set_base_currency: {
+        Args: { p_currency: string; p_tenant: string }
         Returns: undefined
       }
       set_supplier_directory_alias: {

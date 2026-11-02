@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useKpiCards, useKpiTargets, useKpiActuals, type KpiCard, type KpiTarget } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
@@ -54,7 +55,7 @@ export const URGENCY_RANK: Record<Tone, number> = { danger: 0, warn: 1, info: 2,
 
 export function fmtKpi(v: number | null | undefined, unit: string) {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  if (unit === "currency") return `HK$ ${Math.round(v).toLocaleString()}`;
+  if (unit === "currency") return `${baseSymbol()} ${Math.round(v).toLocaleString()}`;
   if (unit === "percent") return `${v.toFixed(1)}%`;
   return Math.round(v).toLocaleString();
 }

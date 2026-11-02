@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
@@ -2368,8 +2369,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           )}
 
             {!!displayReview?.accepted.length && <div className="text-xs text-muted-foreground">
-              <p className="font-medium">Small rounding differences accepted (under HK$ 1)</p>
-              <ul className="mt-1 space-y-1">{displayReview.accepted.map((entry, index) => <li key={index}>{entry.lineIdx === undefined ? "Invoice total" : `Line ${entry.lineIdx + 1}`} · HK$ {formatDecimal(entry.difference)}{entry.messages.length ? ` — ${entry.messages.join("; ")}` : ""}</li>)}</ul>
+              <p className="font-medium">Small rounding differences accepted (under {baseSymbol()} 1)</p>
+              <ul className="mt-1 space-y-1">{displayReview.accepted.map((entry, index) => <li key={index}>{entry.lineIdx === undefined ? "Invoice total" : `Line ${entry.lineIdx + 1}`} · {baseSymbol()} {formatDecimal(entry.difference)}{entry.messages.length ? ` — ${entry.messages.join("; ")}` : ""}</li>)}</ul>
             </div>}
             <div className="min-w-0 space-y-1">
               <div className="flex h-5 items-center gap-1.5"><Label className="text-[11px] font-medium text-muted-foreground">Status</Label></div>

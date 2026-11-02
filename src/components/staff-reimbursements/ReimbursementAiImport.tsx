@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -416,7 +417,7 @@ export default function ReimbursementAiImport({
                           </Select>
                         </div>
                         <div className="sm:col-span-2">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Amount (HK$)</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Amount ({baseSymbol()})</Label>
                           <Input
                             disabled={disabled}
                             type="number" step="0.01" min="0"

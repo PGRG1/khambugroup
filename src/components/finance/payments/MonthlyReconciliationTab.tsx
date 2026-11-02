@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -102,7 +103,7 @@ export function MonthlyReconciliationTab({
     <Card className="card-glass p-4 space-y-3">
       {ok ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 p-2.5 text-xs flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" /> All batches reconcile to the Settlement details (HK$1 settlement fee accounted for).
+          <CheckCircle2 className="h-3.5 w-3.5" /> All batches reconcile to the Settlement details ({baseSymbol()}1 settlement fee accounted for).
         </div>
       ) : (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-600 p-2.5 text-xs flex items-center gap-1.5">

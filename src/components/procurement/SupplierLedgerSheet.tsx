@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -260,12 +261,12 @@ export function SupplierLedgerSheet({
               <div>
                 <span className="text-muted-foreground">Outstanding: </span>
                 <span className={`td-num font-semibold ${netOutstanding > 0 ? "text-amber-400" : "text-green-400"}`}>
-                  HK$ {fmt(Math.abs(netOutstanding))} {netOutstanding > 0 ? "Dr" : "Cr"}
+                  {baseSymbol()} {fmt(Math.abs(netOutstanding))} {netOutstanding > 0 ? "Dr" : "Cr"}
                 </span>
               </div>
               <div>
                 <span className="text-muted-foreground">Available credits: </span>
-                <span className="td-num text-green-400 font-semibold">HK$ {fmt(availableCreditsTotal)}</span>
+                <span className="td-num text-green-400 font-semibold">{baseSymbol()} {fmt(availableCreditsTotal)}</span>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">

@@ -911,6 +911,27 @@
       "when": 1793593793818,
       "tag": "0129_alert_feed_health_deadline_delivery_person_routing",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1793606399101,
+      "tag": "0130_foreign_currency_part1",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1793606617867,
+      "tag": "0131_foreign_currency_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1793606709544,
+      "tag": "0132_fx_currencies_in_use",
+      "breakpoints": true
     }
   ]
 }

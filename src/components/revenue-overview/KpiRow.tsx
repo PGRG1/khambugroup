@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { DeltaChip } from "./DeltaChip";
 import { Sparkline } from "./Sparkline";
 import { Agg, DailyPoint, fmtHKD, fmtNum, pctDelta } from "./utils";
@@ -64,13 +65,13 @@ export function KpiRow({ cur, prev, dailyCurrent }: Props) {
       />
       <Card
         label="Avg Spend / Guest"
-        value={`HK$${fmtHKD(curSpend)}`}
+        value={`${baseSymbol()}${fmtHKD(curSpend)}`}
         delta={prev && prev.guests ? pctDelta(curSpend, prevSpend) : null}
         sparkData={sparkSpend}
       />
       <Card
         label="Avg Check"
-        value={`HK$${fmtHKD(curCheck)}`}
+        value={`${baseSymbol()}${fmtHKD(curCheck)}`}
         delta={prev && prev.orders ? pctDelta(curCheck, prevCheck) : null}
         sparkData={sparkCheck}
       />

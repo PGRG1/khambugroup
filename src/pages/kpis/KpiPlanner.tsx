@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useKpiCards, useKpiTargets, useKpiActuals } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
@@ -15,7 +16,7 @@ const ALL = "__all__";
 
 function fmt(v: number | null, unit: string) {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  if (unit === "currency") return `HK$ ${Math.round(v).toLocaleString()}`;
+  if (unit === "currency") return `${baseSymbol()} ${Math.round(v).toLocaleString()}`;
   if (unit === "percent") return `${v.toFixed(1)}%`;
   return Math.round(v).toLocaleString();
 }

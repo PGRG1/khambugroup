@@ -4,6 +4,9 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import {statementCharges,statementDifferences} from '@/utils/expenseSupplierAccounts';
+import {convertDocument} from '@/utils/fxDocument';
+import {getBaseCurrency} from '@/utils/money';
+import {lookupFxRate} from '@/hooks/useFxRate';
 
 export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void" | "reversed";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
@@ -49,6 +52,9 @@ export interface ExpenseBill {
   venue: string | null;
   department: string | null;
   currency: string;
+  fx_rate?: number | null;
+  fx_rate_source?: string | null;
+  original_total?: number | null;
   subtotal: number;
   tax_amount: number;
   total_amount: number;
@@ -172,6 +178,7 @@ export function useExpenseBills() {
         const statement=header.meta?.statement_check;
         let statementMeta=header.meta??{};
         if(statement){const amount=statementCharges(statement);header={...header,total_amount:amount,subtotal:amount-Number(header.tax_amount??0)};statementMeta={...statementMeta,statement_check:{...statement,current_charges:amount}};if(header.supplier_account_id&&header.bill_date){const {data,error}=await supabase.rpc('expense_statement_check',{p_account:header.supplier_account_id,p_date:header.bill_date});if(error)throw error;statementMeta={...statementMeta,statement_books:data,statement_differences:statementDifferences(statement,(data??{}) as Record<string,number>)};}}
+        {const base=getBaseCurrency(),cur=(header.currency||base).toUpperCase();let rate=header.fx_rate??null,src=header.fx_rate_source??null;if(cur!==base&&!rate){const hit=await lookupFxRate(tenantId,header.bill_date,cur);rate=hit?.rate??null;src=hit?(hit.nearest?`${hit.source} · nearest ${hit.rate_date}`:hit.source):null;}const conv=convertDocument({...header,currency:cur} as any,base,rate);header={...header,...conv.doc,fx_rate_source:cur===base?null:src};if(conv.factor!==1)allocations=allocations.map(a=>({...a,amount:Math.round(Number(a.amount)*conv.factor*100)/100}));}
         const splitLines:ExpenseBillAllocation[]=[];
         for(const line of allocations){const meter=line.supplier_account_id??header.supplier_account_id;if(!meter){splitLines.push(line);continue;}const {data,error}=await supabase.rpc('expense_meter_split',{p_account:meter,p_month:`${(header.service_period_start??header.bill_date??'').slice(0,7)}-01`,p_amount:line.amount});if(error)throw error;for(const part of data??[])splitLines.push({...line,supplier_account_id:meter,venue:part.venue,amount:part.amount});}
         allocations=splitLines;
@@ -187,7 +194,10 @@ export function useExpenseBills() {
           venue_id: header.venue_id || null,
           venue: header.venue || null,
           department: header.department || null,
-          currency: header.currency || "HKD",
+          currency: header.currency || getBaseCurrency(),
+          fx_rate: header.fx_rate ?? null,
+          fx_rate_source: header.fx_rate_source ?? null,
+          original_total: header.original_total ?? null,
           subtotal: Number(header.subtotal || 0),
           tax_amount: Number(header.tax_amount || 0),
           total_amount: Number(header.total_amount || 0),

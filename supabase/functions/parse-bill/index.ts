@@ -81,7 +81,8 @@ Return ONLY valid JSON with this exact structure:
   "service_period_start": "YYYY-MM-DD or empty string",
   "service_period_end": "YYYY-MM-DD or empty string",
   "venue": "Assembly, Caliente, Hanabi, Events, or empty string if not stated",
-  "currency": "HKD by default unless other currency printed",
+  "currency": "ISO 4217 code of the currency printed on the document (e.g. HKD, USD, JPY), inferred only from printed symbols/codes/supplier country; empty string if not determinable",
+  "printed_fx_rate": "exchange rate printed on the document as a number, or 0 if none",
   "subtotal": number,
   "tax_amount": number,
   "total_amount": number,
@@ -240,7 +241,8 @@ Deno.serve(async (req) => {
     parsed.service_period_start = String(parsed.service_period_start || "").trim();
     parsed.service_period_end = String(parsed.service_period_end || "").trim();
     parsed.venue = String(parsed.venue || "").trim();
-    parsed.currency = String(parsed.currency || "HKD").trim() || "HKD";
+    parsed.currency = /^[A-Z]{3}$/.test(String(parsed.currency || "").trim().toUpperCase()) ? String(parsed.currency).trim().toUpperCase() : "";
+    parsed.printed_fx_rate = Number(parsed.printed_fx_rate) > 0 ? Number(parsed.printed_fx_rate) : null;
     parsed.subtotal = Number(parsed.subtotal || 0);
     parsed.tax_amount = Number(parsed.tax_amount || 0);
     parsed.total_amount = Number(parsed.total_amount || 0);

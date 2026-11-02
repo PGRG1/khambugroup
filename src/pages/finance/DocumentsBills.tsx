@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { downloadCSV } from "@/utils/csvDownload";
 import { cn } from "@/lib/utils";
 
-const fmt = (n: number) => `HK$ ${(n || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (n: number) => `${baseSymbol()} ${(n || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (iso: string | null | undefined) => {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }

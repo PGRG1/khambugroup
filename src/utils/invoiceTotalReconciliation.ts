@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 /**
  * Printed (header) vs calculated invoice total reconciliation.
  *
@@ -8,7 +9,7 @@
 import { aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
 import { isReturnedKegLine } from "@/utils/returnedKegs";
 
-export const TOTAL_TOLERANCE = 0.5; // HK$
+export const TOTAL_TOLERANCE = 0.5; // {baseSymbol()}
 
 export interface ReconcilableLine {
   quantity?: string | number | null;

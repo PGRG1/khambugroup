@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,7 +109,7 @@ export function VenueSplitEditor({ ownerType, ownerId, mode, baseAmount, onChang
                 onClick={() => setSplitMode(m)}
                 className={`px-2.5 h-8 text-xs rounded ${splitMode === m ? "bg-background shadow-sm" : "text-muted-foreground"}`}
               >
-                {m === "percent" ? "%" : "HK$"}
+                {m === "percent" ? "%" : `${baseSymbol()}`}
               </button>
             ))}
           </div>
@@ -139,7 +140,7 @@ export function VenueSplitEditor({ ownerType, ownerId, mode, baseAmount, onChang
                 }}
                 className="w-28 h-8 text-right tabular-nums"
               />
-              <span className="text-xs text-muted-foreground w-8">{splitMode === "percent" ? "%" : "HK$"}</span>
+              <span className="text-xs text-muted-foreground w-8">{splitMode === "percent" ? "%" : `${baseSymbol()}`}</span>
               <button type="button" onClick={() => removeLine(i)} className="p-1 rounded hover:bg-accent/20">
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground/70" />
               </button>
@@ -151,7 +152,7 @@ export function VenueSplitEditor({ ownerType, ownerId, mode, baseAmount, onChang
           <div className={`mt-1.5 text-xs tabular-nums ${balanced ? "text-primary" : "text-destructive"}`}>
             {splitMode === "percent"
               ? `Total: ${total.toFixed(2)}% ${balanced ? "✓" : "(must equal 100)"}`
-              : `Total: HK$ ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} of HK$ ${baseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balanced ? "✓" : ""}`}
+              : `Total: ${baseSymbol()} ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} of ${baseSymbol()} ${baseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balanced ? "✓" : ""}`}
             {loaded && effMode === "split" && lines.length === 0 && (
               <span className="ml-1 text-muted-foreground">— add at least one venue</span>
             )}
@@ -192,7 +193,7 @@ export async function saveVenueSplit(params: {
   if (Math.abs(total - target) > 0.01) {
     toast.error(splitMode === "percent"
       ? `Split must sum to 100% (got ${total.toFixed(2)}%)`
-      : `Split must sum to HK$ ${baseAmount.toFixed(2)} (got HK$ ${total.toFixed(2)})`);
+      : `Split must sum to ${baseSymbol()} ${baseAmount.toFixed(2)} (got ${baseSymbol()} ${total.toFixed(2)})`);
     return false;
   }
   const { error } = await supabase.from("venue_allocation_overrides").insert(

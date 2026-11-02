@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -614,12 +615,12 @@ export function PayrollTab({ payroll, employees, shifts: scheduledShifts = [], o
           <SectionLabel>Payroll Summary</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
             <Stat label="Headcount" value={String(grandTotal.headcount)} />
-            <Stat label="Avg salary" value={`HK$ ${fmt(avgSalary)}`} />
+            <Stat label="Avg salary" value={`${baseSymbol()} ${fmt(avgSalary)}`} />
             <Stat label="MPF rate" value={`${(MPF_RATE * 100).toFixed(0)}%`} />
             <Stat label="Days in month" value={String(daysInMonth)} />
-            <Stat label="Total gross" value={`HK$ ${fmt(grandTotal.grossPay)}`} strong />
-            <Stat label="Total net" value={`HK$ ${fmt(grandTotal.netPay)}`} strong />
-            <Stat label="Total MPF (ER)" value={`HK$ ${fmt(grandTotal.mpfER)}`} />
+            <Stat label="Total gross" value={`${baseSymbol()} ${fmt(grandTotal.grossPay)}`} strong />
+            <Stat label="Total net" value={`${baseSymbol()} ${fmt(grandTotal.netPay)}`} strong />
+            <Stat label="Total MPF (ER)" value={`${baseSymbol()} ${fmt(grandTotal.mpfER)}`} />
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</div>
               <Badge variant={payStatus === "Paid" ? "default" : "outline"} className="text-[10px] mt-1">{payStatus}</Badge>
@@ -629,10 +630,10 @@ export function PayrollTab({ payroll, employees, shifts: scheduledShifts = [], o
         <div className="glass-surface rounded-xl border border-border/60 p-4">
           <SectionLabel>MPF · KHAMBU totals</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-            <Stat label="MPF cap" value={`HK$ ${fmt(MPF_CAP)}`} />
-            <Stat label="Total MPF (EE)" value={`HK$ ${fmt(grandTotal.mpfEE)}`} />
-            <Stat label="Total MPF (ER)" value={`HK$ ${fmt(grandTotal.mpfER)}`} />
-            <Stat label="Total cost" value={`HK$ ${fmt(grandTotal.totalCost)}`} strong />
+            <Stat label="MPF cap" value={`${baseSymbol()} ${fmt(MPF_CAP)}`} />
+            <Stat label="Total MPF (EE)" value={`${baseSymbol()} ${fmt(grandTotal.mpfEE)}`} />
+            <Stat label="Total MPF (ER)" value={`${baseSymbol()} ${fmt(grandTotal.mpfER)}`} />
+            <Stat label="Total cost" value={`${baseSymbol()} ${fmt(grandTotal.totalCost)}`} strong />
           </div>
 
         </div>
@@ -663,7 +664,7 @@ export function PayrollTab({ payroll, employees, shifts: scheduledShifts = [], o
                     <div className="text-[11px] text-muted-foreground truncate">{resolveVenue(emp)} · {emp.job_title || "—"}</div>
                   </div>
                   <div className="text-right text-xs tabular-nums">
-                    <div className="font-semibold">HK$ {fmt(r.netPay)}</div>
+                    <div className="font-semibold">{baseSymbol()} {fmt(r.netPay)}</div>
                     <div className="text-[10px] text-muted-foreground">Net pay</div>
                   </div>
                 </div>

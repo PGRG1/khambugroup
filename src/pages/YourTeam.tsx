@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -621,7 +622,7 @@ export default function YourTeam() {
                 )}
                 {tiles.data && tiles.data.salesMtd > 0 && tiles.data.spendMtd > 0 && (
                   <Tile label="Spent with food & drink suppliers"
-                    value={`HK$${Math.round((tiles.data.spendMtd / tiles.data.salesMtd) * 100)} of every HK$100`}
+                    value={`${baseSymbol()}${Math.round((tiles.data.spendMtd / tiles.data.salesMtd) * 100)} of every ${baseSymbol()}100`}
                     note="based on invoices, not stock counts" />
                 )}
                 {controllerView?.headline && (

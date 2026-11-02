@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo, useState } from "react";
 import { useKpiCards, useKpiTargets, type KpiTarget } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
@@ -134,7 +135,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
               const display = draft ?? (existing ? String(existing.target_value) : "");
               const isCost = card.kpi_category === "cost";
               const mode = (existing?.target_mode ?? "absolute") as "absolute" | "ratio_of_revenue";
-              const suffix = mode === "ratio_of_revenue" ? "% of revenue" : (card.unit === "currency" ? "HK$" : card.unit);
+              const suffix = mode === "ratio_of_revenue" ? "% of revenue" : (card.unit === "currency" ? `${baseSymbol()}` : card.unit);
               return (
                 <TableRow key={card.id} className={cn("transition-colors", flashKey === key && "bg-primary/5")}>
                   <TableCell className="font-medium">
@@ -165,12 +166,12 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
                       <Select value={mode} onValueChange={(v) => existing && update(existing.id, { target_mode: v as any })} disabled={!existing}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="absolute">HK$ ceiling</SelectItem>
+                          <SelectItem value="absolute">{baseSymbol()} ceiling</SelectItem>
                           <SelectItem value="ratio_of_revenue">% of revenue</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className="text-xs text-muted-foreground">HK$</span>
+                      <span className="text-xs text-muted-foreground">{baseSymbol()}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -209,7 +210,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
           const display = draft ?? (existing ? String(existing.target_value) : "");
           const isCost = card.kpi_category === "cost";
           const mode = (existing?.target_mode ?? "absolute") as "absolute" | "ratio_of_revenue";
-          const suffix = mode === "ratio_of_revenue" ? "% rev" : (card.unit === "currency" ? "HK$" : card.unit);
+          const suffix = mode === "ratio_of_revenue" ? "% rev" : (card.unit === "currency" ? `${baseSymbol()}` : card.unit);
           return (
             <div key={card.id} className={cn(
               "rounded-xl border border-border/60 card-glass p-3 space-y-2.5 transition-colors",
@@ -252,7 +253,7 @@ export default function KpiTargets({ embedded = false }: { embedded?: boolean } 
                   <Select value={mode} onValueChange={(v) => update(existing.id, { target_mode: v as any })}>
                     <SelectTrigger className="h-9 text-xs w-40"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="absolute">HK$ ceiling</SelectItem>
+                      <SelectItem value="absolute">{baseSymbol()} ceiling</SelectItem>
                       <SelectItem value="ratio_of_revenue">% of revenue</SelectItem>
                     </SelectContent>
                   </Select>

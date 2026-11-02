@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import {takeStatementBill} from "@/utils/statementBillHandoff";
 import {matchExpenseSupplier,type MeterAccount} from '@/utils/expenseSupplierAccounts';
 import {BillReadDetails} from "@/components/expenses/BillReadDetails";
@@ -80,7 +81,7 @@ function AmountCell({ value, onChange }: { value: number; onChange: (n: number) 
   const formatted = (Number(value) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">HK$</span>
+      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{baseSymbol()}</span>
       <Input
         inputMode="decimal"
         value={focused ? draft : formatted}

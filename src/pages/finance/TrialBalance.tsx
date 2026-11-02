@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -300,14 +301,14 @@ export default function TrialBalance() {
             </div>
             <div className={cn("flex justify-between text-sm font-semibold mt-2 pt-2 border-t border-border/60", isBalanced ? "text-primary" : "text-destructive")}>
               <span>{isBalanced ? "Balanced ✓" : "Out of balance by"}</span>
-              {!isBalanced && <span className="tabular-nums">HK$ {fmt(Math.abs(diff))}</span>}
+              {!isBalanced && <span className="tabular-nums">{baseSymbol()} {fmt(Math.abs(diff))}</span>}
             </div>
           </Card>
         )}
       </div>
 
       {!loading && rows.length > 0 && !isBalanced && (
-        <p className="text-xs text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Out of balance by HK$ {fmt(Math.abs(diff))} — check for unposted or unbalanced entries in the Journal.</p>
+        <p className="text-xs text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Out of balance by {baseSymbol()} {fmt(Math.abs(diff))} — check for unposted or unbalanced entries in the Journal.</p>
       )}
       {!loading && rows.length > 0 && isBalanced && (
         <p className="text-xs text-primary flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Books are balanced.</p>

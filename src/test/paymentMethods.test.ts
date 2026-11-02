@@ -96,7 +96,7 @@ describe("RecordPaymentDialog source contract", () => {
   );
 
   it("uses a generic payment amount label", () => {
-    expect(src).toContain("Payment Amount (HK$)");
+    expect(src).toContain("Payment Amount ({baseSymbol()})");
     expect(src).not.toContain("Cash Payment Amount");
   });
 
