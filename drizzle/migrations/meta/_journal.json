@@ -1093,6 +1093,13 @@
       "when": 1793649613265,
       "tag": "0155_roles_access_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1793654967967,
+      "tag": "0156_sales_records_venue_any_tenant",
+      "breakpoints": true
     }
   ]
 }
