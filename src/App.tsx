@@ -15,20 +15,13 @@ import { PlatformLayout } from "@/components/platform/PlatformLayout";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
-import Assistant from "./pages/Assistant";
-import FinanceTeam from "./pages/FinanceTeam";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
-import YourTeam from "./pages/YourTeam";
 import Landing from "./pages/Landing";
 
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
 import Settings from "./pages/Settings";
-import KpiHome from "./pages/kpis/KpiHome";
-import KpiSetup from "./pages/kpis/KpiSetup";
-import KpiPlanner from "./pages/kpis/KpiPlanner";
-import { useKpiCapability } from "@/hooks/useKpiCapability";
 
 import ForecastInput from "./pages/ForecastInput";
 import RevenueTargets from "./pages/RevenueTargets";
@@ -167,19 +160,6 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 /** Authority-aware KPI gate: view_only < edit < admin. */
-const KpiAuthorityGate = ({ children, need }: { children: React.ReactNode; need: "view_only" | "edit" | "admin" }) => {
-  const { authority, loading } = useKpiCapability();
-  if (loading) return <p className="p-6 text-muted-foreground" role="status">Checking access…</p>;
-  const rank = { view_only: 0, edit: 1, admin: 2 } as const;
-  if (rank[authority] < rank[need]) return <AccessDenied />;
-  return <>{children}</>;
-};
-
-const KpiRoute = ({ children, need = "view_only" }: { children: React.ReactNode; need?: "view_only" | "edit" | "admin" }) => (
-  <ProtectedRoute pageKey="kpis">
-    <KpiAuthorityGate need={need}>{children}</KpiAuthorityGate>
-  </ProtectedRoute>
-);
 
 
 
@@ -227,7 +207,7 @@ function App() {
                 <Route path="*" element={<NotFound />} />
                 <Route element={<TenantShell />}>
 <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
-                <Route path="/your-team" element={<ProtectedRoute><YourTeam /></ProtectedRoute>} />
+                <Route path="/your-team" element={<Navigate to="/" replace />} />
                 <Route path="/overview" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
@@ -377,15 +357,16 @@ function App() {
                 <Route path="/expenses/finance/vendors" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/expenses/finance/vendors/:vendorId" element={<AdminRoute><ExpenseVendorAccountPage /></AdminRoute>} />
                 <Route path="/expenses/finance/payables" element={<Navigate to="/finance/payables" replace />} />
-                <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
-                <Route path="/finance-team" element={<ProtectedRoute pageKey="finance"><FinanceTeam /></ProtectedRoute>} />
+                <Route path="/assistant" element={<Navigate to="/" replace />} />
+                <Route path="/finance-team" element={<Navigate to="/" replace />} />
+                <Route path="/kpis/*" element={<Navigate to="/" replace />} />
+                <Route path="/kpis" element={<Navigate to="/" replace />} />
                 <Route path="/notifications" element={<Navigate to="/?bani_event=summary" replace />} />
-                <Route path="/kpis" element={<Navigate to="/kpis/my-cards" replace />} />
-                <Route path="/kpis/my-cards" element={<KpiRoute><KpiHome /></KpiRoute>} />
-                <Route path="/kpis/setup" element={<KpiRoute need="admin"><KpiSetup /></KpiRoute>} />
-                <Route path="/kpis/assignments" element={<Navigate to="/kpis/setup?tab=assignments" replace />} />
-                <Route path="/kpis/targets" element={<Navigate to="/kpis/setup?tab=targets" replace />} />
-                <Route path="/kpis/planner" element={<KpiRoute need="edit"><KpiPlanner /></KpiRoute>} />
+
+
+
+
+
                 </Route>
               </Routes>
             </BrowserRouter>
