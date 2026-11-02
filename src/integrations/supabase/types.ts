@@ -2401,6 +2401,8 @@ export type Database = {
           in_service_date: string | null
           line_no: number
           notes: string | null
+          prepaid_expense_account_id: string | null
+          prepaid_schedule_id: string | null
           salvage_value: number
           supplier_account_id: string | null
           tax_amount: number
@@ -2424,6 +2426,8 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          prepaid_expense_account_id?: string | null
+          prepaid_schedule_id?: string | null
           salvage_value?: number
           supplier_account_id?: string | null
           tax_amount?: number
@@ -2447,6 +2451,8 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          prepaid_expense_account_id?: string | null
+          prepaid_schedule_id?: string | null
           salvage_value?: number
           supplier_account_id?: string | null
           tax_amount?: number
@@ -2490,6 +2496,41 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_schedule_id_fkey"
+            columns: ["prepaid_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "prepaid_schedules"
             referencedColumns: ["id"]
           },
           {
@@ -14916,6 +14957,10 @@ export type Database = {
           target: string
         }
         Returns: string
+      }
+      finance_advance_contract_prepare: {
+        Args: { ident: string; t: string }
+        Returns: number
       }
       finance_apply_account_review: {
         Args: {
