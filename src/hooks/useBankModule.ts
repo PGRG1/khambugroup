@@ -268,37 +268,17 @@ export function useBankModule() {
     await load();
   };
 
-  const createTransfer = async (fromId: string, toId: string, amount: number, date: string, fxRate?: number, note?: string) => {
-    const pairId = crypto.randomUUID();
-    const rows = [
-      {
-        bank_account_id: fromId,
-        txn_date: date,
-        description: note || "Internal transfer (out)",
-        money_in: 0,
-        money_out: amount,
-        tenant_id: tenantId,
-        is_transfer: true,
-        transfer_pair_id: pairId,
-        status: "matched",
-        is_manual: true,
-        fx_rate: fxRate ?? null,
-      },
-      {
-        bank_account_id: toId,
-        txn_date: date,
-        description: note || "Internal transfer (in)",
-        money_in: fxRate ? Number((amount * fxRate).toFixed(2)) : amount,
-        money_out: 0,
-        tenant_id: tenantId,
-        is_transfer: true,
-        transfer_pair_id: pairId,
-        status: "matched",
-        is_manual: true,
-        fx_rate: fxRate ?? null,
-      },
-    ];
-    const { error } = await supabase.from("bank_transactions").insert(rows as any);
+  /** Pairs two existing statement lines as one transfer; never inserts bank lines. */
+  const pairTransfer = async (outTxn: string, inTxn: string, note?: string) => {
+    if (!tenantId) return;
+    const { error } = await supabase.rpc("finance_transfer_pair", { t: tenantId, out_txn: outTxn, in_txn: inTxn, notes: note ?? "" });
+    if (error) throw error;
+    await load();
+  };
+  /** Saves a transfer whose other statement line has not arrived yet; it pairs automatically when it does. */
+  const pendingTransfer = async (p: { fromId: string; toId: string; outTxn: string | null; inTxn: string | null; date: string; amountOut: number; amountIn: number; note?: string }) => {
+    if (!tenantId) return;
+    const { error } = await supabase.rpc("finance_transfer_pending", { t: tenantId, from_account: p.fromId, to_account: p.toId, out_txn: p.outTxn as string, in_txn: p.inTxn as string, d: p.date, amount_out: p.amountOut, amount_in: p.amountIn, notes: p.note ?? "" });
     if (error) throw error;
     await load();
   };
@@ -369,7 +349,8 @@ export function useBankModule() {
     splitTxn,
     createMatch,
     deleteMatch,
-    createTransfer,
+    pairTransfer,
+    pendingTransfer,
     saveAccount,
     saveRule,
     deleteRule,
