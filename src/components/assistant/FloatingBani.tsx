@@ -178,7 +178,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
   const attention = pendingItems.length;
-  const openSphere = () => { if (attention > 0 && !messages.length) openWork(); else setOpen(true); };
+  const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else if (attention > 0 && !messages.length) openWork(); else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
@@ -471,12 +471,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
   const panelStyle = home ? undefined
     : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
-    : isMobile ? { top: vv.top + 24, height: vv.h - 48, maxHeight: vv.h - 48, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
+    : typeof window !== "undefined" && window.innerWidth < 700 ? { top: vv.top + 24, height: vv.h - 96, maxHeight: vv.h - 96, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
   const restore = <Button variant="ghost" type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></Button>;
   const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
-    {open && !home && !hosted && <div className="floating-bani-backdrop" aria-hidden="true" onClick={() => { dictation.cancel(); setOpen(false); }} />}
     {hidden && !home ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : (open || home) ? (
       <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {home ? (open && <div className="floating-bani-homeback"><button type="button" onClick={() => setOpen(false)}><ChevronLeft className="h-4 w-4" />Back to today</button>{working && <span className="floating-bani-context">{context}</span>}</div>) :
@@ -589,7 +588,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>}
         </form>
       </section>
-    ) : <>
+    ) : null}
+    {!home && !(hidden && !home) && (!open || !hosted) && <>
       <Button variant="ghost" ref={sphereEl} type="button" className={`floating-bani-sphere ${drag ? "is-dragging" : ""} ${overX ? "is-over" : ""}`} style={sphereStyle} aria-label="Open Bani" title="Ask Bani"
         onPointerDown={onSphereDown} onPointerMove={onSphereMove} onPointerUp={e => onSphereUp(e)} onPointerCancel={e => onSphereUp(e, true)} onLostPointerCapture={() => { if (gesture.current) resetGesture(); }}
         onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) openSphere(); }}>

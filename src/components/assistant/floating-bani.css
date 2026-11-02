@@ -140,7 +140,10 @@
 
 /* Centred chat pop-up on every page except Home. */
 .floating-bani-backdrop { position: fixed; inset: 0; background: rgba(18,21,16,.28); }
-.floating-bani-panel.is-centred:not(.is-mobile) { inset: 0; margin: auto; width: min(720px, calc(100vw - 2rem)); height: min(80dvh, calc(100dvh - 2rem)); border-radius: 18px; }
+.floating-bani-panel.is-centred { left: auto; top: auto; right: 24px; bottom: 80px; width: min(400px, calc(100vw - 48px)); height: min(600px, calc(100dvh - 112px)); border-radius: 18px; border: 1px solid var(--fb-line); box-shadow: var(--fb-shadow); transform-origin: bottom right; animation: fb-pop 160ms ease-out; }
+@media (max-width: 699px) { .floating-bani-panel.is-centred { left: 12px; right: 12px; width: auto; bottom: 72px; } }
+@keyframes fb-pop { from { transform: scale(.92); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .floating-bani-panel.is-centred { animation: none; } }
 .floating-bani-panel.is-centred.is-mobile { border-radius: 18px; }
 
 /* Home: the bottom bar is the only typing box; talking turns the page into the conversation. */
