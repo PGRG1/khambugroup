@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PeriodControl, useSharedPeriod } from './PeriodControl';
@@ -29,6 +29,7 @@ export function boundComparePeriods(periods: PeriodOption[], start: string, toda
 }
 export function PeriodCompare({viewMode,selectedPeriods,onViewModeChange,onPeriodsChange}: {viewMode: ViewMode; selectedPeriods: PeriodOption[]; onViewModeChange: (v: ViewMode)=>void; onPeriodsChange: (p: PeriodOption[])=>void}) {
   const books = useBooksWindow(), selection = useSharedPeriod('period', 'last-month', {financialYear: true,extraShortcuts:true});
+  const [comparing,setComparing] = useState(false);
   useEffect(() => {
     if (!books.data) return;
     const bounded = boundComparePeriods(selectedPeriods,books.start,books.today);
@@ -40,5 +41,5 @@ export function PeriodCompare({viewMode,selectedPeriods,onViewModeChange,onPerio
     const options = [...new Set(months.map(m=>Number(m.slice(0,4))))].flatMap(y=>getOptionsForView(viewMode,y)).filter(p=>p.months.some(m=>months.includes(`${p.year}-${String(m).padStart(2,'0')}`))).map(p=>({...p,months:p.months.filter(m=>months.includes(`${p.year}-${String(m).padStart(2,'0')}`))}));
     onPeriodsChange(boundComparePeriods(replace ? options : [...selectedPeriods.filter(p=>!options.some(o=>o.id===p.id)),...options],books.start,books.today));
   };
-  return <div className="flex flex-wrap items-center gap-2 min-w-0"><div className="kit-seg">{(['monthly','quarterly','semi-annual','annual'] as const).map(v=><Button key={v} variant="ghost" aria-pressed={viewMode===v} onClick={()=>onViewModeChange(v)}>{v==='monthly'?'Month':v==='quarterly'?'Quarter':v==='semi-annual'?'Half-year':'Year'}</Button>)}</div><PeriodControl mode="period" value={selection.value} onChange={v=>add(v,true)} financialYear extraShortcuts/><Button variant="outline" size="icon" aria-label="Add comparison period" onClick={()=>add(selection.value)}><Plus className="h-4 w-4"/></Button>{selectedPeriods.map(p=><Button key={p.id} variant="secondary" className="h-8 max-w-full" onClick={()=>onPeriodsChange(selectedPeriods.filter(o=>o.id!==p.id))}>{p.label}<X className="h-3 w-3 ml-1"/></Button>)}</div>;
+  return <div className="flex flex-wrap items-center gap-2 min-w-0"><div className="kit-seg">{(['monthly','quarterly','semi-annual','annual'] as const).map(v=><Button key={v} variant="ghost" aria-pressed={viewMode===v} onClick={()=>onViewModeChange(v)}>{v==='monthly'?'Month':v==='quarterly'?'Quarter':v==='semi-annual'?'Half-year':'Year'}</Button>)}</div><PeriodControl mode="period" value={selection.value} onChange={v=>{add(v,!comparing);setComparing(false);}} financialYear extraShortcuts/><Button variant={comparing?'secondary':'outline'} size="icon" aria-label="Add comparison period" title="Add comparison period" aria-pressed={comparing} onClick={()=>setComparing(!comparing)}><Plus className="h-4 w-4"/></Button>{selectedPeriods.map(p=><Button key={p.id} variant="secondary" className="h-8 max-w-full" onClick={()=>onPeriodsChange(selectedPeriods.filter(o=>o.id!==p.id))}>{p.label}<X className="h-3 w-3 ml-1"/></Button>)}</div>;
 }
