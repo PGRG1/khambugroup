@@ -967,6 +967,13 @@
       "when": 1793609159682,
       "tag": "0137_fx_source_uuid_comparisons",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1793609220379,
+      "tag": "0138_fx_approval_fail_closed_until_verified",
+      "breakpoints": true
     }
   ]
 }
