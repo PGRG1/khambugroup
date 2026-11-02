@@ -29,6 +29,7 @@ import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
 import { useSmartAlerts } from "@/hooks/useSmartAlerts";
 import { stageBaniStatements } from "@/utils/baniStatementHandoff";
 import { supabase } from "@/integrations/supabase/client";
+import { groupedPending, dueWithinTwoDays } from "../../../supabase/functions/_shared/smartAlerts/followUp";
 
 export type FloatingReview = {
   scope: string; binding: string; draftId: string; lineId: string; supplierId: string;
@@ -260,6 +261,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       return;
     }
     const text = typed || FILES_ONLY_PROMPT;
+    if(!attached.length&&/^(show|list)( me)? (everything|all)( that's| that is)? pending\??$/i.test(typed)){setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed},{role:'assistant',content:groupedPending(pendingItems)}]);return;}
     if(activeItem && /^(done|dismiss|skip|checked|yes|no|not sure)$/i.test(typed) && !attached.length){
       setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed}]);
             try{const answer=activeItem.payload.question?({yes:'yes',no:'no','not sure':'unsure'}[typed.toLowerCase()]??'done'):'done';await completeWork(activeItem,answer);const key=activeItem.kind+'|'+activeItem.subject;setFinished(prev=>[...prev,key]);nextWork(pendingItems.filter(a=>a!==activeItem));}catch(e){setError(e instanceof Error?e.message:'Could not update work');}return;
@@ -275,7 +277,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
-    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (activeItem ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
+    const staleNote = pending.data?.feed_health?.filter(f=>f.state==='broken').map(f=>`${f.name} data stops on ${f.complete_up_to??'its last successful date'}`).join('; ');
+    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
@@ -586,7 +589,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) setOpen(true); }}>
         <BaniOrb size={SPHERE} mode="idle" />
       </Button>
-      {attention > 0 && !holding && <Button variant="ghost" className={`floating-bani-attention ${sphere && sphere.x < window.innerWidth / 2 ? "is-left" : ""}`} style={sphere ? { top: sphere.y + 8, ...(sphere.x < window.innerWidth / 2 ? { left: sphere.x + SPHERE + 8, right: "auto", bottom: "auto" } : { right: window.innerWidth - sphere.x + 8, bottom: "auto" }) } : undefined} onClick={openWork}>{attention} items pending</Button>}
+      {attention > 0 && !holding && <Button variant="ghost" className={`floating-bani-attention ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''} ${sphere && sphere.x < window.innerWidth / 2 ? "is-left" : ""}`} style={sphere ? { top: sphere.y + 8, ...(sphere.x < window.innerWidth / 2 ? { left: sphere.x + SPHERE + 8, right: "auto", bottom: "auto" } : { right: window.innerWidth - sphere.x + 8, bottom: "auto" }) } : undefined} onClick={openWork}>{attention} items pending</Button>}
       <Button variant="ghost" type="button" className="floating-bani-hide sr-only focus:not-sr-only" onClick={() => { setHidden(true); setOpen(false); }}>Hide assistant</Button>
       {holding && <div className={`floating-bani-target ${overX ? "is-active" : ""}`} aria-hidden="true"><X className="h-6 w-6" /></div>}
     </>}

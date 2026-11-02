@@ -128,3 +128,4 @@
 .floating-bani .floating-bani-send, .floating-bani .floating-bani-plus, .floating-bani .floating-bani-icon, .floating-bani .floating-bani-mic, .floating-bani .floating-bani-voice-mute, .floating-bani .floating-bani-voice-end, .floating-bani .floating-bani-sphere { border-radius: 50%; }
 .floating-bani .floating-bani-voice-orb { width: 64px; height: 64px; min-height: 64px; padding: 0; background: none; border-radius: 50%; }
 .floating-bani .floating-bani-restore { padding: 0; border-radius: 50%; }
+.floating-bani-attention.is-due { border-color: var(--fb-warning); color: var(--fb-warning); background: hsl(var(--warning) / .1); }
