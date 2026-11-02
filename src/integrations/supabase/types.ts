@@ -9961,34 +9961,40 @@ export type Database = {
       payment_allocations: {
         Row: {
           amount_allocated: number
+          cash_base_allocated: number | null
           created_at: string
           credit_note_amount_applied: number
           credit_note_id: string | null
           credit_note_journal_entry_id: string | null
           id: string
           invoice_id: string
+          original_allocated: number | null
           payment_id: string
           tenant_id: string
         }
         Insert: {
           amount_allocated: number
+          cash_base_allocated?: number | null
           created_at?: string
           credit_note_amount_applied?: number
           credit_note_id?: string | null
           credit_note_journal_entry_id?: string | null
           id?: string
           invoice_id: string
+          original_allocated?: number | null
           payment_id: string
           tenant_id?: string
         }
         Update: {
           amount_allocated?: number
+          cash_base_allocated?: number | null
           created_at?: string
           credit_note_amount_applied?: number
           credit_note_id?: string | null
           credit_note_journal_entry_id?: string | null
           id?: string
           invoice_id?: string
+          original_allocated?: number | null
           payment_id?: string
           tenant_id?: string
         }

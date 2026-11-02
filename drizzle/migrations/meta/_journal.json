@@ -995,6 +995,13 @@
       "when": 1793628551815,
       "tag": "0141_fx_settlement_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1793628702352,
+      "tag": "0142_fx_invoice_payment_settlement",
+      "breakpoints": true
     }
   ]
 }
