@@ -410,7 +410,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
-          {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
@@ -510,16 +509,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </form>
       </section>
     ) : null}
-    {!home && !(hidden && !home) && (!open || !hosted) && <>
-      <Button variant="ghost" ref={sphereEl} type="button" className={`floating-bani-sphere ${drag ? "is-dragging" : ""} ${overX ? "is-over" : ""}`} style={sphereStyle} aria-label="Open Bani" title="Ask Bani"
-        onPointerDown={onSphereDown} onPointerMove={onSphereMove} onPointerUp={e => onSphereUp(e)} onPointerCancel={e => onSphereUp(e, true)} onLostPointerCapture={() => { if (gesture.current) resetGesture(); }}
-        onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) openSphere(); }}>
+    {!home && (!open || !hosted) && (
+      <Button variant="ghost" type="button" className="floating-bani-sphere" aria-label="Open Bani" title="Ask Bani" onClick={() => openSphere()}>
         <BaniOrb size={SPHERE} mode="idle" />
-        {attention > 0 && !holding && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
+        {attention > 0 && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
       </Button>
-      <Button variant="ghost" type="button" className="floating-bani-hide sr-only focus:not-sr-only" onClick={() => { setHidden(true); setOpen(false); }}>Hide assistant</Button>
-      {holding && <div className={`floating-bani-target ${overX ? "is-active" : ""}`} aria-hidden="true"><X className="h-6 w-6" /></div>}
-    </>}
+    )}
   </div>;
   // A modal owns focus and inertness: portal into that modal, never above it.
   return hosted ? createPortal(surface, host?.node.closest('[role="dialog"]') || document.body) : surface;
