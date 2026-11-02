@@ -663,6 +663,78 @@ export type Database = {
           },
         ]
       }
+      alert_feed_health: {
+        Row: {
+          area: string
+          break_notified_at: string | null
+          complete_up_to: string | null
+          consecutive_failures: number
+          customer_fixable: boolean
+          error_consequence: string | null
+          failure_started_at: string | null
+          feed_key: string
+          id: string
+          last_error_at: string | null
+          last_success_at: string | null
+          name: string
+          recovery_notified_at: string | null
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          area: string
+          break_notified_at?: string | null
+          complete_up_to?: string | null
+          consecutive_failures?: number
+          customer_fixable?: boolean
+          error_consequence?: string | null
+          failure_started_at?: string | null
+          feed_key: string
+          id?: string
+          last_error_at?: string | null
+          last_success_at?: string | null
+          name: string
+          recovery_notified_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          area?: string
+          break_notified_at?: string | null
+          complete_up_to?: string | null
+          consecutive_failures?: number
+          customer_fixable?: boolean
+          error_consequence?: string | null
+          failure_started_at?: string | null
+          feed_key?: string
+          id?: string
+          last_error_at?: string | null
+          last_success_at?: string | null
+          name?: string
+          recovery_notified_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_feed_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_feed_health_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_mutes: {
         Row: {
           active: boolean
@@ -674,6 +746,7 @@ export type Database = {
           reason: string
           scope: string
           target_role: string | null
+          target_user_id: string | null
           tenant_id: string
           threshold: number | null
           until_date: string | null
@@ -690,6 +763,7 @@ export type Database = {
           reason?: string
           scope: string
           target_role?: string | null
+          target_user_id?: string | null
           tenant_id: string
           threshold?: number | null
           until_date?: string | null
@@ -706,6 +780,7 @@ export type Database = {
           reason?: string
           scope?: string
           target_role?: string | null
+          target_user_id?: string | null
           tenant_id?: string
           threshold?: number | null
           until_date?: string | null
@@ -713,6 +788,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "alert_mutes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "alert_mutes_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -725,6 +807,32 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_reminder_deliveries: {
+        Row: {
+          claimed_at: string
+          delivery_key: string
+          tenant_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          delivery_key: string
+          tenant_id: string
+        }
+        Update: {
+          claimed_at?: string
+          delivery_key?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_reminder_deliveries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -16099,6 +16207,20 @@ export type Database = {
         Args: { ident: string; options: Json; t: string }
         Returns: undefined
       }
+      smart_alert_feed_result: {
+        Args: {
+          consequence: string
+          customer_fixable?: boolean
+          cutoff: string
+          feed_area: string
+          k: string
+          label: string
+          success: boolean
+          t: string
+          v: string
+        }
+        Returns: undefined
+      }
       smart_alert_keep_ask: {
         Args: { decision: string; ident: string; t: string }
         Returns: Json
@@ -16114,6 +16236,10 @@ export type Database = {
       smart_alert_reconciliations: {
         Args: { p_month: string; p_tenant: string }
         Returns: Json
+      }
+      smart_alert_route_person: {
+        Args: { ident: string; instruction: string; t: string; target: string }
+        Returns: undefined
       }
       smart_alert_save_settings: {
         Args: { options: Json; t: string }

@@ -12,7 +12,7 @@ describe('Notification and work separation',()=>{
  it('owners receive big swings only outside summaries',()=>{expect(receives({...a('sales_low','sales'),payload:{change_percent:41}},'owner','notification')).toBe(true);expect(receives({...a('sales_low','sales'),payload:{change_percent:40}},'owner','notification')).toBe(false);});
  it('quiet hours begin at 11pm',()=>expect(inQuietHours('23:00')).toBe(true));
  it('quiet hours end at 8am',()=>expect(inQuietHours('08:00')).toBe(false));
- it('uses portal whole-unit amounts without .00 in business prose',()=>expect(formatEventCurrency(3800000,'HKD')).toBe('HK$ 3,800,000'));
+ it('uses compact portal whole-unit amounts in business prose',()=>expect(formatEventCurrency(21978,'HKD')).toBe('HK$21,978'));
  it('does not use display-only purchasing role as authority',()=>{expect(businessRole('member')).toBe('staff');expect(businessRole('member','Head chef')).toBe('purchasing');});
  it('builds only evidenced sick calls and disputed delivery shortages',()=>{const signals=operationalSignals({hr_employees:[{id:'e',first_name:'Anjan',venue_id:'v'}],hr_leave_types:[{id:'s',name:'Sick leave'}],hr_leave_requests:[{id:'l',employee_id:'e',leave_type_id:'s',status:'approved',approved_at:'2026-10-30',start_date:'2026-10-30',end_date:'2026-10-30'}],goods_received_notes:[{id:'g',status:'disputed',received_date:'2026-10-30',grn_number:'G1'}],grn_items:[{id:'i',grn_id:'g',issue:'short',quantity_received:2,quantity_invoiced:3}]},'2026-11-01');expect(signals.map(s=>s.kind)).toContain('sick_leave');expect(signals.map(s=>s.kind)).toContain('delivery_short');expect(operationalSignals({},'2026-11-01')).toEqual([]);});
 });
