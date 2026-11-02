@@ -1,4 +1,10 @@
-## Finance 3c-2 leftovers — current request
+## Finance finish-off — current request
+- [ ] Invoice-line asset proposals and approval integration, posted-source correction drafts.
+- [ ] Multi-file bank/card/utility statement review queue using existing parsers and explicit mappings.
+- [ ] Existing sales-day deferred edits and posted correction drafts via monthly approval.
+- [ ] Isolated populated approval and notice readback; bill/invoice dialogs and exact bank multi-match fixtures.
+
+## Finance 3c-2 leftovers — previous request
 - [x] Unposted expense bill asset selection saved for monthly approval; posting capitalizes register atomically. Advance bill save and monthly approval prepare day-based prepaid items/releases, funded only by approval.
 - [x] Tax notice upload reading + manual review, append-only due items shown separately in Payables (no posting).
 - [x] Direct unpaid invoice/bill exact-total bank payment drafts reuse guarded payment+match actions only on selected monthly approval.
