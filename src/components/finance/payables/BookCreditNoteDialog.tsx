@@ -1,4 +1,5 @@
-import {baseSymbol} from '@/utils/money';
+import {currencySymbol,getBaseCurrency,baseAmount} from '@/utils/money';
+import {lookupFxRate} from '@/hooks/useFxRate';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,18 @@ export function BookCreditNoteDialog({
   const [status, setStatus] = useState<string>("approved");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [currency, setCurrency] = useState("");
+
+  // Document currency: source invoice first, then the supplier's billing currency, else base.
+  useEffect(() => {
+    if (!open) return;
+    const src = invoices.find((i) => i.id === sourceInvoiceId);
+    if (src?.currency) { setCurrency(src.currency); return; }
+    if (!supplierId) { setCurrency(getBaseCurrency()); return; }
+    let live = true;
+    void supabase.from("suppliers").select("default_currency").eq("id", supplierId).maybeSingle().then(({ data }) => { if (live) setCurrency(((data as any)?.default_currency as string) || getBaseCurrency()); });
+    return () => { live = false; };
+  }, [open, supplierId, sourceInvoiceId, invoices]);
 
   useEffect(() => {
     if (open) {
@@ -67,12 +80,24 @@ export function BookCreditNoteDialog({
     if (!cnDate) return toast.error("Select a credit note date");
 
     setSaving(true);
+    const base = getBaseCurrency(), cur = (currency || base).toUpperCase();
+    let fx: { currency: string; fx_rate?: number; original_currency_amount?: number; original_remaining?: number } = { currency: cur };
+    let baseAmt = amt;
+    if (cur !== base) {
+      const tenant = (invoices[0] as any)?.tenant_id;
+      const { data: t } = tenant ? { data: tenant } : await supabase.from("suppliers").select("tenant_id").eq("id", supplierId).maybeSingle().then(r => ({ data: (r.data as any)?.tenant_id }));
+      const hit = t ? await lookupFxRate(t, cnDate, cur).catch(() => null) : null;
+      if (!hit?.rate) { setSaving(false); return toast.error(`No ${cur} rate for ${cnDate}`); }
+      baseAmt = baseAmount(amt, hit.rate, base);
+      fx = { currency: cur, fx_rate: hit.rate, original_currency_amount: amt, original_remaining: amt };
+    }
     const { error } = await (supabase as any).from("credit_notes").insert({
+      ...fx,
       supplier_id: supplierId,
       credit_note_number: cnNumber.trim(),
       credit_note_date: cnDate,
-      original_amount: amt,
-      remaining_balance: amt,
+      original_amount: baseAmt,
+      remaining_balance: baseAmt,
       status,
       venue: venue === "none" ? null : venue,
       source_invoice_id: sourceInvoiceId === "none" ? null : sourceInvoiceId,
@@ -118,7 +143,8 @@ export function BookCreditNoteDialog({
           </div>
 
           <div>
-            <Label>Amount ({baseSymbol()}) *</Label>
+            <Label>Amount ({currencySymbol(currency || getBaseCurrency())}) *</Label>
+            <Input aria-label="Credit note currency" className="mb-1" maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </div>
           <div>

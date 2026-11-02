@@ -1,4 +1,4 @@
-import {baseSymbol} from '@/utils/money';
+import {baseSymbol,getBaseCurrency,formatMoney} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -264,7 +264,7 @@ export function ExerciseCreditDialog({
                     <div className="flex-1 grid grid-cols-3 gap-3 text-sm">
                       <div className="font-medium">{cn.credit_note_number}</div>
                       <div className="text-muted-foreground truncate">{cn.notes || "—"}</div>
-                      <div className="text-right td-num text-green-400">{baseSymbol()} {fmt(cn.remaining_balance)}</div>
+                      <div className="text-right td-num text-green-400">{baseSymbol()} {fmt(cn.remaining_balance)}{cn.currency&&cn.currency!==getBaseCurrency()&&cn.original_remaining!=null&&<span className="block text-xs text-muted-foreground">{formatMoney(cn.original_remaining,cn.currency)}</span>}</div>
                     </div>
                   </label>
                 ))}
