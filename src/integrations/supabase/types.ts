@@ -15960,6 +15960,7 @@ export type Database = {
           used_in: string
         }[]
       }
+      fx_difference_account: { Args: { t: string }; Returns: string }
       fx_rate: {
         Args: { p_currency: string; p_date: string; p_tenant: string }
         Returns: {
