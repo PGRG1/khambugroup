@@ -847,7 +847,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
             `product_master_${new Date().toISOString().slice(0, 10)}`
           );
         }} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
-        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
+        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />{popup ? "Add product" : "Add Item"}</Button>
       </div>
 
       {/* Document-Centre-style toolbar */}
