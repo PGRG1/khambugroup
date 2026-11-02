@@ -1,7 +1,8 @@
 ## Smart Alerts part two — current request
-- [ ] Coverage/root grouping, confidence, grace, fourteen-day sales recovery, closed-weekday questions, ten-item cap and summary lifecycle.
-- [ ] Settings coverage/watch/role/delivery/ask controls; confirmed Bani ask cards and engine evaluation.
-- [ ] Learning card, tenant-time digest/quiet-hour delivery; focused fixtures, isolated QA save/readback/cleanup, KHAMBU evaluation and desktop/375px checks.
+- [x] Coverage/root grouping, confidence, two-day grace, fourteen-day recovery, Caliente recurring-closure question, ranked ten-item cap and separate summary lifecycle. KHAMBU 27→10 open; never-used CNY bank is a setup suggestion, two used BOCHK accounts form the root.
+- [x] Settings coverage/watch/actual-role/delivery/asks; natural-language Bani card→Keep→Settings readback, QA watch-level/role save/readback and ask toggle; confirmed single-use retry rejected. Temporary QA alert rows removed; no new tenants/users.
+- [x] Learning card and scoped progress; tenant-time digest/quiet-hour code and five-minute wakeup. Focused fixtures, desktop/375px settled screens and repeated KHAMBU evaluation pass. Protected journals/invoices/bills/sales/payroll counts and whole-row hashes identical.
+- Verification limits: physical phone push and actual 09:00 digest receipt remain unverified without a subscribed test device. Ask checks use saved day reports, not live POS sales. Coverage currently uses latest recorded endpoint, not contiguous gap verification; downstream feed suppression is conservative across bank accounts. People detectors were not added (not requested in part two).
 
 ## Smart Alerts part one — previous request
 - [x] Automatic tenant-scoped detectors, additive alert schema, atomic lifecycle/mutes/questions, urgent-only push and local-day schedule (one hourly wakeup, each tenant once daily).
