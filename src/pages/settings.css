@@ -1,0 +1,38 @@
+/* Settings look: IBM Plex Sans only, tabular numbers, plain underline tabs, light pop-ups. */
+.settings-page, .settings-page *, body[data-settings] [role="dialog"], body[data-settings] [role="dialog"] * {
+  font-family: "IBM Plex Sans", system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums;
+}
+.settings-tabs { display: flex; gap: 22px; overflow-x: auto; }
+.settings-tabs button { background: none; border: 0; padding: 8px 0; font-size: 14px; color: #55605A; border-bottom: 2px solid transparent; white-space: nowrap; cursor: pointer; }
+.settings-tabs button[aria-selected="true"] { color: #1F3F3B; font-weight: 600; border-bottom-color: #1F3F3B; }
+.settings-row { cursor: pointer; transition: background .12s; }
+.settings-row:hover { background: #F6F8F7 !important; }
+.settings-table-wrap { border: 1px solid #E3E1DA; border-radius: 12px; overflow: hidden; }
+.settings-table th { text-align: left; font-size: 12px; font-weight: 600; color: #55605A; padding: 10px 12px; background: #F8F9F8; }
+.settings-table td { padding: 10px 12px; border-top: 1px solid #ECEBE6; vertical-align: top; }
+.settings-card { background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; }
+.settings-note-amber { color: #8A420B; background: #FDF3E8; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.settings-note-green { color: #1F6B5E; background: #EAF4F0; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.settings-amber { color: #8A420B; }
+
+/* Centred pop-ups for every Settings dialog. */
+body[data-settings] [role="dialog"][data-state] {
+  position: fixed !important; left: 50% !important; top: 50% !important; right: auto !important; bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  width: calc(100vw - 24px) !important; max-width: 540px !important; height: auto !important;
+  max-height: 86dvh !important; overflow-y: auto !important;
+  background: #fff !important; backdrop-filter: none !important;
+  border: 1px solid #E3E1DA !important; border-radius: 18px !important;
+  box-shadow: 0 24px 60px -20px rgba(18,21,16,.28) !important;
+}
+body[data-settings] [role="dialog"][data-state].settings-wide,
+body[data-settings] [role="dialog"][data-state]:has(table) { max-width: 720px !important; }
+body[data-settings] [role="dialog"][data-state] > :last-child:has(> button):not(:only-child),
+body[data-settings] [role="dialog"][data-state] [data-dialog-footer],
+body[data-settings] [role="dialog"][data-state] > div:last-child:is(.flex):has(button) {
+  position: sticky; bottom: -24px; background: #fff; padding-top: 12px; padding-bottom: 12px; margin-bottom: -12px; z-index: 2; border-top: 1px solid #ECEBE6;
+}
+@media (max-width: 699px) {
+  body[data-settings] [role="dialog"][data-state] { max-height: calc(100dvh - 24px) !important; }
+}

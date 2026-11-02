@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Eye } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { POSITIONS, ALL_PAGES, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
 import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
@@ -206,12 +206,12 @@ const UserAccessControl = () => {
                 <TableHead className="hidden sm:table-cell w-[12%]">Role</TableHead>
                 <TableHead className="hidden sm:table-cell">Pages they can open</TableHead>
                 <TableHead className="w-[24%] sm:w-[12%]">Status</TableHead>
-                <TableHead className="w-[38%] sm:w-[18%]">Preview as</TableHead>
+                <TableHead className="w-[38%] sm:w-[12%]"><span className="sr-only">Edit</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((user, idx) => (
-                <TableRow key={user.user_id} className={idx % 2 === 1 ? "bg-muted/30" : undefined}>
+                <TableRow key={user.user_id} className="settings-row" onClick={() => setEditingUser(user)}>
                   <TableCell className="break-words align-top"><span className="font-medium">{user.display_name||user.email}</span><p className="text-xs text-muted-foreground">{user.email}</p><p className="text-xs text-muted-foreground">{user.venue_ids?.length?user.venue_ids.map(id=>venueNameMap[id]).filter(Boolean).join(', '):'All venues'}</p><p className="sm:hidden text-xs mt-1">{user.position} · {user.pages.filter(p=>p.can_access).map(p=>ALL_PAGES.find(a=>a.key===p.page_key)?.label??p.page_key).join(', ')||'No pages'}</p></TableCell>
                   <TableCell className="hidden sm:table-cell capitalize align-top">{user.position}</TableCell>
                   <TableCell className="hidden sm:table-cell align-top">
@@ -233,10 +233,7 @@ const UserAccessControl = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => handlePreviewAs(user)} title="Preview as this user" aria-label={`Preview as ${user.display_name||user.email}`}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingUser(user)}>
+                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setEditingUser(user); }}>
                         Edit
                       </Button>
                     </div>

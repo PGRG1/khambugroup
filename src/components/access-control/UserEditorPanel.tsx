@@ -258,7 +258,7 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Page Access</h3>
             <div className="space-y-3">
-              {ALL_PAGES.map(page => {
+              {ALL_PAGES.filter(page => page.key !== "kpis").map(page => {
                 const perm = pages.find(p => p.page_key === page.key);
                 if (!perm) return null;
                 const actions = PAGE_ACTIONS[page.key] || [];
@@ -306,7 +306,7 @@ export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
                               onCheckedChange={() => toggleAction(page.key, action.key)}
                             />
                             <span className="text-sm">{action.label}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono ml-auto">{action.key}</span>
+                            
                           </label>
                         ))}
                       </div>

@@ -113,7 +113,7 @@ const AuditLog = () => {
                         {entry.action==='bani_done'&&!entry.details?.undone&&<Button variant="link" size="sm" className="h-auto p-1" onClick={async()=>{const {error}=await supabase.rpc('expense_bani_undo',{p_log:entry.id});if(error)toast.error(error.message);else{setEntries(rows=>rows.map(r=>r.id===entry.id?{...r,details:{...r.details,undone:true}}:r));toast.success('Bani change undone');}}}>Undo</Button>}
                       </TableCell>
                       <TableCell className="text-xs hidden sm:table-cell break-words">{entityLabels[entry.entity_type] || entry.entity_type}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono hidden sm:table-cell break-all">{entry.entity_id || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-all">{entry.entity_id || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-words">
                         {entry.details && Object.keys(entry.details).length > 0
                           ? entry.details.title??(entry.action === "bulk_upload"
