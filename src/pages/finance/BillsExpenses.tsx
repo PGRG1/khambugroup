@@ -271,7 +271,7 @@ export default function BillsExpenses() {
     setEditing(null);
     setHeader({
       bill_date: new Date().toISOString().slice(0, 10),
-      currency: "HKD",
+      currency: "",
       subtotal: 0,
       tax_amount: 0,
       total_amount: 0,
