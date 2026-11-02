@@ -82,7 +82,7 @@ export function usePushSubscription() {
   const sendTest = useCallback(async () => {
     if (!subscriptionId) return;
     await supabase.functions.invoke("send-push", {
-      body: { subscription_ids: [subscriptionId], payload: { title: "Bani test", body: "Push notifications are working on this device.", url: "/?alerts=open" } },
+      body: { subscription_ids: [subscriptionId], payload: { title: "Bani test", body: "Push notifications are working on this device.", url: "/?bani_event=summary" } },
     });
   }, [subscriptionId]);
 

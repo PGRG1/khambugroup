@@ -23,7 +23,6 @@ import YourTeam from "./pages/YourTeam";
 
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
-import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import KpiHome from "./pages/kpis/KpiHome";
 import KpiSetup from "./pages/kpis/KpiSetup";
@@ -389,7 +388,7 @@ function App() {
                 <Route path="/expenses/finance/payables" element={<Navigate to="/finance/payables" replace />} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/finance-team" element={<ProtectedRoute pageKey="finance"><FinanceTeam /></ProtectedRoute>} />
-                <Route path="/notifications" element={<Navigate to="/settings?tab=alerts" replace />} />
+                <Route path="/notifications" element={<Navigate to="/?bani_event=summary" replace />} />
                 <Route path="/kpis" element={<Navigate to="/kpis/my-cards" replace />} />
                 <Route path="/kpis/my-cards" element={<KpiRoute><KpiHome /></KpiRoute>} />
                 <Route path="/kpis/setup" element={<KpiRoute need="admin"><KpiSetup /></KpiRoute>} />
