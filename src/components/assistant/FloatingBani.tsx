@@ -222,8 +222,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
 
   // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
-  const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel") => {
-    if (!session || !tenantId) return;
+  const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel" | "below_usual") => {
+    if (!session || !tenantId || isPreviewActive) return;
     const setOutcome = (text: string) => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m));
     setOutcome(decision === "confirm" ? "Working on it…" : "Cancelled");
     try {
@@ -235,6 +235,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) { setOutcome(body.error || "That didn't go through — ask Bani again."); return; }
       setOutcome(body.message || (decision === "confirm" ? "Done" : "Cancelled"));
+      if (body.asks_changed) { queryClient.invalidateQueries({queryKey:["alert-settings"]}); queryClient.invalidateQueries({queryKey:["smart-alerts"]}); }
       if (body.closures_changed) { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
       if (decision === "confirm" && typeof body.navigate === "string") navigate(body.navigate);
     } catch {
@@ -512,9 +513,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             </div>}
             {message.actionCard?.kind === "people" ? <PeopleActionCard card={message.actionCard} outcome={message.actionOutcome} onOutcome={result => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: result.message, actionOutcome: result } : m))} onChange={text => { setDraft(text); input.current?.focus(); }} /> : message.actionCard && <div dir="auto" className="floating-bani-change">
               <p className="floating-bani-change-target">{message.actionCard.title}</p>
-              {message.actionCard.detail && <p className="floating-bani-change-reason">{message.actionCard.detail}</p>}
+              {message.actionCard.detail && <p className="floating-bani-change-reason whitespace-pre-line">{message.actionCard.detail}</p>}
               {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">
-                <Button variant="ghost" type="button" className="floating-bani-apply" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "confirm"); }}>Confirm</Button>
+                <Button variant="ghost" type="button" className="floating-bani-apply" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "confirm"); }}>{message.actionCard.kind === "create_alert_ask" ? "Keep" : "Confirm"}</Button>
+                {message.actionCard.kind === "create_alert_ask" && <Button variant="ghost" type="button" onClick={() => { if(message.actionCard) void confirmCard(index,message.actionCard,"below_usual"); }}>Use below usual</Button>}
                 <Button variant="ghost" type="button" className="floating-bani-dismiss" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "cancel"); }}>Cancel</Button>
               </div>}
             </div>}
