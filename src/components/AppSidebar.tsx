@@ -1,8 +1,8 @@
 import {
-  LogOut, Users, Building2, BrainCircuit,
-  TrendingUp, Scale, ChevronDown, Target,
+  LogOut, Users, Building2, UserRound,
+  TrendingUp, Scale, ChevronDown,
   ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, UserRound, Package,
+  Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, Package,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -34,7 +34,10 @@ import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueNavigation";
-import { useKpiCapability } from "@/hooks/useKpiCapability";
+import { useTeamOpenCounts } from "@/hooks/useTeamOpenCounts";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { usePeopleSettings } from "@/hooks/usePeopleSettings";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { peopleNavigationPath } from "@/components/hr/PeopleNavigation";
@@ -51,6 +54,17 @@ function initialsOf(name: string): string {
   return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
 }
 
+/** Small Bani orb used as the Home icon. */
+function HomeOrb({ className }: { className?: string }) {
+  return <span aria-hidden="true" className={cn("inline-block rounded-full shrink-0", className)} style={{ background: "radial-gradient(circle at 32% 28%, #5ED8C8 0%, #3FB5A6 22%, #5E9A90 48%, #5F8C82 74%, #2F5E5A 100%)" }} />;
+}
+/** Amber count of open finance-team findings; hidden at 0. */
+function Count({ n }: { n: number }) {
+  if (!n) return null;
+  return <span className="bani-count ml-auto" aria-label={`${n} need you`}>{n}</span>;
+}
+const roleWords = (r?: string) => (!r ? "" : ["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : "Team");
+
 /** Child link that is active by an explicit flag (for section sub-pages). */
 function FlagChildLink({ title, to, active }: { title: string; to: string; active: boolean }) {
   return (
@@ -65,7 +79,7 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
   );
 }
 
-type RailItem = { title: string; to: string; icon: any; active: boolean };
+type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean };
 function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () => void }) {
   return (
     <SidebarContent className="bani-rail items-center gap-1 pb-2">
@@ -84,7 +98,7 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
           <TooltipTrigger asChild>
             <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined}
               className={cn("bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
-              <it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />
+              <span className="relative inline-flex"><it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
             </Link>
           </TooltipTrigger>
           <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
@@ -97,9 +111,7 @@ function CollapsedRail({ items, onExpand }: { items: RailItem[]; onExpand: () =>
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
 const navItems: (Item & { icon: any })[] = [
-  { title: "Your team", url: "/", icon: Users, pageKey: "home", end: true },
-
-  { title: "Bani AI", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
+  { title: "Home", url: "/", icon: HomeOrb, pageKey: "home", end: true },
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
@@ -201,7 +213,7 @@ function ChildLink({ item }: { item: Item }) {
   );
 }
 
-function TopLink({ item }: { item: Item & { icon: any } }) {
+function TopLink({ item, badge = 0 }: { item: Item & { icon: any }; badge?: number }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
@@ -213,6 +225,7 @@ function TopLink({ item }: { item: Item & { icon: any } }) {
         >
           <item.icon className="h-4 w-4 shrink-0" />
           <span className="truncate">{item.title}</span>
+          <Count n={badge} />
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -303,8 +316,15 @@ export function AppSidebar() {
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar, canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveUserId || undefined);
-  const showKpi = !permissionsLoading && ((isAdmin && !isPreviewActive) || (showInSidebar("kpis") && canAccessPage("kpis")));
-  const kpiActive = pathname === "/kpis" || pathname.startsWith("/kpis/");
+  const team = useTeamOpenCounts();
+  const [sp] = useSearchParams();
+  const { memberships } = useActiveTenant();
+  const myRole = roleWords(memberships.find((m) => m.tenant_id === activeTenantId)?.role ?? (isPlatformAdmin ? "platform_admin" : undefined));
+  const nameQ = useQuery({
+    queryKey: ["sidebar", "name", user?.id], enabled: !!user?.id, staleTime: 600000,
+    queryFn: async () => (await supabase.from("profiles").select("display_name").eq("user_id", user!.id).maybeSingle()).data?.display_name ?? "",
+  });
+  const myName = nameQ.data || (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
@@ -320,7 +340,6 @@ export function AppSidebar() {
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
   useEffect(() => { setOpenMobile(false); }, [pathname, setOpenMobile]);
-  const kpiCap = useKpiCapability();
   const revSection = revenueSection(pathname);
   const revenueChildren = [
     { key: "overview", title: "Overview", to: "/revenue", allowed: revenueAccess.revenue },
@@ -328,18 +347,21 @@ export function AppSidebar() {
     { key: "analysis", title: "Trends", to: "/revenue/analysis", allowed: revenueAccess.revenue },
     { key: "targets", title: "Targets", to: "/revenue/targets-new", allowed: revenueAccess.forecast },
   ].filter((c) => c.allowed);
-  const kpiChildren = (kpiCap.loading || (!kpiCap.isGlobalAdmin && !canAccessPage("kpis"))) ? [] : [
-    { title: "My KPIs", to: "/kpis/my-cards", allowed: true },
-    { title: "Planner", to: "/kpis/planner", allowed: kpiCap.canPlan },
-    { title: "KPI Setup", to: "/kpis/setup", allowed: kpiCap.canConfigure },
-  ].filter((c) => c.allowed);
-  const kpiChildActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`)
-    || (to === "/kpis/setup" && ["/kpis/assignments", "/kpis/targets"].some((r) => pathname === r || pathname.startsWith(`${r}/`)));
   const peopleSettings=usePeopleSettings();const peopleScope=useVenueScope();
   const peopleChildren = [
     { title: "Overview", to: "/hr/overview" }, { title: "Team", to: "/hr/employees" }, { title: "Rota", to: "/hr/schedule" }, { title: "Payroll", to: "/hr/payroll" },
   ];
   const peopleActivePath = peopleNavigationPath(pathname);
+  const settingsAdmin = isAdmin && !isPreviewActive;
+  const sTab = sp.get("tab") ?? (settingsAdmin ? "business" : "master-data"), sView = sp.get("view");
+  const settingsChildren = [
+    { title: "Business", to: "/settings?tab=business", active: sTab === "business", admin: true },
+    { title: "People and access", to: "/settings?tab=users", active: sTab === "users" && sView !== "activity", admin: true },
+    { title: "Activity", to: "/settings?tab=users&view=activity", active: sTab === "users" && sView === "activity", admin: true },
+    { title: "Accounting", to: "/settings?tab=accounting", active: sTab === "accounting", admin: true },
+    { title: "Suppliers", to: "/settings?tab=master-data", active: sTab === "master-data", admin: false },
+    { title: "Bani", to: "/settings?tab=bani", active: sTab === "bani", admin: true },
+  ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
 
   const setGroup = (key: GroupKey, open: boolean) => {
@@ -372,7 +394,7 @@ export function AppSidebar() {
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
   return (
-    <Sidebar variant="sidebar" collapsible="icon">
+    <Sidebar variant="sidebar" collapsible="icon" className="bani-side">
       {collapsed ? (
         <div className={cn(isPreviewActive && "mt-10")} />
       ) : (
@@ -414,18 +436,17 @@ export function AppSidebar() {
 
       {collapsed ? (
         <CollapsedRail onExpand={() => setOpen(true)} items={[
-          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
-          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
+          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/"), dot: it.url === "/" && team.total > 0 })),
+          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, dot: team.counts.revenue > 0 }] : []),
           ...(showProcurement ? [
-            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
+            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, dot: team.counts.purchasing > 0 },
             { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
           ] : []),
-          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), dot: team.counts.people > 0 }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
-          ...(showKpi ? [{ title: "KPI", to: "/kpis/my-cards", icon: Target, active: kpiActive }] : []),
-          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", dot: team.counts.finance > 0 }] : []),
 
-          ...(showAdmin ? [{ title: "Settings", to: "/settings", icon: Settings, active: pathname === "/settings" }] : []),
+          ...((showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
           ...(showPlatform ? [{ title: "Platform", to: "/platform/clients", icon: Building2, active: pathname.startsWith("/platform") }] : []),
         ]} />
       ) : (
@@ -434,7 +455,7 @@ export function AppSidebar() {
         <SidebarGroup className="py-0 px-2">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {visibleItems.map((it) => <TopLink key={it.url} item={it} />)}
+              {visibleItems.map((it) => <TopLink key={it.url} item={it} badge={it.url === "/" ? team.total : 0} />)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -448,7 +469,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to={revenueDestination === pathname ? pathname + search : revenueDestination} aria-current={revenueActive ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", revenueActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span>
+                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span><Count n={team.counts.revenue} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -464,7 +485,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to="/procurement/dashboard" aria-current={purchasingActive ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", purchasingActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span>
+                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span><Count n={team.counts.purchasing} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -501,7 +522,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
-                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
+                    <Users className="h-4 w-4 shrink-0" /><span>People</span><Count n={team.counts.people} />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -512,26 +533,11 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Expenses",url:"/expenses",icon:ReceiptText}} />{showSubPages && pathname.startsWith("/expenses") && expenseNav.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {showKpi && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to={pathname === "/kpis/my-cards" ? pathname + search : "/kpis/my-cards"} aria-current={kpiActive ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", kpiActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <Target className="h-4 w-4 shrink-0" /><span>KPI</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && kpiActive && kpiChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={kpiChildActive(c.to)} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
 
 
-        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
+        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} badge={team.counts.finance} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} /></SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{showSubPages && pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
 
         {showPlatform && (
           <CollapsibleNavGroup
@@ -549,18 +555,19 @@ export function AppSidebar() {
       </SidebarContent>
       )}
 
-      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-3">
-        {user && (
-          <p className="text-[11px] text-muted-foreground mb-2 truncate px-1">{user.email}</p>
-        )}
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="w-full justify-start" aria-label="Profile and appearance"><UserRound className="h-4 w-4"/>Profile</Button></DropdownMenuTrigger><DropdownMenuContent side="top"><DropdownMenuItem disabled>Appearance · Bani light</DropdownMenuItem><DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-        <Button variant="ghost"
-          onClick={signOut}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
-        </Button>
+      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="bani-me flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left" aria-label="Your account and sign out">
+              <span className="bani-me-initials">{initialsOf(myName || user?.email || "") || "?"}</span>
+              <span className="min-w-0"><span className="block truncate text-[13px] font-medium">{myName}</span>{myRole && <span className="block text-[11.5px] bani-me-role">{myRole}</span>}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-52">
+            <DropdownMenuItem asChild><Link to="/settings?tab=business"><UserRound className="h-4 w-4" />Your account</Link></DropdownMenuItem>
+            <DropdownMenuItem onSelect={signOut}><LogOut className="h-4 w-4" />Sign out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>}
     </Sidebar>
   );
