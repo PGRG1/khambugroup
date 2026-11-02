@@ -154,3 +154,4 @@
 .floating-bani-panel.is-home .floating-bani-transcript { padding: .5rem .25rem 1rem; font-size: 15px; }
 .floating-bani-homeback { display: flex; align-items: center; gap: 12px; padding: 4px 0 8px; }
 .floating-bani-homeback button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 6px 0; color: #1F3F3B; font-weight: 500; font-size: 14px; cursor: pointer; }
+.floating-bani:has(.floating-bani-panel.is-centred) { z-index: 65; }
