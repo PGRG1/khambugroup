@@ -27,6 +27,7 @@ export interface SupplierLike {
   delivery_days: string[];
   moq: number;
   account_number: string;
+  default_currency?: string | null;
 }
 
 interface SupplierSheetProps {
@@ -219,6 +220,8 @@ export default function SupplierSheet({ supplier, open, onOpenChange, onEdit, on
             <section>
               <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Ordering</h4>
               <dl className="grid grid-cols-[140px_1fr] gap-x-6 gap-y-2 text-sm">
+                <dt className="text-muted-foreground">Bills in</dt>
+                <dd>{supplier.default_currency || "Base currency"}</dd>
                 <dt className="text-muted-foreground">Payment terms</dt>
                 <dd>{supplier.payment_terms || "—"}</dd>
                 <dt className="text-muted-foreground">Invoice rounding</dt>
