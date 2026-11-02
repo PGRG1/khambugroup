@@ -1,8 +1,10 @@
 ## Finance finish-off — current request
-- [ ] Invoice-line asset proposals and approval integration, posted-source correction drafts.
-- [ ] Multi-file bank/card/utility statement review queue using existing parsers and explicit mappings.
-- [ ] Existing sales-day deferred edits and posted correction drafts via monthly approval.
-- [ ] Isolated populated approval and notice readback; bill/invoice dialogs and exact bank multi-match fixtures.
+- [x] Invoice-line asset proposals wired in desktop/phone detail, posted detail edits disabled. Dedicated selected approval rechecks full invoice/lines/delivery, routes source debit for unposted invoice, creates asset/register only at approval; posted sources get reclassification draft.
+- [x] Shared multi-file statement queue, bank and utility parsers, explicit card processor, existing bank/card review commits and identity-scoped utility bill handoff. Byte duplicate detection within queue; unknown filenames require type selection. Unsupported settlement formats remain needs-check, never imported automatically.
+- [x] Deferred fields on ordinary existing unposted days save only deferred fields + monthly source draft; posted single-day ordinary sources get retained reversal/rebook correction draft. Existing deferred-feed or grouped sales fail closed pending reconciliation (not implemented).
+- [x] 28 focused fixtures passed; build passed. Isolated QA populated manual draft approved through expense_month_approve and read back approved with journal; manual tax notice reviewed/saved/read back in Payables. Populated bill/invoice pop-ups and BankMatchDialog 6000+4000 exact-total enabled verified. All original financial fingerprints/counts/timestamps unchanged.
+- [ ] Actual tax-document extraction read→review→save not exercised; only manual fallback readback verified. Source-specific invoice/deferred approvals, concurrency and closed-month end-to-end fixtures still unverified. Settlement/utility import readback and populated 375px screens remain unverified.
+- Isolated QA tenant retained with explicit test records, tax notices and one approved QA journal; no KHAMBU financial writes.
 
 ## Finance 3c-2 leftovers — previous request
 - [x] Unposted expense bill asset selection saved for monthly approval; posting capitalizes register atomically. Advance bill save and monthly approval prepare day-based prepaid items/releases, funded only by approval.
@@ -11,9 +13,9 @@
 - [x] Accountant merge uses tenant accountant membership or active Finance position with edit/admin Finance permission; schedule authority unchanged.
 - [x] Read-only Central sharing setting (sales default/equal), separately labelled report shares; sales tender aging vs matched gross payout evidence, ambiguous merchants not guessed.
 - [x] Deferred new-sales card tips use negative deduction, Tips Payable per venue and balanced drafts.
-- [ ] Purchase invoice-line capitalization: still unconnected; needs source-specific approval integration, not a standalone acquisition double-post.
-- [ ] Unified multi-file bank/card upload: existing separate reviewed import flows retained; no unified queue/classifier implemented.
-- [ ] Deferred-field editing on existing unposted/posted sales: source-safe replacement/correction and schedule balance approval integration unfinished.
+- [x] Purchase invoice-line capitalization connected in finish-off; source-specific live approval remains unverified.
+- [x] Unified multi-file queue added in finish-off; imports remain existing reviewed flows.
+- [x] Ordinary single-day source edit/correction added in finish-off; already-deferred/grouped source reconciliation still unsupported.
 - [x] 27 fixture tests and current build pass. Database reachable, protected full-row fingerprints/counts/timestamps unchanged: journals 2645, invoices 1365, bills 23, payroll 85, sales 744 (sales has no updated_at column).
 - [ ] Live approval/concurrency/closed-period fixtures, tax upload/save readback, bill pop-up/invoice detail and bank matching were not exercised end-to-end. Desktop/375px pages + unsaved tax review rendered; several captures were still loading, so populated-page verification remains incomplete.
 
