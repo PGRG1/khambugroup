@@ -102,8 +102,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [files, setFiles] = store?.files ?? [[], () => {}];
   const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
-  const [hidden, setHidden] = store?.hidden ?? [false, () => {}];
-  const [sphere, setSphere] = store?.sphere ?? [null, () => {}];
   const [panelPos, setPanelPos] = store?.panel ?? [null, () => {}];
   const page = store?.page[0] ?? null;
   const host = store?.host ?? null;
@@ -122,11 +120,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!store || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
-    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setHidden(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setHidden, setScope]);
+    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
-  useEffect(() => () => { abort.current?.abort(); if (gesture.current) clearTimeout(gesture.current.timer); }, []);
-  useEffect(() => { if (openSignal) { setHidden(false); setOpen(true); } }, [openSignal, setHidden, setOpen]);
+  useEffect(() => () => { abort.current?.abort(); }, []);
+  useEffect(() => { if (openSignal) setOpen(true); }, [openSignal, setOpen]);
   useEffect(() => { if (open && !isMobile && window.matchMedia?.("(pointer: fine)").matches) input.current?.focus(); }, [open, isMobile]);
   useEffect(() => { const s = end.current?.parentElement; if (s) s.scrollTop = s.scrollHeight; }, [messages, busy, open]);
   useEffect(() => {
@@ -134,13 +132,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const update = () => {
       setVv({ top: v?.offsetTop ?? 0, h: v?.height ?? window.innerHeight });
       const w = window.innerWidth, h = window.innerHeight;
-      setSphere(p => p ? clampPoint(p, SPHERE, w, h) : p);
       setPanelPos(p => p && panelEl.current ? clampPoint(p, 0, w - panelEl.current.offsetWidth, h - panelEl.current.offsetHeight, 8) : p);
     };
     update();
     v?.addEventListener("resize", update); v?.addEventListener("scroll", update); window.addEventListener("resize", update);
     return () => { v?.removeEventListener("resize", update); v?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
-  }, [setSphere, setPanelPos]);
+  }, [setPanelPos]);
 
   const openedAt = useRef(0);
   useEffect(() => { if (open) openedAt.current = performance.now(); if (!open || hidden) { voiceEndRef.current(); setVoiceMode(false); } }, [open, hidden]);
