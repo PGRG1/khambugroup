@@ -140,15 +140,10 @@ const pageKeyMap: Record<string, string> = {
 const TenantShell = () => {
   const { session, loading, roleLoading } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
-  const { memberships, loading: tenantLoading } = useActiveTenant();
   if (!loading && !roleLoading && !platLoading) {
     const decision = resolveAuthRoute({ session, isPlatformAdmin,
       enteredTenantId: localStorage.getItem("khambu.enteredTenantId") });
     if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
-    // No business at all: show the friendly screen; no page or data hooks mount.
-    if (session && !isPlatformAdmin && !tenantLoading && memberships.length === 0) {
-      return <NoBusinessScreen email={session.user?.email} />;
-    }
   }
   return <AppLayout>{loading || roleLoading || platLoading
     ? <p className="p-6 text-muted-foreground" role="status">Checking access…</p>
