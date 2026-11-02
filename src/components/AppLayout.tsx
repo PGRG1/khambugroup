@@ -1,5 +1,5 @@
 import { SupplierProfileDialog } from "@/components/vendors/SupplierProfileDialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -7,7 +7,6 @@ import { UserMenu } from "@/components/UserMenu";
 import { useLocation } from "react-router-dom";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
-import { KpiNavigation } from "@/components/kpi/KpiNavigation";
 import { FinanceNavigation } from "@/components/finance/FinanceNavigation";
 import { ExpensesNavigation } from "@/components/expenses/ExpensesNavigation";
 import { PurchasingNavigation } from "@/components/procurement/PurchasingNavigation";
@@ -34,13 +33,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0"; } catch { return true; }
   });
+  // Tablet (768–1099px): icon rail by default, without changing the saved desktop choice.
+  const tabletQuery = "(min-width: 768px) and (max-width: 1099px)";
+  const [tablet, setTablet] = useState(() => typeof window !== "undefined" && window.matchMedia(tabletQuery).matches);
+  const [tabletOpen, setTabletOpen] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(tabletQuery);
+    const on = () => { setTablet(mql.matches); setTabletOpen(false); };
+    mql.addEventListener("change", on); return () => mql.removeEventListener("change", on);
+  }, []);
   const onSidebarOpen = (o: boolean) => {
+    if (tablet) { setTabletOpen(o); return; }
     setSidebarOpen(o);
     try { localStorage.setItem(SIDEBAR_OPEN_KEY, o ? "1" : "0"); } catch { /* ignore */ }
   };
 
   return (
-    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={sidebarOpen} onOpenChange={onSidebarOpen} style={{ "--sidebar-width-icon": "64px" } as React.CSSProperties}>
+    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={tablet ? tabletOpen : sidebarOpen} onOpenChange={onSidebarOpen} style={{ "--sidebar-width-icon": "64px" } as React.CSSProperties}>
       <div className={`tenant-atmosphere ${pathname.startsWith("/assistant") ? "" : "tenant-atmosphere-off"}`} aria-hidden="true" />
       <div className={`min-h-screen flex w-full overflow-x-hidden ${topPad}`}>
         <AppSidebar />
@@ -58,7 +67,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
             <div className="md:hidden">
               {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
-              {(pathname === "/kpis" || pathname.startsWith("/kpis/")) && <KpiNavigation />}
               {pathname.startsWith("/hr") && <PeopleNavigation />}
               {pathname.startsWith("/expenses") && <ExpensesNavigation />}
               </div>
