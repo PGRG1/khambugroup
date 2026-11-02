@@ -1,5 +1,6 @@
 # Project Architecture Rules
 Read nested AGENTS.md before changes: src/pages/finance has Finance rules; src/pages/hr has People rules; src/components/assistant has voice rules, also required for related hooks and server voice integrations.
+Alerts subdirectories have their own AGENTS.md; read before changing their files.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 

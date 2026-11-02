@@ -384,42 +384,110 @@ export type Database = {
           },
         ]
       }
+      alert_evaluation_runs: {
+        Row: {
+          last_day: string | null
+          last_result: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_day?: string | null
+          last_result?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_day?: string | null
+          last_result?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_evaluation_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_events: {
         Row: {
+          action_path: string | null
+          actual: number | null
+          area: string | null
+          baseline: number | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fired_for_date: string
           id: string
+          kind: string | null
           metric_value: number | null
           payload: Json
-          rule_id: string
+          rule_id: string | null
           sent_count: number
           severity: string | null
+          status: string
+          subject: string | null
           tenant_id: string
           threshold: number | null
+          title: string | null
+          updated_at: string
+          venue_id: string | null
+          why: string | null
         }
         Insert: {
+          action_path?: string | null
+          actual?: number | null
+          area?: string | null
+          baseline?: number | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fired_for_date: string
           id?: string
+          kind?: string | null
           metric_value?: number | null
           payload?: Json
-          rule_id: string
+          rule_id?: string | null
           sent_count?: number
           severity?: string | null
+          status?: string
+          subject?: string | null
           tenant_id?: string
           threshold?: number | null
+          title?: string | null
+          updated_at?: string
+          venue_id?: string | null
+          why?: string | null
         }
         Update: {
+          action_path?: string | null
+          actual?: number | null
+          area?: string | null
+          baseline?: number | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fired_for_date?: string
           id?: string
+          kind?: string | null
           metric_value?: number | null
           payload?: Json
-          rule_id?: string
+          rule_id?: string | null
           sent_count?: number
           severity?: string | null
+          status?: string
+          subject?: string | null
           tenant_id?: string
           threshold?: number | null
+          title?: string | null
+          updated_at?: string
+          venue_id?: string | null
+          why?: string | null
         }
         Relationships: [
           {
@@ -434,6 +502,79 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_mutes: {
+        Row: {
+          active: boolean
+          area: string | null
+          created_at: string
+          created_by: string
+          id: string
+          kind: string | null
+          reason: string
+          scope: string
+          target_role: string | null
+          tenant_id: string
+          threshold: number | null
+          until_date: string | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          area?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          kind?: string | null
+          reason?: string
+          scope: string
+          target_role?: string | null
+          tenant_id: string
+          threshold?: number | null
+          until_date?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          area?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string | null
+          reason?: string
+          scope?: string
+          target_role?: string | null
+          tenant_id?: string
+          threshold?: number | null
+          until_date?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_mutes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_mutes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -493,6 +634,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      alert_scheduler_tokens: {
+        Row: {
+          created_at: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          token?: string
+        }
+        Relationships: []
       }
       app_config: {
         Row: {
@@ -15734,6 +15890,43 @@ export type Database = {
       settlement_clearing_venue: {
         Args: { b: string; line_venue: string; t: string }
         Returns: string
+      }
+      smart_alert_action: {
+        Args: { decision: string; ident: string; options?: Json; t: string }
+        Returns: undefined
+      }
+      smart_alert_allowed_event: {
+        Args: { ident: string; t: string }
+        Returns: boolean
+      }
+      smart_alert_can_read: {
+        Args: { a: string; t: string; v: string }
+        Returns: boolean
+      }
+      smart_alert_check_schedule: { Args: { token: string }; Returns: boolean }
+      smart_alert_edit_mute: {
+        Args: { ident: string; options: Json; t: string }
+        Returns: undefined
+      }
+      smart_alert_month_check: {
+        Args: { m_input: string; t: string }
+        Returns: Json
+      }
+      smart_alert_reconciliation_base: {
+        Args: { p_month: string; p_tenant: string }
+        Returns: Json
+      }
+      smart_alert_reconciliations: {
+        Args: { p_month: string; p_tenant: string }
+        Returns: Json
+      }
+      smart_alert_sync: {
+        Args: { candidates: Json; day: string; t: string }
+        Returns: Json
+      }
+      smart_alert_unmute: {
+        Args: { ident: string; t: string }
+        Returns: undefined
       }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
       sync_grn_from_invoice: {
