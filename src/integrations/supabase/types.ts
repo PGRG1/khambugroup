@@ -15117,6 +15117,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      finance_sales_deferred_edit: {
+        Args: { p: Json; t: string }
+        Returns: string
+      }
       finance_sales_deferred_existing: {
         Args: { p: Json; t: string }
         Returns: string
