@@ -1,4 +1,9 @@
-## Finance finish-off — current request
+## Smart Alerts part one — current request
+- [ ] Automatic tenant-scoped detectors, additive alert schema, atomic lifecycle/mutes/questions, urgent-only push and daily schedule.
+- [ ] Bell inbox, light desktop/phone panels, sales evidence dialog and Tell me less; Settings Alerts unchanged.
+- [ ] Fixture tests for baselines/lifecycle/mutes, live KHAMBU evaluation titles and desktop/phone checks; no financial writes.
+
+## Finance finish-off — previous request
 - [x] Invoice-line asset proposals wired in desktop/phone detail, posted detail edits disabled. Dedicated selected approval rechecks full invoice/lines/delivery, routes source debit for unposted invoice, creates asset/register only at approval; posted sources get reclassification draft.
 - [x] Shared multi-file statement queue, bank and utility parsers, explicit card processor, existing bank/card review commits and identity-scoped utility bill handoff. Byte duplicate detection within queue; unknown filenames require type selection. Unsupported settlement formats remain needs-check, never imported automatically.
 - [x] Deferred fields on ordinary existing unposted days save only deferred fields + monthly source draft; posted single-day ordinary sources get retained reversal/rebook correction draft. Existing deferred-feed or grouped sales fail closed pending reconciliation (not implemented).
