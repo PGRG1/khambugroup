@@ -9,7 +9,7 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
-import { useBaniTopic, useFloatingBaniAttach } from "@/components/assistant/FloatingBaniContext";
+import { useBaniTopic, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { ROLES, roleViews, type Review, type Role, type RoleView } from "./YourTeam";
@@ -94,8 +94,15 @@ export default function Landing() {
   const { tenantId, memberships } = useActiveTenant();
   const vs = useVenueScope();
   const openTopic = useBaniTopic();
-  const attach = useFloatingBaniAttach();
+  const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
+  // The one typing box (Bani's own composer) sits centred on this content area.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--home-mid", `${left + width / 2}px`);
+    root.style.setProperty("--home-w", `${Math.max(0, width - 32)}px`);
+    return () => { root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); };
+  }, [left, width]);
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
   const [panel, setPanel] = useState<Panel | null>(null);
   const scopeIds = vs.filterIds;
@@ -269,11 +276,12 @@ export default function Landing() {
   };
   const meta = (r: Role) => ROLES.find((x) => x.key === r)!;
 
+  if (talking) return <div ref={ref} className={`ld ${size}`} aria-label="Conversation with Bani" />;
+
   return (
     <div ref={ref} className={`ld ${size}`}>
       <div className="ld-top">
         <div className="ld-hi">
-          <BaniOrb size={size === "ph" ? 44 : 56} mode="idle" />
           <div style={{ minWidth: 0 }}>
             <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
             <div className="ld-sub">{formatDate(now.toISOString().slice(0, 10))}{roleLabel(role) ? ` · ${roleLabel(role)}` : ""}</div>
@@ -330,37 +338,45 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="ld-dock" style={{ left: left + width / 2, width: Math.min(760, width - 32) }}><Composer placeholder="Ask Bani, or drop a file" onSend={ask} onAttach={(f) => attach(f)} /></div>
-      {panel && <SidePanel panel={panel} sheet={size === "ph"} onClose={() => setPanel(null)} onAsk={ask} />}
+      {panel && <CentrePopup panel={panel} onClose={() => setPanel(null)} onAsk={ask} />}
     </div>
   );
 }
 
-function SidePanel({ panel, sheet, onClose, onAsk }: { panel: Panel; sheet: boolean; onClose: () => void; onAsk: (t: string) => void }) {
+function CentrePopup({ panel, onClose, onAsk }: { panel: Panel; onClose: () => void; onAsk: (t: string) => void }) {
   const m = panel.role ? ROLES.find((r) => r.key === panel.role)! : null;
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
-  const body: ReactNode = (
-    <>
-      {panel.paras.map((p, i) => <p key={i}>{p}</p>)}
-      {panel.facts && panel.facts.length > 0 && <div>{panel.facts.map(([l, v], i) => <div key={i} className="ld-fact"><span>{l}</span><span>{v}</span></div>)}</div>}
-      {panel.whys?.map((w, i) => <p key={i} className="ld-why">{w}</p>)}
-      {panel.actions && panel.actions.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{panel.actions.map((a, i) => <Link key={i} to={a.to} onClick={onClose} className={`ld-btn ${i ? "ghost" : ""}`} style={{ textDecoration: "none" }}>{a.label}</Link>)}</div>}
-      {panel.link && <Link to={panel.link.to} onClick={onClose}>{panel.link.label} →</Link>}
-    </>
-  );
   return (
     <>
       <div className="ld-back" onClick={onClose} />
-      <aside className={`ld-panel ${sheet ? "sheet" : ""}`} role="dialog" aria-label={panel.title}>
-        {sheet && <div className="ld-grab" />}
+      <div className="ld-pop" role="dialog" aria-modal="true" aria-label={panel.title}>
         <div className="ld-ph">
           {m ? <PixelAvatar seed={m.seed} palette={m.pal} size={36} /> : <BaniOrb size={36} mode="idle" />}
           <h3>{panel.title}</h3>
           <button className="ld-ic" aria-label="Close" onClick={onClose}><X size={18} /></button>
         </div>
-        <div className="ld-pb">{body}</div>
-        <div className="ld-pf"><Composer placeholder="Reply to Bani" onSend={(t) => onAsk(t ? `${panel.title}: ${t}` : `Tell me more about ${panel.title}`)} /></div>
-      </aside>
+        <div className="ld-pb">
+          <p className="ld-sum">{panel.summary}</p>
+          {panel.facts && panel.facts.length > 0 && <div>{panel.facts.map(([l, v], i) => <div key={i} className="ld-fact"><span>{l}</span><span>{v}</span></div>)}</div>}
+          <div>
+            <h4 className="ld-h4">Done since you last looked</h4>
+            {panel.done.length === 0 ? <p className="ld-why">Nothing done since you last looked.</p>
+              : panel.done.map((d, i) => <div key={i} className="ld-item"><span className="grow">{d.label}</span>
+                  <details className="ld-whyd"><summary>Why</summary><p className="ld-why">{d.why}</p></details>
+                  <button className="ld-btn ghost" disabled title="Undo isn't available for this yet">Undo</button></div>)}
+          </div>
+          <div>
+            <h4 className="ld-h4">Waiting on you</h4>
+            {panel.waiting.length === 0 ? <p className="ld-why">Nothing is waiting on you.</p>
+              : panel.waiting.map((w, i) => <div key={i} className="ld-item"><span className="grow">{w.title}</span>
+                  {w.to && <Link to={w.to} onClick={onClose} className="ld-btn" style={{ textDecoration: "none" }}>{w.label}</Link>}</div>)}
+          </div>
+        </div>
+        <div className="ld-pf">
+          <button className="ld-btn ghost" onClick={() => onAsk(`Tell me more about ${panel.title}`)}>Ask Bani</button>
+          {panel.link && <Link to={panel.link.to} onClick={onClose} className="ld-btn" style={{ textDecoration: "none" }}>{panel.link.label}</Link>}
+        </div>
+      </div>
     </>
   );
 }
