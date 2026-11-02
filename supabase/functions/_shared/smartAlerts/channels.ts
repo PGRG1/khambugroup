@@ -1,7 +1,7 @@
 import {addDays, salesBaseline, weekday, type Candidate, type Row} from './rules.ts';
 import {impact} from './coverage.ts';
 
-export const NOTIFICATION_KINDS = new Set(['sales_low','sales_high','sales_record','supplier_price_rise','delivery_short','sick_leave','no_show','late_clock_in','user_ask']);
+export const NOTIFICATION_KINDS = new Set(['sales_low','sales_high','sales_record','supplier_price_rise','delivery_short','sick_leave','no_show','late_clock_in','overtime_rota','food_cost_swing','staff_cost_swing','user_ask']);
 export const channelFor = (a: Pick<Candidate,'kind'>) => NOTIFICATION_KINDS.has(a.kind) ? 'notification' : 'work';
 export function businessRole(role:string, jobTitle='') {
  if (['owner','admin','tenant_admin','platform_admin'].includes(role)) return 'owner';

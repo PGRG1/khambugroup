@@ -1,0 +1,15 @@
+import {describe,it,expect} from 'vitest';
+import {feedState,previousWorkingDay,dueWithinTwoDays,deadlineSignals,groupedPending,personRoute,overtimeSignals} from '../../supabase/functions/_shared/smartAlerts/followUp';
+describe('Alerts follow-up rules',()=>{
+ it('waits six hours after a connection failure',()=>{const f={last_success_at:'2026-11-01',failure_started_at:'2026-11-02T00:00:00Z',customer_fixable:true,consecutive_failures:1};expect(feedState(f,Date.parse('2026-11-02T05:59:00Z'))).toBe('retrying');expect(feedState(f,Date.parse('2026-11-02T06:00:00Z'))).toBe('broken');});
+ it('permits two scheduled failures instead of six hours',()=>expect(feedState({failure_started_at:'2026-11-02T00:00:00Z',consecutive_failures:2,customer_fixable:true},Date.parse('2026-11-02T01:00:00Z'))).toBe('broken'));
+ it('does not turn unused feeds into breaks',()=>expect(feedState({})).toBe('never connected'));
+ it('keeps Bani outages out of customer breaks',()=>expect(feedState({failure_started_at:'2026-11-01',customer_fixable:false})).toBe('bani unavailable'));
+ it('reminds one working day before Monday',()=>expect(previousWorkingDay('2026-11-09')).toBe('2026-11-06'));
+ it('skips recorded public holidays',()=>expect(previousWorkingDay('2026-11-09',['2026-11-06'])).toBe('2026-11-05'));
+ it('marks scoped deadlines amber within two days only',()=>{const items=deadlineSignals({finance_tax_notices:[{id:'t',reference:'Tax',due_date:'2026-11-04',amount:100}]},'2026-11-02');expect(dueWithinTwoDays(items,'2026-11-02')).toBe(true);expect(dueWithinTwoDays(items,'2026-11-01')).toBe(false);});
+ it('does not invent payroll dates or fee-bearing bills',()=>expect(deadlineSignals({hr_payroll:[{id:'p',month:10,year:2026}],expense_bills:[{id:'b',due_date:'2026-11-03',total_amount:100}]},'2026-11-02')).toEqual([]));
+ it('groups all pending by section',()=>{const items=deadlineSignals({finance_tax_notices:[{id:'t',reference:'Tax',due_date:'2026-11-04',amount:100}]},'2026-11-02');expect(groupedPending(items)).toContain('Finance · 1');expect(groupedPending(items)).toContain('Tax: tax payment due');});
+ it('routes only to the named user, never broadens a role',()=>{const a=deadlineSignals({finance_tax_notices:[{id:'t',reference:'Tax',due_date:'2026-11-04',amount:100}]},'2026-11-02')[0];expect(personRoute(a,[{kind:'tax_deadline',target_user_id:'u'}],'u','2026-11-02')).toBe(true);expect(personRoute(a,[{kind:'tax_deadline',target_user_id:'u'}],'other','2026-11-02')).toBe(false);});
+ it('compares attendance with overnight rota minus breaks',()=>{const data={hr_attendance:[{id:'a',employee_id:'e',date:'2026-11-01',hours_worked:8}],hr_shifts:[{employee_id:'e',shift_date:'2026-11-01',start_time:'20:00',end_time:'04:00',break_minutes:60}]};expect(overtimeSignals(data,'2026-11-01')[0].baseline).toBe(7);expect(overtimeSignals({},'2026-11-01')).toEqual([]);});
+});
