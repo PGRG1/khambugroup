@@ -855,6 +855,13 @@
       "when": 1793587269684,
       "tag": "0121_smart_alert_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1793587401464,
+      "tag": "0122_smart_alert_secure_reads_and_schedule",
+      "breakpoints": true
     }
   ]
 }

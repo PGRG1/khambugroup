@@ -635,6 +635,21 @@ export type Database = {
           },
         ]
       }
+      alert_scheduler_tokens: {
+        Row: {
+          created_at: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          token?: string
+        }
+        Relationships: []
+      }
       app_config: {
         Row: {
           key: string
@@ -15879,6 +15894,19 @@ export type Database = {
       smart_alert_action: {
         Args: { decision: string; ident: string; options?: Json; t: string }
         Returns: undefined
+      }
+      smart_alert_can_read: {
+        Args: { a: string; t: string; v: string }
+        Returns: boolean
+      }
+      smart_alert_check_schedule: { Args: { token: string }; Returns: boolean }
+      smart_alert_edit_mute: {
+        Args: { ident: string; options: Json; t: string }
+        Returns: undefined
+      }
+      smart_alert_month_check: {
+        Args: { m_input: string; t: string }
+        Returns: Json
       }
       smart_alert_sync: {
         Args: { candidates: Json; day: string; t: string }
