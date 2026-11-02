@@ -1,7 +1,9 @@
+import {baseSymbol} from './money';
+export {formatMoney,formatWithBase,currencySymbol,baseSymbol,getBaseCurrency} from './money';
 /** Compact currency used in dense tables; keep other app currency displays unchanged. */
 export function formatTableCurrency(value: number): string {
   const rounded = Math.round(value);
-  return `${rounded < 0 ? "-" : ""}HK$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.abs(rounded))}`;
+  return `${rounded < 0 ? "-" : ""}${baseSymbol()}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.abs(rounded))}`;
 }
 
 export function formatTableInteger(value: number): string {
@@ -16,12 +18,12 @@ export function formatDecimal(value: number, digits = 2): string {
 export {formatTenantCurrency} from '../../supabase/functions/_shared/tenantCurrency';
 
 export function formatCurrency(value: number): string {
-  return `${value < 0 ? "-" : ""}HK$ ${formatTableInteger(Math.abs(value))}`;
+  return `${value < 0 ? "-" : ""}${baseSymbol()} ${formatTableInteger(Math.abs(value))}`;
 }
 
 /** Full precision for recipe amounts and bought-versus-sold menu costs. */
 export function formatMenuCurrency(value: number): string {
-  return `${value < 0 ? "-" : ""}HK$ ${formatDecimal(Math.abs(value), 2)}`;
+  return `${value < 0 ? "-" : ""}${baseSymbol()} ${formatDecimal(Math.abs(value), 2)}`;
 }
 
 export function formatPercent(value: number | null): string {
