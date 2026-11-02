@@ -61,8 +61,8 @@
 .ld-panel .ld-btn{background:#1F3F3B;color:#F5F4F0}
 .ld-panel .ld-btn.ghost{background:#fff;color:#1F3F3B;border:1px solid #E3E1DA}
 .ld-panel a{color:#1F6B5E;font-weight:500}
-@keyframes ldin{from{transform:translateX(30px);opacity:0}}
-@keyframes ldup{from{transform:translateY(40px);opacity:0}}
+@keyframes ldin{from{transform:translateX(30px)}}
+@keyframes ldup{from{transform:translateY(40px)}}
 /* tablet */
 .ld.tab .ld-top{flex-direction:column;align-items:flex-start}
 .ld.tab .ld-nums{grid-template-columns:repeat(2,minmax(0,1fr))}
