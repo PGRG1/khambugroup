@@ -39,3 +39,4 @@ Read nested AGENTS.md (Finance, People, assistant/voice, Alerts) before related 
 - Finance draft, source-approval, tax, account merge and report-allocation safeguards live in src/pages/finance/AGENTS.md; read it for related components, hooks and server functions too.
 
 
+- Access (in rollout): one role per person per tenant in tenant_roles/tenant_user_access (+venues, exceptions, history); access_level/money_level/can_see_venue/is_owner are the only checks new rules and server functions may use, and they fall back to legacy behaviour until a person's status is active.
