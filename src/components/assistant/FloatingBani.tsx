@@ -26,7 +26,9 @@ import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type Ba
 import { PeopleActionCard } from "./PeopleActionCard";
 import { Button } from "@/components/ui/button";
 import { useBaniPageWork } from "@/hooks/useBaniPageWork";
-import { pageQuestions } from "@/utils/baniPageWork";
+import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
+import { useSmartAlerts } from "@/hooks/useSmartAlerts";
+import { stageBaniStatements } from "@/utils/baniStatementHandoff";
 import { formatDate } from "@/utils/format";
 
 export type FloatingReview = {
@@ -64,7 +66,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const { user, session, isAdmin, loading: authLoading, roleLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { isPreviewActive, previewUserId } = usePreviewMode();
-  const { pathname } = useLocation();
+  const { pathname, search: locationSearch } = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const effectiveId = isAdmin && isPreviewActive ? previewUserId : user?.id;
@@ -155,6 +157,17 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   const queryClient = useQueryClient();
   const work = useBaniPageWork(pathname, allowed && !review && !salesDraft);
+  const pending = useBaniPending(allowed && !review && !salesDraft);
+  const alerts = useSmartAlerts();
+  const [activeItem,setActiveItem] = useState<PendingItem|null>(null);
+  const [workStart,setWorkStart] = useState<number|null>(null);
+  const [finished,setFinished] = useState<string[]>([]);
+  const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
+  const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`,eventId:item?.id??undefined}]); };
+  const openWork = () => {setWorkStart(pendingItems.length);nextWork();setHidden(false);setOpen(true);};
+  const dismissEvent = async (id:string) => {try{await alerts.action(id,'done');const item=pendingItems.find(a=>a.id===id);if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a.id!==id));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
+  const pushOpened = useRef('');
+  useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=pending.data.notifications.find(a=>'smart-'+a.id===event||a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setHidden(false);setOpen(true);},[locationSearch,pending.data,setMessages,setHidden,setOpen]);
   const [seenWork, setSeenWork] = useState<string | null>(null);
   const workKey = `${identity}:${pathname}:${work.today}`;
   useEffect(() => { if (open) setSeenWork(workKey); }, [open, workKey]);
@@ -162,7 +175,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)} · ${venueScope.selectedNames.length === 1 ? venueScope.selectedNames[0] : "All venues"}`;
-  const attention = work.items.filter(item => item.tone === "amber").length;
+  const attention = pendingItems.length;
   const continueOnPage = () => {
     dictation.cancel(); voice.end(); abort.current?.abort();
     store.continueToPage[1](true); setOpen(false); navigate("/assistant");
@@ -251,6 +264,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       return;
     }
     const text = typed || FILES_ONLY_PROMPT;
+    if(activeItem && /^(done|dismiss|skip|checked|yes|no|not sure)$/i.test(typed) && !attached.length){
+      setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed}]);
+      if(!activeItem.id){setError('This work item has not been saved yet. Please check its existing page workflow.');return;}
+      try{const answer=activeItem.payload.question?({yes:'yes',no:'no','not sure':'unsure'}[typed.toLowerCase()]??'done'):'done';await alerts.action(activeItem.id,answer);const key=activeItem.kind+'|'+activeItem.subject;setFinished(prev=>[...prev,key]);nextWork(pendingItems.filter(a=>a!==activeItem));}catch(e){setError(e instanceof Error?e.message:'Could not update work');}return;
+    }
+    if(activeItem?.kind==='missing_bank_statement'&&attached.length){stageBaniStatements(identity,attached.map(a=>a.file));setFiles([]);setOpen(false);navigate('/finance/cash?bani_statements=1');return;}
+
     const requestIdentity = identity;
     abort.current?.abort();
     const controller = new AbortController(); abort.current = controller;
@@ -260,7 +280,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const withNames = (role: "user" | "assistant", content: string, names?: string[]) =>
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
-    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext, attached.map(f => f.name))]);
+    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (activeItem ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
     if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
@@ -461,19 +481,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></Button>
         </header>
         <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
-          {!messages.length && !review && !salesDraft && <div className="floating-bani-page-work">
-            <p className="floating-bani-work-label">ON THIS PAGE · {formatDate(work.today)}</p>
-            {work.loading && <p className="floating-bani-context" role="status">Checking this page…</p>}
-            {work.error && <p className="floating-bani-error" role="alert">Page figures could not be loaded.</p>}
-            {work.items.map(item => <section key={item.id} className="floating-bani-work-card" dir="auto">
-              <span className={`floating-bani-work-dot is-${item.tone}`} aria-label={item.tone === "amber" ? "Needs you" : "Information"} />
-              <div className="min-w-0"><p className="floating-bani-work-title">{item.title}</p><p className="floating-bani-work-detail">{item.detail}</p>
-                <Button size="sm" className="floating-bani-apply" onClick={() => { if (item.href) { setOpen(false); navigate(item.href); } else if (item.question) void send({ text: item.question, opts: { voice: false, voiceLanguage: "en" } }); }}>{item.label}</Button>
-              </div>
-            </section>)}
-            <div className="floating-bani-suggestions">{pageQuestions(pathname).map(question => <Button key={question} disabled={busy} size="sm" variant="outline" dir="auto" className="floating-bani-suggestion" onClick={() => void send({ text: question, opts: { voice: false, voiceLanguage: "en" } })}>{question}</Button>)}</div>
-          </div>}
+          {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p>{pending.data?.role==='owner'&&<p className="text-xs text-muted-foreground">Team: {pending.data.team.filter(m=>m.user_id!==user?.id).map(m=>`${m.name} ${m.pending} pending`).join(' · ')||'No other team members'}</p>}</div>}
+          {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
+            {message.eventId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Dismiss Bani event" onClick={()=>void dismissEvent(message.eventId??'')}><X className="h-3 w-3"/></Button>}
             {message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
@@ -577,7 +588,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) setOpen(true); }}>
         <BaniOrb size={SPHERE} mode="idle" />
       </Button>
-      {attention > 0 && seenWork !== workKey && !holding && <div className={`floating-bani-attention ${sphere && sphere.x < window.innerWidth / 2 ? "is-left" : ""}`} style={sphere ? { top: sphere.y + 8, ...(sphere.x < window.innerWidth / 2 ? { left: sphere.x + SPHERE + 8, right: "auto", bottom: "auto" } : { right: window.innerWidth - sphere.x + 8, bottom: "auto" }) } : undefined} role="status">{attention} {attention === 1 ? "thing needs" : "things need"} you</div>}
+      {attention > 0 && !holding && <Button variant="ghost" className={`floating-bani-attention ${sphere && sphere.x < window.innerWidth / 2 ? "is-left" : ""}`} style={sphere ? { top: sphere.y + 8, ...(sphere.x < window.innerWidth / 2 ? { left: sphere.x + SPHERE + 8, right: "auto", bottom: "auto" } : { right: window.innerWidth - sphere.x + 8, bottom: "auto" }) } : undefined} onClick={openWork}>{attention} items pending</Button>}
       <Button variant="ghost" type="button" className="floating-bani-hide sr-only focus:not-sr-only" onClick={() => { setHidden(true); setOpen(false); }}>Hide assistant</Button>
       {holding && <div className={`floating-bani-target ${overX ? "is-active" : ""}`} aria-hidden="true"><X className="h-6 w-6" /></div>}
     </>}

@@ -22,7 +22,7 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: data.icon || "/icons/icon-192.png",
     badge: data.badge || "/icons/icon-192.png",
-    data: { url: data.url || "/notifications", ...(data.data || {}) },
+    data: { url: data.url || "/?bani_event=summary", ...(data.data || {}) },
     tag: data.tag,
     renotify: !!data.tag,
     requireInteraction: !!data.requireInteraction,
@@ -33,7 +33,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/notifications";
+  const url = (event.notification.data && event.notification.data.url) || "/?bani_event=summary";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
