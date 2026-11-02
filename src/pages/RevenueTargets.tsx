@@ -1,3 +1,4 @@
+import {formatMonthLabel} from '@/utils/format';
 import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -1403,7 +1404,7 @@ export default function RevenueTargets() {
 
 
       {/* SECTION 11: Rollup */}
-      <SectionCard title={isFiltered ? "Filtered Roll-up" : `${monthName(month)} ${year} Roll-up`}>
+      <SectionCard title={isFiltered ? "Filtered Roll-up" : `${formatMonthLabel(period.month)} Roll-up`}>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 text-sm">
           <RollupCell label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)} />
           <RollupCell label="Manager Revenue" value={fmtHKD(monthly.managerRevenue)} />
