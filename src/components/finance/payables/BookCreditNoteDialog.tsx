@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export function BookCreditNoteDialog({
           </div>
 
           <div>
-            <Label>Amount (HK$) *</Label>
+            <Label>Amount ({baseSymbol()}) *</Label>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </div>
           <div>

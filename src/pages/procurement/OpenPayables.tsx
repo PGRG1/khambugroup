@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -11,7 +12,7 @@ import { usePayables } from "@/hooks/usePayables";
 
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoney = (n: number) => `${baseSymbol()} ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d?: string | null) => {
   if (!d) return "—";
   const dt = new Date(d);

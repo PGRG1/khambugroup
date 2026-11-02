@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { SalesRecord } from "@/types/sales";
 import { fmtHKD } from "./utils";
 
@@ -44,7 +45,7 @@ export function DowPattern({ data }: Props) {
                 />
               </div>
               <span className="text-[12px] tabular-nums w-24 text-right leading-tight">
-                <span className="block">HK${fmtHKD(s.avg, true)}</span>
+                <span className="block">{baseSymbol()}{fmtHKD(s.avg, true)}</span>
                 <span className="text-[10px] text-muted-foreground">{share.toFixed(1)}%</span>
               </span>
             </div>

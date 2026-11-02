@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo } from "react";
 import {
   Bar,
@@ -121,14 +122,14 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
         <div className="mb-1.5 font-medium text-foreground">{label}</div>
         <div className="grid grid-cols-[auto_auto] gap-x-5 gap-y-1 tabular-nums">
           <span className="text-muted-foreground">Actual</span>
-          <span className="text-right text-foreground">HK${fmtHKD(point.revenue)}</span>
+          <span className="text-right text-foreground">{baseSymbol()}{fmtHKD(point.revenue)}</span>
           {point.forecast !== null && (
             <>
               <span className="text-muted-foreground">Forecast</span>
-              <span className="text-right text-foreground">HK${fmtHKD(point.forecast)}</span>
+              <span className="text-right text-foreground">{baseSymbol()}{fmtHKD(point.forecast)}</span>
               <span className="text-muted-foreground">Variance</span>
               <span className={`text-right ${variance !== null && variance < 0 ? "text-destructive" : "text-primary"}`}>
-                {variance !== null && variance < 0 ? "−" : "+"}HK${fmtHKD(Math.abs(variance ?? 0))}
+                {variance !== null && variance < 0 ? "−" : "+"}{baseSymbol()}{fmtHKD(Math.abs(variance ?? 0))}
                 {variancePct !== null ? ` (${variancePct >= 0 ? "+" : "−"}${Math.abs(variancePct).toFixed(1)}%)` : ""}
               </span>
             </>
@@ -136,7 +137,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
         </div>
         {point.guests > 0 && (
           <div className="mt-1.5 text-muted-foreground">
-            {fmtNum(point.guests)} covers · HK${fmtHKD(point.avgPerGuest)}/guest
+            {fmtNum(point.guests)} covers · {baseSymbol()}{fmtHKD(point.avgPerGuest)}/guest
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,7 @@ export function AllocatePaymentDialog({
         <DialogHeader>
           <DialogTitle>Allocate to Bank Transaction</DialogTitle>
           <p className="text-xs text-muted-foreground">
-            Match {invoice.supplier_name} · Inv {invoice.invoice_number} (HK$ {invoice.outstanding_amount.toFixed(2)}) to a bank statement line.
+            Match {invoice.supplier_name} · Inv {invoice.invoice_number} ({baseSymbol()} {invoice.outstanding_amount.toFixed(2)}) to a bank statement line.
           </p>
         </DialogHeader>
         <Input placeholder="Search description or reference…" value={search} onChange={(e) => setSearch(e.target.value)} />

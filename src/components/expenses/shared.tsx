@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { ReactNode, useCallback, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,14 +17,14 @@ export { kpiValueSizeClass };
 
 /** HK$ money formatter — HK$ prefix, en-HK grouping, tabular alignment via `td-num`. */
 export const fmtHK = (n: number, digits = 2) =>
-  `HK$ ${(Number.isFinite(n) ? n : 0).toLocaleString("en-HK", {
+  `${baseSymbol()} ${(Number.isFinite(n) ? n : 0).toLocaleString("en-HK", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   })}`;
 
 /** Whole-HK$ (no decimals) for KPI cards. */
 export const fmtHKWhole = (n: number) =>
-  `HK$ ${(Number.isFinite(n) ? n : 0).toLocaleString("en-HK", {
+  `${baseSymbol()} ${(Number.isFinite(n) ? n : 0).toLocaleString("en-HK", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })}`;

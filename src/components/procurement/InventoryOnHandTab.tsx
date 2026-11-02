@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,8 +52,8 @@ interface InventoryRow extends ProductRow {
 type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "qty_on_hand" | "avg_cost" | "cost_value" | "unit_cost" | "supplier_value";
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
-const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtWhole = (n: number) => `${baseSymbol()} ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtPrice = (n: number) => `${baseSymbol()} ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function StatTile({ label, value, tone, active, onClick }: {
   label: string; value: string;

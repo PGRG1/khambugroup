@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -300,7 +301,7 @@ function useSupplierPriceHistory(
 /* ------------------------------------------------------------------ */
 
 const money = (v: number | null | undefined) =>
-  v == null || !Number.isFinite(v) ? "—" : `HK$ ${v.toFixed(2)}`;
+  v == null || !Number.isFinite(v) ? "—" : `${baseSymbol()} ${v.toFixed(2)}`;
 
 const shortDate = (d: string) => {
   if (!d) return "—";

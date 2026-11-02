@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useState } from "react";
 import { Sparkles, Check, ChevronDown } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
@@ -82,7 +83,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
     const bits: string[] = [];
     if (c.entry.supplier_product_name && c.entry.supplier_product_name !== label(c)) bits.push(c.entry.supplier_product_name);
     if (c.entry.purchase_unit) bits.push(c.entry.purchase_unit);
-    if (c.entry.purchase_unit_cost != null && Number.isFinite(Number(c.entry.purchase_unit_cost))) bits.push(`HK$ ${Number(c.entry.purchase_unit_cost).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    if (c.entry.purchase_unit_cost != null && Number.isFinite(Number(c.entry.purchase_unit_cost))) bits.push(`${baseSymbol()} ${Number(c.entry.purchase_unit_cost).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
     return bits.join(" · ");
   };
 

@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -145,11 +146,11 @@ export default function BalanceSheet() {
 
       {!loading && bsRows.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatTile label="Total Assets" value={`HK$ ${fmtWhole(assets.subtotal)}`} />
-          <StatTile label="Total Liab + Equity" value={`HK$ ${fmtWhole(totalLE)}`} />
+          <StatTile label="Total Assets" value={`${baseSymbol()} ${fmtWhole(assets.subtotal)}`} />
+          <StatTile label="Total Liab + Equity" value={`${baseSymbol()} ${fmtWhole(totalLE)}`} />
           <StatTile
             label="Equation check"
-            value={balanced ? "Balanced" : `HK$ ${fmtWhole(Math.abs(diff))}`}
+            value={balanced ? "Balanced" : `${baseSymbol()} ${fmtWhole(Math.abs(diff))}`}
             tone={balanced ? "primary" : "destructive"}
             icon={balanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
           />
@@ -191,7 +192,7 @@ export default function BalanceSheet() {
           )}>
             <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Assets</div>
-              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`HK$ ${fmt(assets.subtotal)}`}>HK$ {fmt(assets.subtotal)}</div>
+              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`${baseSymbol()} ${fmt(assets.subtotal)}`}>{baseSymbol()} {fmt(assets.subtotal)}</div>
             </div>
             <div className={cn(
               "text-sm font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0",
@@ -199,11 +200,11 @@ export default function BalanceSheet() {
             )}>
               {balanced
                 ? <><CheckCircle2 className="h-4 w-4" /> Balanced</>
-                : <><AlertTriangle className="h-4 w-4" /> Out of balance by HK$ {fmt(Math.abs(diff))}</>}
+                : <><AlertTriangle className="h-4 w-4" /> Out of balance by {baseSymbol()} {fmt(Math.abs(diff))}</>}
             </div>
             <div className="sm:text-right min-w-0">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Liabilities + Equity</div>
-              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`HK$ ${fmt(totalLE)}`}>HK$ {fmt(totalLE)}</div>
+              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`${baseSymbol()} ${fmt(totalLE)}`}>{baseSymbol()} {fmt(totalLE)}</div>
             </div>
           </Card>
         </>

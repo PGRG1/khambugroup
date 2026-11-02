@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
@@ -334,7 +335,7 @@ const RevenueTargetPanel = ({
           </div>
 
           <div className="md:col-span-3">
-            <label className="text-xs text-muted-foreground block mb-1">Target (HK$)</label>
+            <label className="text-xs text-muted-foreground block mb-1">Target ({baseSymbol()})</label>
             <input
               type="number" min={0} step={1000}
               value={targetAmount || ""} placeholder="e.g. 800000"

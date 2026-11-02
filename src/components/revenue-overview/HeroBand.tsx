@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { DeltaChip } from "./DeltaChip";
 import { Sparkline } from "./Sparkline";
 import { Agg, DailyPoint, fmtHKD, fmtPct, pctDelta } from "./utils";
@@ -44,7 +45,7 @@ function ForecastBlock({ forecast }: { forecast?: ForecastOverviewSummary }) {
       ) : (
         <>
           <div className="mt-1 text-[24px] leading-none font-semibold tabular-nums text-foreground">
-            HK${fmtHKD(forecast.forecastTotal ?? 0)}
+            {baseSymbol()}{fmtHKD(forecast.forecastTotal ?? 0)}
           </div>
           <div className="mt-2 text-[13px] tabular-nums">
             <span
@@ -52,7 +53,7 @@ function ForecastBlock({ forecast }: { forecast?: ForecastOverviewSummary }) {
                 (forecast.variance ?? 0) < 0 ? "text-destructive" : "text-primary"
               }
             >
-              {(forecast.variance ?? 0) < 0 ? "−" : "+"}HK$
+              {(forecast.variance ?? 0) < 0 ? "−" : "+"}{baseSymbol()}
               {fmtHKD(Math.abs(forecast.variance ?? 0))}
               {forecast.variancePct !== null && (
                 <span className="ml-1">({fmtPct(forecast.variancePct)})</span>
@@ -84,12 +85,12 @@ export function HeroBand({ cur, prev, sparkline90, forecast, children }: Props &
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Net Revenue</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-3">
             <span className="text-[38px] leading-none font-semibold tabular-nums text-foreground">
-              HK${fmtHKD(cur.revenue)}
+              {baseSymbol()}{fmtHKD(cur.revenue)}
             </span>
             <DeltaChip value={delta} suffix="vs prior period" />
           </div>
           <div className="mt-2 text-[13px] text-muted-foreground tabular-nums">
-            HK${fmtHKD(avgPerDay)} avg/day · {cur.days} trading day{cur.days === 1 ? "" : "s"}
+            {baseSymbol()}{fmtHKD(avgPerDay)} avg/day · {cur.days} trading day{cur.days === 1 ? "" : "s"}
           </div>
         </div>
 

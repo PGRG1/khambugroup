@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { SalesRecord } from "@/types/sales";
 import { fmtHKD, fmtNum, fmtDate, toDaily } from "./utils";
 
@@ -19,10 +20,10 @@ export function BestWorstStrip({ data }: Props) {
     `${new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short" })} · ${fmtDate(d)}`;
 
   const items = [
-    { label: "Best day", date: dateLabel(best.date), value: `HK$ ${fmtHKD(best.revenue)}` },
+    { label: "Best day", date: dateLabel(best.date), value: `${baseSymbol()} ${fmtHKD(best.revenue)}` },
     { label: "Busiest day", date: dateLabel(busiest.date), value: `${fmtNum(busiest.guests)} guests` },
-    { label: "Softest day", date: dateLabel(worst.date), value: `HK$ ${fmtHKD(worst.revenue)}` },
-    { label: "Spend per guest", date: `${fmtNum(totalGuests)} guests in period`, value: `HK$ ${fmtHKD(spend)}` },
+    { label: "Softest day", date: dateLabel(worst.date), value: `${baseSymbol()} ${fmtHKD(worst.revenue)}` },
+    { label: "Spend per guest", date: `${fmtNum(totalGuests)} guests in period`, value: `${baseSymbol()} ${fmtHKD(spend)}` },
   ];
 
   return (

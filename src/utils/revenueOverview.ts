@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 /**
  * Plain-English helpers for the Revenue Overview "so far" card.
  * Pure functions: no React, no I/O.
@@ -22,9 +23,9 @@ export function monthSoFarLabel(today = new Date()): string {
 export function shortMoney(v: number): string {
   const a = Math.abs(v);
   const sign = v < 0 ? "−" : "";
-  if (a >= 1_000_000) return `${sign}HK$${(a / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M`;
-  if (a >= 1_000) return `${sign}HK$${Math.round(a / 1_000)}k`;
-  return `${sign}HK$${Math.round(a)}`;
+  if (a >= 1_000_000) return `${sign}${baseSymbol()}${(a / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M`;
+  if (a >= 1_000) return `${sign}${baseSymbol()}${Math.round(a / 1_000)}k`;
+  return `${sign}${baseSymbol()}${Math.round(a)}`;
 }
 
 function addDays(isoDate: string, n: number): string {

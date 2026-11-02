@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { addMonths, format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
@@ -192,7 +193,7 @@ export function PurchasingBudgetsDialog({ open, onOpenChange, defaultMonth, scop
                   <tr className="border-b border-border text-xs text-muted-foreground">
                     <th className="px-1 py-2 sm:px-2 text-left font-medium">Category</th>
                     {last3.keys.map(key => <th key={key} className="px-1 py-2 sm:px-2 text-right font-medium ">{monthLabel(key)}</th>)}
-                    <th className="px-1 py-2 sm:px-2 text-right font-medium">Budget (HK$)</th>
+                    <th className="px-1 py-2 sm:px-2 text-right font-medium">Budget ({baseSymbol()})</th>
                     <th className="px-1 py-2 sm:px-2 text-right font-medium">% of forecast</th>
                     <th className="px-1 py-2 sm:px-2 text-left font-medium">Last change</th>
                   </tr>

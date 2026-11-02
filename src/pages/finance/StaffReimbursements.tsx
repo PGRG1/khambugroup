@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,7 @@ function AddClaimDialog({
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Amount (HK$)</Label>
+            <Label className="text-xs">Amount ({baseSymbol()})</Label>
             <Input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
           <div>

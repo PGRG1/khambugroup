@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -49,8 +50,8 @@ const statusBadge = (s: Status) => {
   return map[s];
 };
 
-const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
-const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoneyWhole = (n: number) => `${baseSymbol()} ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtPrice = (n: number) => `${baseSymbol()} ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtMoney = fmtMoneyWhole;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 

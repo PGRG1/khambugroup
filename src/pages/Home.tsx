@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useEffect, useMemo } from "react";
 import { useFloatingBaniPage } from "@/components/assistant/FloatingBaniContext";
@@ -333,7 +334,7 @@ export default function Home() {
     if ((unpaid.data?.count ?? 0) > 0) {
       items.push({
         key: "unpaid",
-        title: `HK$ ${fmtHKD(unpaid.data!.amount)} unpaid across ${unpaid.data!.count} supplier invoice${unpaid.data!.count === 1 ? "" : "s"}`,
+        title: `${baseSymbol()} ${fmtHKD(unpaid.data!.amount)} unpaid across ${unpaid.data!.count} supplier invoice${unpaid.data!.count === 1 ? "" : "s"}`,
         icon: Receipt,
         tone: "destructive",
         to: "/procurement/finance/payables",
@@ -342,7 +343,7 @@ export default function Home() {
     if ((pendingBills.data?.count ?? 0) > 0) {
       items.push({
         key: "bills",
-        title: `${pendingBills.data!.count} expense bill${pendingBills.data!.count === 1 ? "" : "s"} awaiting action · HK$ ${fmtHKD(pendingBills.data!.amount)}`,
+        title: `${pendingBills.data!.count} expense bill${pendingBills.data!.count === 1 ? "" : "s"} awaiting action · ${baseSymbol()} ${fmtHKD(pendingBills.data!.amount)}`,
         icon: Receipt,
         tone: "warn",
         to: "/expenses",
@@ -408,14 +409,14 @@ export default function Home() {
             <>
               <PulseCard
                 label="Yesterday"
-                value={`HK$ ${fmtHKD(pulse.yesterdayRev)}`}
+                value={`${baseSymbol()} ${fmtHKD(pulse.yesterdayRev)}`}
                 delta={pulse.yesterdayDelta}
                 deltaSuffix="vs last wk"
                 spark={pulse.spark30}
               />
               <PulseCard
                 label="MTD Revenue"
-                value={`HK$ ${fmtHKD(pulse.mtdRev)}`}
+                value={`${baseSymbol()} ${fmtHKD(pulse.mtdRev)}`}
                 delta={pulse.mtdDelta}
                 deltaSuffix="vs last mo"
                 spark={pulse.spark30}
@@ -429,7 +430,7 @@ export default function Home() {
               />
               <PulseCard
                 label="7-Day Avg Revenue"
-                value={`HK$ ${fmtHKD(pulse.avg7)}`}
+                value={`${baseSymbol()} ${fmtHKD(pulse.avg7)}`}
                 delta={pulse.avg7Delta}
                 deltaSuffix="vs prior 7d"
                 spark={pulse.spark30}
@@ -512,7 +513,7 @@ export default function Home() {
                 <YAxis {...chartAxis} tickFormatter={(v) => compactHK(v)} width={44} />
                 <Tooltip
                   contentStyle={chartTooltipContentStyle}
-                  formatter={(v: any, name: string) => [`HK$ ${fmtHKD(Number(v))}`, name === "revenue" ? "Revenue" : "7-day MA"]}
+                  formatter={(v: any, name: string) => [`${baseSymbol()} ${fmtHKD(Number(v))}`, name === "revenue" ? "Revenue" : "7-day MA"]}
                   labelFormatter={(l) =>
                     new Date(l).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
                   }

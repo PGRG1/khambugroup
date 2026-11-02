@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -9,7 +10,7 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoney = (n: number) => `${baseSymbol()} ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const monthBounds = (y: number, m: number) => {
   const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
   const end = new Date(Date.UTC(y, m + 1, 1)).toISOString().slice(0, 10);

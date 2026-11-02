@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
@@ -1323,13 +1324,13 @@ export default function ProductMasterTab() {
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
-                          <div><Label className="text-xs">Purchase Cost (HK$)</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                          <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
                           <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
                           <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
                         </div>
                         <div className="mt-2 bg-muted/30 rounded-lg p-2">
                           <p className="text-xs text-muted-foreground">
-                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">HK${fmt(liveCostPerStock)}</span>
+                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">{baseSymbol()}{fmt(liveCostPerStock)}</span>
                             <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
                           </p>
                         </div>
@@ -1352,11 +1353,11 @@ export default function ProductMasterTab() {
                             const hasYield = totalYield < 0.9999;
                             return hasYield ? (
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">HK${rawCostPerBase.toFixed(4)}</span></p>
-                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">HK${effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
+                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">{baseSymbol()}{rawCostPerBase.toFixed(4)}</span></p>
+                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">{baseSymbol()}{effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
                               </div>
                             ) : (
-                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">HK${rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
+                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">{baseSymbol()}{rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
                             );
                           })()}
                         </div>

@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import type { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
 
@@ -17,7 +18,7 @@ export const FIELD_LABELS: Record<LearnableField, string> = {
 };
 
 export const hkd = (n: number) =>
-  `HK$ ${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${baseSymbol()} ${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const EPS = 0.01;
 const same = (a: number, b: number) => Math.abs(a - b) <= EPS;

@@ -226,8 +226,8 @@ export function RecordPaymentDialog({
       return;
     }
     const ok = window.confirm(
-      `Apply HK$ ${fmt(toApply)} from credit note ${cn.credit_note_number || "(unnamed)"}?\n` +
-        `Remaining credit after this: HK$ ${fmt(cn.remaining_balance - alreadyUsedFromThisCN - toApply)}`
+      `Apply ${baseSymbol()} ${fmt(toApply)} from credit note ${cn.credit_note_number || "(unnamed)"}?\n` +
+        `Remaining credit after this: ${baseSymbol()} ${fmt(cn.remaining_balance - alreadyUsedFromThisCN - toApply)}`
     );
     if (!ok) return;
     setRow(i.id, { creditNoteId: cn.id, creditAmt: toApply.toFixed(2) });
@@ -273,7 +273,7 @@ export function RecordPaymentDialog({
     // in full. Only confirm when the account genuinely goes into credit.
     if (advance > 0.01) {
       const ok = window.confirm(
-        `HK$ ${fmt(advance)} of this payment exceeds what is currently due and will sit as supplier credit. Continue?`
+        `${baseSymbol()} ${fmt(advance)} of this payment exceeds what is currently due and will sit as supplier credit. Continue?`
       );
       if (!ok) return;
     }
@@ -372,7 +372,7 @@ export function RecordPaymentDialog({
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div>
-              <Label>Payment Amount (HK$)</Label>
+              <Label>Payment Amount ({baseSymbol()})</Label>
               <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Use 0 if fully settling with a credit note.
@@ -462,7 +462,7 @@ export function RecordPaymentDialog({
           <div className="space-y-3">
             {supplierCNs.length > 0 && (
               <div className="text-[11px] text-emerald-300/80 bg-emerald-500/5 border border-emerald-500/20 rounded p-2">
-                {supplierCNs.length} approved credit note{supplierCNs.length > 1 ? "s" : ""} available for this supplier · Total HK$ {fmt(supplierCNs.reduce((s, c) => s + c.remaining_balance, 0))}
+                {supplierCNs.length} approved credit note{supplierCNs.length > 1 ? "s" : ""} available for this supplier · Total {baseSymbol()} {fmt(supplierCNs.reduce((s, c) => s + c.remaining_balance, 0))}
               </div>
             )}
             <div className="overflow-x-auto border border-border/40 rounded-lg max-h-[420px] overflow-y-auto">
@@ -535,7 +535,7 @@ export function RecordPaymentDialog({
                                           <div className="font-medium">{c.credit_note_number || "(unnamed)"}</div>
                                           <div className="text-[10px] text-muted-foreground">{c.credit_note_date}</div>
                                         </span>
-                                        <span className="font-mono text-emerald-400">HK$ {fmt(c.effectiveRemaining)}</span>
+                                        <span className="font-mono text-emerald-400">{baseSymbol()} {fmt(c.effectiveRemaining)}</span>
                                       </button>
                                     ))}
                                     {row.creditNoteId && (
@@ -649,7 +649,7 @@ function SumItem({ label, value, accent, hint }: { label: string; value: number;
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`font-mono tabular-nums text-base font-semibold ${accent || ""}`}>HK$ {fmt(value)}</div>
+      <div className={`font-mono tabular-nums text-base font-semibold ${accent || ""}`}>{baseSymbol()} {fmt(value)}</div>
       {hint && <div className="text-[10px] text-amber-400 mt-0.5">{hint}</div>}
     </div>
   );

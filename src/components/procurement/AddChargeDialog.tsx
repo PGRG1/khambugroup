@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,7 @@ export function AddChargeDialog({
         tenant_id: tenantId,
       } as any);
       if (error) throw error;
-      toast.success(`Charge of HK$ ${amt.toFixed(2)} added to ${supplierName} ledger`);
+      toast.success(`Charge of ${baseSymbol()} ${amt.toFixed(2)} added to ${supplierName} ledger`);
       onSaved();
       onOpenChange(false);
     } catch (e: any) {
@@ -112,7 +113,7 @@ export function AddChargeDialog({
               </Select>
             </div>
             <div>
-              <Label>Amount (HK$)</Label>
+              <Label>Amount ({baseSymbol()})</Label>
               <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
           </div>
@@ -138,7 +139,7 @@ export function AddChargeDialog({
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   {openInvoices.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>{i.invoice_number} — HK$ {i.outstanding_amount.toFixed(2)}</SelectItem>
+                    <SelectItem key={i.id} value={i.id}>{i.invoice_number} — {baseSymbol()} {i.outstanding_amount.toFixed(2)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

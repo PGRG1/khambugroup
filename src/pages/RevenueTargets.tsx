@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import {formatMonthLabel} from '@/utils/format';
 import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
@@ -69,7 +70,7 @@ const STATUSES: OperatingStatus[] = ["normal", "mixed", "events_only", "closed"]
 const monthName = (m: number) =>
   new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 const fmtHKD = (v: number | null | undefined) =>
-  v == null || !isFinite(v) ? "—" : `HK$ ${formatCurrency(Number(v))}`;
+  v == null || !isFinite(v) ? "—" : `${baseSymbol()} ${formatCurrency(Number(v))}`;
 const fmtInt = (v: number | null | undefined) =>
   v == null ? "—" : Math.round(Number(v)).toLocaleString("en-US");
 const fmtPct = (v: number | null | undefined) =>

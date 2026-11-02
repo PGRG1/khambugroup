@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 /**
  * Spoken/typed corrections to an UNSAVED sales receipt draft.
  * Bani only proposes; this pure helper applies a server-validated proposal
@@ -78,7 +79,7 @@ export function applySalesChanges(record: SalesRecord, changes: SalesChange[]): 
 
 /** Deterministic post-scan check of a sales receipt draft — what Bani says right after a scan. */
 export function auditSalesRecord(r: SalesRecord, venues: string[]): { ok: boolean; message: string } {
-  const money = (n: number) => `HK$ ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (n: number) => `${baseSymbol()} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const issues: string[] = [];
   if (!r.date) issues.push("the date is missing");
   if (!r.venue || !venues.some(v => v.toLowerCase() === r.venue.toLowerCase())) issues.push(r.venue ? `"${r.venue}" isn't one of your venues` : "the venue is missing");

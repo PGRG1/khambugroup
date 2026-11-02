@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -34,9 +35,9 @@ import { AlertTriangle } from "lucide-react";
 
 type GrnStatus = "draft" | "confirmed" | "disputed";
 
-const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtMoneyWhole = (n: number) => `${baseSymbol()} ${Math.round(n || 0).toLocaleString("en-US")}`;
 const fmtMoney = fmtMoneyWhole;
-const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtPrice = (n: number) => `${baseSymbol()} ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 interface GrnStat { total: number; lines: number; short: number }

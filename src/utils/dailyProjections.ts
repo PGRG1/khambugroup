@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 /**
  * Pure helpers for the standalone "New Targets" daily projection table.
  * Independent of the legacy revenue-targets logic.
@@ -113,7 +114,7 @@ export function buildProjectionRows(
 /** HK$ with comma separators and 2 decimals. Returns "—" for null. */
 export function formatHkd(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
-  return `HK$ ${Number(value).toLocaleString("en-US", {
+  return `${baseSymbol()} ${Number(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;

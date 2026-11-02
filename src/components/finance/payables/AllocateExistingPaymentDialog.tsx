@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ export function AllocateExistingPaymentDialog({
         <DialogHeader>
           <DialogTitle>Match payment to invoices</DialogTitle>
           <p className="text-xs text-muted-foreground">
-            Payment of HK$ {payment.amount.toFixed(2)} on {payment.payment_date} — HK$ {remaining.toFixed(2)} still
+            Payment of {baseSymbol()} {payment.amount.toFixed(2)} on {payment.payment_date} — {baseSymbol()} {remaining.toFixed(2)} still
             unallocated. Matching does not change the payment or the supplier balance.
           </p>
         </DialogHeader>

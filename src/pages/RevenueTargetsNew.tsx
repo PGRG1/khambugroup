@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
 import {formatMonthLabel} from '@/utils/format';
@@ -28,9 +29,9 @@ const MONTH_LABELS = [
 
 const shortHkd = (v: number) => {
   const a = Math.abs(v);
-  if (a >= 1_000_000) return `HK$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (a >= 1_000) return `HK$ ${Math.round(v / 1_000)}k`;
-  return `HK$ ${Math.round(v)}`;
+  if (a >= 1_000_000) return `${baseSymbol()} ${(v / 1_000_000).toFixed(1)}M`;
+  if (a >= 1_000) return `${baseSymbol()} ${Math.round(v / 1_000)}k`;
+  return `${baseSymbol()} ${Math.round(v)}`;
 };
 
 /** Unified Targets page: monthly goal, pacing, chart and a light daily table. */

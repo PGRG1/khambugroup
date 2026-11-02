@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -263,13 +264,13 @@ export function ExerciseCreditDialog({
                     <div className="flex-1 grid grid-cols-3 gap-3 text-sm">
                       <div className="font-medium">{cn.credit_note_number}</div>
                       <div className="text-muted-foreground truncate">{cn.notes || "—"}</div>
-                      <div className="text-right td-num text-green-400">HK$ {fmt(cn.remaining_balance)}</div>
+                      <div className="text-right td-num text-green-400">{baseSymbol()} {fmt(cn.remaining_balance)}</div>
                     </div>
                   </label>
                 ))}
                 <div className="text-right text-sm pt-2">
                   <span className="text-muted-foreground">Total credits selected: </span>
-                  <span className="td-num text-green-400 font-semibold">HK$ {fmt(totalCredits)}</span>
+                  <span className="td-num text-green-400 font-semibold">{baseSymbol()} {fmt(totalCredits)}</span>
                 </div>
               </div>
             )}
@@ -286,7 +287,7 @@ export function ExerciseCreditDialog({
                     <div key={inv.id} className="grid grid-cols-[1fr_120px_120px] gap-3 items-center rounded-md border border-border/40 px-3 py-2 text-sm">
                       <div>
                         <div className="font-medium">{inv.invoice_number}</div>
-                        <div className="text-xs text-muted-foreground">{inv.invoice_date} • Outstanding HK$ {fmt(inv.outstanding_amount)}</div>
+                        <div className="text-xs text-muted-foreground">{inv.invoice_date} • Outstanding {baseSymbol()} {fmt(inv.outstanding_amount)}</div>
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Credit</Label>
@@ -315,7 +316,7 @@ export function ExerciseCreditDialog({
               </div>
               <div className="text-right text-sm mt-2">
                 <span className="text-muted-foreground">Net payment required: </span>
-                <span className="td-num font-semibold">HK$ {fmt(netDue)}</span>
+                <span className="td-num font-semibold">{baseSymbol()} {fmt(netDue)}</span>
               </div>
             </div>
           )}

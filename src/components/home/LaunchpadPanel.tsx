@@ -1,3 +1,4 @@
+import {baseSymbol} from '@/utils/money';
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, AlertTriangle, Upload, ArrowRight, X } from "lucide-react";
@@ -43,7 +44,7 @@ export function LaunchpadPanel({ sales, venues, items, loading }: { sales: SaleR
   if (!venues.length) brief = "No active venues yet. Add a venue in Admin to start tracking trade.";
   else if (!logged.length) brief = "No closing reports are in for yesterday yet. Drop the Z-reports below and I'll read them.";
   else {
-    brief = `Yesterday closed at HK$ ${fmtHKD(total)} across ${logged.length} venue${logged.length === 1 ? "" : "s"}.`;
+    brief = `Yesterday closed at ${baseSymbol()} ${fmtHKD(total)} across ${logged.length} venue${logged.length === 1 ? "" : "s"}.`;
     if (best && best.delta != null && logged.length > 1) brief += ` ${best.venue} led at ${best.delta >= 0 ? "+" : ""}${best.delta.toFixed(0)}% vs last week.`;
     if (missing.length) brief += ` Still waiting on ${missing.map((m) => m.venue).join(", ")}.`;
   }
@@ -94,7 +95,7 @@ export function LaunchpadPanel({ sales, venues, items, loading }: { sales: SaleR
                 </span>
                 {r.logged ? (
                   <span className="text-right shrink-0">
-                    <span className="td-num">HK$ {fmtHKD(r.rev)}</span>
+                    <span className="td-num">{baseSymbol()} {fmtHKD(r.rev)}</span>
                     <span className="text-muted-foreground text-[12px]"> · {fmtNum(r.guests)} guests{r.delta != null ? ` · ${r.delta >= 0 ? "+" : ""}${r.delta.toFixed(0)}%` : ""}</span>
                   </span>
                 ) : (
