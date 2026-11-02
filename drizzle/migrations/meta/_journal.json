@@ -918,6 +918,13 @@
       "when": 1793606399101,
       "tag": "0130_foreign_currency_part1",
       "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1793606617867,
+      "tag": "0131_foreign_currency_documents",
+      "breakpoints": true
     }
   ]
 }

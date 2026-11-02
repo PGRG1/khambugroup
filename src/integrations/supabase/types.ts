@@ -2322,7 +2322,7 @@ export type Database = {
           as_of_date: string
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           customer_name: string
           due_date?: string | null
           fx_rate?: number | null
@@ -3235,6 +3235,7 @@ export type Database = {
           journal_entry_id: string | null
           meta: Json
           notes: string | null
+          original_total: number | null
           paid_amount: number
           payment_status: string
           period_end: string | null
@@ -3274,7 +3275,7 @@ export type Database = {
           cost_allocation_mode?: string
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           department?: string | null
           document_requirement?: string
           document_type?: string | null
@@ -3285,6 +3286,7 @@ export type Database = {
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_total?: number | null
           paid_amount?: number
           payment_status?: string
           period_end?: string | null
@@ -3335,6 +3337,7 @@ export type Database = {
           journal_entry_id?: string | null
           meta?: Json
           notes?: string | null
+          original_total?: number | null
           paid_amount?: number
           payment_status?: string
           period_end?: string | null
@@ -8445,6 +8448,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name: string | null
           notes: string | null
+          original_total: number | null
           payment_method: string | null
           payment_status: string
           received_date: string | null
@@ -8500,6 +8504,7 @@ export type Database = {
           invoice_number: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_total?: number | null
           payment_method?: string | null
           payment_status?: string
           received_date?: string | null
@@ -8555,6 +8560,7 @@ export type Database = {
           invoice_number?: string
           legacy_venue_name?: string | null
           notes?: string | null
+          original_total?: number | null
           payment_method?: string | null
           payment_status?: string
           received_date?: string | null
@@ -10351,7 +10357,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
-          currency?: string
+          currency: string
           file_name?: string | null
           file_url?: string | null
           fx_rate?: number | null
