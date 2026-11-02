@@ -6,7 +6,7 @@ import { useProductMaster } from '@/hooks/useProductMaster';
 import { useMenuFoodCosts } from '@/hooks/useMenuFoodCosts';
 import { useVenueScope } from '@/hooks/useVenueScope';
 import { useActiveTenant } from '@/hooks/useActiveTenant';
-import { usePeriodFilter } from '@/hooks/usePeriodFilter';
+import { usePagePeriod } from '@/hooks/usePagePeriod';
 import { supabase } from '@/integrations/supabase/client';
 import { buildFoodCosts,latestConfirmedCosts,recipeUnitCost,foodCostPercent } from '@/utils/menuCosts';
 import { tenantToday } from '@/utils/salesRecordChecks';
@@ -30,7 +30,7 @@ export default function MenuCostingTab(){
  const [formOpen,setFormOpen]=useState(false),[editing,setEditing]=useState<MenuItem|null>(null),[form,setForm]=useState({name:'',category:''}),[saving,setSaving]=useState(false),[deleteOpen,setDeleteOpen]=useState(false);
  const [pricing,setPricing]=useState<Record<string,MenuItemPricing[]>>({}),[costLoading,setCostLoading]=useState(false),[costError,setCostError]=useState('');
  const [reading,setReading]=useState(false),[drafts,setDrafts]=useState<MenuDraft[]|null>(null);const fileInput=useRef<HTMLInputElement>(null);
- const today=tenantToday();const dates=useMemo(()=>[...food.sales.map(s=>s.date),...food.receipts.map(r=>r.received_date)],[food.sales,food.receipts]);const period=usePeriodFilter(dates);
+ const today=tenantToday();const dates=useMemo(()=>[...food.sales.map(s=>s.date),...food.receipts.map(r=>r.received_date)],[food.sales,food.receipts]);const period=usePagePeriod(dates);
  const from=period.fromIso??dates.slice().sort()[0]??today;const to=period.toIso??today;
  const rows=useMemo(()=>buildFoodCosts(scope.selectedNames,food.sales,food.receipts,food.lines,food.products,food.counts,food.countLines,from,to,today),[scope.selectedNames,food.sales,food.receipts,food.lines,food.products,food.counts,food.countLines,from,to,today]);
  const visibleFood=rows.filter(r=>r.venue.toLowerCase().includes(search.toLowerCase()));

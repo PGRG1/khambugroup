@@ -1,3 +1,6 @@
+import {useBooksWindow} from '@/hooks/useBooksWindow';
+import {periodYears} from '@/utils/periodWindow';
+import {formatMonthLabel} from '@/utils/format';
 import React, { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,15 +27,13 @@ interface Props {
 export default function InvoiceAnalytics({ invoices }: Props) {
   const [yearFilter, setYearFilter] = useState("all");
 
-  const years = useMemo(() => {
-    const yrs = [...new Set(invoices.map((inv) => inv.invoice_date?.slice(0, 4)).filter(Boolean))].sort().reverse();
-    return yrs;
-  }, [invoices]);
+  const books=useBooksWindow();
+  const years=periodYears(books.start,books.today).map(String);
 
   const filtered = useMemo(() => {
-    if (yearFilter === "all") return invoices;
-    return invoices.filter((inv) => inv.invoice_date?.startsWith(yearFilter));
-  }, [invoices, yearFilter]);
+    if (yearFilter === "all") return invoices.filter(inv=>inv.invoice_date>=books.start&&inv.invoice_date<=books.today);
+    return invoices.filter((inv) => inv.invoice_date>=books.start&&inv.invoice_date<=books.today&&inv.invoice_date?.startsWith(yearFilter));
+  }, [invoices, yearFilter,books.start,books.today]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -54,7 +55,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, amount]) => ({
-        month: new Date(month + "-01").toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        month: formatMonthLabel(month),
         amount: Math.round(amount),
       }));
   }, [filtered]);

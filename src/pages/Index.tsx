@@ -7,7 +7,7 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useRevenueForecastOverview } from "@/hooks/useRevenueForecastOverview";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { useScopedProjections } from "@/hooks/useScopedProjections";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,27 +28,9 @@ const Index = () => {
   const vs = useVenueScope();
   const venue = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name : "All Venues";
   const scopedData = useMemo(() => data.filter((r) => vs.includesName(r.venue)), [data, vs.includesName]);
-  const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
-  const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
-  const [periodName, setPeriodName] = useState(() => monthSoFarLabel());
+  const datePeriod = usePagePeriod(data.map(r => r.date));
+  const { from, to, label: periodName } = datePeriod;
   const [showMTDText, setShowMTDText] = useState(false);
-
-  const months = useMemo(() => {
-    const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
-    return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
-  }, [data]);
-
-  const handlePeriodSelect = (period: string) => {
-    if (period === "MTD") { const r = mtdRange(); setFrom(r.from); setTo(r.to); setPeriodName(monthSoFarLabel()); return; }
-    if (period === "All Time") { setFrom(undefined); setTo(undefined); setPeriodName("All time"); return; }
-    if (period === "Custom") { setPeriodName("Selected dates"); return; }
-    const month = months.find((m) => m.label === period);
-    if (!month) return;
-    const [y, m] = month.key.split("-");
-    setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
-    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
-    setPeriodName(period);
-  };
 
   const filtered = useMemo(() => filterData(scopedData, "All Venues", from, to), [scopedData, from, to]);
   const cur = useMemo(() => aggregate(filtered), [filtered]);
@@ -99,17 +81,7 @@ const Index = () => {
       <RevenuePageTop
         title="Revenue overview"
         period={!hideDateRange && (
-          <DateFilter
-            from={from}
-            to={to}
-            onFromChange={setFrom}
-            onToChange={setTo}
-            months={months.map((m) => m.label)}
-            onPeriodSelect={handlePeriodSelect}
-            includeMtd
-            initialPeriod="MTD"
-            labelled
-          />
+          datePeriod.control
         )}
         actions={isAdmin && (
           <Button variant="outline" size="sm" className="h-10" onClick={() => setShowMTDText(true)}>

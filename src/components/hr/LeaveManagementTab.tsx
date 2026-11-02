@@ -1,3 +1,5 @@
+import {useBooksWindow} from '@/hooks/useBooksWindow';
+import {periodYears} from '@/utils/periodWindow';
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -185,7 +187,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
     return req;
   };
 
-  const years = [selectedYear - 1, selectedYear, selectedYear + 1];
+  const books=useBooksWindow();
+  const years=periodYears(books.start,books.today,true);
 
   const n = (v: number) => v === 0 ? "—" : v.toFixed(v % 1 === 0 ? 0 : 1);
 

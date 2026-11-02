@@ -4,7 +4,7 @@ import { usePLStructure, type PLStructureRow } from "@/hooks/usePLStructure";
 import { PLInlineCell } from "@/components/pl/PLInlineCell";
 import { PLManualInputEditor } from "@/components/pl/PLManualInputEditor";
 import { PLStructureEditor } from "@/components/pl/PLStructureEditor";
-import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
+import { PeriodCompare, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/kit/PeriodCompare";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -231,7 +231,7 @@ export default function PLReport() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <PLPeriodSelector
+        <PeriodCompare
           viewMode={viewMode}
           selectedPeriods={selectedPeriods}
           onViewModeChange={setViewMode}

@@ -14,7 +14,7 @@ import { PageTop } from "@/components/kit/PageTop";
 import { Toolbar } from "@/components/kit/Toolbar";
 import { QuickFilter } from "@/components/kit/QuickFilter";
 import { FilterPanel, FilterGroup } from "@/components/kit/FilterPanel";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useBaniWorkPublisher } from "@/components/assistant/FloatingBaniContext";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -126,19 +126,19 @@ export default function BillsExpenses() {
   const [supplierAccounts, setSupplierAccounts] = useState<Array<{ id: string; account_number: string; label: string | null; default_venue_id: string | null; default_gl_account_id: string | null; is_active: boolean }>>([]);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get("status") === "waiting" ? "waiting" : "all");
-  const scope = useVenueScope(); const period = usePeriodFilter(bills.map(b => b.bill_date), "all");
+  const [statusFilter, setStatusFilter] = useState(new URLSearchParams(location.search).get("status") === "waiting" ? "waiting" : "mtd");
+  const scope = useVenueScope(); const period = usePagePeriod(bills.map(b => b.bill_date), "mtd");
   const { isPreviewActive } = usePreviewMode();
   const canWrite = isAdmin && !isPreviewActive;
   const statements = useVendorStatements();
   const [scanOpen, setScanOpen] = useState(false);
-  const [vendorFilter, setVendorFilter] = useState("all"), [categoryFilter, setCategoryFilter] = useState("all");
+  const [vendorFilter, setVendorFilter] = useState("mtd"), [categoryFilter, setCategoryFilter] = useState("mtd");
   const [categoryOpen, setCategoryOpen] = useState(false), [categoryLinks, setCategoryLinks] = useState<Record<string,string>>({});
   const [ask, setAsk] = useState(""), [answer, setAnswer] = useState(""), [bulk, setBulk] = useState<ExpenseBill[] | null>(null), [busy, setBusy] = useState(false);
   const [lookupRevision,setLookupRevision]=useState(0);
   const [lineIndex, setLineIndex] = useState<Record<string,string[]>>({});
   const [statementDoc, setStatementDoc] = useState<(typeof statements.statements)[number] | null>(null);
-  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("mtd");
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseBill | null>(null);
@@ -579,7 +579,7 @@ export default function BillsExpenses() {
           <h2 className="text-base font-semibold break-words">{period.label} · {scopedBills.length} bills · {formatCurrency(scopedBills.reduce((n,b)=>n+b.total_amount,0))}</h2>
           <p className="text-sm text-muted-foreground">{waiting.length} waiting for you ({formatCurrency(waiting.reduce((n,b)=>n+b.total_amount,0))})</p>
           <QuickFilter label="Bills" value={statusFilter} onChange={setStatusFilter} options={[{key:'all',label:'All'},{key:'waiting',label:'Waiting for you'},{key:'to-pay',label:'To pay'},{key:'paid',label:'Paid'}]}/>
-          <Toolbar search={search} onSearch={setSearch} placeholder="Search bills" mobileSearchBelow searchAfterControls filter={<FilterPanel activeCount={Number(vendorFilter!=='all')+Number(categoryFilter!=='all')} onReset={()=>{setVendorFilter('all');setCategoryFilter('all');}} resultLabel={`Show ${filtered.length} bills`}><FilterGroup title="Venue"><span className="text-sm">{scope.label}</span></FilterGroup><FilterGroup title="Vendor"><Select value={vendorFilter} onValueChange={setVendorFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All vendors</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Category"><Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map(c=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></FilterGroup></FilterPanel>} onDownload={()=>downloadCSV(filtered.map(b=>({date:b.bill_date,vendor:b.vendor_name,amount:b.total_amount,status:expenseStatus(b)})),[{key:'date',label:'Date'},{key:'vendor',label:'From'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],'expenses')}/>
+          <Toolbar search={search} onSearch={setSearch} placeholder="Search bills" mobileSearchBelow searchAfterControls filter={<FilterPanel activeCount={Number(vendorFilter!=='mtd')+Number(categoryFilter!=='mtd')} onReset={()=>{setVendorFilter('mtd');setCategoryFilter('mtd');}} resultLabel={`Show ${filtered.length} bills`}><FilterGroup title="Venue"><span className="text-sm">{scope.label}</span></FilterGroup><FilterGroup title="Vendor"><Select value={vendorFilter} onValueChange={setVendorFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All vendors</SelectItem>{suppliers.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup><FilterGroup title="Category"><Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map(c=><SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select></FilterGroup></FilterPanel>} onDownload={()=>downloadCSV(filtered.map(b=>({date:b.bill_date,vendor:b.vendor_name,amount:b.total_amount,status:expenseStatus(b)})),[{key:'date',label:'Date'},{key:'vendor',label:'From'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],'expenses')}/>
           <form className="flex gap-2" onSubmit={e=>{e.preventDefault();void askBani();}}><Input aria-label="Ask Bani about expenses" placeholder="Ask Bani" value={ask} onChange={e=>setAsk(e.target.value)}/><Button variant="outline" type="submit">Ask</Button></form>
           {answer&&<p className="text-sm">{answer}</p>}
           {bulk&&<div className="border border-border rounded-lg p-3 space-y-2"><p className="font-medium">Approve {bulk.length} bills · {formatCurrency(bulk.reduce((n,b)=>n+b.total_amount,0))}</p>{bulk.map(b=><p key={b.id} className="text-sm">{b.vendor_name} · {formatDate(b.bill_date)} · {formatCurrency(b.total_amount)}</p>)}<div className="flex gap-2"><Button disabled={!canWrite||busy} onClick={async()=>{setBusy(true);let n=0;for(const b of bulk){if(await postBill(b.id))n++;else break;}setBusy(false);setBulk(null);setAnswer(`${n} bills booked.`);}}>Confirm</Button><Button variant="outline" onClick={()=>setBulk(null)}>Cancel</Button></div></div>}

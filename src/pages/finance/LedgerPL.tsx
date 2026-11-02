@@ -7,12 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { FileDown, BookText } from "lucide-react";
 import {
-  PLPeriodSelector,
+  PeriodCompare,
   getDefaultPeriod,
   getOptionsForView,
   type ViewMode,
   type PeriodOption,
-} from "@/components/pl/PLPeriodSelector";
+} from "@/components/kit/PeriodCompare";
 import { useLedgerPL } from "@/hooks/useLedgerPL";
 import type { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
 import { downloadCSV } from "@/utils/csvDownload";
@@ -418,7 +418,7 @@ export default function LedgerPL() {
         description="Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L."
         actions={
           <>
-            <PLPeriodSelector
+            <PeriodCompare
               viewMode={viewMode}
               selectedPeriods={selectedPeriods}
               onViewModeChange={setViewMode}

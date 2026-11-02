@@ -1,23 +1,15 @@
 import { useRevenueFilters } from "@/components/revenue-overview/RevenueControls";
-import DateFilter from "@/components/dashboard/DateFilter";
+
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { AnalysisLeakage } from "@/components/revenue-overview/LegacyDaily";
 import { MonthlyAverages, MonthlyMix } from "@/components/revenue-overview/LegacyMonthly";
 
-function last12(): { from: Date; to: Date } {
-  const now = new Date();
-  return { from: new Date(now.getFullYear(), now.getMonth() - 11, 1), to: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999) };
-}
 
 /** Trends: month-by-month sales and venue mix, then discounts. One page, no tabs. */
 export default function RevenueAnalysis() {
-  const f = useRevenueFilters(last12);
+  const f = useRevenueFilters("last-12");
   const hideDateRange = f.isActionHidden("revenue.date_range");
 
-  const onPeriodSelect = (p: string) => {
-    if (p === "Last 12 months") { const r = last12(); f.setFrom(r.from); f.setTo(r.to); return; }
-    f.onPeriodSelect(p);
-  };
 
   if (f.loading) {
     return (
@@ -33,18 +25,7 @@ export default function RevenueAnalysis() {
       <RevenuePageTop
         title="Trends"
         period={!hideDateRange && (
-          <DateFilter
-            from={f.from}
-            to={f.to}
-            onFromChange={f.setFrom}
-            onToChange={f.setTo}
-            months={f.months.map((m) => m.label)}
-            onPeriodSelect={onPeriodSelect}
-            includeMtd
-            includeLast12
-            initialPeriod="Last 12 months"
-            labelled
-          />
+          f.datePeriod.control
         )}
       />
 

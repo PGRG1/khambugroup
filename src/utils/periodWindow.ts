@@ -34,6 +34,7 @@ export function selectionLabel(value: PeriodSelection, mode: PeriodMode, today: 
   if (mode === 'month' || /^\d{4}-\d{2}$/.test(value.key)) return formatMonthLabel(value.from.slice(0, 7));
   if (value.key === 'mtd') return `${formatMonthLabel(today.slice(0, 7)).split(' ')[0]} so far`;
   if (value.key === 'last-month') return formatMonthLabel(value.from.slice(0, 7));
+  if (value.key === 'last-12') return 'Last 12 months';
   if (value.key === 'this-year' || value.key === 'last-year' || value.key === 'ytd') {
     const y = Number(value.from.slice(0, 4)); return fiscalStart === 1 ? String(y) : `FY ${y}/${String(y + 1).slice(-2)}`;
   }
@@ -46,4 +47,18 @@ export function validSessionSelection(stored: { day?: string; value?: PeriodSele
 export function journalDateException(date: string, start: string, today: string) {
   const limit = new Date(today + 'T00:00:00Z'); limit.setUTCDate(limit.getUTCDate() + 31);
   return date.slice(0, 10) < start.slice(0, 7) + '-01' ? 'before' : date.slice(0, 10) > limit.toISOString().slice(0, 10) ? 'after' : null;
+}
+export function periodYears(start: string, today: string, plansAhead = false) {
+  const end = Number(today.slice(0,4)) + (plansAhead ? 1 : 0);
+  return Array.from({length: Math.max(0, end - Number(start.slice(0,4)) + 1)}, (_, i) => end - i);
+}
+export function planningEnd(today: string, months: string[], cap = 12) {
+  const current = today.slice(0,7), maximum = shiftMonth(current, cap);
+  const latest = months.filter(m => /^\d{4}-(0[1-9]|1[0-2])$/.test(m)).sort().at(-1) ?? current;
+  return latest > maximum ? maximum : latest < current ? current : latest;
+}
+export function actionMonth(today: string, states: {month: string; approved: boolean}[], start: string) {
+  const current = today.slice(0,7);
+  if (!states.find(s => s.month === current)?.approved) return current;
+  return states.filter(s => !s.approved && s.month >= start.slice(0,7) && s.month <= current).map(s => s.month).sort()[0] ?? current;
 }

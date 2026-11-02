@@ -14,7 +14,8 @@ import { KpiCard } from "@/components/expenses/shared";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import { PRIMARY, chartAxis, chartGrid, chartTooltipContentStyle, compactHK, monthOpacity } from "@/components/revenue-overview/chartTheme";
 import { PageTop } from "@/components/kit/PageTop";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
+import { formatMonthLabel } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -25,8 +26,8 @@ import { budgetBarScale, rankedBudgetCategories, defaultInvoiceMonth, trailingMo
 import { PurchasingBudgetsDialog } from "./PurchasingBudgetsDialog";
 import { cn } from "@/lib/utils";
 
-const monthLabel = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMM yyyy");
-const monthName = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMMM");
+const monthLabel = formatMonthLabel;
+const monthName = formatMonthLabel;
 const delta = (value: number | null) => value == null ? "—" : `${value >= 0 ? "+" : ""}${pct(value)}`;
 const wholePct = (value: number | null) => value == null ? "—" : `${integer(value)}%`;
 type Item = ReturnType<typeof itemRanking>[number];
@@ -64,9 +65,6 @@ export default function ProcurementDashboardTab() {
   const scope = useVenueScope();
   const { isAdmin } = useAuth();
   const budgetsQuery = usePurchasingBudgets();
-  const [chosenPeriod, setPeriod] = useState<string | null>(null);
-  const [from, setFrom] = useState<Date>();
-  const [to, setTo] = useState<Date>();
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
@@ -95,12 +93,14 @@ export default function ProcurementDashboardTab() {
   const products = useMemo(() => new Map((data.data?.products ?? []).map(row => [row.id, row])), [data.data]);
   const names = useMemo(() => new Map((data.data?.suppliers ?? []).map(row => [row.id, row.name])), [data.data]);
   const currentMonth = hongKongDate().slice(0, 7);
-  const period = chosenPeriod ?? defaultInvoiceMonth(currentMonth, invoices.map(row => row.invoice_date));
-  const fallback = chosenPeriod === null && period !== currentMonth;
+  const datePeriod = usePagePeriod(invoices.map(row => row.invoice_date));
+  const { from, to } = datePeriod;
+  const period = datePeriod.fromIso.slice(0,7) === datePeriod.toIso.slice(0,7) ? datePeriod.month : "custom";
+  const fallback = false;
   const previous = previousCalendarMonth(period);
   const fromDate = from ? format(from, "yyyy-MM-dd") : undefined, toDate = to ? format(to, "yyyy-MM-dd") : undefined;
-  const currentInvoices = invoices.filter(row => periodIncludes(row.invoice_date, period, fromDate, toDate));
-  const currentSales = sales.filter(row => periodIncludes(row.date, period, fromDate, toDate));
+  const currentInvoices = invoices.filter(row => datePeriod.inPeriod(row.invoice_date));
+  const currentSales = sales.filter(row => datePeriod.inPeriod(row.date));
   const previousInvoices = previous ? invoices.filter(row => row.invoice_date.startsWith(previous)) : [];
   const previousSales = previous ? sales.filter(row => row.date.startsWith(previous)) : [];
   const currentIds = new Set(currentInvoices.map(row => row.id)), previousIds = new Set(previousInvoices.map(row => row.id));
@@ -191,22 +191,7 @@ export default function ProcurementDashboardTab() {
   if (data.isError || purchasing.isError) return <Alert><AlertDescription>Could not load purchasing figures. Please reload to try again.</AlertDescription></Alert>;
   if (!data.isSuccess || !purchasing.isSuccess) return <div className="space-y-4 py-4" aria-label="Loading purchasing overview"><div className="h-10 w-44 animate-pulse rounded-lg bg-muted/40" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(n => <div key={n} className="h-28 rounded-xl bg-card/40 animate-pulse" />)}</div><div className="h-80 rounded-xl bg-card/40 animate-pulse" /></div>;
   return <div data-purchasing-overview className="space-y-5 min-w-0 td-num">
-    <PageTop title="Purchasing overview" period={<DateFilter
-      from={from}
-      to={to}
-      onFromChange={date => { setPeriod("custom"); setFrom(date); }}
-      onToChange={date => { setPeriod("custom"); setTo(date); }}
-      months={months.filter(month => month !== currentMonth).map(monthLabel)}
-      onPeriodSelect={selection => {
-        const next = selection === "MTD" ? currentMonth : selection === "All Time" ? "all" : selection === "Custom" ? "custom" : months.find(month => monthLabel(month) === selection);
-        if (!next) return;
-        setPeriod(next);
-        if (next !== "custom") { setFrom(undefined); setTo(undefined); }
-      }}
-      initialPeriod={period === currentMonth ? "MTD" : period === "all" ? "All Time" : period === "custom" ? "Custom" : monthLabel(period)}
-      labelled
-      includeMtd
-    />} actions={isAdmin && singleMonth && (purchasing.mode === "central" || scope.selectedVenues.length === 1) ? <Button variant="outline" size="sm" className="h-10" onClick={() => { setBudgetSuggestions(null); setBudgetsOpen(true); }}>Budgets</Button> : undefined} />
+    <PageTop title="Purchasing overview" period={datePeriod.control} actions={isAdmin && singleMonth && (purchasing.mode === "central" || scope.selectedVenues.length === 1) ? <Button variant="outline" size="sm" className="h-10" onClick={() => { setBudgetSuggestions(null); setBudgetsOpen(true); }}>Budgets</Button> : undefined} />
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{purchasing.mode === "central" ? "Whole group (bought centrally)" : scope.label} · {integer(currentInvoices.length)} invoices · last invoice uploaded <span className="whitespace-nowrap">{latestUpload ? formatDate(latestUpload) : "—"}</span></span>{(fallback || (isCurrent && !currentInvoices.length)) && <span className="rounded-full bg-warning/10 text-warning border border-warning/30 px-2 py-1">No {monthName(currentMonth)} invoices yet{fallback ? ` · showing ${monthName(period)}` : ""}</span>}</div>
     {previous && <div className="space-y-2 text-sm" aria-label="Purchasing checks">{largeMoves.map(row=><p key={row.id} className="text-warning break-words">{row.name} {row.priceChange != null && row.priceChange>0?"up":"down"} {pct(Math.abs(row.priceChange??0))}: {priceMoney(row.previousPrice??0)} → {priceMoney(row.price??0)} per {row.unit} since {monthName(previous)} · <Link className="underline underline-offset-4" to="/procurement/line-items">Show invoices</Link></p>)}{checks.waiting && <p className="text-warning break-words">Only {integer(currentInvoices.length)} {currentInvoices.length===1?'invoice':'invoices'} for {monthName(period)} so far ({monthName(previous)}: {integer(previousInvoices.length)}). {priorSuppliers.map(r=>r.name).join(', ')} sent {integer(priorSuppliers.reduce((n,r)=>n+r.count,0))} between them in {monthName(previous)} · <Link className="underline underline-offset-4" to="/procurement/invoices">Show invoices</Link></p>}{checks.pointChange!=null&&<p className="text-warning">Spend is {pct(checks.ratio)} of sales, {formatDecimal(Math.abs(checks.pointChange))} points {checks.pointChange>0?'above':'below'} {monthName(previous)} ({pct(checks.priorRatio)}) · <Link className="underline underline-offset-4" to="/procurement/invoices">Show invoices</Link></p>}</div>}
     {budgetsExist && <div><span className={cn("inline-block max-w-full rounded-full border px-3 py-1 text-xs td-num", overBudget ? "border-warning/30 bg-warning/10 text-warning" : "border-primary/20 bg-primary/10 text-primary")}>{money(Math.abs(totalBudget - budgetedSpend))} {overBudget ? "over budget" : isCurrent ? "left" : "under budget"} · {isCurrent ? `${integer(daysLeft)} days to go` : `${wholePct(spentPct)} of ${money(totalBudget)} spent`}</span></div>}

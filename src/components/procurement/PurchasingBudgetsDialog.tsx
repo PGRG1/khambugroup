@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePurchasingBudgets, usePurchasingSalesForecast } from "@/hooks/usePurchasingBudgets";
 import { previousCalendarMonth, suggestBudgets, hongKongDate, type BudgetChangeRow } from "@/utils/purchasingOverview";
-import { formatCurrency as money, formatPercent as pct, formatTableInteger as integer } from "@/utils/format";
+import { formatMonthLabel, formatCurrency as money, formatPercent as pct, formatTableInteger as integer } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
 const monthKey = (date: Date) => format(date, "yyyy-MM");
-const monthName = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMMM");
-const monthLabel = (key: string) => format(new Date(`${key}-01T12:00:00`), "MMM yyyy");
+const monthName = formatMonthLabel;
+const monthLabel = formatMonthLabel;
 const changeLabel = (row: BudgetChangeRow) => {
   const when = format(new Date(`${hongKongDate(row.changed_at)}T12:00:00`), "d MMM");
   if (row.old_amount == null) return `Set ${when}`;
