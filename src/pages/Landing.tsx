@@ -118,7 +118,7 @@ export default function Landing() {
   const win = mtdWindows(now);
   const salesQ = useQuery({
     queryKey: ["landing", "sales", tenantId, scopeIds?.join(",") ?? "all", win.to],
-    enabled: !!tenantId && vs.ready,
+    enabled: !!tenantId,
     queryFn: async () => {
       const all = await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true);
       const sc = (r: any) => !scopeIds || scopeIds.includes(r.venue_id);
