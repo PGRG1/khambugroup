@@ -163,7 +163,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [workStart,setWorkStart] = useState<number|null>(null);
   const [finished,setFinished] = useState<string[]>([]);
   const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
-  const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`,eventId:item?.id??undefined}]); };
+  const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`:'That is everything pending in your scope.',eventId:item?.id??undefined}]); };
   const openWork = () => {setWorkStart(pendingItems.length);nextWork();setHidden(false);setOpen(true);};
   const dismissEvent = async (id:string) => {try{await alerts.action(id,'done');const item=pendingItems.find(a=>a.id===id);if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a.id!==id));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');

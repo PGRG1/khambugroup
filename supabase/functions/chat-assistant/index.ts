@@ -14,6 +14,7 @@ import { analyzeFiles, openSalesScannerTool, validateFiles } from "./floatingFil
 import { draftPeopleAction, peopleContext, peopleTool, peopleContextTool } from "./peopleActions.ts";
 import {expenseContextTool,expenseAccountContext} from './expenseContext.ts';
 import {proposeAlertAsk} from './alertAsks.ts';
+import {notificationPreferenceTool,notificationPreferences} from './notificationPreferences.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -62,6 +63,7 @@ function inDateRange(dateStr: string, from?: string, to?: string) {
 
 // ---------- tools ----------
 const tools = [
+  notificationPreferenceTool,
   expenseContextTool,
   {
     type: "function",
@@ -1481,6 +1483,7 @@ Deno.serve(async (req) => {
       const systemPrompt = buildSystemPrompt(getDateContext(new Date()), workspace);
 
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+      conversation.splice(1,0,{role:'system',content:'Notifications are information-only business events. Housekeeping work is handled one root item at a time in plain sentences, never pushed. Keep existing action authorisations and confirmation cards; never pay money or approve payroll from chat. For unsupported work, state the existing page and wait for the user to confirm it was checked. Use notification_preferences only for explicit remembered instructions, list/forget requests. List actual saved instructions, never invented ones. Call list first to resolve an event ID. Never broaden role or venue access.'});
       conversation.splice(1, 0, { role: "system", content: "People drafts: emit at most ONE real People card per turn, then reply with one short line. Do not print fake Confirm/Cancel labels, card titles/details or pseudo-cards in prose. Use exact user instructions, never invented pay advice. Once a draft tool succeeds do not draft again in that turn." });
       if (body.floating === true) {
         const requestedVenue = typeof body.active_venue === "string" ? body.active_venue.trim() : "";
@@ -1624,6 +1627,8 @@ Deno.serve(async (req) => {
                   ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
                   : tc.function.name === "propose_action"
                     ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
+                    : tc.function.name==='notification_preferences'
+                      ? await notificationPreferences(args,createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:req.headers.get('Authorization')??''}}}),tenantId,user?.id??'')
                     : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) { writeCompleted = true; emit({ action: { type: "closures_changed" } }); }
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
