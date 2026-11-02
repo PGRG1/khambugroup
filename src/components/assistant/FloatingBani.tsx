@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, Maximize2 } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, ChevronLeft } from "lucide-react";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
 import { LiveWaveform } from "@/components/assistant/LiveWaveform";
@@ -46,7 +46,7 @@ const SALES_LABELS: Record<string, string> = {
   wechat: "WeChat", payme: "PayMe", cash: "Cash", cardTips: "Card Tips",
 };
 const showSales = (field: string, v: unknown) => typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
-const SPHERE = 48;
+const SPHERE = 44;
 const HOLD_MS = 320;
 const FILES_ONLY_PROMPT = "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.";
 
@@ -167,17 +167,19 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await supabase.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}}});if(error)throw error;if(data.error)throw new Error(data.error);};
   const dismissEvent = async (id:string) => {try{const item=pendingItems.find(a=>a.id===id||a.kind+'|'+a.subject===id);if(item)await completeWork(item,'done');else await alerts.action(id,'done');if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a!==item));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');
+  // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
+  const home = pathname === "/" && !hosted;
+  const lastPath = useRef(pathname);
+  // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
+  useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setHidden(false);setOpen(true);},[locationSearch,pending.data,setMessages,setHidden,setOpen]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
-  const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)} · ${venueScope.selectedNames.length === 1 ? venueScope.selectedNames[0] : "All venues"}`;
+  const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
   const attention = pendingItems.length;
-  const continueOnPage = () => {
-    dictation.cancel(); voice.end(); abort.current?.abort();
-    store.continueToPage[1](true); setOpen(false); navigate("/assistant");
-  };
-  const enterVoice = () => { if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
+  const openSphere = () => { if (attention > 0 && !messages.length) openWork(); else setOpen(true); };
+  const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
   const addFiles = (list: FileList | File[]) => {
@@ -423,13 +425,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       springTo(g.last, v, to, () => { setSphere(to); setDrag(null); });
       return;
     }
-    if (!cancelled && isTap(g.moved, performance.now() - g.t, HOLD_MS)) setOpen(true);
+    if (!cancelled && isTap(g.moved, performance.now() - g.t, HOLD_MS)) openSphere();
     resetGesture();
   };
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button,a,input,textarea") || !panelEl.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (!isMobile && !hosted) return;
     if (isMobile) { sheet.current = { id: e.pointerId, sy: e.clientY, dy: 0, t: performance.now() }; panelEl.current.style.transition = "none"; return; }
     const r = panelEl.current.getBoundingClientRect();
     panelDrag.current = { id: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
@@ -466,21 +469,24 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const sphereStyle = drag ? { left: drag.x, top: drag.y } : sphere ? { left: sphere.x, top: sphere.y } : undefined;
   const mobileH = Math.min(620, vv.h - 16);
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
-  const panelStyle = isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined;
+  const panelStyle = home ? undefined
+    : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
+    : isMobile ? { top: vv.top + 12, height: vv.h - 24, maxHeight: vv.h - 24, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
   const restore = <Button variant="ghost" type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></Button>;
   const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
-    {hidden ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : open ? (
-      <section ref={panelEl} className={`floating-bani-panel ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
+    {open && !home && !hosted && <div className="floating-bani-backdrop" aria-hidden="true" onClick={() => { dictation.cancel(); setOpen(false); }} />}
+    {hidden && !home ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : (open || home) ? (
+      <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
+        {home ? (open && <div className="floating-bani-homeback"><button type="button" onClick={() => setOpen(false)}><ChevronLeft className="h-4 w-4" />Back to today</button>{working && <span className="floating-bani-context">{context}</span>}</div>) :
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
           {isMobile && <div className="floating-bani-grab" aria-hidden="true"><span /></div>}
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
-          <Button variant="ghost" size="icon" className="floating-bani-icon" aria-label="Continue on Bani AI" title="Continue on Bani AI" disabled={busy} onClick={continueOnPage}><Maximize2 className="h-4 w-4" /></Button>
           <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></Button>
-        </header>
-        <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
+        </header>}
+        {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p>{pending.data?.role==='owner'&&<p className="text-xs text-muted-foreground">Team: {pending.data.team.filter(m=>m.user_id!==user?.id).map(m=>`${m.name} ${m.pending} pending`).join(' · ')||'No other team members'}</p>}</div>}
           {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
@@ -538,7 +544,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             : <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>)}
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
-        </div>
+        </div>}
         {voiceMode && <div className="floating-bani-voice">
           <Button variant="ghost" type="button" className="floating-bani-voice-orb" onClick={voice.interrupt}
             aria-label={voice.needsTap ? "Resume voice" : voice.state === "listening" ? "Send voice recording" : "Interrupt and talk"}>
@@ -550,7 +556,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
-        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (!voiceMode) void send(); }}>
+        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => <div key={f.id} className="floating-bani-attachment">
             {f.url ? <img src={f.url} alt="" /> : <FileText className="h-5 w-5" />}
             <span className="truncate">{f.name}</span>
@@ -575,7 +581,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div> : <div className="floating-bani-row">
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
-            <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder="Ask Bani, or drop a file" aria-label="Ask floating Bani" className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); void send(); } }} />
+            <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={home && open ? "Reply to Bani" : "Ask Bani, or drop a file"} aria-label={home && open ? "Reply to Bani" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
             {dictation.supported && draft.trim() && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
             {!busy && !draft.trim() && !files.length
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
@@ -586,10 +592,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     ) : <>
       <Button variant="ghost" ref={sphereEl} type="button" className={`floating-bani-sphere ${drag ? "is-dragging" : ""} ${overX ? "is-over" : ""}`} style={sphereStyle} aria-label="Open Bani" title="Ask Bani"
         onPointerDown={onSphereDown} onPointerMove={onSphereMove} onPointerUp={e => onSphereUp(e)} onPointerCancel={e => onSphereUp(e, true)} onLostPointerCapture={() => { if (gesture.current) resetGesture(); }}
-        onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) setOpen(true); }}>
+        onContextMenu={e => e.preventDefault()} onClick={e => { if (e.detail === 0) openSphere(); }}>
         <BaniOrb size={SPHERE} mode="idle" />
+        {attention > 0 && !holding && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
       </Button>
-      {attention > 0 && !holding && <Button variant="ghost" className={`floating-bani-attention ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''} ${sphere && sphere.x < window.innerWidth / 2 ? "is-left" : ""}`} style={sphere ? { top: sphere.y + 8, ...(sphere.x < window.innerWidth / 2 ? { left: sphere.x + SPHERE + 8, right: "auto", bottom: "auto" } : { right: window.innerWidth - sphere.x + 8, bottom: "auto" }) } : undefined} onClick={openWork}>{attention} items pending</Button>}
       <Button variant="ghost" type="button" className="floating-bani-hide sr-only focus:not-sr-only" onClick={() => { setHidden(true); setOpen(false); }}>Hide assistant</Button>
       {holding && <div className={`floating-bani-target ${overX ? "is-active" : ""}`} aria-hidden="true"><X className="h-6 w-6" /></div>}
     </>}

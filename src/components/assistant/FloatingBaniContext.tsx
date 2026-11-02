@@ -61,6 +61,8 @@ export function useBaniWorkPublisher(path: string, items: PageWorkItem[], ready 
     return () => setWork?.(current => current?.path === path ? null : current);
   }, [setWork, path, signature, ready]);
 }
+/** Whether the shared Bani conversation is open (on Home it replaces the cards). */
+export function useFloatingBaniOpen() { const s = useContext(Context); return [s?.open[0] ?? false, s?.open[1] ?? noop] as const; }
 /** Scan Receipt registers its live unsaved draft so the floating sphere can fix it. */
 export const useFloatingBaniSales = () => useContext(Context)?.sales[1] ?? noop;
 /** Launchpad drop zone: stage files in Bani's composer and open it; Bani classifies and routes them. */
