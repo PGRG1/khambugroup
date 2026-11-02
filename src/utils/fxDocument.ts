@@ -6,7 +6,7 @@ export type FxDoc = { currency: string; fx_rate?: number | null; original_total?
  * Foreign documents keep the original total; total/subtotal/tax and lines are stored in base = original × rate.
  * Returns the factor to apply to line amounts. Base-currency documents pass through unchanged.
  */
-export function convertDocument<T extends FxDoc>(doc: T, base: string, rate: number | null): { doc: T; factor: number } {
+export function convertDocument<T extends FxDoc>(doc: T, base: string, rate: number | null): { doc: T & { original_total: number | null; fx_rate: number | null }; factor: number } {
   if (!doc.currency || doc.currency === base) return { doc: { ...doc, original_total: null, fx_rate: null }, factor: 1 };
   if (!rate || rate <= 0) throw new Error(`No ${doc.currency} → ${base} rate for this date; enter the rate printed on the document.`);
   const original = doc.original_total ?? Number(doc.total_amount);
