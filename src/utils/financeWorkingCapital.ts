@@ -2,6 +2,7 @@ export type OwedItem = {
   key: string; id: string; source: 'supplier' | 'bill' | 'salary' | 'mpf' | 'staff';
   payeeKey: string; payee: string; what: string; venue: string | null;
   date: string; due: string | null; amount: number; supplierId?: string | null;
+  currency?: string | null; owed_in_currency?: number | null;
   employeeId?: string; year?: number; month?: number; link: string;
 };
 export type AppliedItem = {source: OwedItem['source']; id: string; amount: number; credits: {id: string; amount: number}[]};
