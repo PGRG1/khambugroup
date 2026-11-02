@@ -4336,6 +4336,50 @@ export type Database = {
           },
         ]
       }
+      finance_tax_notices: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          reference: string
+          source_document: string | null
+          tax_year: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          reference?: string
+          source_document?: string | null
+          tax_year?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          reference?: string
+          source_document?: string | null
+          tax_year?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_tax_notices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_team_action_events: {
         Row: {
           action_id: string
@@ -15065,6 +15109,7 @@ export type Database = {
         Returns: string
       }
       finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
+      finance_tax_notice_save: { Args: { p: Json; t: string }; Returns: string }
       finance_tax_source: { Args: { d: string; t: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
