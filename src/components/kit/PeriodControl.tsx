@@ -55,22 +55,27 @@ export function PeriodControl({ mode, value, onChange, booksStart, allowFuture, 
   return mobile ? <Drawer open={open} onOpenChange={o => { setOpen(o); if (!o) setAnchor(null); }} shouldScaleBackground={false}><DrawerTrigger asChild>{trigger}</DrawerTrigger><DrawerContent className="bg-popover max-h-[90dvh]"><DrawerHeader><DrawerTitle>{title}</DrawerTitle></DrawerHeader>{body}</DrawerContent></Drawer> : <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" className={cn('p-0', custom ? 'w-auto' : 'w-72')}>{body}</PopoverContent></Popover>;
 }
 
-export function useFinancePeriod(mode: PeriodMode, initial = mode === 'asat' ? 'today' : mode === 'month' ? 'mtd' : 'mtd', options: { hints?: Record<string, string>; dataMonths?: string[]; extraShortcuts?: boolean; defaultMonth?: string } = {}) {
+export function useSharedPeriod(mode: PeriodMode, initial = mode === 'asat' ? 'today' : 'mtd', options: { hints?: Record<string, string>; dataMonths?: string[]; extraShortcuts?: boolean; defaultMonth?: string; allowFuture?: string; financialYear?: boolean } = {}) {
   const books = useBooksWindow(), { user } = useAuth(), preview = usePreviewMode();
   const storageKey = `period-control:${user?.id}:${books.tenantId}:${preview.previewUserId ?? ''}:${mode}`;
-  const defaultValue = () => options.defaultMonth ? monthSelection(options.defaultMonth, books.today, mode) : shortcutSelection(initial, books.today, books.fiscalStart);
+  const fiscalStart = options.financialYear ? books.fiscalStart : 1;
+  const defaultValue = () => options.defaultMonth ? { ...monthSelection(options.defaultMonth, books.today, mode), to: options.allowFuture && options.defaultMonth > books.today.slice(0,7) ? monthEnd(options.defaultMonth) : monthSelection(options.defaultMonth, books.today, mode).to } : shortcutSelection(initial, books.today, fiscalStart);
   const [value, setValue] = useState<PeriodSelection>(defaultValue), [changed, setChanged] = useState(false);
   useEffect(() => {
     if (!books.data) return;
     let saved: PeriodSelection | undefined;
-    try { saved = validSessionSelection(JSON.parse(sessionStorage.getItem(storageKey) ?? 'null'), books.today, books.start); } catch { /* unavailable session storage */ }
+    try { saved = validSessionSelection(JSON.parse(sessionStorage.getItem(storageKey) ?? 'null'), books.today, books.start, options.allowFuture ? monthEnd(options.allowFuture) : books.today); } catch { /* unavailable session storage */ }
     const next = saved ?? defaultValue();
     setValue({ ...next, from: next.from < books.start ? books.start.slice(0, 7) + '-01' : next.from });
     setChanged(!!saved);
-  }, [storageKey, books.today, books.start, books.fiscalStart, options.defaultMonth]);
+  }, [storageKey, books.today, books.start, fiscalStart, options.defaultMonth, options.allowFuture]);
   const onChange = (next: PeriodSelection) => {
     setValue(next); setChanged(true);
     try { sessionStorage.setItem(storageKey, JSON.stringify({ day: books.today, value: next })); } catch { /* unavailable session storage */ }
   };
-  return { value, onChange, changed, booksStart: books.start, month: value.from.slice(0, 7), fromIso: value.from, toIso: value.to, label: selectionLabel(value, mode, books.today, books.fiscalStart), inPeriod: (date?: string | null) => !!date && date.slice(0, 10) >= value.from && date.slice(0, 10) <= value.to, control: <PeriodControl mode={mode} value={value} onChange={onChange} financialYear {...options}/> };
+  return { value, onChange, changed, booksStart: books.start, month: value.from.slice(0, 7), fromIso: value.from, toIso: value.to, label: selectionLabel(value, mode, books.today, fiscalStart), inPeriod: (date?: string | null) => !!date && date.slice(0, 10) >= value.from && date.slice(0, 10) <= value.to, control: <PeriodControl mode={mode} value={value} onChange={onChange} {...options}/> };
+}
+
+export function useFinancePeriod(mode: PeriodMode, initial = mode === 'asat' ? 'today' : 'mtd', options: { hints?: Record<string, string>; dataMonths?: string[]; extraShortcuts?: boolean; defaultMonth?: string } = {}) {
+  return useSharedPeriod(mode, initial, { ...options, financialYear: true });
 }
