@@ -1,6 +1,6 @@
 # Project Architecture Rules
-Read nested AGENTS.md for Finance, People, assistant/voice and Alerts before related changes.
-- All populated tests use existing Finance isolated QA tenant ff000000-0000-4000-8000-000000000001; remove test rows afterwards. Never create test tenants/users or insert fixtures into real tenants, to protect production evidence.
+Read nested AGENTS.md (Finance, People, assistant/voice, Alerts) before related changes.
+- All populated tests use existing Finance isolated QA tenant ff000000-0000-4000-8000-000000000001; remove test rows afterwards. Never create test tenants/users or insert fixtures into real tenants.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
@@ -23,12 +23,12 @@ Read nested AGENTS.md for Finance, People, assistant/voice and Alerts before rel
 - Bani contextual memory lives in chat-assistant `contextMemory.ts`: past record notes plus `bani_memory_notes` (server-written, venue/supplier scoped) are injected as untrusted background, never as rules; post-scan verdicts come from deterministic scanner checks, not extra model calls.
 - Scan Invoice calls match-invoice-lines once per draft/supplier; sure uses buildMatchLinkPatch with stable-line/unchanged-input guards. Manual choices write tenant-scoped match_feedback. Other pages keep their matcher; save guards stay unchanged.
 - Scanned sales receipts auto-record only through parse-receipt `intake.ts` using pure rules in `_shared/receiptAutoPost.ts`: figures must balance, venue/date valid, no existing same-venue-day sales or closure, and an independent second model read must agree field-by-field; insert/journal run as the user; otherwise a non-posting intake with reasons.
-- Launchpad `/` stages drops via useFloatingBaniAttach; Bani alone classifies/routes. `/assistant` and `/finance-team` stay routable, not sidebar links.
+- `/` is Landing (YourTeam at `/your-team`); it reuses YourTeam roleViews + landingNumbers.ts, only opens panels/links. `/assistant`, `/finance-team` stay routable, not sidebar links.
 - Venue filtering is one portal-wide scope (`useVenueScope` in `src/hooks/useVenueScope.tsx`, pure rules in `src/utils/venueScope.ts`) mounted once in AppLayout with the top-bar picker and page reminder; pages must not add their own venue view filters (data-entry venue fields are separate), so every page agrees on which venues are shown.
 - Seats use dated venue_seat_history via useSeatHistory/seatHistory.ts; venues.seats is only the trigger-maintained latest mirror.
 - Revenue/Purchasing/Stock share SectionPillRow/portaled tabs; Register/GRNs reuse Invoices; dates use PeriodControl/usePagePeriod with books windows and explicit future plans. purchaseRegister owns item math; stockPresentation owns On hand. StockCountScreen/useStockCount uses save_stock_count_area for locked totals/unknowns; stockCountReview owns gaps; read-stock-count reuses MATCHER_MODEL and validated candidates. Sent counts are immutable with whole-count approval; browser speech is stock-only. Downloads filtered; Documents redirects.
 - Lists use kit; salesRecordChecks owns Sales checks; menuCosts owns RLS-refreshed menu math/bought drafts. supplierAccounts/supplierDeposits own lists/received Assets; invoker confirmations/idempotent returns never sync invoices/POs.
-- Sales notes store Closed early / Weather / Private event / POS problem explanations for drops.
+- Sales notes store drop explanations (Closed early/Weather/Private event/POS problem).
 - DailyRecords uses a fixed-column semantic table with optional user-keyed column preferences; missing runs derive from full scoped sales history and tenant-local dates through salesRecordChecks, so period filtering never invents starts.
 - Closed days live in `venue_closures` (single days) and `venue_closure_rules` (every-weekday / ranges), resolved only through `src/utils/venueClosures.ts` (client) and the finance-team loader; `venue_closed_days` is deprecated and only kept in sync, so every check agrees on which days were closed.
 - Bani action cards: chat-assistant `propose_action` writes a row to `bani_pending_actions` (service-role only, no client grants) and streams an `action_card` event; FloatingBani renders Confirm/Cancel and calls back with `action_id`+`decision`, where the server re-validates ownership, expiry (30 min), single-use status, and re-checks sales conflicts before executing. Card titles for closed days are computed server-side from the validated venue/dates — never trust the model's title. Closed days are only markable for yesterday or earlier (Asia/Hong_Kong).

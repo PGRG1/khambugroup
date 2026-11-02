@@ -17,8 +17,8 @@ import {
 } from "../../supabase/functions/_shared/financeTeamReview";
 
 // ---------------- roles ----------------
-type Role = "revenue" | "procurement" | "accountant" | "people" | "controller";
-const ROLES: { key: Role; title: string; sub: string; seed: number; pal: number }[] = [
+export type Role = "revenue" | "procurement" | "accountant" | "people" | "controller";
+export const ROLES: { key: Role; title: string; sub: string; seed: number; pal: number }[] = [
   { key: "revenue", title: "Revenue Manager", sub: "Looks after your sales", seed: 11, pal: 1 },
   { key: "procurement", title: "Procurement Manager", sub: "Looks after suppliers and stock", seed: 27, pal: 2 },
   { key: "accountant", title: "Accountant", sub: "Looks after bills to pay and the books", seed: 77, pal: 5 },
@@ -36,13 +36,13 @@ function roleOfFinding(key: string): Role {
   return (["revenue", "procurement", "accountant", "people", "controller"].includes(p) ? p : "controller") as Role;
 }
 
-interface Review {
+export interface Review {
   id: string; venue_id: string | null; venue_label: string; review_type: string;
   period_start: string; period_end: string; status: string; generated_at: string | null;
   specialists: SpecialistReport[]; synthesis: Synthesis;
 }
 
-interface RoleView {
+export interface RoleView {
   role: Role;
   summary: string;
   headline: { value: Figure; note: string } | null;
@@ -51,7 +51,7 @@ interface RoleView {
 }
 
 /** Normalize any saved review (old or new shape) into per-role views. */
-function roleViews(review: Review): RoleView[] {
+export function roleViews(review: Review): RoleView[] {
   return ROLES.map(({ key }) => {
     const mine: Finding[] = [];
     let summary = "";

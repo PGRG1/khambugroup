@@ -20,6 +20,7 @@ import FinanceTeam from "./pages/FinanceTeam";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
 import YourTeam from "./pages/YourTeam";
+import Landing from "./pages/Landing";
 
 import DataPage from "./pages/DataPage";
 import SalesRecordDetail from "./pages/SalesRecordDetail";
@@ -225,7 +226,8 @@ function App() {
                 <Route path="/platform/clients/:tenantId/onboarding" element={<PlatformRoute><ClientOnboarding /></PlatformRoute>} />
                 <Route path="*" element={<NotFound />} />
                 <Route element={<TenantShell />}>
-<Route path="/" element={<ProtectedRoute><YourTeam /></ProtectedRoute>} />
+<Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
+                <Route path="/your-team" element={<ProtectedRoute><YourTeam /></ProtectedRoute>} />
                 <Route path="/overview" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
