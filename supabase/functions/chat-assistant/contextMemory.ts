@@ -1,6 +1,7 @@
 // Contextual memory: recent human comments on past records plus short tips the
 // user told Bani, scoped to this tenant and the venue/supplier in review.
 // Retrieved as background only — never treated as instructions or rules.
+import { sameNote } from "../_shared/noteSameness.ts";
 const clean = (s: unknown) => typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, 240) : "";
 
 export async function loadMemory(admin: any, tenantId: string, scope: { venue?: string | null; supplierId?: string | null }) {
@@ -20,7 +21,7 @@ export async function loadMemory(admin: any, tenantId: string, scope: { venue?: 
   }
   const keys = [scope.venue ? ["venue", scope.venue.toLowerCase()] : null, scope.supplierId ? ["supplier", scope.supplierId] : null].filter(Boolean) as string[][];
   for (const [type, key] of keys) {
-    jobs.push(admin.from("bani_memory_notes").select("created_at,note").eq("tenant_id", tenantId).eq("scope_type", type).eq("scope_key", key)
+    jobs.push(admin.from("bani_memory_notes").select("created_at,note").eq("tenant_id", tenantId).eq("scope_type", type).eq("scope_key", key).is("disabled_at", null)
       .order("created_at", { ascending: false }).limit(10).then(({ data }: any) => {
         for (const r of data ?? []) { const t = clean(r.note); if (t) out.unshift(`${String(r.created_at).slice(0, 10)} (told to Bani): ${t}`); }
       }));
@@ -36,5 +37,9 @@ export function memoryBlock(notes: string[]) {
 export async function saveMemory(admin: any, tenantId: string, userId: string, type: "venue" | "supplier", key: string | null | undefined, note: unknown) {
   const t = clean(note);
   if (!key || t.length < 3) return;
+  const scopeKey = type === "venue" ? key.toLowerCase() : key;
+  // Same note already saved for this scope (case/space/near-identical wording): don't save again.
+  const { data: existing } = await admin.from("bani_memory_notes").select("note").eq("tenant_id", tenantId).eq("scope_type", type).eq("scope_key", scopeKey).is("disabled_at", null).limit(200);
+  if ((existing ?? []).some((r: any) => sameNote(String(r.note ?? ""), t))) return;
   await admin.from("bani_memory_notes").insert({ tenant_id: tenantId, scope_type: type, scope_key: type === "venue" ? key.toLowerCase() : key, note: t, source: "chat", created_by: userId }).then(() => {}, () => {});
 }

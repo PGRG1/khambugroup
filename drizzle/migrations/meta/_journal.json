@@ -1079,6 +1079,13 @@
       "when": 1793632668904,
       "tag": "0153_fx_month_end_revaluation_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1793648220731,
+      "tag": "0154_bani_learning_forget",
+      "breakpoints": true
     }
   ]
 }

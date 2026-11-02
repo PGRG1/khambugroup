@@ -1218,6 +1218,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          disabled_at: string | null
           id: string
           note: string
           scope_key: string
@@ -1228,6 +1229,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          disabled_at?: string | null
           id?: string
           note: string
           scope_key?: string
@@ -1238,6 +1240,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          disabled_at?: string | null
           id?: string
           note?: string
           scope_key?: string
@@ -9718,6 +9721,7 @@ export type Database = {
           bani_product_id: string | null
           chosen_product_id: string | null
           created_at: string
+          disabled_at: string | null
           id: string
           item_code: string | null
           printed_description: string
@@ -9732,6 +9736,7 @@ export type Database = {
           bani_product_id?: string | null
           chosen_product_id?: string | null
           created_at?: string
+          disabled_at?: string | null
           id?: string
           item_code?: string | null
           printed_description?: string
@@ -9746,6 +9751,7 @@ export type Database = {
           bani_product_id?: string | null
           chosen_product_id?: string | null
           created_at?: string
+          disabled_at?: string | null
           id?: string
           item_code?: string | null
           printed_description?: string
@@ -16622,6 +16628,10 @@ export type Database = {
       }
       settings_edit_accounting_example: {
         Args: { forget?: boolean; i: string; r: string; t: string }
+        Returns: undefined
+      }
+      settings_forget_learning: {
+        Args: { ids: string[]; k: string; t: string }
         Returns: undefined
       }
       settlement_clearing_venue: {
