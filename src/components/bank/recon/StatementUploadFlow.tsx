@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { matchPocket, statementGroupLabel } from "@/utils/statementPockets";
+import { getBaseCurrency } from "@/utils/money";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -46,7 +48,7 @@ export type ExtractedStatement = {
   accounts: ExtractedAccount[];
 };
 
-type Mapping = { bank_account_id: string | "__create__" | "__skip__"; new_account_name?: string };
+type Mapping = { bank_account_id: string | "__create__" | "__skip__" | "__ask__"; new_account_name?: string };
 
 export function StatementUploadFlow({
   open, onClose, onCommitted, accounts, reload, tenantId, initial,
@@ -63,7 +65,7 @@ export function StatementUploadFlow({
   const [file, setFile] = useState<File | null>(initial?.file??null);
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedStatement | null>(initial?.extracted??null);
-  const [mappings, setMappings] = useState<Record<number, Mapping>>(()=>Object.fromEntries((initial?.extracted.accounts??[]).map((a,i)=>[i,{bank_account_id:accounts.filter(x=>x.account_number_last4===a.account_number_last4).length===1?accounts.find(x=>x.account_number_last4===a.account_number_last4)?.id??"__skip__":"__skip__"}])));
+  const [mappings, setMappings] = useState<Record<number, Mapping>>(()=>Object.fromEntries((initial?.extracted.accounts??[]).map((a,i)=>[i,{bank_account_id:matchPocket(accounts as any,a,getBaseCurrency())??"__ask__"}])));
   const [filePath, setFilePath] = useState<string | null>(null);
 
   const reset = () => {
@@ -113,10 +115,8 @@ export function StatementUploadFlow({
       ex.accounts.forEach((a, i) => {
         const key = `${ex.bank_name}|${a.account_number_last4}`;
         const matchedById = savedMap[key];
-        const matchedByLast4 = !matchedById && a.account_number_last4
-          ? accounts.find((x) => x.account_number_last4 === a.account_number_last4)?.id
-          : null;
-        init[i] = { bank_account_id: matchedById || matchedByLast4 || "__create__", new_account_name: `${ex.bank_name} ${a.account_type}` };
+        const matched = matchPocket(accounts as any, a, getBaseCurrency(), matchedById);
+        init[i] = { bank_account_id: matched || "__ask__", new_account_name: `${ex.bank_name} ${a.account_type} ${a.currency}` };
       });
       setMappings(init);
       setStep("preview");
@@ -140,6 +140,7 @@ export function StatementUploadFlow({
         if (!/^[A-Z]{3}$/.test(a.currency||'')) throw new Error('Confirm the statement currency before importing');
         const m = mappings[i];
         if (!m || m.bank_account_id === "__skip__") continue;
+        if (m.bank_account_id === "__ask__") throw new Error("Choose an account for every pocket first");
 
         let bankAccountId = m.bank_account_id;
         if (bankAccountId === "__create__") {
@@ -151,6 +152,7 @@ export function StatementUploadFlow({
               account_number_last4: a.account_number_last4 || "",
               account_type: a.account_type,
               currency: a.currency,
+              group_label: statementGroupLabel(extracted.bank_name, extracted.accounts),
               opening_balance: a.opening_balance || 0,
               opening_date: extracted.statement_date,
               tenant_id: tenantId,
@@ -161,6 +163,9 @@ export function StatementUploadFlow({
           bankAccountId = created.id;
         }
 
+        if (m.bank_account_id !== "__create__") {
+          await supabase.from("bank_accounts").update({ group_label: statementGroupLabel(extracted.bank_name, extracted.accounts) } as any).eq("id", bankAccountId).is("group_label", null);
+        }
         // Save mapping for future uploads
         if (a.account_number_last4) {
           await supabase.from("bank_statement_account_mappings" as any).upsert({
@@ -300,12 +305,13 @@ export function StatementUploadFlow({
                     <div>
                       <Label className="text-xs">Map to bank account</Label>
                       <Select
-                        value={mapped?.bank_account_id || "__create__"}
+                        value={mapped?.bank_account_id || "__ask__"}
                         onValueChange={(v) => setMappings((prev) => ({ ...prev, [i]: { ...(prev[i] || {}), bank_account_id: v } }))}
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__create__">+ Create new bank account</SelectItem>
+                          <SelectItem value="__ask__" disabled>Choose account…</SelectItem>
+                          <SelectItem value="__create__">+ Add this pocket as a new account</SelectItem>
                           <SelectItem value="__skip__">Skip this account</SelectItem>
                           {accounts.map((acc) => (
                             <SelectItem key={acc.id} value={acc.id}>
@@ -316,7 +322,7 @@ export function StatementUploadFlow({
                       </Select>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-emerald-400">
-                      {mapped?.bank_account_id && mapped.bank_account_id !== "__create__" && mapped.bank_account_id !== "__skip__" && (
+                      {mapped?.bank_account_id && mapped.bank_account_id !== "__create__" && mapped.bank_account_id !== "__skip__" && mapped.bank_account_id !== "__ask__" && (
                         <><CheckCircle2 className="h-3 w-3" /> Linked</>
                       )}
                     </div>
@@ -337,7 +343,7 @@ export function StatementUploadFlow({
 
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button onClick={commit}><ArrowRight className="h-4 w-4" /> Confirm & Import</Button>
+              <Button onClick={commit} disabled={extracted?.accounts.some((_, k) => !mappings[k] || mappings[k].bank_account_id === "__ask__")}><ArrowRight className="h-4 w-4" /> Confirm & Import</Button>
             </DialogFooter>
           </div>
         )}

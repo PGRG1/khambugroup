@@ -1016,6 +1016,62 @@
       "when": 1793628832357,
       "tag": "0144_fx_card_charge_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1793630608488,
+      "tag": "0145_fx_difference_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1793630759446,
+      "tag": "0146_fx_bank_side_finish",
+      "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1793630820077,
+      "tag": "0147_bill_payment_tenant_scoped_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1793631027578,
+      "tag": "0148_fix_journal_line_fx_source_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1793631125200,
+      "tag": "0149_fix_bank_payment_approval_alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1793631200033,
+      "tag": "0150_fix_owed_payment_ambiguous_alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1793631253099,
+      "tag": "0151_journal_source_types_complete",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1793631306569,
+      "tag": "0152_fix_bank_matches_notes_param",
+      "breakpoints": true
     }
   ]
 }

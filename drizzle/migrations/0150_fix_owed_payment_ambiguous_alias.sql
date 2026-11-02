@@ -1,0 +1,14 @@
+DO $do$ DECLARE s text:=pg_get_functiondef('public.finance_record_owed_payment'::regproc); BEGIN
+ IF position($o0$
+FOR g IN SELECT i.supplier_id,sum((x->>'amount')::numeric) cash FROM jsonb_array_elements(p_items) x JOIN public.invoices i ON i.id=(x->>'id')::uuid AND i.tenant_id=p_tenant WHERE x->>'source'='supplier' GROUP BY i.supplier_id LOOP
+allocs:='[]'$o0$ in s)=0 THEN RAISE EXCEPTION 'owed patch 0 missing'; END IF; s:=replace(s,$o0$
+FOR g IN SELECT i.supplier_id,sum((x->>'amount')::numeric) cash FROM jsonb_array_elements(p_items) x JOIN public.invoices i ON i.id=(x->>'id')::uuid AND i.tenant_id=p_tenant WHERE x->>'source'='supplier' GROUP BY i.supplier_id LOOP
+allocs:='[]'$o0$,$n0$
+FOR g IN SELECT i.supplier_id,sum((xa->>'amount')::numeric) cash FROM jsonb_array_elements(p_items) xa JOIN public.invoices i ON i.id=(xa->>'id')::uuid AND i.tenant_id=p_tenant WHERE xa->>'source'='supplier' GROUP BY i.supplier_id LOOP
+allocs:='[]'$n0$);
+ IF position($o1$
+FOR g IN SELECT p.year,p.month,x->>'source' kind,sum((x->>'amount')::numeric) total FROM jsonb_array_elements(p_items) x JOIN public.hr_payroll p ON p.id=(x->>'id')::uuid AND p.tenant_id=p_tenant WHERE x->>'source' IN('salary','mpf') GROUP BY p.year,p.month,x->>'source' LOOP$o1$ in s)=0 THEN RAISE EXCEPTION 'owed patch 1 missing'; END IF; s:=replace(s,$o1$
+FOR g IN SELECT p.year,p.month,x->>'source' kind,sum((x->>'amount')::numeric) total FROM jsonb_array_elements(p_items) x JOIN public.hr_payroll p ON p.id=(x->>'id')::uuid AND p.tenant_id=p_tenant WHERE x->>'source' IN('salary','mpf') GROUP BY p.year,p.month,x->>'source' LOOP$o1$,$n1$
+FOR g IN SELECT p.year,p.month,xa->>'source' kind,sum((xa->>'amount')::numeric) total FROM jsonb_array_elements(p_items) xa JOIN public.hr_payroll p ON p.id=(xa->>'id')::uuid AND p.tenant_id=p_tenant WHERE xa->>'source' IN('salary','mpf') GROUP BY p.year,p.month,xa->>'source' LOOP$n1$);
+ IF position($o2$SELECT p_tenant,bid,p.id,p.employee_id,(x->>'amount')::numeric,g.kind FROM jsonb_array_elements(p_items) x JOIN public.hr_payroll p ON p.id=(x->>'id')::uuid AND p.tenant_id=p_tenant WHERE x->>'source'=g.kind$o2$ in s)=0 THEN RAISE EXCEPTION 'owed patch 2 missing'; END IF; s:=replace(s,$o2$SELECT p_tenant,bid,p.id,p.employee_id,(x->>'amount')::numeric,g.kind FROM jsonb_array_elements(p_items) x JOIN public.hr_payroll p ON p.id=(x->>'id')::uuid AND p.tenant_id=p_tenant WHERE x->>'source'=g.kind$o2$,$n2$SELECT p_tenant,bid,p.id,p.employee_id,(xa->>'amount')::numeric,g.kind FROM jsonb_array_elements(p_items) xa JOIN public.hr_payroll p ON p.id=(xa->>'id')::uuid AND p.tenant_id=p_tenant WHERE xa->>'source'=g.kind$n2$);
+ EXECUTE s; END $do$;

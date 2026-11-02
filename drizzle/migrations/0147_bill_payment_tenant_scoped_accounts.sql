@@ -1,0 +1,9 @@
+DO $do$ DECLARE s text:=pg_get_functiondef('public.post_expense_bill_payment(uuid)'::regprocedure); BEGIN
+ IF position($pa$WHERE rule_type='accounts_payable' LIMIT 1$pa$ in s)=0 OR position($pb$WHERE rule_type='cash_payment_clearing' LIMIT 1$pb$ in s)=0 OR position($pc$WHERE rule_type='bank_payment_clearing' AND match_key='' LIMIT 1$pc$ in s)=0 OR position($pd$VALUES (p.payment_date, 'Payment for bill '||COALESCE(b.bill_number,''), 'expense_bill_payment', p.id::text, b.venue, 'draft', v_uid)$pd$ in s)=0 THEN RAISE EXCEPTION 'bill payment patch missing'; END IF;
+ s:=replace(s,$pa$WHERE rule_type='accounts_payable' LIMIT 1$pa$,$qa$WHERE rule_type='accounts_payable' AND tenant_id=b.tenant_id LIMIT 1$qa$);
+ s:=replace(s,$pb$WHERE rule_type='cash_payment_clearing' LIMIT 1$pb$,$qb$WHERE rule_type='cash_payment_clearing' AND tenant_id=b.tenant_id LIMIT 1$qb$);
+ s:=replace(s,$pc$WHERE rule_type='bank_payment_clearing' AND match_key='' LIMIT 1$pc$,$qc$WHERE rule_type='bank_payment_clearing' AND match_key='' AND tenant_id=b.tenant_id LIMIT 1$qc$);
+ s:=replace(s,$pd$INSERT INTO public.journal_entries (entry_date, memo, source_type, source_id, venue, status, created_by)$pd$,$qd$INSERT INTO public.journal_entries (entry_date, memo, source_type, source_id, venue, status, created_by, tenant_id)$qd$);
+ s:=replace(s,$pd$VALUES (p.payment_date, 'Payment for bill '||COALESCE(b.bill_number,''), 'expense_bill_payment', p.id::text, b.venue, 'draft', v_uid)$pd$,$qd$VALUES (p.payment_date, 'Payment for bill '||COALESCE(b.bill_number,''), 'expense_bill_payment', p.id::text, b.venue, 'draft', v_uid, b.tenant_id)$qd$);
+ s:=replace(s,$pe$INSERT INTO public.journal_lines (entry_id, account_id, debit, credit, venue, line_no, memo) VALUES (e_id,$pe$,$qe$INSERT INTO public.journal_lines (tenant_id, entry_id, account_id, debit, credit, venue, line_no, memo) VALUES (b.tenant_id, e_id,$qe$);
+ EXECUTE s; END $do$;

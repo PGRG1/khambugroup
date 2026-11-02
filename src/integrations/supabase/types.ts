@@ -4600,6 +4600,93 @@ export type Database = {
           },
         ]
       }
+      finance_pending_transfers: {
+        Row: {
+          amount_in: number
+          amount_out: number
+          created_at: string
+          created_by: string | null
+          from_account: string
+          id: string
+          in_txn: string | null
+          notes: string
+          out_txn: string | null
+          pair_id: string | null
+          status: string
+          tenant_id: string
+          to_account: string
+          transfer_date: string
+        }
+        Insert: {
+          amount_in: number
+          amount_out: number
+          created_at?: string
+          created_by?: string | null
+          from_account: string
+          id?: string
+          in_txn?: string | null
+          notes?: string
+          out_txn?: string | null
+          pair_id?: string | null
+          status?: string
+          tenant_id: string
+          to_account: string
+          transfer_date: string
+        }
+        Update: {
+          amount_in?: number
+          amount_out?: number
+          created_at?: string
+          created_by?: string | null
+          from_account?: string
+          id?: string
+          in_txn?: string | null
+          notes?: string
+          out_txn?: string | null
+          pair_id?: string | null
+          status?: string
+          tenant_id?: string
+          to_account?: string
+          transfer_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_pending_transfers_from_account_fkey"
+            columns: ["from_account"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_pending_transfers_in_txn_fkey"
+            columns: ["in_txn"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_pending_transfers_out_txn_fkey"
+            columns: ["out_txn"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_pending_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_pending_transfers_to_account_fkey"
+            columns: ["to_account"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_reconciliation_explanations: {
         Row: {
           created_at: string
@@ -15370,6 +15457,10 @@ export type Database = {
       }
     }
     Functions: {
+      _finance_transfer_pair: {
+        Args: { i: string; note: string; o: string; t: string; uid: string }
+        Returns: string
+      }
       _rebuild_journal_from_operations_impl: {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
@@ -15658,6 +15749,22 @@ export type Database = {
         Returns: undefined
       }
       finance_asset_propose: { Args: { p: Json; t: string }; Returns: string }
+      finance_bank_card_reprice: {
+        Args: { doc_id: string; doc_type: string; t: string; txn: string }
+        Returns: Json
+      }
+      finance_bank_opening_prepare: {
+        Args: { acct: string; t: string }
+        Returns: string
+      }
+      finance_bank_opening_value: {
+        Args: { acct: string; t: string }
+        Returns: Json
+      }
+      finance_bank_payment_preview: {
+        Args: { items: Json; t: string; txn: string }
+        Returns: Json
+      }
       finance_bank_unpaid_draft: {
         Args: { items: Json; notes?: string; t: string; txn: string }
         Returns: string
@@ -15800,6 +15907,7 @@ export type Database = {
         Returns: Json
       }
       finance_opening_asset: { Args: { p: Json; t: string }; Returns: string }
+      finance_opening_equity_account: { Args: { t: string }; Returns: string }
       finance_propose_journal: {
         Args: {
           d: string
@@ -15931,6 +16039,24 @@ export type Database = {
       finance_tax_notice_save: { Args: { p: Json; t: string }; Returns: string }
       finance_tax_source: { Args: { d: string; t: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
+      finance_transfer_pair: {
+        Args: { in_txn: string; notes?: string; out_txn: string; t: string }
+        Returns: string
+      }
+      finance_transfer_pending: {
+        Args: {
+          amount_in: number
+          amount_out: number
+          d: string
+          from_account: string
+          in_txn: string
+          notes?: string
+          out_txn: string
+          t: string
+          to_account: string
+        }
+        Returns: string
+      }
       ft_assignable_members: {
         Args: { _tenant_id: string; _venue_id: string }
         Returns: {
@@ -15960,6 +16086,7 @@ export type Database = {
           used_in: string
         }[]
       }
+      fx_difference_account: { Args: { t: string }; Returns: string }
       fx_rate: {
         Args: { p_currency: string; p_date: string; p_tenant: string }
         Returns: {
