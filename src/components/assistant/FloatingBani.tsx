@@ -25,11 +25,10 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 import { PeopleActionCard } from "./PeopleActionCard";
 import { Button } from "@/components/ui/button";
-import { useBaniPageWork } from "@/hooks/useBaniPageWork";
 import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
 import { useSmartAlerts } from "@/hooks/useSmartAlerts";
 import { stageBaniStatements } from "@/utils/baniStatementHandoff";
-import { formatDate } from "@/utils/format";
+import { supabase } from "@/integrations/supabase/client";
 
 export type FloatingReview = {
   scope: string; binding: string; draftId: string; lineId: string; supplierId: string;
@@ -156,7 +155,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => () => voiceEndRef.current(), []);
 
   const queryClient = useQueryClient();
-  const work = useBaniPageWork(pathname, allowed && !review && !salesDraft);
   const pending = useBaniPending(allowed && !review && !salesDraft);
   const alerts = useSmartAlerts();
   const [activeItem,setActiveItem] = useState<PendingItem|null>(null);
@@ -165,12 +163,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
   const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`:'That is everything pending in your scope.',eventId:item?.id??undefined}]); };
   const openWork = () => {setWorkStart(pendingItems.length);nextWork();setHidden(false);setOpen(true);};
+  const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await supabase.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}}});if(error)throw error;if(data.error)throw new Error(data.error);await queryClient.invalidateQueries({queryKey:['bani-pending']});};
   const dismissEvent = async (id:string) => {try{await alerts.action(id,'done');const item=pendingItems.find(a=>a.id===id);if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a.id!==id));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=pending.data.notifications.find(a=>'smart-'+a.id===event||a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setHidden(false);setOpen(true);},[locationSearch,pending.data,setMessages,setHidden,setOpen]);
-  const [seenWork, setSeenWork] = useState<string | null>(null);
-  const workKey = `${identity}:${pathname}:${work.today}`;
-  useEffect(() => { if (open) setSeenWork(workKey); }, [open, workKey]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
@@ -266,10 +262,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const text = typed || FILES_ONLY_PROMPT;
     if(activeItem && /^(done|dismiss|skip|checked|yes|no|not sure)$/i.test(typed) && !attached.length){
       setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed}]);
-      if(!activeItem.id){setError('This work item has not been saved yet. Please check its existing page workflow.');return;}
-      try{const answer=activeItem.payload.question?({yes:'yes',no:'no','not sure':'unsure'}[typed.toLowerCase()]??'done'):'done';await alerts.action(activeItem.id,answer);const key=activeItem.kind+'|'+activeItem.subject;setFinished(prev=>[...prev,key]);nextWork(pendingItems.filter(a=>a!==activeItem));}catch(e){setError(e instanceof Error?e.message:'Could not update work');}return;
+            try{const answer=activeItem.payload.question?({yes:'yes',no:'no','not sure':'unsure'}[typed.toLowerCase()]??'done'):'done';await completeWork(activeItem,answer);const key=activeItem.kind+'|'+activeItem.subject;setFinished(prev=>[...prev,key]);nextWork(pendingItems.filter(a=>a!==activeItem));}catch(e){setError(e instanceof Error?e.message:'Could not update work');}return;
     }
-    if(activeItem?.kind==='missing_bank_statement'&&attached.length){stageBaniStatements(identity,attached.map(a=>a.file));setFiles([]);setOpen(false);navigate('/finance/cash?bani_statements=1');return;}
+    if(activeItem?.kind==='missing_bank_statement'&&attached.length){stageBaniStatements(`${user?.id}:${tenantId}`,attached.map(a=>a.file));setFiles([]);setOpen(false);navigate('/finance/cash?bani_statements=1');return;}
 
     const requestIdentity = identity;
     abort.current?.abort();
