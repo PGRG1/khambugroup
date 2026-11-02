@@ -83,9 +83,3 @@
 .ld.ph .ld-cols{grid-template-columns:1fr}
 .ld.ph .ld-row{flex-wrap:wrap}.ld.ph .ld-row .ld-btn{margin-left:20px}
 .ld.ph .ld-week{flex-direction:column;gap:2px}.ld.ph .ld-week .d{width:auto;font-size:12px}
-
-/* Greeting sphere as a talk button: mic badge on the orb, shared dictation with the message box */
-.ld-orb{position:relative;border:0;background:none;padding:0;cursor:pointer;line-height:0;border-radius:50%;flex-shrink:0}
-.ld-orbmic{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:var(--mut);box-shadow:0 2px 6px rgba(18,21,16,.18)}
-.ld-orb.on .ld-orbmic{background:var(--amb);border-color:var(--amb);color:#fff;animation:ld-micpulse 1.2s ease-in-out infinite}
-@keyframes ld-micpulse{50%{transform:scale(1.12)}}
