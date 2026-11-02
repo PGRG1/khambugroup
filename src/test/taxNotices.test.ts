@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest';
+import {validTaxNotice} from '@/utils/taxNotices';
+it('requires a reviewed due date and positive cents amount',()=>{expect(validTaxNotice({reference:'Assessment 1',tax_year:'2026/27',due_date:'2026-11-30',amount:8250})).toBe(true);expect(validTaxNotice({reference:'Assessment 1',tax_year:'2026/27',due_date:'2026-11-31',amount:8250})).toBe(false);expect(validTaxNotice({reference:'Assessment 1',tax_year:'',due_date:'2026-11-30',amount:0})).toBe(false);});

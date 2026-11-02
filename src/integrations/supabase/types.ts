@@ -2401,6 +2401,8 @@ export type Database = {
           in_service_date: string | null
           line_no: number
           notes: string | null
+          prepaid_expense_account_id: string | null
+          prepaid_schedule_id: string | null
           salvage_value: number
           supplier_account_id: string | null
           tax_amount: number
@@ -2424,6 +2426,8 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          prepaid_expense_account_id?: string | null
+          prepaid_schedule_id?: string | null
           salvage_value?: number
           supplier_account_id?: string | null
           tax_amount?: number
@@ -2447,6 +2451,8 @@ export type Database = {
           in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          prepaid_expense_account_id?: string | null
+          prepaid_schedule_id?: string | null
           salvage_value?: number
           supplier_account_id?: string | null
           tax_amount?: number
@@ -2490,6 +2496,41 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_expense_account_id_fkey"
+            columns: ["prepaid_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_prepaid_schedule_id_fkey"
+            columns: ["prepaid_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "prepaid_schedules"
             referencedColumns: ["id"]
           },
           {
@@ -4329,6 +4370,50 @@ export type Database = {
           },
           {
             foreignKeyName: "finance_source_postings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_tax_notices: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          reference: string
+          source_document: string | null
+          tax_year: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          reference?: string
+          source_document?: string | null
+          tax_year?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          reference?: string
+          source_document?: string | null
+          tax_year?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_tax_notices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14873,6 +14958,10 @@ export type Database = {
         }
         Returns: string
       }
+      finance_advance_contract_prepare: {
+        Args: { ident: string; t: string }
+        Returns: number
+      }
       finance_apply_account_review: {
         Args: {
           p_code: string
@@ -14888,10 +14977,15 @@ export type Database = {
         Returns: undefined
       }
       finance_asset_propose: { Args: { p: Json; t: string }; Returns: string }
+      finance_bank_unpaid_draft: {
+        Args: { items: Json; notes?: string; t: string; txn: string }
+        Returns: string
+      }
       finance_bill_schedule_propose: {
         Args: { p: Json; t: string }
         Returns: string
       }
+      finance_can_merge_accounts: { Args: { t: string }; Returns: boolean }
       finance_close_bank_period: {
         Args: { p_import: string; p_note?: string; p_tenant: string }
         Returns: string
@@ -15064,6 +15158,7 @@ export type Database = {
         Returns: string
       }
       finance_source_snapshot: { Args: { p_entry: string }; Returns: Json }
+      finance_tax_notice_save: { Args: { p: Json; t: string }; Returns: string }
       finance_tax_source: { Args: { d: string; t: string }; Returns: Json }
       finance_team_scheduler_enabled: { Args: never; Returns: boolean }
       ft_assignable_members: {
