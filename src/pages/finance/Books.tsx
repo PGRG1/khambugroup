@@ -1,4 +1,5 @@
 import {FinanceSchedulesView} from '@/components/finance/FinanceSchedulesView';
+import {CurrenciesView} from '@/components/finance/CurrenciesView';
 import {FinanceTaxView} from '@/components/finance/FinanceTaxView';
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const views = [
   ["chart-of-accounts", "Accounts"],
   ["schedules", "Schedules"],
   ["tax", "Tax"],
+  ["currencies", "Currencies"],
   ["documents", "Documents"],
   ["ledger-audit", "Audit"],
 ];
@@ -49,6 +51,8 @@ export default function Books() {
         <FinanceSchedulesView/>
       ) : view === "tax" ? (
         <FinanceTaxView/>
+      ) : view === "currencies" ? (
+        <CurrenciesView/>
       ) : view === "ledger-audit" ? (
         <LedgerAuditLog />
       ) : view === "documents" ? (
