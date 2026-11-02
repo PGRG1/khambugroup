@@ -1,0 +1,1 @@
+export function deferredCardTipLines(tenders:number,tips:number,sales:number){if(!Number.isFinite(tips)||tips>0||Math.round(tips*100)!==tips*100)throw new Error('Negative cents tips required');const payable=Math.abs(tips);if(Math.round((tenders-payable-sales)*100)!==0)throw new Error('Payments must balance');return {clearingDebit:tenders,tipsCredit:payable,salesCredit:sales};}
