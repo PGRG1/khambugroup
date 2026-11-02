@@ -1,7 +1,7 @@
 import {useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useFinancialDocuments} from '@/hooks/useFinancialDocuments';
-import {usePeriodFilter} from '@/hooks/usePeriodFilter';
+import {usePagePeriod} from '@/hooks/usePagePeriod';
 import {useVenueScope} from '@/hooks/useVenueScope';
 import {useFloatingBaniAttach} from '@/components/assistant/FloatingBaniContext';
 import {PageTop} from '@/components/kit/PageTop';
@@ -14,7 +14,7 @@ import {supabase} from '@/integrations/supabase/client';
 import {storedPath,type FinancialDocument} from '@/utils/financialDocuments';
 import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {toast} from 'sonner';
-export default function DocumentCentre(){const data=useFinancialDocuments();const period=usePeriodFilter(data.documents.map(d=>d.date),'all');const scope=useVenueScope();const attach=useFloatingBaniAttach();const file=useRef<HTMLInputElement>(null);const [search,setSearch]=useState('');const [type,setType]=useState('all');const [page,setPage]=useState(1);const [viewer,setViewer]=useState<{name:string;url:string;pdf:boolean}|null>(null);
+export default function DocumentCentre(){const data=useFinancialDocuments();const period=usePagePeriod(data.documents.map(d=>d.date),'mtd');const scope=useVenueScope();const attach=useFloatingBaniAttach();const file=useRef<HTMLInputElement>(null);const [search,setSearch]=useState('');const [type,setType]=useState('mtd');const [page,setPage]=useState(1);const [viewer,setViewer]=useState<{name:string;url:string;pdf:boolean}|null>(null);
  const filtered=data.documents.filter(d=>period.inPeriod(d.date)&&(type==='all'||d.type===type)&&(!d.venue&&!d.venueId||scope.includesId(d.venueId)||scope.includesName(d.venue))&&`${d.name} ${d.type} ${d.record}`.toLowerCase().includes(search.toLowerCase()));const pages=Math.max(1,Math.ceil(filtered.length/25));const current=Math.min(page,pages);const rows=filtered.slice((current-1)*25,current*25);
  async function open(d:FinancialDocument){const path=storedPath(d.path,d.bucket);if(!path){toast.error('This legacy file link needs checking in its source record');return;}const {data:s,error}=await supabase.storage.from(d.bucket).createSignedUrl(path,60);if(error||!s?.signedUrl){toast.error(error?.message??'Document unavailable');return;}setViewer({name:d.name,url:s.signedUrl,pdf:/\.pdf(?:$|\?)/i.test(path)});}
  return <div className="min-w-0 space-y-4"><PageTop title="Documents" period={period.control} actionsBesideTitle actions={<Button onClick={()=>file.current?.click()}><Upload className="h-4 w-4"/>Scan or upload</Button>}/><input ref={file} type="file" className="hidden" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>{const files=Array.from(e.target.files??[]);if(files.some(f=>f.size>10*1024*1024)){toast.error('Use files under 10 MB');return;}attach(files);e.target.value='';}}/>

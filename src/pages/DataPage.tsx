@@ -16,7 +16,7 @@ import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import { saveReceiptIntake } from "@/utils/salesReceiptIntake";
 import { ReceiptIntakes } from "@/components/sales/ReceiptIntakes";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { DailyRecords, itemKey, type DayItem } from "@/components/sales/DailyRecords";
 import { SalesDayDialog } from "@/components/sales/SalesDayDialog";
 import { useVenueClosures } from "@/hooks/useVenueClosures";
@@ -118,24 +118,8 @@ const DataPage = () => {
   const { rows: allPeriods } = useVenueServicePeriods();
 
   // Period (same control as the other Revenue pages). Default: this month so far.
-  const [from, setFrom] = useState<Date | undefined>(() => mtdRange().from);
-  const [to, setTo] = useState<Date | undefined>(() => mtdRange().to);
-  const [periodName, setPeriodName] = useState(() => monthSoFarLabel());
-  const months = useMemo(() => {
-    const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
-    return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
-  }, [data]);
-  const handlePeriodSelect = (period: string) => {
-    if (period === "MTD") { const r = mtdRange(); setFrom(r.from); setTo(r.to); setPeriodName(monthSoFarLabel()); return; }
-    if (period === "All Time") { setFrom(undefined); setTo(undefined); setPeriodName("All time"); return; }
-    if (period === "Custom") { setPeriodName("Selected dates"); return; }
-    const month = months.find((m) => m.label === period);
-    if (!month) return;
-    const [y, m] = month.key.split("-");
-    setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
-    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
-    setPeriodName(period);
-  };
+  const datePeriod = usePagePeriod(data.map(r => r.date));
+  const { from, to, label: periodName } = datePeriod;
   const today = tenantToday(tenantZone?.id === tenantId ? tenantZone.zone : "Asia/Hong_Kong");
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
@@ -215,8 +199,7 @@ const DataPage = () => {
       <RevenuePageTop
         title="Sales records"
         period={!isActionHidden("revenue.date_range") && (
-          <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo}
-            months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} includeMtd initialPeriod="MTD" labelled />
+          {datePeriod.control}
         )}
         actions={actions}
       />

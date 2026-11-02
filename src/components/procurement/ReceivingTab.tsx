@@ -19,7 +19,7 @@ import { Plus, X, Trash2, ChevronsUpDown, Download, MoreHorizontal, ChevronLeft,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { shortDay } from "@/utils/salesRecordChecks";
 import { formatDate, formatTableCurrency, formatTableInteger, formatDecimal } from "@/utils/format";
 import ProcurementInvoicesTab, { type InvoiceWorkflowControls } from "./ProcurementInvoicesTab";
@@ -110,9 +110,9 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
   const [loading, setLoading] = useState(true);
   const [isManager, setIsManager] = useState(false);
 
-  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("mtd");
   const venueScope = useVenueScope();
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("mtd");
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -182,7 +182,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? "—";
 
-  const period = usePeriodFilter(grns.map((g) => g.received_date || ""), "MTD");
+  const period = usePagePeriod(grns.map((g) => g.received_date || ""), "MTD");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -378,7 +378,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
     loadAll();
   };
 
-  const resetFilters = () => { setSupplierFilter("all"); setStatusFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("mtd"); setStatusFilter("mtd"); };
 
   const runBackfill = async () => {
     if (!tenantId || !user) return;
@@ -433,7 +433,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
   const sortOptions = [{ key: "newest", label: "Newest first", compactLabel: "Newest" }, { key: "oldest", label: "Oldest first", compactLabel: "Oldest" }, { key: "value", label: "Highest value", compactLabel: "Value" }, { key: "supplier", label: "Supplier A–Z", compactLabel: "A–Z" }];
   const filterPanel = (
-    <FilterPanel activeCount={Number(supplierFilter !== "all") + Number(statusFilter !== "all")} onReset={resetFilters} width={320}>
+    <FilterPanel activeCount={Number(supplierFilter !== "mtd") + Number(statusFilter !== "mtd")} onReset={resetFilters} width={320}>
       <FilterGroup title="Supplier">
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
           <SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger>

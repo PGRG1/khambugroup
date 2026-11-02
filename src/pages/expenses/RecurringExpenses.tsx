@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageTop } from "@/components/kit/PageTop";
 import { useExpenseBills } from "@/hooks/useExpenseBills";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { regularBillGroups, isWaitingBill } from "@/utils/expenses";
 import { formatCurrency, formatMonthLabel, formatDate } from "@/utils/format";
@@ -72,7 +72,7 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 
 export default function RecurringExpenses() {
   const { bills, fetchAllocations } = useExpenseBills();
-  const scope=useVenueScope(), period=usePeriodFilter(bills.map(b=>b.bill_date),"all");
+  const scope=useVenueScope(), period=usePagePeriod(bills.map(b=>b.bill_date),"mtd");
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
   const detected=regularBillGroups(bills.filter(b=>scope.includesId(b.venue_id))).filter(g=>!rules.some(r=>r.supplier_id===g.rows[0].supplier_id&&r.venue_id===g.rows[0].venue_id));

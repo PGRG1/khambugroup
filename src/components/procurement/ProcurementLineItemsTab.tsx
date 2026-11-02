@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScanLine, Download, Columns3, ChevronLeft, ChevronRight } from "lucide-react";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { Toolbar, FilterPanel, FilterGroup, SortMenu } from "@/components/kit";
 import { mtdRange } from "@/components/revenue-overview/utils";
 import { monthSoFarLabel, iso } from "@/utils/revenueOverview";
@@ -36,9 +36,8 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
   const [supplier,setSupplier] = useState("all");
   const [notLinked,setNotLinked] = useState(false);
   const [view,setView] = useState<"lines"|"items">("lines");
-  const [period,setPeriod] = useState("MTD");
-  const [from,setFrom] = useState<Date|undefined>(()=>mtdRange().from);
-  const [to,setTo] = useState<Date|undefined>(()=>mtdRange().to);
+  const datePeriod = usePagePeriod(rows.map(r => r.invoice_date));
+  const { from, to, label: periodName } = datePeriod;
   const [lineSort,setLineSort] = useState("newest");
   const [itemSort,setItemSort] = useState("spent");
   const [columns,setColumns] = useState<string[]>([]);
@@ -74,9 +73,6 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
       .on("postgres_changes",{event:"*",schema:"public",table:"invoices",filter:`tenant_id=eq.${tenantId}`},refresh).subscribe();
     return ()=>{if(timer) clearTimeout(timer); void supabase.removeChannel(channel);};
   },[tenantId,fetchRows]);
-  const months = useMemo(()=>[...new Set(rows.map(row=>row.invoice_date.slice(0,7)).filter(Boolean))].sort().reverse(),[rows]);
-  const monthName = formatMonthLabel;
-  const periodName = period === "MTD" ? monthSoFarLabel() : period === "all" ? "All time" : period === "custom" ? "Selected dates" : monthName(period);
   const filtered = useMemo(()=>filterRegisterLines(rows,{from:from ? iso(from):undefined,to:to ? iso(to):undefined,supplier,notLinked,search,includesVenue:scope.includesName}),[rows,from,to,supplier,notLinked,search,scope.includesName]);
   const history = useMemo(()=>rows.filter(row=>scope.includesName(row.venue)),[rows,scope.includesName]);
   const items = useMemo(()=>buildRegisterItems(filtered,history,from ? iso(from):undefined).sort((a,b)=>itemSort === "name" ? a.name.localeCompare(b.name) : itemSort === "change" ? Math.abs(b.change ?? 0)-Math.abs(a.change ?? 0) : b.spent-a.spent),[filtered,history,from,itemSort]);
@@ -102,7 +98,7 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
   const lineName = (row:PurchaseRegisterLine) => <><span className="block break-words">{row.master_name||row.description||"—"}</span>{row.master_name && row.description.trim().toLowerCase()!==row.master_name.trim().toLowerCase() && <span className="block mt-0.5 text-xs text-muted-foreground break-words">{row.description}</span>}{!row.product_id && <span className="block text-xs text-warning">Not linked</span>}</>;
   const rowKeys = (open:()=>void) => ({tabIndex:0,onClick:open,onKeyDown:(event:React.KeyboardEvent)=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();open();}}});
   return <div className="space-y-6 min-w-0 max-[640px]:pb-24">
-    <RevenuePageTop title="Purchase Register" actionsBesideTitle actions={<Button onClick={controls.upload} className="h-9 px-3 min-[641px]:h-10"><ScanLine className="h-4 w-4 mr-1.5"/><span className="min-[641px]:hidden">Upload</span><span className="max-[640px]:hidden">Upload invoice</span></Button>} period={<DateFilter labelled includeMtd initialPeriod="MTD" from={from} to={to} onFromChange={date=>{setPeriod("custom");setFrom(date);}} onToChange={date=>{setPeriod("custom");setTo(date);}} months={months.map(monthName)} onPeriodSelect={selection=>{if(selection==="MTD"){const range=mtdRange();setPeriod("MTD");setFrom(range.from);setTo(range.to);}else if(selection==="All Time"){setPeriod("all");setFrom(undefined);setTo(undefined);}else {const month=months.find(value=>monthName(value)===selection);if(month){setPeriod(month);const [year,m]=month.split("-").map(Number);setFrom(new Date(year,m-1,1));setTo(new Date(year,m,0));}}}}/>}/>
+    <RevenuePageTop title="Purchase Register" actionsBesideTitle actions={<Button onClick={controls.upload} className="h-9 px-3 min-[641px]:h-10"><ScanLine className="h-4 w-4 mr-1.5"/><span className="min-[641px]:hidden">Upload</span><span className="max-[640px]:hidden">Upload invoice</span></Button>} period={datePeriod.control}/>
     <div data-invoice-tabs-host />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Purchase Register records">
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Purchase Register summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(filtered.length)} lines · {formatTableCurrency(total)} · {formatTableInteger(new Set(filtered.map(row=>row.supplier_name)).size)} suppliers</span>{unlinked.length>0&&<span className="text-[13px] text-warning font-normal">· {formatTableInteger(unlinked.length)} not linked</span>}</h2>

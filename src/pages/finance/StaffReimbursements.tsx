@@ -21,7 +21,7 @@ import {
 import ReimbursementAiImport from "@/components/staff-reimbursements/ReimbursementAiImport";
 
 import { PageTop } from "@/components/kit/PageTop";
-import { usePeriodFilter } from "@/hooks/usePeriodFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,11 +34,11 @@ type StatusFilter = "all" | "owing" | "paid";
 
 export default function StaffReimbursements() {
   const sr = useStaffReimbursements();
-  const period=usePeriodFilter(sr.reimbursements.map(r=>r.claim_date),"all"), scope=useVenueScope();
+  const period=usePagePeriod(sr.reimbursements.map(r=>r.claim_date),"mtd"), scope=useVenueScope();
   const {user}=useAuth(); const {isPreviewActive}=usePreviewMode();
   const [owner,setOwner]=useState(false),[review,setReview]=useState<StaffReimbursement|null>(null),[payout,setPayout]=useState("bank"),[approving,setApproving]=useState(false);
   useEffect(()=>{if(sr.tenantId&&user)supabase.rpc("people_owner",{t:sr.tenantId,u:user.id}).then(({data})=>setOwner(data===true));},[sr.tenantId,user]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("mtd");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);

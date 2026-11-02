@@ -5,7 +5,7 @@ import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useSalesData } from "@/hooks/useSalesData";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { mtdRange } from "@/components/revenue-overview/utils";
 
 
@@ -14,7 +14,7 @@ import { mtdRange } from "@/components/revenue-overview/utils";
  * Used by the Revenue Analysis page so it behaves identically to Overview
  * without duplicating any calculation logic.
  */
-export function useRevenueFilters(initial?: () => { from: Date; to: Date }) {
+export function useRevenueFilters(initial = "mtd") {
   const { data, loading } = useSalesData();
   const { venues: dbVenues } = useVenues();
   const { isActionHidden } = usePagePermissions();
@@ -26,32 +26,14 @@ export function useRevenueFilters(initial?: () => { from: Date; to: Date }) {
 
   const vs = useVenueScope();
   const venue: VenueFilter = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name as VenueFilter : "All Venues";
-  const [from, setFrom] = useState<Date | undefined>(() => (initial ?? mtdRange)().from);
-  const [to, setTo] = useState<Date | undefined>(() => (initial ?? mtdRange)().to);
+  const datePeriod = usePagePeriod(data.map(r => r.date), initial);
+  const { from, to } = datePeriod;
   const [view, setView] = useState<"daily" | "monthly">("daily");
-
-  const months = useMemo(() => {
-    const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
-    return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
-  }, [data]);
-
-  const onPeriodSelect = (period: string) => {
-    if (period === "MTD") { const r = mtdRange(); setFrom(r.from); setTo(r.to); return; }
-    if (period === "All Time") { setFrom(undefined); setTo(undefined); return; }
-    if (period === "Custom") return;
-    const month = months.find((m) => m.label === period);
-    if (!month) return;
-    const [y, m] = month.key.split("-");
-    setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
-    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
-  };
-
-
   const filtered = useMemo(() => filterData(data.filter((r) => vs.includesName(r.venue)), "All Venues", from, to), [data, vs.includesName, from, to]);
 
   return {
-    data, loading, venues, venue, from, setFrom, to, setTo,
-    view, setView, months, onPeriodSelect, filtered, isActionHidden,
+    data, loading, venues, venue, from, to, datePeriod,
+    view, setView, filtered, isActionHidden,
   };
 }
 
@@ -75,21 +57,12 @@ export function RevenueControls({
   venues, venue, from, to, setFrom, setTo, months, onPeriodSelect,
   view, setView, hideVenueFilter, hideDateRange, hideViewToggle,
 }: ControlsProps) {
+  const datePeriod = usePagePeriod(months.map(m => m.key + "-01"));
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-2 flex-wrap ml-auto">
         {!hideDateRange && (
-          <DateFilter
-            from={from}
-            to={to}
-            onFromChange={setFrom}
-            onToChange={setTo}
-            months={months.map((m) => m.label)}
-            onPeriodSelect={onPeriodSelect}
-            includeMtd
-            initialPeriod="MTD"
-
-          />
+          {datePeriod.control}
         )}
         {!hideViewToggle && (
           <div className="flex gap-[3px] p-[3px] bg-muted rounded-md">

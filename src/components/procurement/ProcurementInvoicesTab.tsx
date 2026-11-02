@@ -32,7 +32,8 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { usePagination } from "@/components/common/data-table";
-import DateFilter from "@/components/dashboard/DateFilter";
+import { usePagePeriod } from "@/hooks/usePagePeriod";
+import { formatMonthLabel } from "@/utils/format";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -222,9 +223,9 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   
-  const [monthFilter, setMonthFilter] = useState<string>("MTD");
-  const [periodFrom, setPeriodFrom] = useState<Date | undefined>(() => mtdRange().from);
-  const [periodTo, setPeriodTo] = useState<Date | undefined>(() => mtdRange().to);
+  const datePeriod = usePagePeriod(invoices.map(r => r.invoice_date));
+  const monthFilter = "custom";
+  const periodFrom = datePeriod.from, periodTo = datePeriod.to;
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -382,17 +383,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   }, [invoices]);
 
   // Default month filter to most recent month once invoices load
-  useEffect(() => {
-    if (monthFilter === "__latest__" && months.length > 0) {
-      setMonthFilter(months[0]);
-    }
-  }, [months, monthFilter]);
-
-  const fmtMonth = (ym: string) => {
-    const [y, m] = ym.split("-");
-    const date = new Date(Number(y), Number(m) - 1);
-    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  };
+  const fmtMonth = formatMonthLabel;
 
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
@@ -2124,15 +2115,12 @@ function InvoiceTableSection({
   };
   const upload = <Button onClick={onUploadClick} className="h-9 px-3 min-[641px]:h-10"><ScanLine className="h-4 w-4 mr-1.5" /><span className="min-[641px]:hidden">Upload</span><span className="max-[640px]:hidden">Upload invoice</span></Button>;
   const download = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download invoices" title="Download invoices" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
-  const periodName = monthFilter === "MTD" ? monthSoFarLabel() : monthFilter === "all" ? "All time" : monthFilter === "custom" ? "Selected dates" : fmtMonth(monthFilter);
+  const periodName = datePeriod.label;
   const checkCount = filtered.filter(inv => inv.review_status === "Disputed" || (inv as any).ai_anomaly?.flags?.length || invoiceVarianceMap[inv.id]).length;
   const sortKey = `${sortColumns[0]?.key || "invoice_date"}:${sortColumns[0]?.dir || "desc"}`;
   const sortOptions = [{key:"invoice_date:desc",label:"Newest first",compactLabel:"Newest"},{key:"invoice_date:asc",label:"Oldest first",compactLabel:"Oldest"},{key:"supplier_name:asc",label:"Supplier A–Z"},{key:"total_amount:desc",label:"Amount: highest first"},{key:"total_amount:asc",label:"Amount: lowest first"},{key:"review_status:asc",label:"Status"}];
   return <div className="space-y-6 min-w-0 max-[640px]:pb-24">
-    <RevenuePageTop title="Invoices" actionsBesideTitle period={<DateFilter from={periodFrom} to={periodTo}
-      onFromChange={date => { setMonthFilter("custom"); setPeriodFrom(date); }} onToChange={date => { setMonthFilter("custom"); setPeriodTo(date); }}
-      months={months.map(fmtMonth)} labelled includeMtd initialPeriod="MTD"
-      onPeriodSelect={selection => { if (selection === "MTD") { const range = mtdRange(); setMonthFilter("MTD"); setPeriodFrom(range.from); setPeriodTo(range.to); return; } const next = selection === "All Time" ? "all" : months.find(month => fmtMonth(month) === selection); if (next) { setMonthFilter(next); setPeriodFrom(undefined); setPeriodTo(undefined); } }} />} actions={upload} />
+    <RevenuePageTop title="Invoices" actionsBesideTitle period={datePeriod.control} actions={upload} />
     <div data-invoice-tabs-host />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Invoice records">
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></h2>
