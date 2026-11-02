@@ -471,7 +471,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
   const panelStyle = home ? undefined
     : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
-    : isMobile ? { top: vv.top + 12, height: vv.h - 24, maxHeight: vv.h - 24, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
+    : isMobile ? { top: vv.top + 24, height: vv.h - 48, maxHeight: vv.h - 48, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
   const restore = <Button variant="ghost" type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></Button>;
   const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
@@ -487,7 +487,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></Button>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
-          {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p>{pending.data?.role==='owner'&&<p className="text-xs text-muted-foreground">Team: {pending.data.team.filter(m=>m.user_id!==user?.id).map(m=>`${m.name} ${m.pending} pending`).join(' · ')||'No other team members'}</p>}</div>}
+          {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
           {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.preferenceId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Forget Bani preference" onClick={async()=>{try{await alerts.unmute(message.preferenceId??'');setMessages(prev=>prev.map((m,i)=>i===index?{...m,outcome:'Forgotten'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not forget');}}}><X className="h-3 w-3"/></Button>}
@@ -582,7 +582,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={home && open ? "Reply to Bani" : "Ask Bani, or drop a file"} aria-label={home && open ? "Reply to Bani" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
-            {dictation.supported && draft.trim() && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
+            {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
             {!busy && !draft.trim() && !files.length
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
               : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
