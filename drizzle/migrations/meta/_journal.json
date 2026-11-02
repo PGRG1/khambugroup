@@ -792,6 +792,13 @@
       "when": 1793582005788,
       "tag": "0112_advance_contract_prepayment_preparation",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1793582035422,
+      "tag": "0113_prepare_advance_contracts_in_monthly_queue",
+      "breakpoints": true
     }
   ]
 }
