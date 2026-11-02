@@ -40,7 +40,7 @@ export function PeriodControl({ mode, value, onChange, booksStart, allowFuture, 
     if (mobile && mode === 'period') {
       if (!anchor) { setAnchor(m); return; }
       const first = [anchor, m].sort()[0], last = [anchor, m].sort()[1];
-      choose({ from: first + '-01', to: allowFuture ? monthEnd(last) : monthEnd(last) > today ? today : monthEnd(last), key: 'custom' }); return;
+      choose({ from: first + '-01', to: allowFuture ? monthEnd(last) : monthEnd(last) > today ? today : monthEnd(last), key: first === last ? first : 'custom' }); return;
     }
     choose({ from: mode === 'asat' ? lastDay : m + '-01', to: lastDay, key: m });
   };
