@@ -71,7 +71,7 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
     <SidebarMenuItem>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
         <Link to={to} aria-current={active ? "page" : undefined}
-          className={cn("relative flex items-center pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", active && "glass-active !text-sidebar-primary font-medium")}>
+          className={cn("bani-sub relative flex items-center pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", active && "glass-active !text-sidebar-primary font-medium")}>
           <span className="truncate">{title}</span>
         </Link>
       </SidebarMenuButton>
@@ -182,7 +182,7 @@ function ChildLink({ item }: { item: Item }) {
     return <SidebarMenuItem>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
         <Link to={item.url} aria-current={active ? "page" : undefined} className={cn(
-          "relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors",
+          "bani-sub relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors",
           active && "glass-active !text-sidebar-primary font-medium",
         )}><span className="truncate">{item.title}</span></Link>
       </SidebarMenuButton>
@@ -203,7 +203,7 @@ function ChildLink({ item }: { item: Item }) {
         <NavLink
           to={item.url}
           end={item.end ?? item.url === "/"}
-          className="relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+          className="bani-sub relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
           activeClassName="glass-active !text-sidebar-primary font-medium"
         >
           <span className="truncate">{item.title}</span>
