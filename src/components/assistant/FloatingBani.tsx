@@ -392,17 +392,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const onDrag = (e: DragEvent) => { if (!Array.from(e.dataTransfer.types).includes("Files")) return; e.preventDefault(); setDropping(e.type !== "dragleave"); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
 
-  const sphereStyle = drag ? { left: drag.x, top: drag.y } : sphere ? { left: sphere.x, top: sphere.y } : undefined;
   const mobileH = Math.min(620, vv.h - 16);
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
   const panelStyle = home ? undefined
     : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
     : typeof window !== "undefined" && window.innerWidth < 700 ? { top: vv.top + 24, height: vv.h - 96, maxHeight: vv.h - 96, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
-  const restore = <Button variant="ghost" type="button" className="floating-bani-restore" aria-label="Show Bani assistant" title="Show Bani" onClick={() => { setHidden(false); setOpen(true); }}><BaniOrb size={24} mode="idle" /></Button>;
-  const restoreSlot = !hosted ? document.getElementById("floating-bani-restore") : null;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
-    {hidden && !home ? (restoreSlot ? createPortal(restore, restoreSlot) : <div className="floating-bani-restore-fixed">{restore}</div>) : (open || home) ? (
+    {(open || home) ? (
       <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {home ? (open && <div className="floating-bani-homeback"><button type="button" onClick={() => setOpen(false)}><ChevronLeft className="h-4 w-4" />Back to today</button>{working && <span className="floating-bani-context">{context}</span>}</div>) :
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
@@ -415,8 +412,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
           {workStart!==null&&<p className="text-xs text-muted-foreground" role="status">{workStart} → {pendingItems.length} items pending</p>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
-            {message.preferenceId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Forget Bani preference" onClick={async()=>{try{await alerts.unmute(message.preferenceId??'');setMessages(prev=>prev.map((m,i)=>i===index?{...m,outcome:'Forgotten'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not forget');}}}><X className="h-3 w-3"/></Button>}
-            {message.eventId&&!message.outcome&&<Button variant="ghost" size="icon" className="float-right h-6 w-6" aria-label="Dismiss Bani event" onClick={()=>void dismissEvent(message.eventId??'')}><X className="h-3 w-3"/></Button>}
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
