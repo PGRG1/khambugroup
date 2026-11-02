@@ -356,10 +356,10 @@ export function AppSidebar() {
   const sTab = sp.get("tab") ?? (settingsAdmin ? "business" : "master-data"), sView = sp.get("view");
   const settingsChildren = [
     { title: "Business", to: "/settings?tab=business", active: sTab === "business", admin: true },
-    { title: "People and access", to: "/settings?tab=users", active: sTab === "users" && sView !== "activity", admin: true },
+    { title: "Users", to: "/settings?tab=users", active: sTab === "users" && sView !== "activity", admin: true },
     { title: "Activity", to: "/settings?tab=users&view=activity", active: sTab === "users" && sView === "activity", admin: true },
     { title: "Accounting", to: "/settings?tab=accounting", active: sTab === "accounting", admin: true },
-    { title: "Suppliers", to: "/settings?tab=master-data", active: sTab === "master-data", admin: false },
+    { title: "Master data", to: "/settings?tab=master-data", active: sTab === "master-data", admin: false },
     { title: "Bani", to: "/settings?tab=bani", active: sTab === "bani", admin: true },
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
@@ -537,7 +537,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} badge={team.counts.finance} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{showSubPages && pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
 
         {showPlatform && (
           <CollapsibleNavGroup

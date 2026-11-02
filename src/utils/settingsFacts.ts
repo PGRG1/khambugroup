@@ -1,6 +1,6 @@
-export const settingsTabs = ['Business','Users','Accounting','Suppliers','Bani'] as const;
+export const settingsTabs = ['Business','Users','Accounting','Master data','Bani'] as const;
 /** URL keys stay stable; "Suppliers" keeps the old master-data key. */
-export const settingsTabKey = (tab: string) => tab==='Suppliers'?'master-data':tab.toLowerCase().replace(/ /g,'-');
+export const settingsTabKey = (tab: string) => tab==='Master data'?'master-data':tab.toLowerCase().replace(/ /g,'-');
 export const approvalWords: Record<string,string> = {
  owner_run: "Owner's changes count straight away; others wait for the owner",
  managed: "Managers' changes need the owner",
