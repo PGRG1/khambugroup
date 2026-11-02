@@ -720,3 +720,13 @@ html:not(.dark) .bani-side a.bani-sub.glass-active, html:not(.dark) .bani-side a
 .bani-me:hover { background: rgba(20,45,43,0.06); }
 .bani-me-initials { width: 32px; height: 32px; border-radius: 50%; background: #25372B; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
 .bani-me-role { color: #55605A; }
+
+/* Left menu: navigation-only page finder and collapsed logo/expand control */
+.bani-goto { width: calc(100% - 1.5rem); border: 1px solid rgba(31,63,59,.12); background: #fff; color: #55605A; }
+.bani-goto:hover { color: #1F3F3B; }
+.bani-goto kbd { font-family: inherit; color: #8A948E; }
+.bani-rail-logo .bani-rail-chev { display: none; }
+.bani-rail-logo:hover .bani-rail-mark, .bani-rail-logo:focus-visible .bani-rail-mark { display: none; }
+.bani-rail-logo:hover .bani-rail-chev, .bani-rail-logo:focus-visible .bani-rail-chev { display: block; }
+html:not(.dark) .bani-rail-logo { background: transparent; }
+html:not(.dark) .bani-rail-logo:hover, html:not(.dark) .bani-rail-logo:focus-visible { background: #F2F5F3; }
