@@ -946,6 +946,13 @@
       "when": 1793608492834,
       "tag": "0134_fx_payment_and_revaluation_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1793609089745,
+      "tag": "0135_fx_guardrails_and_isolated_verification",
+      "breakpoints": true
     }
   ]
 }
