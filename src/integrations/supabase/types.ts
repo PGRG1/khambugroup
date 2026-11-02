@@ -15745,6 +15745,20 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string; _venue_id: string }
         Returns: boolean
       }
+      fx_currencies_in_use: {
+        Args: { p_tenant: string }
+        Returns: {
+          currency: string
+          first_used: string
+          month_end_date: string
+          month_end_nearest: boolean
+          month_end_rate: number
+          today_date: string
+          today_nearest: boolean
+          today_rate: number
+          used_in: string
+        }[]
+      }
       fx_rate: {
         Args: { p_currency: string; p_date: string; p_tenant: string }
         Returns: {

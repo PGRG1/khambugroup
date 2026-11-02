@@ -925,6 +925,13 @@
       "when": 1793606617867,
       "tag": "0131_foreign_currency_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1793606709544,
+      "tag": "0132_fx_currencies_in_use",
+      "breakpoints": true
     }
   ]
 }
