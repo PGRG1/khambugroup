@@ -1,5 +1,6 @@
 import {currencySymbol,getBaseCurrency,baseAmount} from '@/utils/money';
 import {lookupFxRate} from '@/hooks/useFxRate';
+import {useActiveTenant} from '@/hooks/useActiveTenant';
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function BookCreditNoteDialog({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState("");
+  const { tenantId } = useActiveTenant();
 
   // Document currency: source invoice first, then the supplier's billing currency, else base.
   useEffect(() => {
@@ -84,9 +86,7 @@ export function BookCreditNoteDialog({
     let fx: { currency: string; fx_rate?: number; original_currency_amount?: number; original_remaining?: number } = { currency: cur };
     let baseAmt = amt;
     if (cur !== base) {
-      const tenant = (invoices[0] as any)?.tenant_id;
-      const { data: t } = tenant ? { data: tenant } : await supabase.from("suppliers").select("tenant_id").eq("id", supplierId).maybeSingle().then(r => ({ data: (r.data as any)?.tenant_id }));
-      const hit = t ? await lookupFxRate(t, cnDate, cur).catch(() => null) : null;
+      const hit = tenantId ? await lookupFxRate(tenantId, cnDate, cur).catch(() => null) : null;
       if (!hit?.rate) { setSaving(false); return toast.error(`No ${cur} rate for ${cnDate}`); }
       baseAmt = baseAmount(amt, hit.rate, base);
       fx = { currency: cur, fx_rate: hit.rate, original_currency_amount: amt, original_remaining: amt };
