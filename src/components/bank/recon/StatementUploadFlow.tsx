@@ -154,7 +154,6 @@ export function StatementUploadFlow({
               opening_balance: a.opening_balance || 0,
               opening_date: extracted.statement_date,
               tenant_id: tenantId,
-              currency: a.currency,
             } as any)
             .select("id")
             .single();
@@ -213,6 +212,7 @@ export function StatementUploadFlow({
               suggested_category: rec?.suggested_category || cls?.suggested_category || null,
               status: "unmatched",
               tenant_id: tenantId,
+              currency: a.currency,
             } as any;
           });
           // Batch insert in chunks

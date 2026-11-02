@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from '@/components/ui/input';
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
 const fmtMoney = (v: number) =>
@@ -141,6 +142,7 @@ export function ParseSettlementModal({
   const [audit, setAudit] = useState<AuditSummary | null>(null);
   const [unknownMerchants, setUnknownMerchants] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [currency,setCurrency] = useState('');
 
   useEffect(() => {
     if (!open || !imp) return;
@@ -157,6 +159,7 @@ export function ParseSettlementModal({
         setMonthly((data as any).monthly_audit || []);
         setAudit((data as any).audit || null);
         setUnknownMerchants((data as any).unknown_merchants || []);
+        setCurrency((data as any).currency || '');
       }
       setLoading(false);
     })();
@@ -194,7 +197,7 @@ export function ParseSettlementModal({
     { gross: 0, net: 0, settlementFee: 0, variance: 0 },
   ), [monthly]);
 
-  const canCommit = batches.length > 0 && unknownMerchants.length === 0 && !loading;
+  const canCommit = batches.length > 0 && unknownMerchants.length === 0 && !loading && /^[A-Z]{3}$/.test(currency);
 
   const toggle = (i: number) => {
     const next = new Set(expanded);
@@ -207,6 +210,8 @@ export function ParseSettlementModal({
     if (!tenantId) { toast.error("No active tenant"); return; }
     setCommitting(true);
     try {
+      const currencySave=await supabase.from('payment_settlement_imports').update({currency}).eq('tenant_id',tenantId).eq('id',imp.id);
+      if(currencySave.error)throw currencySave.error;
       for (const b of batches) {
         const merchant = merchantByNumber.get(b.merchant_number);
         if (!merchant) throw new Error(`Unmapped merchant ${b.merchant_number}`);
@@ -214,6 +219,7 @@ export function ParseSettlementModal({
           .from("payment_settlement_batches" as any)
           .insert({
             tenant_id: tenantId,
+            currency,
             import_id: imp.id,
             processor_id: processor.id,
             merchant_id: merchant.id,
