@@ -1,7 +1,8 @@
 ## Smart Alerts part one — current request
-- [ ] Automatic tenant-scoped detectors, additive alert schema, atomic lifecycle/mutes/questions, urgent-only push and daily schedule.
-- [ ] Bell inbox, light desktop/phone panels, sales evidence dialog and Tell me less; Settings Alerts unchanged.
-- [ ] Fixture tests for baselines/lifecycle/mutes, live KHAMBU evaluation titles and desktop/phone checks; no financial writes.
+- [x] Automatic tenant-scoped detectors, additive alert schema, atomic lifecycle/mutes/questions, urgent-only push and local-day schedule (one hourly wakeup, each tenant once daily).
+- [x] Bell inbox, light desktop/375px panels, sales evidence dialog and Tell me less; Settings Alerts unchanged. Sales links open the requested day without altering portal scope.
+- [x] 19 rule fixtures; isolated QA chart/mute save-readback/unmute/Done/Reopen; real KHAMBU inbox and missing-day link; current build OK. Repeated evaluation creates zero duplicates. KHAMBU journals/invoices/bills/sales/payroll whole-row fingerprints identical. Temporary QA alert removed.
+- Verification limits: physical device push, live Yes/No closure writes, automated callback delivery and concurrent SQL fixtures were not exercised. Summary-only events are retained for part two; daily-summary delivery is not implemented in this part.
 
 ## Finance finish-off — previous request
 - [x] Invoice-line asset proposals wired in desktop/phone detail, posted detail edits disabled. Dedicated selected approval rechecks full invoice/lines/delivery, routes source debit for unposted invoice, creates asset/register only at approval; posted sources get reclassification draft.
