@@ -15110,6 +15110,24 @@ export type Database = {
         }
         Returns: Json
       }
+      finance_sales_deferred_check: {
+        Args: {
+          q: Database["public"]["Tables"]["finance_entry_drafts"]["Row"]
+          t: string
+        }
+        Returns: undefined
+      }
+      finance_sales_deferred_existing: {
+        Args: { p: Json; t: string }
+        Returns: string
+      }
+      finance_sales_deferred_finish: {
+        Args: {
+          q: Database["public"]["Tables"]["finance_entry_drafts"]["Row"]
+          t: string
+        }
+        Returns: undefined
+      }
       finance_sales_deferred_save: {
         Args: { p: Json; t: string }
         Returns: string
