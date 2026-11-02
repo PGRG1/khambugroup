@@ -39,6 +39,7 @@ export type APInvoice = {
   currency?: string | null;
   /** Remaining owed in document currency for foreign items; null when base. */
   owed_in_currency?: number | null;
+  original_total?: number | null;
 };
 
 export type APSupplierSummary = {
@@ -76,6 +77,7 @@ export type APCreditNote = {
   source_invoice_id: string | null;
   currency?: string | null;
   original_remaining?: number | null;
+  original_currency_amount?: number | null;
   source_invoice_number: string | null;
 };
 
@@ -301,6 +303,7 @@ export function usePayables() {
           held_amount: Math.round(held * 100) / 100,
           outstanding_amount: Math.round(remaining * 100) / 100,
           currency: i.currency || null,
+          original_total: i.original_total != null ? Number(i.original_total) : null,
           owed_in_currency: i.original_balance != null && i.currency && i.currency !== getBaseCurrency() ? Number(i.original_balance) : null,
           age_days: ageDays,
           bucket: bucketOf(ageDays),
@@ -409,6 +412,7 @@ export function usePayables() {
           source_invoice_id: c.source_invoice_id || null,
           currency: c.currency || null,
           original_remaining: c.original_remaining != null ? Number(c.original_remaining) : null,
+          original_currency_amount: c.original_currency_amount != null ? Number(c.original_currency_amount) : null,
           source_invoice_number: c.source_invoice_id ? (invoiceNumberById.get(c.source_invoice_id) || null) : null,
         };
       });

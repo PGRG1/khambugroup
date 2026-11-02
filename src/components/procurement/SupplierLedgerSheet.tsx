@@ -1,4 +1,5 @@
-import {baseSymbol} from '@/utils/money';
+import {baseSymbol,getBaseCurrency,formatMoney} from '@/utils/money';
+import {owedInCurrency} from '@/utils/fxDocument';
 import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -35,6 +36,9 @@ interface LedgerEntry {
   debit: number;
   credit: number;
   balance: number;
+  fxCur?: string | null;
+  fxAmt?: number;
+  fxBalance?: number;
 }
 
 const TYPE_CONFIG: Record<LedgerType, { label: string; className: string }> = {
@@ -129,6 +133,7 @@ export function SupplierLedgerSheet({
         description: isCharge ? "Charge / adjustment" : `Invoice — ${inv.venue || ""}`,
         debit: inv.total_amount,
         credit: 0,
+        ...(inv.currency && inv.currency !== getBaseCurrency() && inv.original_total != null ? { fxCur: inv.currency, fxAmt: inv.original_total } : {}),
       });
     });
     payments.forEach((p) => {
@@ -158,6 +163,7 @@ export function SupplierLedgerSheet({
             description: `Credit applied — ${cn.notes || ""}`,
             debit: 0,
             credit: applied,
+            ...(cn.currency && cn.currency !== getBaseCurrency() && cn.original_currency_amount != null ? { fxCur: cn.currency, fxAmt: -(cn.original_currency_amount - (cn.original_remaining ?? 0)) } : {}),
           });
         }
         if (cn.status !== "fully_applied") {
@@ -174,9 +180,13 @@ export function SupplierLedgerSheet({
       });
     const sorted = entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     let balance = 0;
+    const fxBal = new Map<string, number>();
     return sorted.map((e) => {
       balance = balance + e.debit - e.credit;
-      return { ...e, balance };
+      if (!e.fxCur) return { ...e, balance };
+      const next = Math.round(((fxBal.get(e.fxCur) ?? 0) + (e.fxAmt ?? 0)) * 100) / 100;
+      fxBal.set(e.fxCur, next);
+      return { ...e, balance, fxBalance: next };
     });
   }, [invoices, payments, creditNotes]);
 
@@ -264,6 +274,10 @@ export function SupplierLedgerSheet({
                   {baseSymbol()} {fmt(Math.abs(netOutstanding))} {netOutstanding > 0 ? "Dr" : "Cr"}
                 </span>
               </div>
+              {owedInCurrency(openInvoices, getBaseCurrency()) && <div data-testid="supplier-fx-balance">
+                <span className="text-muted-foreground">Owed in currency: </span>
+                <span className="td-num font-semibold">{owedInCurrency(openInvoices, getBaseCurrency())}</span>
+              </div>}
               <div>
                 <span className="text-muted-foreground">Available credits: </span>
                 <span className="td-num text-green-400 font-semibold">{baseSymbol()} {fmt(availableCreditsTotal)}</span>
@@ -329,7 +343,7 @@ export function SupplierLedgerSheet({
                           <td className="py-2 px-3 truncate max-w-[300px]" title={e.description}>{e.description}</td>
                           <td className={`py-2 px-3 text-right td-num ${e.debit > 0 ? "text-amber-400" : "text-muted-foreground/40"}`}>{e.debit > 0 ? fmt(e.debit) : "—"}</td>
                           <td className={`py-2 px-3 text-right td-num ${e.credit > 0 ? "text-green-400" : "text-muted-foreground/40"}`}>{e.credit > 0 ? fmt(e.credit) : "—"}</td>
-                          <td className={`py-2 px-3 text-right td-num ${e.balance > 0 ? "text-amber-400" : "text-green-400"}`}>{fmt(Math.abs(e.balance))} {e.balance >= 0 ? "Dr" : "Cr"}</td>
+                          <td className={`py-2 px-3 text-right td-num ${e.balance > 0 ? "text-amber-400" : "text-green-400"}`}>{e.fxCur && e.fxBalance != null ? <>{formatMoney(Math.abs(e.fxBalance), e.fxCur)} {e.fxBalance >= 0 ? "Dr" : "Cr"}<span className="block text-xs text-muted-foreground">{fmt(Math.abs(e.balance))} {e.balance >= 0 ? "Dr" : "Cr"}</span></> : <>{fmt(Math.abs(e.balance))} {e.balance >= 0 ? "Dr" : "Cr"}</>}</td>
                         </tr>
                       );
                     })}
