@@ -51,19 +51,24 @@ function useDictation(onText: (t: string) => void) {
   return { on, toggle, supported: !!SR };
 }
 
-function Composer({ placeholder, onSend, onAttach }: { placeholder: string; onSend: (t: string) => void; onAttach?: (f: File[]) => void }) {
-  const [text, setText] = useState("");
+type Dict = ReturnType<typeof useDictation>;
+
+function Composer({ placeholder, onSend, onAttach, text, onText, dict }: { placeholder: string; onSend: (t: string) => void; onAttach?: (f: File[]) => void; text?: string; onText?: (v: string) => void; dict?: Dict }) {
+  const [local, setLocal] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const dict = useDictation((t) => setText((p) => (p ? `${p} ${t}` : t)));
+  const localDict = useDictation((t) => setLocal((p) => (p ? `${p} ${t}` : t)));
+  const value = text !== undefined ? text : local;
+  const setValue = onText ?? setLocal;
+  const d = dict ?? localDict;
   return (
-    <form className="ld-pill" onSubmit={(e) => { e.preventDefault(); onSend(text.trim()); setText(""); }}>
+    <form className="ld-pill" onSubmit={(e) => { e.preventDefault(); onSend(value.trim()); setValue(""); }}>
       {onAttach && (<>
         <button type="button" className="ld-ic" aria-label="Attach a file" onClick={() => fileRef.current?.click()}><Plus size={18} /></button>
         <input ref={fileRef} type="file" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) onAttach(f); e.target.value = ""; }} />
       </>)}
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-      {dict.supported && <button type="button" className={`ld-ic ${dict.on ? "on" : ""}`} aria-label="Dictate" onClick={dict.toggle}><Mic size={18} /></button>}
-      <button type="button" className="ld-ic dark" aria-label="Talk to Bani" onClick={() => onSend(text.trim())}><AudioLines size={18} /></button>
+      <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      {d.supported && <button type="button" className={`ld-ic ${d.on ? "on" : ""}`} aria-label="Dictate" onClick={d.toggle}><Mic size={18} /></button>}
+      <button type="button" className="ld-ic dark" aria-label="Talk to Bani" onClick={() => onSend(value.trim())}><AudioLines size={18} /></button>
     </form>
   );
 }
@@ -273,7 +278,14 @@ export default function Landing() {
     <div ref={ref} className={`ld ${size}`}>
       <div className="ld-top">
         <div className="ld-hi">
-          <BaniOrb size={size === "ph" ? 44 : 56} mode="idle" />
+          {dict.supported ? (
+            <button type="button" className={`ld-orb ${dict.on ? "on" : ""}`} aria-label={dict.on ? "Stop dictating" : "Talk to Bani"} aria-pressed={dict.on} title={dict.on ? "Stop dictating" : "Talk to Bani — your words go in the message box"} onClick={dict.toggle}>
+              <BaniOrb size={size === "ph" ? 44 : 56} mode={dict.on ? "listening" : "idle"} />
+              <span className="ld-orbmic" aria-hidden="true"><Mic size={13} /></span>
+            </button>
+          ) : (
+            <BaniOrb size={size === "ph" ? 44 : 56} mode="idle" />
+          )}
           <div style={{ minWidth: 0 }}>
             <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
             <div className="ld-sub">{formatDate(now.toISOString().slice(0, 10))}{roleLabel(role) ? ` · ${roleLabel(role)}` : ""}</div>
