@@ -1,6 +1,6 @@
 # Project Architecture Rules
-Read nested AGENTS.md for Finance, People, assistant/voice and Alerts before related changes.
-- All populated tests use existing Finance isolated QA tenant ff000000-0000-4000-8000-000000000001; remove test rows afterwards. Never create test tenants/users or insert fixtures into real tenants, to protect production evidence.
+Read nested AGENTS.md (Finance, People, assistant/voice, Alerts) before related changes.
+- All populated tests use existing Finance isolated QA tenant ff000000-0000-4000-8000-000000000001; remove test rows afterwards. Never create test tenants/users or insert fixtures into real tenants.
 
 - ThemeProvider fixes light mode, no profile/OS hydration. AppLayout has one pointer-inert fixed atmosphere behind sidebar/content; glass tokens cover mobile portals and platform stacking.
 
