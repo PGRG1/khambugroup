@@ -1,4 +1,12 @@
-## Smart Alerts part two — current request
+## Alerts final shape — current request
+- [x] Removed bell, alert pop-ups and Settings Alerts; one phone switch in User menu. Bani role-scoped pending pill, root-first typed work, owner factual greeting/team counts, push event opening, retained guarded People/scanner actions, reviewed statement handoff and conversational mute list/forget.
+- [x] Reused detectors, grouping and lifecycle; informational sales/record-day/supplier-price/sick-leave/recorded no-show/late/delivery-short events separated from never-pushed work. Existing approval/missing-feed/payroll/leave/swap/timesheet records grouped by venue. Read-only KHAMBU last-week dry run: owner 9, venue manager 5, staff 0; Caliente +72%, Assembly +58% usual.
+- [x] 47 pure fixtures; desktop/375px, pending conversation, phone switch and isolated QA typed done→1 to 0→readback checked. Temporary QA bill removed and pre-existing work state restored. No posted finance writes or actual verification pushes.
+- [ ] Individual-person notification reassignment needs a protected routing action; current preference tool supports existing authorised roles only.
+- [ ] Weekly food/staff-cost movement, refund/void and impending overtime detectors remain unimplemented; no live POS/stock-out prediction. Existing data sources need explicit comparable coverage before claiming these notifications.
+- [ ] Full owner last-week prose review and exact after-close delivery are not complete: current owner greeting is yesterday-only, digest wakeup uses 22:00 and Monday 08:30 with once-per-day claims. Physical push receipt, approvals-through-typed-chat and statement import completion remain unverified; existing approval screens remain authoritative.
+
+## Smart Alerts part two — previous request
 - [x] Coverage/root grouping, confidence, two-day grace, fourteen-day recovery, Caliente recurring-closure question, ranked ten-item cap and separate summary lifecycle. KHAMBU 27→10 open; never-used CNY bank is a setup suggestion, two used BOCHK accounts form the root.
 - [x] Settings coverage/watch/actual-role/delivery/asks; natural-language Bani card→Keep→Settings readback, QA watch-level/role save/readback and ask toggle; confirmed single-use retry rejected. Temporary QA alert rows removed; no new tenants/users.
 - [x] Learning card and scoped progress; tenant-time digest/quiet-hour code and five-minute wakeup. Focused fixtures, desktop/375px settled screens and repeated KHAMBU evaluation pass. Protected journals/invoices/bills/sales/payroll counts and whole-row hashes identical.
