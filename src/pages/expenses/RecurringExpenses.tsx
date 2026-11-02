@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PageTop } from "@/components/kit/PageTop";
 import { useExpenseBills } from "@/hooks/useExpenseBills";
 import { usePagePeriod } from "@/hooks/usePagePeriod";
+import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { regularBillGroups, isWaitingBill } from "@/utils/expenses";
 import { formatCurrency, formatMonthLabel, formatDate } from "@/utils/format";
@@ -81,6 +82,8 @@ export default function RecurringExpenses() {
   const [open, setOpen] = useState(false);
   const [detailsOpen,setDetailsOpen]=useState(false),[uploadOpen,setUploadOpen]=useState(false),[readTerms,setReadTerms]=useState<Partial<RecurringRule>|null>(null);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
+  const plan=usePlannedMonths('contracts');
+  const contractPeriod=usePagePeriod([], 'mtd','month',{allowFuture:plan.end});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
