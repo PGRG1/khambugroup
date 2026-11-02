@@ -307,6 +307,7 @@ export function ParseSettlementModal({
       <DialogContent className="max-w-6xl max-h-[88vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Review settlement — {imp?.file_name}</DialogTitle>
+          <label className="text-sm">Statement currency<Input aria-label="Settlement currency" className="max-w-40" maxLength={3} value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto pr-1">
