@@ -890,6 +890,13 @@
       "when": 1793589769647,
       "tag": "0126_smart_alert_actual_roles_and_cap_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1793589799442,
+      "tag": "0127_bani_alert_ask_card_kind",
+      "breakpoints": true
     }
   ]
 }
