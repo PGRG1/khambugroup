@@ -1023,6 +1023,13 @@
       "when": 1793630608488,
       "tag": "0145_fx_difference_account",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1793630759446,
+      "tag": "0146_fx_bank_side_finish",
+      "breakpoints": true
     }
   ]
 }
