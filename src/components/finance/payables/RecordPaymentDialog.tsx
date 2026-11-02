@@ -73,7 +73,7 @@ export function RecordPaymentDialog({
   const fxCur = invoice?.currency && invoice.currency !== getBaseCurrency() && invoice.original_total ? invoice.currency : null;
   const fxOwed = Number(invoice?.owed_in_currency ?? invoice?.original_total ?? 0);
   const fxRate = fxCur ? Number(invoice?.total_amount || 0) / Number(invoice?.original_total || 1) : 0;
-  const fxCleared = fxCur && Number(origPay) > 0 ? (Number(origPay) >= fxOwed - 0.005 ? Number((Number(invoice?.remaining_balance ?? invoice?.total_amount ?? 0)).toFixed(2)) : Math.round(Number(origPay) * fxRate * 100) / 100) : 0;
+  const fxCleared = fxCur && Number(origPay) > 0 ? (Number(origPay) >= fxOwed - 0.005 ? Number((Number(invoice?.outstanding_amount ?? 0)).toFixed(2)) : Math.round(Number(origPay) * fxRate * 100) / 100) : 0;
   const { tenantId } = useActiveTenant();
 
   useEffect(() => {
