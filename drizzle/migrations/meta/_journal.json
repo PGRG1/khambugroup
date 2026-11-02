@@ -1030,6 +1030,13 @@
       "when": 1793630759446,
       "tag": "0146_fx_bank_side_finish",
       "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1793630820077,
+      "tag": "0147_bill_payment_tenant_scoped_accounts",
+      "breakpoints": true
     }
   ]
 }
