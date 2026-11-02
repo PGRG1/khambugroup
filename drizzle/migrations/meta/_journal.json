@@ -834,6 +834,13 @@
       "when": 1793583293969,
       "tag": "0118_unposted_sales_deferred_edit",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1793583424110,
+      "tag": "0119_invoice_asset_approval_source_normalization",
+      "breakpoints": true
     }
   ]
 }

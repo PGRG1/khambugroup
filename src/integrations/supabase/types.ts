@@ -15065,6 +15065,7 @@ export type Database = {
         Args: { ident: string; m: string; t: string }
         Returns: string
       }
+      finance_invoice_asset_fingerprint: { Args: { v: Json }; Returns: string }
       finance_invoice_asset_propose: {
         Args: { p: Json; t: string }
         Returns: string
