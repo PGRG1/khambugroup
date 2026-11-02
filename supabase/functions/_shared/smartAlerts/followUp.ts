@@ -24,7 +24,7 @@ export function deadlineSignals(data:Record<string,Row[]>,day:string):Candidate[
 export function groupedPending(items:Candidate[]) {
  const labels:Record<string,string>={sales:'Revenue',hr:'People',procurement:'Purchasing',expenses:'Expenses',bank:'Finance',payments:'Finance',finance:'Finance'};
  const groups=new Map<string,Candidate[]>();for(const a of items){const section=labels[a.area]??a.area;groups.set(section,[...(groups.get(section)??[]),a]);}
- return items.length?[`${items.length} items pending.`,...[...groups].map(([section,rows])=>`${section} · ${rows.length}\n${rows.map(a=>'• '+a.title+(a.payload.deadline?' — due '+a.payload.deadline:'')).join('\n')}`)].join('\n\n'):'There is nothing pending in your scope.';
+ return items.length?[`${items.length} items pending.`,...[...groups].map(([section,rows])=>`${section} · ${rows.length}\n\n${rows.map(a=>'- '+a.title+(a.payload.deadline?' — due '+a.payload.deadline:'')).join('\n')}`)].join('\n\n'):'There is nothing pending in your scope.';
 }
 export function personRoute(a:Candidate,mutes:Row[],userId:string,day:string) {
  const routes=mutes.filter(m=>m.active!==false&&m.target_user_id&&(!m.kind||m.kind===a.kind)&&(!m.area||m.area===a.area)&&(!m.venue_id||m.venue_id===a.venue_id)&&(!m.until_date||m.until_date>=day));
