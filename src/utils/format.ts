@@ -13,9 +13,7 @@ export function formatDecimal(value: number, digits = 2): string {
 }
 
 /** Tenant-aware money for cross-business alerts, without changing legacy displays. */
-export function formatTenantCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "code", maximumFractionDigits: 2 }).format(value);
-}
+export {formatTenantCurrency} from '../../supabase/functions/_shared/tenantCurrency';
 
 export function formatCurrency(value: number): string {
   return `${value < 0 ? "-" : ""}HK$ ${formatTableInteger(Math.abs(value))}`;

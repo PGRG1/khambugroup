@@ -384,6 +384,105 @@ export type Database = {
           },
         ]
       }
+      alert_asks: {
+        Row: {
+          check_time: string
+          created_at: string
+          created_by: string
+          enabled: boolean
+          id: string
+          mode: string
+          source_action_id: string | null
+          target_role: string
+          tenant_id: string
+          threshold: number
+          title: string
+          venue_id: string
+          weekday: number
+        }
+        Insert: {
+          check_time: string
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          id?: string
+          mode?: string
+          source_action_id?: string | null
+          target_role: string
+          tenant_id: string
+          threshold: number
+          title: string
+          venue_id: string
+          weekday: number
+        }
+        Update: {
+          check_time?: string
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          id?: string
+          mode?: string
+          source_action_id?: string | null
+          target_role?: string
+          tenant_id?: string
+          threshold?: number
+          title?: string
+          venue_id?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_asks_source_action_id_fkey"
+            columns: ["source_action_id"]
+            isOneToOne: true
+            referencedRelation: "bani_pending_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_asks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_asks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_delivery_runs: {
+        Row: {
+          local_day: string
+          sent_at: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          local_day: string
+          sent_at?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          local_day?: string
+          sent_at?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_delivery_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_evaluation_runs: {
         Row: {
           last_day: string | null
@@ -421,12 +520,14 @@ export type Database = {
           baseline: number | null
           closed_at: string | null
           closed_by: string | null
+          confidence: string
           created_at: string
           fired_for_date: string
           id: string
           kind: string | null
           metric_value: number | null
           payload: Json
+          push_sent_at: string | null
           rule_id: string | null
           sent_count: number
           severity: string | null
@@ -446,12 +547,14 @@ export type Database = {
           baseline?: number | null
           closed_at?: string | null
           closed_by?: string | null
+          confidence?: string
           created_at?: string
           fired_for_date: string
           id?: string
           kind?: string | null
           metric_value?: number | null
           payload?: Json
+          push_sent_at?: string | null
           rule_id?: string | null
           sent_count?: number
           severity?: string | null
@@ -471,12 +574,14 @@ export type Database = {
           baseline?: number | null
           closed_at?: string | null
           closed_by?: string | null
+          confidence?: string
           created_at?: string
           fired_for_date?: string
           id?: string
           kind?: string | null
           metric_value?: number | null
           payload?: Json
+          push_sent_at?: string | null
           rule_id?: string | null
           sent_count?: number
           severity?: string | null
@@ -506,6 +611,51 @@ export type Database = {
           },
           {
             foreignKeyName: "alert_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_feed_coverage: {
+        Row: {
+          complete_up_to: string | null
+          id: string
+          kind: string
+          name: string
+          status: string
+          tenant_id: string
+          venue_id: string | null
+        }
+        Insert: {
+          complete_up_to?: string | null
+          id: string
+          kind: string
+          name: string
+          status: string
+          tenant_id: string
+          venue_id?: string | null
+        }
+        Update: {
+          complete_up_to?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          status?: string
+          tenant_id?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_feed_coverage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_feed_coverage_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -649,6 +799,47 @@ export type Database = {
           token?: string
         }
         Relationships: []
+      }
+      alert_settings: {
+        Row: {
+          quiet_end: string
+          quiet_start: string
+          role_delivery: Json
+          sales_grace_days: number
+          summary_time: string
+          tenant_id: string
+          updated_at: string
+          watches: Json
+        }
+        Insert: {
+          quiet_end?: string
+          quiet_start?: string
+          role_delivery?: Json
+          sales_grace_days?: number
+          summary_time?: string
+          tenant_id: string
+          updated_at?: string
+          watches?: Json
+        }
+        Update: {
+          quiet_end?: string
+          quiet_start?: string
+          role_delivery?: Json
+          sales_grace_days?: number
+          summary_time?: string
+          tenant_id?: string
+          updated_at?: string
+          watches?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       app_config: {
         Row: {
@@ -15908,6 +16099,10 @@ export type Database = {
         Args: { ident: string; options: Json; t: string }
         Returns: undefined
       }
+      smart_alert_keep_ask: {
+        Args: { decision: string; ident: string; t: string }
+        Returns: Json
+      }
       smart_alert_month_check: {
         Args: { m_input: string; t: string }
         Returns: Json
@@ -15920,9 +16115,17 @@ export type Database = {
         Args: { p_month: string; p_tenant: string }
         Returns: Json
       }
+      smart_alert_save_settings: {
+        Args: { options: Json; t: string }
+        Returns: undefined
+      }
       smart_alert_sync: {
         Args: { candidates: Json; day: string; t: string }
         Returns: Json
+      }
+      smart_alert_toggle_ask: {
+        Args: { ident: string; on_off: boolean; t: string }
+        Returns: undefined
       }
       smart_alert_unmute: {
         Args: { ident: string; t: string }

@@ -13,6 +13,7 @@ import { salesReview } from "./salesReview.ts";
 import { analyzeFiles, openSalesScannerTool, validateFiles } from "./floatingFiles.ts";
 import { draftPeopleAction, peopleContext, peopleTool, peopleContextTool } from "./peopleActions.ts";
 import {expenseContextTool,expenseAccountContext} from './expenseContext.ts';
+import {proposeAlertAsk} from './alertAsks.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -440,12 +441,13 @@ const proposeActionTool = {
     parameters: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage"], description: "mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice." },
+        kind: { type: "string", enum: ["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask"], description: "mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice." },
         title: { type: "string", description: "Short card title, e.g. 'Mark Caliente closed on 1–5 Oct'." },
         detail: { type: "string", description: "One line explaining exactly what Confirm will do." },
         venue: { type: "string", description: "Venue name exactly as stored (required for mark_closed_days)." },
         dates: { type: "array", items: { type: "string" }, description: "YYYY-MM-DD dates (required for mark_closed_days, max 62)." },
         reason: { type: "string", description: "Optional short reason for the closure." },
+        alert_ask: {type:"object",description:"For create_alert_ask: an explicitly requested sales watch. Ask for ambiguous venue/time/amount/role; never invent them. weekday Sunday=0. Keep saves only after confirmation.",properties:{venue:{type:"string"},weekday:{type:"integer",minimum:0,maximum:6},check_time:{type:"string",description:"24-hour HH:mm"},threshold:{type:"number"},target_role:{type:"string",description:"Existing tenant_members role, use owner when user requests themselves and is owner."}},required:["venue","weekday","check_time","threshold","target_role"],additionalProperties:false},
         account_id: {type:"string",description:"Existing supplier account UUID, for expense_meter_coverage."},
         split_method: {type:"string",enum:["single","fixed","floor_area","sales","central"]},
         covers: {type:"array",items:{type:"object",properties:{venue_id:{type:"string"},weight:{type:"number"}},required:["venue_id"]}},
@@ -455,11 +457,12 @@ const proposeActionTool = {
   },
 };
 
-async function proposeAction(args: any, tenantId: string, userId: string) {
+async function proposeAction(args: any, tenantId: string, userId: string, authHeader:string) {
+  if(args.kind==='create_alert_ask'){const client=createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:authHeader}}});return proposeAlertAsk(args,admin,client,tenantId,userId);}
   const kind = typeof args.kind === "string" ? args.kind : "";
   const title = typeof args.title === "string" ? args.title.trim().slice(0, 200) : "";
   const detail = typeof args.detail === "string" ? args.detail.trim().slice(0, 500) : null;
-  if (!title || !["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage"].includes(kind)) {
+  if (!title || !["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask"].includes(kind)) {
     return { ok: false, error: "Action card needs a valid kind and title." };
   }
   const payload: Record<string, unknown> = {};
@@ -513,11 +516,12 @@ async function proposeAction(args: any, tenantId: string, userId: string) {
 // Confirm/cancel callback for action cards. Non-streaming JSON.
 async function confirmAction(body: any, tenantId: string, userId: string, authHeader: string) {
   const id = typeof body?.action_id === "string" ? body.action_id : "";
-  const decision = ["confirm", "cancel", "change", "undo"].includes(body?.decision) ? body.decision : null;
+  const decision = ["confirm", "cancel", "change", "undo", "below_usual"].includes(body?.decision) ? body.decision : null;
   if (!/^[0-9a-f-]{36}$/i.test(id) || !decision) return { status: 400, body: { error: "action_id and decision (confirm|cancel) are required." } };
   const { data: row } = await admin.from("bani_pending_actions").select("*").eq("id", id).eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle();
   if (!row) return { status: 404, body: { error: "That action card is no longer available." } };
   const r = row as any;
+  if(r.kind==='create_alert_ask'){const client=createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:authHeader}}});const {data,error}=await client.rpc('smart_alert_keep_ask',{t:tenantId,ident:id,decision});return error?{status:409,body:{error:error.message}}:{status:200,body:data};}
   if (r.kind === "people") {
     const client = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authHeader } } });
     const { data, error } = await client.rpc("bani_people_execute", { t: tenantId, a: id, decision });
@@ -1619,10 +1623,10 @@ Deno.serve(async (req) => {
                     : tc.function.name === "mark_venue_closed"
                   ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
                   : tc.function.name === "propose_action"
-                    ? await proposeAction(args, tenantId, user!.id)
+                    ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
                     : await runTool(tc.function.name, args, tenantId);
                 if (tc.function.name === "mark_venue_closed" && result?.ok) { writeCompleted = true; emit({ action: { type: "closures_changed" } }); }
-                if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
+                if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
                 if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
