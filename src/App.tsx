@@ -81,17 +81,6 @@ import FinanceBooks from "./pages/finance/Books";
 import CashBank from "./pages/finance/CashBank";
 import MonthClose from "./pages/finance/MonthClose";
 
-import BankDashboard from "./pages/bank/BankDashboard";
-import BankAccountsPage from "./pages/bank/BankAccountsPage";
-import BankTransactionsPage from "./pages/bank/BankTransactionsPage";
-import BankReconciliationPage from "./pages/bank/BankReconciliationPage";
-import IncomingDepositsPage from "./pages/bank/IncomingDepositsPage";
-import OutgoingPaymentsPage from "./pages/bank/OutgoingPaymentsPage";
-import PaymentMatchingPage from "./pages/bank/PaymentMatchingPage";
-import TransfersPage from "./pages/bank/TransfersPage";
-import FxMultiCurrencyPage from "./pages/bank/FxMultiCurrencyPage";
-import BankRulesPage from "./pages/bank/BankRulesPage";
-import BankFeesPage from "./pages/bank/BankFeesPage";
 
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";

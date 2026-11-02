@@ -988,6 +988,34 @@
       "when": 1793627192302,
       "tag": "0140_scanner_invoice_line_originals",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1793628551815,
+      "tag": "0141_fx_settlement_rule",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1793628702352,
+      "tag": "0142_fx_invoice_payment_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1793628787344,
+      "tag": "0143_is_platform_admin_current_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1793628832357,
+      "tag": "0144_fx_card_charge_columns",
+      "breakpoints": true
     }
   ]
 }
