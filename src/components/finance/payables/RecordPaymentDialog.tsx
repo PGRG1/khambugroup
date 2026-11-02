@@ -69,6 +69,11 @@ export function RecordPaymentDialog({
   const [allocSuggested, setAllocSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<File[]>([]);
+  const [origPay, setOrigPay] = useState("");
+  const fxCur = invoice?.currency && invoice.currency !== getBaseCurrency() && invoice.original_total ? invoice.currency : null;
+  const fxOwed = Number(invoice?.owed_in_currency ?? invoice?.original_total ?? 0);
+  const fxRate = fxCur ? Number(invoice?.total_amount || 0) / Number(invoice?.original_total || 1) : 0;
+  const fxCleared = fxCur && Number(origPay) > 0 ? (Number(origPay) >= fxOwed - 0.005 ? Number((Number(invoice?.remaining_balance ?? invoice?.total_amount ?? 0)).toFixed(2)) : Math.round(Number(origPay) * fxRate * 100) / 100) : 0;
   const { tenantId } = useActiveTenant();
 
   useEffect(() => {
@@ -284,6 +289,7 @@ export function RecordPaymentDialog({
       .map((i) => ({
         invoice_id: i.id,
         amount_allocated: Number(alloc[i.id]?.cash) || 0,
+        ...(fxCur && i.id === invoice.id && Number(origPay) > 0 ? { original_allocated: Number(origPay), cash_base_allocated: Number(alloc[i.id]?.cash) || 0 } : {}),
         credit_note_id: alloc[i.id]?.creditNoteId || null,
         credit_note_amount_applied: Number(alloc[i.id]?.creditAmt) || 0,
       }))
@@ -327,6 +333,7 @@ export function RecordPaymentDialog({
         notes,
         supplier_id: invoice.supplier_id,
         match_status: paymentAmt > 0 ? "awaiting_bank_match" : "not_required",
+        ...(fxCur && Number(origPay) > 0 ? { original_amount: Number(origPay), currency: fxCur } : {}),
       },
       p_allocations: allocations,
     });
@@ -373,11 +380,13 @@ export function RecordPaymentDialog({
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div>
-              <Label>Payment Amount ({baseSymbol()})</Label>
+              {fxCur && (<div className="mb-2"><Label>Pay {fxCur} (owed {formatMoney(fxOwed, fxCur)})</Label><Input aria-label={`Pay ${fxCur}`} inputMode="decimal" value={origPay} onChange={(e) => setOrigPay(e.target.value)} /></div>)}
+              <Label>{fxCur ? `${baseSymbol()} that left the bank` : `Payment Amount (${baseSymbol()})`}</Label>
               <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Use 0 if fully settling with a credit note.
               </p>
+              {fxCur && fxCleared > 0 && paymentAmt > 0 && (<p className="text-xs mt-1">Clears {formatMoney(fxCleared)} of booked value · FX {fxCleared - paymentAmt < 0 ? "loss" : "gain"} {formatMoney(Math.abs(fxCleared - paymentAmt))}</p>)}
             </div>
             {paymentAmt > 0 && (
               <>
