@@ -876,6 +876,13 @@
       "when": 1793587845157,
       "tag": "0124_smart_alert_close_reconciliation_reader",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1793589335330,
+      "tag": "0125_smart_alert_roots_settings_asks_delivery",
+      "breakpoints": true
     }
   ]
 }
