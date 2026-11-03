@@ -1,3 +1,7 @@
+## Restaurant P&L redesign — current request
+- [x] Structured statement with account detail, revenue percentages, gross profit, prime cost and matching exports; existing profit and adjustments retained.
+- [x] Maison Francis October profit remains HK$237,503; account expansion, Management view, previous-period comparison, CSV/PDF downloads and 390px single-period readability verified. QA statement renders; 16 focused tests and build pass. No database writes.
+
 ## Foreign currency part 2 — current request
 - [x] Invoice/scanner currency-rate fields, native/base bank and card import paths, phone Currencies cards and base P&L FX lines added; 1,306 tests passed and latest build OK.
 - [x] KHAMBU October read-only CNY preview and desktop/375px currency cards checked: ¥4,373.92 = HK$5,158.12; carrying balance is absent, so gain/loss is unknown and preparation is blocked.
