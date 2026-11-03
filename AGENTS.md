@@ -35,6 +35,7 @@ Read nested AGENTS.md (Finance, People, assistant/voice, Alerts, chat-assistant)
 
 - Regular-cost approvals use the atomic selected-items RPC; contract strips share the read-only regular plan. Expense documents fetch fresh signed links and validate bytes before rendering so errors never render as documents. Receipt evidence links append comma-separated paths without financial writes.
 - Finance draft, source-approval, tax, account merge and report-allocation safeguards live in src/pages/finance/AGENTS.md; read it for related components, hooks and server functions too.
+- Restaurant P&L uses a read-only restaurantPL row model for the statement and exports, with explicit posted-payroll reconciliation; this preserves operations totals while exposing account detail.
 
 
 - Access (in rollout): one role per person per tenant in tenant_roles/tenant_user_access (+venues, exceptions, history); access_level/money_level/can_see_venue/is_owner are the only checks new rules and server functions may use, and they fall back to legacy behaviour until a person's status is active.
