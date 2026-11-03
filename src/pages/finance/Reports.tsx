@@ -18,7 +18,7 @@ import {Download,FileText} from 'lucide-react';
 import {financeProfit} from '@/utils/financeOverview';
 import {balanceSheetRows,indirectCashRows,type ReportRow} from '@/utils/financeReportViews';
 import {reportMonths} from '@/utils/financeClose';
-import {formatCurrency,formatMonthLabel,formatDate} from '@/utils/format';
+import {formatCurrency,formatMonthLabel,formatDate,formatPercent} from '@/utils/format';
 import {downloadCSV} from '@/utils/csvDownload';
 import {tenantToday} from '@/utils/salesRecordChecks';
 import jsPDF from 'jspdf';

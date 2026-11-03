@@ -18,16 +18,16 @@ export function RestaurantPLStatement({rows,columns,from,to,scope,detailed,onDet
       </div>
     </header>
     <div className="max-w-full overflow-x-auto">
-      <table aria-label="Restaurant profit and loss" className="w-full min-w-[600px] border-collapse text-sm">
-        <thead className="bg-muted text-xs text-muted-foreground"><tr><th scope="col" className="min-w-64 px-5 py-3 text-left font-medium sm:px-7">Account / line</th>{columns.map(c=><th scope="col" key={c} className="min-w-44 px-5 py-3 text-right font-medium">{c}<span className="block pt-1 font-normal">Amount · % of revenue</span></th>)}</tr></thead>
+      <table aria-label="Restaurant profit and loss" className="w-full min-w-full border-collapse text-sm">
+        <thead className="bg-muted text-xs text-muted-foreground"><tr><th scope="col" className="min-w-36 px-3 py-3 text-left font-medium sm:min-w-64 sm:px-7">Account / line</th>{columns.map(c=><th scope="col" key={c} className="min-w-36 px-3 py-3 text-right font-medium sm:min-w-44 sm:px-5">{c}<span className="block pt-1 font-normal">Amount · % of revenue</span></th>)}</tr></thead>
         <tbody>{shown.map(r=>{
           const section=r.kind==='section',grand=r.kind==='grand',total=r.kind==='total',ratio=r.kind==='ratio';
           const children=rows.some(child=>child.parent===r.id);
           return <tr key={r.id} className={grand?'border-t-4 border-double border-foreground bg-muted font-semibold':total?'border-t border-border font-semibold':section?'border-t border-border bg-muted/50 font-medium':ratio?'text-muted-foreground':'border-t border-border/40'}>
-            <th scope="row" className={`px-5 text-left sm:px-7 ${section?'py-3':ratio?'py-2':'py-2.5'} ${r.kind==='account'?'font-normal':'font-inherit'}`}>
+            <th scope="row" className={`px-3 text-left sm:px-7 ${section?'py-3':ratio?'py-2':'py-2.5'} ${r.kind==='account'?'font-normal':'font-inherit'}`}>
               {section&&detailed&&children?<Button variant="ghost" size="sm" className="-ml-2 h-auto justify-start gap-2 whitespace-normal px-2 py-0 text-left font-medium" aria-expanded={!collapsed.has(r.id)} onClick={()=>setCollapsed(old=>{const next=new Set(old);next.has(r.id)?next.delete(r.id):next.add(r.id);return next;})}>{collapsed.has(r.id)?<ChevronRight className="h-3.5 w-3.5 shrink-0"/>:<ChevronDown className="h-3.5 w-3.5 shrink-0"/>}{r.label}</Button>:r.accountId?<Link className="block pl-5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" to={`/finance/books?view=ledger&account=${encodeURIComponent(r.accountId)}&from=${from}&to=${to}`}>{r.label}</Link>:<span className={r.kind==='account'?'block pl-5 text-muted-foreground':''}>{r.label}</span>}
             </th>
-            {columns.map((c,i)=><td key={c} className="px-5 py-2.5 text-right align-middle whitespace-nowrap"><span>{r.values[i]==null?'—':r.percent?formatPercent(r.values[i]):formatCurrency(r.values[i]??0)}</span>{!r.percent&&<span className="ml-4 inline-block w-14 text-xs font-normal text-muted-foreground">{sales[i]?formatPercent((r.values[i]??0)/(sales[i]??1)*100):'—'}</span>}</td>)}
+            {columns.map((c,i)=><td key={c} className="px-3 py-2.5 text-right align-middle whitespace-nowrap sm:px-5"><span>{r.values[i]==null?'—':r.percent?formatPercent(r.values[i]):formatCurrency(r.values[i]??0)}</span>{!r.percent&&<span className="block text-xs font-normal text-muted-foreground sm:ml-4 sm:inline-block sm:w-14">{sales[i]?formatPercent((r.values[i]??0)/(sales[i]??1)*100):'—'}</span>}</td>)}
           </tr>;
         })}</tbody>
       </table>
