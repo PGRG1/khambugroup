@@ -1107,6 +1107,13 @@
       "when": 1793665534973,
       "tag": "0157_fix_rebuild_journal_lines_source_type",
       "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1793669547653,
+      "tag": "0158_multi_business_safety_fixes",
+      "breakpoints": true
     }
   ]
 }
