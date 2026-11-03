@@ -1,6 +1,6 @@
 ## Restaurant P&L redesign — current request
-- [ ] Replace bare summary with a structured statement, account detail, revenue percentages and matching exports; retain existing totals and adjustments.
-- [ ] Verify populated Maison Francis and QA views, account expansion, comparisons and downloads without data writes.
+- [x] Structured statement with account detail, revenue percentages, gross profit, prime cost and matching exports; existing profit and adjustments retained.
+- [x] Maison Francis October profit remains HK$237,503; account expansion, Management view, previous-period comparison, CSV/PDF downloads and 390px single-period readability verified. QA statement renders; 16 focused tests and build pass. No database writes.
 
 ## Foreign currency part 2 — current request
 - [x] Invoice/scanner currency-rate fields, native/base bank and card import paths, phone Currencies cards and base P&L FX lines added; 1,306 tests passed and latest build OK.
