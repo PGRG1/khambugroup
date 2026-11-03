@@ -22,6 +22,7 @@ const Auth = () => {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
