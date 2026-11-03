@@ -28,9 +28,10 @@
  .employee-record .employee-statement td {display:block;border:0;padding:4px 0;}
  .employee-record .employee-statement td::before {content:attr(data-label);display:block;color:hsl(var(--muted-foreground));font-size:11px;}
 }
-.people-page .payroll-facts-table {font-size:13px;table-layout:fixed;}
-.people-page .payroll-facts-table .payroll-name-col {width:18%;}
-.people-page .payroll-facts-table .payroll-money-col {width:7.4545%;}
+.people-page .payroll-facts-table {font-size:13px;table-layout:fixed;width:100%;min-width:1080px;}
+.people-page .payroll-facts-table .payroll-name-col {width:180px;}
+.people-page .payroll-facts-table .payroll-money-col {width:auto;}
+.people-page .payroll-facts-table thead th {white-space:nowrap;}
 .people-page .payroll-facts-table button {font-size:13px;}
 .people-page .payroll-amount-input {height:28px;padding:2px 4px;font-size:13px;width:100%;min-width:0;text-align:right;border:1px solid hsl(var(--foreground));outline:none;box-shadow:none;}
 .people-page .payroll-amount-input:focus-visible {outline:none;box-shadow:none;}
