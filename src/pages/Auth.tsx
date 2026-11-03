@@ -51,13 +51,28 @@ const Auth = () => {
     setLoading(false);
   };
 
+  const isDemoName = ["demo", "yc demo"].includes(email.trim().toLowerCase());
+
+  const handleDemo = async () => {
+    setError(""); setMessage(""); setDemoLoading(true);
+    try { localStorage.removeItem("khambu.enteredTenantId"); } catch { /* no-op */ }
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("demo-sign-in", { body: {} });
+      if (fnError || !data?.token_hash) throw new Error("unavailable");
+      const { data: verified, error: otpError } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: "magiclink" });
+      if (otpError || !verified?.session) throw new Error("unavailable");
+    } catch {
+      setError("The demo isn't available right now");
+    }
+    setDemoLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemoName) { await handleDemo(); return; }
     setError(""); setMessage(""); setLoading(true);
     try { localStorage.removeItem("khambu.enteredTenantId"); } catch { /* no-op */ }
-    // Demo username alias: "Demo" signs in to the isolated YC demo account.
-    const login = email.trim().toLowerCase() === "demo" ? "demo@usebani.com" : email.trim();
-    const { data, error } = await supabase.auth.signInWithPassword({ email: login, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
       setError(error.message);
     } else if (!data?.session) {
@@ -219,10 +234,18 @@ const Auth = () => {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || demoLoading}
                   className="group inline-flex h-12 w-full items-center justify-center rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
                 >
-                  {loading ? "Please wait..." : "Sign In"}
+                  {loading ? "Please wait..." : demoLoading && isDemoName ? "Opening the demo…" : "Sign In"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDemo}
+                  disabled={loading || demoLoading}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-md border border-sage/60 bg-transparent font-inter text-sm font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
+                >
+                  {demoLoading ? "Opening the demo…" : "Try the demo"}
                 </button>
               </form>
             </div>
