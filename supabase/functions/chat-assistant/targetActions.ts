@@ -3,7 +3,7 @@
 import { formatTenantCurrency } from '../_shared/tenantCurrency.ts';
 
 export const TARGET_KINDS = ['set_revenue_target', 'set_purchasing_budget', 'send_team_notification'] as const;
-const MANAGER_ROLES = ['owner', 'admin', 'manager', 'gm', 'finance'];
+const MANAGER_ROLES = ['owner', 'tenant_admin', 'admin', 'manager', 'gm', 'finance'];
 const monthOk = (m: unknown) => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
 const label = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 

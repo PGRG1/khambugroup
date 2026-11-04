@@ -1121,6 +1121,13 @@
       "when": 1793672051615,
       "tag": "0159_platform_admin_tenant_access",
       "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1793775656229,
+      "tag": "0160_bani_target_action_card_kinds",
+      "breakpoints": true
     }
   ]
 }
