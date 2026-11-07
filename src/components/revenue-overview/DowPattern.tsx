@@ -40,7 +40,7 @@ export function DowPattern({ data }: Props) {
               <span className="text-[11px] w-8 text-muted-foreground">{s.day}</span>
               <div className="flex-1 h-3 rounded-sm bg-muted overflow-hidden">
                 <div
-                  className={`h-full rounded-sm transition-all duration-500 ease-out ${isTop ? "bg-primary" : "bg-primary/35"}`}
+                  className={`h-full rounded-sm ${isTop ? "bg-primary" : "bg-primary/35"}`}
                   style={{ width: `${w}%` }}
                 />
               </div>

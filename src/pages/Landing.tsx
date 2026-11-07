@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingLines } from "@/components/kit/LoadingSlots";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -59,7 +61,7 @@ const pct = (c: number | null) => (c == null ? null : `${c > 0 ? "+" : c < 0 ? "
 
 export default function Landing() {
   const { user } = useAuth();
-  const { tenantId, memberships } = useActiveTenant();
+  const { tenantId, memberships, loading: tenantLoading } = useActiveTenant();
   const vs = useVenueScope();
   const openTopic = useBaniTopic();
   const [talking] = useFloatingBaniOpen();
@@ -102,6 +104,7 @@ export default function Landing() {
       return (data?.[0] ?? null) as Review | null;
     },
   });
+  const reviewLoading = !mixed && (tenantLoading || !vs.ready || reviewQ.isPending);
   const views = useMemo(() => (reviewQ.data ? roleViews(reviewQ.data) : []), [reviewQ.data]);
   const viewOf = (r: Role) => views.find((v) => v.role === r);
   const forYou = (v?: RoleView) => (v?.findings ?? []).filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch"));
@@ -112,7 +115,7 @@ export default function Landing() {
   const win = mtdWindows(now);
   const salesQ = useQuery({
     queryKey: ["landing", "sales", tenantId, scopeIds?.join(",") ?? "all", win.to],
-    enabled: !!tenantId,
+    enabled: !!tenantId && vs.ready,
     queryFn: async () => {
       const all = await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true);
       const sc = (r: any) => !scopeIds || scopeIds.includes(r.venue_id);
@@ -131,10 +134,12 @@ export default function Landing() {
     queryFn: async () => {
       const a = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}-01`;
       const b = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
-      const { count } = await (supabase as any).from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte("invoice_date", a).lte("invoice_date", b);
+      const { count, error } = await (supabase as any).from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte("invoice_date", a).lte("invoice_date", b);
+      if (error) throw error;
       return count ?? 0;
     },
   });
+  const salesLoading = tenantLoading || !vs.ready || salesQ.isPending;
 
   const cards: Card[] = useMemo(() => {
     const s = salesQ.data; if (!s) return [];
@@ -259,18 +264,20 @@ export default function Landing() {
         {size === "wide" && reviewQ.data?.generated_at && <div className="ld-teamh">Your Bani team since {formatDate(reviewQ.data.generated_at.slice(0, 10))}</div>}
         <div className="ld-team" aria-label="Your Bani team">
           {ORDER.map((r) => { const [t, c] = status(r); return (
-            <button key={r} className="ld-mate" onClick={() => openMate(r)}>
+            <button key={r} className="ld-mate" disabled={reviewLoading || reviewQ.isError} onClick={() => openMate(r)}>
               <PixelAvatar seed={meta(r).seed} palette={meta(r).pal} size={size === "ph" ? 32 : 40} />
-              <b>{SHORT[r]}</b><span><i className={`ld-dot ${c}`} />{t}</span>
+              <b>{SHORT[r]}</b><span>{reviewLoading ? <Skeleton className="h-3 w-12 !animate-none" /> : reviewQ.isError ? "Unavailable" : <><i className={`ld-dot ${c}`} />{t}</>}</span>
             </button>); })}
         </div>
         </div>
       </div>
 
       <div className="ld-nums">
-        {salesQ.isLoading ? [0, 1, 2, 3].map((i) => <div key={i} className="ld-card ld-num"><div className="l">Loading…</div></div>) :
+        {salesLoading || (salesQ.isError && !salesQ.data) ? [0, 1, 2, 3].map((i) => <div key={i} className="ld-card ld-num" aria-busy={salesLoading}>
+          <div className="l"><Skeleton className="h-4 w-3/4 !animate-none" /></div><div className="v"><Skeleton className="h-7 w-4/5 !animate-none" /></div><div className="ld-note"><Skeleton className="h-4 w-2/3 !animate-none" /></div>
+        </div>) :
           cards.map((c) => (
-            <button key={c.label} className="ld-card ld-num" onClick={() => openCard(c)}>
+            <button key={c.label} className="ld-card ld-num loading-reveal" onClick={() => openCard(c)}>
               <div className="l">{c.label}</div>
               {c.cmp.now.value != null ? <div className="v">{c.fmt(c.cmp.now.value)}</div> : <div className="why">Can't be worked out: {c.cmp.now.why}</div>}
               {c.cmp.changePct != null
@@ -278,19 +285,22 @@ export default function Landing() {
                 : <div className="ld-note flat">{c.cmp.now.value != null ? "Nothing to compare last year" : ""}</div>}
             </button>))}
       </div>
+      {salesQ.isError && <p role="alert" className="ld-gap">Sales could not be loaded. <button className="ld-btn ghost" onClick={() => void salesQ.refetch()}>Retry</button></p>}
       {gaps.length > 0 && <div className="ld-gap">{gaps.join(" · ")}.</div>}
 
-      <div className="ld-brief">{brief.join(" ")}</div>
+      <div className="ld-brief">{salesLoading ? <div aria-label="Loading briefing" role="status" className="space-y-3"><Skeleton className="h-5 w-full !animate-none" /><Skeleton className="h-5 w-2/3 !animate-none" /></div> : salesQ.data ? <span className="loading-reveal">{brief.join(" ")}</span> : null}</div>
       <div className="ld-qs">{questions.map((q, i) => <button key={q} className={`ld-chip ${i ? "" : "solid"}`} onClick={() => ask(q)}>{q}</button>)}</div>
 
       <div className="ld-cols">
-        <div><h2 className="ld-h2">Needs you · {needs.length}</h2>
-        <section className="ld-card">
+        <div><h2 className="ld-h2">Needs you{!reviewLoading && !reviewQ.isError && reviewQ.data ? ` · ${needs.length}` : ""}</h2>
+        <section className="ld-card ld-needs-shell" aria-busy={reviewLoading}>
           {mixed ? <div className="ld-empty">Pick one venue or all venues to see what your team found.</div>
-            : !reviewQ.data && !reviewQ.isLoading ? <div className="ld-empty">Your team hasn't prepared an update for this view yet.</div>
+            : reviewLoading ? <LoadingLines className="px-[18px] py-3" rows={3} />
+            : reviewQ.isError ? <div className="ld-empty" role="alert">Your team's update could not be loaded. <button className="ld-btn ghost" onClick={() => void reviewQ.refetch()}>Retry</button></div>
+            : !reviewQ.data ? <div className="ld-empty loading-reveal">Your team hasn't prepared an update for this view yet.</div>
             : needs.length === 0 ? <div className="ld-empty">Nothing needs you right now.</div>
             : needs.map(({ role: r, f }) => (
-              <div key={f.key} className="ld-row">
+              <div key={f.key} className="ld-row loading-reveal">
                 <i className={`ld-dot ${f.severity === "action" ? "amb" : "quiet"}`} />
                 <div className="grow"><div className="t">{f.title}</div><div className="c">{f.statement}</div></div>
                 <button className="ld-btn" onClick={() => openFinding(r, f)}>{stepLabel(f)}</button>
@@ -299,8 +309,9 @@ export default function Landing() {
         <div className="ld-side">
           <div><h2 className="ld-h2">This week</h2>
           <section className="ld-card" style={{ padding: "8px 0" }}>
+            {salesLoading ? <LoadingLines className="px-[18px]" rows={2} /> : !salesQ.data ? <div className="ld-empty">Schedule unavailable.</div> : <>
             {weekList.length === 0 && <div className="ld-empty">Nothing scheduled this week</div>}
-            {weekList.map((w) => <div key={w.d} className="ld-week"><span className="d">{w.d}</span><span>{w.t}</span></div>)}
+            {weekList.map((w) => <div key={w.d} className="ld-week loading-reveal"><span className="d">{w.d}</span><span>{w.t}</span></div>)}</>}
           </section></div>
           <div><h2 className="ld-h2">Agreed</h2><section className="ld-card"><div className="ld-empty">Nothing agreed yet</div></section></div>
         </div>

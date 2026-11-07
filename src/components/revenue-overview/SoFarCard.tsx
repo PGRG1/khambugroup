@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { shortMoney, paceSentence, type TargetPace } from "@/utils/revenueOverview";
 import { fmtNum } from "./utils";
 
@@ -13,9 +14,10 @@ interface Props {
   spendPerGuest: number | null;
   prevSpendPerGuest: { value: number; name: string } | null;
   averageDay: number;
+  targetLoading?: boolean;
 }
 
-export function SoFarCard({ label, revenue, comparison, target, guests, spendPerGuest, prevSpendPerGuest, averageDay }: Props) {
+export function SoFarCard({ label, revenue, comparison, target, guests, spendPerGuest, prevSpendPerGuest, averageDay, targetLoading = false }: Props) {
   const p = target?.pace;
   const showBar = target && target.hasTarget && p && p.target > 0;
   const soldPct = showBar ? Math.min(100, (p!.sold / p!.target) * 100) : 0;
@@ -30,7 +32,7 @@ export function SoFarCard({ label, revenue, comparison, target, guests, spendPer
         {comparison && <p className="mt-2 text-[14px] text-foreground/80">{comparison}</p>}
       </div>
 
-      {target && (
+      {targetLoading ? <div className="min-h-14 space-y-2" role="status" aria-label="Loading target"><Skeleton className="h-3 w-full !animate-none"/><Skeleton className="h-4 w-2/3 !animate-none"/></div> : target && (
         showBar ? (
           <div className="space-y-2">
             <div className="relative h-3 rounded-full bg-muted" role="img"

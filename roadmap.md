@@ -1,3 +1,8 @@
+## Navigation and loading polish — current request
+- [x] Home Needs-you/cards/briefing/week slots, Finance Overview cards and statement/report tables, Revenue Overview and Invoices retain destination controls with static matched placeholders and one 150ms opacity reveal. Removed invoice lazy dashboard fallback and previous-tab flash; no routes, calculation or save changes.
+- [x] 30 focused tests; delayed/settled QA checks at 1440px/390px without page overflow; simulated failed reads and Retry pass on all five screens; sidebar shell retained and existing QA invoices read back as 2 / HK$10,000 after navigation; selected-November QA report shows amounts. Latest harness build OK; nothing deployed, no database edits or fixture inserts.
+- Optional Expense Bills, Bank & cash and Payroll left untouched: their multi-source/error handling needs broader changes than this focused pass. Aging report subviews retain their existing loaders; populated Revenue history and cross-venue browser switches unavailable in the existing QA dataset. Existing scope-isolation regression tests pass; no cache rewrite.
+
 ## Alert session error — current request
 - [x] Explicit bearer/session readiness, one same-user refresh on 401 and server claims validation; 65 tests pass, deployed QA inbox returns 200 in app, unsigned returns 401, latest build OK. Original transient 401 not reproducible with current session; regression reproduces Auth-fetch failure before fix. No business data writes.
 

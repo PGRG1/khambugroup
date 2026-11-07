@@ -4,12 +4,13 @@ import {ChevronDown,ChevronRight} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {formatCurrency,formatPercent,formatDate} from '@/utils/format';
 import type {PLRow} from '@/utils/restaurantPL';
+import {Skeleton} from '@/components/ui/skeleton';
 
-export function RestaurantPLStatement({rows,columns,from,to,scope,detailed,onDetailed}:{rows:PLRow[];columns:string[];from:string;to:string;scope:string;detailed:boolean;onDetailed:(v:boolean)=>void}){
+export function RestaurantPLStatement({rows,columns,from,to,scope,detailed,onDetailed,loading=false,unavailable=false}:{rows:PLRow[];columns:string[];from:string;to:string;scope:string;detailed:boolean;onDetailed:(v:boolean)=>void;loading?:boolean;unavailable?:boolean}){
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const sales=rows.find(r=>r.id==='net-sales')?.values??[];
   const shown=rows.filter(r=>r.kind!=='account'||detailed&&!collapsed.has(r.parent??''));
-  return <section aria-label="Profit and loss statement" className="min-w-0 border-y border-border bg-card text-card-foreground [font-family:'IBM_Plex_Sans',sans-serif] [font-variant-numeric:tabular-nums]">
+  return <section aria-label="Profit and loss statement" aria-busy={loading} className="min-w-0 border-y border-border bg-card text-card-foreground [font-family:'IBM_Plex_Sans',sans-serif] [font-variant-numeric:tabular-nums]">
     <header className="flex flex-wrap items-start justify-between gap-4 px-5 py-6 sm:px-7">
       <div><h2 className="text-xl font-semibold">Profit &amp; loss</h2><p className="mt-1 text-sm text-muted-foreground">{scope} · {formatDate(from)} — {formatDate(to)}</p><p className="mt-1 text-xs text-muted-foreground">Posted books · Accrual basis</p></div>
       <div role="group" aria-label="Statement detail" className="flex gap-1 border-b border-border">
@@ -20,7 +21,7 @@ export function RestaurantPLStatement({rows,columns,from,to,scope,detailed,onDet
     <div className="max-w-full overflow-x-auto">
       <table aria-label="Restaurant profit and loss" className="w-full min-w-full border-collapse text-sm">
         <thead className="bg-muted text-xs text-muted-foreground"><tr><th scope="col" className="min-w-36 px-3 py-3 text-left font-medium sm:min-w-64 sm:px-7">Account / line</th>{columns.map(c=><th scope="col" key={c} className="min-w-36 px-3 py-3 text-right font-medium sm:min-w-44 sm:px-5">{c}<span className="block pt-1 font-normal">Amount · % of revenue</span></th>)}</tr></thead>
-        <tbody>{shown.map(r=>{
+        <tbody className={!loading&&!unavailable?'loading-reveal':undefined}>{loading ? Array.from({length:14},(_,i)=><tr key={i} className="border-t border-border/40"><th className="px-3 py-2.5 sm:px-7"><Skeleton className="h-5 w-3/4 !animate-none"/></th>{columns.map(c=><td key={c} className="px-3 py-2.5 sm:px-5"><Skeleton className="h-5 w-3/4 ml-auto !animate-none"/></td>)}</tr>) : unavailable ? <tr><td colSpan={columns.length+1} className="px-5 py-8 text-muted-foreground">Report unavailable. Retry the books check above.</td></tr> : shown.map(r=>{
           const section=r.kind==='section',grand=r.kind==='grand',total=r.kind==='total',ratio=r.kind==='ratio';
           const children=rows.some(child=>child.parent===r.id);
           return <tr key={r.id} className={grand?'border-t-4 border-double border-foreground bg-muted font-semibold':total?'border-t border-border font-semibold':section?'border-t border-border bg-muted/50 font-medium':ratio?'text-muted-foreground':'border-t border-border/40'}>

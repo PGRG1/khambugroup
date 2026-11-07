@@ -72,7 +72,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
             <div key={`${tenantId}:${previewUserId}:${baseCurrency}`} className="min-w-0">
-              <div key={pathname} className="route-content-enter min-w-0">{children}</div>
+              <div key={pathname} data-slot-loading={['/', '/finance', '/finance/reports', '/revenue', '/procurement/invoices'].includes(pathname)} className="route-content-enter min-w-0">{children}</div>
             </div>
           </div>
         </main>

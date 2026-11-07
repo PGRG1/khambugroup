@@ -107,7 +107,7 @@ export function useSalesData(cached = false) {
     placeholderData: (previous, previousQuery) => sameSessionPrevious(previous, previousQuery, key),
     queryFn: async () => {
       if (!tenantId) return [];
-      const rows = await fetchAllRows("sales_records", "*", { col: "date", asc: true }, tenantId);
+      const rows = await fetchAllRows("sales_records", "*", { col: "date", asc: true }, tenantId, true);
       return rows.map(fromDbRecord);
     },
   });
@@ -303,5 +303,5 @@ export function useSalesData(cached = false) {
     return fromDbRecord(row);
   }, [data, tenantId]);
 
-  return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, getRecordById, refetch: fetchData };
+  return { data, loading, error: query.error, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, getRecordById, refetch: fetchData };
 }

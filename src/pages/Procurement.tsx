@@ -1,11 +1,11 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { Suspense, lazy } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/expenses/shared";
 
 const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
 const ProductMasterTab = lazy(() => import("@/components/procurement/ProductMasterTab"));
 const CategoriesTab = lazy(() => import("@/components/procurement/CategoriesTab"));
-const ProcurementInvoicesTab = lazy(() => import("@/components/procurement/ProcurementInvoicesTab"));
+import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 const PurchaseOrdersTab = lazy(() => import("@/components/procurement/PurchaseOrdersTab"));
 const ReceivingTab = lazy(() => import("@/components/procurement/ReceivingTab"));
 const ProcurementLineItemsTab = lazy(() => import("@/components/procurement/ProcurementLineItemsTab"));
@@ -45,11 +45,7 @@ function TabFallback() {
 }
 
 export default function Procurement({ defaultTab = "dashboard" }: ProcurementProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab);
-
-  useEffect(() => {
-    setActiveTab(defaultTab);
-  }, [defaultTab]);
+  const activeTab = defaultTab;
 
   return (
     <div className={["invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) ? "w-full mx-auto space-y-6" : "p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto"}>

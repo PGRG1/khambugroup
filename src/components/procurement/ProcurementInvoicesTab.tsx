@@ -1,4 +1,6 @@
 import {baseSymbol} from '@/utils/money';
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingTable } from "@/components/kit/LoadingSlots";
 import {InvoiceAssetProposal} from "@/components/finance/InvoiceAssetProposal";
 import {InvoiceCurrencyReview} from '@/components/finance/InvoiceCurrencyReview';
 import {SupplierNameLink} from "@/components/vendors/SupplierProfileDialog";
@@ -211,7 +213,7 @@ export interface InvoiceWorkflowControls {
 }
 
 export default function ProcurementInvoicesTab({ renderRegister }: { renderRegister?: (controls: InvoiceWorkflowControls) => React.ReactNode } = {}) {
-  const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice } = useInvoiceData();
+  const { invoices, suppliers, loading, error, fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const { venues: dbVenues } = useVenues();
@@ -1097,8 +1099,6 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   }, [editing, editDisputeStats.hasDispute]);
 
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading invoices...</div>;
-
   if (editing && selectedInvoice) {
     return (
       <div className="space-y-4">
@@ -1924,6 +1924,8 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
         suppliers={suppliers}
         kpis={kpis}
         loading={loading}
+        loadError={error}
+        retry={() => void fetchAll()}
         periodFrom={periodFrom}
         periodTo={periodTo}
         totalAmount={totalAmount}
@@ -2027,6 +2029,8 @@ interface InvoiceTableSectionProps {
   suppliers: { id: string; name: string }[];
   kpis: InvoiceKpis;
   loading: boolean;
+  loadError: string | null;
+  retry: () => void;
   periodFrom: Date | undefined;
   periodTo: Date | undefined;
   totalAmount: number;
@@ -2062,7 +2066,7 @@ function InvoiceTableSection({
   search, setSearch, supplierFilter, setSupplierFilter,
   reviewStatusFilter, setReviewStatusFilter, monthFilter, datePeriod, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
-  invoiceVarianceMap, onAttachSource, loading, periodFrom, periodTo,
+  invoiceVarianceMap, onAttachSource, loading, loadError, retry, periodFrom, periodTo,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
   const isMobile = useIsMobile();
@@ -2126,8 +2130,8 @@ function InvoiceTableSection({
   return <div className="space-y-6 min-w-0 max-[640px]:pb-24">
     <RevenuePageTop title="Invoices" actionsBesideTitle period={datePeriod.control} actions={upload} />
     <div data-invoice-tabs-host />
-    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Invoice records">
-      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span><span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span></h2>
+    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0 invoice-loading-shell" aria-label="Invoice records">
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span>{loading || (loadError && !filtered.length) ? <Skeleton className="h-5 w-64 max-w-full !animate-none" /> : <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span>}</h2>
       <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
         filter={<FilterPanel activeCount={Number(supplierFilter !== "all") + Number(reviewStatusFilter !== "all")} onReset={() => { setSupplierFilter("all"); setReviewStatusFilter("all"); }} width={340}>
           <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup>
@@ -2138,7 +2142,8 @@ function InvoiceTableSection({
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={value => { const [key,dir] = value.split(":"); setSortColumns([{key,dir:dir === "asc" ? "asc" : "desc"}]); }} />}
         downloadControl={download} />
       {selectMode && <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label="Select all filtered invoices" checked={allSelected} onCheckedChange={() => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(inv => inv.id)))} /><span>{selected.length ? `${formatTableInteger(selected.length)} selected` : "Select invoices"}</span><Button variant="ghost" size="sm" className="ml-auto" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>Done</Button></div>}
-      {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading invoices…</p> : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : isMobile ? <ul className="divide-y divide-border/60">
+      {loadError && <p role="alert" className="text-sm text-destructive">Invoices could not be loaded. <Button variant="outline" size="sm" onClick={retry}>Retry</Button></p>}
+      {loading ? <LoadingTable mobile headings={['Date', 'Supplier', 'Invoice #', `Amount (${baseSymbol()})`, 'Status']} /> : loadError && !filtered.length ? null : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : isMobile ? <ul className="divide-y divide-border/60 loading-reveal">
         {pag.pageItems.map(inv => <li key={inv.id} className="flex items-center gap-2 px-3 min-h-11 py-2">{selectMode && <Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} />}<Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-[13px]"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></span><span className="td-num shrink-0 text-[13px]">{formatTableCurrency(Number(inv.total_amount))}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><span>{shortDay(inv.invoice_date)} ·</span><span className="break-all">{inv.invoice_number} ·</span>{statusText(inv)}{flags(inv)}</span></Button></li>)}
       </ul> : <div className="kit sales-table-scroll"><table className="sales-table !w-full" aria-label="Invoices"><colgroup>{selectMode && <col className="w-10" />}<col className="w-[16%]" /><col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[20%]" /><col className="w-[14%]" /></colgroup><thead><tr>{selectMode && <th /> }<th className="sales-cell-left">Date</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left">Invoice #</th><th className="sales-cell-right">Amount ({baseSymbol()})</th><th className="sales-cell-left">Status</th></tr></thead><tbody>{pag.pageItems.map(inv => <tr key={inv.id} tabIndex={0} className="sales-record-row" onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }}>{selectMode && <td onClick={e => e.stopPropagation()}><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></td>}<td className="sales-cell-left">{shortDay(inv.invoice_date)}</td><td className="sales-cell-left" title={inv.supplier_name}><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></td><td className="sales-cell-left td-num"><span className="inline-flex items-center gap-1">{inv.invoice_number}{flags(inv)}</span></td><td className="td-num">{formatTableCurrency(Number(inv.total_amount))}</td><td className="sales-cell-left">{statusText(inv)}</td></tr>)}</tbody></table></div>}
       {pag.totalPages > 1 && <div className="flex items-center justify-between gap-2 kit-divider pt-2 text-xs text-muted-foreground"><span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}

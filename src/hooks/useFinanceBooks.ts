@@ -111,5 +111,8 @@ export function useFinanceBooks(year: number) {
   useEffect(() => {
     if (!tenantLoading && window.data) void refetch();
   }, [tenantLoading, window.data, refetch]);
-  return { ...data, tenantId, loading, error, refetch };
+  return { ...data, tenantId, loading: loading && !window.isError, error: error || (window.isError ? "Books date settings could not be loaded." : ""), refetch: async () => {
+    if (!window.data) { await window.refetch(); return; }
+    await refetch();
+  } };
 }

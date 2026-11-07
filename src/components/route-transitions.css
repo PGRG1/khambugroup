@@ -3,6 +3,14 @@
   to { opacity: 1; }
 }
 .route-content-enter { animation: route-content-enter 150ms ease-out; }
+.route-content-enter[data-slot-loading="true"] { animation: none; }
+.loading-reveal { animation: route-content-enter 150ms ease-out; }
+.loading-reveal .loading-reveal { animation: none; }
+.route-content-enter[data-slot-loading="true"] [role="progressbar"] > * { transition: none; }
+.finance-loading .finance-queue { min-height: 210px; }
+.finance-loading .finance-metrics { min-height: 300px; }
+.ld-needs-shell { min-height: 190px; }
+.invoice-loading-shell { min-height: 310px; }
 @media (prefers-reduced-motion: reduce) {
-  .route-content-enter { animation: none; }
+  .route-content-enter, .loading-reveal { animation: none; }
 }

@@ -180,7 +180,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
               width={48}
             />
             <Tooltip content={tooltipContent} />
-            <Bar dataKey="revenue" fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
+            <Bar dataKey="revenue" isAnimationActive={false} fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
               {chartData.map((d) => (
                 <Cell key={d.key} fill={marks && d.key === marks.worst.key ? "hsl(var(--warning))" : "hsl(var(--primary))"} />
               ))}

@@ -53,7 +53,7 @@ export function VenueContribution({ data, prevData, venue }: Props) {
                 </div>
                 <div className="mt-1 h-3 rounded-sm bg-muted overflow-hidden">
                   <div
-                    className="h-full bg-primary/80 rounded-sm transition-all duration-500 ease-out"
+                    className="h-full bg-primary/80 rounded-sm"
                     style={{ width: `${bar}%` }}
                   />
                 </div>

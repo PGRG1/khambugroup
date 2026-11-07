@@ -100,17 +100,24 @@ export function useInvoiceData() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const initialLoadDone = React.useRef(false);
+  const loadSequence = React.useRef(0);
   const { toast } = useToast();
 
   const fetchAll = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (!tenantId) { setInvoices([]); setSuppliers([]); setCategories([]); setLoading(false); return; }
     if (!initialLoadDone.current) setLoading(true);
+    setError(null);
+    try {
     const [invData, supData, catRes] = await Promise.all([
-      fetchAllRows("invoices", "*", { col: "invoice_date", asc: false }, tenantId),
-      fetchAllRows("suppliers", "*", { col: "name", asc: true }, tenantId),
+      fetchAllRows("invoices", "*", { col: "invoice_date", asc: false }, tenantId, true),
+      fetchAllRows("suppliers", "*", { col: "name", asc: true }, tenantId, true),
       supabase.from("expense_categories").select("*").eq("tenant_id", tenantId).order("name"),
     ]);
+    if (sequence !== loadSequence.current) return;
+    if (catRes.error) throw catRes.error;
 
     setSuppliers(supData as Supplier[]);
     if (catRes.data) setCategories(catRes.data as ExpenseCategory[]);
@@ -122,8 +129,12 @@ export function useInvoiceData() {
         supplier_name: supplierMap.get(inv.supplier_id) || "Unknown",
       }))
     );
-    setLoading(false);
     initialLoadDone.current = true;
+    } catch (e) {
+      if (sequence === loadSequence.current) setError(e instanceof Error ? e.message : "Invoices could not be loaded.");
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, [tenantId]);
 
   useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
@@ -339,7 +350,7 @@ export function useInvoiceData() {
   }, [fetchAll, toast, tenantId]);
 
   return {
-    invoices, suppliers, categories, loading,
+    invoices, suppliers, categories, loading, error,
     fetchAll, fetchLineItems, createInvoice, createScannerInvoiceWithAttachments, updateInvoice, deleteInvoice, updateInvoiceStatus,
     createSupplier, createCategory,
   };
