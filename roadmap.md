@@ -1,3 +1,6 @@
+## Alert session error — current request
+- [x] Explicit bearer/session readiness, one same-user refresh on 401 and server claims validation; 65 tests pass, deployed QA inbox returns 200 in app, unsigned returns 401, latest build OK. Original transient 401 not reproducible with current session; regression reproduces Auth-fetch failure before fix. No business data writes.
+
 ## Team messages and demo venue — current request
 - [x] Persist recipient-only team messages, show/read them in Floating Bani and include unread messages in its count; QA display/count/readback verified, temporary rows removed. Nine focused tests pass; actual multi-person chat confirmation and physical push unverified.
 - [x] Resolve assigned job-role names/keys and everyone without changing access assignments; deployed chat-assistant.

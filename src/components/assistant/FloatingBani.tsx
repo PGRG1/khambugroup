@@ -26,6 +26,7 @@ import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type Ba
 import { PeopleActionCard } from "./PeopleActionCard";
 import { Button } from "@/components/ui/button";
 import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
+import { invokeAlertCheck } from "@/utils/invokeAlertCheck";
 import { useSmartAlerts } from "@/hooks/useSmartAlerts";
 import { useBaniTeamMessages } from "@/hooks/useBaniTeamMessages";
 import { stageBaniStatements } from "@/utils/baniStatementHandoff";
@@ -173,7 +174,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const pendingItems = pending.items.filter(a=>!finished.includes(a.kind+'|'+a.subject));
   const nextWork = (items= pendingItems) => { const item=items[0]??null;setActiveItem(item);setMessages(prev=>[...prev,{role:'assistant',content:item?`${item.title}. ${item.why}${item.payload.because?.length?' Because of this: '+item.payload.because.join(' · ')+'.':''} ${item.payload.question?'Please tell me yes, no, or not sure.':'Tell me what you would like to do, or say done once you have checked it.'}`:'That is everything pending in your scope.',eventId:item?(item.id??item.kind+'|'+item.subject):undefined}]); };
   const openWork = () => {setWorkStart(pendingItems.length);if(!activeItem)nextWork();setOpen(true);};
-  const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await supabase.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}}});if(error)throw error;if(data.error)throw new Error(data.error);};
+  const completeWork = async (item:PendingItem,decision:string) => { const {data,error}=await invokeAlertCheck({tenant_id:tenantId,work_action:{kind:item.kind,subject:item.subject,decision}});if(error)throw error;if(data.error)throw new Error(data.error);};
   const dismissEvent = async (id:string) => {try{const item=pendingItems.find(a=>a.id===id||a.kind+'|'+a.subject===id);if(item)await completeWork(item,'done');else await alerts.action(id,'done');if(item){setFinished(prev=>[...prev,item.kind+'|'+item.subject]);nextWork(pendingItems.filter(a=>a!==item));}setMessages(prev=>prev.map(m=>m.eventId===id?{...m,outcome:'Dismissed'}:m));}catch(e){setError(e instanceof Error?e.message:'Could not dismiss');}};
   const pushOpened = useRef('');
   // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
