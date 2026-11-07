@@ -1308,6 +1308,60 @@ export type Database = {
           },
         ]
       }
+      bani_team_messages: {
+        Row: {
+          action_id: string
+          body: string
+          created_at: string
+          id: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+          sender_name: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          action_id: string
+          body: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+          sender_name: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          action_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+          sender_name?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_team_messages_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "bani_pending_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bani_team_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_name: string
@@ -15820,6 +15874,10 @@ export type Database = {
           snapshot: Json
           t: string
         }
+        Returns: undefined
+      }
+      bani_team_messages_read: {
+        Args: { p_ids: string[]; p_tenant_id: string }
         Returns: undefined
       }
       can_see_venue: { Args: { t: string; v: string }; Returns: boolean }

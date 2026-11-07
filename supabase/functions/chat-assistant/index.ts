@@ -444,7 +444,7 @@ const proposeActionTool = {
     parameters: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification"], description: "set_revenue_target = monthly revenue target (month, amount, optional venues); set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = instant phone notification to team roles (title, message, recipient_roles). mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice." },
+        kind: { type: "string", enum: ["mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification"], description: "set_revenue_target = monthly revenue target (month, amount, optional venues); set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = team message delivered in the app plus existing phone push (title, message, recipient_roles). Accept tenant job role names/keys or membership roles or everyone; if no recipients match, ask using the returned available roles. mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice." },
         title: { type: "string", description: "Short card title, e.g. 'Mark Caliente closed on 1–5 Oct'." },
         detail: { type: "string", description: "One line explaining exactly what Confirm will do." },
         venue: { type: "string", description: "Venue name exactly as stored (required for mark_closed_days)." },
@@ -457,7 +457,7 @@ const proposeActionTool = {
         budgets: {type:"array",items:{type:"object",properties:{category:{type:"string"},amount:{type:"number"}},required:["category","amount"]}},
         note: {type:"string"},
         message: {type:"string",description:"Notification text for send_team_notification."},
-        recipient_roles: {type:"array",items:{type:"string"},description:"tenant roles e.g. owner, manager, staff, or everyone"},
+        recipient_roles: {type:"array",items:{type:"string"},description:"Tenant job role name or role_key (e.g. Head chef/head_chef, general_manager), membership role (member/manager/tenant_admin), or everyone. Case-insensitive. Unknown/unassigned roles return available names; ask rather than guess."},
         account_id: {type:"string",description:"Existing supplier account UUID, for expense_meter_coverage."},
         split_method: {type:"string",enum:["single","fixed","floor_area","sales","central"]},
         covers: {type:"array",items:{type:"object",properties:{venue_id:{type:"string"},weight:{type:"number"}},required:["venue_id"]}},

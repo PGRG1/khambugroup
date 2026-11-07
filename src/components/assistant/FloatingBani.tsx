@@ -27,6 +27,7 @@ import { PeopleActionCard } from "./PeopleActionCard";
 import { Button } from "@/components/ui/button";
 import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
 import { useSmartAlerts } from "@/hooks/useSmartAlerts";
+import { useBaniTeamMessages } from "@/hooks/useBaniTeamMessages";
 import { stageBaniStatements } from "@/utils/baniStatementHandoff";
 import { supabase } from "@/integrations/supabase/client";
 import { groupedPending, dueWithinTwoDays } from "../../../supabase/functions/_shared/smartAlerts/followUp";
@@ -145,6 +146,26 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   const queryClient = useQueryClient();
   const pending = useBaniPending(allowed && !review && !salesDraft);
+  const teamMessages = useBaniTeamMessages(allowed);
+  const displayedTeamIds = useRef(new Set<string>());
+  const readingTeamIds = useRef(new Set<string>());
+  useEffect(() => { displayedTeamIds.current.clear(); readingTeamIds.current.clear(); }, [identity]);
+  useEffect(() => {
+    if (!allowed || !open || (!hosted && host) || scope !== identity) return;
+    const fresh = teamMessages.unread.filter(m => !displayedTeamIds.current.has(m.id));
+    if (!fresh.length) return;
+    fresh.forEach(m => displayedTeamIds.current.add(m.id));
+    setMessages(prev => [...prev, ...fresh.filter(m => !prev.some(shown => shown.teamMessageId === m.id)).map(m => ({ role: 'assistant' as const, teamMessageId: m.id,
+      content: `From ${m.sender_name}: ${m.title}\n\n${m.body}` }))]);
+  }, [allowed, open, hosted, host, scope, identity, teamMessages.unread, setMessages]);
+  useEffect(() => {
+    if (!allowed || !open || (!hosted && host) || scope !== identity) return;
+    const visible = new Set(messages.map(m => m.teamMessageId));
+    const ids = teamMessages.unread.filter(m => visible.has(m.id) && !readingTeamIds.current.has(m.id)).map(m => m.id);
+    if (!ids.length) return;
+    ids.forEach(id => readingTeamIds.current.add(id));
+    void teamMessages.markRead(ids).catch(() => { ids.forEach(id => readingTeamIds.current.delete(id)); });
+  }, [allowed, open, hosted, host, scope, identity, messages, teamMessages.unread, teamMessages.markRead]);
   const alerts = useSmartAlerts();
   const [activeItem,setActiveItem] = useState<PendingItem|null>(null);
   const [workStart,setWorkStart] = useState<number|null>(null);
@@ -165,8 +186,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
-  const attention = pendingItems.length;
-  const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else if (attention > 0 && !messages.length) openWork(); else setOpen(true); };
+  const attention = pendingItems.length + teamMessages.unread.length;
+  const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else if (pendingItems.length > 0 && !messages.length && !teamMessages.unread.length) openWork(); else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 

@@ -1,6 +1,7 @@
 // Confirmed Bani cards for revenue targets, purchasing spend budgets and instant team notifications.
 // Proposals only validate and store a pending card; writes happen on Confirm, as the signed-in user (RLS applies).
 import { formatTenantCurrency } from '../_shared/tenantCurrency.ts';
+import { loadTeamRecipients } from './teamRecipients.ts';
 
 export const TARGET_KINDS = ['set_revenue_target', 'set_purchasing_budget', 'send_team_notification'] as const;
 const MANAGER_ROLES = ['owner', 'tenant_admin', 'admin', 'manager', 'gm', 'finance'];
@@ -59,12 +60,14 @@ export async function proposeTargetAction(args: any, admin: any, t: string, u: s
     const subject = typeof args.title === 'string' ? args.title.trim().slice(0, 80) : '';
     const roles = Array.isArray(args.recipient_roles) ? args.recipient_roles.map(String) : [];
     if (!message || !subject || !roles.length) return { ok: false, error: 'Give a short title, the message and who should receive it.' };
-    const { data: members } = await admin.from('tenant_members').select('user_id,role').eq('tenant_id', t);
-    const ids = (members ?? []).filter((m: any) => roles.includes('everyone') || roles.includes(m.role)).map((m: any) => m.user_id).filter((id: string) => id !== u);
-    if (!ids.length) return { ok: false, error: 'No team members have those roles.', roles: [...new Set((members ?? []).map((m: any) => m.role))] };
+    let recipients;
+    try { recipients = await loadTeamRecipients(admin, t, roles, u); }
+    catch { return { ok: false, error: 'Could not check team recipients.' }; }
+    const { ids } = recipients;
+    if (!ids.length) return { ok: false, error: 'No team members have those roles.', roles: recipients.available };
     title = `Notify ${roles.join(', ')}: ${subject}`;
     detail = `${message}\nRecipients: ${ids.length} people`;
-    payload = { user_ids: ids, title: subject, body: message };
+    payload = { user_ids: ids, recipient_roles: roles, title: subject, body: message };
   }
   const { data: card, error } = await admin.from('bani_pending_actions').insert({ tenant_id: t, user_id: u, kind: args.kind, title: title.slice(0, 200), detail: detail.slice(0, 500), payload }).select('id').single();
   return error ? { ok: false, error: 'Could not create the card.' } : { ok: true, action_id: card.id, title, detail, note: 'Card shown; nothing is saved or sent until the user taps Confirm.' };
@@ -82,8 +85,25 @@ export async function confirmTargetAction(r: any, admin: any, userClient: any, t
     const { error } = await userClient.rpc('save_purchasing_budgets', { p_tenant_id: t, p_venue_id: p.venue_id, p_month: p.month, p_amounts: p.amounts, p_note: p.note });
     return error ? { status: 403, body: { error: 'Could not save the budget: ' + error.message } } : { status: 200, body: { ok: true, message: 'Purchasing budget saved.' } };
   }
-  const res = await fetch(supabaseUrl + '/functions/v1/send-push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + serviceKey }, body: JSON.stringify({ user_ids: p.user_ids, payload: { title: p.title, body: p.body, url: '/', tag: 'bani-team-' + r.id } }) });
-  if (!res.ok) return { status: 502, body: { error: 'Notification could not be sent.' } };
+  // Revalidate membership/assignments, but never broaden the recipients approved on the card.
+  let recipients;
+  try { recipients = await loadTeamRecipients(admin, t, Array.isArray(p.recipient_roles) ? p.recipient_roles : ['everyone'], u); }
+  catch { return { status: 502, body: { error: 'Could not check team recipients.' } }; }
+  const ids = recipients.ids.filter((id: string) => Array.isArray(p.user_ids) && p.user_ids.includes(id));
+  if (!ids.length) return { status: 409, body: { error: 'No recipients still match this card. Ask Bani again.', roles: recipients.available } };
+  const { data: sender, error: senderError } = await admin.from('profiles').select('display_name').eq('user_id', u).maybeSingle();
+  if (senderError) return { status: 502, body: { error: 'Could not check the sender.' } };
+  const { error: deliveryError } = await admin.from('bani_team_messages').upsert(ids.map((recipient_id: string) => ({
+    tenant_id: t, recipient_id, sender_id: u, sender_name: sender?.display_name?.trim() || 'Team member',
+    action_id: r.id, title: p.title, body: p.body,
+  })), { onConflict: 'action_id,recipient_id', ignoreDuplicates: true });
+  if (deliveryError) return { status: 502, body: { error: 'The in-app message could not be delivered.' } };
+  const delivered = `Delivered in the app to ${ids.length} ${ids.length === 1 ? 'person' : 'people'}.`;
+  let res;
+  try {
+    res = await fetch(supabaseUrl + '/functions/v1/send-push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + serviceKey }, body: JSON.stringify({ user_ids: ids, payload: { title: p.title, body: p.body, url: '/', tag: 'bani-team-' + r.id } }) });
+  } catch { return { status: 200, body: { ok: true, message: delivered + ' Phone push could not be sent.' } }; }
+  if (!res.ok) return { status: 200, body: { ok: true, message: delivered + ' Phone push could not be sent.' } };
   const sent = Number((await res.json().catch(() => ({})))?.sent ?? 0);
-  return { status: 200, body: { ok: true, message: sent > 0 ? `Sent to ${sent} device${sent === 1 ? '' : 's'}.` : 'No recipients have phone notifications switched on, so nothing was delivered.' } };
+  return { status: 200, body: { ok: true, message: delivered + (sent > 0 ? ` Push sent to ${sent} device${sent === 1 ? '' : 's'}.` : '') } };
 }

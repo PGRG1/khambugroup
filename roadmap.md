@@ -1,3 +1,8 @@
+## Team messages and demo venue — current request
+- [x] Persist recipient-only team messages, show/read them in Floating Bani and include unread messages in its count; QA display/count/readback verified, temporary rows removed. Nine focused tests pass; actual multi-person chat confirmation and physical push unverified.
+- [x] Resolve assigned job-role names/keys and everyone without changing access assignments; deployed chat-assistant.
+- [ ] Rename demo venue references atomically — blocked: 46 posted expense bills reject venue changes; no rename attempted.
+
 ## Restaurant P&L redesign — current request
 - [x] Structured statement with account detail, revenue percentages, gross profit, prime cost and matching exports; existing profit and adjustments retained.
 - [x] Maison Francis October profit remains HK$237,503; account expansion, Management view, previous-period comparison, CSV/PDF downloads and 390px single-period readability verified. QA statement renders; 16 focused tests and build pass. No database writes.
