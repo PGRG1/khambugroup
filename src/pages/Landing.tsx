@@ -13,6 +13,7 @@ import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
+import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
 import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
@@ -175,24 +176,10 @@ export default function Landing() {
   };
   const facts = { data: homeFin.data, isPending: homeFin.isPending };
 
-  // Work the team did in the last 7 days: entries booked and bank lines matched.
-  const workQ = useQuery({
-    queryKey: ["landing2", "work", tenantId],
-    enabled: !!tenantId,
-    queryFn: async () => {
-      const since = new Date(Date.now() - 7 * 864e5).toISOString();
-      const n = async (t: string, col: string, extra?: (q: any) => any) => {
-        let q = (supabase as any).from(t).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte(col, since);
-        if (extra) q = extra(q);
-        const { count } = await q; return count ?? 0;
-      };
-      // Everything the team booked into the books (invoices, sales, payroll, bills) plus bank lines it matched.
-      const [booked, bank] = await Promise.all([n("journal_entries", "created_at", (q) => q.eq("status", "posted")),
-        n("bank_transactions", "updated_at", (q) => q.in("status", ["matched", "cleared", "posted"]))]);
-      return booked + bank;
-    },
-  });
-  const handled = workQ.data ?? 0;
+  // Work the team did in the last 7 days, one row per task; the same rows fill "What we did".
+  const workQ = useWorkLog(tenantId);
+  const handled = workQ.data?.length ?? 0;
+  const [logOpen, setLogOpen] = useState(false);
   const allEntries = { entries: books.entries, lines: books.lines, accounts: books.accounts };
   const payroll = useMemo(() => (facts.data?.payroll ?? []) as any[], [facts.data]);
   const pl = (m: string) => financeProfit(allEntries.entries, allEntries.lines, allEntries.accounts, payroll, m);
@@ -298,8 +285,11 @@ export default function Landing() {
           <span className="l2-tw-w">Your finance team</span>
           <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
         </span>
-        <span>{handled > 0 ? <>handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> things</b> this week</> : workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>
+        {handled > 0
+          ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b> this week <span className="ar" aria-hidden="true">→</span></button>
+          : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
       </div>
+      <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />
       <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
 

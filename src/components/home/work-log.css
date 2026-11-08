@@ -1,0 +1,24 @@
+/* "What we did" pop-up: one row per task, each with its own date and time */
+.wl-head{padding:22px 24px 12px;border-bottom:1px solid hsl(var(--border))}
+.wl-title{font-size:19px;font-weight:600;display:flex;align-items:baseline;gap:10px;padding-right:28px}
+.wl-title span{font-size:13.5px;font-weight:400;color:hsl(var(--muted-foreground))}
+.wl-search{width:100%;margin-top:14px;border:1px solid hsl(var(--border));border-radius:10px;padding:9px 12px;font-size:13.5px;background:transparent;outline:none}
+.wl-search:focus{border-color:#2F6B4F}
+.wl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.wl-chips button{font-size:12.5px;border:1px solid hsl(var(--border));border-radius:999px;padding:5px 11px;background:transparent;cursor:pointer}
+.wl-chips button.on{background:#17302C;color:#fff;border-color:#17302C}
+.wl-body{overflow-y:auto;overscroll-behavior:contain;padding:4px 24px 10px;min-height:0}
+.wl-row{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid hsl(var(--border));color:inherit;text-decoration:none}
+.wl-row:last-of-type{border-bottom:0}
+.wl-row:hover .wl-what b{color:#2F6B4F}
+.wl-at{font-size:12px;line-height:1.35;color:hsl(var(--muted-foreground));width:72px;flex:none;font-variant-numeric:tabular-nums}
+.wl-what{min-width:0;flex:1}
+.wl-what b{display:block;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-what em{display:block;font-style:normal;font-size:12.5px;color:hsl(var(--muted-foreground));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-kind{font-size:11.5px;background:#EEF2EF;color:#2F5E5A;border-radius:6px;padding:3px 8px;white-space:nowrap}
+.wl-go{color:hsl(var(--muted-foreground));flex:none}
+.wl-empty{font-size:13.5px;color:hsl(var(--muted-foreground));padding:20px 0}
+.wl-more{font-size:13px;color:#2F6B4F;background:none;border:0;padding:12px 0 6px;cursor:pointer}
+.l2-team-btn{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.l2-team-btn:hover b{text-decoration:underline}
+.l2-team-btn .ar{color:var(--brand)}
