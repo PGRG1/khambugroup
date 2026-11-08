@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { isRevenueRoute, revenueLanding, revenueSection } from "@/utils/revenueNavigation";
-import { useTeamOpenCounts } from "@/hooks/useTeamOpenCounts";
+
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -60,11 +60,6 @@ function initialsOf(name: string): string {
 /** Small Bani orb used as the Home icon. */
 function HomeOrb({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn("inline-block rounded-full shrink-0", className)} style={{ background: "radial-gradient(circle at 32% 28%, #5ED8C8 0%, #3FB5A6 22%, #5E9A90 48%, #5F8C82 74%, #2F5E5A 100%)" }} />;
-}
-/** Amber count of open finance-team findings; hidden at 0. */
-function Count({ n }: { n: number }) {
-  if (!n) return null;
-  return <span className="bani-count ml-auto" aria-label={`${n} need you`}>{n}</span>;
 }
 const roleWords = (r?: string) => (!r ? "" : ["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : "Team");
 
@@ -262,7 +257,7 @@ function ChildLink({ item }: { item: Item }) {
   );
 }
 
-function TopLink({ item, badge = 0 }: { item: Item & { icon: any }; badge?: number }) {
+function TopLink({ item }: { item: Item & { icon: any } }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
@@ -274,7 +269,6 @@ function TopLink({ item, badge = 0 }: { item: Item & { icon: any }; badge?: numb
         >
           <item.icon className="h-4 w-4 shrink-0" />
           <span className="truncate">{item.title}</span>
-          <Count n={badge} />
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -365,7 +359,6 @@ export function AppSidebar() {
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar, canAccessPage, loading: permissionsLoading } = useUserPermissions(effectiveUserId || undefined);
-  const team = useTeamOpenCounts();
   const [sp] = useSearchParams();
   const [accountOpen, setAccountOpen] = useState(false);
   const { memberships } = useActiveTenant();
@@ -442,8 +435,6 @@ export function AppSidebar() {
   const showPettyCash   = canSeeSection("pettycash");
   const showAdmin       = isAdmin && !isPreviewActive;
   const showSettings = showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB);
-  // "Bani team" = the sum of the section counts this person can see (waiting items only).
-  const homeBadge = (revenueDestination ? team.counts.revenue : 0) + (showProcurement ? team.counts.purchasing : 0) + (showHR ? team.counts.people : 0) + (showFinance ? team.counts.finance : 0);
   const goPages = [
     { title: "Bani team", to: "/" },
     ...(revenueDestination ? revenueChildren.map((c) => ({ title: `Revenue · ${c.title}`, to: c.to })) : []),
@@ -515,15 +506,15 @@ export function AppSidebar() {
 
       {collapsed ? (
         <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={[
-          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/"), dot: it.url === "/" && homeBadge > 0 })),
-          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, dot: team.counts.revenue > 0 }] : []),
+          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
+          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
           ...(showProcurement ? [
-            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, dot: team.counts.purchasing > 0 },
+            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
             { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
           ] : []),
-          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), dot: team.counts.people > 0 }] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
-          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", dot: team.counts.finance > 0 }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
 
           ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
         ]} />
@@ -533,7 +524,7 @@ export function AppSidebar() {
         <SidebarGroup className="py-0 px-2">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {visibleItems.map((it) => <TopLink key={it.url} item={it} badge={it.url === "/" ? homeBadge : 0} />)}
+              {visibleItems.map((it) => <TopLink key={it.url} item={it} />)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -547,7 +538,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to={revenueDestination === pathname ? pathname + search : revenueDestination} aria-current={revenueActive ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", revenueActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span><Count n={team.counts.revenue} />
+                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -563,7 +554,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to="/procurement/dashboard" aria-current={purchasingActive ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", purchasingActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span><Count n={team.counts.purchasing} />
+                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -597,7 +588,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
                   <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
-                    <Users className="h-4 w-4 shrink-0" /><span>People</span><Count n={team.counts.people} />
+                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -610,7 +601,7 @@ export function AppSidebar() {
 
 
 
-        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} badge={team.counts.finance} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
+        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
         {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
 
