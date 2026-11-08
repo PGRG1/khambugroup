@@ -1,0 +1,76 @@
+/* Home v2: KPIs to manage, why they move, and a count of the work. Scoped to .l2 */
+.l2{--brand:#2F6B4F;--pos:#22B573;--track:#EEF2EF;max-width:1180px;margin:0 auto}
+.l2-head{position:relative;text-align:center}
+.l2 .ld-h1{font-size:32px;font-weight:600}
+.l2-per{position:absolute;right:0;top:4px;display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.l2-per button{border:0;background:none;padding:6px 12px;font-size:13px;color:var(--mut);cursor:pointer}
+.l2-per button.on{background:var(--ink);color:#fff}
+.l2-team{text-align:center;font-size:15px;color:var(--mut);margin-top:6px;display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap}
+.l2-team b{color:var(--brand);font-weight:500}
+.l2-swap{position:relative;display:inline-block;width:132px;height:26px}
+.l2-sw-t,.l2-sw-a{position:absolute;right:0;top:50%;transform:translateY(-50%);white-space:nowrap}
+.l2-sw-t{animation:l2t 4.5s ease-in-out 1 both}
+.l2-sw-a{display:flex;opacity:0;animation:l2a 4.5s ease-in-out 1 both}
+.l2-av{width:24px;height:24px;border-radius:50%;overflow:hidden;border:2px solid #fff;margin-left:-6px;background:#EEF2EF;display:grid;place-items:center;box-shadow:0 1px 3px rgba(20,35,31,.15)}
+@keyframes l2t{0%,10%{opacity:1;transform:translateY(-50%)}22%,72%{opacity:0;transform:translateY(-90%)}86%,100%{opacity:1;transform:translateY(-50%)}}
+@keyframes l2a{0%,10%{opacity:0;transform:translateY(-10%)}22%,72%{opacity:1;transform:translateY(-50%)}86%,100%{opacity:0;transform:translateY(-10%)}}
+@media (prefers-reduced-motion:reduce){.l2-sw-t{animation:none}.l2-sw-a{display:none}}
+.l2-askslot{height:56px;max-width:760px;margin:18px auto 0}
+.l2-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px auto 0;max-width:820px}
+.l2-pills button{font-size:13px;color:#3D4A44;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;min-height:36px}
+.l2-pills button:hover{border-color:var(--brand)}
+.l2-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:24px;background:#fff}
+.l2-kpi{padding:14px 16px;border-right:1px solid var(--line);color:inherit;text-decoration:none;min-width:0;display:block}
+.l2-kpi:last-child{border-right:0}
+.l2-kpi:hover{background:#FAFBFA}
+.l2-kpi .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.l2-kpi .v{font-size:26px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l2-kpi .d{font-size:13px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l2-kpi .s{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:#3D4A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l2-kpi .s i{width:7px;height:7px;border-radius:50%;flex:none;background:#C6D1CB}
+.l2-kpi .s.ok i{background:var(--pos)}.l2-kpi .s.amb i{background:#D9822B}
+.l2-amb{color:#B4641F}
+.l2-h2{margin-top:26px}
+.l2-perf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.l2-pc{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.l2-pc .pt{font-size:14px;font-weight:600}.l2-pc .ps{font-size:13px;color:var(--mut);margin-top:2px}
+.l2-bars{display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:10px}
+.l2-bars>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.l2-bars i{display:block;width:70%;border-radius:4px 4px 0 0;background:var(--pos)}
+.l2-bars i.low{background:#D9822B}
+.l2-bars .pv{font-size:10.5px;color:var(--mut);margin-bottom:3px}.l2-bars .pd{font-size:11px;color:var(--mut);margin-top:4px}
+.l2-line{width:100%;height:120px;margin-top:6px}
+.l2-line text{font-size:10px;fill:#5B6A64}.l2-line text.m{fill:#8A938D}
+.l2-lg{display:flex;gap:14px;font-size:12px;color:var(--mut)}
+.l2-lg i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.l2-empty{font-size:13px;color:var(--mut);margin:24px 0}
+.l2-work{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:22px}
+.l2-wb{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 18px}
+.l2-wb .wh{display:flex;align-items:center;gap:14px;min-height:38px;color:inherit;text-decoration:none}
+.l2-wb .wn{font-size:24px;font-weight:600;color:#D9822B}
+.l2-wb .wt{font-size:15px;font-weight:500;white-space:nowrap}
+.l2-wb .go{margin-left:auto;font-size:13.5px;border:0;border-radius:999px;padding:9px 14px;background:var(--brand);color:#fff;white-space:nowrap;cursor:pointer}
+.l2-wb .cbar{flex:1;height:8px;border-radius:5px;background:var(--track);overflow:hidden}
+.l2-wb .cbar i{display:block;height:100%;background:var(--pos)}
+.l2-wb .wc{font-size:14px;color:var(--mut);margin-left:auto}.l2-wb .cbar+.wc{margin-left:0}
+.l2-wb .ar{color:var(--mut)}
+.l2-wb .wl{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.l2-wb .wl>div,.l2-wb .wl .wi{display:flex;align-items:center;gap:10px;font-size:13.5px;color:#3D4A44;padding:5px 0;background:none;border:0;width:100%;text-align:left}
+.l2-wb .wl .wi{cursor:pointer}.l2-wb .wl .wi:hover{color:var(--brand)}
+.l2-wb .wl i{width:7px;height:7px;border-radius:50%;background:#C6D1CB;flex:none}
+.l2-wb .wl i.amb{background:#D9822B}.l2-wb .wl i.ok{background:var(--pos)}.l2-wb .wl i.na{background:#E3E8E5}
+.l2-wb .wl .more{color:var(--brand);font-size:13px;padding-left:17px}
+/* tablet and phone */
+.ld.tab .l2-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ld.tab .l2-kpi:nth-child(3){border-right:0}.ld.tab .l2-kpi:nth-child(-n+3){border-bottom:1px solid var(--line)}
+.ld.ph .l2-head{text-align:left}.ld.ph .l2-per{position:static;margin-top:10px}
+.ld.ph .l2-team{justify-content:flex-start}
+.ld.ph .l2-askslot{display:none}
+.ld.ph .l2-pills{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.ld.ph .l2-pills button{white-space:nowrap}
+.ld.ph .l2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ld.ph .l2-kpi{border-bottom:1px solid var(--line)}.ld.ph .l2-kpi:nth-child(2n){border-right:0}
+.ld.ph .l2-kpi:last-child{grid-column:1/-1}
+.ld.ph .l2-perf,.ld.ph .l2-work,.ld.tab .l2-work{grid-template-columns:1fr}
+/* the home composer sits in the ask slot while it is on screen (desktop and tablet) */
+html[data-home-ask="top"] .floating-bani-panel.is-home:not(.is-talking):not(.is-mobile){top:var(--home-ask-top);bottom:auto}

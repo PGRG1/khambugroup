@@ -1,30 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LoadingLines } from "@/components/kit/LoadingSlots";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
 import { useBaniTopic, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
-import { formatCurrency, formatDate } from "@/utils/format";
 import { fetchAllRows } from "@/utils/fetchAllRows";
-import { ROLES, roleViews, type Review, type Role, type RoleView } from "./YourTeam";
+import { useFinanceBooks } from "@/hooks/useFinanceBooks";
+import { useFinanceOverviewData } from "@/hooks/useFinanceOverviewData";
+import { useRevenueTargets } from "@/hooks/useRevenueTargets";
+import { closeRows, financeProfit } from "@/utils/financeOverview";
+import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
 import type { Finding } from "../../supabase/functions/_shared/financeTeamReview";
-import {
-  byWeekday, compare, guestsPerDay, mtdWindows, salesPerDay, spendPerGuest, WEEKDAYS, type Compare, type SaleRow,
-} from "@/utils/landingNumbers";
+import { WEEKDAYS, type SaleRow } from "@/utils/landingNumbers";
 import "./landing.css";
+import "./landing2.css";
 
-const SHORT: Record<Role, string> = { revenue: "Sales", procurement: "Purchasing", people: "People", accountant: "Books", controller: "Cash" };
 const ORDER: Role[] = ["revenue", "procurement", "people", "accountant", "controller"];
-type Panel = { title: string; role?: Role; summary: string; facts?: [string, string][]; done: { label: string; why: string }[]; waiting: { title: string; label: string; to?: string }[]; link?: { label: string; to: string } };
-type Card = { label: string; cmp: Compare; fmt: (n: number) => string; unit: string; rows: [SaleRow[], SaleRow[]] };
+const pad = (n: number) => String(n).padStart(2, "0");
+const ym = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+const iso = (d: Date) => `${ym(d)}-${pad(d.getDate())}`;
+const monthName = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleString("en-GB", { month: "long" });
+const addMonths = (m: string, n: number) => { const d = new Date(`${m}-01T00:00:00`); d.setMonth(d.getMonth() + n); return ym(d); };
+const rev = (r: SaleRow) => (Number(r.subtotal) || 0) + (Number(r.service_charge) || 0);
+const short = (n: number) => {
+  const a = Math.abs(n);
+  const s = a >= 1e6 ? `${(a / 1e6).toFixed(2)}M` : a >= 1e3 ? `${(a / 1e3).toFixed(a >= 1e5 ? 0 : 1)}k` : `${Math.round(a)}`;
+  return `${n < 0 ? "−" : ""}HK$${s}`;
+};
+const pctTxt = (n: number) => `${n.toFixed(1)}%`;
+const DAYNAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -38,47 +47,46 @@ function useWidth() {
   return [ref, box.w, box.left] as const;
 }
 
-const roleLabel = (r: string) => (["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : r ? "Team" : "");
-/** Short next step (2–4 words) from the finding's evidence label or recommendation. */
-function stepLabel(f: Finding): string {
-  const ev = f.evidence?.[0]?.label?.trim();
-  if (ev && ev.split(/\s+/).length <= 4 && !/^open$/i.test(ev)) return ev;
-  const rec = (f.recommendation ?? "").split(/[.,;:—–(]/)[0].trim().split(/\s+/).slice(0, 4).join(" ");
-  return rec ? rec.charAt(0).toUpperCase() + rec.slice(1) : "Take a look";
-}
-const AREA: Record<Role, { label: string; to: string }> = {
-  revenue: { label: "Open Revenue", to: "/revenue" }, procurement: { label: "Open Purchasing", to: "/procurement/invoices" },
-  people: { label: "Open People", to: "/hr" }, accountant: { label: "Open Books", to: "/finance/books" }, controller: { label: "Open Bank & cash", to: "/finance/cash" },
-};
-function findingLink(r: Role, key: string) {
-  if (/missing|payment_mismatch|sales_records/.test(key) && r === "revenue") return { label: "Open sales records", to: "/sales-data" };
-  if (/bank|settlement/.test(key)) return { label: "Open Bank & cash", to: "/finance/cash" };
-  if (/invoice|bill|payable|supplier|price|dispute/.test(key)) return { label: "Open invoices", to: "/procurement/invoices" };
-  if (/payroll|overtime|leave|roster/.test(key)) return { label: "Open payroll", to: "/hr/payroll" };
-  return AREA[r];
-}
-const pct = (c: number | null) => (c == null ? null : `${c > 0 ? "+" : c < 0 ? "−" : ""}${Math.abs(Math.round(c))}%`);
+type Tile = { label: string; value: string; sub: React.ReactNode; status: string; tone: "ok" | "amb" | "quiet"; to: string };
 
 export default function Landing() {
   const { user } = useAuth();
-  const { tenantId, memberships, loading: tenantLoading } = useActiveTenant();
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const vs = useVenueScope();
   const openTopic = useBaniTopic();
   const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
-  // The one typing box (Bani's own composer) sits centred on this content area.
+  const askSlot = useRef<HTMLDivElement>(null);
+  const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
+
+  // The one typing box (Bani's own composer) sits in the ask slot while it is on screen, else at the bottom.
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--home-mid", `${left + width / 2}px`);
     root.style.setProperty("--home-w", `${Math.max(0, width - 32)}px`);
-    return () => { root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); };
-  }, [left, width]);
-  const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
-  const [panel, setPanel] = useState<Panel | null>(null);
+    const place = () => {
+      const r = askSlot.current?.getBoundingClientRect();
+      if (r && r.top > 56 && r.bottom < window.innerHeight - 80) { root.dataset.homeAsk = "top"; root.style.setProperty("--home-ask-top", `${r.top}px`); }
+      else delete root.dataset.homeAsk;
+    };
+    place();
+    window.addEventListener("scroll", place, true); window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true); window.removeEventListener("resize", place);
+      root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); root.style.removeProperty("--home-ask-top"); delete root.dataset.homeAsk;
+    };
+  }, [left, width, talking]);
+
+  const now = new Date();
+  const thisMonth = ym(now);
+  const lastMonth = addMonths(thisMonth, -1);
+  // Early in the month there is too little to judge: open on last month until a week has passed.
+  const [period, setPeriod] = useState<"this" | "last">(now.getDate() <= 7 ? "last" : "this");
+  const month = period === "this" ? thisMonth : lastMonth;
+  const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
   const venueId = scopeIds && scopeIds.length === 1 ? scopeIds[0] : null;
   const mixed = !!scopeIds && scopeIds.length > 1;
-  const shownVenues = scopeIds ? vs.venues.filter((v) => scopeIds.includes(v.id)) : vs.venues;
 
   const profile = useQuery({
     queryKey: ["landing", "profile", user?.id],
@@ -86,12 +94,10 @@ export default function Landing() {
     queryFn: async () => (await supabase.from("profiles").select("display_name").eq("user_id", user!.id).maybeSingle()).data?.display_name ?? "",
   });
   const first = (profile.data || (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "").split(/\s+/)[0];
-  const role = memberships.find((m) => m.tenant_id === tenantId)?.role ?? "";
-  const now = new Date();
   const hour = now.getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  // Finance-team engine: latest completed review for this scope (same read as Your team).
+  // Finance-team engine: latest completed review for this scope.
   const reviewQ = useQuery({
     queryKey: ["landing", "review", tenantId, venueId],
     enabled: !!tenantId && vs.ready && !mixed,
@@ -104,258 +110,195 @@ export default function Landing() {
       return (data?.[0] ?? null) as Review | null;
     },
   });
-  const reviewLoading = !mixed && (tenantLoading || !vs.ready || reviewQ.isPending);
   const views = useMemo(() => (reviewQ.data ? roleViews(reviewQ.data) : []), [reviewQ.data]);
-  const viewOf = (r: Role) => views.find((v) => v.role === r);
-  const forYou = (v?: RoleView) => (v?.findings ?? []).filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch"));
-  const needs = useMemo(() => ORDER.flatMap((r) => forYou(viewOf(r)).map((f) => ({ role: r, f })))
-    .sort((a, b) => (a.f.severity === "action" ? 0 : 1) - (b.f.severity === "action" ? 0 : 1)), [views]); // eslint-disable-line react-hooks/exhaustive-deps
+  const needs = useMemo(() => ORDER.flatMap((r) => (views.find((v) => v.role === r)?.findings ?? [])
+    .filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch")).map((f) => ({ role: r, f })))
+    .sort((a, b) => (a.f.severity === "action" ? 0 : 1) - (b.f.severity === "action" ? 0 : 1)), [views]);
+  const handled = views.reduce((n, v) => n + (v.workDone ?? []).reduce((a, w) => a + w.count, 0), 0);
+  const overdue = useMemo(() => {
+    for (const v of views) for (const f of v.findings ?? []) if (/overdue/.test(f.key)) {
+      const hk = (f.figures ?? []).filter((x: any) => x.unit === "HKD").reduce((a: number, x: any) => a + (Number(x.value) || 0), 0);
+      if (hk > 0) return hk;
+    }
+    return 0;
+  }, [views]);
 
-  // Sales: this month to date vs same days last year.
-  const win = mtdWindows(now);
+  // Sales records: the chosen month (to yesterday when current), the same days a month earlier, and 8 weeks for the weekday chart.
   const salesQ = useQuery({
-    queryKey: ["landing", "sales", tenantId, scopeIds?.join(",") ?? "all", win.to],
+    queryKey: ["landing2", "sales", tenantId, scopeIds?.join(",") ?? "all", month, iso(now)],
     enabled: !!tenantId && vs.ready,
     queryFn: async () => {
-      const all = await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true);
-      const sc = (r: any) => !scopeIds || scopeIds.includes(r.venue_id);
-      const rows = (all as SaleRow[]).filter(sc);
-      const inR = (a: string, b: string) => rows.filter((r) => r.date >= a && r.date <= b);
-      const weekStart = new Date(now); weekStart.setDate(now.getDate() - 6);
-      const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const eightAgo = new Date(now); eightAgo.setDate(now.getDate() - 56);
-      return { cur: inR(win.from, win.to), ly: inR(win.lyFrom, win.lyTo), week: inR(iso(weekStart), iso(now)), recent: inR(iso(eightAgo), iso(now)) };
+      const all = (await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true)) as SaleRow[];
+      return all.filter((r) => !scopeIds || scopeIds.includes(r.venue_id as string));
     },
   });
-  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const invQ = useQuery({
-    queryKey: ["landing", "inv", tenantId, prevMonth.getMonth()],
+  const books = useFinanceBooks(Number(month.slice(0, 4))); // loads the whole books window
+  const facts = useFinanceOverviewData();
+  const { targets } = useRevenueTargets();
+  const bankGl = useQuery({
+    queryKey: ["landing2", "bank-gl", tenantId],
     enabled: !!tenantId,
-    queryFn: async () => {
-      const a = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}-01`;
-      const b = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
-      const { count, error } = await (supabase as any).from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte("invoice_date", a).lte("invoice_date", b);
-      if (error) throw error;
-      return count ?? 0;
-    },
+    queryFn: async () => ((await (supabase as any).from("bank_accounts").select("linked_gl_account_id").eq("tenant_id", tenantId)).data ?? [])
+      .map((b: any) => b.linked_gl_account_id).filter(Boolean) as string[],
   });
-  const salesLoading = tenantLoading || !vs.ready || salesQ.isPending;
 
-  const cards: Card[] = useMemo(() => {
-    const s = salesQ.data; if (!s) return [];
-    const money = (n: number) => formatCurrency(Math.round(n)).replace(/\.00$/, "");
-    const out: Card[] = [];
-    const venueCards = shownVenues.length > 1
-      ? [...shownVenues].map((v) => ({ v, cur: s.cur.filter((r) => r.venue_id === v.id), ly: s.ly.filter((r) => r.venue_id === v.id) }))
-          .sort((a, b) => (salesPerDay(b.cur).value ?? 0) - (salesPerDay(a.cur).value ?? 0)).slice(0, 2)
-          .map(({ v, cur, ly }) => ({ label: `${v.name} · sales a day`, cmp: compare(salesPerDay(cur), salesPerDay(ly)), fmt: money, unit: "a day", rows: [cur, ly] as [SaleRow[], SaleRow[]] }))
-      : [{ label: "Sales a day", cmp: compare(salesPerDay(s.cur), salesPerDay(s.ly)), fmt: money, unit: "a day", rows: [s.cur, s.ly] as [SaleRow[], SaleRow[]] }];
-    out.push(...venueCards);
-    out.push({ label: "Guests a day", cmp: compare(guestsPerDay(s.cur), guestsPerDay(s.ly)), fmt: (n) => Math.round(n).toLocaleString("en-HK"), unit: "a day", rows: [s.cur, s.ly] });
-    out.push({ label: "Spend per guest", cmp: compare(spendPerGuest(s.cur), spendPerGuest(s.ly)), fmt: money, unit: "per guest", rows: [s.cur, s.ly] });
-    if (out.length < 4) {
-      const tot = (rows: SaleRow[]) => rows.length ? { value: rows.reduce((a, r) => a + (Number(r.subtotal) || 0) + (Number(r.service_charge) || 0), 0) } : { value: null, why: "no sales recorded" };
-      out.splice(1, 0, { label: "Sales month to date", cmp: compare(tot(s.cur), tot(s.ly)), fmt: money, unit: "", rows: [s.cur, s.ly] });
-    }
-    return out;
-  }, [salesQ.data, shownVenues]); // eslint-disable-line react-hooks/exhaustive-deps
+  const allEntries = { entries: books.entries, lines: books.lines, accounts: books.accounts };
+  const payroll = useMemo(() => (facts.data?.payroll ?? []) as any[], [facts.data]);
+  const pl = (m: string) => financeProfit(allEntries.entries, allEntries.lines, allEntries.accounts, payroll, m);
 
-  const gaps: string[] = [];
-  if (invQ.data === 0) gaps.push(`Food cost can't be read yet: ${prevMonth.toLocaleString("en-GB", { month: "long" })}'s invoices aren't in`);
-  if (salesQ.data && !salesQ.data.ly.length) gaps.push("Last year can't be compared: there are no sales for the same days last year");
-  if (win.noDaysYet) gaps.push("This month has no finished days yet");
+  const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending;
 
-  const brief = useMemo(() => {
-    const out: string[] = [];
-    const main = cards[0]; const g = cards.find((c) => c.label === "Guests a day"); const sp = cards.find((c) => c.label === "Spend per guest");
-    if (main?.cmp.now.value != null) {
-      out.push(main.cmp.changePct != null
-        ? `${main.label.replace(" · sales a day", "")} is taking ${main.fmt(main.cmp.now.value)} a day this month, ${pct(main.cmp.changePct)} on the same days last year.`
-        : `${main.label.replace(" · sales a day", "")} is taking ${main.fmt(main.cmp.now.value)} a day this month; there is nothing from last year to compare it with.`);
-    } else out.push("There are no sales recorded for this month yet.");
-    if (g?.cmp.changePct != null && sp?.cmp.changePct != null) {
-      out.push(Math.abs(g.cmp.changePct) >= Math.abs(sp.cmp.changePct)
-        ? `Most of the change is in guests (${pct(g.cmp.changePct)} a day) rather than spend per guest (${pct(sp.cmp.changePct)}).`
-        : `Most of the change is in spend per guest (${pct(sp.cmp.changePct)}) rather than guests (${pct(g.cmp.changePct)} a day).`);
-    }
-    if (needs.length) out.push(`${needs.length === 1 ? "One thing needs" : `${needs.length} things need`} you today.`);
-    return out.slice(0, 3);
-  }, [cards, needs]);
-  const questions = [cards[0]?.cmp.changePct != null && cards[0].cmp.changePct < 0 ? "Why are sales down on last year?" : "What's driving sales this month?", "Which days are we busiest this month?"];
+  const k = useMemo(() => {
+    const rows = salesQ.data ?? [];
+    const end = isCurrent ? iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) : `${month}-31`;
+    const cur = rows.filter((r) => r.date >= `${month}-01` && r.date <= end);
+    const sales = cur.reduce((a, r) => a + rev(r), 0);
+    const guests = cur.reduce((a, r) => a + (Number(r.guests) || 0), 0);
+    const days = new Set(cur.map((r) => r.date)).size;
+    const dim = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
+    const daysGone = isCurrent ? Math.max(0, now.getDate() - 1) : dim;
+    const pace = isCurrent && daysGone > 0 ? (sales / daysGone) * dim : sales;
+    const t = targets.find((x) => `${x.year}-${pad(x.month)}` === month);
+    const target = t?.targetAmount ?? null;
+    const p = pl(month);
+    const prev = [1, 2, 3].map((i) => pl(addMonths(month, -i))).filter((x) => x.sales > 0);
+    const avg = (f: (x: typeof p) => number) => (prev.length ? prev.reduce((a, x) => a + f(x), 0) / prev.length : null);
+    const usualFood = avg((x) => (x.food / x.sales) * 100), usualStaff = avg((x) => (x.staff / x.sales) * 100), usualProfit = avg((x) => x.profit);
+    const usualCosts = avg((x) => x.food + x.staff + x.running);
+    const booksSales = p.sales || sales;
+    const foodPct = booksSales ? (p.food / booksSales) * 100 : null, staffPct = booksSales ? (p.staff / booksSales) * 100 : null;
+    const bankIds = new Set(bankGl.data ?? []);
+    const posted = new Set(allEntries.entries.filter((e) => e.status === "posted").map((e) => e.id));
+    let cash = 0;
+    for (const l of allEntries.lines as any[]) if (bankIds.has(l.account_id) && posted.has(l.entry_id)) cash += Number(l.debit) - Number(l.credit);
+    const tiles: Tile[] = [
+      { label: isCurrent ? "Sales so far" : "Sales", value: short(sales), to: "/revenue",
+        sub: guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
+        ...(target ? { status: `${pace >= target ? "On track" : "Behind"} · target ${short(target)}`, tone: pace >= target ? "ok" : "amb" } as const
+          : { status: isCurrent ? `Heading for ${short(pace)} · no target set` : "No target set", tone: "quiet" } as const) },
+      { label: "Stock bought", value: short(p.food), to: "/procurement", sub: foodPct != null ? `${pctTxt(foodPct)} of sales` : "Not booked yet",
+        ...(foodPct != null && usualFood != null ? { status: `Usual ${pctTxt(usualFood)}`, tone: foodPct <= usualFood + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: "Staff cost", value: short(p.staff), to: "/hr/payroll", sub: staffPct != null ? `${pctTxt(staffPct)} of sales` : "Not booked yet",
+        ...(staffPct != null && usualStaff != null ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: isCurrent ? "Profit so far" : "Profit", value: short(p.profit), to: "/finance/reports?view=pl", sub: booksSales ? `${pctTxt((p.profit / booksSales)) * 100)} of sales` : "Not booked yet",
+        ...(usualProfit != null && !isCurrent ? { status: `Usual ${short(usualProfit)}`, tone: p.profit >= usualProfit ? "ok" : "amb" } as const : { status: isCurrent ? "Books still filling in" : "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
+        sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
+        ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: overdue > 0 ? "amb" : "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
+    ];
+    // Weekday chart: average sales per trading day over the last 8 weeks.
+    const since = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 56));
+    const sum = Array(7).fill(0), cnt = Array(7).fill(0);
+    const byDay = new Map<string, number>();
+    rows.filter((r) => r.date >= since).forEach((r) => byDay.set(r.date, (byDay.get(r.date) ?? 0) + rev(r)));
+    byDay.forEach((v, d) => { const i = new Date(`${d}T00:00:00`).getDay(); sum[i] += v; cnt[i]++; });
+    const week = [1, 2, 3, 4, 5, 6, 0].filter((i) => cnt[i] > 0).map((i) => ({ d: WEEKDAYS[i], full: DAYNAME[i], v: sum[i] / cnt[i] }));
+    const low = week.length ? week.reduce((a, b) => (b.v < a.v ? b : a)) : null;
+    const trend = [3, 2, 1].map((i) => { const m = addMonths(month, -i + (isCurrent ? 0 : 1)); const x = pl(m); return { m, food: x.sales ? (x.food / x.sales) * 100 : null, staff: x.sales ? (x.staff / x.sales) * 100 : null }; })
+      .filter((x) => x.food != null && x.staff != null) as { m: string; food: number; staff: number }[];
+    return { tiles, week, low, trend, hasTarget: !!target };
+  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openMate = (r: Role) => {
-    const v = viewOf(r); const m = ROLES.find((x) => x.key === r)!;
-    const done = (v?.workDone ?? []).filter((w) => w.count > 0);
-    const wait = forYou(v);
-    setPanel({
-      title: SHORT[r], role: r,
-      summary: v?.summary || (reviewQ.data ? `${m.sub}. Nothing to report.` : "Your team hasn't prepared an update for this view yet."),
-      done: done.map((w) => ({ label: `${w.label} · ${w.count}`, why: `Recorded by your ${SHORT[r]} team in its latest review. Bani never sends, approves or pays anything by itself.` })),
-      waiting: wait.map((f) => ({ title: f.title, label: stepLabel(f), to: f.evidence[0]?.route ?? findingLink(r, f.key).to })),
-      link: AREA[r],
-    });
-  };
-  const openFinding = (r: Role, f: Finding) => setPanel({
-    title: f.title, role: r, summary: f.statement,
-    facts: f.figures.map((x) => [x.label, x.display] as [string, string]),
-    done: [],
-    waiting: f.evidence.length ? f.evidence.map((e) => ({ title: f.recommendation || f.title, label: e.label, to: e.route })) : [{ title: f.recommendation || f.title, label: stepLabel(f), to: findingLink(r, f.key).to }],
-    link: AREA[r],
-  });
-  const openCard = (c: Card) => {
-    const isSales = c.unit === "a day" && c.label.includes("ales");
-    const [a, b] = c.rows;
-    const ty = byWeekday(a), ly = byWeekday(b);
-    setPanel({
-      title: c.label,
-      summary: [c.cmp.now.value != null ? `This month to date: ${c.fmt(c.cmp.now.value)} ${c.unit}.` : `Can't be worked out: ${c.cmp.now.why}.`,
-        c.cmp.last.value != null ? `Same days last year: ${c.fmt(c.cmp.last.value)} ${c.unit}.` : `Last year: ${c.cmp.last.why ?? "nothing to compare"}.`,
-        isSales ? "By weekday, this year · last year:" : `${a.length} sales records this month, ${b.length} for the same days last year.`].join(" "),
-      done: [], waiting: [],
-      facts: isSales ? WEEKDAYS.map((d, i) => [d, `${ty[i] != null ? c.fmt(ty[i]!) : "—"} · ${ly[i] != null ? c.fmt(ly[i]!) : "—"}`] as [string, string]) : undefined,
-      link: { label: "Open Revenue", to: "/revenue" },
-    });
-  };
-  const ask = (t: string) => { setPanel(null); openTopic(t); };
+  // Month-end checklist for last month, until it is closed.
+  const closeMonth = lastMonth;
+  const closed = books.closed.some((c: any) => c.month_start === `${closeMonth}-01` && !c.reopened_at);
+  const check = books.checks.find((c) => c.month === closeMonth);
+  const steps = closeRows(check, (facts.data?.bank ?? []) as any, (facts.data?.batches ?? []) as any);
+  const open = steps.filter((s) => s.state === "open"), done = steps.filter((s) => s.state === "done"), skip = steps.filter((s) => s.state === "skip");
+  const counted = steps.length - skip.length;
 
-  const weekList = useMemo(() => {
-    const s = salesQ.data; if (!s) return [];
-    const out: { d: string; t: string }[] = [];
-    const lbl = (d: Date) => `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${d.toLocaleString("en-GB", { month: "short" })}`;
-    // Usual open days per venue over the last 8 weeks (a weekday counts when it traded in at least 3 of 8 weeks).
-    const opens = new Map<string, Set<number>>();
-    for (const v of shownVenues) {
-      const counts = Array(7).fill(0);
-      new Set(s.recent.filter((r) => r.venue_id === v.id).map((r) => r.date)).forEach((d) => counts[new Date(`${d}T00:00:00`).getDay()]++);
-      const set = new Set(counts.map((c, i) => (c >= 3 ? i : -1)).filter((i) => i >= 0));
-      if (set.size) opens.set(v.name, set);
-    }
-    const weekendTraders = [...opens.values()].some((x) => x.has(0) || x.has(6));
-    const dow = now.getDay();
-    if (weekendTraders && dow >= 1 && dow <= 6) {
-      const mon = new Date(now); mon.setDate(now.getDate() + ((8 - dow) % 7 || 7));
-      out.push({ d: lbl(mon), t: "Z-reports for the weekend are due" });
-    }
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    if ((monthEnd.getTime() - now.getTime()) / 864e5 <= 7) out.push({ d: lbl(monthEnd), t: `Month end: ${monthEnd.toLocaleString("en-GB", { month: "long" })}'s invoices and statements close` });
-    const order = [1, 2, 3, 4, 5, 6, 0];
-    for (const [name, set] of opens) if (set.size < 7) out.push({ d: "This week", t: `${name} usually opens ${order.filter((i) => set.has(i)).map((i) => WEEKDAYS[i]).join(", ")}` });
-    return out.slice(0, 3);
-  }, [salesQ.data, shownVenues]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pills = [
+    !closed ? "What's left on month-end?" : null,
+    k.low ? `Why are ${k.low.full}s slow?` : null,
+    "Draft next week's rota",
+    !k.hasTarget ? `Set ${monthName(thisMonth)}'s sales target` : "How are we doing against target?",
+  ].filter(Boolean) as string[];
 
-  const status = (r: Role): [string, "ok" | "amb" | "quiet"] => {
-    const v = viewOf(r); const w = forYou(v).length; const d = (v?.workDone ?? []).reduce((a, x) => a + x.count, 0);
-    if (w) return [`${w} for you`, "amb"]; if (d) return [`${d} done`, "ok"]; return ["quiet", "quiet"];
-  };
-  const meta = (r: Role) => ROLES.find((x) => x.key === r)!;
+  const ask = (t: string) => openTopic(t);
+  const needLine = (f: Finding) => f.title + (f.figures?.[0]?.display ? ` · ${f.figures[0].display}` : "");
 
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
 
+  const maxW = Math.max(1, ...k.week.map((w) => w.v));
+  const tr = k.trend; const lo = Math.min(...tr.flatMap((x) => [x.food, x.staff]), 100) - 3, hi = Math.max(...tr.flatMap((x) => [x.food, x.staff]), 0) + 3;
+  const ty = (v: number) => 92 - ((v - lo) / Math.max(1, hi - lo)) * 80;
+  const tx = (i: number) => (tr.length > 1 ? 24 + (i * 252) / (tr.length - 1) : 150);
+
   return (
-    <div ref={ref} className={`ld ${size}`}>
-      <div className="ld-top">
-        <div className="ld-hi">
-          <div style={{ minWidth: 0 }}>
-            <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
-            <div className="ld-sub">{formatDate(now.toISOString().slice(0, 10))}{roleLabel(role) ? ` · ${roleLabel(role)}` : ""}</div>
+    <div ref={ref} className={`ld l2 ${size}`}>
+      <div className="l2-head">
+        <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
+        <div className="l2-per" role="group" aria-label="Period">
+          <button className={period === "this" ? "on" : ""} onClick={() => setPeriod("this")}>This month</button>
+          <button className={period === "last" ? "on" : ""} onClick={() => setPeriod("last")}>{monthName(lastMonth)}</button>
+        </div>
+      </div>
+      <div className="l2-team">
+        <span className="l2-swap" aria-label="Your finance team">
+          <span className="l2-sw-t">Your finance team</span>
+          <span className="l2-sw-a" aria-hidden="true">{ORDER.map((r) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av"><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
+        </span>
+        {handled > 0 ? <> handled <b>{handled} things</b> this week</> : reviewQ.data ? <> last checked your books {new Date(reviewQ.data.generated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</> : null}
+      </div>
+      <div ref={askSlot} className="l2-askslot" aria-hidden="true" />
+      <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
+
+      <div className="l2-kpis">
+        {loading ? [0, 1, 2, 3, 4].map((i) => <div key={i} className="l2-kpi"><Skeleton className="h-4 w-2/3 !animate-none" /><Skeleton className="h-7 w-3/4 mt-2 !animate-none" /><Skeleton className="h-4 w-1/2 mt-2 !animate-none" /></div>)
+          : k.tiles.map((t) => (
+            <Link key={t.label} to={t.to} className="l2-kpi loading-reveal">
+              <div className="k">{t.label}</div><div className="v">{t.value}</div><div className="d">{t.sub}</div>
+              <div className={`s ${t.tone}`}><i />{t.status}</div>
+            </Link>))}
+      </div>
+
+      <h2 className="ld-h2 l2-h2">Performance</h2>
+      <div className="l2-perf">
+        <section className="l2-pc">
+          <div className="pt">Sales by weekday</div><div className="ps">Average a day, last 8 weeks</div>
+          {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><i style={{ height: `${(w.v / maxW) * 80}px` }} className={k.low?.d === w.d ? "low" : ""} /><span className="pd">{w.d}</span></div>)}</div>
+            : <p className="l2-empty">No sales in the last 8 weeks.</p>}
+        </section>
+        <section className="l2-pc">
+          <div className="pt">Stock bought and staff cost, % of sales</div><div className="ps">Last {tr.length || 3} months</div>
+          {tr.length ? <svg viewBox="0 0 300 110" className="l2-line" role="img" aria-label="Stock bought and staff cost trend">
+            <polyline points={tr.map((x, i) => `${tx(i)},${ty(x.staff)}`).join(" ")} fill="none" stroke="#2F6B4F" strokeWidth="2.5" />
+            <polyline points={tr.map((x, i) => `${tx(i)},${ty(x.food)}`).join(" ")} fill="none" stroke="#7FD3A8" strokeWidth="2.5" />
+            {tr.map((x, i) => <g key={x.m}>
+              <circle cx={tx(i)} cy={ty(x.staff)} r="3.5" fill="#2F6B4F" /><text x={tx(i)} y={ty(x.staff) - 8} textAnchor="middle">{pctTxt(x.staff)}</text>
+              <circle cx={tx(i)} cy={ty(x.food)} r="3.5" fill="#7FD3A8" /><text x={tx(i)} y={ty(x.food) - 8} textAnchor="middle">{pctTxt(x.food)}</text>
+              <text x={tx(i)} y="108" textAnchor="middle" className="m">{monthName(x.m).slice(0, 3)}</text></g>)}
+          </svg> : <p className="l2-empty">No booked months to compare yet.</p>}
+          {tr.length > 0 && <div className="l2-lg"><span><i style={{ background: "#2F6B4F" }} />Staff</span><span><i style={{ background: "#7FD3A8" }} />Stock bought</span></div>}
+        </section>
+      </div>
+
+      <div className="l2-work">
+        <section className="l2-wb">
+          <div className="wh"><span className="wn">{needs.length}</span><span className="wt">{needs.length === 1 ? "thing needs you" : "things need you"}</span>
+            {needs.length > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through them with Bani</button>}</div>
+          <div className="wl">
+            {mixed ? <div>Pick one venue or all venues to see what your team found.</div>
+              : needs.length === 0 ? <div><i className="ok" />Nothing needs you right now</div>
+              : <>{needs.slice(0, 3).map(({ f }) => <button key={f.key} className="wi" onClick={() => ask(`${f.title}: ${f.statement}`)}><i className={f.severity === "action" ? "amb" : ""} />{needLine(f)}</button>)}
+                {needs.length > 3 && <div className="more">+ {needs.length - 3} more</div>}</>}
           </div>
-        </div>
-        <div>
-        {size === "wide" && reviewQ.data?.generated_at && <div className="ld-teamh">Your Bani team since {formatDate(reviewQ.data.generated_at.slice(0, 10))}</div>}
-        <div className="ld-team" aria-label="Your Bani team">
-          {ORDER.map((r) => { const [t, c] = status(r); return (
-            <button key={r} className="ld-mate" disabled={reviewLoading || reviewQ.isError} onClick={() => openMate(r)}>
-              <PixelAvatar seed={meta(r).seed} palette={meta(r).pal} size={size === "ph" ? 32 : 40} />
-              <b>{SHORT[r]}</b><span>{reviewLoading ? <Skeleton className="h-3 w-12 !animate-none" /> : reviewQ.isError ? "Unavailable" : <><i className={`ld-dot ${c}`} />{t}</>}</span>
-            </button>); })}
-        </div>
-        </div>
+        </section>
+        <section className="l2-wb">
+          <Link to={`/finance/close?month=${closeMonth}`} className="wh">
+            <span className="wt">Month-end checklist</span>
+            {closed ? <span className="wc">{monthName(closeMonth)} closed</span> : <><span className="cbar"><i style={{ width: `${counted ? (done.length / counted) * 100 : 0}%` }} /></span><span className="wc">{done.length} of {counted}</span></>}
+            <span className="ar">→</span>
+          </Link>
+          <div className="wl">
+            {closed ? <div><i className="ok" />{monthName(closeMonth)} is closed and locked</div> : <>
+              {open.slice(0, 2).map((s) => <div key={s.name}><i className="amb" />{s.name} · {s.detail}</div>)}
+              {done.length > 0 && <div><i className="ok" />{done.map((s) => s.name.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())} done</div>}
+              {skip.length > 0 && <div><i className="na" />{skip.map((s) => s.name.toLowerCase()).join(" and ").replace(/^./, (c) => c.toUpperCase())} not set up</div>}
+            </>}
+          </div>
+        </section>
       </div>
-
-      <div className="ld-nums">
-        {salesLoading || (salesQ.isError && !salesQ.data) ? [0, 1, 2, 3].map((i) => <div key={i} className="ld-card ld-num" aria-busy={salesLoading}>
-          <div className="l"><Skeleton className="h-4 w-3/4 !animate-none" /></div><div className="v"><Skeleton className="h-7 w-4/5 !animate-none" /></div><div className="ld-note"><Skeleton className="h-4 w-2/3 !animate-none" /></div>
-        </div>) :
-          cards.map((c) => (
-            <button key={c.label} className="ld-card ld-num loading-reveal" onClick={() => openCard(c)}>
-              <div className="l">{c.label}</div>
-              {c.cmp.now.value != null ? <div className="v">{c.fmt(c.cmp.now.value)}</div> : <div className="why">Can't be worked out: {c.cmp.now.why}</div>}
-              {c.cmp.changePct != null
-                ? <div className={`ld-note ${c.cmp.changePct > 1 ? "up" : c.cmp.changePct < -1 ? "down" : "flat"}`}>{pct(c.cmp.changePct)} {c.unit || "vs last year"}</div>
-                : <div className="ld-note flat">{c.cmp.now.value != null ? "Nothing to compare last year" : ""}</div>}
-            </button>))}
-      </div>
-      {salesQ.isError && <p role="alert" className="ld-gap">Sales could not be loaded. <button className="ld-btn ghost" onClick={() => void salesQ.refetch()}>Retry</button></p>}
-      {gaps.length > 0 && <div className="ld-gap">{gaps.join(" · ")}.</div>}
-
-      <div className="ld-brief">{salesLoading ? <div aria-label="Loading briefing" role="status" className="space-y-3"><Skeleton className="h-5 w-full !animate-none" /><Skeleton className="h-5 w-2/3 !animate-none" /></div> : salesQ.data ? <span className="loading-reveal">{brief.join(" ")}</span> : null}</div>
-      <div className="ld-qs">{questions.map((q, i) => <button key={q} className={`ld-chip ${i ? "" : "solid"}`} onClick={() => ask(q)}>{q}</button>)}</div>
-
-      <div className="ld-cols">
-        <div><h2 className="ld-h2">Needs you{!reviewLoading && !reviewQ.isError && reviewQ.data ? ` · ${needs.length}` : ""}</h2>
-        <section className="ld-card ld-needs-shell" aria-busy={reviewLoading}>
-          {mixed ? <div className="ld-empty">Pick one venue or all venues to see what your team found.</div>
-            : reviewLoading ? <LoadingLines className="px-[18px] py-3" rows={3} />
-            : reviewQ.isError ? <div className="ld-empty" role="alert">Your team's update could not be loaded. <button className="ld-btn ghost" onClick={() => void reviewQ.refetch()}>Retry</button></div>
-            : !reviewQ.data ? <div className="ld-empty loading-reveal">Your team hasn't prepared an update for this view yet.</div>
-            : needs.length === 0 ? <div className="ld-empty">Nothing needs you right now.</div>
-            : needs.map(({ role: r, f }) => (
-              <div key={f.key} className="ld-row loading-reveal">
-                <i className={`ld-dot ${f.severity === "action" ? "amb" : "quiet"}`} />
-                <div className="grow"><div className="t">{f.title}</div><div className="c">{f.statement}</div></div>
-                <button className="ld-btn" onClick={() => openFinding(r, f)}>{stepLabel(f)}</button>
-              </div>))}
-        </section></div>
-        <div className="ld-side">
-          <div><h2 className="ld-h2">This week</h2>
-          <section className="ld-card" style={{ padding: "8px 0" }}>
-            {salesLoading ? <LoadingLines className="px-[18px]" rows={2} /> : !salesQ.data ? <div className="ld-empty">Schedule unavailable.</div> : <>
-            {weekList.length === 0 && <div className="ld-empty">Nothing scheduled this week</div>}
-            {weekList.map((w) => <div key={w.d} className="ld-week loading-reveal"><span className="d">{w.d}</span><span>{w.t}</span></div>)}</>}
-          </section></div>
-          <div><h2 className="ld-h2">Agreed</h2><section className="ld-card"><div className="ld-empty">Nothing agreed yet</div></section></div>
-        </div>
-      </div>
-
-      {panel && <CentrePopup panel={panel} onClose={() => setPanel(null)} onAsk={ask} />}
     </div>
-  );
-}
-
-function CentrePopup({ panel, onClose, onAsk }: { panel: Panel; onClose: () => void; onAsk: (t: string) => void }) {
-  const m = panel.role ? ROLES.find((r) => r.key === panel.role)! : null;
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
-  return (
-    <>
-      <div className="ld-back" onClick={onClose} />
-      <div className="ld-pop" role="dialog" aria-modal="true" aria-label={panel.title}>
-        <div className="ld-ph">
-          {m ? <PixelAvatar seed={m.seed} palette={m.pal} size={36} /> : <BaniOrb size={36} mode="idle" />}
-          <h3>{panel.title}</h3>
-          <button className="ld-ic" aria-label="Close" onClick={onClose}><X size={18} /></button>
-        </div>
-        <div className="ld-pb">
-          <p className="ld-sum">{panel.summary}</p>
-          {panel.facts && panel.facts.length > 0 && <div>{panel.facts.map(([l, v], i) => <div key={i} className="ld-fact"><span>{l}</span><span>{v}</span></div>)}</div>}
-          <div>
-            <h4 className="ld-h4">Done since you last looked</h4>
-            {panel.done.length === 0 ? <p className="ld-why">Nothing done since you last looked.</p>
-              : panel.done.map((d, i) => <div key={i} className="ld-item"><span className="grow">{d.label}</span>
-                  <details className="ld-whyd"><summary>Why</summary><p className="ld-why">{d.why}</p></details>
-                  <button className="ld-btn ghost" disabled title="Undo isn't available for this yet">Undo</button></div>)}
-          </div>
-          <div>
-            <h4 className="ld-h4">Waiting on you</h4>
-            {panel.waiting.length === 0 ? <p className="ld-why">Nothing is waiting on you.</p>
-              : panel.waiting.map((w, i) => <div key={i} className="ld-item"><span className="grow">{w.title}</span>
-                  {w.to && <Link to={w.to} onClick={onClose} className="ld-btn" style={{ textDecoration: "none" }}>{w.label}</Link>}</div>)}
-          </div>
-        </div>
-        <div className="ld-pf">
-          <button className="ld-btn ghost" onClick={() => onAsk(`Tell me more about ${panel.title}`)}>Ask Bani</button>
-          {panel.link && <Link to={panel.link.to} onClick={onClose} className="ld-btn" style={{ textDecoration: "none" }}>{panel.link.label}</Link>}
-        </div>
-      </div>
-    </>
   );
 }
