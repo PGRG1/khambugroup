@@ -11,8 +11,7 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
-import { useFinanceBooks } from "@/hooks/useFinanceBooks";
-import { useFinanceOverviewData } from "@/hooks/useFinanceOverviewData";
+import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
 import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
@@ -157,15 +156,21 @@ export default function Landing() {
     const days = new Set(salesQ.data.filter((r) => r.date >= `${thisMonth}-01`).map((r) => r.date)).size;
     setAutoMonth(days >= 7 ? thisMonth : lastMonth);
   }, [salesQ.data, thisMonth]);
-  const books = useFinanceBooks(Number(month.slice(0, 4))); // loads the whole books window
-  const facts = useFinanceOverviewData();
   const { targets } = useRevenueTargets();
   const bankGl = useQuery({
     queryKey: ["landing2", "bank-gl", tenantId],
     enabled: !!tenantId,
     queryFn: async () => ((await (supabase as any).from("bank_accounts").select("linked_gl_account_id").eq("tenant_id", tenantId)).data ?? [])
       .map((b: any) => b.linked_gl_account_id).filter(Boolean) as string[],
+    staleTime: 5 * 60_000,
   });
+  // Six months back covers the oldest month choice plus its three-month comparison.
+  const homeFin = useHomeFinance(tenantId, addMonths(thisMonth, -6), lastMonth, bankGl.data);
+  const books = {
+    entries: homeFin.data?.entries ?? [], lines: homeFin.data?.lines ?? [], accounts: homeFin.data?.accounts ?? [],
+    closed: homeFin.data?.closed ?? [], checks: homeFin.data?.checks ?? [], loading: homeFin.isPending,
+  };
+  const facts = { data: homeFin.data, isPending: homeFin.isPending };
 
   // Work the team did in the last 7 days: entries booked and bank lines matched.
   const workQ = useQuery({
@@ -214,9 +219,7 @@ export default function Landing() {
     const booksSales = p.sales || sales;
     const foodPct = booksSales ? (p.food / booksSales) * 100 : null, staffPct = booksSales ? (p.staff / booksSales) * 100 : null;
     const bankIds = new Set(bankGl.data ?? []);
-    const posted = new Set(allEntries.entries.filter((e) => e.status === "posted").map((e) => e.id));
-    let cash = 0;
-    for (const l of allEntries.lines as any[]) if (bankIds.has(l.account_id) && posted.has(l.entry_id)) cash += Number(l.debit) - Number(l.credit);
+    const cash = homeFin.data?.cash ?? 0;
     const money = (n: number, has: boolean) => (has ? short(n) : "—");
     const tiles: Tile[] = [
       { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
