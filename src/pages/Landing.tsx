@@ -295,7 +295,7 @@ export default function Landing() {
             </Link>))}
       </div>
 
-      <h2 className="ld-h2 l2-h2">Performance</h2>
+      <h2 className="ld-h2 l2-h2">{"\n"}</h2>
       <div className="l2-perf">
         <section className="l2-pc">
           <div className="pt">Sales by weekday</div><div className="ps">Average a day, last 8 weeks</div>
