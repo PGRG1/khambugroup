@@ -66,8 +66,7 @@ export default function Landing() {
     root.style.setProperty("--home-w", `${Math.max(0, width - 32)}px`);
     const place = () => {
       const r = askSlot.current?.getBoundingClientRect();
-      if (r && r.top > 56 && r.bottom < window.innerHeight - 80) { root.dataset.homeAsk = "top"; root.style.setProperty("--home-ask-top", `${r.top}px`); }
-      else delete root.dataset.homeAsk;
+      if (r) { root.dataset.homeAsk = "top"; root.style.setProperty("--home-ask-top", `${r.top}px`); }
     };
     place();
     window.addEventListener("scroll", place, true); window.addEventListener("resize", place);
@@ -81,7 +80,9 @@ export default function Landing() {
   const thisMonth = ym(now);
   const lastMonth = addMonths(thisMonth, -1);
   // Early in the month there is too little to judge: open on last month until a week has passed.
-  const [period, setPeriod] = useState<"this" | "last">(now.getDate() <= 7 ? "last" : "this");
+  const [picked, setPeriod] = useState<"this" | "last" | null>(null);
+  const [autoPeriod, setAutoPeriod] = useState<"this" | "last">("last");
+  const period = picked ?? autoPeriod;
   const month = period === "this" ? thisMonth : lastMonth;
   const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
@@ -114,7 +115,6 @@ export default function Landing() {
   const needs = useMemo(() => ORDER.flatMap((r) => (views.find((v) => v.role === r)?.findings ?? [])
     .filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch")).map((f) => ({ role: r, f })))
     .sort((a, b) => (a.f.severity === "action" ? 0 : 1) - (b.f.severity === "action" ? 0 : 1)), [views]);
-  const handled = views.reduce((n, v) => n + (v.workDone ?? []).reduce((a, w) => a + w.count, 0), 0);
   const overdue = useMemo(() => {
     for (const v of views) for (const f of v.findings ?? []) if (/overdue/.test(f.key)) {
       const hk = (f.figures ?? []).filter((x: any) => x.unit === "HKD").reduce((a: number, x: any) => a + (Number(x.value) || 0), 0);
@@ -125,13 +125,18 @@ export default function Landing() {
 
   // Sales records: the chosen month (to yesterday when current), the same days a month earlier, and 8 weeks for the weekday chart.
   const salesQ = useQuery({
-    queryKey: ["landing2", "sales", tenantId, scopeIds?.join(",") ?? "all", month, iso(now)],
+    queryKey: ["landing2", "sales", tenantId, scopeIds?.join(",") ?? "all", iso(now)],
     enabled: !!tenantId && vs.ready,
     queryFn: async () => {
       const all = (await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true)) as SaleRow[];
       return all.filter((r) => !scopeIds || scopeIds.includes(r.venue_id as string));
     },
   });
+  useEffect(() => {
+    if (!salesQ.data) return;
+    const days = new Set(salesQ.data.filter((r) => r.date >= `${thisMonth}-01`).map((r) => r.date)).size;
+    setAutoPeriod(days >= 7 ? "this" : "last");
+  }, [salesQ.data, thisMonth]);
   const books = useFinanceBooks(Number(month.slice(0, 4))); // loads the whole books window
   const facts = useFinanceOverviewData();
   const { targets } = useRevenueTargets();
@@ -142,6 +147,23 @@ export default function Landing() {
       .map((b: any) => b.linked_gl_account_id).filter(Boolean) as string[],
   });
 
+  // Work the team recorded in the last 7 days: invoices read, sales reports saved, bank lines matched.
+  const workQ = useQuery({
+    queryKey: ["landing2", "work", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 7 * 864e5).toISOString();
+      const n = async (t: string, col: string, extra?: (q: any) => any) => {
+        let q = (supabase as any).from(t).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).gte(col, since);
+        if (extra) q = extra(q);
+        const { count } = await q; return count ?? 0;
+      };
+      const [inv, sales, bank] = await Promise.all([n("invoices", "created_at"), n("sales_records", "created_at"),
+        n("bank_transactions", "updated_at", (q) => q.in("status", ["matched", "cleared", "posted"]))]);
+      return inv + sales + bank;
+    },
+  });
+  const handled = workQ.data ?? 0;
   const allEntries = { entries: books.entries, lines: books.lines, accounts: books.accounts };
   const payroll = useMemo(() => (facts.data?.payroll ?? []) as any[], [facts.data]);
   const pl = (m: string) => financeProfit(allEntries.entries, allEntries.lines, allEntries.accounts, payroll, m);
@@ -163,7 +185,10 @@ export default function Landing() {
     const p = pl(month);
     const prev = [1, 2, 3].map((i) => pl(addMonths(month, -i))).filter((x) => x.sales > 0);
     const avg = (f: (x: typeof p) => number) => (prev.length ? prev.reduce((a, x) => a + f(x), 0) / prev.length : null);
-    const usualFood = avg((x) => (x.food / x.sales) * 100), usualStaff = avg((x) => (x.staff / x.sales) * 100), usualProfit = avg((x) => x.profit);
+    const avgOf = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const usualFood = avgOf(prev.filter((x) => x.food).map((x) => (x.food / x.sales) * 100));
+    const usualStaff = avgOf(prev.filter((x) => x.staff).map((x) => (x.staff / x.sales) * 100));
+    const usualProfit = avgOf(prev.filter((x) => x.food && x.staff).map((x) => x.profit));
     const usualCosts = avg((x) => x.food + x.staff + x.running);
     const booksSales = p.sales || sales;
     const foodPct = booksSales ? (p.food / booksSales) * 100 : null, staffPct = booksSales ? (p.staff / booksSales) * 100 : null;
@@ -171,20 +196,22 @@ export default function Landing() {
     const posted = new Set(allEntries.entries.filter((e) => e.status === "posted").map((e) => e.id));
     let cash = 0;
     for (const l of allEntries.lines as any[]) if (bankIds.has(l.account_id) && posted.has(l.entry_id)) cash += Number(l.debit) - Number(l.credit);
+    const money = (n: number, has: boolean) => (has ? short(n) : "—");
+    const booked = p.food !== 0 || p.staff !== 0 || p.sales !== 0;
     const tiles: Tile[] = [
-      { label: isCurrent ? "Sales so far" : "Sales", value: short(sales), to: "/revenue",
-        sub: guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
+      { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
+        sub: !days ? "No sales recorded yet" : guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
         ...(target ? { status: `${pace >= target ? "On track" : "Behind"} · target ${short(target)}`, tone: pace >= target ? "ok" : "amb" } as const
-          : { status: isCurrent ? `Heading for ${short(pace)} · no target set` : "No target set", tone: "quiet" } as const) },
-      { label: "Stock bought", value: short(p.food), to: "/procurement", sub: foodPct != null ? `${pctTxt(foodPct)} of sales` : "Not booked yet",
-        ...(foodPct != null && usualFood != null ? { status: `Usual ${pctTxt(usualFood)}`, tone: foodPct <= usualFood + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: "Staff cost", value: short(p.staff), to: "/hr/payroll", sub: staffPct != null ? `${pctTxt(staffPct)} of sales` : "Not booked yet",
-        ...(staffPct != null && usualStaff != null ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: isCurrent ? "Profit so far" : "Profit", value: short(p.profit), to: "/finance/reports?view=pl", sub: booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Not booked yet",
+          : { status: isCurrent && days ? `Heading for ${short(pace)} · no target` : "No target set", tone: "quiet" } as const) },
+      { label: "Stock bought", value: money(p.food, p.food !== 0), to: "/procurement", sub: foodPct != null && p.food !== 0 ? `${pctTxt(foodPct)} of sales` : "Not booked yet",
+        ...(foodPct != null && p.food !== 0 && usualFood ? { status: `Usual ${pctTxt(usualFood)}`, tone: foodPct <= usualFood + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: "Staff cost", value: money(p.staff, p.staff !== 0), to: "/hr/payroll", sub: staffPct != null && p.staff !== 0 ? `${pctTxt(staffPct)} of sales` : "Payroll not booked yet",
+        ...(staffPct != null && p.staff !== 0 && usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: isCurrent ? "Profit so far" : "Profit", value: money(p.profit, booked), to: "/finance/reports?view=pl", sub: booked && booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Not booked yet",
         ...(usualProfit != null && !isCurrent ? { status: `Usual ${short(usualProfit)}`, tone: p.profit >= usualProfit ? "ok" : "amb" } as const : { status: isCurrent ? "Books still filling in" : "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
-        ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: overdue > 0 ? "amb" : "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
+        ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
     ];
     // Weekday chart: average sales per trading day over the last 8 weeks.
     const since = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 56));
@@ -194,8 +221,9 @@ export default function Landing() {
     byDay.forEach((v, d) => { const i = new Date(`${d}T00:00:00`).getDay(); sum[i] += v; cnt[i]++; });
     const week = [1, 2, 3, 4, 5, 6, 0].filter((i) => cnt[i] > 0).map((i) => ({ d: WEEKDAYS[i], full: DAYNAME[i], v: sum[i] / cnt[i] }));
     const low = week.length ? week.reduce((a, b) => (b.v < a.v ? b : a)) : null;
-    const trend = [3, 2, 1].map((i) => { const m = addMonths(month, -i + (isCurrent ? 0 : 1)); const x = pl(m); return { m, food: x.sales ? (x.food / x.sales) * 100 : null, staff: x.sales ? (x.staff / x.sales) * 100 : null }; })
-      .filter((x) => x.food != null && x.staff != null) as { m: string; food: number; staff: number }[];
+    const trend = [3, 2, 1].map((i) => { const m = addMonths(month, -i + (isCurrent ? 0 : 1)); const x = pl(m);
+      return { m, food: x.sales && x.food ? (x.food / x.sales) * 100 : null, staff: x.sales && x.staff ? (x.staff / x.sales) * 100 : null }; })
+      .filter((x) => x.food != null || x.staff != null);
     return { tiles, week, low, trend, hasTarget: !!target };
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,14 +243,17 @@ export default function Landing() {
   ].filter(Boolean) as string[];
 
   const ask = (t: string) => openTopic(t);
-  const needLine = (f: Finding) => f.title + (f.figures?.[0]?.display ? ` · ${f.figures[0].display}` : "");
+  const needLine = (f: Finding) => { const fig = (f.figures ?? []).find((x: any) => Number(x.value)); return f.title + (fig?.display ? ` · ${fig.display}` : ""); };
 
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
 
   const maxW = Math.max(1, ...k.week.map((w) => w.v));
-  const tr = k.trend; const lo = Math.min(...tr.flatMap((x) => [x.food, x.staff]), 100) - 3, hi = Math.max(...tr.flatMap((x) => [x.food, x.staff]), 0) + 3;
+  const tr = k.trend; const vals = tr.flatMap((x) => [x.food, x.staff]).filter((v): v is number => v != null);
+  const lo = Math.min(...vals, 100) - 3, hi = Math.max(...vals, 0) + 3;
   const ty = (v: number) => 92 - ((v - lo) / Math.max(1, hi - lo)) * 80;
   const tx = (i: number) => (tr.length > 1 ? 24 + (i * 252) / (tr.length - 1) : 150);
+  const hasStaff = tr.some((x) => x.staff != null), hasFood = tr.some((x) => x.food != null);
+  const line = (key: "food" | "staff") => tr.map((x, i) => (x[key] != null ? `${tx(i)},${ty(x[key]!)}` : "")).filter(Boolean).join(" ");
 
   return (
     <div ref={ref} className={`ld l2 ${size}`}>
@@ -234,11 +265,8 @@ export default function Landing() {
         </div>
       </div>
       <div className="l2-team">
-        <span className="l2-swap" aria-label="Your finance team">
-          <span className="l2-sw-t">Your finance team</span>
-          <span className="l2-sw-a" aria-hidden="true">{ORDER.map((r) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av"><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
-        </span>
-        {handled > 0 ? <> handled <b>{handled} things</b> this week</> : reviewQ.data ? <> last checked your books {new Date(reviewQ.data.generated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</> : null}
+        <span className="l2-avs" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" style={{ animationDelay: `${i * 90}ms` }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
+        <span>Your finance team {handled > 0 ? <>handled <b>{handled} things</b> this week</> : reviewQ.data ? <>last checked your books {new Date(reviewQ.data.generated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</> : "is setting up"}</span>
       </div>
       <div ref={askSlot} className="l2-askslot" aria-hidden="true" />
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
@@ -262,14 +290,14 @@ export default function Landing() {
         <section className="l2-pc">
           <div className="pt">Stock bought and staff cost, % of sales</div><div className="ps">Last {tr.length || 3} months</div>
           {tr.length ? <svg viewBox="0 0 300 110" className="l2-line" role="img" aria-label="Stock bought and staff cost trend">
-            <polyline points={tr.map((x, i) => `${tx(i)},${ty(x.staff)}`).join(" ")} fill="none" stroke="#2F6B4F" strokeWidth="2.5" />
-            <polyline points={tr.map((x, i) => `${tx(i)},${ty(x.food)}`).join(" ")} fill="none" stroke="#7FD3A8" strokeWidth="2.5" />
+            {hasStaff && <polyline points={line("staff")} fill="none" stroke="#2F6B4F" strokeWidth="2.5" />}
+            {hasFood && <polyline points={line("food")} fill="none" stroke="#7FD3A8" strokeWidth="2.5" />}
             {tr.map((x, i) => <g key={x.m}>
-              <circle cx={tx(i)} cy={ty(x.staff)} r="3.5" fill="#2F6B4F" /><text x={tx(i)} y={ty(x.staff) - 8} textAnchor="middle">{pctTxt(x.staff)}</text>
-              <circle cx={tx(i)} cy={ty(x.food)} r="3.5" fill="#7FD3A8" /><text x={tx(i)} y={ty(x.food) - 8} textAnchor="middle">{pctTxt(x.food)}</text>
+              {x.staff != null && <><circle cx={tx(i)} cy={ty(x.staff)} r="3.5" fill="#2F6B4F" /><text x={tx(i)} y={ty(x.staff) - 8} textAnchor="middle">{pctTxt(x.staff)}</text></>}
+              {x.food != null && <><circle cx={tx(i)} cy={ty(x.food)} r="3.5" fill="#7FD3A8" /><text x={tx(i)} y={ty(x.food) + (x.staff != null && Math.abs(ty(x.food) - ty(x.staff)) < 18 ? 16 : -8)} textAnchor="middle">{pctTxt(x.food)}</text></>}
               <text x={tx(i)} y="108" textAnchor="middle" className="m">{monthName(x.m).slice(0, 3)}</text></g>)}
           </svg> : <p className="l2-empty">No booked months to compare yet.</p>}
-          {tr.length > 0 && <div className="l2-lg"><span><i style={{ background: "#2F6B4F" }} />Staff</span><span><i style={{ background: "#7FD3A8" }} />Stock bought</span></div>}
+          {tr.length > 0 && <div className="l2-lg">{hasStaff ? <span><i style={{ background: "#2F6B4F" }} />Staff</span> : <span>Staff cost not booked</span>}{hasFood && <span><i style={{ background: "#7FD3A8" }} />Stock bought</span>}</div>}
         </section>
       </div>
 
@@ -292,7 +320,7 @@ export default function Landing() {
           </Link>
           <div className="wl">
             {closed ? <div><i className="ok" />{monthName(closeMonth)} is closed and locked</div> : <>
-              {open.slice(0, 2).map((s) => <div key={s.name}><i className="amb" />{s.name} · {s.detail}</div>)}
+              {open.slice(0, 2).map((s) => <div key={s.name}><i className="amb" />{s.detail.toLowerCase().startsWith(s.name.toLowerCase()) ? s.detail : `${s.name} · ${s.detail}`}</div>)}
               {done.length > 0 && <div><i className="ok" />{done.map((s) => s.name.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())} done</div>}
               {skip.length > 0 && <div><i className="na" />{skip.map((s) => s.name.toLowerCase()).join(" and ").replace(/^./, (c) => c.toUpperCase())} not set up</div>}
             </>}

@@ -5,16 +5,13 @@
 .l2-per{position:absolute;right:0;top:4px;display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
 .l2-per button{border:0;background:none;padding:6px 12px;font-size:13px;color:var(--mut);cursor:pointer}
 .l2-per button.on{background:var(--ink);color:#fff}
-.l2-team{text-align:center;font-size:15px;color:var(--mut);margin-top:6px;display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap}
+.l2-team{text-align:center;font-size:15px;color:var(--mut);margin-top:6px;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap}
 .l2-team b{color:var(--brand);font-weight:500}
-.l2-swap{position:relative;display:inline-block;width:132px;height:26px}
-.l2-sw-t,.l2-sw-a{position:absolute;right:0;top:50%;transform:translateY(-50%);white-space:nowrap}
-.l2-sw-t{animation:l2t 4.5s ease-in-out 1 both}
-.l2-sw-a{display:flex;opacity:0;animation:l2a 4.5s ease-in-out 1 both}
-.l2-av{width:24px;height:24px;border-radius:50%;overflow:hidden;border:2px solid #fff;margin-left:-6px;background:#EEF2EF;display:grid;place-items:center;box-shadow:0 1px 3px rgba(20,35,31,.15)}
-@keyframes l2t{0%,10%{opacity:1;transform:translateY(-50%)}22%,72%{opacity:0;transform:translateY(-90%)}86%,100%{opacity:1;transform:translateY(-50%)}}
-@keyframes l2a{0%,10%{opacity:0;transform:translateY(-10%)}22%,72%{opacity:1;transform:translateY(-50%)}86%,100%{opacity:0;transform:translateY(-10%)}}
-@media (prefers-reduced-motion:reduce){.l2-sw-t{animation:none}.l2-sw-a{display:none}}
+.l2-avs{display:inline-flex;margin-right:6px}
+.l2-av{width:24px;height:24px;border-radius:50%;overflow:hidden;border:2px solid #fff;margin-left:-6px;background:#EEF2EF;display:grid;place-items:center;box-shadow:0 1px 3px rgba(20,35,31,.15);animation:l2in .4s ease-out both}
+.l2-av:first-child{margin-left:0}
+@keyframes l2in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.l2-av{animation:none}}
 .l2-askslot{height:56px;max-width:760px;margin:18px auto 0}
 .l2-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px auto 0;max-width:820px}
 .l2-pills button{font-size:13px;color:#3D4A44;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;min-height:36px}
