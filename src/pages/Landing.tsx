@@ -21,6 +21,7 @@ import "./landing.css";
 import "./landing2.css";
 
 const ORDER: Role[] = ["revenue", "procurement", "people", "accountant", "controller"];
+const TEAMNAME: Record<Role, string> = { revenue: "Sales", procurement: "Purchasing", people: "People", accountant: "Books", controller: "Cash" };
 const pad = (n: number) => String(n).padStart(2, "0");
 const ym = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 const iso = (d: Date) => `${ym(d)}-${pad(d.getDate())}`;
@@ -57,23 +58,15 @@ export default function Landing() {
   const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
   const askSlot = useRef<HTMLDivElement>(null);
+  const [play, setPlay] = useState(0); // replays the team motion on hover
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
 
-  // The one typing box (Bani's own composer) sits in the ask slot while it is on screen, else at the bottom.
+  // Bani's typing box is rendered inside the ask slot (see FloatingBani); these centre the conversation when it opens.
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--home-mid", `${left + width / 2}px`);
     root.style.setProperty("--home-w", `${Math.max(0, width - 32)}px`);
-    const place = () => {
-      const r = askSlot.current?.getBoundingClientRect();
-      if (r) { root.dataset.homeAsk = "top"; root.style.setProperty("--home-ask-top", `${r.top}px`); }
-    };
-    place();
-    window.addEventListener("scroll", place, true); window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true); window.removeEventListener("resize", place);
-      root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); root.style.removeProperty("--home-ask-top"); delete root.dataset.homeAsk;
-    };
+    return () => { root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); };
   }, [left, width, talking]);
 
   const now = new Date();
@@ -147,7 +140,7 @@ export default function Landing() {
       .map((b: any) => b.linked_gl_account_id).filter(Boolean) as string[],
   });
 
-  // Work the team recorded in the last 7 days: invoices read, sales reports saved, bank lines matched.
+  // Work the team did in the last 7 days: entries booked and bank lines matched.
   const workQ = useQuery({
     queryKey: ["landing2", "work", tenantId],
     enabled: !!tenantId,
@@ -158,9 +151,10 @@ export default function Landing() {
         if (extra) q = extra(q);
         const { count } = await q; return count ?? 0;
       };
-      const [inv, sales, bank] = await Promise.all([n("invoices", "created_at"), n("sales_records", "created_at"),
+      // Everything the team booked into the books (invoices, sales, payroll, bills) plus bank lines it matched.
+      const [booked, bank] = await Promise.all([n("journal_entries", "created_at", (q) => q.eq("status", "posted")),
         n("bank_transactions", "updated_at", (q) => q.in("status", ["matched", "cleared", "posted"]))]);
-      return inv + sales + bank;
+      return booked + bank;
     },
   });
   const handled = workQ.data ?? 0;
@@ -265,10 +259,15 @@ export default function Landing() {
         </div>
       </div>
       <div className="l2-team">
-        <span className="l2-avs" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" style={{ animationDelay: `${i * 90}ms` }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
-        <span>Your finance team {handled > 0 ? <>handled <b>{handled} things</b> this week</> : reviewQ.data ? <>last checked your books {new Date(reviewQ.data.generated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</> : "is setting up"}</span>
+        <span className="l2-avs" aria-hidden="true" onMouseEnter={() => setPlay((n) => n + 1)}>{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={`${r}-${play}`} className="l2-av" style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
+        <span className="l2-word" key={`w-${play}`} aria-label="Your finance team">
+          <span className="w0">Your finance team</span>
+          {ORDER.map((r, i) => <span key={r} className="wn" style={{ ["--i" as any]: i }} aria-hidden="true">{TEAMNAME[r]} team</span>)}
+          <span className="w1" aria-hidden="true">Your finance team</span>
+        </span>
+        <span>{handled > 0 ? <>handled <b>{handled} things</b> this week</> : workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>
       </div>
-      <div ref={askSlot} className="l2-askslot" aria-hidden="true" />
+      <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
 
       <div className="l2-kpis">

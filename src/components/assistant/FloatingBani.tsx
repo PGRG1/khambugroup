@@ -61,6 +61,18 @@ const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resol
 });
 const revoke = (files: BaniAttachment[]) => files.forEach(f => f.url && URL.revokeObjectURL(f.url));
 
+function useHomeSlot(active: boolean) {
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!active) { setEl(null); return; }
+    const find = () => setEl(document.getElementById("bani-home-slot"));
+    find();
+    const mo = new MutationObserver(find); mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [active]);
+  return el;
+}
+
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
   const venueScope = useVenueScope();
@@ -180,6 +192,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
   const home = pathname === "/" && !hosted;
   const lastPath = useRef(pathname);
+  // On home the typing box lives inside the page (the slot under the greeting), so it scrolls with it.
+  const homeSlot = useHomeSlot(home && !open && !isMobile);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
@@ -539,5 +553,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     )}
   </div>;
   // A modal owns focus and inertness: portal into that modal, never above it.
+  if (homeSlot) return createPortal(surface, homeSlot);
   return hosted ? createPortal(surface, host?.node.closest('[role="dialog"]') || document.body) : surface;
 }
