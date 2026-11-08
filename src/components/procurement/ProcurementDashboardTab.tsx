@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, Search } from "lucide-react";
 import { Bar, ComposedChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Customized } from "recharts";
-import { fetchAllRows } from "@/utils/fetchAllRows";
+import { fetchAllRows, fetchAllRowsParallel } from "@/utils/fetchAllRows";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
@@ -78,10 +78,10 @@ export default function ProcurementDashboardTab() {
     queryFn: async () => {
       const id = purchasing.tenantId;
       const [invoices, suppliers, sales, lines, products, categoryRows] = await Promise.all([
-        fetchAllRows("invoices", "id,supplier_id,invoice_date,total_amount,discount,venue,created_at,review_status,has_disputes", { col: "invoice_date", asc: false }, id),
+        fetchAllRowsParallel("invoices", "id,supplier_id,invoice_date,total_amount,discount,venue,created_at,review_status,has_disputes", id, { col: "invoice_date", asc: false }),
         fetchAllRows("suppliers", "id,name", undefined, id),
-        fetchAllRows("sales_records", "date,total_sales,venue", undefined, id),
-        fetchAllRows("invoice_line_items", "invoice_id,product_master_id,total,unit_price,unit,quantity", undefined, id),
+        fetchAllRowsParallel("sales_records", "id,date,total_sales,venue", id),
+        fetchAllRowsParallel("invoice_line_items", "id,invoice_id,product_master_id,total,unit_price,unit,quantity", id),
         fetchAllRows("product_master", "id,internal_product_name,financial_treatment,level1_category,unit", undefined, id),
         fetchAllRows("product_categories", "name,level,is_active", undefined, id),
       ]);

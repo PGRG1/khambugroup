@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/utils/fetchAllRows";
+import { fetchAllRows, fetchAllRowsParallel } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Button } from "@/components/ui/button";
@@ -46,8 +46,8 @@ function PurchaseRegister({ controls }: { controls: InvoiceWorkflowControls }) {
     if (!tenantId) { setRows([]); setLoading(false); return; }
     try {
       const [lines,invoices,suppliers,products] = await Promise.all([
-        fetchAllRows("invoice_line_items","*",{col:"created_at",asc:false},tenantId),
-        fetchAllRows("invoices","id, invoice_number, invoice_date, supplier_id, venue, file_url",undefined,tenantId),
+        fetchAllRowsParallel("invoice_line_items","*",tenantId,{col:"created_at",asc:false}),
+        fetchAllRowsParallel("invoices","id, invoice_number, invoice_date, supplier_id, venue, file_url",tenantId),
         fetchAllRows("suppliers","id, name",undefined,tenantId),
         fetchAllRows("product_master","id, internal_product_name, internal_sku, external_sku, purchase_unit",undefined,tenantId),
       ]);
