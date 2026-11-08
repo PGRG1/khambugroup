@@ -11,11 +11,11 @@ export function recentBaniTurns(turns: Turn[]): Turn[] {
   return kept;
 }
 
-/** Upgrade only substantive finance analysis; short contextual replies keep low-cost routing. */
+/** Everyday chat uses a reliable tool-calling model; deep analysis and files get the stronger tier. */
 export function baniModel(turns: Turn[], hasAttachments = false): string {
   const text = turns.filter(t => t.role === "user").slice(-1)[0]?.content ?? "";
   return hasAttachments || /\b(compare|analyse|analyze|investigate|reconcile|discrepancy|forecast|why|margin|cash flow|corrected|doesn.t add up)\b/i.test(text)
-    ? "google/gemini-3-flash-preview" : "google/gemini-3.1-flash-lite";
+    ? "openai/gpt-5.6-sol" : "openai/gpt-5.6-terra";
 }
 
 export function honestBaniAnswer(text: string, facts: { cardEmitted: boolean; writeCompleted: boolean }): string {

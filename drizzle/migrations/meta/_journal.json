@@ -1149,6 +1149,13 @@
       "when": 1794143963273,
       "tag": "0163_resolve_sales_receipt_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1794148159044,
+      "tag": "0164_bani_waste_card_kind",
+      "breakpoints": true
     }
   ]
 }

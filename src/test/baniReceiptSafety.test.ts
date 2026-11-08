@@ -16,8 +16,8 @@ describe("honest conversational outcomes", () => {
   });
   it("bounds recent context without inventing summaries", () => expect(recentBaniTurns(Array.from({ length: 40 }, () => ({ role: "user" as const, content: "x".repeat(8000) })))).toHaveLength(6));
   it("routes ambiguous finance analysis to stronger model only", () => {
-    expect(baniModel([{ role: "user", content: "investigate that discrepancy" }])).toBe("google/gemini-3-flash-preview");
-    expect(baniModel([{ role: "user", content: "ok" }])).toBe("google/gemini-3.1-flash-lite");
+    expect(baniModel([{ role: "user", content: "investigate that discrepancy" }])).toBe("openai/gpt-5.6-sol");
+    expect(baniModel([{ role: "user", content: "ok" }])).toBe("openai/gpt-5.6-terra");
   });
 });
 describe("receipt outcomes never imply posting", () => {
