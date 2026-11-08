@@ -1156,6 +1156,13 @@
       "when": 1794148159044,
       "tag": "0164_bani_waste_card_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1794149378989,
+      "tag": "0165_bani_guarded_record_operations",
+      "breakpoints": true
     }
   ]
 }

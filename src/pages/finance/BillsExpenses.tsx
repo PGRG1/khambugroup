@@ -362,11 +362,23 @@ export default function BillsExpenses() {
     setEditorOpen(true);
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('bill');
+    const status = params.get('status');
+    if (status && ['all','waiting','to-pay','paid'].includes(status)) setStatusFilter(status);
+    if (!id || loading || !scope.ready) return;
+    const bill = bills.find(b => b.id === id && (b.venue_id ? scope.includesId(b.venue_id) : scope.includesName(b.venue)));
+    if (bill) void openEditor(bill);
+    params.delete('bill');
+    navigate({pathname:location.pathname,search:params.toString()}, {replace:true});
+    // Navigation selects a saved record; it never invokes Save or Approve.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, loading, bills, scope.ready]);
+
   const addAllocation = () => {
     setAllocations((rows) => [...rows, { line_no: rows.length + 1, expense_category: "", account_id: null, venue: header.venue || null, department: header.department || null, amount: 0, tax_treatment: "none", tax_amount: 0, notes: null }]);
   };
-  const billFromLink=new URLSearchParams(location.search).get('bill');
-  useEffect(()=>{const bill=bills.find(b=>b.id===billFromLink);if(bill&&!editorOpen)void openEditor(bill);},[billFromLink,bills.length]);
 
   const updateAlloc = (idx: number, patch: Partial<ExpenseBillAllocation>) => {
     setAllocations((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));

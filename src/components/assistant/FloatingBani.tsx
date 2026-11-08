@@ -24,6 +24,8 @@ import { fmtHK } from "@/components/expenses/shared";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 import { PeopleActionCard } from "./PeopleActionCard";
+import { GuardedOperationCard } from "./GuardedOperationCard";
+import { navigationPath, internalNavigation, SCREENS } from "../../../supabase/functions/chat-assistant/navigationRules";
 import { Button } from "@/components/ui/button";
 import { useBaniPending, type PendingItem } from "@/hooks/useBaniPending";
 import { invokeAlertCheck } from "@/utils/invokeAlertCheck";
@@ -260,19 +262,24 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
 
   // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
-  const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel" | "below_usual") => {
+  const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel" | "below_usual" | "undo", confirmation?: string) => {
     if (!session || !tenantId || isPreviewActive) return;
+    const identity = liveIdentity.current;
     const setOutcome = (text: string) => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m));
     setOutcome(decision === "confirm" ? "Working on it…" : "Cancelled");
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, action_id: card.id, decision }),
+        body: JSON.stringify({ tenant_id: tenantId, action_id: card.id, decision, confirmation }),
       });
       const body = await resp.json().catch(() => ({}));
+      if (liveIdentity.current !== identity) return;
       if (!resp.ok) { setOutcome(body.error || "That didn't go through — ask Bani again."); return; }
       setOutcome(body.message || (decision === "confirm" ? "Done" : "Cancelled"));
+      setMessages(prev => prev.map((m,i) => i === index ? {...m, actionOutcome: {message: body.message ?? "", undo_available: body.undo_available === true, link: body.link}} : m));
+      if(body.receipts_changed) {queryClient.invalidateQueries({queryKey:["receipt-intakes"]});queryClient.invalidateQueries({queryKey:["bani-pending"]});}
+      if(body.bills_changed) {queryClient.invalidateQueries({queryKey:["expense-bills"]});queryClient.invalidateQueries({queryKey:["yourteam"]});queryClient.invalidateQueries({queryKey:["bani-pending"]});}
       if (body.asks_changed) { queryClient.invalidateQueries({queryKey:["alert-settings"]}); queryClient.invalidateQueries({queryKey:["smart-alerts"]}); }
       if (body.closures_changed) { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
       if (decision === "confirm" && typeof body.navigate === "string") navigate(body.navigate);
@@ -357,6 +364,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
       let salesAction: { files: string[] } | null = null;
       let actionCard: BaniActionCard | null = null;
+      const actionCards: BaniActionCard[] = [];
+      let navigation: unknown = null;
       let replies: string[] = [];
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
@@ -373,7 +382,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.action?.type === "closures_changed") { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
           if(event.action?.type==='preferences_changed'){queryClient.invalidateQueries({queryKey:['smart-alerts']});queryClient.invalidateQueries({queryKey:['bani-pending']});}
           if(event.action?.type==='notification_preferences'&&Array.isArray(event.action.preferences))setMessages(prev=>[...prev,...event.action.preferences.filter((p:unknown):p is {id:string;reason:string}=>typeof p==='object'&&p!==null&&'id' in p&&typeof p.id==='string'&&'reason' in p&&typeof p.reason==='string').map((p:{id:string;reason:string})=>({role:'assistant' as const,content:p.reason,preferenceId:p.id}))]);
-          if (event.action?.type === "action_card" && typeof event.action.action_id === "string") actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null };
+          if(event.action?.type === "navigate") navigation = event.action.navigation;
+          if (event.action?.type === "action_card" && typeof event.action.action_id === "string") { actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null, challenge: typeof event.action.challenge === "string" ? event.action.challenge : undefined, amount: typeof event.action.amount === "number" ? event.action.amount : undefined, currency: typeof event.action.currency === "string" ? event.action.currency : undefined }; actionCards.push(actionCard); }
           if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
@@ -383,6 +393,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
         setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}) }]);
+        if(actionCards.length>1) setMessages(prev => [...prev.slice(0,-1), ...actionCards.map((card,i) => ({role: "assistant" as const, content: i===0?content:"", actionCard:card, ...(i===actionCards.length-1&&replies.length?{replies}:{})}))]);
+        const path=navigationPath(navigation);
+        if(path) {const screen=(navigation as {screen:keyof typeof SCREENS}).screen;if(!isPreviewActive&&canAccessPage(SCREENS[screen].page)){setOpen(false);navigate(path);}else setError("That screen is not available in this view.");}
         if (action) runScannerAction(action, attached);
         else if (salesAction) runSalesAction(salesAction, attached);
       }
@@ -451,7 +464,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
-            {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
+            {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({href,children})=>{const nav=href?internalNavigation(href):null;return nav?<Button variant="link" className="h-auto whitespace-normal p-0" onClick={()=>{const path=navigationPath(nav);if(path&&canAccessPage(SCREENS[nav.screen].page)){setOpen(false);navigate(path);}}}>{children}</Button>:<span>{children}</span>;}}}>{message.content}</ReactMarkdown></div>}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
               const base = message.salesBase; const preview = applySalesChanges(base, message.salesChanges);
@@ -488,7 +501,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               </div>}
               {!message.outcome && message.proposal.binding !== binding && <p className="floating-bani-change-reason">Review changed — ask Bani again</p>}
             </div>}
-            {message.actionCard?.kind === "people" ? <PeopleActionCard card={message.actionCard} outcome={message.actionOutcome} onOutcome={result => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: result.message, actionOutcome: result } : m))} onChange={text => { setDraft(text); input.current?.focus(); }} /> : message.actionCard && <div dir="auto" className="floating-bani-change">
+            {message.actionCard && ["approve_bill","resolve_receipt_intake"].includes(message.actionCard.kind) ? <GuardedOperationCard card={message.actionCard} outcome={message.outcome} undoAvailable={message.actionOutcome?.undo_available} onDecision={(decision,confirmation)=>{if(message.actionCard)void confirmCard(index,message.actionCard,decision,confirmation);}}/> : message.actionCard?.kind === "people" ? <PeopleActionCard card={message.actionCard} outcome={message.actionOutcome} onOutcome={result => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: result.message, actionOutcome: result } : m))} onChange={text => { setDraft(text); input.current?.focus(); }} /> : message.actionCard && <div dir="auto" className="floating-bani-change">
               <p className="floating-bani-change-target">{message.actionCard.title}</p>
               {message.actionCard.detail && <p className="floating-bani-change-reason whitespace-pre-line">{message.actionCard.detail}</p>}
               {message.outcome ? <p className="floating-bani-change-reason" role="status">{message.outcome}</p> : <div className="mt-2 flex gap-2">

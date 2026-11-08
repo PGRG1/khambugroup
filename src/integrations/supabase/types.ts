@@ -15858,6 +15858,14 @@ export type Database = {
         Args: { p_id: string; p_type: string }
         Returns: Json
       }
+      bani_operation_execute: {
+        Args: { a: string; confirmation?: string; decision: string; t: string }
+        Returns: Json
+      }
+      bani_operation_prepare: {
+        Args: { ident: string; k: string; reason?: string; t: string }
+        Returns: Json
+      }
       bani_people_claim: {
         Args: { a: string; decision: string; t: string }
         Returns: Json

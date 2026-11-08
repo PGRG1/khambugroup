@@ -585,7 +585,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
     };
   };
 
-  const openDetail = async (inv: Invoice) => {
+  const openDetail = async (inv: Invoice, readOnlyNavigation = false) => {
     setSelectedInvoice(inv);
     setDetailPosted(true);
     const posted=await supabase.from("journal_entries").select("id").eq("tenant_id",tenantId??"").eq("source_type","invoice").eq("source_id",inv.id).eq("status","posted").limit(1);
@@ -613,7 +613,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
     if (gi.length > 0 && items.length > 0) {
       const lineIds = new Set(items.map((l) => l.id));
       const anyLinked = gi.some((g: any) => g.invoice_line_item_id && lineIds.has(g.invoice_line_item_id));
-      if (!anyLinked && tenantId) {
+      if (!anyLinked && tenantId && !readOnlyNavigation) {
         const { error: rpcErr } = await supabase.rpc(
           "sync_grn_from_invoice" as any,
           { _invoice_id: inv.id, _tenant_id: tenantId } as any,
@@ -625,6 +625,19 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
     setEditing(false);
     setDrawerOpen(true);
   };
+
+  useEffect(() => {
+    const status = searchParams.get('review_status');
+    if (status && ['Draft','To approve','Approved','Disputed','Voided'].includes(status)) setReviewStatusFilter(status);
+    const id = searchParams.get('invoice');
+    if (!id || loading || !venueScope.ready) return;
+    const invoice = invoices.find(i => i.id === id && venueScope.includesName(i.venue));
+    if (invoice) void openDetail(invoice, true);
+    const next = new URLSearchParams(searchParams); next.delete('invoice');
+    setSearchParams(next, { replace: true });
+    // Existing loaded, tenant-scoped records only; opening must not run GRN repair writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loading, invoices, venueScope.ready]);
 
 
   // Load variance map for invoice list badges
