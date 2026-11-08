@@ -206,7 +206,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
   const attention = pendingItems.length + teamMessages.unread.length;
-  const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else if (pendingItems.length > 0 && !messages.length && !teamMessages.unread.length) openWork(); else setOpen(true); };
+  const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 

@@ -239,6 +239,8 @@ export default function PurchaseOrdersTab() {
   };
 
   const openDetail = async (po: PO) => {
+    setSelectedItems([]);
+    setReceived(null);
     setSelectedPo(po);
     const { data } = await supabase.from("purchase_order_items").select("*").eq("po_id", po.id);
     setSelectedItems((data ?? []) as POItem[]);

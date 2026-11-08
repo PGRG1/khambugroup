@@ -30,7 +30,8 @@ interface ProcurementProps {
   defaultTab?: string;
 }
 
-function TabFallback() {
+function TabFallback({ tab }: { tab?: string }) {
+  if (tab && tab !== "dashboard") return <div className="mt-4 h-[320px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />;
   return (
     <div className="space-y-4 mt-4">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -53,7 +54,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
 
 
       <Tabs value={activeTab}>
-        <Suspense fallback={<TabFallback />}>
+        <Suspense fallback={<TabFallback tab={activeTab} />}>
           <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
           <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
           <TabsContent value="categories"><CategoriesTab /></TabsContent>
