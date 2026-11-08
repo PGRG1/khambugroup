@@ -1,3 +1,4 @@
+import type { ChartSpec } from "./AssistantChart";
 import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import type { Point } from "@/utils/floatingBaniUi";
@@ -11,7 +12,7 @@ export type SalesDraft = { record: SalesRecord; venues: string[]; apply: (next: 
 type Host = { token: string; node: HTMLElement };
 export type BaniAttachment = { id: string; file: File; name: string; type: string; size: number; url?: string };
 export type BaniActionCard = { id: string; kind: "mark_closed_days" | "open_sales_scanner" | "open_invoice_scanner" | "people" | "create_alert_ask" | "log_waste" | "approve_bill" | "resolve_receipt_intake"; title: string; detail?: string | null; challenge?: string; amount?: number; currency?: string };
-export type BaniMessage = { role: "user" | "assistant"; content: string; replies?: string[]; teamMessageId?: string; eventId?:string; preferenceId?:string; files?: string[]; proposal?: DraftProposal; outcome?: string; actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string }; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; hidden?: boolean };
+export type BaniMessage = { role: "user" | "assistant"; content: string; replies?: string[]; teamMessageId?: string; eventId?:string; preferenceId?:string; files?: string[]; proposal?: DraftProposal; outcome?: string; actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string }; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; charts?: ChartSpec[]; hidden?: boolean };
 export type PageContext = { path: string; detail: string; person?: { id: string; name: string }; facts?: string; retainFiles?: (files: File[]) => Promise<void> } | null;
 
 type S<T> = [T, Dispatch<SetStateAction<T>>];

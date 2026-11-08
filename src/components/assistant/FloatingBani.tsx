@@ -7,6 +7,7 @@ import { LiveWaveform } from "@/components/assistant/LiveWaveform";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import { AssistantChart, type ChartSpec } from "./AssistantChart";
 import remarkGfm from "remark-gfm";
 import { recentBaniTurns } from "../../../supabase/functions/_shared/baniConversation";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
@@ -367,6 +368,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const actionCards: BaniActionCard[] = [];
       let navigation: unknown = null;
       let replies: string[] = [];
+      const charts: ChartSpec[] = [];
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -377,6 +379,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.error) throw new Error(typeof event.error === "string" ? event.error : event.error.message || "Bani could not reply.");
           if (event.status && typeof event.status.label === "string") { setStepLabel(event.status.label); turn?.opts.onStatus?.(event.status.label); }
           if (event.speak && typeof event.speak.text === "string") turn?.opts.onSpeak?.(event.speak as SpeakEvent);
+          if (event.chart && Array.isArray(event.chart.data) && Array.isArray(event.chart.series) && charts.length < 4) charts.push(event.chart as ChartSpec);
           content += event.choices?.[0]?.delta?.content || "";
           if (event.review) { content = event.review.answer; proposal = event.review.proposal || undefined; }
           if (event.action?.type === "closures_changed") { queryClient.invalidateQueries({ queryKey: ["venue-closures"] }); queryClient.invalidateQueries({ queryKey: ["yourteam"] }); }
@@ -392,7 +395,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
-        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}) }]);
+        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}), ...(charts.length ? { charts } : {}) }]);
         if(actionCards.length>1) setMessages(prev => [...prev.slice(0,-1), ...actionCards.map((card,i) => ({role: "assistant" as const, content: i===0?content:"", actionCard:card, ...(i===actionCards.length-1&&replies.length?{replies}:{})}))]);
         const path=navigationPath(navigation);
         if(path) {const screen=(navigation as {screen:keyof typeof SCREENS}).screen;if(!isPreviewActive&&canAccessPage(SCREENS[screen].page)){keepOpenNav.current=true;navigate(path);}else setError("That screen is not available in this view.");}
@@ -465,6 +468,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {!messages.length && !review && !salesDraft && <div className="px-1 py-3 space-y-2"><p className="text-sm">{pending.data?.greeting??'Hello. What would you like to work on?'}</p></div>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({href,children})=>{const nav=href?internalNavigation(href):null;return nav?<Button variant="link" className="h-auto whitespace-normal p-0" onClick={()=>{const path=navigationPath(nav);if(path&&canAccessPage(SCREENS[nav.screen].page)){keepOpenNav.current=true;navigate(path);}}}>{children}</Button>:<span>{children}</span>;}}}>{message.content}</ReactMarkdown></div>}
+            {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
               const base = message.salesBase; const preview = applySalesChanges(base, message.salesChanges);

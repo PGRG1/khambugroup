@@ -1,6 +1,7 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
+import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
@@ -1585,6 +1586,7 @@ Deno.serve(async (req) => {
       }
       if (voiceMode) conversation.splice(1, 0, { role: "system", content:
         "Conversational voice: understand the complete current utterance in the full preceding conversation before choosing direct response, clarification or tools. Reply directly to social/non-data conversation without data lookups. If a user disputes an answer without identifying what is wrong, first ask which figure, scope or assumption they mean, referencing the preceding answer. Do not automatically requery, apologize, concede an error or invent an explanation. For any ambiguous correction or business ask, ask a concise clarifying question rather than guessing the intended metric, venue or dates. Resolve short followups and corrections from prior turns when unambiguous, carrying unchanged scope forward and changing only the corrected part. Only call tools when the understood request needs records. Lead the final answer with 1–3 short natural spoken prose sentences, preserving exact figures, scope and important uncertainty; then keep the full accurate evidence-rich answer. No theatrical sounds or repeated Okay. Do not describe a lookup you have not requested." });
+      conversation.splice(1, 0, { role: "system", content: "Planning and analysis are a conversation, not a form. When the user wants to plan, explore or discuss a target, budget or performance, do NOT propose a save card first. Call analyze_revenue_goal (or other read tools), then: one-line headline vs usual pace; render_chart to visualise it (e.g. bar typical vs needed by weekday); a compact markdown table; the levers (more guests vs higher spend) with real numbers; one question about where they see room; suggest_replies with 2-4 adjustments plus 'Lock it in'. Re-run analysis as they adjust. Only call propose_action set_revenue_target after the user commits. For any analytical question, use render_chart and markdown tables whenever a trend, comparison or breakdown helps. Overdue but already-approved bills just await bank payment: there is nothing to fix in the portal, so say so in one line and move to the next item — never open the bill screen for them." });
       const chartSpecs: any[] = [];
       // Memoize identical tool calls within this request.
       const toolCache = new Map<string, any>();
@@ -1638,7 +1640,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool], tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1717,6 +1719,8 @@ Deno.serve(async (req) => {
                     ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
                     : tc.function.name === "get_open_items"
                       ? await getOpenItems(tenantId, typeof body.active_venue === "string" && body.active_venue.trim() && body.active_venue.trim().toLowerCase() !== "all venues" ? body.active_venue.trim() : null, peopleClient)
+                    : tc.function.name === 'analyze_revenue_goal'
+                      ? await analyzeRevenueGoal(args, admin, tenantId)
                     : tc.function.name === 'get_month_end_checklist'
                       ? await monthEndChecklist(args,peopleClient,tenantId)
                     : tc.function.name === 'inspect_records'
