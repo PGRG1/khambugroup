@@ -439,3 +439,9 @@
 - [x] Nine date-rule fixture tests and build pass; signed-in desktop/375px Overview, Month close, Payables and Reports menus/selecting months checked. Protected counts/latest timestamps match (sales has created_at only).
 - [x] Custom calendars/Clear and Journal date-exception filtering render and work on desktop/375px.
 - [ ] Accounting setting save/readback not exercised to avoid changing tenant configuration; remaining Finance screens and custom range Apply need expanded UI verification.
+
+## YC demo (YC Cafe)
+- [ ] Needs you: click item → resolve conversationally (Home Bani Team chat)
+- [ ] Month-end checklist: Bani explains what's open and fixes it conversationally
+- [ ] Set revenue target conversationally (orb)
+- [ ] Set rota conversationally (orb, People)
