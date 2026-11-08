@@ -14,6 +14,7 @@ export const SUPPLIER_DIRECTORY_TAB: PurchasingTab = { title: "Suppliers & Vendo
 export const isSupplierDirectoryRoute = (pathname: string) => matchesPurchasingPath(pathname, SUPPLIER_DIRECTORY_TAB.url);
 
 export const stockMenuSectionPages: PurchasingTab[] = [
+  { title: "Overview", url: "/procurement/stock-overview" },
   { title: "Stock", url: "/procurement/inventory" },
   { title: "Menu costs", url: "/procurement/menu-costing" },
 ];
@@ -69,7 +70,7 @@ export function supplierAccountsRedirect(pathname: string) {
 }
 
 export function isStockMenuRoute(pathname: string) {
-  return ["inventory", "stock-counts", "movements", "transfers", "waste", "menu-costing", "products", "categories"]
+  return ["stock-overview", "inventory", "stock-counts", "movements", "transfers", "waste", "menu-costing", "products", "categories"]
     .some(path => matchesPurchasingPath(pathname, `/procurement/${path}`));
 }
 

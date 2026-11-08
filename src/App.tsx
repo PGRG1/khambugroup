@@ -49,6 +49,7 @@ import AccessDenied from "./pages/AccessDenied";
 import Procurement from "./pages/Procurement";
 import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
+import StockMenuOverview from "./pages/procurement/StockMenuOverview";
 import StockMovementsTab from "./components/procurement/StockMovementsTab";
 import SupplierAccountsPage from "./pages/procurement/SupplierAccounts";
 import SupplierAccountPage from "./pages/procurement/SupplierAccount";
@@ -290,6 +291,7 @@ function App() {
                 <Route path="/procurement/receiving" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="receiving" /></ProtectedRoute>} />
                 <Route path="/procurement/line-items" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="line-items" /></ProtectedRoute>} />
                 <Route path="/procurement/deposit-ledger" element={<ProtectedRoute pageKey="invoices"><Navigate to="/procurement/finance/suppliers" replace /></ProtectedRoute>} />
+                <Route path="/procurement/stock-overview" element={<ProtectedRoute pageKey="invoices"><StockMenuOverview /></ProtectedRoute>} />
                 <Route path="/procurement/inventory" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="inventory" /></ProtectedRoute>} />
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
                 <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />

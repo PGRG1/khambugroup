@@ -85,8 +85,9 @@ describe("Purchasing section destinations", () => {
     expect(canOpenPurchasingTab(SUPPLIER_DIRECTORY_TAB, { isAdmin: false, isPreviewActive: false, previewIsAdmin: false, canAccessInvoices: true })).toBe(true);
     expect(canOpenPurchasingTab(SUPPLIER_DIRECTORY_TAB, { isAdmin: true, isPreviewActive: true, previewIsAdmin: false, canAccessInvoices: false })).toBe(false);
   });
-  it("has exactly Stock and Menu costs as section pages", () => {
-    expect(stockMenuSectionPages).toEqual([{title:"Stock",url:"/procurement/inventory"},{title:"Menu costs",url:"/procurement/menu-costing"}]);
+  it("has exactly Overview, Stock and Menu costs as section pages", () => {
+    expect(stockMenuSectionPages).toEqual([{title:"Overview",url:"/procurement/stock-overview"},{title:"Stock",url:"/procurement/inventory"},{title:"Menu costs",url:"/procurement/menu-costing"}]);
+    expect(purchasingSectionPagesForPath("/procurement/stock-overview")).toBe(stockMenuSectionPages);
     expect(purchasingSectionPagesForPath("/procurement/categories")).toBe(stockMenuSectionPages);
     expect(purchasingSectionPagesForPath("/procurement/waste")).toBe(stockMenuSectionPages);
     expect(purchasingSectionPagesForPath("/procurement/finance/suppliers/123")).toBe(purchasingSectionPages);

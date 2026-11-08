@@ -510,7 +510,7 @@ export function AppSidebar() {
           ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
           ...(showProcurement ? [
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
-            { title: "Stock & menu", to: "/procurement/inventory", icon: Package, active: stockMenuActive },
+            { title: "Stock & menu", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive },
           ] : []),
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
@@ -568,7 +568,7 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to="/procurement/inventory" aria-current={stockMenuActive ? "page" : undefined}
+                  <Link to="/procurement/stock-overview" aria-current={stockMenuActive ? "page" : undefined}
                     className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", stockMenuActive && "glass-active !text-sidebar-primary font-medium")}>
                     <Package className="h-4 w-4 shrink-0" /><span>Stock & menu</span>
                   </Link>
