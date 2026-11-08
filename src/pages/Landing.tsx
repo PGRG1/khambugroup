@@ -180,7 +180,7 @@ export default function Landing() {
         ...(foodPct != null && usualFood != null ? { status: `Usual ${pctTxt(usualFood)}`, tone: foodPct <= usualFood + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Staff cost", value: short(p.staff), to: "/hr/payroll", sub: staffPct != null ? `${pctTxt(staffPct)} of sales` : "Not booked yet",
         ...(staffPct != null && usualStaff != null ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: isCurrent ? "Profit so far" : "Profit", value: short(p.profit), to: "/finance/reports?view=pl", sub: booksSales ? `${pctTxt((p.profit / booksSales)) * 100)} of sales` : "Not booked yet",
+      { label: isCurrent ? "Profit so far" : "Profit", value: short(p.profit), to: "/finance/reports?view=pl", sub: booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Not booked yet",
         ...(usualProfit != null && !isCurrent ? { status: `Usual ${short(usualProfit)}`, tone: p.profit >= usualProfit ? "ok" : "amb" } as const : { status: isCurrent ? "Books still filling in" : "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
