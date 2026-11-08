@@ -1,7 +1,7 @@
 import {ExpenseDocumentPreview} from "@/components/expenses/ExpenseDocumentPreview";
 import {useBaniTopic,useBaniWorkPublisher} from "@/components/assistant/FloatingBaniContext";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,8 @@ function receiptValue(key: string, value: unknown) {
   return counts.includes(key) ? formatTableInteger(amount) : formatCurrency(amount);
 }
 
-export function ReceiptIntakes({ revision, venueIds }: { revision: number; venueIds: string[] }) {
+export function useReceiptIntakes(venueIds: string[] | null, revision = 0) {
   const { tenantId } = useActiveTenant();
-  const topic=useBaniTopic();
-  const [selected, setSelected] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["receipt-intakes", tenantId, revision], enabled: !!tenantId,
     queryFn: async () => {
       if (!tenantId) return [];
@@ -30,7 +28,17 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
       if (error) throw error;
       return data ?? [];
     } });
-  const rows = (q.data ?? []).filter(r => r.venue_id === null || venueIds.includes(r.venue_id));
+  const rows = (q.data ?? []).filter(r => r.venue_id === null || !venueIds || venueIds.includes(r.venue_id));
+  return { q, rows };
+}
+
+export function ReceiptIntakes({ revision = 0, venueIds, home }: { revision?: number; venueIds: string[] | null; home?: boolean }) {
+  const { tenantId } = useActiveTenant();
+  const topic=useBaniTopic();
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { q, rows } = useReceiptIntakes(venueIds, revision);
   useBaniWorkPublisher('/sales-data',rows.filter(r=>(r.verification as Record<string,unknown>|null)?.evidence_only).map(r=>({id:r.id,tone:'amber' as const,title:`Receipt date needs your answer: ${r.source_name}`,detail:String(r.reasons),label:'Review',question:`Review receipt evidence ${r.id}: ${r.source_name}`})),!q.isLoading);
   const current = rows.find(r => r.id === selected);
   const comparisons = useQuery({ queryKey: ["receipt-comparison", tenantId, current?.id], enabled: !!current,
@@ -47,15 +55,20 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
     else setSourceError("Source could not be opened. Try again.");
   };
   const [sourceError, setSourceError] = useState("");
-  if (q.isError) return <p className="text-sm text-warning">Flagged receipts could not be loaded.</p>;
+  const resolve = async (reason: string) => {
+    if (!current) return;
+    setBusy(true); setSourceError("");
+    const { error } = await (supabase as any).rpc("resolve_sales_receipt_intake", { _id: current.id, _reason: reason });
+    setBusy(false);
+    if (error) { setSourceError("Could not clear this receipt. Try again."); return; }
+    setSelected(null);
+    qc.invalidateQueries({ queryKey: ["receipt-intakes"] });
+  };
+  if (q.isError) return home ? null : <p className="text-sm text-warning">Flagged receipts could not be loaded.</p>;
   if (!rows.length) return null;
-  return <section className="mb-4 space-y-2">
-    <h3 className="text-sm font-semibold text-warning">Receipts needing review · no sales posted</h3>
-    {rows.map(r => <div key={r.id} className="flex min-w-0 items-center justify-between gap-2 border-b border-border py-2 text-sm">
-      <span className="min-w-0 break-all">{r.source_name}</span>
-      <Button variant="outline" size="sm" onClick={() => { setSelected(r.id); setSourceError(""); }}>Review</Button>
-    </div>)}
-    {rows.length >= 100 && <p className="text-xs text-muted-foreground">Latest 100 receipts shown.</p>}
+  return <>
+    {home && rows.slice(0, 2).map(r => <button key={r.id} className="wi" onClick={() => { setSelected(r.id); setSourceError(""); }}><i className="amb" />Check sales receipt {r.source_name}</button>)}
+    {home && rows.length > 2 && <div className="more">+ {rows.length - 2} more receipts</div>}
     <Dialog open={!!current} onOpenChange={open => { if (!open) setSelected(null); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader><DialogTitle>Receipt needs review</DialogTitle></DialogHeader>
@@ -68,9 +81,10 @@ export function ReceiptIntakes({ revision, venueIds }: { revision: number; venue
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">{Object.entries((current.tentative_values ?? {}) as Record<string, unknown>).filter(([k]) => !["receiptFileUrl", "receiptFileName", "id"].includes(k)).map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-muted-foreground capitalize">{key.replace(/([a-z])([A-Z])/g, "$1 $2")}</dt><dd className="break-words td-num">{receiptValue(key, (current.original_values as Record<string, unknown>)?.[key])} / {receiptValue(key, value)}</dd></div>)}</dl>
           <h4 className="text-sm font-semibold">Existing records</h4>
           {comparisons.isError ? <p className="text-sm text-warning">Comparison lookup failed.</p> : comparisons.isPending ? <p className="text-sm">Loading comparison…</p> : comparisons.data?.length ? comparisons.data.map(r => <p key={r.id} className="text-sm">{r.venue} · {formatDate(r.date)} · {r.report_number || "No report number"} · {formatCurrency(Number(r.total_sales))}</p>) : <p className="text-sm text-muted-foreground">No matching date or report found. Distinct sessions still need checking.</p>}
-          <p className="text-sm text-muted-foreground">Compare the original receipt with these figures and existing sales. Resolution and source-verified posting are not available yet; this receipt remains flagged.</p>
+          <p className="text-sm text-muted-foreground">Nothing has been posted from this receipt. If the sales are already recorded or the scan isn't needed, clear it. To record these sales, use Scan Receipt on Sales Data again.</p>
+          <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy} onClick={() => resolve("already_recorded")}>Already recorded – clear</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => resolve("not_needed")}>Not needed – discard</Button></div>
         </>}
       </DialogContent>
     </Dialog>
-  </section>;
+  </>;
 }

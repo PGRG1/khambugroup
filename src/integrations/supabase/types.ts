@@ -16800,6 +16800,10 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_sales_receipt_intake: {
+        Args: { _id: string; _reason: string }
+        Returns: undefined
+      }
       reverse_and_regenerate_sales_journal: {
         Args: { p_entry_id: string }
         Returns: Json

@@ -15,7 +15,6 @@ import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import { saveReceiptIntake } from "@/utils/salesReceiptIntake";
-import { ReceiptIntakes } from "@/components/sales/ReceiptIntakes";
 import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { DailyRecords, itemKey, type DayItem } from "@/components/sales/DailyRecords";
 import { SalesDayDialog } from "@/components/sales/SalesDayDialog";
@@ -255,7 +254,6 @@ const DataPage = () => {
           )}
 
           <div ref={dailyRef} className="scroll-mt-16">
-            <ReceiptIntakes revision={intakeRevision} venueIds={vs.selectedVenues.map(v => v.id)} />
             <DailyRecords
               key={`${tenantId}:${user?.id}`}
               records={periodRecords}

@@ -1,3 +1,4 @@
+import { ReceiptIntakes, useReceiptIntakes } from "@/components/sales/ReceiptIntakes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
@@ -122,6 +123,8 @@ export default function Landing() {
   const needs = useMemo(() => ORDER.flatMap((r) => (views.find((v) => v.role === r)?.findings ?? [])
     .filter((f) => f.recommendation && (f.severity === "action" || f.severity === "watch")).map((f) => ({ role: r, f })))
     .sort((a, b) => (a.f.severity === "action" ? 0 : 1) - (b.f.severity === "action" ? 0 : 1)), [views]);
+  const intakes = useReceiptIntakes(scopeIds ?? null);
+  const total = needs.length + intakes.rows.length;
   const overdue = useMemo(() => {
     for (const v of views) for (const f of v.findings ?? []) if (/overdue/.test(f.key)) {
       const hk = (f.figures ?? []).filter((x: any) => x.unit === "HKD").reduce((a: number, x: any) => a + (Number(x.value) || 0), 0);
@@ -334,13 +337,13 @@ export default function Landing() {
       {loading || (reviewQ.isPending && !mixed) ? <div className="l2-work">{[0, 1].map((i) => <section key={i} className="l2-wb"><Skeleton className="h-5 w-1/2 !animate-none" /><Skeleton className="h-4 w-3/4 mt-4 !animate-none" /><Skeleton className="h-4 w-2/3 mt-2 !animate-none" /></section>)}</div> :
       <div className="l2-work loading-reveal">
         <section className="l2-wb">
-          <div className="wh"><span className="wn">{needs.length}</span><span className="wt">{needs.length === 1 ? "thing needs you" : "things need you"}</span>
-            {needs.length > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through them with Bani</button>}</div>
+          <div className="wh"><span className="wn">{total}</span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
+            {total > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through them with Bani</button>}</div>
           <div className="wl">
             {mixed ? <div>Pick one venue or all venues to see what your team found.</div>
-              : needs.length === 0 ? <div><i className="ok" />Nothing needs you right now</div>
+              : <><ReceiptIntakes venueIds={scopeIds ?? null} home />{needs.length === 0 ? (intakes.rows.length ? null : <div><i className="ok" />Nothing needs you right now</div>)
               : <>{needs.slice(0, 2).map(({ f }) => <button key={f.key} className="wi" onClick={() => ask(`${f.title}: ${f.statement}`)}><i className={f.severity === "action" ? "amb" : ""} />{needLine(f)}</button>)}
-                {needs.length > 2 && <div className="more">+ {needs.length - 2} more</div>}</>}
+                {needs.length > 2 && <div className="more">+ {needs.length - 2} more</div>}</>}</>}
           </div>
         </section>
         <section className="l2-wb">
