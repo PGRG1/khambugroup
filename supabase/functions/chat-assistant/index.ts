@@ -386,7 +386,7 @@ const markClosedTool = {
 
 async function markVenueClosed(args: any, tenantId: string, userId: string, authHeader: string) {
   const venueName = typeof args.venue === "string" ? args.venue.trim() : "";
-  const dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
+  let dates = Array.from(new Set((Array.isArray(args.dates) ? args.dates : []).filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d as string)))) as string[];
   if (!venueName || !dates.length) return { ok: false, error: "Need a venue and at least one date." };
   if (dates.length > 62) return { ok: false, error: "Too many dates at once (max 62)." };
   // Never today or the future: the day may still be trading.
@@ -435,6 +435,66 @@ async function markVenueClosed(args: any, tenantId: string, userId: string, auth
 
 // Action cards: Bani proposes a concrete piece of work; nothing happens until
 // the user taps Confirm, which calls back into confirm_action below.
+// ---------- working through what needs the user, one item at a time ----------
+const openItemsTool = {
+  type: "function",
+  function: {
+    name: "get_open_items",
+    description: "Everything that needs the user right now, with the details to work through each item: the finance team's latest findings, missing sales days per venue, overdue and due-this-week bills (supplier, number, due date, amount left), and bills waiting for approval. Use it whenever the user asks what needs them, asks to go through them, or opens one item.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+};
+const repliesTool = {
+  type: "function",
+  function: {
+    name: "suggest_replies",
+    description: "Show 2-4 short tap-to-reply buttons under your message with the next steps the user can take right now. Only steps you can really carry out in this chat (for example 'It was closed', 'I'll send the sales report', 'Next item', 'Skip for now'). Never offer paying, approving bills or contacting suppliers.",
+    parameters: { type: "object", properties: { options: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 } }, required: ["options"], additionalProperties: false },
+  },
+};
+async function getOpenItems(tenantId: string, scopeVenue: string | null) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+  const weekEnd = new Date(`${today}T00:00:00Z`); weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+  const week = weekEnd.toISOString().slice(0, 10);
+  const from14 = new Date(`${today}T00:00:00Z`); from14.setUTCDate(from14.getUTCDate() - 14);
+  const [rev, inv, bills, suppliers, missing] = await Promise.all([
+    admin.from("finance_team_reviews").select("generated_at,specialists").eq("tenant_id", tenantId).eq("status", "completed").is("venue_id", null).order("generated_at", { ascending: false }).limit(1),
+    admin.from("invoices").select("id,supplier_id,invoice_number,due_date,total_amount,amount_paid,remaining_balance,payment_status,status,voided_at").eq("tenant_id", tenantId).neq("payment_status", "paid").not("due_date", "is", null).lte("due_date", week).is("voided_at", null).order("due_date").limit(1000),
+    admin.from("expense_bills").select("id,supplier_id,vendor_name,bill_number,due_date,total_amount,paid_amount,payment_status,approval_status,reversed_at").eq("tenant_id", tenantId).neq("payment_status", "paid").is("reversed_at", null).order("due_date").limit(1000),
+    admin.from("suppliers").select("id,name").eq("tenant_id", tenantId),
+    runTool("get_missing_sales_days", { date_from: from14.toISOString().slice(0, 10), ...(scopeVenue ? { venue: scopeVenue } : {}) }, tenantId).catch(() => null),
+  ]);
+  const sup = new Map(((suppliers.data ?? []) as any[]).map((x) => [x.id, x.name]));
+  const left = (t: any, p: any) => Math.round((Number(t ?? 0) - Number(p ?? 0)) * 100) / 100;
+  const payables = [
+    ...((inv.data ?? []) as any[]).filter((i) => i.status !== "disputed").map((i) => ({ kind: "supplier invoice", supplier: sup.get(i.supplier_id) ?? "Supplier", number: i.invoice_number, due_date: i.due_date, amount_left: i.remaining_balance != null ? Number(i.remaining_balance) : left(i.total_amount, i.amount_paid) })),
+    ...((bills.data ?? []) as any[]).filter((b) => b.due_date && b.due_date <= week && (b.approval_status === "approved" || b.approval_status === "posted")).map((b) => ({ kind: "bill", supplier: b.vendor_name || sup.get(b.supplier_id) || "Supplier", number: b.bill_number, due_date: b.due_date, amount_left: left(b.total_amount, b.paid_amount) })),
+  ].filter((x) => x.amount_left > 0).sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+  const overdue = payables.filter((x) => x.due_date < today), dueThisWeek = payables.filter((x) => x.due_date >= today);
+  const awaiting = ((bills.data ?? []) as any[]).filter((b) => ["pending", "pending_review", "draft", "awaiting_approval"].includes(b.approval_status))
+    .map((b) => ({ supplier: b.vendor_name || sup.get(b.supplier_id) || "Supplier", number: b.bill_number, due_date: b.due_date, amount: Number(b.total_amount ?? 0) }));
+  const findings = (((rev.data ?? [])[0] as any)?.specialists ?? []).flatMap((sp: any) => (sp.findings ?? [])
+    .filter((f: any) => f.recommendation && (f.severity === "action" || f.severity === "watch"))
+    .map((f: any) => ({ team_member: sp.name, title: f.title, severity: f.severity, what: f.statement, next_step: f.recommendation })));
+  const missingSales = ((missing as any)?.venues ?? []).filter((v: any) => (v.missing_dates ?? []).length).map((v: any) => ({ venue: v.venue, dates: v.missing_dates.slice(-14) }));
+  const sum = (xs: any[]) => Math.round(xs.reduce((a, x) => a + x.amount_left, 0));
+  return {
+    today,
+    findings,
+    missing_sales: missingSales,
+    overdue_payables: { count: overdue.length, total: sum(overdue), items: overdue.slice(0, 12) },
+    due_this_week: { count: dueThisWeek.length, total: sum(dueThisWeek), items: dueThisWeek.slice(0, 12) },
+    bills_awaiting_approval: { count: awaiting.length, items: awaiting.slice(0, 12) },
+    what_you_can_do: {
+      missing_sales: "Ask if the venue traded. Closed: propose_action mark_closed_days for those dates. Traded: ask them to drop the sales report photo here, then open_sales_scanner.",
+      payables: "You cannot pay or record payments. Say which bills, amounts and due dates; payments are matched automatically when the bank statement arrives. Offer to move on.",
+      bills_awaiting_approval: "You cannot approve bills yet; point to Expenses › Bills and move on.",
+      roster: "Use draft_people_action to draft next week's rota.",
+      other: "Explain in one or two sentences and move on.",
+    },
+  };
+}
+
 const proposeActionTool = {
   type: "function",
   function: {
@@ -1500,6 +1560,7 @@ Deno.serve(async (req) => {
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
       conversation.splice(1,0,{role:'system',content:'Notifications are information-only business events. Housekeeping work is handled one root item at a time in plain sentences, never pushed. Keep existing action authorisations and confirmation cards; never pay money or approve payroll from chat. For unsupported work, state the existing page and wait for the user to confirm it was checked. Use notification_preferences only for explicit remembered instructions, list/forget requests. List actual saved instructions, never invented ones. Call list first to resolve an event ID. Never broaden role or venue access.'});
       conversation.splice(1, 0, { role: "system", content: "People drafts: emit at most ONE real People card per turn, then reply with one short line. Do not print fake Confirm/Cancel labels, card titles/details or pseudo-cards in prose. Use exact user instructions, never invented pay advice. Once a draft tool succeeds do not draft again in that turn." });
+      conversation.splice(1, 0, { role: "system", content: "Working through what needs the user: when they ask what needs them, ask to go through it, or open one item, call get_open_items first. Then take ONE item at a time: say what it is in one or two short sentences with the real names, dates and amounts, do the part you can do (closed days, reading a sales report, rota drafts, targets, team messages) through the normal confirmation cards, and end with suggest_replies giving 2-4 next steps you can really carry out (always include 'Next item' when more remain). Be honest about what you cannot do: you never pay, record payments, approve bills or contact suppliers; say who does it and move on. Never list every item at once unless asked." });
       if (body.floating === true) {
         const requestedVenue = typeof body.active_venue === "string" ? body.active_venue.trim() : "";
         const venueMatch = requestedVenue ? workspace.venues.find((v) => v.toLowerCase() === requestedVenue.toLowerCase()) : null;
@@ -1563,7 +1624,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool] : [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool], tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool] : [...tools, markClosedTool, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1642,6 +1703,10 @@ Deno.serve(async (req) => {
                   ? await markVenueClosed(args, tenantId, user!.id, req.headers.get("Authorization") ?? "")
                   : tc.function.name === "propose_action"
                     ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
+                    : tc.function.name === "get_open_items"
+                      ? await getOpenItems(tenantId, typeof body.active_venue === "string" && body.active_venue.trim() && body.active_venue.trim().toLowerCase() !== "all venues" ? body.active_venue.trim() : null)
+                    : tc.function.name === "suggest_replies"
+                      ? { ok: true, shown: (Array.isArray(args.options) ? args.options : []).filter((o: unknown) => typeof o === "string" && o.trim()).slice(0, 4) }
                     : tc.function.name==='notification_preferences'
                       ? await notificationPreferences(args,createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:req.headers.get('Authorization')??''}}}),tenantId,user?.id??'')
                     : await runTool(tc.function.name, args, tenantId);
@@ -1649,6 +1714,7 @@ Deno.serve(async (req) => {
                 if(tc.function.name==='notification_preferences'&&args.operation==='list'&&Array.isArray(result?.preferences))emit({action:{type:'notification_preferences',preferences:result.preferences}});
                 if(tc.function.name==='notification_preferences'&&result?.message){writeCompleted=true;emit({action:{type:'preferences_changed'}});}
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null } }); }
+                if (tc.function.name === "suggest_replies" && Array.isArray(result?.shown) && result.shown.length) emit({ action: { type: "replies", options: result.shown.map((o: string) => o.trim().slice(0, 48)) } });
                 if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {

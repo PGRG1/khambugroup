@@ -148,3 +148,8 @@
 .floating-bani-homeback { display: flex; align-items: center; gap: 12px; padding: 4px 0 8px; }
 .floating-bani-homeback button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 6px 0; color: #1F3F3B; font-weight: 500; font-size: 14px; cursor: pointer; }
 .floating-bani:has(.floating-bani-panel.is-centred) { z-index: 65; }
+
+/* Tap-to-reply buttons under Bani's latest answer */
+.floating-bani-replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.floating-bani-reply{font-size:13px;line-height:1.2;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:999px;padding:8px 14px;cursor:pointer;min-height:36px}
+.floating-bani-reply:hover{border-color:#2F6B4F;color:#2F6B4F}

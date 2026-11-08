@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,10 +89,10 @@ export default function Landing() {
   const thisMonth = ym(now);
   const lastMonth = addMonths(thisMonth, -1);
   // Early in the month there is too little to judge: open on last month until a week has passed.
-  const [picked, setPeriod] = useState<"this" | "last" | null>(null);
-  const [autoPeriod, setAutoPeriod] = useState<"this" | "last">("last");
-  const period = picked ?? autoPeriod;
-  const month = period === "this" ? thisMonth : lastMonth;
+  const [picked, setPicked] = useState<string | null>(null);
+  const [autoMonth, setAutoMonth] = useState(lastMonth);
+  const month = picked ?? autoMonth;
+  const monthChoices = [thisMonth, lastMonth, addMonths(thisMonth, -2), addMonths(thisMonth, -3)];
   const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
   const venueId = scopeIds && scopeIds.length === 1 ? scopeIds[0] : null;
@@ -142,7 +144,7 @@ export default function Landing() {
   useEffect(() => {
     if (!salesQ.data) return;
     const days = new Set(salesQ.data.filter((r) => r.date >= `${thisMonth}-01`).map((r) => r.date)).size;
-    setAutoPeriod(days >= 7 ? "this" : "last");
+    setAutoMonth(days >= 7 ? thisMonth : lastMonth);
   }, [salesQ.data, thisMonth]);
   const books = useFinanceBooks(Number(month.slice(0, 4))); // loads the whole books window
   const facts = useFinanceOverviewData();
@@ -266,10 +268,14 @@ export default function Landing() {
     <div ref={ref} className={`ld l2 ${size}`}>
       <div className="l2-head">
         <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
-        <div className="l2-per" role="group" aria-label="Period">
-          <button className={period === "this" ? "on" : ""} onClick={() => setPeriod("this")}>This month</button>
-          <button className={period === "last" ? "on" : ""} onClick={() => setPeriod("last")}>{monthName(lastMonth)}</button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="l2-per" aria-label="Choose month">{month === thisMonth ? "This month" : monthName(month)}<ChevronDown size={14} /></button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {monthChoices.map((m) => <DropdownMenuItem key={m} onSelect={() => setPicked(m)} className={m === month ? "font-medium" : ""}>{m === thisMonth ? "This month" : monthName(m)}</DropdownMenuItem>)}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="l2-team" onMouseEnter={() => setPlay((n) => n + 1)}>
         <span className="l2-tw" key={`t-${play}`}>

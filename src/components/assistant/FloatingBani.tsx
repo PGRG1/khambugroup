@@ -355,6 +355,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
       let salesAction: { files: string[] } | null = null;
       let actionCard: BaniActionCard | null = null;
+      let replies: string[] = [];
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -371,6 +372,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if(event.action?.type==='preferences_changed'){queryClient.invalidateQueries({queryKey:['smart-alerts']});queryClient.invalidateQueries({queryKey:['bani-pending']});}
           if(event.action?.type==='notification_preferences'&&Array.isArray(event.action.preferences))setMessages(prev=>[...prev,...event.action.preferences.filter((p:unknown):p is {id:string;reason:string}=>typeof p==='object'&&p!==null&&'id' in p&&typeof p.id==='string'&&'reason' in p&&typeof p.reason==='string').map((p:{id:string;reason:string})=>({role:'assistant' as const,content:p.reason,preferenceId:p.id}))]);
           if (event.action?.type === "action_card" && typeof event.action.action_id === "string") actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null };
+          if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
         }
@@ -378,7 +380,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
-        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}) }]);
+        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}) }]);
         if (action) runScannerAction(action, attached);
         else if (salesAction) runSalesAction(salesAction, attached);
       }
@@ -493,6 +495,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 <Button variant="ghost" type="button" className="floating-bani-dismiss" onClick={() => { if (message.actionCard) void confirmCard(index, message.actionCard, "cancel"); }}>Cancel</Button>
               </div>}
             </div>}
+            {message.replies?.length && index === messages.length - 1 && !busy ? <div className="floating-bani-replies" role="group" aria-label="Suggested replies">
+              {message.replies.map(r => <button key={r} type="button" className="floating-bani-reply" onClick={() => void sendRef.current({ text: r, opts: { voice: false, voiceLanguage: "" } })}>{r}</button>)}
+            </div> : null}
           </div>)}
           {busy && (stepLabel
             ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel.replace(/[.…]+$/, "")}…</div>
