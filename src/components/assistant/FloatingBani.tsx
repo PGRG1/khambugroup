@@ -194,6 +194,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
   const home = pathname === "/" && !hosted;
   const lastPath = useRef(pathname);
+  const keepOpenNav = useRef(false);
   // On home the typing box lives inside the page (the slot under the greeting), so it scrolls with it.
   const homeSlot = useHomeSlot(home && !open && !isMobile);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
@@ -205,7 +206,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
-  const keepOpenNav = useRef(false);
   const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
