@@ -33,7 +33,7 @@ import { useSmartAlerts } from "@/hooks/useSmartAlerts";
 import { useBaniTeamMessages } from "@/hooks/useBaniTeamMessages";
 import { stageBaniStatements } from "@/utils/baniStatementHandoff";
 import { supabase } from "@/integrations/supabase/client";
-import { groupedPending, dueWithinTwoDays } from "../../../supabase/functions/_shared/smartAlerts/followUp";
+import { groupedPending } from "../../../supabase/functions/_shared/smartAlerts/followUp";
 
 export type FloatingReview = {
   scope: string; binding: string; draftId: string; lineId: string; supplierId: string;
@@ -205,7 +205,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
   const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
-  const attention = pendingItems.length + teamMessages.unread.length;
   const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
@@ -568,7 +567,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     {!home && (!open || !hosted) && (
       <Button variant="ghost" type="button" className="floating-bani-sphere" aria-label="Open Bani" title="Ask Bani" onClick={() => openSphere()}>
         <BaniOrb size={SPHERE} mode="idle" />
-        {attention > 0 && <span className={`floating-bani-count ${dueWithinTwoDays(pendingItems,new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Hong_Kong'}).format(new Date()))?'is-due':''}`} aria-label={`${attention} need you`}>{attention > 99 ? "99+" : attention}</span>}
       </Button>
     )}
   </div>;
