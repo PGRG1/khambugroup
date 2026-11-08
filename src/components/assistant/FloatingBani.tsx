@@ -197,6 +197,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
+  const [asked, setAsked] = store?.ask ?? [null, () => {}];
+  useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" } }); }, [asked, busy, session, tenantId, setAsked]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
@@ -391,8 +393,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
 
   sendRef.current = send;
-  const [asked, setAsked] = store?.ask ?? [null, () => {}];
-  useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current({ text: asked, opts: { voice: false, voiceLanguage: "" } }); }, [asked, busy, session, tenantId, setAsked]);
 
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
