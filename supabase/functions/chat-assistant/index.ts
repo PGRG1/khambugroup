@@ -1,5 +1,6 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
+import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
@@ -487,7 +488,7 @@ const proposeActionTool = {
         date: { type: "string", description: "log_waste: YYYY-MM-DD, default today." },
         record_id: { type: 'string', description: 'Exact existing record UUID returned by inspect_records, required for approve_bill or resolve_receipt_intake.' },
         resolution: { type: 'string', enum: ['already_recorded','not_needed'], description: 'Receipt review only: user must explicitly choose the resolution.' },
-        kind: { type: "string", enum: ["approve_bill", "resolve_receipt_intake", "log_waste", "mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification"], description: `approve_bill = approve AND POST an existing ordinary unposted expense bill; requires exact typed user confirmation, no payment or instant Undo. Recurring/asset/split bills must use existing monthly review. resolve_receipt_intake = clear an existing review as already_recorded/not_needed, never posts sales; safe Undo for 10 minutes if unchanged. log_waste = record stock waste (venue, item, quantity, optional uom, reason one of ${WASTE_REASONS.join("/")} default Other, date); set_revenue_target = monthly revenue target (month, amount, optional venues); set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = team message delivered in the app plus existing phone push (title, message, recipient_roles). Accept tenant job role names/keys or membership roles or everyone; if no recipients match, ask using the returned available roles. mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice.` },
+        kind: { type: "string", enum: ["approve_bill", "resolve_receipt_intake", "log_waste", "mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification"], description: `approve_bill = approve AND POST an existing ordinary unposted expense bill; requires exact typed user confirmation, no payment or instant Undo. Recurring/asset/split bills must use existing monthly review. resolve_receipt_intake = clear an existing review as already_recorded/not_needed, never posts sales; safe Undo for 10 minutes if unchanged. log_waste = record stock waste (venue, item, quantity, optional uom, reason one of ${WASTE_REASONS.join("/")} default Other, date); set_revenue_target = plan a monthly revenue goal split into a daily plan by usual weekday sales (month, amount, optional venues, optional avg_spend or guests); re-propose to adjust; set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = team message delivered in the app plus existing phone push (title, message, recipient_roles). Accept tenant job role names/keys or membership roles or everyone; if no recipients match, ask using the returned available roles. mark_closed_days = record venue closed days; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice.` },
         title: { type: "string", description: "Short card title, e.g. 'Mark Caliente closed on 1–5 Oct'." },
         detail: { type: "string", description: "One line explaining exactly what Confirm will do." },
         venue: { type: "string", description: "Venue name exactly as stored (required for mark_closed_days)." },
@@ -496,6 +497,8 @@ const proposeActionTool = {
         alert_ask: {type:"object",description:"For create_alert_ask: an explicitly requested sales watch. Ask for ambiguous venue/time/amount/role; never invent them. weekday Sunday=0. Keep saves only after confirmation.",properties:{venue:{type:"string"},weekday:{type:"integer",minimum:0,maximum:6},check_time:{type:"string",description:"24-hour HH:mm"},threshold:{type:"number"},target_role:{type:"string",description:"Existing tenant_members role, use owner when user requests themselves and is owner."}},required:["venue","weekday","check_time","threshold","target_role"],additionalProperties:false},
         month: {type:"string",description:"YYYY-MM for targets/budgets."},
         amount: {type:"number"},
+        avg_spend: {type:"number",description:"set_revenue_target: average spend per guest target."},
+        guests: {type:"number",description:"set_revenue_target: monthly guest target."},
         venues: {type:"array",items:{type:"string"}},
         budgets: {type:"array",items:{type:"object",properties:{category:{type:"string"},amount:{type:"number"}},required:["category","amount"]}},
         note: {type:"string"},
@@ -1635,7 +1638,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               model: currentModel,
               messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool], tool_choice: "auto" }),
+              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool], tool_choice: "auto" }),
               // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
               ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
             }),
@@ -1714,6 +1717,8 @@ Deno.serve(async (req) => {
                     ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
                     : tc.function.name === "get_open_items"
                       ? await getOpenItems(tenantId, typeof body.active_venue === "string" && body.active_venue.trim() && body.active_venue.trim().toLowerCase() !== "all venues" ? body.active_venue.trim() : null, peopleClient)
+                    : tc.function.name === 'get_month_end_checklist'
+                      ? await monthEndChecklist(args,peopleClient,tenantId)
                     : tc.function.name === 'inspect_records'
                       ? await inspectRecords(args,peopleClient,tenantId)
                     : tc.function.name === 'navigate_to'

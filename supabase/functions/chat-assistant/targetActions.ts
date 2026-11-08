@@ -2,6 +2,7 @@
 // Proposals only validate and store a pending card; writes happen on Confirm, as the signed-in user (RLS applies).
 import { formatTenantCurrency } from '../_shared/tenantCurrency.ts';
 import { loadTeamRecipients } from './teamRecipients.ts';
+import { buildRevenuePlan } from './revenuePlan.ts';
 
 export const TARGET_KINDS = ['set_revenue_target', 'set_purchasing_budget', 'send_team_notification'] as const;
 const MANAGER_ROLES = ['owner', 'tenant_admin', 'admin', 'manager', 'gm', 'finance'];
@@ -23,15 +24,35 @@ export async function proposeTargetAction(args: any, admin: any, t: string, u: s
   if (args.kind === 'set_revenue_target') {
     const amount = Number(args.amount);
     if (!monthOk(args.month) || !Number.isFinite(amount) || amount <= 0 || amount > 1e12) return { ok: false, error: 'Give the month (YYYY-MM) and a positive target amount.' };
-    const { data: venues } = await admin.from('venues').select('name').eq('tenant_id', t);
+    const { data: venues } = await admin.from('venues').select('id,name').eq('tenant_id', t).eq('is_active', true);
     const names = (venues ?? []).map((v: any) => v.name);
     const picked = Array.isArray(args.venues) && args.venues.length ? args.venues.map((v: string) => names.find((n: string) => n.toLowerCase() === String(v).toLowerCase())) : names;
     if (picked.some((v: any) => !v)) return { ok: false, error: 'Unknown venue.', venues: names };
+    const ids = (venues ?? []).filter((v: any) => picked.includes(v.name)).map((v: any) => v.id);
     const [y, m] = args.month.split('-').map(Number);
     const { data: existing } = await admin.from('revenue_targets').select('target_amount').eq('tenant_id', t).eq('year', y).eq('month', m).maybeSingle();
-    title = `Set ${label(args.month)} revenue target: ${formatTenantCurrency(amount, cur)}`;
-    detail = `Venues: ${picked.join(', ')}\nCurrent target: ${existing?.target_amount != null ? formatTenantCurrency(Number(existing.target_amount), cur) : 'not set'}`;
-    payload = { year: y, month: m, amount, venues: picked, notes: typeof args.note === 'string' ? args.note.slice(0, 300) : '' };
+    // Daily plan from the last 8 weeks of same-weekday sales, skipping recurring closed weekdays.
+    const since = new Date(Date.now() - 56 * 86400000).toISOString().slice(0, 10);
+    const [{ data: sales }, { data: rules }] = await Promise.all([
+      admin.from('sales_records').select('venue_id,date,total_sales,guests').eq('tenant_id', t).in('venue_id', ids).gte('date', since).limit(5000),
+      admin.from('venue_closure_rules').select('venue_id,weekday,end_date').eq('tenant_id', t).in('venue_id', ids).not('weekday', 'is', null),
+    ]);
+    const closedW: Record<string, number[]> = {};
+    for (const r of rules ?? []) if (!r.end_date) (closedW[r.venue_id] ??= []).push(r.weekday);
+    const spendIn = Number(args.avg_spend);
+    const guestsIn = Number(args.guests);
+    const avgSpend = Number.isFinite(spendIn) && spendIn > 0 ? spendIn : Number.isFinite(guestsIn) && guestsIn > 0 ? amount / guestsIn : null;
+    const plan = buildRevenuePlan(y, m, amount, ids, (sales ?? []) as any, closedW, avgSpend);
+    const money = (n: number) => formatTenantCurrency(n, cur);
+    title = `Plan ${label(args.month)}: ${money(amount)}`;
+    detail = [`Venues: ${picked.join(', ')} · ${plan.trading_days} trading days`,
+      `Current target: ${existing?.target_amount != null ? money(Number(existing.target_amount)) : 'not set'}`,
+      plan.weekday.filter(w => w.per_day).map(w => `${w.day} ${money(w.per_day)}`).join(' · '),
+      plan.guests ? `${plan.guests.toLocaleString('en-HK')} guests (≈${Math.round(plan.guests / Math.max(1, plan.trading_days))}/day) at ${money(plan.avg_spend!)} each${plan.history_spend ? ` · usual ${money(plan.history_spend)}` : ''}` : 'No guest history to set a spend target'].join('\n');
+    const notes = [typeof args.note === 'string' ? args.note.slice(0, 200) : '', plan.guests ? `Guests ${plan.guests} · avg spend ${plan.avg_spend}` : ''].filter(Boolean).join(' · ');
+    payload = { year: y, month: m, amount, venues: picked, notes, daily: plan.plan };
+    const { data: card, error } = await admin.from('bani_pending_actions').insert({ tenant_id: t, user_id: u, kind: args.kind, title: title.slice(0, 200), detail: detail.slice(0, 500), payload }).select('id').single();
+    return error ? { ok: false, error: 'Could not create the card.' } : { ok: true, action_id: card.id, title, detail, plan: { weekday: plan.weekday, trading_days: plan.trading_days, guests: plan.guests, avg_spend: plan.avg_spend, usual_spend: plan.history_spend }, note: 'Plan card shown; nothing saved until Confirm. Explain the plan briefly (busiest/quietest days, guests and spend) and offer to adjust the amount, avg spend or guests — re-propose with new values if asked.' };
   } else if (args.kind === 'set_purchasing_budget') {
     if (!monthOk(args.month) || !Array.isArray(args.budgets) || !args.budgets.length) return { ok: false, error: 'Give the month (YYYY-MM) and at least one category amount.' };
     const { data: cats } = await admin.from('product_categories').select('name').eq('tenant_id', t);
@@ -79,7 +100,13 @@ export async function confirmTargetAction(r: any, admin: any, userClient: any, t
   if (!role || !MANAGER_ROLES.includes(role)) return { status: 403, body: { error: 'Only owners and managers can do this.' } };
   if (r.kind === 'set_revenue_target') {
     const { error } = await userClient.from('revenue_targets').upsert({ tenant_id: t, year: p.year, month: p.month, target_amount: p.amount, venues: p.venues, notes: p.notes ?? '', created_by: u }, { onConflict: 'tenant_id,year,month' });
-    return error ? { status: 403, body: { error: 'Could not save the target: ' + error.message } } : { status: 200, body: { ok: true, message: 'Revenue target saved.' } };
+    if (error) return { status: 403, body: { error: 'Could not save the target: ' + error.message } };
+    if (Array.isArray(p.daily) && p.daily.length) {
+      const rows = p.daily.map((d: any) => ({ tenant_id: t, venue_id: d.venue_id, target_date: d.date, projected_sales: Math.max(0, Number(d.amount) || 0), created_by: u }));
+      const { error: dErr } = await userClient.from('revenue_daily_projections').upsert(rows, { onConflict: 'tenant_id,venue_id,target_date' });
+      if (dErr) return { status: 403, body: { error: 'Monthly target saved, but the daily plan could not be saved: ' + dErr.message } };
+    }
+    return { status: 200, body: { ok: true, message: 'Revenue target and daily plan saved. Open Revenue targets to see each day.' } };
   }
   if (r.kind === 'set_purchasing_budget') {
     const { error } = await userClient.rpc('save_purchasing_budgets', { p_tenant_id: t, p_venue_id: p.venue_id, p_month: p.month, p_amounts: p.amounts, p_note: p.note });

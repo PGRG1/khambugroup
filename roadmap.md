@@ -441,7 +441,7 @@
 - [ ] Accounting setting save/readback not exercised to avoid changing tenant configuration; remaining Finance screens and custom range Apply need expanded UI verification.
 
 ## YC demo (YC Cafe)
-- [ ] Needs you: click item → resolve conversationally (Home Bani Team chat)
-- [ ] Month-end checklist: Bani explains what's open and fixes it conversationally
-- [ ] Set revenue target conversationally (orb)
-- [ ] Set rota conversationally (orb, People)
+- [x] Needs you: click item → resolve conversationally (Home Bani Team chat)
+- [x] Month-end checklist: Bani explains what's open and fixes it conversationally
+- [x] Set revenue target conversationally (orb)
+- [x] Set rota conversationally (orb, People)

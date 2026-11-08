@@ -95,7 +95,9 @@ export default function Landing() {
   const monthChoices = [thisMonth, lastMonth, addMonths(thisMonth, -2), addMonths(thisMonth, -3)];
   const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
-  const venueId = scopeIds && scopeIds.length === 1 ? scopeIds[0] : null;
+  // A one-venue business picking its only venue sees the whole-business review.
+  const onlyVenue = vs.venues.length === 1 && !vs.restricted;
+  const venueId = scopeIds && scopeIds.length === 1 && !onlyVenue ? scopeIds[0] : null;
   const mixed = !!scopeIds && scopeIds.length > 1;
 
   const profile = useQuery({
@@ -169,7 +171,15 @@ export default function Landing() {
     staleTime: 5 * 60_000,
   });
   // Six months back covers the oldest month choice plus its three-month comparison.
-  const homeFin = useHomeFinance(tenantId, addMonths(thisMonth, -6), lastMonth, bankGl.data);
+  // Once last month is closed, the checklist follows the month now in progress.
+  const lastClosed = useQuery({
+    queryKey: ["landing2", "last-closed", tenantId, lastMonth],
+    enabled: !!tenantId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => ((await (supabase as any).from("finance_closed_periods").select("reopened_at").eq("tenant_id", tenantId).eq("month_start", `${lastMonth}-01`)).data ?? []).some((c: any) => !c.reopened_at),
+  });
+  const closeMonth = lastClosed.data ? thisMonth : lastMonth;
+  const homeFin = useHomeFinance(tenantId, addMonths(thisMonth, -6), closeMonth, lastClosed.isPending ? undefined : bankGl.data);
   const books = {
     entries: homeFin.data?.entries ?? [], lines: homeFin.data?.lines ?? [], accounts: homeFin.data?.accounts ?? [],
     closed: homeFin.data?.closed ?? [], checks: homeFin.data?.checks ?? [], loading: homeFin.isPending,
@@ -241,7 +251,6 @@ export default function Landing() {
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Month-end checklist for last month, until it is closed.
-  const closeMonth = lastMonth;
   const closed = books.closed.some((c: any) => c.month_start === `${closeMonth}-01` && !c.reopened_at);
   const check = books.checks.find((c) => c.month === closeMonth);
   const steps = closeRows(check, (facts.data?.bank ?? []) as any, (facts.data?.batches ?? []) as any);
@@ -343,6 +352,7 @@ export default function Landing() {
             <span className="ar">→</span>
           </Link>
           <div className="wl">
+            {!closed && open.length > 0 && <button className="go" onClick={() => ask(`What's left on ${monthName(closeMonth)}'s month-end? Help me fix it.`)}>Fix with Bani</button>}
             {closed ? <div><i className="ok" />{monthName(closeMonth)} is closed and locked</div> : <>
               {[...open.map((s) => <div key={s.name}><i className="amb" />{s.detail.toLowerCase().startsWith(s.name.toLowerCase()) ? s.detail : `${s.name} · ${s.detail}`}</div>),
                 ...(done.length ? [<div key="done"><i className="ok" />{done.map((s) => s.name.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())} done</div>] : []),
