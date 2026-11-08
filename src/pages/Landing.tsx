@@ -11,7 +11,6 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
-import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
 import { useFinanceOverviewData } from "@/hooks/useFinanceOverviewData";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
@@ -137,8 +136,20 @@ export default function Landing() {
     queryKey: ["landing2", "sales", tenantId, scopeIds?.join(",") ?? "all", iso(now)],
     enabled: !!tenantId && vs.ready,
     queryFn: async () => {
-      const all = (await fetchAllRows("sales_records", "date,venue_id,subtotal,service_charge,guests", { col: "date", asc: true }, tenantId, true)) as SaleRow[];
-      return all.filter((r) => !scopeIds || scopeIds.includes(r.venue_id as string));
+      // Only the window Home shows: the oldest month choice (or 8 weeks back, if earlier) to today.
+      const eight = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 56));
+      const oldest = `${addMonths(thisMonth, -4)}-01`;
+      const from = eight < oldest ? eight : oldest;
+      const out: SaleRow[] = [];
+      for (let off = 0; ; off += 1000) {
+        let q = (supabase as any).from("sales_records").select("date,venue_id,subtotal,service_charge,guests")
+          .eq("tenant_id", tenantId).gte("date", from).order("date", { ascending: true }).range(off, off + 999);
+        if (scopeIds) q = q.in("venue_id", scopeIds);
+        const { data, error } = await q; if (error) throw error;
+        out.push(...((data ?? []) as SaleRow[]));
+        if (!data || data.length < 1000) break;
+      }
+      return out;
     },
   });
   useEffect(() => {
@@ -296,7 +307,8 @@ export default function Landing() {
       </div>
 
       <h2 className="ld-h2 l2-h2">{"\n"}</h2>
-      <div className="l2-perf">
+      {loading ? <div className="l2-perf">{[0, 1].map((i) => <section key={i} className="l2-pc"><Skeleton className="h-4 w-1/2 !animate-none" /><Skeleton className="h-3 w-1/3 mt-2 !animate-none" /><Skeleton className="h-[140px] w-full mt-4 !animate-none" /></section>)}</div> :
+      <div className="l2-perf loading-reveal">
         <section className="l2-pc">
           <div className="pt">Sales by weekday</div><div className="ps">Average a day, last 8 weeks</div>
           {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><i style={{ height: `calc((100% - 34px) * ${(w.v / maxW).toFixed(3)})` }} className={k.low?.d === w.d ? "low" : ""} /><span className="pd">{w.d}</span></div>)}</div>
@@ -314,9 +326,10 @@ export default function Landing() {
           </svg> : <p className="l2-empty">No booked months to compare yet.</p>}
           {tr.length > 0 && <div className="l2-lg">{hasStaff ? <span><i style={{ background: "#2F6B4F" }} />Staff</span> : <span>Staff cost not booked</span>}{hasFood && <span><i style={{ background: "#7FD3A8" }} />Stock bought</span>}</div>}
         </section>
-      </div>
+      </div>}
 
-      <div className="l2-work">
+      {loading || (reviewQ.isPending && !mixed) ? <div className="l2-work">{[0, 1].map((i) => <section key={i} className="l2-wb"><Skeleton className="h-5 w-1/2 !animate-none" /><Skeleton className="h-4 w-3/4 mt-4 !animate-none" /><Skeleton className="h-4 w-2/3 mt-2 !animate-none" /></section>)}</div> :
+      <div className="l2-work loading-reveal">
         <section className="l2-wb">
           <div className="wh"><span className="wn">{needs.length}</span><span className="wt">{needs.length === 1 ? "thing needs you" : "things need you"}</span>
             {needs.length > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through them with Bani</button>}</div>
@@ -341,7 +354,7 @@ export default function Landing() {
             </>}
           </div>
         </section>
-      </div>
+      </div>}
     </div>
   );
 }
