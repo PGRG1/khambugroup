@@ -36,6 +36,20 @@ const short = (n: number) => {
 const pctTxt = (n: number) => `${n.toFixed(1)}%`;
 const DAYNAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+/** Counts up from the number this viewer last saw to the new one; still when nothing changed. */
+function CountUp({ value, storeKey }: { value: number; storeKey: string }) {
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    let from = value;
+    try { const v = Number(localStorage.getItem(storeKey)); if (Number.isFinite(v) && v > 0 && v < value) from = v; localStorage.setItem(storeKey, String(value)); } catch { /* storage unavailable: no animation */ }
+    if (from === value || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setShown(value); return; }
+    let raf = 0; const t0 = performance.now();
+    const step = (t: number) => { const p = Math.min(1, (t - t0) / 900); setShown(Math.round(from + (value - from) * (1 - Math.pow(1 - p, 3)))); if (p < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf);
+  }, [value, storeKey]);
+  return <>{shown}</>;
+}
+
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 1200, left: 0 });
@@ -257,14 +271,12 @@ export default function Landing() {
           <button className={period === "last" ? "on" : ""} onClick={() => setPeriod("last")}>{monthName(lastMonth)}</button>
         </div>
       </div>
-      <div className="l2-team">
-        <span className="l2-avs" aria-hidden="true" onMouseEnter={() => setPlay((n) => n + 1)}>{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={`${r}-${play}`} className="l2-av" style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
-        <span className="l2-word" key={`w-${play}`} aria-label="Your finance team">
-          <span className="w0">Your finance team</span>
-          {ORDER.map((r, i) => <span key={r} className="wn" style={{ ["--i" as any]: i }} aria-hidden="true">{TEAMNAME[r]} team</span>)}
-          <span className="w1" aria-hidden="true">Your finance team</span>
+      <div className="l2-team" onMouseEnter={() => setPlay((n) => n + 1)}>
+        <span className="l2-tw" key={`t-${play}`}>
+          <span className="l2-tw-w">Your finance team</span>
+          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
         </span>
-        <span>{handled > 0 ? <>handled <b>{handled} things</b> this week</> : workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>
+        <span>{handled > 0 ? <>handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> things</b> this week</> : workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>
       </div>
       <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
@@ -282,7 +294,7 @@ export default function Landing() {
       <div className="l2-perf">
         <section className="l2-pc">
           <div className="pt">Sales by weekday</div><div className="ps">Average a day, last 8 weeks</div>
-          {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><i style={{ height: `${(w.v / maxW) * 80}px` }} className={k.low?.d === w.d ? "low" : ""} /><span className="pd">{w.d}</span></div>)}</div>
+          {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><i style={{ height: `calc((100% - 34px) * ${(w.v / maxW).toFixed(3)})` }} className={k.low?.d === w.d ? "low" : ""} /><span className="pd">{w.d}</span></div>)}</div>
             : <p className="l2-empty">No sales in the last 8 weeks.</p>}
         </section>
         <section className="l2-pc">
@@ -306,8 +318,8 @@ export default function Landing() {
           <div className="wl">
             {mixed ? <div>Pick one venue or all venues to see what your team found.</div>
               : needs.length === 0 ? <div><i className="ok" />Nothing needs you right now</div>
-              : <>{needs.slice(0, 3).map(({ f }) => <button key={f.key} className="wi" onClick={() => ask(`${f.title}: ${f.statement}`)}><i className={f.severity === "action" ? "amb" : ""} />{needLine(f)}</button>)}
-                {needs.length > 3 && <div className="more">+ {needs.length - 3} more</div>}</>}
+              : <>{needs.slice(0, 2).map(({ f }) => <button key={f.key} className="wi" onClick={() => ask(`${f.title}: ${f.statement}`)}><i className={f.severity === "action" ? "amb" : ""} />{needLine(f)}</button>)}
+                {needs.length > 2 && <div className="more">+ {needs.length - 2} more</div>}</>}
           </div>
         </section>
         <section className="l2-wb">
@@ -318,9 +330,9 @@ export default function Landing() {
           </Link>
           <div className="wl">
             {closed ? <div><i className="ok" />{monthName(closeMonth)} is closed and locked</div> : <>
-              {open.slice(0, 2).map((s) => <div key={s.name}><i className="amb" />{s.detail.toLowerCase().startsWith(s.name.toLowerCase()) ? s.detail : `${s.name} · ${s.detail}`}</div>)}
-              {done.length > 0 && <div><i className="ok" />{done.map((s) => s.name.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())} done</div>}
-              {skip.length > 0 && <div><i className="na" />{skip.map((s) => s.name.toLowerCase()).join(" and ").replace(/^./, (c) => c.toUpperCase())} not set up</div>}
+              {[...open.map((s) => <div key={s.name}><i className="amb" />{s.detail.toLowerCase().startsWith(s.name.toLowerCase()) ? s.detail : `${s.name} · ${s.detail}`}</div>),
+                ...(done.length ? [<div key="done"><i className="ok" />{done.map((s) => s.name.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())} done</div>] : []),
+                ...(skip.length ? [<div key="skip"><i className="na" />{skip.map((s) => s.name.toLowerCase()).join(" and ").replace(/^./, (c) => c.toUpperCase())} not set up</div>] : [])].slice(0, 3)}
             </>}
           </div>
         </section>
