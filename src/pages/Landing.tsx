@@ -191,17 +191,16 @@ export default function Landing() {
     let cash = 0;
     for (const l of allEntries.lines as any[]) if (bankIds.has(l.account_id) && posted.has(l.entry_id)) cash += Number(l.debit) - Number(l.credit);
     const money = (n: number, has: boolean) => (has ? short(n) : "—");
-    const booked = p.food !== 0 || p.staff !== 0 || p.sales !== 0;
     const tiles: Tile[] = [
       { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
         sub: !days ? "No sales recorded yet" : guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
         ...(target ? { status: `${pace >= target ? "On track" : "Behind"} · target ${short(target)}`, tone: pace >= target ? "ok" : "amb" } as const
           : { status: isCurrent && days ? `Heading for ${short(pace)} · no target` : "No target set", tone: "quiet" } as const) },
       { label: "Stock bought", value: money(p.food, p.food !== 0), to: "/procurement", sub: foodPct != null && p.food !== 0 ? `${pctTxt(foodPct)} of sales` : "Not booked yet",
-        ...(foodPct != null && p.food !== 0 && usualFood ? { status: `Usual ${pctTxt(usualFood)}`, tone: foodPct <= usualFood + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+        ...(foodPct != null && p.food !== 0 && usualFood ? { status: foodPct < usualFood / 2 ? `Looks incomplete · usual ${pctTxt(usualFood)}` : `Usual ${pctTxt(usualFood)}`, tone: foodPct < usualFood / 2 || foodPct > usualFood + 1 ? "amb" : "ok" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Staff cost", value: money(p.staff, p.staff !== 0), to: "/hr/payroll", sub: staffPct != null && p.staff !== 0 ? `${pctTxt(staffPct)} of sales` : "Payroll not booked yet",
         ...(staffPct != null && p.staff !== 0 && usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: isCurrent ? "Profit so far" : "Profit", value: money(p.profit, booked), to: "/finance/reports?view=pl", sub: booked && booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Not booked yet",
+      { label: isCurrent ? "Profit so far" : "Profit", value: money(p.profit, p.food !== 0 && p.staff !== 0), to: "/finance/reports?view=pl", sub: p.food !== 0 && p.staff !== 0 && booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Needs stock and payroll booked",
         ...(usualProfit != null && !isCurrent ? { status: `Usual ${short(usualProfit)}`, tone: p.profit >= usualProfit ? "ok" : "amb" } as const : { status: isCurrent ? "Books still filling in" : "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
