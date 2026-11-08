@@ -10,7 +10,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { PixelAvatar } from "@/components/team/PixelAvatar";
 import "@/components/team/team.css";
-import { useBaniTopic, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
+import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
 import { useFinanceOverviewData } from "@/hooks/useFinanceOverviewData";
@@ -70,7 +70,7 @@ export default function Landing() {
   const { user } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const vs = useVenueScope();
-  const openTopic = useBaniTopic();
+  const ask = useBaniAsk();
   const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
   const askSlot = useRef<HTMLDivElement>(null);
@@ -251,7 +251,6 @@ export default function Landing() {
     !k.hasTarget ? `Set ${monthName(thisMonth)}'s sales target` : "How are we doing against target?",
   ].filter(Boolean) as string[];
 
-  const ask = (t: string) => openTopic(t);
   const needLine = (f: Finding) => { const fig = (f.figures ?? []).find((x: any) => Number(x.value)); return f.title + (fig?.display ? ` · ${fig.display}` : ""); };
 
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;

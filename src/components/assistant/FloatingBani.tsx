@@ -391,6 +391,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
 
   sendRef.current = send;
+  const [asked, setAsked] = store?.ask ?? [null, () => {}];
+  useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current({ text: asked, opts: { voice: false, voiceLanguage: "" } }); }, [asked, busy, session, tenantId, setAsked]);
 
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {

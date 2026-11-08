@@ -25,6 +25,8 @@ type Store = {
   sales: S<SalesDraft | null>;
   work: S<{ path: string; items: PageWorkItem[] } | null>;
   continueToPage: S<boolean>;
+  /** A question a Home button sends straight away (not just drafted). */
+  ask: S<string | null>;
 };
 const Context = createContext<Store | null>(null);
 
@@ -37,7 +39,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
     lastFiles: useState<BaniAttachment[]>([]),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
     sales: useState<SalesDraft | null>(null),
-    work: useState<{ path: string; items: PageWorkItem[] } | null>(null), continueToPage: useState(false),
+    work: useState<{ path: string; items: PageWorkItem[] } | null>(null), continueToPage: useState(false), ask: useState<string | null>(null),
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
@@ -50,6 +52,11 @@ export const useFloatingBaniPage = () => useContext(Context)?.page[1] ?? noop;
 export function useBaniTopic() {
   const s=useContext(Context);
   return useCallback((text:string)=>{s?.draft[1](text);s?.hidden[1](false);s?.open[1](true);},[s?.draft[1],s?.hidden[1],s?.open[1]]);
+}
+/** Opens Bani and sends the question right away (Home buttons). */
+export function useBaniAsk() {
+  const s=useContext(Context);
+  return useCallback((text:string)=>{s?.hidden[1](false);s?.open[1](true);s?.ask[1](text);},[s?.hidden[1],s?.open[1],s?.ask[1]]);
 }
 /** Register already-computed page facts, without a second query or an AI turn. */
 export function useBaniWorkPublisher(path: string, items: PageWorkItem[], ready = true) {
