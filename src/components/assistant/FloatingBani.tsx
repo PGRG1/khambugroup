@@ -276,6 +276,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       return;
     }
     let handoffFiles: File[] = [];
+    // A single invoice already shared in this chat: opening the scanner should scan it, not ask for it again.
+    if (action.mode === "open" && !turnFiles.length && lastFilesRef.current.length === 1) action = { ...action, mode: "scan" };
     if (action.mode === "scan") {
       const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
       if (!pool.length) { say("I couldn't find the invoice file — please attach it again and I'll scan it."); return; }
