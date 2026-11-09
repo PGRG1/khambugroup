@@ -20,13 +20,20 @@ export function useSavedChats(scope: string, active = true) {
 
 /** "+ New chat", then Recents: one line per chat, by name. */
 export function BaniChatList({ chats, activeId, onPick, onNew, onDelete }: { chats: SavedChat[]; activeId: string | null; onPick: (c: SavedChat) => void; onNew: () => void; onDelete?: (c: SavedChat) => void }) {
+  const [confirm, setConfirm] = useState<string | null>(null);
   return <div className="fb-chatlist">
     <button type="button" className="fb-chatlist-new" onClick={onNew}><Plus className="h-4 w-4" />New chat</button>
     {chats.length > 0 && <div className="fb-chatlist-label">Recents</div>}
-    {chats.map((c) => <div key={c.id} className={`fb-chatlist-row ${c.id === activeId ? "is-on" : ""}`}>
+    {chats.map((c) => confirm === c.id
+      ? <div key={c.id} className="fb-chatlist-row is-confirm" role="group" aria-label={`Delete chat: ${c.title}`}>
+          <span className="fb-chatlist-ask">Delete this chat?</span>
+          <button type="button" className="fb-chatlist-yes" autoFocus onClick={() => { setConfirm(null); onDelete?.(c); }}>Delete</button>
+          <button type="button" className="fb-chatlist-no" onClick={() => setConfirm(null)}>Cancel</button>
+        </div>
+      : <div key={c.id} className={`fb-chatlist-row ${c.id === activeId ? "is-on" : ""}`}>
       <button type="button" className={`fb-chatlist-item ${c.id === activeId ? "is-on" : ""}`} title={c.title} onClick={() => onPick(c)}>{c.title}</button>
       {onDelete && <button type="button" className="fb-chatlist-del" aria-label={`Delete chat: ${c.title}`} title="Delete chat"
-        onClick={() => { if (window.confirm(`Delete "${c.title}"? This can't be undone.`)) onDelete(c); }}><Trash2 className="h-3.5 w-3.5" /></button>}
+        onClick={() => setConfirm(c.id)}><Trash2 className="h-3.5 w-3.5" /></button>}
     </div>)}
   </div>;
 }

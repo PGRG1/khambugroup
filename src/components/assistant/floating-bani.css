@@ -226,3 +226,9 @@
 .fb-chatlist-del { position: absolute; right: 4px; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: #55605A; cursor: pointer; opacity: 0; }
 .fb-chatlist-row:hover .fb-chatlist-del, .fb-chatlist-del:focus-visible { opacity: 1; }
 .fb-chatlist-del:hover { background: #CFD8D3; color: #8A2E1F; }
+.fb-chatlist-row.is-confirm { gap: 6px; padding: 4px 4px 4px 10px; background: #fff; box-shadow: 0 1px 3px rgba(20,35,31,.12); }
+.fb-chatlist-ask { flex: 1; min-width: 0; font-size: 13px; color: #17302C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-chatlist-yes, .fb-chatlist-no { border: 0; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 500; cursor: pointer; }
+.fb-chatlist-yes { background: #8A2E1F; color: #fff; }
+.fb-chatlist-no { background: none; color: #55605A; }
+.fb-chatlist-no:hover { background: #DCE3DF; }
