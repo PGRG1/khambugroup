@@ -36,7 +36,7 @@ const TARGETS: Record<BaniOrbMode, { sp: number; focus: number; wob: number }> =
 
 const VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
 
-/** 3D rolling smoke sphere (petrol -> sage -> aqua glow), steady grain, Bone mark woven into the flow. */
+/** 3D rolling smoke sphere leaning aqua (same look as the sidebar dot), light spot top-left, fine grain, Bone mark woven into the flow. */
 const FS = `precision highp float;
 uniform float t,lvl,focus,wob,glow,gsz;uniform vec2 res;
 const vec3 k0=vec3(.184,.369,.353);const vec3 k1=vec3(.373,.549,.510);const vec3 k2=vec3(.369,.604,.565);
@@ -60,8 +60,8 @@ vec3 P=rot(t*.32,t*.13+.6)*N*1.45;
 vec3 q=vec3(fb3(P+vec3(0.,0.,t*.22)),fb3(P+vec3(5.2,1.3,2.1)-t*.17),fb3(P+vec3(2.4,7.7,4.4)+t*.12));
 float f=fb3(P+(1.9+lvl*.8)*q);
 vec3 L=normalize(vec3(-.45,.55,.7));float dif=clamp(dot(N,L),0.,1.);
-float tone=smoothstep(.2,.85,f*1.25-.12)*.75+dif*.35-.15+lvl*.1;
-vec3 col=ramp(tone);
+float tone=smoothstep(.2,.85,f*1.25-.12)*.75+dif*.35-.15+lvl*.1;tone=.64+(tone-.5)*.5;
+vec3 col=ramp(tone);col=mix(col,k4*1.04,.5*smoothstep(.8,0.,length(uv-vec2(-.36,.44))));
 float H=.74,W=H*320./600.;
 vec2 mu=uv+(q.yz-.5)*wob;
 vec2 m=vec2((mu.x+W*.5)/W*320.,(H*.5-mu.y)/H*600.);
@@ -71,11 +71,11 @@ col=mix(col,col*.7,rim*.3);
 float vis=mix(mix(.55,.8,smoothstep(.35,.7,q.y)),1.,focus);
 col=mix(col,bone*(.95+.1*(f-.5)),msk*vis);
 col+=msk*glow*.1;
-col*=mix(.72,1.,smoothstep(0.,.55,z));
-col=mix(col,k0*.9,smoothstep(.62,1.,r)*.55);
+col*=mix(.9,1.,smoothstep(0.,.55,z));
+col=mix(col,k0*.9,smoothstep(.62,1.,r)*.3);
 col+=.14*k4*smoothstep(.9,.975,r)*smoothstep(1.,.975,r)*clamp(dot(normalize(uv+1e-5),vec2(-.6,.8))*.5+.6,0.,1.);
 col+=(.02+glow*.06)*pow(dif,6.);
-col+=(h2(floor((uv*.5+.5)*gsz))-.5)*.07;
+col+=(h2(floor((uv*.5+.5)*gsz))-.5)*.028;
 float a=smoothstep(1.,.985,r);gl_FragColor=vec4(col*a,a);}`;
 
 /**

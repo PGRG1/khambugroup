@@ -61,6 +61,8 @@
 .floating-bani-send:disabled, .floating-bani-plus:disabled { opacity: .4; cursor: not-allowed; }
 .floating-bani-input { flex: 1; min-width: 0; min-height: 40px; max-height: 112px; padding: .55rem .25rem; resize: none; border: 0; background: none; color: var(--fb-ink); font-size: 16px; line-height: 1.4; outline: none; field-sizing: content; }
 .floating-bani-input::placeholder { color: var(--fb-muted); }
+/* Empty box stays one line high: the hint never wraps, it trims with an ellipsis. */
+.floating-bani-input:placeholder-shown { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 767px) {
   .floating-bani-panel { left: .75rem; right: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); width: auto; height: min(620px, calc(100dvh - 1rem)); padding-bottom: env(safe-area-inset-bottom); }

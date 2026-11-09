@@ -5,6 +5,7 @@ import {
   Settings, HandCoins, ArrowLeft, ChevronsLeft, ChevronsRight, Package,
 } from "lucide-react";
 
+import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -57,9 +58,9 @@ function initialsOf(name: string): string {
   return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
 }
 
-/** Small Bani orb used as the Home icon. */
+/** The Bani team icon: the same orb as the chat sphere, at icon size. */
 function HomeOrb({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cn("inline-block rounded-full shrink-0", className)} style={{ background: "radial-gradient(circle at 32% 28%, #5ED8C8 0%, #3FB5A6 22%, #5E9A90 48%, #5F8C82 74%, #2F5E5A 100%)" }} />;
+  return <BaniOrb size={className?.includes("18px") ? 18 : 16} mode="idle" className={cn("shrink-0", className)} />;
 }
 const roleWords = (r?: string) => (!r ? "" : ["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : "Team");
 
