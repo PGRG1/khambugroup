@@ -1,7 +1,7 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { missingDayContext, missingSalesConversation } from "./missingSalesConversation.ts";
+import { defaultGapFrom, missingDayContext, missingSalesConversation, pinDayPicker } from "./missingSalesConversation.ts";
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
 import { menuMarginsTool, menuMargins } from './menuMargins.ts';
@@ -302,12 +302,12 @@ const tools = [
     function: {
       name: "get_missing_sales_days",
       description:
-        "The authoritative list of MISSING sales days: for each venue, every day from its first recorded sale (or date_from) up to yesterday that has no sales record AND no closed mark. Use this whenever you need to know which days lack sales — never infer missing days from totals or aggregates. Days marked closed are excluded on purpose. Unresolved dates are not proof of trading or closure: discuss all-closed, all-traded or mixed before preparing any closure card. missing_day_context includes weekdays and prior same-weekday sales evidence; zero prior sales never proves a closed day.",
+        "The authoritative list of MISSING sales days: for each venue, every day from the 1st of this month (or date_from, only when the user selected dates) up to yesterday that has no sales record AND no closed mark. Use this whenever you need to know which days lack sales — never infer missing days from totals or aggregates. Days marked closed are excluded on purpose. Unresolved dates are not proof of trading or closure: discuss all-closed, all-traded or mixed before preparing any closure card. missing_day_context includes weekdays and prior same-weekday sales evidence; zero prior sales never proves a closed day.",
       parameters: {
         type: "object",
         properties: {
           venue: { type: "string", description: "Venue name exactly as stored, or omit for all venues." },
-          date_from: { type: "string", description: "YYYY-MM-DD earliest day to consider (default: each venue's first recorded sale)." },
+          date_from: { type: "string", description: "YYYY-MM-DD earliest day, ONLY when the user selected specific dates or asked about an earlier month (default: the 1st of this month)." },
           date_to: { type: "string", description: "YYYY-MM-DD last selected gap day; never later than yesterday." },
         },
       },
@@ -1260,7 +1260,7 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
         if (!salesByVenue.has(s.venue_id)) salesByVenue.set(s.venue_id, new Set());
         salesByVenue.get(s.venue_id)!.add(s.date);
       }
-      const fromFilter = typeof args.date_from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date_from) ? args.date_from : null;
+      const fromFilter = typeof args.date_from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date_from) ? args.date_from : defaultGapFrom(to);
       const result = scopedVenues.map((v) => {
         const days = salesByVenue.get(v.id) ?? new Set<string>();
         if (!days.size) return { venue: v.name, missing_dates: [] as string[], note: "No sales recorded yet for this venue." };
@@ -1598,9 +1598,20 @@ Deno.serve(async (req) => {
       const currentModel = baniModel(messages, !!body.attachments?.length);
       let cardEmitted = false;
       let writeCompleted = false;
+      // The day picker shows exactly the days the missing-sales lookup found (this turn's, or a fresh default lookup).
+      let gapDays: { venues?: { venue: string; missing_dates: string[] }[] } | null = null;
+      const pickerDays = async (): Promise<string[] | null> => {
+        try {
+          const r = gapDays ?? await runTool("get_missing_sales_days", {}, tenantId);
+          const withGaps = (r?.venues ?? []).filter((v: { missing_dates: string[] }) => v.missing_dates?.length);
+          if (withGaps.length > 1) return null; // several venues: the picker has no venue column, keep the reply as written
+          return withGaps[0]?.missing_dates ?? [];
+        } catch { return null; }
+      };
 
       const streamContent = async (raw: string) => {
-        const content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted });
+        let content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted });
+        if (content.includes("```daypicker")) content = pinDayPicker(content, await pickerDays());
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
@@ -1769,6 +1780,7 @@ Deno.serve(async (req) => {
               }
             }
           }
+          if (tc.function.name === "get_missing_sales_days" && Array.isArray(result?.venues)) gapDays = result;
           conversation.push({
             role: "tool",
             tool_call_id: tc.id,
