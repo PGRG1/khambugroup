@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft } from "lucide-react";
+import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
@@ -323,6 +324,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       next = [...next, { id: crypto.randomUUID(), file, name: file.name, type: file.type, size: file.size, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined }];
     }
     setFiles(next); setError(message);
+    // PDFs get a small picture of their first page on the card.
+    for (const f of next) if (!f.url && !f.thumb && (f.type === "application/pdf" || /\.pdf$/i.test(f.name)))
+      void pdfThumb(f.file).then((thumb) => { if (thumb) setFiles((prev) => prev.map((x) => (x.id === f.id ? { ...x, thumb } : x))); });
   };
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
@@ -663,11 +667,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </div>}
         {home && !open && hasConversation.current && <button type="button" className="floating-bani-resume" onClick={() => setOpen(true)}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
         <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
-          {!!files.length && <div className="floating-bani-attachments">{files.map(f => <div key={f.id} className="floating-bani-attachment">
-            {f.url ? <img src={f.url} alt="" /> : <FileText className="h-5 w-5" />}
-            <span className="truncate">{f.name}</span>
-            <Button variant="ghost" type="button" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3.5 w-3.5" /></Button>
-          </div>)}</div>}
+          {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
+            <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
+            <div className="fb-att-nm"><b className={f.type.startsWith("image/") ? "img" : ext === "PDF" ? "pdf" : ""}>{ext || "FILE"}</b><span className="truncate">{f.name}</span></div>
+            <Button variant="ghost" type="button" className="fb-att-x" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3 w-3" /></Button>
+          </div>; })}</div>}
           {voiceMode ? <div className="floating-bani-voice-row">
             <div className="floating-bani-voice-pill">
               <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
