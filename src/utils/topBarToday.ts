@@ -1,4 +1,4 @@
-// Top bar "today" line: the date and the live weather (Open-Meteo, free, no key).
+// Top bar "today" line: the date and the live weather from the Hong Kong Observatory (free open data, no key).
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -11,32 +11,38 @@ export function todayLabel(d: Date, short = false): string {
 
 export type WeatherKind = "clear" | "partly" | "cloudy" | "fog" | "drizzle" | "rain" | "snow" | "storm";
 
-/** WMO weather code (as Open-Meteo returns it) to the icon we show. */
-export function weatherKind(code: number): WeatherKind {
-  if (code === 0) return "clear";
-  if (code === 1 || code === 2) return "partly";
-  if (code === 3) return "cloudy";
-  if (code === 45 || code === 48) return "fog";
-  if (code >= 51 && code <= 57) return "drizzle";
-  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
-  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
-  if (code >= 95) return "storm";
-  return "cloudy";
+/** Hong Kong Observatory weather icon codes to the icon we show. Wind/humidity/temperature codes (80–93) say nothing about sky, so they are skipped. */
+export function hkoKind(code: number): { kind: WeatherKind; night: boolean } | null {
+  if (code === 50) return { kind: "clear", night: false };
+  if (code >= 70 && code <= 75) return { kind: "clear", night: true };
+  if (code === 77) return { kind: "partly", night: true };
+  if (code === 51 || code === 52) return { kind: "partly", night: false };
+  if (code === 76) return { kind: "cloudy", night: true };
+  if (code === 60 || code === 61) return { kind: "cloudy", night: false };
+  if (code === 62) return { kind: "drizzle", night: false };
+  if (code === 53 || code === 54 || code === 63 || code === 64) return { kind: "rain", night: false };
+  if (code === 65) return { kind: "storm", night: false };
+  if (code >= 83 && code <= 85) return { kind: "fog", night: false };
+  return null;
 }
 
 export const WEATHER_WORD: Record<WeatherKind, string> = {
-  clear: "Clear", partly: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", drizzle: "Drizzle", rain: "Rain", snow: "Snow", storm: "Thunderstorm",
+  clear: "Clear", partly: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", drizzle: "Light rain", rain: "Rain", snow: "Snow", storm: "Thunderstorm",
 };
 
-/** Hong Kong until venues carry their own coordinates. */
-export const DEFAULT_PLACE = { lat: 22.3193, lon: 114.1694, city: "Hong Kong" };
+export const DEFAULT_PLACE = { city: "Hong Kong", station: "Hong Kong Observatory" };
 
-export const weatherUrl = (lat: number, lon: number) =>
-  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,is_day&timezone=auto`;
+/** The Observatory's current weather report, updated hourly. */
+export const HKO_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en";
 
-/** Reads Open-Meteo's answer; anything unexpected means "no weather", never a made-up value. */
-export function readWeather(json: unknown): { temp: number; kind: WeatherKind; day: boolean } | null {
-  const c = (json as { current?: { temperature_2m?: unknown; weather_code?: unknown; is_day?: unknown } } | null)?.current;
-  if (!c || typeof c.temperature_2m !== "number" || !Number.isFinite(c.temperature_2m) || typeof c.weather_code !== "number") return null;
-  return { temp: Math.round(c.temperature_2m), kind: weatherKind(c.weather_code), day: c.is_day !== 0 };
+/** Reads the Observatory's report; anything unexpected means "no weather", never a made-up value. */
+export function readHkoWeather(json: unknown, hour = new Date().getHours()): { temp: number; kind: WeatherKind; day: boolean } | null {
+  const j = json as { temperature?: { data?: { place?: unknown; value?: unknown; unit?: unknown }[] }; icon?: unknown } | null;
+  const rows = Array.isArray(j?.temperature?.data) ? j!.temperature!.data! : [];
+  const row = rows.find((r) => r?.place === DEFAULT_PLACE.station && typeof r.value === "number");
+  if (!row || typeof row.value !== "number" || !Number.isFinite(row.value) || (row.unit != null && row.unit !== "C")) return null;
+  const icons = Array.isArray(j?.icon) ? (j!.icon as unknown[]).filter((c): c is number => typeof c === "number") : [];
+  const sky = icons.map(hkoKind).find(Boolean) ?? null;
+  const day = sky ? !sky.night && hour >= 6 && hour < 18 : hour >= 6 && hour < 18;
+  return { temp: Math.round(row.value), kind: sky?.kind ?? "partly", day };
 }

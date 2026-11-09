@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudMoon, CloudRain, CloudSnow, CloudSun, Moon, Sun } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { DEFAULT_PLACE, WEATHER_WORD, readWeather, todayLabel, weatherUrl, type WeatherKind } from "@/utils/topBarToday";
+import { DEFAULT_PLACE, HKO_URL, WEATHER_WORD, readHkoWeather, todayLabel, type WeatherKind } from "@/utils/topBarToday";
 
 function WeatherIcon({ kind, day }: { kind: WeatherKind; day: boolean }) {
   const cls = "h-[15px] w-[15px] shrink-0";
@@ -15,11 +15,11 @@ function WeatherIcon({ kind, day }: { kind: WeatherKind; day: boolean }) {
   return <Cloud className={cls} aria-hidden />;
 }
 
-/** Quiet top-bar line: today's date and the live weather. If the weather can't load, only the date shows. */
+/** Quiet top-bar line: today's date and the Hong Kong Observatory's current reading. If it can't load, only the date shows. */
 export function TopBarToday() {
   const isMobile = useIsMobile();
   const [now, setNow] = useState(() => new Date());
-  const [wx, setWx] = useState<ReturnType<typeof readWeather>>(null);
+  const [wx, setWx] = useState<ReturnType<typeof readHkoWeather>>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -30,9 +30,9 @@ export function TopBarToday() {
     let alive = true;
     const load = async () => {
       try {
-        const res = await fetch(weatherUrl(DEFAULT_PLACE.lat, DEFAULT_PLACE.lon));
+        const res = await fetch(HKO_URL);
         if (!res.ok) return;
-        const next = readWeather(await res.json());
+        const next = readHkoWeather(await res.json());
         if (alive && next) setWx(next);
       } catch { /* offline or blocked: the date still shows */ }
     };
@@ -46,7 +46,7 @@ export function TopBarToday() {
       <span className="font-medium text-foreground/85">{todayLabel(now, isMobile)}</span>
       {wx && <>
         <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-muted-foreground/50" aria-hidden />
-        <span className="inline-flex min-w-0 items-center gap-1.5" title={`${WEATHER_WORD[wx.kind]} in ${DEFAULT_PLACE.city}`} aria-label={`${WEATHER_WORD[wx.kind]}, ${wx.temp} degrees, ${DEFAULT_PLACE.city}`}>
+        <span className="inline-flex min-w-0 items-center gap-1.5" title={`${WEATHER_WORD[wx.kind]}, ${wx.temp}°C at the ${DEFAULT_PLACE.station}`} aria-label={`${WEATHER_WORD[wx.kind]}, ${wx.temp} degrees, ${DEFAULT_PLACE.city}`}>
           <WeatherIcon kind={wx.kind} day={wx.day} />{wx.temp}°{!isMobile && <span className="truncate">{DEFAULT_PLACE.city}</span>}
         </span>
       </>}
