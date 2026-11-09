@@ -662,7 +662,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>)}
           {busy && (stepLabel
             ? <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" role="status" aria-live="polite"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />{stepLabel.replace(/[.…]+$/, "")}…</div>
-            : <div className="floating-bani-typing" aria-label="Bani is replying"><span /><span /><span /></div>)}
+            : <div className="floating-bani-dots" aria-label="Bani is replying"><span /><span /><span /></div>)}
           {error && <p className="floating-bani-error" role="alert">{error}</p>}
           <div ref={end} />
         </div>}
