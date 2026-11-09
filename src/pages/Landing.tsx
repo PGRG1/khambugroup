@@ -324,7 +324,8 @@ export default function Landing() {
           : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />
-      <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
+      {/* The chat bar sits in the page on desktop and tablet; on a phone it stays pinned at the bottom. */}
+      {size !== "ph" && <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />}
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
 
       <div className="l2-kpis">

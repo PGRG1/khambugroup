@@ -125,9 +125,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const salesDraft = review ? null : store?.sales[0] ?? null;
   const salesRef = useRef(salesDraft); salesRef.current = salesDraft;
 
-  const allowed = Boolean(store && user && tenantId && !authLoading && !roleLoading && !tenantLoading && !permissionsLoading && canAccessPage("assistant") && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
   // Confidential content resets only when the user, client or preview identity changes.
   const identity = `${user?.id}:${tenantId}:${isPreviewActive}:${previewUserId}`;
+  const allowedNow = Boolean(store && user && tenantId && !authLoading && !roleLoading && !tenantLoading && !permissionsLoading && canAccessPage("assistant") && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
+  // Once shown for this person, a background re-check (token refresh, role reload) must not make the chat bar blink out.
+  const shownFor = useRef<string | null>(null);
+  if (allowedNow) shownFor.current = identity;
+  const rechecking = authLoading || roleLoading || tenantLoading || permissionsLoading;
+  const allowed = allowedNow || (rechecking && shownFor.current === identity && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
   const liveIdentity = useRef(identity); liveIdentity.current = identity;
   const binding = review?.binding;
   const filesRef = useRef(files); filesRef.current = files;
@@ -200,7 +205,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const hasConversation = useRef(false);
   hasConversation.current = messages.some(m => !m.hidden);
   // On home the typing box lives inside the page (the slot under the greeting), so it scrolls with it.
-  const homeSlot = useHomeSlot(home && !open && !isMobile);
+  const homeSlot = useHomeSlot(home && !open);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; if (keepOpenNav.current) { keepOpenNav.current = false; return; } if (!hasConversation.current) setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
