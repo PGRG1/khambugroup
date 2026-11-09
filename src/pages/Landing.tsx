@@ -16,7 +16,7 @@ import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
-import { accruedStaff, accruedProfit, menuCostPercent, theoreticalStock } from "@/utils/landingAccrual";
+import { accruedStaff, accruedProfit, menuCostPercent, theoreticalStock, rotaStaff, type ShiftRow, type PayRow } from "@/utils/landingAccrual";
 import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
 import type { Finding } from "../../supabase/functions/_shared/financeTeamReview";
 import { WEEKDAYS, type SaleRow } from "@/utils/landingNumbers";
@@ -233,6 +233,26 @@ export default function Landing() {
         budget: ((bud.data ?? []) as any[]).reduce((a, b) => a + (Number(b.amount) || 0), 0) };
     },
   });
+  // Staff: hours on the rota, costed at what each person cost per rota hour in the last payroll month.
+  const rotaQ = useQuery({
+    queryKey: ["landing2", "rota", tenantId, month],
+    enabled: !!tenantId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const db = supabase as any;
+      const from = `${addMonths(month, -3)}-01`;
+      const last = `${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()).padStart(2, "0")}`;
+      const shifts: ShiftRow[] = [];
+      for (let i = 0; ; i += 1000) {
+        const { data } = await db.from("hr_shifts").select("employee_id,shift_date,start_time,end_time,break_minutes,actual_hours_worked,no_show,venue_id").eq("tenant_id", tenantId).gte("shift_date", from).lte("shift_date", last).order("id").range(i, i + 999);
+        shifts.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
+      const y = Number(addMonths(month, -3).slice(0, 4));
+      const { data: pay } = await db.from("hr_payroll").select("employee_id,year,month,gross_salary,mpf_employer").eq("tenant_id", tenantId).gte("year", y).limit(5000);
+      return { shifts, pay: (pay ?? []) as PayRow[] };
+    },
+  });
   const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending;
 
   const k = useMemo(() => {
@@ -258,7 +278,8 @@ export default function Landing() {
     const booksSales = p.sales || sales;
     const theory = theoreticalStock(booksSales, menuPct.data ?? null, wasteQ.data ?? 0);
     const stockUsed = p.food ? p.food : theory;
-    const staff = accruedStaff(month, p.staff || null, payroll, daysGone, dim, usualStaff, booksSales);
+    const rota = p.staff || !rotaQ.data ? null : rotaStaff(month, isCurrent ? end : `${month}-31`, rotaQ.data.shifts, rotaQ.data.pay, (s) => !scopeIds?.length || !s.venue_id || scopeIds.includes(s.venue_id));
+    const staff = rota != null ? { amount: rota, basis: "rota" as const } : accruedStaff(month, p.staff || null, payroll, daysGone, dim, usualStaff, booksSales);
     const runningSoFar = isCurrent ? (p.running * Math.min(daysGone, dim)) / dim : p.running;
     const profit = accruedProfit(booksSales, stockUsed, staff.amount, runningSoFar);
     const missingDays = isCurrent ? Math.max(0, daysGone - days) : 0;
@@ -272,7 +293,7 @@ export default function Landing() {
           : { status: isCurrent && days ? `Heading for ${short(pace)} · no target` : "No target set", tone: "quiet" } as const) },
       { label: "Stock used", value: money(stockUsed ?? 0, stockUsed != null), to: "/procurement/menu-costing", sub: stockUsed != null && booksSales ? `${pctTxt((stockUsed / booksSales) * 100)} of sales · ${p.food ? "booked" : "theoretical"}` : "No recipes or stock booked yet",
         ...(theory != null ? { status: p.food ? `Theoretical ${short(theory)}${Math.abs(p.food - theory) > theory * 0.1 ? ` · gap ${short(p.food - theory)}` : ""}` : `Booked ${short(p.food)} · from menu + waste`, tone: p.food && Math.abs(p.food - theory) > theory * 0.1 ? "amb" : "ok" } as const : { status: p.food ? `Booked ${short(p.food)}` : "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : "accrued so far"}` : "No payroll history yet",
+      { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : staff.basis === "rota" ? "from the rota" : "accrued so far"}` : "No payroll history yet",
         ...(usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staff.amount != null && booksSales && (staff.amount / booksSales) * 100 <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: isCurrent ? "Profit so far" : "Profit", value: money(profit ?? 0, profit != null), to: "/finance/reports?view=pl", sub: profit != null && booksSales ? `${pctTxt((profit / booksSales) * 100)} of sales · accrual basis` : "Needs sales and recipes",
         ...(missingDays > 0 ? { status: `Sales missing for ${missingDays} of ${daysGone} days`, tone: "amb" } as const : usualProfit != null ? { status: `Usual ${short(isCurrent ? usualProfit * daysGone / dim : usualProfit)}${isCurrent ? " by now" : ""}`, tone: profit != null && profit >= (isCurrent ? usualProfit * daysGone / dim : usualProfit) ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
@@ -318,13 +339,12 @@ export default function Landing() {
       const monthly = arr.filter((x) => x.d >= iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30))).reduce((a, x) => a + x.q, 0) * (nowP - usual);
       return pct > 5 ? [{ name: last.name, pct, monthly }] : [];
     }).sort((a, b) => b.monthly - a.monthly);
-    // P&L on an accrual basis, each line saying how it was worked out.
+    // P&L on an accrual basis.
     const plLines = [
-      { name: "Sales", tag: p.sales ? "booked" : "sales reports", v: booksSales, sign: 1 },
-      { name: "Purchases", tag: p.food ? "booked" : stockUsed != null ? "theoretical" : "not booked", v: stockUsed, sign: -1 },
-      { name: "Staff", tag: staff.basis === "booked" ? "booked" : staff.basis === "accrued" ? "accrued" : staff.basis === "estimated" ? "estimated" : "not booked", v: staff.amount, sign: -1,
-        note: staff.basis === "accrued" && "from" in staff ? `${monthName(String(staff.from)).slice(0, 3)} payroll × ${Math.min(daysGone, dim)}/${dim}` : undefined },
-      { name: "Running costs", tag: isCurrent ? "accrued" : "booked", v: runningSoFar, sign: -1, note: isCurrent ? `× ${Math.min(daysGone, dim)}/${dim}` : undefined },
+      { name: "Sales", v: booksSales, sign: 1 },
+      { name: "Purchases", v: stockUsed, sign: -1 },
+      { name: "Staff", v: staff.amount, sign: -1 },
+      { name: "Running costs", v: runningSoFar, sign: -1 },
     ];
     // Performance: where each area stands and the next step.
     const lowDay = low && week.length ? { name: low.full, pct: (1 - low.v / (week.reduce((a, w) => a + w.v, 0) / week.length)) * 100 } : null;
@@ -336,12 +356,12 @@ export default function Landing() {
         line: rises.length ? `${rises[0].name} up ${rises[0].pct.toFixed(1)}%` : budget ? `${short(spent)} of ${short(budget)} budget` : spentPct != null && spent ? `${pctTxt(spentPct)} of sales${usualFood ? `, usual ${pctTxt(usualFood)}` : ""}` : "No invoices this month yet",
         next: rises.length ? `Next: ask the supplier${rises[0].monthly > 0 ? `, about ${short(rises[0].monthly)} a month` : ""}` : !budget ? "Next: set a budget with Bani" : "On track" },
       { area: "Staff", ok: !(usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1),
-        line: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
+        line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
     return { tiles, week, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
-  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Month-end checklist for last month, until it is closed.
   const closed = books.closed.some((c: any) => c.month_start === `${closeMonth}-01` && !c.reopened_at);
@@ -386,8 +406,8 @@ export default function Landing() {
           : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />
-      {/* The chat bar sits in the page on desktop and tablet; on a phone it stays pinned at the bottom. */}
-      {size !== "ph" && <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />}
+      {/* The chat bar sits in the page at every width, under the greeting. */}
+      <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
       <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
@@ -414,10 +434,10 @@ export default function Landing() {
         <section className="l2-col">
           <Link to="/finance/reports?view=pl" className="l2-top"><div className="k">P&amp;L</div>
             <div className="v">{k.profit != null ? short(k.profit) : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
-            <div className="d">{k.profit != null && k.booksSales ? `${pctTxt((k.profit / k.booksSales) * 100)} of sales · ` : ""}accrual basis{isCurrent ? ` · day ${k.daysGone} of ${k.dim}` : ""}</div>
+            <div className="d">Accrual basis</div>
             <div className={`s ${k.profitTile.tone}`}><i />{k.profitTile.status}</div></Link>
           <div className="l2-ch l2-pl">
-            {k.plLines.map((l) => <div key={l.name}><span>{l.name} <u>{l.tag}</u>{l.note && <em>{l.note}</em>}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
+            {k.plLines.map((l) => <div key={l.name}><span>{l.name}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
             <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? short(k.profit) : "—"}</b></div>
           </div>
           <Link to="/finance/cash" className="l2-cash"><span>Cash {k.cash ?? "not linked"}</span>{overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : <span>No bills overdue</span>}</Link>

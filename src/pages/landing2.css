@@ -72,7 +72,6 @@
 .ld.tab .l2-kpi:nth-child(3){border-right:0}.ld.tab .l2-kpi:nth-child(-n+3){border-bottom:1px solid var(--line)}
 .ld.ph .l2-head{text-align:left}.ld.ph .l2-per{position:static;margin-top:10px}
 .ld.ph .l2-team{justify-content:flex-start}
-.ld.ph .l2-askslot{display:none}
 .ld.ph .l2-pills{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
 .ld.ph .l2-pills button{white-space:nowrap}
 .ld.ph .l2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -81,7 +80,7 @@
 .ld.ph .l2-perf,.ld.ph .l2-work,.ld.tab .l2-work{grid-template-columns:1fr}
 /* the home composer is rendered inside the slot, so it scrolls with the page */
 #bani-home-slot .floating-bani{position:relative;inset:auto;z-index:auto}
-#bani-home-slot .floating-bani-panel.is-home{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto;margin:0 auto}
+#bani-home-slot .floating-bani-panel.is-home{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto;margin:0 auto;padding-bottom:0}
 /* One month panel: Sales, Purchases, P&L side by side, each with its chart */
 .l2-lab{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:clamp(10px,3vh,32px) 0 10px 4px}
 .l2-snap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}

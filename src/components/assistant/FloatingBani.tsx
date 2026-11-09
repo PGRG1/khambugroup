@@ -139,11 +139,13 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const lastFilesRef = useRef(lastFiles); lastFilesRef.current = lastFiles;
 
   useEffect(() => {
-    if (!store || scope === identity) return;
+    // Signed out: forget the conversation. Still loading: wait, so a refresh doesn't wipe a kept conversation.
+    if (store && !authLoading && !user && messages.length) { setMessages([]); setScope(""); return; }
+    if (!store || !user || !tenantId || authLoading || tenantLoading || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
     setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, setMessages, setDraft, setFiles, setLastFiles, setOpen, setScope]);
+  }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setDraft, setFiles, setLastFiles, setOpen, setScope]);
   useEffect(() => { abort.current?.abort(); }, [binding]);
   useEffect(() => () => { abort.current?.abort(); }, []);
   useEffect(() => { if (openSignal) setOpen(true); }, [openSignal, setOpen]);

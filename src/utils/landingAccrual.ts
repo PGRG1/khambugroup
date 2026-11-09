@@ -34,3 +34,37 @@ export function accruedProfit(sales: number, stock: number | null, staff: number
   if (stock == null || staff == null) return null;
   return sales - stock - staff - running;
 }
+
+export type ShiftRow = { employee_id: string; shift_date: string; start_time: string | null; end_time: string | null; break_minutes: number | null; actual_hours_worked?: number | null; no_show?: boolean | null; venue_id?: string | null };
+export type PayRow = PayrollRow & { employee_id: string };
+
+/** Hours of one shift: worked hours when recorded, otherwise the rota times less the break. */
+export function shiftHours(s: ShiftRow): number {
+  if (s.no_show) return 0;
+  if (s.actual_hours_worked != null) return Number(s.actual_hours_worked) || 0;
+  if (!s.start_time || !s.end_time) return 0;
+  const m = (t: string) => { const [h, mi] = t.split(":").map(Number); return h * 60 + (mi || 0); };
+  let mins = m(s.end_time) - m(s.start_time);
+  if (mins < 0) mins += 24 * 60;
+  return Math.max(0, mins - (Number(s.break_minutes) || 0)) / 60;
+}
+
+/** Staff cost from the rota: hours on the rota up to `until`, each costed at what that person
+ *  cost per rota hour in the latest earlier payroll month. Null when there's no rota or no payroll to cost it. */
+export function rotaStaff(month: string, until: string, shifts: ShiftRow[], payroll: PayRow[], inScope: (s: ShiftRow) => boolean = () => true): number | null {
+  const key = (p: PayrollRow) => `${p.year}-${String(p.month).padStart(2, "0")}`;
+  const base = [...new Set(payroll.map(key))].filter((k) => k < month).sort().pop();
+  if (!base) return null;
+  const pay = new Map<string, number>();
+  for (const p of payroll) if (key(p) === base) pay.set(p.employee_id, (pay.get(p.employee_id) ?? 0) + Number(p.gross_salary || 0) + Number(p.mpf_employer || 0));
+  const baseHours = new Map<string, number>();
+  for (const s of shifts) if (s.shift_date.slice(0, 7) === base) baseHours.set(s.employee_id, (baseHours.get(s.employee_id) ?? 0) + shiftHours(s));
+  let payT = 0, hoursT = 0;
+  const rate = new Map<string, number>();
+  for (const [e, amt] of pay) { const h = baseHours.get(e) ?? 0; if (h > 0 && amt > 0) { rate.set(e, amt / h); payT += amt; hoursT += h; } }
+  if (!hoursT) return null;
+  const avgRate = payT / hoursT;
+  const now = shifts.filter((s) => s.shift_date.slice(0, 7) === month && s.shift_date <= until && inScope(s));
+  if (!now.length) return null;
+  return now.reduce((a, s) => a + shiftHours(s) * (rate.get(s.employee_id) ?? avgRate), 0);
+}
