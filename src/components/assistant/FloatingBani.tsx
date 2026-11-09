@@ -602,8 +602,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {isMobile && <div className="floating-bani-grab" aria-hidden="true"><span /></div>}
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
-          {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="h-[18px] w-[18px]" /></Button>}
-          <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></Button>
+          <div className="fb-head-acts">
+            {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="h-3 w-3" strokeWidth={2.8} /></Button>}
+            <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-[18px] w-[18px]" /></Button>
+          </div>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
