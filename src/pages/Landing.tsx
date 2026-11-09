@@ -422,7 +422,7 @@ export default function Landing() {
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.spent)} of {short(k.budget)} budget</span></div>
             : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
           <div className="l2-ch"><div className="pt">Purchases <span>· last 3 months</span></div>
-            {k.purch.some((x) => x.amt > 0) ? <div className="l2-bars l2-pm">{k.purch.map((x) => <div key={x.m}><span className="pv">{short(x.amt)}</span><i className={x.m === month ? "" : "old"} style={{ height: `calc((100% - 34px) * ${(x.amt / Math.max(1, ...k.purch.map((y) => y.amt))).toFixed(3)})` }} /><span className="pd">{monthName(x.m).slice(0, 3)}{x.m === month && isCurrent ? " so far" : x.pct != null ? ` · ${pctTxt(x.pct)}` : ""}</span></div>)}</div>
+            {k.purch.some((x) => x.amt > 0) ? <div className="l2-bars l2-pm">{k.purch.map((x) => <div key={x.m}><span className="pv">{short(x.amt)}</span><span className="l2-pm-bar"><i className={x.m === month ? "" : "old"} style={{ height: x.amt > 0 ? `max(4px, ${(x.amt / Math.max(1, ...k.purch.map((y) => y.amt))) * 100}%)` : "0px" }} /></span><span className="pd"><span>{monthName(x.m).slice(0, 3)}</span><span>{x.m === month && isCurrent ? "so far" : x.pct != null ? pctTxt(x.pct) : ""}</span></span></div>)}</div>
               : <p className="l2-empty">No supplier invoices yet.</p>}</div>
         </section>
         <section className="l2-col">
