@@ -16,6 +16,7 @@
     --bani-voice-forest: 174 64% 13%;
     --bani-voice-paper: 110 35% 97%;
     --bani-voice-atmosphere: linear-gradient(155deg, hsl(174 49% 24%) 0%, hsl(167 27% 49%) 34%, hsl(145 29% 74%) 67%, hsl(110 37% 90%) 100%);
+    --bani-team-sheen: linear-gradient(100deg, hsl(var(--bani-voice-ink)) 0%, hsl(var(--chart-3)) 30%, hsl(var(--primary)) 50%, hsl(var(--chart-3)) 70%, hsl(var(--bani-voice-ink)) 100%);
   }
 }
 

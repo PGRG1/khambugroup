@@ -73,7 +73,6 @@ export default function Landing() {
   const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
   const askSlot = useRef<HTMLDivElement>(null);
-  const [play, setPlay] = useState(0); // replays the team motion on hover
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
 
   // Bani's typing box is rendered inside the ask slot (see FloatingBani); these centre the conversation when it opens.
@@ -391,8 +390,8 @@ export default function Landing() {
       <div className="l2-head">
         <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
       </div>
-      <div className="l2-team" onMouseEnter={() => setPlay((n) => n + 1)}>
-        <span className="l2-tw" key={`t-${play}`}>
+      <div className="l2-team">
+        <span className="l2-tw">
           <span className="l2-tw-w">Your finance team</span>
           <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
         </span>
