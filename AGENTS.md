@@ -41,4 +41,3 @@ Read nested AGENTS.md (Finance, People, assistant/voice, Alerts, chat-assistant)
 - Access (in rollout): one role per person per tenant in tenant_roles/tenant_user_access (+venues, exceptions, history); access_level/money_level/can_see_venue/is_owner are the only checks new rules and server functions may use, and they fall back to legacy behaviour until a person's status is active.
 - Confirmed team notifications persist one recipient-only message per card/person before unchanged push delivery; Floating Bani reads through identity-scoped useBaniTeamMessages and marks read only after displaying it, while job-role targeting never changes access assignments.
 - Alert JWTs refresh once for the same user to recover 401s.
-- Home tiles use landingAccrual.ts (display-only accrual: pro-rated last payroll month, menu-recipe theoretical stock + logged waste, pro-rated running costs) so open months never show zero costs; booked figures win once posted.
