@@ -7,6 +7,7 @@ import {
 
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { NavLink } from "@/components/NavLink";
+import { useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -259,12 +260,14 @@ function ChildLink({ item }: { item: Item }) {
 }
 
 function TopLink({ item }: { item: Item & { icon: any } }) {
+  const [, setBaniOpen] = useFloatingBaniOpen();
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
         <NavLink
           to={item.url}
           end={item.end ?? item.url === "/"}
+          onClick={item.url === "/" ? () => setBaniOpen(false) : undefined}
           className="relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
           activeClassName="glass-active !text-sidebar-primary font-medium"
         >
