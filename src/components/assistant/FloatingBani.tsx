@@ -603,8 +603,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <div className="fb-head-acts">
-            {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="h-3 w-3" strokeWidth={2.8} /></Button>}
-            <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-[18px] w-[18px]" /></Button>
+            {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="fb-ic-max" strokeWidth={2.8} /></Button>}
+            <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="fb-ic-x" /></Button>
           </div>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>

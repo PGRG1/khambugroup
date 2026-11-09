@@ -62,7 +62,7 @@ function initialsOf(name: string): string {
 
 /** The Bani team icon: the same orb as the chat sphere, at icon size. */
 function HomeOrb({ className }: { className?: string }) {
-  return <BaniOrb size={className?.includes("18px") ? 18 : 16} mode="idle" className={cn("shrink-0", className)} />;
+  return <BaniOrb size={className?.includes("18px") ? 22 : 20} mode="idle" className={cn("shrink-0 -m-0.5", className)} />;
 }
 const roleWords = (r?: string) => (!r ? "" : ["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : "Team");
 

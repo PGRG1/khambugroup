@@ -277,3 +277,7 @@
 .fb-head-acts { display: flex; align-items: center; gap: 0; margin-right: -6px; }
 .floating-bani .fb-head-acts .floating-bani-icon { width: 30px; height: 30px; border-radius: 8px; color: #3D4A44; }
 .floating-bani .fb-head-acts .floating-bani-icon:hover { background: #EEF2EF; color: var(--fb-ink); }
+
+/* The shared Button forces every icon to 16px; these win so the two icons match. */
+.floating-bani .fb-head-acts .floating-bani-icon svg.fb-ic-max { width: 12px; height: 12px; }
+.floating-bani .fb-head-acts .floating-bani-icon svg.fb-ic-x { width: 18px; height: 18px; }
