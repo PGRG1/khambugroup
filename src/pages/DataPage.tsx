@@ -56,7 +56,7 @@ const DataPage = () => {
     });
     return () => { cancelled = true; };
   }, [tenantId]);
-  const { isPreviewActive } = usePreviewMode();
+  const { isPreviewActive, previewUserId } = usePreviewMode();
   const { isActionHidden } = usePagePermissions();
   const mr = useManualRevenue();
 
@@ -93,7 +93,7 @@ const DataPage = () => {
   const salesHandoff = useSyncExternalStore(subscribeSalesHandoff, peekSalesHandoff);
   useEffect(() => {
     if (!salesHandoff || roleLoading) return;
-    const decision = decideSalesHandoff(salesHandoff, { identity: `${user?.id}:${tenantId}:${isPreviewActive}`, canScan: isAdmin && !hideScanReceipt, busy: false });
+    const decision = decideSalesHandoff(salesHandoff, { identity: `${user?.id}:${tenantId}:${isPreviewActive}:${previewUserId}`, canScan: isAdmin && !hideScanReceipt, busy: false });
     if (decision === "skip") return;
     consumeSalesHandoff(salesHandoff.id);
     if (decision === "denied") {

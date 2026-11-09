@@ -371,7 +371,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { tenantId } = useActiveTenant();
   const { venues: scannerVenues } = useVenues();
   const { user: baniUser, isAdmin: baniAdmin, roleLoading: baniRoleLoading } = useAuth();
-  const { isPreviewActive: baniPreview } = usePreviewMode();
+  const { isPreviewActive: baniPreview, previewUserId: baniPreviewUser } = usePreviewMode();
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
   const { setHost: setBaniHost } = useFloatingBaniHost();
   const baniSay = useFloatingBaniSay();
@@ -391,7 +391,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const handoffAttempted = useRef(new Set<string>());
   const handoffVenueRef = useRef<string | null>(null);
   const handoffActiveRef = useRef(false);
-  const handoffIdentity = `${baniUser?.id}:${tenantId}:${baniPreview}`;
+  // Must match FloatingBani's identity exactly, or every handoff is silently skipped.
+  const handoffIdentity = `${baniUser?.id}:${tenantId}:${baniPreview}:${baniPreviewUser}`;
   const handoffCanEdit = !baniPreview && !!baniUser && baniUser.id === userId && baniCanAccess("procurement") && (baniAdmin || ["edit", "admin"].includes(baniAuthority("procurement")));
   const reviewDirty = invoices.length > 0 || scanning || pendingFiles.length > 0;
   useEffect(() => { onDirtyChange?.(reviewDirty); }, [reviewDirty, onDirtyChange]);
