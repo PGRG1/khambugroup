@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import { AssistantChart, type ChartSpec } from "./AssistantChart";
 import remarkGfm from "remark-gfm";
 import { remarkFinancialTables } from "./remarkFinancialTables";
+import { CalcBreakdown, FinancialTable, StatChips, SummaryRow, VarianceCell } from "./BaniRichBlocks";
 import { recentBaniTurns } from "../../../supabase/functions/_shared/baniConversation";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { useAuth } from "@/hooks/useAuth";
