@@ -95,6 +95,15 @@ function fitHint(el: HTMLTextAreaElement, text: string) {
   return `${cut.trimEnd()}…`;
 }
 
+/** Width of one line of text in the box's font. */
+function textWidth(el: HTMLTextAreaElement, text: string) {
+  const cs = getComputedStyle(el);
+  hintCanvas ??= document.createElement("canvas").getContext("2d");
+  if (!hintCanvas) return 0;
+  hintCanvas.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  return hintCanvas.measureText(text).width;
+}
+
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
   const venueScope = useVenueScope();
@@ -273,6 +282,27 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const ro = new ResizeObserver(fit); ro.observe(el);
     return () => ro.disconnect();
   }, [hintText, allowed, voiceMode, dictation.state, files.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Like ChatGPT: one line with the buttons beside it; once there is a file or the text needs a second line,
+  // the text gets the full width and the buttons drop to their own row underneath.
+  const [tall, setTall] = useState(false);
+  useEffect(() => {
+    const el = input.current, row = el?.parentElement;
+    if (!el || !row) { setTall(files.length > 0); return; }
+    const check = () => {
+      if (files.length || draft.includes("\n")) { setTall(true); return; }
+      if (!draft) { setTall(false); return; }
+      const buttons = [...row.children].filter((c) => c !== el && (c as HTMLElement).offsetParent !== null).reduce((w, c) => w + (c as HTMLElement).offsetWidth + 6, 0);
+      const cs = getComputedStyle(el);
+      const room = row.clientWidth - buttons - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+      setTall(textWidth(el, draft) > room);
+    };
+    // Grow with the text on every browser (not only those that size boxes to their content).
+    el.style.height = "";
+    if (el.closest(".is-tall")) { el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 112)}px`; }
+    check();
+    const ro = new ResizeObserver(check); ro.observe(row);
+    return () => ro.disconnect();
+  }, [draft, files.length, allowed, voiceMode, dictation.state, tall]); // eslint-disable-line react-hooks/exhaustive-deps
   const [asked, setAsked] = store?.ask ?? [null, () => {}];
   useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" }, fresh: home }); }, [asked, busy, session, tenantId, setAsked, home]);
   if (!allowed || (!hosted && host)) return null;
@@ -632,7 +662,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
         {home && !open && hasConversation.current && <button type="button" className="floating-bani-resume" onClick={() => setOpen(true)}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
-        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
+        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => <div key={f.id} className="floating-bani-attachment">
             {f.url ? <img src={f.url} alt="" /> : <FileText className="h-5 w-5" />}
             <span className="truncate">{f.name}</span>
@@ -654,7 +684,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="var(--fb-wave)" className="h-7 w-full" />}
             </div>
             <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Finish dictation" disabled={dictation.state !== "recording"} onClick={async () => { const t = await dictation.confirm(); if (t) setDraft(d => joinDraft(d, t)); input.current?.focus(); }}><Check className="h-5 w-5" /></Button>
-          </div> : <div className="floating-bani-row">
+          </div> : <div className={`floating-bani-row floating-bani-typing ${tall ? "is-tall" : ""}`}>
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={hint} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />

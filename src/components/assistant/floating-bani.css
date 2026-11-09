@@ -230,3 +230,18 @@
 .fb-chatlist-yes { background: #8A2E1F; color: #fff; }
 .fb-chatlist-no { background: none; color: #55605A; }
 .fb-chatlist-no:hover { background: #DCE3DF; }
+
+/* Typing row, like ChatGPT: plus, text, mic and send on one line; with a file or a second line of text,
+   the text takes the full width and the buttons sit on their own row underneath. */
+.floating-bani-typing { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "plus input mic send"; align-items: center; column-gap: .35rem; }
+.floating-bani-typing > .floating-bani-plus { grid-area: plus; }
+.floating-bani-typing > .floating-bani-input { grid-area: input; }
+.floating-bani-typing > .floating-bani-mic { grid-area: mic; }
+.floating-bani-typing > .floating-bani-send { grid-area: send; }
+.floating-bani-typing.is-tall { grid-template-areas: "input input input input" "plus . mic send"; row-gap: .25rem; }
+/* One line: a fixed 40px box with the text on its middle line, in every browser. */
+.floating-bani-typing:not(.is-tall) > .floating-bani-input { box-sizing: border-box; height: 40px; min-height: 40px; padding-top: 9px; padding-bottom: 9px; line-height: 22px; overflow: hidden; }
+.floating-bani-typing.is-tall > .floating-bani-input { box-sizing: border-box; padding: .45rem .7rem .2rem; line-height: 22px; }
+.floating-bani-composer.is-tall { border-radius: 22px; }
+.floating-bani-panel.is-home .floating-bani-composer.is-tall { border-radius: 26px; }
+.floating-bani-composer.is-tall .floating-bani-attachments { padding: .4rem .35rem .1rem .6rem; }
