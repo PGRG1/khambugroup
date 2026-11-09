@@ -6,7 +6,7 @@ export const planAnalysisTool = { type: 'function', function: { name: 'analyze_r
 export async function analyzeRevenueGoal(args: any, admin: any, t: string) {
   const amount = Number(args.amount);
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(args.month)) || !(amount > 0) || amount > 1e12) return { ok: false, error: 'Give the month (YYYY-MM) and a positive amount.' };
-  const { data: venues, error } = await admin.from('venues').select('id,name').eq('tenant_id', t).eq('is_active', true);
+  const { data: venues, error } = await admin.from('venues').select('id,name,seats').eq('tenant_id', t).eq('is_active', true);
   if (error) return { ok: false, error: error.message };
   const names = (venues ?? []).map((v: any) => v.name);
   const picked = Array.isArray(args.venues) && args.venues.length ? args.venues.map((v: string) => names.find((n: string) => n.toLowerCase() === String(v).toLowerCase())) : names;
@@ -41,8 +41,11 @@ export async function analyzeRevenueGoal(args: any, admin: any, t: string) {
   const totalGuests = [...byDate.values()].reduce((a, x) => a + x.g, 0);
   const usualGuestsDay = byDate.size && totalGuests ? Math.round(totalGuests / byDate.size) : null;
   const perDay = plan.trading_days ? amount / plan.trading_days : null;
+  const seats = (venues ?? []).filter((v: any) => picked.includes(v.name)).reduce((a: number, v: any) => a + (Number(v.seats) || 0), 0) || null;
+  const spendForSeats = plan.avg_spend ?? plan.history_spend;
+  const capacity = seats && spendForSeats ? weekdays.map(w => ({ day: w.day, guests_needed: Math.round(w.needed / spendForSeats), seat_turns: Math.round(w.needed / spendForSeats / seats * 10) / 10 })) : null;
   return {
-    ok: true, saved: false, month: args.month, venues: picked, goal: amount, trading_days: plan.trading_days,
+    ok: true, saved: false, seats, capacity, realistic_max_turns_per_day: 2.5, month: args.month, venues: picked, goal: amount, trading_days: plan.trading_days,
     current_target: target.data?.target_amount != null ? Number(target.data.target_amount) : null,
     month_to_date_sales: (mtd.data ?? []).reduce((a: number, r: any) => a + (Number(r.total_sales) || 0), 0),
     usual_month_at_current_pace: usualMonth ? Math.round(usualMonth) : null,
@@ -53,6 +56,6 @@ export async function analyzeRevenueGoal(args: any, admin: any, t: string) {
       spend: usualGuestsDay && perDay ? { keep_guests_per_day: usualGuestsDay, avg_spend_needed: Math.round(perDay / usualGuestsDay), usual_avg_spend: plan.history_spend } : null,
       chosen: plan.avg_spend ? { avg_spend: plan.avg_spend, guests_month: plan.guests } : null,
     },
-    note: 'Nothing saved. Discuss: compare goal to usual pace, show render_chart (bar, x_key day, series typical+needed) and a markdown table, explain both levers, ask where they see room, then suggest_replies. Only propose set_revenue_target when the user commits (e.g. "lock it in").',
+    note: 'Nothing saved. Act as the expert finance team: headline vs usual pace, one chart, one compact table, then 2-3 concrete named options (e.g. Balanced, Spend-led, Events/buyouts) each with real guests, spend and seat turns. Use capacity: any day above realistic_max_turns_per_day is not physically achievable — say so plainly and recommend the option that is. Give your recommendation. Do not ask open questions; suggest_replies with the options plus "Lock it in". Only propose set_revenue_target when the user commits.',
   };
 }

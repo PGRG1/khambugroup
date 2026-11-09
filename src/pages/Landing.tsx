@@ -16,6 +16,7 @@ import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
+import { accruedStaff, accruedProfit, menuCostPercent, theoreticalStock } from "@/utils/landingAccrual";
 import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
 import type { Finding } from "../../supabase/functions/_shared/financeTeamReview";
 import { WEEKDAYS, type SaleRow } from "@/utils/landingNumbers";
@@ -179,6 +180,19 @@ export default function Landing() {
     queryFn: async () => ((await (supabase as any).from("finance_closed_periods").select("reopened_at").eq("tenant_id", tenantId).eq("month_start", `${lastMonth}-01`)).data ?? []).some((c: any) => !c.reopened_at),
   });
   const closeMonth = lastClosed.data ? thisMonth : lastMonth;
+  // Theoretical stock: dishes' food-cost % from saved recipes, plus waste logged in the month.
+  const menuPct = useQuery({
+    queryKey: ["landing2", "menu-pct", tenantId],
+    enabled: !!tenantId, staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [items, prices] = await Promise.all([
+        (supabase as any).from("menu_items").select("id,theoretical_cost").eq("tenant_id", tenantId),
+        (supabase as any).from("menu_item_pricing").select("menu_item_id,selling_price").eq("tenant_id", tenantId),
+      ]);
+      const price = new Map<string, number>(); for (const p of prices.data ?? []) if (!price.has(p.menu_item_id)) price.set(p.menu_item_id, Number(p.selling_price) || 0);
+      return menuCostPercent((items.data ?? []).map((m: any) => ({ cost: Number(m.theoretical_cost) || 0, price: price.get(m.id) ?? 0 })));
+    },
+  });
   const homeFin = useHomeFinance(tenantId, addMonths(thisMonth, -6), closeMonth, lastClosed.isPending ? undefined : bankGl.data);
   const books = {
     entries: homeFin.data?.entries ?? [], lines: homeFin.data?.lines ?? [], accounts: homeFin.data?.accounts ?? [],
@@ -194,6 +208,12 @@ export default function Landing() {
   const payroll = useMemo(() => (facts.data?.payroll ?? []) as any[], [facts.data]);
   const pl = (m: string) => financeProfit(allEntries.entries, allEntries.lines, allEntries.accounts, payroll, m);
 
+  const wasteQ = useQuery({
+    queryKey: ["landing2", "waste", tenantId, month],
+    enabled: !!tenantId, staleTime: 5 * 60_000,
+    queryFn: async () => ((await (supabase as any).from("inventory_movements_waste").select("total_value,quantity,unit_cost").eq("tenant_id", tenantId).gte("entry_date", `${month}-01`).lte("entry_date", `${month}-31`)).data ?? [])
+      .reduce((a: number, w: any) => a + (w.total_value != null ? Number(w.total_value) : Number(w.quantity) * Number(w.unit_cost)), 0) as number,
+  });
   const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending;
 
   const k = useMemo(() => {
@@ -217,7 +237,12 @@ export default function Landing() {
     const usualProfit = avgOf(prev.filter((x) => x.food && x.staff).map((x) => x.profit));
     const usualCosts = avg((x) => x.food + x.staff + x.running);
     const booksSales = p.sales || sales;
-    const foodPct = booksSales ? (p.food / booksSales) * 100 : null, staffPct = booksSales ? (p.staff / booksSales) * 100 : null;
+    const theory = theoreticalStock(booksSales, menuPct.data ?? null, wasteQ.data ?? 0);
+    const stockUsed = p.food ? p.food : theory;
+    const staff = accruedStaff(month, p.staff || null, payroll, daysGone, dim, usualStaff, booksSales);
+    const runningSoFar = isCurrent ? (p.running * Math.min(daysGone, dim)) / dim : p.running;
+    const profit = accruedProfit(booksSales, stockUsed, staff.amount, runningSoFar);
+    const missingDays = isCurrent ? Math.max(0, daysGone - days) : 0;
     const bankIds = new Set(bankGl.data ?? []);
     const cash = homeFin.data?.cash ?? 0;
     const money = (n: number, has: boolean) => (has ? short(n) : "—");
@@ -226,12 +251,12 @@ export default function Landing() {
         sub: !days ? "No sales recorded yet" : guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
         ...(target ? { status: `${pace >= target ? "On track" : "Behind"} · target ${short(target)}`, tone: pace >= target ? "ok" : "amb" } as const
           : { status: isCurrent && days ? `Heading for ${short(pace)} · no target` : "No target set", tone: "quiet" } as const) },
-      { label: "Stock bought", value: money(p.food, p.food !== 0), to: "/procurement", sub: foodPct != null && p.food !== 0 ? `${pctTxt(foodPct)} of sales` : "Not booked yet",
-        ...(foodPct != null && p.food !== 0 && usualFood ? { status: foodPct < usualFood / 2 ? `Looks incomplete · usual ${pctTxt(usualFood)}` : `Usual ${pctTxt(usualFood)}`, tone: foodPct < usualFood / 2 || foodPct > usualFood + 1 ? "amb" : "ok" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: "Staff cost", value: money(p.staff, p.staff !== 0), to: "/hr/payroll", sub: staffPct != null && p.staff !== 0 ? `${pctTxt(staffPct)} of sales` : "Payroll not booked yet",
-        ...(staffPct != null && p.staff !== 0 && usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staffPct <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
-      { label: isCurrent ? "Profit so far" : "Profit", value: money(p.profit, p.food !== 0 && p.staff !== 0), to: "/finance/reports?view=pl", sub: p.food !== 0 && p.staff !== 0 && booksSales ? `${pctTxt((p.profit / booksSales) * 100)} of sales` : "Needs stock and payroll booked",
-        ...(usualProfit != null && !isCurrent ? { status: `Usual ${short(usualProfit)}`, tone: p.profit >= usualProfit ? "ok" : "amb" } as const : { status: isCurrent ? "Books still filling in" : "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: "Stock used", value: money(stockUsed ?? 0, stockUsed != null), to: "/procurement/menu-costing", sub: stockUsed != null && booksSales ? `${pctTxt((stockUsed / booksSales) * 100)} of sales · ${p.food ? "booked" : "theoretical"}` : "No recipes or stock booked yet",
+        ...(theory != null ? { status: p.food ? `Theoretical ${short(theory)}${Math.abs(p.food - theory) > theory * 0.1 ? ` · gap ${short(p.food - theory)}` : ""}` : `Booked ${short(p.food)} · from menu + waste`, tone: p.food && Math.abs(p.food - theory) > theory * 0.1 ? "amb" : "ok" } as const : { status: p.food ? `Booked ${short(p.food)}` : "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : "accrued so far"}` : "No payroll history yet",
+        ...(usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staff.amount != null && booksSales && (staff.amount / booksSales) * 100 <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+      { label: isCurrent ? "Profit so far" : "Profit", value: money(profit ?? 0, profit != null), to: "/finance/reports?view=pl", sub: profit != null && booksSales ? `${pctTxt((profit / booksSales) * 100)} of sales · accrual basis` : "Needs sales and recipes",
+        ...(missingDays > 0 ? { status: `Sales missing for ${missingDays} of ${daysGone} days`, tone: "amb" } as const : usualProfit != null ? { status: `Usual ${short(isCurrent ? usualProfit * daysGone / dim : usualProfit)}${isCurrent ? " by now" : ""}`, tone: profit != null && profit >= (isCurrent ? usualProfit * daysGone / dim : usualProfit) ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
         ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
@@ -248,7 +273,7 @@ export default function Landing() {
       return { m, food: x.sales && x.food ? (x.food / x.sales) * 100 : null, staff: x.sales && x.staff ? (x.staff / x.sales) * 100 : null }; })
       .filter((x) => x.food != null || x.staff != null);
     return { tiles, week, low, trend, hasTarget: !!target };
-  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Month-end checklist for last month, until it is closed.
   const closed = books.closed.some((c: any) => c.month_start === `${closeMonth}-01` && !c.reopened_at);

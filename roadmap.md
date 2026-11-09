@@ -445,3 +445,10 @@
 - [x] Month-end checklist: Bani explains what's open and fixes it conversationally
 - [x] Set revenue target conversationally (orb)
 - [x] Set rota conversationally (orb, People)
+
+## Bani advisor, menu costs, accrual Home, chat across screens — current request
+- [x] Bani advises with options and a recommendation, checks seat turns, never gives app step instructions.
+- [x] Maison Francis: 15 dishes with recipes priced from latest supplier invoices; ingredient pack sizes corrected.
+- [x] Home: staff cost accrued, stock used = booked or theoretical (menu recipes + waste), profit so far on accrual basis, missing sales flagged.
+- [x] Chat stays open across screens; "Back to your conversation" on Home.
+- Limit: theoretical stock uses the average recipe food cost, not dish-by-dish sales — no dish-level sales are recorded yet.
