@@ -21,16 +21,29 @@
 .floating-bani-answer { margin-bottom: 1rem; font-size: 14px; line-height: 1.5; }
 .floating-bani-user { margin: 0 0 .9rem auto; max-width: 85%; width: fit-content; display: flex; flex-direction: column; align-items: flex-end; gap: .4rem; font-size: 14px; line-height: 1.5; }
 .floating-bani-user .floating-bani-prose { padding: .55rem .9rem; border-radius: 14px 14px 4px 14px; background: var(--fb-accent); }
-.floating-bani-prose { overflow-wrap: anywhere; }
-.floating-bani-prose p + p, .floating-bani-prose ul, .floating-bani-prose ol { margin-top: .5rem; }
+.floating-bani-prose { overflow-wrap: anywhere; line-height: 1.65; min-width: 0; }
+.floating-bani-prose > * + * { margin-top: .85rem; }
+.floating-bani-prose h1, .floating-bani-prose h2, .floating-bani-prose h3, .floating-bani-prose h4 { font-family: "Space Grotesk", system-ui, sans-serif; font-size: 15px; font-weight: 600; line-height: 1.4; margin-top: 1.4rem; color: var(--fb-ink); }
+.floating-bani-prose > :first-child { margin-top: 0; }
 .floating-bani-prose ul { list-style: disc; padding-inline-start: 1.2rem; }
 .floating-bani-prose ol { list-style: decimal; padding-inline-start: 1.2rem; }
-.floating-bani-prose strong { color: var(--fb-ink); }
-.floating-bani-prose table { display: block; max-width: 100%; overflow-x: auto; margin-top: .5rem; font-size: .85rem; }
-.floating-bani-prose table { border-collapse: collapse; border: 1px solid var(--fb-line); border-radius: 10px; }
-.floating-bani-prose th, .floating-bani-prose td { padding: .4rem .6rem; border-bottom: 1px solid var(--fb-line); text-align: left; white-space: nowrap; }
-.floating-bani-prose th { font-weight: 600; font-size: .78rem; color: var(--fb-ink); }
+.floating-bani-prose li + li { margin-top: .65rem; }
+.floating-bani-prose li > p + p, .floating-bani-prose li > ul, .floating-bani-prose li > ol { margin-top: .5rem; }
+.floating-bani-prose li::marker { color: var(--fb-muted); }
+.floating-bani-prose strong { color: var(--fb-ink); font-weight: 600; }
+.floating-bani-prose blockquote { padding: .75rem 1rem; border-inline-start: 3px solid var(--fb-wave); background: var(--fb-glass); border-radius: 0 6px 6px 0; }
+.floating-bani-prose blockquote p + p { margin-top: .5rem; }
+.floating-bani-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--fb-line); border-radius: 8px; background: var(--fb-panel); }
+.floating-bani-table-wrap:focus-visible { outline: 2px solid var(--fb-wave); outline-offset: 2px; }
+.floating-bani-prose table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.5; }
+.floating-bani-prose th, .floating-bani-prose td { padding: .65rem .8rem; border-bottom: 1px solid var(--fb-line); text-align: start; vertical-align: top; min-width: 6rem; }
+.floating-bani-prose th + th, .floating-bani-prose td + td { border-inline-start: 1px solid var(--fb-line); }
+.floating-bani-prose th { font-weight: 600; font-size: 12px; color: var(--fb-ink); background: var(--fb-accent); }
 .floating-bani-prose td { font-variant-numeric: tabular-nums; }
+.floating-bani-prose td.td-num { white-space: nowrap; }
+.floating-bani-prose tbody tr:nth-child(even) { background: var(--fb-glass); }
+.floating-bani-prose tbody tr:last-child td { border-bottom: 0; }
+.floating-bani-table-wrap + p:has(> em:only-child), .floating-bani-prose > p:has(> em:only-child) { font-size: 12px; line-height: 1.5; color: var(--fb-muted); }
 .floating-bani-sent-files { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
 .floating-bani-file-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .7rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-size: .82rem; }
 .floating-bani-change { margin-top: .6rem; padding: .7rem .8rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); }

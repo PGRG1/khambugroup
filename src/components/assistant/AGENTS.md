@@ -1,5 +1,7 @@
 # Assistant voice architecture
 
+- Floating Bani's remarkFinancialTables adds presentation-only numeric alignment; explicit Markdown alignment and all evidence text remain unchanged so formatting cannot alter financial facts or actions.
+
 Apply these rules to assistant voice capture, dictation, playback and server voice integration changes.
 
 - Voice routing uses the existing reasoning turn and full conversation, and acknowledgements originate only from confirmed tool work; bounded non-confidential session clips share one cancellable media element. Final speech extracts complete prose without a second model request, keeping text independent of audio.

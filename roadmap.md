@@ -1,3 +1,7 @@
+## Bani chat readability — current request
+- [x] Improved reply hierarchy, financial table alignment/spacing and callouts without changing records or action workflows.
+- [x] Deployed reply-formatting guidance; signed-in October sales comparison renders on desktop and phone. 22 existing chat/voice/attachment safeguards pass; preview build OK.
+
 ## Bani conversational operations — current request
 - [x] Added requester-scoped invoice/bill/receipt inspection, cross-department allowlisted navigation and saved invoice/bill deep-links; invoice navigation skips existing GRN auto-heal writes.
 - [x] Added atomic owned-card ordinary bill approval/posting and receipt clear/timed stale-safe Undo. Existing People actions retained. Bills require review + checkbox + exact typed confirmation; recurring/asset/split bills and disputes retain existing guarded screens.
