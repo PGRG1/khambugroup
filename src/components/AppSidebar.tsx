@@ -460,6 +460,7 @@ export function AppSidebar() {
             </button>}
       </DropdownMenuTrigger>
       <DropdownMenuContent side={collapsed ? "right" : "top"} align={collapsed ? "end" : "start"} className="w-52">
+        <TenantSwitcher />
         <DropdownMenuItem className="gap-2.5" onSelect={() => setAccountOpen(true)}><UserRound className="h-4 w-4" />Your account</DropdownMenuItem>
         <DropdownMenuItem className="gap-2.5" onSelect={signOut}><LogOut className="h-4 w-4" />Sign out</DropdownMenuItem>
       </DropdownMenuContent>

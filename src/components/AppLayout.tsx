@@ -61,7 +61,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex min-w-0 items-center gap-2">
               {pathname === "/assistant" && <div id="assistant-topbar-actions" className="flex items-center gap-2" />}
               <VenueScopePicker />
-              <div className="shrink-0"><UserMenu /></div>
             </div>
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
