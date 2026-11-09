@@ -1214,6 +1214,50 @@ export type Database = {
           },
         ]
       }
+      bani_chats: {
+        Row: {
+          created_at: string
+          id: string
+          last: string
+          messages: Json
+          named: boolean
+          tenant_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          last?: string
+          messages?: Json
+          named?: boolean
+          tenant_id: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last?: string
+          messages?: Json
+          named?: boolean
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bani_chats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bani_memory_notes: {
         Row: {
           created_at: string
