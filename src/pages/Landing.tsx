@@ -411,7 +411,7 @@ export default function Landing() {
           <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
           <div className="l2-ch"><div className="pt">Sales by weekday <span>· average a day, last 8 weeks</span></div>
-            {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><i style={{ height: `calc((100% - 34px) * ${(w.v / maxW).toFixed(3)})` }} className={k.low?.d === w.d ? "low" : ""} /><span className="pd">{w.d}</span></div>)}</div>
+            {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><span className="l2-pm-bar"><i style={{ height: w.v > 0 ? `max(4px, ${(w.v / maxW) * 100}%)` : "0px" }} className={k.low?.d === w.d ? "low" : ""} /></span><span className="pd">{w.d}</span></div>)}</div>
               : <p className="l2-empty">No sales in the last 8 weeks.</p>}</div>
         </section>
         <section className="l2-col">

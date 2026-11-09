@@ -98,13 +98,15 @@
 .l2-bud{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:8px;padding:6px 10px;border:0;border-radius:8px;background:#F4F7F5;font-size:12.5px;color:var(--mut);text-align:left;cursor:pointer}
 .l2-bud b{color:var(--brand);font-weight:500}
 .l2-bud .cbar{flex:1;height:6px;border-radius:4px;background:var(--track);overflow:hidden}.l2-bud .cbar i{display:block;height:100%;background:var(--pos)}.l2-bud .cbar i.over{background:#D9822B}
-.l2 .l2-pm{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0 8px;height:clamp(100px,12vh,140px)}
-.l2-pm::after{content:"";position:absolute;left:8px;right:8px;bottom:36px;border-top:1px solid var(--line);pointer-events:none}
-.l2-pm>div{display:grid;grid-template-rows:18px minmax(0,1fr) 36px;min-width:0;align-items:stretch;text-align:center}
-.l2-pm .pv{margin:0;line-height:18px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.l2-col:nth-child(-n+2)>.l2-ch{margin-top:auto}
+.l2-col:nth-child(-n+2)>.l2-ch .pt{min-height:39px}
+.l2 .l2-bars{position:relative;display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;gap:8px;padding:0 8px;height:clamp(100px,12vh,140px)}
+.l2-bars::after{content:"";position:absolute;left:8px;right:8px;bottom:36px;border-top:1px solid var(--line);pointer-events:none}
+.l2-bars>div{display:grid;grid-template-rows:18px minmax(0,1fr) 36px;min-width:0;align-items:stretch;text-align:center}
+.l2-bars .pv{margin:0;line-height:18px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .l2-pm-bar{display:flex;align-items:flex-end;justify-content:center;min-height:0;padding-top:4px}
-.l2-pm i{width:56%;flex:none}.l2-pm i.old{background:#7FD3A8}
-.l2-pm .pd{margin:0;padding-top:4px;line-height:15px;display:flex;flex-direction:column;align-items:center;white-space:nowrap}
+.l2-bars i{width:70%;max-width:34px;flex:none}.l2-pm i.old{background:var(--pos)}
+.l2-bars .pd{margin:0;padding-top:4px;line-height:15px;display:flex;flex-direction:column;align-items:center;white-space:nowrap}
 .l2-pl{font-size:13.5px;color:#3D4A44}
 .l2-pl>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0}
 .l2-pl u{text-decoration:none;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#2F5E5A;background:#EEF2EF;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
