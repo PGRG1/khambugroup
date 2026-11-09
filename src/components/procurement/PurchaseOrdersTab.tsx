@@ -320,7 +320,9 @@ export default function PurchaseOrdersTab() {
         {newPoButton}
       </div>
 
-      {!loading && pos.length === 0 ? (
+      {loading ? (
+        <div className="card-glass rounded-xl border border-border/60 h-40 animate-pulse" aria-label="Loading purchase orders" />
+      ) : pos.length === 0 ? (
         <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
           <p className="font-display text-base font-semibold text-foreground">No purchase orders yet</p>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">Purchase orders are optional. Use one when you want to agree quantities and prices before the delivery; Bani then checks the delivery and invoice against it.</p>

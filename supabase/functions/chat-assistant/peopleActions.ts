@@ -40,7 +40,7 @@ export async function peopleContext(client: Client, tenant: string, user: string
   const allowed = (await Promise.all(venues.map(async v => await rpc(client, "rota_manager", { t: tenant, v: v.id, u: user }) ? v : null))).filter(Boolean);
   let shifts: any[] = [];
   if (args.week_start) {
-    const w = monday(args.week_start); const venue = allowed.find(v => v.name.toLowerCase() === String(args.venue ?? "").toLowerCase());
+    const w = monday(args.week_start); const venue = allowed.length === 1 && !args.venue ? allowed[0] : allowed.find(v => v.name.toLowerCase() === String(args.venue ?? "").toLowerCase());
     if (!venue) throw new Error("Which venue is this rota for?");
     shifts = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", w).lte("shift_date", addDays(w, 6)))).filter(s => s.venue_id === venue.id || !s.venue_id && people.some(p => p.id === s.employee_id && p.venue_id === venue.id));
   }
@@ -53,7 +53,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
   const instruction = userText;
   const ctx = await peopleContext(client, tenant, user, {});
   const person = () => { establishedScope(scopeText, a.person ?? "", "person"); return exactPerson(a.person ?? "", ctx.people); };
-  const venue = () => { establishedScope(scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
+  const venue = () => { if (ctx.venues.length === 1 && (!a.venue || a.venue.toLowerCase() === ctx.venues[0].name.toLowerCase())) return ctx.venues[0]; establishedScope(scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
   const p: any = { operation: a.operation, instruction };
   let title = "People", detail = "", link = "/hr/employees";
   if(a.operation==='team_working'){

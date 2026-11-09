@@ -1,11 +1,11 @@
 .rota-page {min-width:0;max-width:100%;overflow-x:clip;}
 .rota-grid-scroll {max-width:100%;overflow-x:auto;}
 .rota-table {width:100%;min-width:880px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;}
-.rota-table th,.rota-table td {padding:10px 4px;border-bottom:1px solid hsl(var(--border));vertical-align:middle;overflow-wrap:anywhere;}
+.rota-table th,.rota-table td {padding:3px 4px;border-bottom:1px solid hsl(var(--border));vertical-align:middle;overflow-wrap:anywhere;}
 .rota-table th {font-weight:500;color:hsl(var(--muted-foreground));text-align:left;}
 .rota-table .person-col {width:18%;}
-.rota-cell {height:76px;min-width:0;}
-.rota-cell [data-rota-cell] {display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:100%;height:auto;min-height:56px;white-space:normal;padding:4px;font-size:11px;text-align:left;}
+.rota-cell {height:40px;min-width:0;}
+.rota-cell [data-rota-cell] {display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:100%;height:auto;min-height:32px;white-space:normal;padding:2px 4px;font-size:11px;text-align:left;}
 .rota-role-row th {padding:8px 4px;color:hsl(var(--muted-foreground));font-size:11px;}
 .rota-page .rota-leave-cell {background:hsl(var(--info) / 0.1);}
 .rota-page .rota-off-cell {background:hsl(var(--muted));color:hsl(var(--muted-foreground));}
