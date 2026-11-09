@@ -23,6 +23,9 @@ Deno.serve(async (req) => {
     const { fileBase64, mimeType, productMaster, suppliers, files } = body;
     if (!auth.user) return new Response("Unauthorized", { status: 401, headers: corsHeaders });
     const scoped = await documentContext(auth.user.id, body.tenantId ?? null, req.headers.get("Authorization") ?? "", "invoice");
+    // This restaurant's own venues; with only one, every invoice is for it.
+    const venueList = scoped.venues.join(", ") || "none";
+    const soleVenue = scoped.venues.length === 1 ? scoped.venues[0] : null;
 
     let fileEntries: { base64: string; mimeType: string }[] = [];
     if (files && Array.isArray(files) && files.length > 0) {
@@ -47,7 +50,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a highly accurate invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
+    const systemPrompt = `You are a highly accurate invoice data extractor for a restaurant/bar business (venues: ${venueList}). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
 
 CRITICAL — READ NUMBERS WITH EXTREME CARE:
 - Read EVERY digit individually. Do not guess or approximate.
@@ -146,9 +149,9 @@ CRITICAL — INVOICE / DOCUMENT IDENTIFIER PRECEDENCE:
 - If both appear, always take the Invoice/Document/Delivery Note number. Put any reference numbers in "notes" if useful.
 
 CRITICAL — VENUE PRECEDENCE:
-- Venue must be one of: Assembly, Caliente, Hanabi.
-- FIRST: if an explicit venue / customer / trading-as name is printed anywhere (e.g. "T/A ASSEMBLY", "Assembly", "Caliente", "Hanabi" in the customer, bill-to, ship-to or delivery name), that explicit name WINS.
-- ONLY when no explicit venue name is printed anywhere, fall back to address heuristics (e.g. "Knutsford Terrace" suggests Caliente).
+- Venue must be one of: ${venueList}.
+- FIRST: if an explicit venue / customer / trading-as name is printed anywhere (e.g. "T/A <venue>" or the venue name in the customer, bill-to, ship-to or delivery name), that explicit name WINS.
+- ONLY when no explicit venue name is printed anywhere, fall back to address heuristics (a delivery address that clearly belongs to one venue).
 - Never let an address heuristic override an explicitly printed venue name.
 
 Rules:
@@ -519,7 +522,7 @@ Rules:
       ...(Array.isArray(suppliers) ? suppliers.map((s: any) => s?.name).filter(Boolean) : []),
       ...pmRows.map((p: any) => p?.supplier).filter(Boolean),
     ]));
-    const knownVenues = ["Assembly", "Caliente", "Hanabi"];
+    const knownVenues = scoped.venues;
     const findTrustedProductMatch = (line: any, supplierName: string, requestedSku?: string) => {
       const code = normalizeSku(line?.scanned_item_code || line?.item_code);
       const rawDescription = line?.scanned_description || line?.description;
@@ -593,12 +596,12 @@ HEADER FIELDS YOU ARE RESPONSIBLE FOR:
 - supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
 - For supplier_name, invoice_number, invoice_date, due_date, and venue: compare Agent 1's value to the actual source image.
 - If Agent 1 is wrong and the correct value is visible, return a header_correction. The correction will be applied to the invoice.
-- Venue must be one of: Assembly, Caliente, Hanabi. An explicitly printed venue / trading-as / customer name (e.g. "T/A ASSEMBLY") ALWAYS wins. Address heuristics (e.g. Knutsford Terrace suggesting Caliente) are a fallback only when no explicit venue name is printed.
+- Venue must be one of: ${venueList}. An explicitly printed venue / trading-as / customer name ALWAYS wins. Address heuristics are a fallback only when no explicit venue name is printed.
 - Dates must be corrected from the printed invoice date, not inferred from upload date or current date.
 
 YOU MAY SAFELY CORRECT (return in line_corrections / header_corrections):
 - supplier_name: if the printed supplier is clear, preserving exact printed spelling/Chinese characters when possible
-- venue: if delivery/customer text clearly indicates Assembly, Caliente, or Hanabi
+- venue: if delivery/customer text clearly indicates one of ${venueList}
 - invoice_number: if every character is visible or Agent 1 has an obvious OCR error. invoice_number must come from "Invoice No" / "Document No" / "Delivery Note No" — never from "Sales Order No", "D365 No", "PO No" or "Customer PO".
 - invoice_date / due_date: normalize to YYYY-MM-DD from the printed date
 - currency: normalize codes (HKD, USD, etc.)
@@ -871,6 +874,8 @@ Return ONLY by calling the report_review function.`;
       review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
       review.line_corrections = Array.isArray(review.line_corrections) ? review.line_corrections : [];
       review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
+      // One venue: nothing to verify, so drop the reviewer's venue warnings.
+      if (soleVenue) review.header_flags = review.header_flags.filter((f: any) => f?.field !== "venue");
       review.line_flags = Array.isArray(review.line_flags) ? review.line_flags : [];
       review.item_master = Array.isArray(review.item_master) ? review.item_master : [];
       review.line_replacements = Array.isArray(review.line_replacements) ? review.line_replacements : [];
@@ -948,12 +953,14 @@ Return ONLY by calling the report_review function.`;
       for (const check of review.header_checks) headerCheckByKey.set(`${check.invoice_index}:${check.field}`, check);
 
       invoicesArray.forEach((inv: any, invoice_index: number) => {
+        if (soleVenue) inv.venue = soleVenue;
         for (const field of ["supplier_name", "invoice_number", "invoice_date"]) {
           if (!String(inv?.[field] || "").trim()) {
             pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} is missing.` });
           }
         }
         for (const field of ["supplier_name", "venue", "invoice_number", "invoice_date", "total_amount"]) {
+          if (field === "venue" && soleVenue) continue;
           const check = headerCheckByKey.get(`${invoice_index}:${field}`);
           if (!check) {
             pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `Agent 2 did not verify ${field.replace(/_/g, " ")} against the invoice image.` });
@@ -974,7 +981,7 @@ Return ONLY by calling the report_review function.`;
           }
         }
         if (!knownVenues.includes(inv?.venue)) {
-          pushFlag(review.header_flags, { invoice_index, field: "venue", severity: "blocking", message: "Venue is missing or not one of Assembly, Caliente, Hanabi." });
+          pushFlag(review.header_flags, { invoice_index, field: "venue", severity: "blocking", message: `Venue is missing or not one of ${venueList}.` });
         }
 
         (inv.line_items || []).forEach((line: any, line_index: number) => {
