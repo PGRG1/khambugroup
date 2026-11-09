@@ -8,7 +8,7 @@
 .l2-team-btn{color:inherit}
 /* One continuous cycle: staggered avatars, a wave, then moving colour through the words. Pointer entry never resets it. */
 .l2-tw{position:relative;display:inline-block;margin-right:5px}
-.l2-tw-w{display:inline-block;animation:l2words 8.6s ease-in-out infinite}
+.l2-tw-w{display:inline-block;background:var(--bani-team-sheen);background-size:250% 100%;background-clip:text;-webkit-background-clip:text;animation:l2words 8.6s ease-in-out infinite,l2sheen 4.3s linear infinite}
 .l2-tw-a{position:absolute;inset:-5px 0;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
 .l2-av{width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid #fff;background:#EEF2EF;display:grid;place-items:center;box-shadow:0 2px 6px rgba(20,35,31,.18);
   animation:l2teamCycle 8.6s ease-in-out calc(var(--i) * .12s) infinite both}
