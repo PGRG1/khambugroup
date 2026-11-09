@@ -251,3 +251,24 @@
 .floating-bani-composer.is-tall { border-radius: 22px; }
 .floating-bani-panel.is-home .floating-bani-composer.is-tall { border-radius: 26px; }
 .floating-bani-composer.is-tall .floating-bani-attachments { padding: .6rem .6rem .15rem .6rem; }
+/* Slim bar, like ChatGPT */
+.floating-bani-composer { padding: 5px; }
+.floating-bani-typing { padding: 0; gap: 4px; align-items: center; }
+.floating-bani-panel.is-home .floating-bani-composer { border-color: #E2E6E3; box-shadow: 0 1px 2px rgba(18,21,16,.04), 0 6px 20px -8px rgba(18,21,16,.14); }
+.floating-bani-typing .floating-bani-plus, .floating-bani-typing .floating-bani-send { width: 36px; height: 36px; }
+.floating-bani-typing .floating-bani-mic { width: 34px; height: 36px; color: var(--fb-ink); }
+.floating-bani-typing .floating-bani-plus svg { width: 20px; height: 20px; }
+.floating-bani-typing .floating-bani-send svg { width: 18px; height: 18px; }
+.floating-bani-typing:not(.is-tall) > .floating-bani-input { height: 36px; min-height: 36px; padding-top: 7px; padding-bottom: 7px; }
+/* Drop files: only the chat blurs */
+.floating-bani-panel.is-wide .floating-bani-main { position: relative; }
+.fb-drop { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: rgba(244,246,245,.62); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); color: #121510; }
+.fb-drop-ic { display: flex; align-items: flex-end; gap: 14px; color: #3D4A44; margin-bottom: 6px; }
+.fb-drop-ic svg { width: 30px; height: 30px; stroke-width: 1.6; }
+.fb-drop-ic .l { transform: rotate(-14deg) translateY(4px); }
+.fb-drop-ic .r { transform: rotate(14deg) translateY(4px); }
+.fb-drop b { font-size: 16px; font-weight: 500; }
+.fb-drop span { font-size: 13px; color: #5F6B65; }
+.floating-bani-panel.is-home:not(.is-talking) .floating-bani-composer.is-dropping { position: relative; height: 172px; display: flex; flex-direction: column; justify-content: flex-end; border: 1.5px dashed #9FB3AA; border-radius: 26px; background: rgba(255,255,255,.55); box-shadow: none; }
+.floating-bani-composer.is-dropping > :not(.fb-drop) { filter: blur(5px); opacity: .7; }
+.floating-bani-composer.is-dropping .fb-drop { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -306,6 +306,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   }, [draft, files.length, allowed, voiceMode, dictation.state, tall]); // eslint-disable-line react-hooks/exhaustive-deps
   const [asked, setAsked] = store?.ask ?? [null, () => {}];
   useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" }, fresh: home }); }, [asked, busy, session, tenantId, setAsked, home]);
+  // Home: a file dragged anywhere on the page opens the bar as a drop box, and a drop anywhere lands in the bar.
+  const homeDrop = home && !open && allowed && !host;
+  const addFilesRef = useRef<(list: FileList) => void>(() => {});
+  useEffect(() => {
+    if (!homeDrop) return;
+    const isFiles = (e: globalThis.DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+    const over = (e: globalThis.DragEvent) => { if (!isFiles(e)) return; e.preventDefault(); setDropping(true); };
+    const leave = (e: globalThis.DragEvent) => { if (!e.relatedTarget) setDropping(false); };
+    const drop = (e: globalThis.DragEvent) => { if (!isFiles(e)) return; e.preventDefault(); setDropping(false); if (e.dataTransfer?.files.length) addFilesRef.current(e.dataTransfer.files); };
+    window.addEventListener("dragenter", over); window.addEventListener("dragover", over); window.addEventListener("dragleave", leave); window.addEventListener("drop", drop);
+    return () => { setDropping(false); window.removeEventListener("dragenter", over); window.removeEventListener("dragover", over); window.removeEventListener("dragleave", leave); window.removeEventListener("drop", drop); };
+  }, [homeDrop]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
@@ -560,8 +572,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (panelDrag.current?.id === e.pointerId) panelDrag.current = null;
   };
 
-  const onDrag = (e: DragEvent) => { if (!Array.from(e.dataTransfer.types).includes("Files")) return; e.preventDefault(); setDropping(e.type !== "dragleave"); };
+  const onDrag = (e: DragEvent) => { if (!Array.from(e.dataTransfer.types).includes("Files")) return; e.preventDefault(); if (e.type === "dragleave" && e.currentTarget.contains(e.relatedTarget as Node | null)) return; setDropping(e.type !== "dragleave"); };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDropping(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
+  // In a conversation the whole chat takes drops; on Home only the bar does.
+  const chatDrop = open || !home;
+  const dropProps = { onDragEnter: onDrag, onDragOver: onDrag, onDragLeave: onDrag, onDrop };
+  addFilesRef.current = addFiles;
 
   const mobileH = Math.min(620, vv.h - 16);
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
@@ -577,7 +593,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <BaniChatList chats={savedChats} activeId={chatId} onPick={(c) => { setMessages(c.messages as BaniMessage[]); setChatId(c.id); setDraft(""); }} onNew={newChat}
             onDelete={(c) => { deleteChat(scope, c.id); if (c.id === chatId) newChat(); }} />
         </aside>}
-        <div className="floating-bani-main">
+        <div className="floating-bani-main" {...(chatDrop ? dropProps : {})}>
         {home ? (open && <div className="fb-top">
           {!isMobile && !paneOpen && <><button type="button" className="fb-pane-btn" aria-label="Show chat history" title="Show chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button></>}
           {renaming != null
@@ -666,7 +682,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
         {home && !open && hasConversation.current && <button type="button" className="floating-bani-resume" onClick={() => setOpen(true)}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
-        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onDragEnter={onDrag} onDragOver={onDrag} onDragLeave={onDrag} onDrop={onDrop} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
+        <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
             <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
             <div className="fb-att-nm"><b className={f.type.startsWith("image/") ? "img" : ext === "PDF" ? "pdf" : ""}>{ext || "FILE"}</b><span className="truncate">{f.name}</span></div>
@@ -697,7 +713,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
               : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
           </div>}
+          {homeDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </form>
+        {chatDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </div>
       </section>
     ) : null}
