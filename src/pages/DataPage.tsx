@@ -5,6 +5,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { consumeSalesHandoff, decideSalesHandoff, peekSalesHandoff, subscribeSalesHandoff } from "@/utils/scannerHandoff";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSalesData } from "@/hooks/useSalesData";
@@ -267,6 +268,13 @@ const DataPage = () => {
               closedLookup={closures.lookup}
               openKey={openItem ? itemKey(openItem) : null}
               onOpen={setOpenItem}
+              onQuickClose={isAdmin ? async (venueId, date) => {
+                const ok = await closures.markClosed(venueId, date, null, null);
+                toast(ok
+                  ? { title: "Marked closed", action: <ToastAction altText="Undo" onClick={() => { void closures.unmark(venueId, date); }}>Undo</ToastAction> }
+                  : { title: "Couldn't mark it closed", description: "Only admins and managers with access to this venue can.", variant: "destructive" });
+                return ok;
+              } : undefined}
               onAddDay={isAdmin && !hideManualEntry ? (date, venue) => {
                 closePanels(); setPrefill({ date, venue }); setShowManual(true);
                 requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));

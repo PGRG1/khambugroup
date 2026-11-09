@@ -65,9 +65,11 @@ export interface DailyRecordsProps {
   openKey: string | null;
   onOpen: (item: DayItem) => void;
   onAddDay?: (date: string, venue: string) => void;
+  onQuickClose?: (venueId: string, date: string) => Promise<boolean>;
 }
 
-export function DailyRecords({ records, history, userId, venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, closedLookup, openKey, onOpen, onAddDay }: DailyRecordsProps) {
+export function DailyRecords({ records, history, userId, venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, closedLookup, openKey, onOpen, onAddDay, onQuickClose }: DailyRecordsProps) {
+  const [closing, setClosing] = useState<string | null>(null);
   const [f, setF] = useState<Filters>(EMPTY);
   const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
   const storageKey = userId ? `sales-record-columns:${userId}` : null;
@@ -329,7 +331,15 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
                   if (k === "venue") return <td key={k} style={colMove(k)} className={`sales-cell-left${dc(k)}`} title={venueLabel}>{venueLabel}</td>;
                   if (x.kind !== "record") {
                     if (k === "guests") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>—</td>;
-                    if (k === "sales") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)} ${x.kind === "missing" ? "sales-nosales" : ""}`}>{x.kind === "missing" ? "No sales" : "Closed"}</td>;
+                    if (k === "sales") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)} ${x.kind === "missing" ? "sales-nosales" : ""}`}>
+                      {x.kind === "missing" ? <span className="inline-flex items-center justify-end gap-2">
+                        {onQuickClose && <button type="button" className="kit-btn kit-btn-secondary !h-7 !px-2 !text-[12px] font-sans" disabled={closing === key}
+                          aria-label={`Mark ${shortDay(date)} ${x.venue} closed`}
+                          onClick={async (e) => { e.stopPropagation(); setClosing(key); try { await onQuickClose(x.venueId, date); } finally { setClosing(null); } }}
+                          onKeyDown={(e) => e.stopPropagation()}>{closing === key ? "Marking…" : "Mark closed"}</button>}
+                        <span>No sales</span>
+                      </span> : "Closed"}
+                    </td>;
                     return <td key={k} style={colMove(k)} className={dc(k)} />;
                   }
                   if (k === "guests") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>{formatTableInteger(x.r.guests)}</td>;
