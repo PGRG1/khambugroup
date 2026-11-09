@@ -108,7 +108,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // In-card voice conversation: the same voice loop as the Bani AI page, never navigating away.
   const [voiceMode, setVoiceMode] = useState(false);
   type VoiceOpts = { voice: boolean; voiceLanguage: string; onSpeak?: (s: SpeakEvent) => void; onStatus?: (label: string) => void };
-  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => Promise<void>>(async () => {});
+  const sendRef = useRef<(turn?: { text: string; opts: VoiceOpts; hidden?: boolean; fresh?: boolean }) => Promise<void>>(async () => {});
   const voice = useVoiceConversation({
     active: voiceMode,
     getAuth: () => ({ token: session?.access_token ?? null, tenantId }),
@@ -248,7 +248,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; if (keepOpenNav.current) { keepOpenNav.current = false; return; } if (!hasConversation.current) setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
   const [asked, setAsked] = store?.ask ?? [null, () => {}];
-  useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" } }); }, [asked, busy, session, tenantId, setAsked]);
+  useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" }, fresh: home }); }, [asked, busy, session, tenantId, setAsked, home]);
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
@@ -339,7 +339,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     }
   };
 
-  const send = async (turn?: { text: string; opts: VoiceOpts; hidden?: boolean }) => {
+  const send = async (turn?: { text: string; opts: VoiceOpts; hidden?: boolean; fresh?: boolean }) => {
     const typed = turn ? turn.text.trim() : draft.trim();
     const attached = filesRef.current;
     if ((!typed && !attached.length) || !session || !tenantId || (busy && !turn?.opts.voice)) {
@@ -354,6 +354,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     }
     if(activeItem?.kind==='missing_bank_statement'&&attached.length){stageBaniStatements(`${user?.id}:${tenantId}`,attached.map(a=>a.file));setFiles([]);setOpen(false);navigate('/finance/cash?bani_statements=1');return;}
 
+    // Anything started from Home (the bar, an attachment, a Home button) opens a new chat; the last one stays in Chat history.
+    const fresh = Boolean(turn?.fresh || (!turn && home && !open));
+    const earlier = fresh ? [] : messages;
+    if (fresh) { shownChat.current = null; setChatId(null); setActiveItem(null); }
     const requestIdentity = identity;
     abort.current?.abort();
     const controller = new AbortController(); abort.current = controller;
@@ -364,8 +368,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
     const staleNote = pending.data?.feed_health?.filter(f=>f.state==='broken').map(f=>`${f.name} data stops on ${f.complete_up_to??'its last successful date'}`).join('; ');
-    const history = recentBaniTurns([...messages.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
-    if (!turn?.hidden) setMessages(prev => [...prev, { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    const history = recentBaniTurns([...earlier.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
+    if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    else if (fresh) setMessages([]);
     if (attached.length) setLastFiles(attached);
     if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError(""); setStepLabel("");
