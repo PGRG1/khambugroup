@@ -1,3 +1,7 @@
+## Multi-day missing-sales conversation — current request
+- [x] Add date/weekday and historical evidence to the authoritative missing-day result; guide all-closed, all-traded or mixed-date decisions before cards or navigation.
+- [x] Nine focused evidence/navigation tests pass; deployed chat-assistant. Signed-in Maison Francis seven-day gap → mixed choice shows every date and asks whether remaining days traded, with no card or navigation. No business records changed; actual closure confirmation and report upload were not exercised.
+
 ## Bani chat readability — current request
 - [x] Improved reply hierarchy, financial table alignment/spacing and callouts without changing records or action workflows.
 - [x] Deployed reply-formatting guidance; signed-in October sales comparison renders on desktop and phone. 22 existing chat/voice/attachment safeguards pass; preview build OK.

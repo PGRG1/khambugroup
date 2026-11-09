@@ -1,5 +1,7 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { missingDayContext, missingSalesConversation } from "./missingSalesConversation.ts";
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
 import { menuMarginsTool, menuMargins } from './menuMargins.ts';
@@ -23,12 +25,6 @@ import {notificationPreferenceTool,notificationPreferences} from './notification
 import { memoryTool, proposeWaste, confirmWaste, WASTE_REASONS } from "./wasteActions.ts";
 import { loadTenantMemory, businessMemoryBlock, saveMemory } from "./contextMemory.ts";
 import { navigationTool, recordsTool, inspectRecords, navigateTo, proposeOperation } from './operations.ts';
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -306,12 +302,13 @@ const tools = [
     function: {
       name: "get_missing_sales_days",
       description:
-        "The authoritative list of MISSING sales days: for each venue, every day from its first recorded sale (or date_from) up to yesterday that has no sales record AND no closed mark. Use this whenever you need to know which days lack sales — never infer missing days from totals or aggregates. Days marked closed are excluded on purpose.",
+        "The authoritative list of MISSING sales days: for each venue, every day from its first recorded sale (or date_from) up to yesterday that has no sales record AND no closed mark. Use this whenever you need to know which days lack sales — never infer missing days from totals or aggregates. Days marked closed are excluded on purpose. Unresolved dates are not proof of trading or closure: discuss all-closed, all-traded or mixed before preparing any closure card. missing_day_context includes weekdays and prior same-weekday sales evidence; zero prior sales never proves a closed day.",
       parameters: {
         type: "object",
         properties: {
           venue: { type: "string", description: "Venue name exactly as stored, or omit for all venues." },
           date_from: { type: "string", description: "YYYY-MM-DD earliest day to consider (default: each venue's first recorded sale)." },
+          date_to: { type: "string", description: "YYYY-MM-DD last selected gap day; never later than yesterday." },
         },
       },
     },
@@ -1236,7 +1233,9 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
       const todayHk = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
       const yesterday = new Date(`${todayHk}T00:00:00Z`);
       yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-      const to = yesterday.toISOString().slice(0, 10);
+      const yesterdayDate = yesterday.toISOString().slice(0, 10);
+      const requestedTo = typeof args.date_to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.date_to) ? args.date_to : null;
+      const to = requestedTo && requestedTo < yesterdayDate ? requestedTo : yesterdayDate;
       const [venues, sales, closures, rules] = await Promise.all([
         fetchAll<any>("venues", "id,name", (q) => q.eq("is_active", true)),
         fetchAll<any>("sales_records", "venue_id,date"),
@@ -1277,12 +1276,12 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
           const next = new Date(`${d}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
           d = next.toISOString().slice(0, 10);
         }
-        return { venue: v.name, missing_dates: missing };
+        return { venue: v.name, missing_dates: missing, missing_day_context: missingDayContext(missing, days) };
       });
       return {
         through: to,
         venues: result,
-        note: "Days marked closed are excluded. 'Through' is yesterday in the workspace timezone — today is never counted as missing because it may still be trading.",
+        note: "Days marked closed are excluded. 'Through' is the selected end date capped at yesterday in the workspace timezone. Today is never missing. These dates are unresolved, not confirmed trading or closed days; discuss their status before preparing changes.",
       };
     }
 
@@ -1576,7 +1575,8 @@ Deno.serve(async (req) => {
       conversation.splice(1,0,{role:'system',content:'When asked to prepare bill approval, call inspect_records then propose_action approve_bill immediately. Preparing the card does NOT post. Do not ask for typed approval in chat first: the actual posting card collects review and exact typed confirmation securely. Never substitute invented phrases such as I approve for the real card.'});
       conversation.splice(1,0,{role:'system',content:'Notifications are information-only business events. Housekeeping work is handled one root item at a time in plain sentences, never pushed. Keep existing action authorisations and confirmation cards; never pay money or approve payroll from chat. For unsupported work, state the existing page and wait for the user to confirm it was checked. Use notification_preferences only for explicit remembered instructions, list/forget requests. List actual saved instructions, never invented ones. Call list first to resolve an event ID. Never broaden role or venue access.'});
       conversation.splice(1, 0, { role: "system", content: "People drafts: emit at most ONE real People card per turn, then reply with one short line. Do not print fake Confirm/Cancel labels, card titles/details or pseudo-cards in prose. Use exact user instructions, never invented pay advice. Once a draft tool succeeds do not draft again in that turn." });
-      conversation.splice(1, 0, { role: "system", content: "How you work (this overrides any conflicting guidance): you are a sharp executive partner. 1) Overview first: when asked what needs the user or to go through items, call get_open_items and give a short grouped summary (each area in one line with real names, dates, amounts), then ask which to handle first via suggest_replies. Only go item by item if the user picks one or asks for it. 2) Act, don't interrogate: when the user asks for something you support, look up facts and prepare the real card(s) in the same turn with sensible defaults (closure and waste reasons optional); ask ONE question only when a required value is truly unknown. Enumerate individual dates as individual cards/days, never merge them into ranges unless asked. 3) Navigation needs consent: NEVER call navigate_to, open_invoice_scanner mode open or open_sales_scanner in a turn where you are first explaining a problem. State the problem, say what can be done, and offer a reply like 'Take me there'. Only navigate after the user explicitly asks or says yes; the chat stays open after. 4) Whenever you offer choices, call suggest_replies — never type options in [brackets], quotes or bullet menus. 5) Be honest: you never pay, record payments, contact suppliers or approve payroll. You CAN prepare approve_bill (posts on typed confirmation), resolve_receipt_intake, closed days, waste (log_waste), targets, budgets, rota/People drafts and team messages. If nothing needs doing, say so plainly. 6) Rota: before calling draft_people_action for any rota build/pattern/copy, first show the proposed week in chat as a markdown table (person rows, Mon–Sun columns, times or Rest) built from real recorded shifts, and ask via suggest_replies (e.g. Looks good / Change something). Only after the user agrees, prepare the card; Confirm saves it to the Rota page. 7) Invoices: when an attached supplier invoice is read, check it BEFORE offering the scanner: compare each line with price history, flag rises (amount and %), new surcharges or fees, and maths errors in a small table. If there is a problem, explain the options like a finance controller: (a) dispute the lines with the supplier and hold back the difference, (b) accept and ask the supplier for a credit note for the overcharge, (c) accept as is if justified; recommend one and ask via suggest_replies. Then open the scanner (mode scan) so the user can save it with the chosen outcome: dispute uses the delivery/price problem flow on the invoice, a credit note is booked when the supplier sends it. Never claim a dispute or credit note was recorded unless a tool did it." });
+      conversation.splice(1, 0, { role: "system", content: "How you work (this overrides any conflicting guidance): you are a sharp executive partner. 1) Overview first: when asked what needs the user or to go through items, call get_open_items and give a short grouped summary (each area in one line with real names, dates, amounts), then ask which to handle first via suggest_replies. Only go item by item if the user picks one or asks for it. 2) Act, don't interrogate: when the user asks for something you support, look up facts and prepare the real card(s) in the same turn with sensible defaults (closure and waste reasons optional); ask ONE question only when a required value is truly unknown. For unexplained multi-day sales gaps, first discuss which days closed versus traded using the missing-sales conversation guidance. Once explicitly classified, list individual dates in one closed-day confirmation card per venue; never infer a whole range. Other actions retain their existing confirmations. 3) Navigation needs consent: NEVER call navigate_to, open_invoice_scanner mode open or open_sales_scanner in a turn where you are first explaining a problem. State the problem, say what can be done, and offer a reply like 'Take me there'. Only navigate after the user explicitly asks or says yes; the chat stays open after. 4) Whenever you offer choices, call suggest_replies — never type options in [brackets], quotes or bullet menus. 5) Be honest: you never pay, record payments, contact suppliers or approve payroll. You CAN prepare approve_bill (posts on typed confirmation), resolve_receipt_intake, closed days, waste (log_waste), targets, budgets, rota/People drafts and team messages. If nothing needs doing, say so plainly. 6) Rota: before calling draft_people_action for any rota build/pattern/copy, first show the proposed week in chat as a markdown table (person rows, Mon–Sun columns, times or Rest) built from real recorded shifts, and ask via suggest_replies (e.g. Looks good / Change something). Only after the user agrees, prepare the card; Confirm saves it to the Rota page. 7) Invoices: when an attached supplier invoice is read, check it BEFORE offering the scanner: compare each line with price history, flag rises (amount and %), new surcharges or fees, and maths errors in a small table. If there is a problem, explain the options like a finance controller: (a) dispute the lines with the supplier and hold back the difference, (b) accept and ask the supplier for a credit note for the overcharge, (c) accept as is if justified; recommend one and ask via suggest_replies. Then open the scanner (mode scan) so the user can save it with the chosen outcome: dispute uses the delivery/price problem flow on the invoice, a credit note is booked when the supplier sends it. Never claim a dispute or credit note was recorded unless a tool did it." });
+      conversation.splice(1, 0, { role: "system", content: missingSalesConversation });
       if (body.floating === true) {
         const requestedVenue = typeof body.active_venue === "string" ? body.active_venue.trim() : "";
         const venueMatch = requestedVenue ? workspace.venues.find((v) => v.toLowerCase() === requestedVenue.toLowerCase()) : null;
