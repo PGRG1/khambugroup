@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFloatingBaniStore, type BaniMessage } from "./FloatingBaniContext";
-import { CHATS_CHANGED, loadChats, type SavedChat } from "@/utils/baniChats";
+import { CHATS_CHANGED, deleteChat, loadChats, type SavedChat } from "@/utils/baniChats";
 
 /** Saved chats for this person and restaurant, kept fresh as chats are saved or renamed. */
 export function useSavedChats(scope: string, active = true) {
@@ -19,11 +19,15 @@ export function useSavedChats(scope: string, active = true) {
 }
 
 /** "+ New chat", then Recents: one line per chat, by name. */
-export function BaniChatList({ chats, activeId, onPick, onNew }: { chats: SavedChat[]; activeId: string | null; onPick: (c: SavedChat) => void; onNew: () => void }) {
+export function BaniChatList({ chats, activeId, onPick, onNew, onDelete }: { chats: SavedChat[]; activeId: string | null; onPick: (c: SavedChat) => void; onNew: () => void; onDelete?: (c: SavedChat) => void }) {
   return <div className="fb-chatlist">
     <button type="button" className="fb-chatlist-new" onClick={onNew}><Plus className="h-4 w-4" />New chat</button>
     {chats.length > 0 && <div className="fb-chatlist-label">Recents</div>}
-    {chats.map((c) => <button key={c.id} type="button" className={`fb-chatlist-item ${c.id === activeId ? "is-on" : ""}`} title={c.title} onClick={() => onPick(c)}>{c.title}</button>)}
+    {chats.map((c) => <div key={c.id} className={`fb-chatlist-row ${c.id === activeId ? "is-on" : ""}`}>
+      <button type="button" className={`fb-chatlist-item ${c.id === activeId ? "is-on" : ""}`} title={c.title} onClick={() => onPick(c)}>{c.title}</button>
+      {onDelete && <button type="button" className="fb-chatlist-del" aria-label={`Delete chat: ${c.title}`} title="Delete chat"
+        onClick={() => { if (window.confirm(`Delete "${c.title}"? This can't be undone.`)) onDelete(c); }}><Trash2 className="h-3.5 w-3.5" /></button>}
+    </div>)}
   </div>;
 }
 
@@ -42,7 +46,8 @@ export function BaniChatsDialog() {
       <DialogContent aria-describedby={undefined} className="max-w-[420px] p-0 sm:p-0 gap-0 flex flex-col overflow-hidden rounded-[18px] max-h-[80svh] sm:max-h-[80svh]">
         <DialogTitle className="px-5 pt-5 pb-2 text-base font-semibold">Chat history</DialogTitle>
         <div className="overflow-y-auto px-3 pb-4 min-h-0">
-          <BaniChatList chats={chats} activeId={store.chatId[0]} onPick={(c) => show(c.messages as BaniMessage[], c.id)} onNew={() => show([], null)} />
+          <BaniChatList chats={chats} activeId={store.chatId[0]} onPick={(c) => show(c.messages as BaniMessage[], c.id)} onNew={() => show([], null)}
+            onDelete={(c) => { deleteChat(store.scope[0], c.id); if (c.id === store.chatId[0]) { store.messages[1]([]); store.chatId[1](null); } }} />
         </div>
       </DialogContent>
     </Dialog>

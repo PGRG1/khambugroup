@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft } from "lucide-react";
-import { chatLast, chatTitle, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
+import { chatLast, chatTitle, deleteChat, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
@@ -514,7 +514,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${home && open && !isMobile ? "is-wide" : ""} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {home && open && !isMobile && paneOpen && <aside className="fb-pane" aria-label="Chat history">
           <div className="fb-pane-head"><button type="button" className="fb-pane-btn" aria-label="Hide chat history" title="Hide chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button><span>Chat history</span></div>
-          <BaniChatList chats={savedChats} activeId={chatId} onPick={(c) => { setMessages(c.messages as BaniMessage[]); setChatId(c.id); setDraft(""); }} onNew={newChat} />
+          <BaniChatList chats={savedChats} activeId={chatId} onPick={(c) => { setMessages(c.messages as BaniMessage[]); setChatId(c.id); setDraft(""); }} onNew={newChat}
+            onDelete={(c) => { deleteChat(scope, c.id); if (c.id === chatId) newChat(); }} />
         </aside>}
         <div className="floating-bani-main">
         {home ? (open && <div className="fb-top">

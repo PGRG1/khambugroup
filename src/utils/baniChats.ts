@@ -54,6 +54,11 @@ export function renameChat(scope: string, id: string, title: string) {
   saveChats(scope, loadChats(scope).map((c) => (c.id === id ? { ...c, title: name, named: true } : c)));
 }
 
+/** Forget one saved chat. */
+export function deleteChat(scope: string, id: string) {
+  saveChats(scope, loadChats(scope).filter((c) => c.id !== id));
+}
+
 export function clearAllChats() {
   try { Object.keys(localStorage).filter((k) => k.startsWith(PREFIX)).forEach((k) => localStorage.removeItem(k)); } catch { /* nothing to clear */ }
 }

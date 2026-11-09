@@ -220,3 +220,10 @@
 .floating-bani-daypicker-foot { justify-content: flex-end; padding-top: 6px; border-top: 1px solid hsl(var(--border)); }
 .floating-bani-daypicker .floating-bani-reply[aria-pressed="true"], .floating-bani-daypicker .floating-bani-reply.is-primary:not(:disabled) { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
 .floating-bani-daypicker .floating-bani-reply:disabled { opacity: .55; cursor: default; }
+
+.fb-chatlist-row { position: relative; display: flex; align-items: center; border-radius: 8px; }
+.fb-chatlist-row .fb-chatlist-item { flex: 1; min-width: 0; padding-right: 30px; }
+.fb-chatlist-del { position: absolute; right: 4px; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: #55605A; cursor: pointer; opacity: 0; }
+.fb-chatlist-row:hover .fb-chatlist-del, .fb-chatlist-row.is-on .fb-chatlist-del, .fb-chatlist-del:focus-visible { opacity: 1; }
+.fb-chatlist-del:hover { background: #CFD8D3; color: #8A2E1F; }
+@media (hover: none) { .fb-chatlist-del { opacity: 1; } }
