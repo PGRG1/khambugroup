@@ -258,6 +258,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
 
   const addFiles = (list: FileList | File[]) => {
+    // A fresh upload from the closed bar starts a new chat; the old one stays in chat history.
+    if (!open && !filesRef.current.length && messages.some((m) => !m.hidden) && !busy) newChat();
     let next = [...filesRef.current]; let message = "";
     for (const file of Array.from(list)) {
       const problem = attachmentError(file, next);
