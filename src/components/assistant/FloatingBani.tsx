@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2 } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -266,7 +266,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; if (keepOpenNav.current) { keepOpenNav.current = false; return; } if (!hasConversation.current) setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
   // The hint sits where the cursor is (it is the box's own placeholder) and is cut to fit with "…", never wrapping.
-  const hintText = home ? (open ? "Reply to your finance team" : "Chat with your finance team") : "Ask Bani, or drop a file";
+  // Same words everywhere, so the panel reads like the main chat.
+  const hintText = (home ? open : messages.some((m) => !m.hidden)) ? "Reply to your finance team" : "Chat with your finance team";
   const [hint, setHint] = useState(hintText);
   useEffect(() => {
     const el = input.current;
@@ -601,10 +602,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {isMobile && <div className="floating-bani-grab" aria-hidden="true"><span /></div>}
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
+          {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="h-[18px] w-[18px]" /></Button>}
           <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="h-5 w-5" /></Button>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
-          {!messages.length && !review && !salesDraft && !home && <div className="px-1 py-3 space-y-2"><p className="text-sm">What would you like to work on?</p></div>}
           {messages.map((message, index) => <div dir="auto" key={index} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFinancialTables]} components={{table:({children})=><FinancialTable>{children}</FinancialTable>,td:({children,style})=><VarianceCell style={style}>{children}</VarianceCell>,tr:({children})=><SummaryRow>{children}</SummaryRow>,pre:({children})=><>{children}</>,code:({className,children})=>{const lang=/language-(\w+)/.exec(className??"")?.[1];const src=String(children??"");return lang==="stats"?<StatChips source={src}/>:lang==="calc"?<CalcBreakdown source={src}/>:lang==="daypicker"?<DayPicker source={src} onSend={(t)=>void sendRef.current({ text: t, opts: { voice: false, voiceLanguage: "" } })}/>:lang?<pre><code>{src}</code></pre>:<code>{children}</code>;},a:({href,children})=>{const nav=href?internalNavigation(href):null;return nav?<Button variant="link" className="h-auto whitespace-normal p-0" onClick={()=>{const path=navigationPath(nav);if(path&&canAccessPage(SCREENS[nav.screen].page)){keepOpenNav.current=true;navigate(path);}}}>{children}</Button>:<span>{children}</span>;}}}>{message.content}</ReactMarkdown></div>}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
