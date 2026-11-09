@@ -1,3 +1,4 @@
+import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
   LogOut, Users, UserRound, Search,
   TrendingUp, Scale, ChevronDown,
