@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPoin
 import { createPortal } from "react-dom";
 import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
-import { chatLast, chatTitle, deleteChat, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
+import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
@@ -179,10 +179,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!store || !user || !tenantId || authLoading || tenantLoading || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
-    // After a reload, the chat that was on screen in this tab comes back, so Home still offers "Back to your conversation".
-    let back: { id: string; messages: BaniMessage[] } | null = null;
-    try { const id = sessionStorage.getItem(`bani-active-chat:${identity}`); const c = id ? loadChats(identity).find((x) => x.id === id) : null; if (c) back = { id: c.id, messages: c.messages as BaniMessage[] }; } catch { /* nothing to bring back */ }
-    setMessages(back?.messages ?? []); setChatId(back?.id ?? null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
+    // Chats come from the database; Home's "Back to your conversation" opens the latest one.
+    void syncChats(identity);
+    setMessages([]); setChatId(null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
   }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setChatId, setDraft, setFiles, setLastFiles, setOpen, setScope]);
   // Every conversation is saved to "Your chats" (this browser, this person and restaurant) as it goes.
   useEffect(() => {
@@ -191,16 +190,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!chatId) setChatId(id);
     const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }) =>
       ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }));
-    const list = loadChats(scope);
-    const was = list.find((c) => c.id === id);
+    const was = loadChats(scope).find((c) => c.id === id);
     if (was && JSON.stringify(was.messages) === JSON.stringify(keep)) return; // just reopened, nothing new: keep its place in the list
-    saveChats(scope, upsertChat(list, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep }));
+    storeChat(scope, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep });
   }, [messages, busy, chatId, scope, identity, hosted, store, user, tenantId, setChatId]);
-  // Remember which chat is on screen in this tab (cleared by New chat).
-  useEffect(() => {
-    if (hosted || !scope || scope !== identity) return;
-    try { if (chatId) sessionStorage.setItem(`bani-active-chat:${scope}`, chatId); else sessionStorage.removeItem(`bani-active-chat:${scope}`); } catch { /* not remembered */ }
-  }, [chatId, scope, identity, hosted]);
   // Switching to another chat (or a new one) stops anything still running in the old one.
   const shownChat = useRef(chatId);
   useEffect(() => { if (shownChat.current === chatId) return; shownChat.current = chatId; abort.current?.abort(); setBusy(false); setError(""); }, [chatId]);
@@ -260,7 +253,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const pushOpened = useRef('');
   // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
   const home = pathname === "/" && !hosted;
-  const savedChats = useSavedChats(scope, !hosted && home && open);
+  const savedChats = useSavedChats(scope, !hosted && home);
   const shownTitle = savedChats.find((c) => c.id === chatId)?.title ?? (messages.some((m) => !m.hidden) ? chatTitle(messages) : "New chat");
   const lastPath = useRef(pathname);
   const keepOpenNav = useRef(false);
@@ -681,7 +674,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
-        {home && !open && hasConversation.current && <button type="button" className="floating-bani-resume" onClick={() => setOpen(true)}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
+        {home && !open && (hasConversation.current || !!savedChats[0]) && <button type="button" className="floating-bani-resume" onClick={() => { if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); } setOpen(true); }}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
         <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
             <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
