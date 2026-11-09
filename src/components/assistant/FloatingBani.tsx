@@ -509,7 +509,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         </aside>}
         <div className="floating-bani-main">
         {home ? (open && <div className="fb-top">
-          {!isMobile && !paneOpen && <><button type="button" className="fb-pane-btn" aria-label="Show chat history" title="Show chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button><span className="fb-top-sep" aria-hidden="true" /></>}
+          {!isMobile && !paneOpen && <><button type="button" className="fb-pane-btn" aria-label="Show chat history" title="Show chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button></>}
           {renaming != null
             ? <input className="fb-title fb-title-edit" autoFocus value={renaming} maxLength={90} aria-label="Chat name" onChange={e => setRenaming(e.target.value)}
                 onBlur={() => { if (chatId) renameChat(scope, chatId, renaming); setRenaming(null); }}
