@@ -36,12 +36,17 @@ function Choices({ big = false }: { big?: boolean }) {
   );
 }
 
-/** Top-bar pill: always white; ✕ resets to all venues. Hidden for users locked to one venue. */
+/** Top-bar pill: always white; ✕ resets to all venues. With one venue it just names it (nothing to pick). */
 export function VenueScopePicker() {
   const s = useVenueScope();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
-  if (!s.ready || s.locked || s.venues.length === 0 || s.mode === "off") return null;
+  if (!s.ready || s.venues.length === 0 || s.mode === "off") return null;
+  if (s.locked) return (
+    <div className="venue-pill inline-flex h-9 min-w-0 max-w-[50vw] sm:max-w-[280px] items-center gap-1.5 rounded-full px-3 text-[13px] font-medium" aria-label={`Venue: ${s.label}`}>
+      <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="truncate">{s.label}</span>
+    </div>
+  );
   const inactive = s.mode === "none";
   const showClear = !s.isAll;
 

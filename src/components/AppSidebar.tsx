@@ -82,6 +82,7 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
 
 type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean };
 function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
+  const [, setBaniOpen] = useFloatingBaniOpen();
   return (
     <SidebarContent className="bani-rail items-center gap-1 pb-2">
       <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
@@ -97,7 +98,7 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
       {items.map((it) => (
         <Tooltip key={it.title}>
           <TooltipTrigger asChild>
-            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined}
+            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
               className={cn("bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
               <span className="relative inline-flex"><it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
             </Link>
