@@ -213,3 +213,10 @@
 .floating-bani-calc button { display: inline-flex; align-items: center; gap: .3rem; font-size: 12px; color: var(--fb-muted); }
 .floating-bani-calc button:hover { color: var(--fb-ink); }
 .floating-bani-calc pre { margin-top: .4rem; padding: .6rem .75rem; border-radius: 8px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-family: "JetBrains Mono", monospace; font-size: 12px; white-space: pre-wrap; color: var(--fb-ink); }
+
+.floating-bani-daypicker { display: grid; gap: 6px; margin: 8px 0; padding: 10px 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); }
+.floating-bani-daypicker-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.floating-bani-daypicker-opts, .floating-bani-daypicker-foot { display: flex; gap: 6px; flex-wrap: wrap; }
+.floating-bani-daypicker-foot { justify-content: flex-end; padding-top: 6px; border-top: 1px solid hsl(var(--border)); }
+.floating-bani-daypicker .floating-bani-reply[aria-pressed="true"], .floating-bani-daypicker .floating-bani-reply.is-primary:not(:disabled) { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
+.floating-bani-daypicker .floating-bani-reply:disabled { opacity: .55; cursor: default; }

@@ -77,3 +77,32 @@ export function SummaryRow({ children }: { children: ReactNode }) {
   const first = Array.isArray(children) ? children.find(c => c && typeof c === "object") : children;
   return <tr className={isSummaryLabel(textOf(first)) ? "is-total" : undefined}>{children}</tr>;
 }
+
+/** ```daypicker block: "YYYY-MM-DD | label" per line → tap Closed/Traded, then send the choices back as the user's reply. */
+export function DayPicker({ source, onSend }: { source: string; onSend?: (text: string) => void }) {
+  const days = source.split("\n").map(l => l.split("|").map(s => s.trim())).filter(p => /^\d{4}-\d{2}-\d{2}$/.test(p[0])).map(([iso, label]) => ({ iso, label: label || iso })).slice(0, 62);
+  const [pick, setPick] = useState<Record<string, "closed" | "traded">>({});
+  const [sent, setSent] = useState(false);
+  if (!days.length) return null;
+  const all = (v: "closed" | "traded") => setPick(Object.fromEntries(days.map(d => [d.iso, v])));
+  const done = days.every(d => pick[d.iso]);
+  const send = () => {
+    const g = (v: string) => days.filter(d => pick[d.iso] === v).map(d => d.label).join(", ") || "none";
+    setSent(true);
+    onSend?.(`Closed: ${g("closed")}. Traded: ${g("traded")}.`);
+  };
+  return <div className="floating-bani-daypicker">
+    {days.map(d => <div key={d.iso} className="floating-bani-daypicker-row">
+      <span>{d.label}</span>
+      <span className="floating-bani-daypicker-opts">
+        {(["closed", "traded"] as const).map(v => <button key={v} type="button" disabled={sent} aria-pressed={pick[d.iso] === v}
+          className="floating-bani-reply" onClick={() => setPick(p => ({ ...p, [d.iso]: v }))}>{v === "closed" ? "Closed" : "Traded"}</button>)}
+      </span>
+    </div>)}
+    {!sent && <div className="floating-bani-daypicker-foot">
+      <button type="button" className="floating-bani-reply" onClick={() => all("closed")}>All closed</button>
+      <button type="button" className="floating-bani-reply" onClick={() => all("traded")}>All traded</button>
+      <button type="button" className="floating-bani-reply is-primary" disabled={!done} onClick={send}>Send</button>
+    </div>}
+  </div>;
+}
