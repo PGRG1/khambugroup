@@ -154,7 +154,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!store || !user || !tenantId || authLoading || tenantLoading || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
-    setMessages([]); setChatId(null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
+    // After a reload, the chat that was on screen in this tab comes back, so Home still offers "Back to your conversation".
+    let back: { id: string; messages: BaniMessage[] } | null = null;
+    try { const id = sessionStorage.getItem(`bani-active-chat:${identity}`); const c = id ? loadChats(identity).find((x) => x.id === id) : null; if (c) back = { id: c.id, messages: c.messages as BaniMessage[] }; } catch { /* nothing to bring back */ }
+    setMessages(back?.messages ?? []); setChatId(back?.id ?? null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
   }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setChatId, setDraft, setFiles, setLastFiles, setOpen, setScope]);
   // Every conversation is saved to "Your chats" (this browser, this person and restaurant) as it goes.
   useEffect(() => {
@@ -168,6 +171,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (was && JSON.stringify(was.messages) === JSON.stringify(keep)) return; // just reopened, nothing new: keep its place in the list
     saveChats(scope, upsertChat(list, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep }));
   }, [messages, busy, chatId, scope, identity, hosted, store, user, tenantId, setChatId]);
+  // Remember which chat is on screen in this tab (cleared by New chat).
+  useEffect(() => {
+    if (hosted || !scope || scope !== identity) return;
+    try { if (chatId) sessionStorage.setItem(`bani-active-chat:${scope}`, chatId); else sessionStorage.removeItem(`bani-active-chat:${scope}`); } catch { /* not remembered */ }
+  }, [chatId, scope, identity, hosted]);
   // Switching to another chat (or a new one) stops anything still running in the old one.
   const shownChat = useRef(chatId);
   useEffect(() => { if (shownChat.current === chatId) return; shownChat.current = chatId; abort.current?.abort(); setBusy(false); setError(""); }, [chatId]);
