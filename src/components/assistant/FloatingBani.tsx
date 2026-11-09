@@ -80,6 +80,21 @@ function useHomeSlot(active: boolean) {
   return el;
 }
 
+let hintCanvas: CanvasRenderingContext2D | null = null;
+/** Cut a hint to the box's width with "…" so it stays on one line. */
+function fitHint(el: HTMLTextAreaElement, text: string) {
+  const cs = getComputedStyle(el);
+  const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+  if (room <= 0) return text;
+  hintCanvas ??= document.createElement("canvas").getContext("2d");
+  if (!hintCanvas) return text;
+  hintCanvas.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  if (hintCanvas.measureText(text).width <= room) return text;
+  let cut = text;
+  while (cut.length > 1 && hintCanvas.measureText(`${cut.trimEnd()}…`).width > room) cut = cut.slice(0, -1);
+  return `${cut.trimEnd()}…`;
+}
+
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
   const venueScope = useVenueScope();
@@ -247,6 +262,17 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; if (keepOpenNav.current) { keepOpenNav.current = false; return; } if (!hasConversation.current) setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
+  // The hint sits where the cursor is (it is the box's own placeholder) and is cut to fit with "…", never wrapping.
+  const hintText = home ? (open ? "Reply to your finance team" : "Chat with your finance team") : "Ask Bani, or drop a file";
+  const [hint, setHint] = useState(hintText);
+  useEffect(() => {
+    const el = input.current;
+    if (!el) { setHint(hintText); return; }
+    const fit = () => setHint(fitHint(el, hintText));
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    return () => ro.disconnect();
+  }, [hintText, allowed, voiceMode, dictation.state, files.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [asked, setAsked] = store?.ask ?? [null, () => {}];
   useEffect(() => { if (!asked || busy || !session || !tenantId) return; setAsked(null); void sendRef.current?.({ text: asked, opts: { voice: false, voiceLanguage: "" }, fresh: home }); }, [asked, busy, session, tenantId, setAsked, home]);
   if (!allowed || (!hosted && host)) return null;
@@ -631,11 +657,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div> : <div className="floating-bani-row">
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
-            {/* The hint is drawn over the box so it can end in "…" instead of wrapping. */}
-            <span className="floating-bani-field">
-              <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
-              {!draft && <span className="floating-bani-hint" aria-hidden="true">{home ? (open ? "Reply to your finance team" : "Chat with your finance team") : "Ask Bani, or drop a file"}</span>}
-            </span>
+            <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={hint} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
             {!busy && !draft.trim() && !files.length
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
