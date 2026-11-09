@@ -81,8 +81,16 @@ export default function Landing() {
     const root = document.documentElement;
     root.style.setProperty("--home-mid", `${left + width / 2}px`);
     root.style.setProperty("--home-w", `${Math.max(0, width - 32)}px`);
-    return () => { root.style.removeProperty("--home-mid"); root.style.removeProperty("--home-w"); };
-  }, [left, width, talking]);
+    // A conversation fills the whole page area: edge to edge, right under the top bar.
+    const main = ref.current?.closest("main");
+    if (main) {
+      const r = main.getBoundingClientRect();
+      root.style.setProperty("--chat-l", `${r.left}px`);
+      root.style.setProperty("--chat-w", `${r.width}px`);
+      root.style.setProperty("--chat-t", `${main.querySelector("header")?.getBoundingClientRect().bottom ?? r.top}px`);
+    }
+    return () => { ["--home-mid", "--home-w", "--chat-l", "--chat-w", "--chat-t"].forEach((v) => root.style.removeProperty(v)); };
+  }, [left, width, talking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const now = new Date();
   const thisMonth = ym(now);
