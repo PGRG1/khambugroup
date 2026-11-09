@@ -13,6 +13,9 @@ export type ScannerHandoff = {
   venue: string | null;
   /** `${userId}:${tenantId}:${isPreview}` of the requester. */
   scope: string;
+  /** Bani asked to book it as disputed: the review opens with this status and reason filled in. */
+  status?: "disputed";
+  reason?: string;
 };
 
 let pending: ScannerHandoff | null = null;

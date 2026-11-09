@@ -18,7 +18,7 @@ export function baniModel(turns: Turn[], hasAttachments = false): string {
     ? "openai/gpt-5.6-sol" : "openai/gpt-5.6-terra";
 }
 
-export function honestBaniAnswer(text: string, facts: { cardEmitted: boolean; writeCompleted: boolean }): string {
+export function honestBaniAnswer(text: string, facts: { cardEmitted: boolean; writeCompleted: boolean; screenOpened?: boolean }): string {
   // Identity is implicit even when a model disregards the prompt.
   let answer = text.replace(/^\s*(?:(?:hi|hello|hey)[!,.—\s]*)?(?:i(?:'m| am)|this is) bani[^.!?\n]*[.!?]?\s*/i, "");
   if (!facts.cardEmitted && /\b(?:prepared|created|made|sent|shown)\b[^.\n]*\b(?:card|confirm\/cancel)\b/i.test(answer))

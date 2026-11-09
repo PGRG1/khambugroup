@@ -336,7 +336,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const removeFile = (id: string) => setFiles(prev => { revoke(prev.filter(f => f.id === id)); return prev.filter(f => f.id !== id); });
 
   // Server-approved navigation handoff: open the real scanner, optionally with files.
-  const runScannerAction = (action: { mode: "open" | "scan"; venue: string | null; files: string[] }, turnFiles: BaniAttachment[]) => {
+  const runScannerAction = (action: { mode: "open" | "scan"; venue: string | null; files: string[]; status?: "disputed"; reason?: string }, turnFiles: BaniAttachment[]) => {
     const say = (content: string) => setMessages(prev => [...prev, { role: "assistant" as const, content }]);
     if (!canAccessPage("invoices")) {
       say("You don't have access to Procurement, so I can't open Scan Invoice. Ask an admin to grant you access.");
@@ -360,7 +360,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         return;
       }
     }
-    requestScannerHandoff({ id: crypto.randomUUID(), mode: action.mode, files: handoffFiles, venue: action.venue, scope: identity });
+    requestScannerHandoff({ id: crypto.randomUUID(), mode: action.mode, files: handoffFiles, venue: action.venue, scope: identity, ...(action.mode === "scan" && action.status ? { status: action.status, reason: action.reason } : {}) });
     navigate("/procurement/invoices");
   };
 
@@ -482,7 +482,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || e.message || "Bani is unavailable. Try again later."); }
       const reader = response.body?.getReader(); if (!reader) throw new Error("No reply received.");
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
-      let action: { mode: "open" | "scan"; venue: string | null; files: string[] } | null = null;
+      let action: { mode: "open" | "scan"; venue: string | null; files: string[]; status?: "disputed"; reason?: string } | null = null;
       let salesAction: { files: string[] } | null = null;
       let actionCard: BaniActionCard | null = null;
       const actionCards: BaniActionCard[] = [];
@@ -509,7 +509,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if (event.action?.type === "action_card" && typeof event.action.action_id === "string") { actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null, challenge: typeof event.action.challenge === "string" ? event.action.challenge : undefined, amount: typeof event.action.amount === "number" ? event.action.amount : undefined, currency: typeof event.action.currency === "string" ? event.action.currency : undefined }; actionCards.push(actionCard); }
           if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
-          if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [] };
+          if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [], ...(event.action.status === "disputed" ? { status: "disputed" as const, reason: typeof event.action.reason === "string" ? event.action.reason : "" } : {}) };
         }
       }
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {

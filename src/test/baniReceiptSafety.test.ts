@@ -31,4 +31,14 @@ describe("receipt outcomes never imply posting", () => {
   it("repeated source does not imply additional revenue", () => expect(salesOutcomeMessage({ status: "flagged", intakeId: "i", repeated: true })).toContain("nothing added again"));
   it("intake failure cannot claim saved", () => expect(salesOutcomeMessage({ status: "failed", error: "Upload failed" })).toBe("Upload failed"));
   it("committed sale with journal failure warns against resubmission", () => expect(salesOutcomeMessage({ status: "saved", recordId: "r", journal: "failed" })).toContain("Do not submit"));
+  it("never claims a screen was opened when it wasn't", () => {
+    const none = { cardEmitted: false, writeCompleted: false };
+    const claim = "I’ve opened the invoice review for Maison Francis with the price discrepancies flagged.";
+    expect(honestBaniAnswer(claim, { ...none, screenOpened: false })).toContain("Nothing was opened yet");
+    expect(honestBaniAnswer(claim.replace("’", "'"), { ...none, screenOpened: false })).toContain("Nothing was opened yet");
+    expect(honestBaniAnswer(claim, { ...none, screenOpened: true })).toBe(claim);
+    expect(honestBaniAnswer("Would you like me to open the scanner?", { ...none, screenOpened: false })).toBe("Would you like me to open the scanner?");
+    expect(honestBaniAnswer("Once you've opened the review, check the prices.", { ...none, screenOpened: false })).toBe("Once you've opened the review, check the prices.");
+    expect(honestBaniAnswer("Taking you to Procurement now.", { ...none, screenOpened: false })).toContain("Nothing was opened yet");
+  });
 });

@@ -356,13 +356,15 @@ const openScannerTool = {
   function: {
     name: "open_invoice_scanner",
     description:
-      "Open the existing procurement Scan Invoice screen. mode='open': the user only wants to go to the scanner ('open the invoice scanner', 'take me to procurement scanner') — never scans anything. mode='scan': the user explicitly asked to add/scan attached invoice file(s) into procurement ('add this invoice to procurement', 'scan this for Assembly') — the normal extraction/review workflow starts with those files. NEVER use either mode for read-only questions like 'what is on this invoice?'. If the request or the file choice is ambiguous, ask ONE specific clarifying question instead of calling this.",
+      "Open the existing procurement Scan Invoice screen. mode='open': the user only wants to go to the scanner ('open the invoice scanner', 'take me to procurement scanner') — never scans anything. mode='scan': the user explicitly asked to add/scan attached invoice file(s) into procurement ('add this invoice to procurement', 'scan this for Assembly') — the normal extraction/review workflow starts with those files. NEVER use either mode for read-only questions like 'what is on this invoice?'. If the request or the file choice is ambiguous, ask ONE specific clarifying question instead of calling this. To BOOK an attached invoice as disputed (prices above agreed, charges not agreed, wrong quantities), use mode='scan' with status='disputed' and a one-sentence reason built only from what you found; the review opens ready, the user only approves. Never say you opened anything unless this tool returned ok.",
     parameters: {
       type: "object",
       properties: {
         mode: { type: "string", enum: ["open", "scan"], description: "'open' = navigate only, no files. 'scan' = start extraction with the named attached files." },
         venue: { type: "string", description: "Venue name exactly as stored in this workspace, only when the user explicitly named one or one is supplied as validated current-venue context." },
         file_names: { type: "array", items: { type: "string" }, description: "Required for mode='scan': exact names of the attached files to scan, from the conversation. Name every file when the user said 'all'; name the one file when several were attached and the user meant one." },
+        status: { type: "string", enum: ["disputed"], description: "Only when the user wants it booked as disputed: the review opens with status Disputed." },
+        reason: { type: "string", description: "With status='disputed': one plain sentence, e.g. 'Billed above agreed price on 3 lines; Fuel Surcharge not agreed.'" },
       },
       required: ["mode"],
     },
@@ -1598,6 +1600,7 @@ Deno.serve(async (req) => {
       const currentModel = baniModel(messages, !!body.attachments?.length);
       let cardEmitted = false;
       let writeCompleted = false;
+      let screenOpened = false;
       // The day picker shows exactly the days the missing-sales lookup found (this turn's, or a fresh default lookup).
       let gapDays: { venues?: { venue: string; missing_dates: string[] }[] } | null = null;
       const pickerDays = async (): Promise<string[] | null> => {
@@ -1610,7 +1613,7 @@ Deno.serve(async (req) => {
       };
 
       const streamContent = async (raw: string) => {
-        let content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted });
+        let content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted, screenOpened });
         if (content.includes("```daypicker")) content = pinDayPicker(content, await pickerDays());
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
@@ -1760,17 +1763,20 @@ Deno.serve(async (req) => {
                     : await runTool(tc.function.name, args, tenantId);
                 if(tc.function.name==='notification_preferences'&&args.operation==='list'&&Array.isArray(result?.preferences))emit({action:{type:'notification_preferences',preferences:result.preferences}});
                 if(tc.function.name==='notification_preferences'&&result?.message){writeCompleted=true;emit({action:{type:'preferences_changed'}});}
-                if (tc.function.name === 'navigate_to' && result?.ok) emit({action:{type:'navigate',navigation:result.navigation}});
+                if (tc.function.name === 'navigate_to' && result?.ok) { screenOpened = true; emit({action:{type:'navigate',navigation:result.navigation}}); }
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null, challenge: result.challenge, amount: result.amount, currency: result.currency } }); }
                 if (tc.function.name === "suggest_replies" && Array.isArray(result?.shown) && result.shown.length) emit({ action: { type: "replies", options: result.shown.map((o: string) => o.trim().slice(0, 48)) } });
                 if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
+                  screenOpened = true;
                   emit({ action: { type: "open_sales_scanner", files: Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
                 }
                 if (tc.function.name === "open_invoice_scanner" && result?.ok) {
                   const mode = args.mode === "scan" ? "scan" : "open";
-                  emit({ action: { type: "open_invoice_scanner", mode, venue: result.venue ?? null, files: mode === "scan" && Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [] } });
+                  const disputed = mode === "scan" && args.status === "disputed";
+                  screenOpened = true;
+                  emit({ action: { type: "open_invoice_scanner", mode, venue: result.venue ?? null, files: mode === "scan" && Array.isArray(args.file_names) ? args.file_names.filter((n: unknown) => typeof n === "string") : [], ...(disputed ? { status: "disputed", reason: typeof args.reason === "string" ? args.reason.trim().slice(0, 300) : "" } : {}) } });
                 }
               } catch (e) {
                 // Errors are surfaced, not cached — a retry may succeed.

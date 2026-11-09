@@ -876,6 +876,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
   }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId, baniSay]);
 
+  const invoicesCountRef = useRef(0);
+  invoicesCountRef.current = invoices.length;
   // Floating-Bani handoff: validated scope, settled before scanning, never
   // automatic on rerender/remount. Dirty work is protected by the parent's
   // replace/keep dialog (a "replace" remounts this scanner fresh).
@@ -892,9 +894,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     }
     handoffVenueRef.current = handoff.venue;
     handoffActiveRef.current = true;
+    const before = invoicesCountRef.current;
     void processMultipleFiles(handoff.files).then((ok) => {
       handoffVenueRef.current = null;
       handoffActiveRef.current = false;
+      // Bani asked to book it as disputed: open the review with that status and the reason, ready to approve.
+      if (ok && handoff.status === "disputed") setInvoices((prev) => prev.map((inv, i) => i < before || inv.saved ? inv : {
+        ...inv, invoice_status: "disputed", status_manually_selected: true,
+        notes: [inv.notes, handoff.reason ? `Disputed: ${handoff.reason}` : ""].filter(Boolean).join("\n") || inv.notes,
+      }));
       // Explicit retry only: stage the files so the user presses "Scan All".
       if (!ok) setPendingFiles(handoff.files);
     });
