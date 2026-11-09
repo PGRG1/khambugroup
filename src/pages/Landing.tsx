@@ -1,8 +1,6 @@
 import { ReceiptIntakes, useReceiptIntakes } from "@/components/sales/ReceiptIntakes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,11 +87,8 @@ export default function Landing() {
   const now = new Date();
   const thisMonth = ym(now);
   const lastMonth = addMonths(thisMonth, -1);
-  // Early in the month there is too little to judge: open on last month until a week has passed.
-  const [picked, setPicked] = useState<string | null>(null);
-  // Home always opens on the month in progress; other months are a pick away.
-  const month = picked ?? thisMonth;
-  const monthChoices = [thisMonth, lastMonth, addMonths(thisMonth, -2), addMonths(thisMonth, -3)];
+  // Home is always the month in progress; looking back happens in the overviews and the P&L report.
+  const month = thisMonth;
   const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
   // A one-venue business picking its only venue sees the whole-business review.
@@ -387,14 +382,6 @@ export default function Landing() {
     <div ref={ref} className={`ld l2 ${size}`}>
       <div className="l2-head">
         <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="l2-per" aria-label="Choose month">{month === thisMonth ? "This month" : monthName(month)}<ChevronDown size={14} /></button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {monthChoices.map((m) => <DropdownMenuItem key={m} onSelect={() => setPicked(m)} className={m === month ? "font-medium" : ""}>{m === thisMonth ? "This month" : monthName(m)}</DropdownMenuItem>)}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       <div className="l2-team" onMouseEnter={() => setPlay((n) => n + 1)}>
         <span className="l2-tw" key={`t-${play}`}>
@@ -402,7 +389,7 @@ export default function Landing() {
           <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
         </span>
         {handled > 0
-          ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b> this week <span className="ar" aria-hidden="true">→</span></button>
+          ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
           : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />

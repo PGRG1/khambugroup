@@ -3,9 +3,7 @@
 .ld.l2{box-sizing:border-box;padding-top:clamp(10px,2.5vh,28px);padding-bottom:clamp(10px,2.5vh,28px)}
 .l2-head{position:relative;text-align:center}
 .l2 .ld-h1{font-size:32px;font-weight:600}
-.l2-per{position:absolute;right:0;top:4px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:7px 12px 7px 14px;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer}
-.l2-per:hover{border-color:var(--brand)}
-.l2-team{text-align:center;font-size:15px;color:var(--mut);margin-top:10px;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap}
+.l2-team{text-align:center;font-size:15px;color:var(--mut);margin-top:10px;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap}
 .l2-team b{color:var(--brand);font-weight:500}
 /* Team motion (~3s, once; hover replays): avatars pop in over the words, wave, pop out in reverse, the words appear in the same spot */
 .l2-tw{position:relative;display:inline-block;margin-right:5px}
@@ -70,8 +68,9 @@
 /* tablet and phone */
 .ld.tab .l2-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 .ld.tab .l2-kpi:nth-child(3){border-right:0}.ld.tab .l2-kpi:nth-child(-n+3){border-bottom:1px solid var(--line)}
-.ld.ph .l2-head{text-align:left}.ld.ph .l2-per{position:static;margin-top:10px}
-.ld.ph .l2-team{justify-content:flex-start}
+.ld.ph .l2-head{text-align:left}
+.ld.ph .l2-team{justify-content:flex-start;font-size:14px}
+.ld.ph .l2-wk{display:none}
 .ld.ph .l2-pills{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
 .ld.ph .l2-pills button{white-space:nowrap}
 .ld.ph .l2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}

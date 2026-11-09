@@ -67,15 +67,17 @@
 .floating-bani-attachment { display: flex; align-items: center; gap: .4rem; max-width: 180px; padding: .3rem .35rem .3rem .4rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-size: .8rem; flex-shrink: 0; }
 .floating-bani-attachment img { width: 28px; height: 28px; object-fit: cover; border-radius: 6px; }
 .floating-bani-attachment button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--fb-panel); color: var(--fb-ink); cursor: pointer; flex-shrink: 0; }
-.floating-bani-row { display: flex; align-items: flex-end; gap: .35rem; }
+.floating-bani-row { display: flex; align-items: center; gap: .35rem; }
 .floating-bani-plus, .floating-bani-send { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 0; flex-shrink: 0; cursor: pointer; }
 .floating-bani-plus { background: transparent; color: var(--fb-ink); }
 .floating-bani-send { background: var(--fb-ink); color: var(--fb-on-primary); }
 .floating-bani-send:disabled, .floating-bani-plus:disabled { opacity: .4; cursor: not-allowed; }
 .floating-bani-input { flex: 1; min-width: 0; min-height: 40px; max-height: 112px; padding: .55rem .25rem; resize: none; border: 0; background: none; color: var(--fb-ink); font-size: 16px; line-height: 1.4; outline: none; field-sizing: content; }
 .floating-bani-input::placeholder { color: var(--fb-muted); }
-/* Empty box stays one line high: the hint never wraps, it trims with an ellipsis. */
-.floating-bani-input:placeholder-shown { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The typing box and its hint: the hint sits over the empty box on one line and ends in "…" when it doesn't fit. */
+.floating-bani-field { position: relative; flex: 1; min-width: 0; display: flex; }
+.floating-bani-field .floating-bani-input { width: 100%; }
+.floating-bani-hint { position: absolute; left: .25rem; right: .25rem; top: 50%; transform: translateY(-50%); color: var(--fb-muted); font-size: 16px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 
 @media (max-width: 767px) {
   .floating-bani-panel { left: .75rem; right: .75rem; bottom: max(.75rem, env(safe-area-inset-bottom)); width: auto; height: min(620px, calc(100dvh - 1rem)); padding-bottom: env(safe-area-inset-bottom); }
@@ -163,8 +165,6 @@
 .floating-bani-panel.is-home.is-talking { top: 64px; bottom: 0; padding-bottom: 18px; }
 .floating-bani-panel.is-home .floating-bani-composer { margin: 0; border-radius: 999px; box-shadow: 0 10px 30px -10px rgba(18,21,16,.25); border-color: #E3E1DA; }
 .floating-bani-panel.is-home .floating-bani-transcript { padding: .5rem .25rem 1rem; font-size: 15px; }
-.floating-bani-homeback { display: flex; align-items: center; gap: 12px; padding: 4px 0 8px; }
-.floating-bani-homeback button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 6px 0; color: #1F3F3B; font-weight: 500; font-size: 14px; cursor: pointer; }
 .floating-bani:has(.floating-bani-panel.is-centred) { z-index: 65; }
 
 /* Tap-to-reply buttons under Bani's latest answer */
@@ -172,6 +172,32 @@
 .floating-bani-reply{font-size:13px;line-height:1.2;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:999px;padding:8px 14px;cursor:pointer;min-height:36px}
 .floating-bani-reply:hover{border-color:#2F6B4F;color:#2F6B4F}
 .floating-bani-resume{display:inline-flex;align-items:center;gap:6px;align-self:center;margin:0 auto 10px;font-size:13px;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:999px;padding:8px 14px;cursor:pointer;min-height:36px}
+
+/* A Home conversation: chat history on the left (desktop), a fixed top bar with the chat's name and Back to home. */
+.floating-bani-main { display: contents; }
+.floating-bani-panel.is-home.is-talking.is-wide { --hw: var(--home-w, calc(100vw - 32px)); flex-direction: row; padding-bottom: 0; }
+.floating-bani-panel.is-wide .floating-bani-main { display: flex; flex-direction: column; flex: 1; min-width: 0; padding-bottom: 18px; }
+.floating-bani-panel.is-wide .floating-bani-transcript, .floating-bani-panel.is-wide .floating-bani-composer, .floating-bani-panel.is-wide .floating-bani-voice { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.fb-pane { width: 240px; flex: none; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; padding: 4px 12px 18px 0; border-right: 1px solid #DCE3DE; margin-right: 24px; }
+.fb-pane-head { display: flex; align-items: center; gap: 8px; padding: 2px 0 10px; font-size: 15px; font-weight: 600; color: #17302C; }
+.fb-pane-btn { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #3D4A44; cursor: pointer; }
+.fb-pane-btn:hover { background: #DCE3DF; }
+.fb-chatlist { display: flex; flex-direction: column; gap: 1px; }
+.fb-chatlist-new { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #17302C; cursor: pointer; text-align: left; }
+.fb-chatlist-label { font-size: 12.5px; color: #6B756F; padding: 14px 10px 4px; }
+.fb-chatlist-item { border: 0; background: none; padding: 7px 10px; border-radius: 8px; font-size: 14px; color: #17302C; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.fb-chatlist-new:hover, .fb-chatlist-item:hover { background: #DCE3DF; }
+.fb-chatlist-item.is-on { background: #fff; box-shadow: 0 1px 3px rgba(20,35,31,.08); }
+.fb-top { display: flex; align-items: center; gap: 10px; padding: 2px 0 12px; margin-bottom: 4px; border-bottom: 1px solid #DCE3DE; flex: none; }
+.fb-top-sep { width: 1px; height: 18px; background: #DCE3DE; flex: none; }
+.fb-title { min-width: 0; max-width: 60%; border: 0; background: none; padding: 5px 10px; margin-left: -10px; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 600; color: #17302C; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.fb-top .fb-title { margin-right: auto; }
+.fb-pane-btn + .fb-top-sep + .fb-title, .fb-pane-btn + .fb-top-sep + .fb-title-edit { margin-left: 0; }
+.fb-title:hover:not(:disabled) { background: #DCE3DF; }
+.fb-title:disabled { cursor: default; }
+.fb-title-edit { background: #fff; outline: 1px solid #C9D3CD; cursor: text; width: 60%; }
+.fb-top-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #DCE3DE; background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: #17302C; cursor: pointer; }
+.fb-top-btn:hover { background: #F4F6F5; }
 /* Accounting polish, stat chips, variance pills and folded workings (presentation only). */
 .floating-bani-table-block { position: relative; }
 .floating-bani-table-copy { margin-top: .35rem; display: inline-flex; align-items: center; gap: .3rem; font-size: 11px; color: var(--fb-muted); padding: .2rem .45rem; border-radius: 6px; }

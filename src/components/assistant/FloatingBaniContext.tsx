@@ -28,32 +28,18 @@ type Store = {
   continueToPage: S<boolean>;
   /** A question a Home button sends straight away (not just drafted). */
   ask: S<string | null>;
+  /** Which saved chat is on screen (null = not saved yet), and whether the phone chat list is open. */
+  chatId: S<string | null>;
+  chatsOpen: S<boolean>;
 };
 const Context = createContext<Store | null>(null);
-
-// The conversation is kept for this browser tab, so a refresh still offers "Back to your conversation".
-const SAVED = "bani-conversation";
-type Saved = { scope: string; messages: BaniMessage[] };
-const loadSaved = (): Saved | null => { try { const raw = sessionStorage.getItem(SAVED); const v = raw ? JSON.parse(raw) : null; return v && typeof v.scope === "string" && Array.isArray(v.messages) ? v : null; } catch { return null; } };
-// Only plain text and results are kept; drafts, cards and proposals belong to the live session.
-const keep = ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }: BaniMessage): BaniMessage =>
-  ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before });
 
 /** One conversation shared by the global and scanner-hosted assistant, so closing or moving never resets it. */
 export function FloatingBaniProvider({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<Host | null>(null);
-  const [saved] = useState(loadSaved);
-  const scope = useState(saved?.scope ?? "");
-  const messages = useState<BaniMessage[]>(saved?.messages ?? []);
-  useEffect(() => {
-    try {
-      if (messages[0].some((m) => !m.hidden)) sessionStorage.setItem(SAVED, JSON.stringify({ scope: scope[0], messages: messages[0].map(keep) }));
-      else sessionStorage.removeItem(SAVED);
-    } catch { /* storage full or blocked: the conversation still lives in memory */ }
-  }, [scope[0], messages[0]]); // eslint-disable-line react-hooks/exhaustive-deps
   const store: Store = {
     host, setHost,
-    scope, messages, draft: useState(""), files: useState<BaniAttachment[]>([]),
+    scope: useState(""), messages: useState<BaniMessage[]>([]), chatId: useState<string | null>(null), chatsOpen: useState(false), draft: useState(""), files: useState<BaniAttachment[]>([]),
     lastFiles: useState<BaniAttachment[]>([]),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
     sales: useState<SalesDraft | null>(null),

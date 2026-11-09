@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, ChevronLeft } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft } from "lucide-react";
+import { chatLast, chatTitle, loadChats, renameChat, saveChats, upsertChat } from "@/utils/baniChats";
+import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
 import { useVoiceConversation, type SpeakEvent, type VoiceState } from "@/hooks/useVoiceConversation";
 import { useDictation, joinDraft } from "@/hooks/useDictation";
 import { LiveWaveform } from "@/components/assistant/LiveWaveform";
@@ -121,6 +123,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [files, setFiles] = store?.files ?? [[], () => {}];
   const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
+  const [chatId, setChatId] = store?.chatId ?? [null, () => {}];
+  const openChats = () => store?.chatsOpen[1](true);
+  // Chat history beside a Home conversation (desktop): open or hidden, remembered in this browser.
+  const [paneOpen, setPaneOpen] = useState(() => { try { return localStorage.getItem("bani-chat-pane") !== "hidden"; } catch { return true; } });
+  const togglePane = () => setPaneOpen((v) => { try { localStorage.setItem("bani-chat-pane", v ? "hidden" : "open"); } catch { /* not remembered */ } return !v; });
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [panelPos, setPanelPos] = store?.panel ?? [null, () => {}];
   const page = store?.page[0] ?? null;
   const host = store?.host ?? null;
@@ -146,8 +154,24 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (!store || !user || !tenantId || authLoading || tenantLoading || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
-    setMessages([]); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setDraft, setFiles, setLastFiles, setOpen, setScope]);
+    setMessages([]); setChatId(null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setChatId, setDraft, setFiles, setLastFiles, setOpen, setScope]);
+  // Every conversation is saved to "Your chats" (this browser, this person and restaurant) as it goes.
+  useEffect(() => {
+    if (hosted || busy || !store || !user || !tenantId || scope !== identity || !messages.some((m) => !m.hidden)) return;
+    const id = chatId ?? crypto.randomUUID();
+    if (!chatId) setChatId(id);
+    const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }) =>
+      ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }));
+    const list = loadChats(scope);
+    const was = list.find((c) => c.id === id);
+    if (was && JSON.stringify(was.messages) === JSON.stringify(keep)) return; // just reopened, nothing new: keep its place in the list
+    saveChats(scope, upsertChat(list, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep }));
+  }, [messages, busy, chatId, scope, identity, hosted, store, user, tenantId, setChatId]);
+  // Switching to another chat (or a new one) stops anything still running in the old one.
+  const shownChat = useRef(chatId);
+  useEffect(() => { if (shownChat.current === chatId) return; shownChat.current = chatId; abort.current?.abort(); setBusy(false); setError(""); }, [chatId]);
+  const newChat = () => { abort.current?.abort(); setMessages([]); setChatId(null); setDraft(""); setError(""); setBusy(false); };
   useEffect(() => { abort.current?.abort(); }, [binding]);
   useEffect(() => () => { abort.current?.abort(); }, []);
   useEffect(() => { if (openSignal) setOpen(true); }, [openSignal, setOpen]);
@@ -203,6 +227,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const pushOpened = useRef('');
   // Home (/) hosts the conversation in the page itself; everywhere else Bani is the small sphere.
   const home = pathname === "/" && !hosted;
+  const savedChats = useSavedChats(scope, !hosted && home && open);
+  const shownTitle = savedChats.find((c) => c.id === chatId)?.title ?? (messages.some((m) => !m.hidden) ? chatTitle(messages) : "New chat");
   const lastPath = useRef(pathname);
   const keepOpenNav = useRef(false);
   // An ongoing conversation follows the person across screens instead of disappearing.
@@ -468,8 +494,22 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
     {(open || home) ? (
-      <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
-        {home ? (open && <div className="floating-bani-homeback"><button type="button" onClick={() => setOpen(false)}><ChevronLeft className="h-4 w-4" />Back to today</button>{working && <span className="floating-bani-context">{context}</span>}</div>) :
+      <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${home && open && !isMobile ? "is-wide" : ""} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
+        {home && open && !isMobile && paneOpen && <aside className="fb-pane" aria-label="Chat history">
+          <div className="fb-pane-head"><button type="button" className="fb-pane-btn" aria-label="Hide chat history" title="Hide chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button><span>Chat history</span></div>
+          <BaniChatList chats={savedChats} activeId={chatId} onPick={(c) => { setMessages(c.messages as BaniMessage[]); setChatId(c.id); setDraft(""); }} onNew={newChat} />
+        </aside>}
+        <div className="floating-bani-main">
+        {home ? (open && <div className="fb-top">
+          {!isMobile && !paneOpen && <><button type="button" className="fb-pane-btn" aria-label="Show chat history" title="Show chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button><span className="fb-top-sep" aria-hidden="true" /></>}
+          {renaming != null
+            ? <input className="fb-title fb-title-edit" autoFocus value={renaming} maxLength={90} aria-label="Chat name" onChange={e => setRenaming(e.target.value)}
+                onBlur={() => { if (chatId) renameChat(scope, chatId, renaming); setRenaming(null); }}
+                onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setRenaming(null); }} />
+            : <button type="button" className="fb-title" title={chatId ? "Rename" : undefined} disabled={!chatId} onClick={() => setRenaming(shownTitle)}>{shownTitle}</button>}
+          {isMobile && <button type="button" className="fb-top-btn" onClick={openChats}>Chats</button>}
+          <button type="button" className="fb-top-btn" onClick={() => setOpen(false)}><House className="h-4 w-4" />{isMobile ? "Home" : "Back to home"}</button>
+        </div>) :
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
           {isMobile && <div className="floating-bani-grab" aria-hidden="true"><span /></div>}
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
@@ -573,13 +613,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div> : <div className="floating-bani-row">
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
-            <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={home ? (open ? "Reply to your finance team" : "Chat with your finance team") : "Ask Bani, or drop a file"} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
+            {/* The hint is drawn over the box so it can end in "…" instead of wrapping. */}
+            <span className="floating-bani-field">
+              <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
+              {!draft && <span className="floating-bani-hint" aria-hidden="true">{home ? (open ? "Reply to your finance team" : "Chat with your finance team") : "Ask Bani, or drop a file"}</span>}
+            </span>
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
             {!busy && !draft.trim() && !files.length
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
               : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
           </div>}
         </form>
+        </div>
       </section>
     ) : null}
     {!home && (!open || !hosted) && (

@@ -1,4 +1,5 @@
 import { SupplierProfileDialog } from "@/components/vendors/SupplierProfileDialog";
+import { BaniChatsDialog } from "@/components/assistant/BaniChatsDialog";
 import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -79,6 +80,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
       <SupplierProfileDialog />
       <FloatingBani />
+      <BaniChatsDialog />
     </SidebarProvider></FloatingBaniProvider></VenueScopeProvider>
   );
 }
