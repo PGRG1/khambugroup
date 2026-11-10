@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History, Square } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -531,6 +531,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   };
 
   sendRef.current = send;
+  // Stop: cancels the reply in flight (the server stops its model call too); the question stays.
+  const stopReply = () => { abort.current?.abort(); abort.current = null; setBusy(false); };
 
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
@@ -711,7 +713,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={hint} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
-            {!busy && !draft.trim() && !files.length
+            {busy
+              ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Stop" title="Stop" onClick={stopReply}><Square className="h-3.5 w-3.5 fill-current" /></Button>
+              : !draft.trim() && !files.length
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
               : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
           </div>}
