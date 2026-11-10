@@ -1,4 +1,5 @@
 import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { PushNotificationsRow } from "@/components/UserMenu";
 import {
   LogOut, Users, UserRound, Search,
   TrendingUp, Scale, ChevronDown,
@@ -463,6 +464,7 @@ export function AppSidebar() {
       </DropdownMenuTrigger>
       <DropdownMenuContent side={collapsed ? "right" : "top"} align={collapsed ? "end" : "start"} className="w-52">
         <TenantSwitcher />
+        <PushNotificationsRow />
         <DropdownMenuItem className="gap-2.5" onSelect={() => setAccountOpen(true)}><UserRound className="h-4 w-4" />Your account</DropdownMenuItem>
         <DropdownMenuItem className="gap-2.5" onSelect={signOut}><LogOut className="h-4 w-4" />Sign out</DropdownMenuItem>
       </DropdownMenuContent>

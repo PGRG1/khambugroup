@@ -14,10 +14,18 @@ import { Button } from "@/components/ui/button";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { useState } from "react";
 
-export const UserMenu = () => {
-  const { user, signOut } = useAuth();
+/** "Notifications on this phone" switch row, shared by UserMenu and the sidebar account menu. */
+export const PushNotificationsRow = () => {
   const push = usePushSubscription();
   const [error,setError] = useState('');
+  return <>
+    <div className="flex items-center justify-between gap-3 px-2 py-2 text-sm"><span>Notifications on this phone</span><Switch aria-label="Notifications on this phone" checked={push.status==='subscribed'} disabled={push.busy||push.status==='unsupported'||push.status==='denied'} onCheckedChange={on=>{setError('');void (on?push.subscribe():push.unsubscribe()).catch(()=>setError('Could not change phone notifications.'));}} /></div>
+    {error&&<p role="alert" className="px-2 text-xs text-destructive">{error}</p>}
+  </>;
+};
+
+export const UserMenu = () => {
+  const { user, signOut } = useAuth();
 
   if (!user) return null;
   const initials = (user.email || "?").slice(0, 2).toUpperCase();
@@ -44,8 +52,7 @@ export const UserMenu = () => {
         </DropdownMenuLabel>
         <TenantSwitcher />
         <DropdownMenuSeparator />
-        <div className="flex items-center justify-between gap-3 px-2 py-2 text-sm"><span>Notifications on this phone</span><Switch aria-label="Notifications on this phone" checked={push.status==='subscribed'} disabled={push.busy||push.status==='unsupported'||push.status==='denied'} onCheckedChange={on=>{setError('');void (on?push.subscribe():push.unsubscribe()).catch(()=>setError('Could not change phone notifications.'));}} /></div>
-        {error&&<p role="alert" className="px-2 text-xs text-destructive">{error}</p>}
+        <PushNotificationsRow />
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()} className="text-sm">
           <LogOut className="h-4 w-4 mr-2" />
