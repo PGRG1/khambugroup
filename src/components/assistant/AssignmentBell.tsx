@@ -74,7 +74,7 @@ export function AssignmentBell() {
   }, [viewing, key, preview.isPreviewActive, store?.open[0], store?.messages[0]]);
 
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 text-muted-foreground" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
+    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 rounded-full border border-transparent text-muted-foreground hover:border-[rgba(31,63,59,0.35)] hover:bg-transparent hover:text-[#1F3F3B] data-[state=open]:border-[rgba(31,63,59,0.35)] data-[state=open]:bg-transparent data-[state=open]:text-[#1F3F3B]" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
       <Bell className="h-4 w-4" />
       {unread.length > 0 && <span className="absolute right-0 top-0 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 text-primary-foreground td-num">{formatTableInteger(unread.length)}</span>}
     </Button></PopoverTrigger>
