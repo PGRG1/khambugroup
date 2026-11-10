@@ -533,7 +533,10 @@ async function proposeAction(args: any, tenantId: string, userId: string, authHe
     const client=createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:authHeader}}});
     return proposeOperation(args,client,tenantId);
   }
-  if((TARGET_KINDS as readonly string[]).includes(args.kind))return proposeTargetAction(args,admin,tenantId,userId);
+  if((TARGET_KINDS as readonly string[]).includes(args.kind)){
+    const client=createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:authHeader}}});
+    return proposeTargetAction(args,admin,tenantId,userId,client);
+  }
   if(args.kind==='create_alert_ask'){const client=createClient(SUPABASE_URL,Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:authHeader}}});return proposeAlertAsk(args,admin,client,tenantId,userId);}
   const kind = typeof args.kind === "string" ? args.kind : "";
   const title = typeof args.title === "string" ? args.title.trim().slice(0, 200) : "";

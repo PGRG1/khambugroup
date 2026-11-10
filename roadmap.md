@@ -1,3 +1,7 @@
+## YC Cafe owner access — current request
+- [x] Added the requesting owner's YC Cafe tenant_admin membership (Owner display); preserved financial records and pending role mappings.
+- [x] Revalidated target/notification authority through requester permissions at proposal and confirmation; 13 tests pass, deployed chat-assistant, build OK. Signed-in Owner notification request produces a Confirm/Cancel card; nothing sent. Separate existing lookup-limit message still appears above the card; actual delivery and target saving were not exercised.
+
 ## Overdue-payables conversational follow-through — current request
 - [x] Added permission-scoped, paginated overdue invoice/bill detail using due/payment conditions rather than approval status; retains next-item choices without changing payments or posting.
 - [x] Fifteen focused regressions pass; deployed chat-assistant and build OK. Signed-in demo review advances from Peel Street Properties (four bills, HK$212,400) to Kowloon Kitchen Exhaust Cleaning (KKEC-1026-09, HK$3,200) with next/payment-evidence choices. No action cards confirmed or financial writes. Entire 35-item traversal and payment-evidence flow remain unverified.

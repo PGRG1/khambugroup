@@ -42,13 +42,14 @@ function fakeAdmin(failDelivery = false) {
   } };
 }
 afterEach(() => vi.unstubAllGlobals());
+const permittedUser = { rpc: async (name: string) => ({ data: name === 'is_owner' ? true : 3, error: null }) };
 describe('confirmed team delivery', () => {
   const card = { id: 'card', kind: 'send_team_notification', payload: { recipient_roles: ['everyone'], user_ids: ['chef', 'gm', 'foreign-user'], title: 'Targets ready', body: 'Please review.' } };
   it('stores one tenant-scoped message per approved current recipient, even without push devices', async () => {
     const admin = fakeAdmin();
     const push = vi.fn(async (_url: string, _options: RequestInit) => new Response(JSON.stringify({ sent: 0 }), { status: 200 }));
     vi.stubGlobal('fetch', push);
-    const out = await confirmTargetAction(card, admin, {}, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
+    const out = await confirmTargetAction(card, admin, permittedUser, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
     expect(out.status).toBe(200);
     expect(admin.writes[0].rows).toEqual(['chef', 'gm'].map(recipient_id => ({ tenant_id: 'qa-tenant', recipient_id, sender_id: 'sender', sender_name: 'Demo owner', action_id: 'card', title: 'Targets ready', body: 'Please review.' })));
     expect(admin.writes[0].options).toEqual({ onConflict: 'action_id,recipient_id', ignoreDuplicates: true });
@@ -59,13 +60,13 @@ describe('confirmed team delivery', () => {
   });
   it('does not push or report success if in-app saving fails', async () => {
     const push = vi.fn(); vi.stubGlobal('fetch', push);
-    const out = await confirmTargetAction(card, fakeAdmin(true), {}, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
+    const out = await confirmTargetAction(card, fakeAdmin(true), permittedUser, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
     expect(out.status).toBe(502);
     expect(push).not.toHaveBeenCalled();
   });
   it('reports push devices in addition to in-app delivery', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ sent: 3 }), { status: 200 })));
-    const out = await confirmTargetAction(card, fakeAdmin(), {}, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
+    const out = await confirmTargetAction(card, fakeAdmin(), permittedUser, 'qa-tenant', 'sender', 'https://example.invalid', 'test-key');
     expect(out.body.message).toContain('Push sent to 3 devices.');
   });
 });

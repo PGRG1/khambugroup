@@ -5,18 +5,26 @@ import { loadTeamRecipients } from './teamRecipients.ts';
 import { buildRevenuePlan } from './revenuePlan.ts';
 
 export const TARGET_KINDS = ['set_revenue_target', 'set_purchasing_budget', 'send_team_notification'] as const;
-const MANAGER_ROLES = ['owner', 'tenant_admin', 'admin', 'manager', 'gm', 'finance'];
 const monthOk = (m: unknown) => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
 const label = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-async function proposerRole(admin: any, t: string, u: string) {
-  const { data } = await admin.from('tenant_members').select('role').eq('tenant_id', t).eq('user_id', u).maybeSingle();
-  return data?.role as string | undefined;
+async function canManageTarget(client: any, t: string, kind: string) {
+  const area = kind === 'send_team_notification' ? 'people' : kind === 'set_purchasing_budget' ? 'purchasing' : 'revenue';
+  try {
+    const [owner, access] = await Promise.all([
+      client.rpc('is_owner', { t }),
+      client.rpc('access_level', { t, area }),
+    ]);
+    // Check area access even for owners: suspended/removed assignments must stay denied.
+    if (owner.error || access.error || Number(access.data) < 1 || (!owner.data && Number(access.data) < 2)) return false;
+    if (kind === 'send_team_notification') return true;
+    const money = await client.rpc('money_level', { t });
+    return !money.error && money.data === 'everything';
+  } catch { return false; }
 }
 
-export async function proposeTargetAction(args: any, admin: any, t: string, u: string) {
-  const role = await proposerRole(admin, t, u);
-  if (!role || !MANAGER_ROLES.includes(role)) return { ok: false, error: 'Only owners and managers can set targets or send team notifications.' };
+export async function proposeTargetAction(args: any, admin: any, t: string, u: string, userClient: any) {
+  if (!await canManageTarget(userClient, t, args.kind)) return { ok: false, error: 'Only owners and managers with access to this work can set targets or send team notifications.' };
   const { data: tenant } = await admin.from('tenants').select('base_currency').eq('id', t).single();
   const cur = tenant?.base_currency ?? 'HKD';
   let title = '', detail = '', payload: Record<string, unknown> = {};
@@ -96,8 +104,7 @@ export async function proposeTargetAction(args: any, admin: any, t: string, u: s
 
 export async function confirmTargetAction(r: any, admin: any, userClient: any, t: string, u: string, supabaseUrl: string, serviceKey: string) {
   const p = r.payload ?? {};
-  const role = await proposerRole(admin, t, u);
-  if (!role || !MANAGER_ROLES.includes(role)) return { status: 403, body: { error: 'Only owners and managers can do this.' } };
+  if (!await canManageTarget(userClient, t, r.kind)) return { status: 403, body: { error: 'Only owners and managers with access to this work can do this.' } };
   if (r.kind === 'set_revenue_target') {
     const { error } = await userClient.from('revenue_targets').upsert({ tenant_id: t, year: p.year, month: p.month, target_amount: p.amount, venues: p.venues, notes: p.notes ?? '', created_by: u }, { onConflict: 'tenant_id,year,month' });
     if (error) return { status: 403, body: { error: 'Could not save the target: ' + error.message } };
