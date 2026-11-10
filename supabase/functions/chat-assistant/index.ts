@@ -474,11 +474,15 @@ async function getOpenItems(tenantId: string, scopeVenue: string | null, client:
     if(scopeVenue) {const v=await client.from('venues').select('id').eq('tenant_id',tenantId).ilike('name',scopeVenue).maybeSingle();if(v.error)throw new Error(v.error.message);venueId=v.data?.id??null;}
     sections.work=(inbox.data?.per_tenant?.[0]?.work??[]).filter((x:any)=>!scopeVenue || !x.venue_id || x.venue_id===venueId).map((x:any)=>({kind:x.kind,title:x.title,why:x.why,action_path:x.action_path,payload:x.payload}));
   }
+  for (const resource of ['invoices', 'bills'] as const) {
+    try { sections[`overdue_${resource}`] = await inspectRecords({ resource, status: 'overdue', ...(scopeVenue ? { venue: scopeVenue } : {}) }, client, tenantId); }
+    catch (e) { sections[`overdue_${resource}`] = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
+  }
   for (const [key, resource, status] of [['disputed_invoices','invoices','Disputed'],['bills_awaiting_approval','bills','waiting'],['receipt_reviews','receipts','needs_review']] as const) {
     try { sections[key] = await inspectRecords({ resource, status, ...(scopeVenue ? { venue: scopeVenue } : {}) },client,tenantId); }
     catch (e) { sections[key] = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
   }
-  return { ...sections, next_steps: 'Missing_sales_days is the authoritative current full-month gap; snapshot findings and work alerts may cover only yesterday and must not replace this list. Inspect exact records before preparing a fix. Offer to open screens; navigate only when the user agrees. Bills post on approval; never pay. Receipt clears never post sales. Existing People tools retain leave balances and safe Undo. Other workflows open their existing guarded screen, never guess a resolution.' };
+  return { ...sections, next_steps: 'Overdue_invoices and overdue_bills contain actual ordered record details with pagination. For one-at-a-time review, use these records; on Next, move past already discussed IDs and use next_offset when the page is exhausted. Do not reuse the previous supplier search or claim no further items without checking both resources. Already-approved bills await payment evidence, never approval again. Offer Next overdue item and Review payment evidence via suggest_replies; never end without a continuation. Missing_sales_days is the authoritative current full-month gap; snapshot findings and work alerts may cover only yesterday and must not replace this list. Inspect exact records before preparing a fix. Offer to open screens; navigate only when the user agrees. Bills post on approval; never pay. Receipt clears never post sales. Existing People tools retain leave balances and safe Undo. Other workflows open their existing guarded screen, never guess a resolution.' };
 
 }
 
@@ -1616,6 +1620,8 @@ Deno.serve(async (req) => {
       let cardEmitted = false;
       let writeCompleted = false;
       let screenOpened = false;
+      let repliesEmitted = false;
+      let overdueRecordsAvailable = false;
       // The day picker shows exactly the days the missing-sales lookup found (this turn's, or a fresh default lookup).
       let gapDays: { venues?: { venue: string; missing_dates: string[] }[] } | null = null;
       const latestUserText = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
@@ -1634,6 +1640,9 @@ Deno.serve(async (req) => {
         let content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted, screenOpened });
         if (content.includes("```daypicker")) content = pinDayPicker(content, await pickerDays());
         if (gapClarification && !cardEmitted && !screenOpened) content = continueMissingSalesReply(content, await pickerDays(), true);
+        if (overdueRecordsAvailable && !repliesEmitted && !cardEmitted && !screenOpened) {
+          emit({ action: { type: "replies", options: ["Next overdue item", "Review payment evidence", "Back to other items"] } });
+        }
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
@@ -1784,7 +1793,7 @@ Deno.serve(async (req) => {
                 if(tc.function.name==='notification_preferences'&&result?.message){writeCompleted=true;emit({action:{type:'preferences_changed'}});}
                 if (tc.function.name === 'navigate_to' && result?.ok) { screenOpened = true; emit({action:{type:'navigate',navigation:result.navigation}}); }
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null, challenge: result.challenge, amount: result.amount, currency: result.currency } }); }
-                if (tc.function.name === "suggest_replies" && Array.isArray(result?.shown) && result.shown.length) emit({ action: { type: "replies", options: result.shown.map((o: string) => o.trim().slice(0, 48)) } });
+                if (tc.function.name === "suggest_replies" && Array.isArray(result?.shown) && result.shown.length) { repliesEmitted = true; emit({ action: { type: "replies", options: result.shown.map((o: string) => o.trim().slice(0, 48)) } }); }
                 if (tc.function.name === "draft_people_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: "people", title: result.title, detail: result.detail } }); }
                 toolCache.set(cacheKey, result);
                 if (tc.function.name === "open_sales_scanner" && result?.ok) {
@@ -1806,6 +1815,8 @@ Deno.serve(async (req) => {
             }
           }
           if (tc.function.name === "get_missing_sales_days" && Array.isArray(result?.venues)) gapDays = result;
+          if (tc.function.name === "inspect_records" && args.status === "overdue" && result?.items?.length) overdueRecordsAvailable = true;
+          if (tc.function.name === "get_open_items" && /overdue|payables/i.test(latestUserText) && (result?.overdue_invoices?.items?.length || result?.overdue_bills?.items?.length)) overdueRecordsAvailable = true;
           if (tc.function.name === "get_open_items" && Array.isArray(result?.missing_sales_days?.venues)) gapDays = result.missing_sales_days;
           conversation.push({
             role: "tool",

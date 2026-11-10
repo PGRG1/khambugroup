@@ -1,3 +1,7 @@
+## Overdue-payables conversational follow-through — current request
+- [x] Added permission-scoped, paginated overdue invoice/bill detail using due/payment conditions rather than approval status; retains next-item choices without changing payments or posting.
+- [x] Fifteen focused regressions pass; deployed chat-assistant and build OK. Signed-in demo review advances from Peel Street Properties (four bills, HK$212,400) to Kowloon Kitchen Exhaust Cleaning (KKEC-1026-09, HK$3,200) with next/payment-evidence choices. No action cards confirmed or financial writes. Entire 35-item traversal and payment-evidence flow remain unverified.
+
 ## Missing-sales clarity and continuation — current request
 - [x] Include the authoritative full-month gap in the overview, separate current status from history, and retain clickable classification after clarification.
 - [x] Focused regressions pass; deployed chat-assistant and build OK. Signed-in demo overview shows 2–9 Nov; clarification about 3–8 Nov states no current sales and renders six working Closed/Traded choices. All traded enables Send; no classification sent, closure confirmed or financial records changed.

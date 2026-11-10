@@ -8,3 +8,5 @@
 - Planning/what-if talk uses read-only analyze_revenue_goal (planAnalysis.ts) plus render_chart/markdown tables; FloatingBani renders streamed chart events; save cards come only after the user commits, so analysis never writes.
 - Read-only get_menu_margins (menuMargins.ts) serves dish cost/price/margin from saved recipes; single-venue tenants auto-resolve venue in People tools and prompt.
 - Chat open-items reads missing dates through the live get_missing_sales_days tool; missingSalesConversation keeps current status distinct from historical evidence and restores a picker on unresolved clarification turns, so summaries cannot substitute yesterday-only snapshots.
+
+- recordStatus.ts maps overdue inspection to due/payment filters rather than approval statuses; open-items includes paginated overdue invoice/bill detail, so next-item conversation can retrieve records rather than guessing from aggregates.
