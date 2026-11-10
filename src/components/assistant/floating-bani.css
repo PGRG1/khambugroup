@@ -176,7 +176,9 @@
 .floating-bani-replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .floating-bani-reply{font-size:13px;line-height:1.2;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:999px;padding:8px 14px;cursor:pointer;min-height:36px}
 .floating-bani-reply:hover{border-color:#2F6B4F;color:#2F6B4F}
-.floating-bani-resume{display:inline-flex;align-items:center;gap:6px;align-self:center;margin:0 auto 10px;font-size:13px;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:999px;padding:8px 14px;cursor:pointer;min-height:36px}
+/* "Your chats": a green text link above the chat bar, right-aligned, so the bar leads. */
+.floating-bani-resume{display:inline-flex;align-items:center;gap:6px;align-self:flex-end;margin:0 10px 8px auto;font-size:13px;font-weight:500;border:0;background:transparent;color:#2F5B4B;border-radius:8px;padding:4px 8px;cursor:pointer;min-height:30px}
+.floating-bani-resume:hover{background:rgba(255,255,255,.5);color:#17302C}
 
 /* A Home conversation: chat history on the left (desktop), a fixed top bar with the chat's name and Back to home. */
 .floating-bani-main { display: contents; }

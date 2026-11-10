@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2 } from "lucide-react";
+import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -175,7 +175,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   useEffect(() => {
     // Signed out: forget the conversation. Still loading: wait, so a refresh doesn't wipe a kept conversation.
-    if (store && !authLoading && !user && messages.length) { setMessages([]); setScope(""); return; }
+    // Signed out: forget the scope too, so signing back in reloads the chats from the database.
+    if (store && !authLoading && !user) { if (messages.length) setMessages([]); if (scope) setScope(""); return; }
     if (!store || !user || !tenantId || authLoading || tenantLoading || scope === identity) return;
     abort.current?.abort(); revoke(filesRef.current); revoke(lastFilesRef.current); clearScannerHandoff(); clearSalesHandoff();
     voiceEndRef.current(); setVoiceMode(false);
@@ -677,7 +678,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
-        {home && !open && (hasConversation.current || !!savedChats[0]) && <button type="button" className="floating-bani-resume" onClick={() => { if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); } setOpen(true); }}><ArrowUp className="h-4 w-4 rotate-45" />Back to your conversation</button>}
+        {/* Always on Home: the current chat, else the latest saved one, else the chat list. */}
+        {home && !open && <button type="button" className="floating-bani-resume" onClick={() => {
+          if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); }
+          else if (!hasConversation.current && isMobile) { openChats(); return; }
+          setOpen(true);
+        }}><History className="h-[15px] w-[15px]" />Your chats</button>}
         <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
             <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
