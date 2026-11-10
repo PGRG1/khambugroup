@@ -1,3 +1,7 @@
+## Assignment-only bell — current request
+- [x] Add tenant top-bar bell for existing named finance-team assignments, opening their grounded context in Bani without task updates or server writes.
+- [x] Four focused tests and build OK; signed-in existing assignments show 2 unread, opening one in Bani reduces to 1 only after display, original task remains open; phone popover verified. Receipts are device-local; generic team messages and other assignment workflows lack notification linkage and are excluded. No task/financial writes or pushes.
+
 ## YC Cafe owner access — current request
 - [x] Added the requesting owner's YC Cafe tenant_admin membership (Owner display); preserved financial records and pending role mappings.
 - [x] Revalidated target/notification authority through requester permissions at proposal and confirmation; 13 tests pass, deployed chat-assistant, build OK. Signed-in Owner notification request produces a Confirm/Cancel card; nothing sent. Separate existing lookup-limit message still appears above the card; actual delivery and target saving were not exercised.

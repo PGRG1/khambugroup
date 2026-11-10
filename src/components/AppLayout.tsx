@@ -1,5 +1,6 @@
 import { SupplierProfileDialog } from "@/components/vendors/SupplierProfileDialog";
 import { BaniChatsDialog } from "@/components/assistant/BaniChatsDialog";
+import { AssignmentBell } from "@/components/assistant/AssignmentBell";
 import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TopBarToday } from "@/components/TopBarToday";
@@ -64,6 +65,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex min-w-0 items-center gap-2">
               {pathname === "/assistant" && <div id="assistant-topbar-actions" className="flex items-center gap-2" />}
               <VenueScopePicker />
+              <AssignmentBell />
             </div>
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">

@@ -1,5 +1,7 @@
 # Assistant voice architecture
 
+- AssignmentBell reads only existing accepted finance-team tasks for the current assignee with requester access/venue checks; device-local read receipts are recorded after the linked Bani message becomes visible, never by updating task status. Generic team messages and financial alerts are excluded because neither proves an assignment.
+
 - Floating Bani's remarkFinancialTables adds presentation-only numeric alignment; explicit Markdown alignment and all evidence text remain unchanged so formatting cannot alter financial facts or actions.
 
 Apply these rules to assistant voice capture, dictation, playback and server voice integration changes.
