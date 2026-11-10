@@ -717,6 +717,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>}
           {homeDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </form>
+        {(open || !home) && !voiceMode && <p className="fb-disclaimer">Bani can make mistakes. Please check important information.</p>}
         {chatDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </div>
       </section>
