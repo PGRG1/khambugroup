@@ -1,3 +1,7 @@
+## Missing-sales clarity and continuation — current request
+- [x] Include the authoritative full-month gap in the overview, separate current status from history, and retain clickable classification after clarification.
+- [x] Focused regressions pass; deployed chat-assistant and build OK. Signed-in demo overview shows 2–9 Nov; clarification about 3–8 Nov states no current sales and renders six working Closed/Traded choices. All traded enables Send; no classification sent, closure confirmed or financial records changed.
+
 ## Multi-day missing-sales conversation — current request
 - [x] Add date/weekday and historical evidence to the authoritative missing-day result; guide all-closed, all-traded or mixed-date decisions before cards or navigation.
 - [x] Nine focused evidence/navigation tests pass; deployed chat-assistant. Signed-in Maison Francis seven-day gap → mixed choice shows every date and asks whether remaining days traded, with no card or navigation. No business records changed; actual closure confirmation and report upload were not exercised.

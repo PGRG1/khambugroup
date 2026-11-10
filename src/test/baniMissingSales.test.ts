@@ -22,7 +22,36 @@ describe('multi-day sales-gap evidence', () => {
   });
 });
 
-import { dayPickerLines, defaultGapFrom, pinDayPicker } from '../../supabase/functions/chat-assistant/missingSalesConversation';
+import { dayPickerLines, defaultGapFrom, pinDayPicker, continueMissingSalesReply, isGapClarification, overviewMissingSales } from '../../supabase/functions/chat-assistant/missingSalesConversation';
+
+describe('missing-sales clarification stays actionable', () => {
+  it('overview uses the same full-month lookup without a yesterday-only filter', async () => {
+    const calls: { venue?: string }[] = [];
+    const result = { through: '2026-11-09', venues: [{ venue: 'Maison Francis', missing_dates: ['2026-11-02', '2026-11-03', '2026-11-09'] }] };
+    const lookup = async (args: { venue?: string }) => { calls.push(args); return result; };
+    expect(await overviewMissingSales(lookup, 'Maison Francis')).toBe(result);
+    expect(await overviewMissingSales(lookup, null)).toBe(result);
+    expect(calls).toEqual([{ venue: 'Maison Francis' }, {}]);
+  });
+  it('answers the question and retains every unresolved date for classification', () => {
+    const dates = ['2026-11-02', '2026-11-03', '2026-11-08'];
+    const answer = continueMissingSalesReply('No, those dates have no saved sales.', dates, true);
+    expect(answer.startsWith('No, those dates have no saved sales.')).toBe(true);
+    expect(answer).toContain('2026-11-02 | Mon 2 Nov');
+    expect(answer).toContain('2026-11-03 | Tue 3 Nov');
+    expect(answer).toContain('2026-11-08 | Sun 8 Nov');
+  });
+  it('does not add classification for resolved gaps, failed reads or unrelated replies', () => {
+    for (const dates of [[], null]) expect(continueMissingSalesReply('No.', dates, true)).toBe('No.');
+    expect(continueMissingSalesReply('No.', ['2026-11-03'], false)).toBe('No.');
+  });
+  it('recognizes a saved-sales clarification only inside an existing missing-day conversation', () => {
+    const history = 'No sales recorded for 2–8 Nov. Historical pattern suggests trading.';
+    expect(isGapClarification('so nov 3 to 8 has sales recorded?', history)).toBe(true);
+    expect(isGapClarification('so nov 3 to 8 has sales recorded?', 'Let us review purchases.')).toBe(false);
+    expect(isGapClarification('Show my menu margins', history)).toBe(false);
+  });
+});
 
 describe('day picker always shows the days worked out in code', () => {
   const gap = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'];

@@ -1,7 +1,7 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { defaultGapFrom, missingDayContext, missingSalesConversation, pinDayPicker } from "./missingSalesConversation.ts";
+import { continueMissingSalesReply, isGapClarification, overviewMissingSales, defaultGapFrom, missingDayContext, missingSalesConversation, pinDayPicker } from "./missingSalesConversation.ts";
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
 import { homeNeeds } from './homeNeeds.ts';
@@ -462,6 +462,8 @@ const repliesTool = {
 };
 async function getOpenItems(tenantId: string, scopeVenue: string | null, client: any) {
   const sections: Record<string, unknown> = {};
+  try { sections.missing_sales_days = await overviewMissingSales(args => runTool("get_missing_sales_days", args, tenantId), scopeVenue); }
+  catch (e) { sections.missing_sales_days = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
   // Same list as Home's "things need you", so Bani never says nothing is waiting when Home shows items.
   try { sections.things_need_you = await homeNeeds(client, tenantId, scopeVenue); }
   catch (e) { sections.things_need_you = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
@@ -476,7 +478,7 @@ async function getOpenItems(tenantId: string, scopeVenue: string | null, client:
     try { sections[key] = await inspectRecords({ resource, status, ...(scopeVenue ? { venue: scopeVenue } : {}) },client,tenantId); }
     catch (e) { sections[key] = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
   }
-  return { ...sections, next_steps: 'Inspect exact records before preparing a fix. Offer to open screens; navigate only when the user agrees. Bills post on approval; never pay. Receipt clears never post sales. Existing People tools retain leave balances and safe Undo. Other workflows open their existing guarded screen, never guess a resolution.' };
+  return { ...sections, next_steps: 'Missing_sales_days is the authoritative current full-month gap; snapshot findings and work alerts may cover only yesterday and must not replace this list. Inspect exact records before preparing a fix. Offer to open screens; navigate only when the user agrees. Bills post on approval; never pay. Receipt clears never post sales. Existing People tools retain leave balances and safe Undo. Other workflows open their existing guarded screen, never guess a resolution.' };
 
 }
 
@@ -1616,9 +1618,12 @@ Deno.serve(async (req) => {
       let screenOpened = false;
       // The day picker shows exactly the days the missing-sales lookup found (this turn's, or a fresh default lookup).
       let gapDays: { venues?: { venue: string; missing_dates: string[] }[] } | null = null;
+      const latestUserText = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
+      const priorAssistantText = messages.filter(m => m.role === "assistant").slice(-4).map(m => m.content).join("\n");
+      const gapClarification = isGapClarification(latestUserText, priorAssistantText);
       const pickerDays = async (): Promise<string[] | null> => {
         try {
-          const r = gapDays ?? await runTool("get_missing_sales_days", {}, tenantId);
+          const r = gapDays ?? await runTool("get_missing_sales_days", typeof body.active_venue === "string" && body.active_venue.trim() && body.active_venue.toLowerCase() !== "all venues" ? { venue: body.active_venue.trim() } : {}, tenantId);
           const withGaps = (r?.venues ?? []).filter((v: { missing_dates: string[] }) => v.missing_dates?.length);
           if (withGaps.length > 1) return null; // several venues: the picker has no venue column, keep the reply as written
           return withGaps[0]?.missing_dates ?? [];
@@ -1628,6 +1633,7 @@ Deno.serve(async (req) => {
       const streamContent = async (raw: string) => {
         let content = honestBaniAnswer(stripToolNames(raw), { cardEmitted, writeCompleted, screenOpened });
         if (content.includes("```daypicker")) content = pinDayPicker(content, await pickerDays());
+        if (gapClarification && !cardEmitted && !screenOpened) content = continueMissingSalesReply(content, await pickerDays(), true);
         turnDone = true;
         if (stillTimer) { clearTimeout(stillTimer); stillTimer = null; }
         if (voiceMode && !closed) {
@@ -1800,6 +1806,7 @@ Deno.serve(async (req) => {
             }
           }
           if (tc.function.name === "get_missing_sales_days" && Array.isArray(result?.venues)) gapDays = result;
+          if (tc.function.name === "get_open_items" && Array.isArray(result?.missing_sales_days?.venues)) gapDays = result.missing_sales_days;
           conversation.push({
             role: "tool",
             tool_call_id: tc.id,
