@@ -4,6 +4,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { defaultGapFrom, missingDayContext, missingSalesConversation, pinDayPicker } from "./missingSalesConversation.ts";
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
+import { homeNeeds } from './homeNeeds.ts';
 import { menuMarginsTool, menuMargins } from './menuMargins.ts';
 import { buildPriceHistory } from "./priceHistory.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -461,6 +462,9 @@ const repliesTool = {
 };
 async function getOpenItems(tenantId: string, scopeVenue: string | null, client: any) {
   const sections: Record<string, unknown> = {};
+  // Same list as Home's "things need you", so Bani never says nothing is waiting when Home shows items.
+  try { sections.things_need_you = await homeNeeds(client, tenantId, scopeVenue); }
+  catch (e) { sections.things_need_you = { unavailable: true, error: e instanceof Error ? e.message : 'Lookup failed' }; }
   const inbox=await client.functions.invoke('evaluate-alerts',{body:{tenant_id:tenantId,inbox:true}});
   if(inbox.error) sections.work={unavailable:true,error:'Work inbox lookup failed — not an empty list.'};
   else {
