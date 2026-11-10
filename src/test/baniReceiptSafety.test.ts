@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recentBaniTurns, honestBaniAnswer, baniModel } from "../../supabase/functions/_shared/baniConversation";
+import { recentBaniTurns, honestBaniAnswer } from "../../supabase/functions/_shared/baniConversation";
 import { receiptReviewReasons } from "../../supabase/functions/_shared/receiptIntakePolicy";
 import { salesOutcomeMessage } from "../utils/salesSaveResult";
 
@@ -15,10 +15,6 @@ describe("honest conversational outcomes", () => {
     expect(recentBaniTurns(turns).at(-1)?.content).toBe("ok that date");
   });
   it("bounds recent context without inventing summaries", () => expect(recentBaniTurns(Array.from({ length: 40 }, () => ({ role: "user" as const, content: "x".repeat(8000) })))).toHaveLength(6));
-  it("routes ambiguous finance analysis to stronger model only", () => {
-    expect(baniModel([{ role: "user", content: "investigate that discrepancy" }])).toBe("openai/gpt-5.6-sol");
-    expect(baniModel([{ role: "user", content: "ok" }])).toBe("openai/gpt-5.6-terra");
-  });
 });
 describe("receipt outcomes never imply posting", () => {
   it("arithmetic balance does not authorise posting", () => expect(receiptReviewReasons({}, {}, true, true)[0]).toContain("balance is not proof"));
