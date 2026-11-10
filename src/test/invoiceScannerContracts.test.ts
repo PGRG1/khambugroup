@@ -33,9 +33,11 @@ describe("parse-invoice extraction contract", () => {
 
   it("lets an explicit printed venue name win over an address heuristic", () => {
     expect(src).toMatch(/VENUE PRECEDENCE/);
-    expect(src).toMatch(/T\/A ASSEMBLY/);
+    expect(src).toMatch(/T\/A <venue>/);
     expect(src).toMatch(/Never let an address heuristic override an explicitly printed venue name/);
-    expect(src).toMatch(/Knutsford Terrace/);
+    // The restaurant's own venues, never a fixed list.
+    expect(src).toMatch(/Venue must be one of: \$\{venueList\}/);
+    expect(src).not.toMatch(/Assembly, Caliente, Hanabi/);
   });
 
   it("no longer feeds the Product Master into the extraction pass", () => {

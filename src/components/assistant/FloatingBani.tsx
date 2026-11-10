@@ -603,7 +603,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <div className="fb-head-acts">
-            {!hosted && <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Open full screen" title="Open full screen" onClick={() => { keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="fb-ic-max" strokeWidth={2.8} /></Button>}
+            <Button variant="ghost" type="button" className={`floating-bani-icon ${hosted ? "is-off" : ""}`} aria-label="Open full screen" aria-disabled={hosted || undefined} title={hosted ? "Save or close the review first" : "Open full screen"} onClick={() => { if (hosted) return; keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="fb-ic-max" strokeWidth={2.8} /></Button>
             <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="fb-ic-x" /></Button>
           </div>
         </header>}

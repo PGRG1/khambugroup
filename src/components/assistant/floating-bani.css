@@ -282,3 +282,6 @@
 /* The shared Button forces every icon to 16px; these win so the two icons match. */
 .floating-bani .fb-head-acts .floating-bani-icon svg.fb-ic-max { width: 12px; height: 12px; }
 .floating-bani .fb-head-acts .floating-bani-icon svg.fb-ic-x { width: 18px; height: 18px; }
+/* During an invoice review full screen would lose the review: shown, but greyed out. */
+.floating-bani .fb-head-acts .floating-bani-icon.is-off { opacity: .35; cursor: not-allowed; }
+.floating-bani .fb-head-acts .floating-bani-icon.is-off:hover { background: transparent; color: #3D4A44; }
