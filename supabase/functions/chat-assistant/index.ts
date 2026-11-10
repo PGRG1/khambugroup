@@ -10,7 +10,8 @@ import { buildPriceHistory } from "./priceHistory.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { buildSystemPrompt, getDateContext, validateChatRequest } from "../_shared/assistantPrompt.ts";
-import { baniModel, honestBaniAnswer } from "../_shared/baniConversation.ts";
+import { honestBaniAnswer } from "../_shared/baniConversation.ts";
+import { askBani } from "../_shared/baniBrain.ts";
 import { toolStepLabel } from "./stepLabels.ts";
 import { buildPriceTrends, type PriceObservation } from "../_shared/priceTrends.ts";
 import { groundedVoiceAnswer, stripToolNames } from "../_shared/voiceAnswer.ts";
@@ -1568,7 +1569,6 @@ Deno.serve(async (req) => {
       closed = true;
       try { ctrl?.close(); } catch { /* already closed */ }
     };
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     const run = async () => {
       // Voice mode: one filler with the first tool status, one "still going" after 8s.
@@ -1615,8 +1615,6 @@ Deno.serve(async (req) => {
       // Memoize identical tool calls within this request.
       const toolCache = new Map<string, any>();
 
-      // Models: try the primary first for better reasoning, fall back if it is rate-limited / out of credits / down
-      const currentModel = baniModel(messages, !!body.attachments?.length);
       let cardEmitted = false;
       let writeCompleted = false;
       let screenOpened = false;
@@ -1671,40 +1669,17 @@ Deno.serve(async (req) => {
               "You have reached the maximum number of data lookups. Do not request any more tools. Answer now using the data already gathered, and state clearly if anything is incomplete.",
           });
         }
-        // Retry transient gateway failures (502/503/504) up to 3 times with backoff
-        let resp: Response | null = null;
-        let lastStatus = 0;
-        let lastText = "";
-        for (let attempt = 0; attempt < 3; attempt++) {
-          resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: currentModel,
-              messages: conversation,
-              ...(forceFinal ? {} : { tools: body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool], tool_choice: "auto" }),
-              // gpt-5.6-sol rejects function tools on chat/completions unless reasoning is off
-              ...(currentModel.startsWith("openai/") ? { reasoning_effort: "none" } : {}),
-            }),
-          });
-
-          if (resp.ok) break;
-          lastStatus = resp.status;
-          lastText = await resp.text();
-          // Preserve the selected model; credits and access denials are terminal.
-          if (lastStatus !== 429 && !(lastStatus >= 500 && lastStatus <= 599)) break;
-          console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
-          if (attempt < 2) await sleep(Number(resp.headers.get("Retry-After")) * 1000 || 600 * 2 ** attempt);
-        }
-
-        if (!resp || !resp.ok) {
-          const status = lastStatus || 500;
-          console.error("Gateway error", status, lastText);
+        // One model layer: GPT-6 Astra with reasoning, Gemini backup (see _shared/baniBrain.ts).
+        const reply = await askBani(LOVABLE_API_KEY, {
+          messages: conversation,
+          tools: forceFinal ? undefined : body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, openScannerTool, openSalesScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool],
+          signal: req.signal,
+        });
+        if (!reply.ok) {
+          const status = reply.status || 500;
+          console.error("Gateway error", status, reply.text);
           let safeMessage = "";
-          try { const upstream = JSON.parse(lastText); safeMessage = upstream.message || upstream.error?.message || ""; } catch { /* Keep status-specific fallback. */ }
+          try { const upstream = JSON.parse(reply.text); safeMessage = upstream.message || upstream.error?.message || ""; } catch { /* Keep status-specific fallback. */ }
           const msg = safeMessage || (
             status === 429
               ? "Rate limit hit — please wait a moment and try again."
@@ -1717,10 +1692,7 @@ Deno.serve(async (req) => {
           finish();
           return;
         }
-
-        const data = await resp.json();
-        const choice = data.choices?.[0]?.message;
-        if (!choice) break;
+        const choice = reply.message as any;
 
         const toolCalls = choice.tool_calls;
         if (forceFinal || !toolCalls || toolCalls.length === 0) {

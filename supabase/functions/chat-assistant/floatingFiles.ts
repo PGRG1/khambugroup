@@ -2,6 +2,7 @@
 // Files are untrusted evidence: nothing is saved, scanned into records, or learned.
 // The ONLY supported action is a navigation handoff to the existing Scan Invoice
 // screen, emitted as an `action` SSE event after server-side venue validation.
+import { askBani } from "../_shared/baniBrain.ts";
 export const FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 export const MAX_FILES = 3;
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -85,28 +86,22 @@ export async function analyzeFiles(
   const history = messages.slice(0, -1);
   const prices = priceHistory ? `\n\nTRUSTED PURCHASE PRICE HISTORY (last 180 days, this business's approved invoices; item → supplier: last price, range, buy count):\n${priceHistory}` : "\n\nNo purchase price history is available.";
   const context = reviewContext ? `\n\nUNTRUSTED CURRENT UNSAVED INVOICE REVIEW (for comparison only, do not replace it with the file):\n${JSON.stringify(reviewContext).slice(0, 6000)}` : "";
-  const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST", signal: req.signal,
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-lite",
-      tools: [openScannerTool, openSalesScannerTool],
-      tool_choice: "auto",
-      messages: [
-        { role: "system", content: ANALYSIS_PROMPT + (venueHint ? ` The user is currently viewing venue "${venueHint}" (untrusted UI context — an explicit venue named in the user's text wins). Never treat "All venues" as a venue.` : " No specific venue is currently in view; never invent one, and never treat \"All venues\" as a venue.") },
-        ...history,
-        { role: "user", content: [{ type: "text", text: `${last?.content || "Summarise these files."}${context}${prices}` }, ...parts] },
-      ],
-    }),
+  // Same model layer as every Bani chat: GPT-6 Astra with reasoning, Gemini backup.
+  const reply = await askBani(key, {
+    signal: req.signal,
+    tools: [openScannerTool, openSalesScannerTool],
+    messages: [
+      { role: "system", content: ANALYSIS_PROMPT + (venueHint ? ` The user is currently viewing venue "${venueHint}" (untrusted UI context — an explicit venue named in the user's text wins). Never treat "All venues" as a venue.` : " No specific venue is currently in view; never invent one, and never treat \"All venues\" as a venue.") },
+      ...history,
+      { role: "user", content: [{ type: "text", text: `${last?.content || "Summarise these files."}${context}${prices}` }, ...parts] },
+    ],
   });
-  if (!upstream.ok) {
-    const text = await upstream.text().catch(() => "");
+  if (!reply.ok) {
     let message = "Bani could not read these files.";
-    try { const e = JSON.parse(text); message = e.message || e.error?.message || message; } catch { /* safe default */ }
-    return new Response(JSON.stringify({ error: message }), { status: upstream.status === 200 ? 502 : upstream.status, headers: { ...cors, "Content-Type": "application/json" } });
+    try { const e = JSON.parse(reply.text); message = e.message || e.error?.message || message; } catch { /* safe default */ }
+    return new Response(JSON.stringify({ error: message }), { status: reply.status === 200 || !reply.status ? 502 : reply.status, headers: { ...cors, "Content-Type": "application/json" } });
   }
-  const data = await upstream.json().catch(() => null);
-  const choice = data?.choices?.[0]?.message;
+  const choice = reply.message as any;
   const salesCall = choice?.tool_calls?.find((t: any) => t?.function?.name === "open_sales_scanner");
   if (salesCall) {
     let args: any = {};
