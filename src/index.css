@@ -339,6 +339,30 @@
 }
 
 /* =========================================================
+   PLATFORM CONTROL PLANE — light skin (matches tenant portal:
+   bone ground, white menu, petrol-green actions). Scoped to
+   .platform-shell so tenant pages are unaffected.
+   ========================================================= */
+@layer components {
+  html:not(.dark) .platform-shell {
+    --primary: 173 34% 18%;            /* #1F3F3B petrol */
+    --primary-foreground: 48 20% 95%;  /* bone text on petrol */
+    --ring: 173 34% 28%;
+    --muted-foreground: 140 6% 35%;    /* #55605A, AA on white and bone */
+    --border: 45 12% 87%;              /* #E3E1DA */
+    --warning: 30 89% 29%;             /* #8A4B08, AA for small chip text */
+    --success: 145 50% 27%;            /* #22663F */
+  }
+  html:not(.dark) .platform-shell .card-glass {
+    background: #FFFFFF;
+    border: 1px solid #E3E1DA;
+    box-shadow: 0 1px 2px rgba(20, 45, 43, 0.04), 0 12px 30px -18px rgba(20, 45, 43, 0.25);
+  }
+  html:not(.dark) .platform-shell .chip-success { background: #E6F2EA; border-color: #BFDCC8; }
+  html:not(.dark) .platform-shell .chip-warn { background: #FBEFDD; border-color: #EBCB9F; }
+}
+
+/* =========================================================
    PORTAL RESPONSIVE PASS — phone-first safety net.
    Scoped to `.app-shell` (client portal main region) and only
    active below the `sm` breakpoint, where Tailwind's sm:/md:
