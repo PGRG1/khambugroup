@@ -711,6 +711,10 @@ html:not(.dark) .bani-rail-expand:hover { color: #1F3F3B; }
 html:not(.dark) .tenant-portal .bani-rail-item { color: #55605A !important; background: transparent !important; }
 html:not(.dark) .tenant-portal .bani-rail-item:is(:hover, :focus-visible) { color: #1F3F3B !important; background: rgba(20,45,43,0.06) !important; }
 html:not(.dark) .tenant-portal .bani-rail-item.is-active { color: #1F3F3B !important; background: #E9F1EC !important; }
+html:not(.dark) .bani-rail-pop { background: #FFFFFF; border: 1px solid #E3E1DA; border-radius: 12px; box-shadow: 0 12px 30px -16px rgba(20,45,43,0.30); }
+.bani-rail-pop-link { color: #121510; }
+.bani-rail-pop-link:hover { background: rgba(20,45,43,0.05); color: #1F3F3B; }
+.bani-rail-pop-link.is-active { background: #E9F1EC; color: #1F3F3B; font-weight: 600; }
 html:not(.dark) .bani-rail-tip { background: #1F3F3B; color: #F5F4F0; font-size: 12px; border-radius: 7px; border: 0; }
 .bani-client-box { background-color: #F2F5F3; border-radius: 10px; color: #1F3F3B; }
 

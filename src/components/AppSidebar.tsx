@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
@@ -81,11 +82,48 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
   );
 }
 
-type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean };
+type RailChild = { title: string; to: string; active?: boolean };
+type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean; children?: RailChild[] };
+
+/** Collapsed menu: icon with its name underneath; sections with several pages open them beside the menu. */
+function RailButtonInner({ it }: { it: RailItem }) {
+  return (
+    <>
+      <span className="relative inline-flex h-[22px] items-center"><it.icon className="h-[19px] w-[19px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
+      <span className={cn("text-[11px] leading-[13px] whitespace-nowrap", it.active ? "font-semibold" : "font-medium")}>{it.title}</span>
+    </>
+  );
+}
+
+function RailSection({ it }: { it: RailItem }) {
+  const [open, setOpen] = useState(false);
+  const cls = cn("bani-rail-item flex w-[76px] flex-col items-center gap-[5px] rounded-[12px] pt-2 pb-[7px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active");
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label={`${it.title} pages`} aria-current={it.active ? "page" : undefined} className={cls}>
+          <RailButtonInner it={it} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="right" align="start" sideOffset={10} className="bani-rail-pop z-[70] w-[210px] p-1.5">
+        <div className="px-3 pt-1.5 pb-1 font-plex text-[10.5px] uppercase tracking-[0.14em] text-[#55605A]">{it.title}</div>
+        <nav aria-label={it.title} className="flex flex-col gap-0.5">
+          {it.children!.map((c) => (
+            <Link key={c.to} to={c.to} onClick={() => setOpen(false)} aria-current={c.active ? "page" : undefined}
+              className={cn("bani-rail-pop-link flex h-9 items-center rounded-[8px] px-3 text-[14px] whitespace-nowrap", c.active && "is-active")}>
+              {c.title}
+            </Link>
+          ))}
+        </nav>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
   const [, setBaniOpen] = useFloatingBaniOpen();
   return (
-    <SidebarContent className="bani-rail items-center gap-1 pb-2">
+    <SidebarContent className="bani-rail items-center gap-1.5 pb-2">
       <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -96,17 +134,14 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
           <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Expand sidebar</TooltipContent></TooltipPortal>
         </Tooltip>
       </div>
-      {items.map((it) => (
-        <Tooltip key={it.title}>
-          <TooltipTrigger asChild>
-            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
-              className={cn("bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
-              <span className="relative inline-flex"><it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
-            </Link>
-          </TooltipTrigger>
-          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
-        </Tooltip>
-      ))}
+      {items.map((it) => (it.children && it.children.length > 1 ? (
+        <RailSection key={it.title} it={it} />
+      ) : (
+        <Link key={it.title} to={it.to} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
+          className={cn("bani-rail-item flex w-[76px] flex-col items-center gap-[5px] rounded-[12px] pt-2 pb-[7px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
+          <RailButtonInner it={it} />
+        </Link>
+      )))}
       {footer && <div className="mt-auto pt-2">{footer}</div>}
     </SidebarContent>
   );
@@ -516,16 +551,16 @@ export function AppSidebar() {
       {collapsed ? (
         <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={[
           ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
-          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive }] : []),
+          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, children: revenueChildren.map((c) => ({ title: c.title, to: c.to, active: revenueActive && revSection === c.key })) }] : []),
           ...(showProcurement ? [
-            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive },
-            { title: "Stock & menu", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive },
+            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, children: purchasingChildren.map((c) => ({ title: c.title, to: c.url, active: purchasingActive && purchasingChildActive(c.url) })) },
+            { title: "Stock & menu", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
           ] : []),
-          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/") }] : []),
-          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses") }] : []),
-          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report" }] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), children: peopleChildren.map((c) => ({ title: c.title, to: c.to, active: peopleActivePath === c.to })) }] : []),
+          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
 
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsChildren.map((c) => ({ title: c.title, to: c.to, active: pathname === "/settings" && c.active })) }] : []),
         ]} />
       ) : (
       <SidebarContent className="py-2 gap-3">
