@@ -243,7 +243,7 @@ export default function Clients() {
       </div>
 
       {/* KPIs: plain numbers on phone/tablet, one strip on desktop */}
-      <div className="mt-5 lg:hidden grid grid-cols-4 gap-2">
+      <div className="mt-5 md:hidden grid grid-cols-4 gap-2">
         {kpis.map((k) => (
           <div key={k.label} className="min-w-0 flex flex-col gap-1">
             <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{k.value}</span>
@@ -251,14 +251,14 @@ export default function Clients() {
           </div>
         ))}
       </div>
-      <div className="mt-7 hidden lg:grid card-glass rounded-2xl grid-cols-4 overflow-hidden">
+      <div className="mt-6 xl:mt-7 hidden md:grid card-glass rounded-2xl grid-cols-4 overflow-hidden">
         {kpis.map((k, i) => (
-          <div key={k.label} className={`px-6 py-[22px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
-            <div className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
-            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
+          <div key={k.label} className={`px-[18px] py-4 xl:px-6 xl:py-[22px] flex flex-col gap-2 xl:gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
+            <div className="font-plex text-[10.5px] xl:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
+            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] xl:text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
               {k.value}
             </div>
-            {k.hint && <div className="text-[12.5px] text-muted-foreground truncate">{k.hint}</div>}
+            {k.hint && <div className="text-xs xl:text-[12.5px] text-muted-foreground truncate">{k.hint}</div>}
           </div>
         ))}
       </div>
@@ -268,7 +268,7 @@ export default function Clients() {
         {searchBox("w-full")}
         {filterPills}
       </div>
-      <div className="xl:hidden mt-4 card-glass rounded-2xl overflow-hidden divide-y divide-border/70 dark:divide-white/[0.06]">
+      <div className="md:hidden mt-4 card-glass rounded-2xl overflow-hidden divide-y divide-border/70 dark:divide-white/[0.06]">
         {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
         {visible.map((r) => (
           <div key={r.id} className="flex items-center gap-3 min-h-[92px] px-4">
@@ -289,6 +289,41 @@ export default function Clients() {
             <Button size="icon" className="h-11 w-11 rounded-xl shrink-0" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
               <LogIn className="h-[18px] w-[18px]" />
             </Button>
+          </div>
+        ))}
+      </div>
+
+      {/* Tablet: two columns of cards */}
+      <div className="hidden md:grid xl:hidden mt-4 grid-cols-2 gap-3">
+        {empty && <div className="col-span-2 card-glass rounded-2xl px-5 py-8 text-center text-muted-foreground">{empty}</div>}
+        {visible.map((r) => (
+          <div key={r.id} className="card-glass rounded-[14px] p-4 flex flex-col gap-3.5 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex flex-col gap-0.5">
+                <span className="font-medium text-[15px] leading-5 truncate dark:text-white">{r.name}</span>
+                <span className="text-[12.5px] leading-[18px] text-muted-foreground truncate">/{r.slug}</span>
+              </div>
+              <StatusChip status={r.shownStatus} />
+            </div>
+            <SetupBar setup={r.setup} />
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/70 dark:border-white/[0.06]">
+              <span className="text-[13px] text-muted-foreground whitespace-nowrap tabular-nums">
+                {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                  onClick={() => navigate(`/platform/clients/${r.id}`)}
+                >
+                  Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+                </Button>
+                <Button size="sm" className="h-11 px-4 rounded-[10px] whitespace-nowrap" onClick={() => enterClient(r.id, "/")}>
+                  <LogIn className="h-4 w-4 mr-1.5" /> Enter
+                </Button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
