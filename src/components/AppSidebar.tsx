@@ -99,7 +99,7 @@ function RailButtonInner({ it }: { it: RailItem }) {
 
 function RailSection({ it }: { it: RailItem }) {
   const [open, setOpen] = useState(false);
-  const cls = cn("bani-rail-cell group flex w-[64px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring");
+  const cls = cn("bani-rail-cell group flex w-[60px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -107,12 +107,11 @@ function RailSection({ it }: { it: RailItem }) {
           <RailButtonInner it={it} />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" sideOffset={10} className="bani-rail-pop z-[70] w-[210px] p-1.5">
-        <div className="px-3 pt-1.5 pb-1 font-plex text-[10.5px] uppercase tracking-[0.14em] text-[#55605A]">{it.title}</div>
-        <nav aria-label={it.title} className="flex flex-col gap-0.5">
+      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1">
+        <nav aria-label={it.title} className="flex flex-col gap-px">
           {it.children!.map((c) => (
             <Link key={c.to} to={c.to} onClick={() => setOpen(false)} aria-current={c.active ? "page" : undefined}
-              className={cn("bani-rail-pop-link flex h-9 items-center rounded-[8px] px-3 text-[14px] whitespace-nowrap", c.active && "is-active")}>
+              className={cn("bani-rail-pop-link flex h-[30px] items-center rounded-[7px] px-2.5 text-[13px] whitespace-nowrap", c.active && "is-active")}>
               {c.title}
             </Link>
           ))}
@@ -140,7 +139,7 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
         <RailSection key={it.title} it={it} />
       ) : (
         <Link key={it.title} to={it.to} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
-          className={cn("bani-rail-cell group flex w-[64px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring")}>
+          className={cn("bani-rail-cell group flex w-[60px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring")}>
           <RailButtonInner it={it} />
         </Link>
       )))}
@@ -556,7 +555,7 @@ export function AppSidebar() {
           ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, children: revenueChildren.map((c) => ({ title: c.title, to: c.to, active: revenueActive && revSection === c.key })) }] : []),
           ...(showProcurement ? [
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, children: purchasingChildren.map((c) => ({ title: c.title, to: c.url, active: purchasingActive && purchasingChildActive(c.url) })) },
-            { title: "Stock & menu", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
+            { title: "Stock", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
           ] : []),
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), children: peopleChildren.map((c) => ({ title: c.title, to: c.to, active: peopleActivePath === c.to })) }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
