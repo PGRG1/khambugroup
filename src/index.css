@@ -348,6 +348,8 @@
     --primary: 173 34% 18%;            /* #1F3F3B petrol */
     --primary-foreground: 48 20% 95%;  /* bone text on petrol */
     --ring: 173 34% 28%;
+    --accent: 143 24% 93%;             /* #E9F1EC pale sage: hover/selected fill */
+    --accent-foreground: 173 34% 18%;  /* #1F3F3B dark green text on it */
     --muted-foreground: 140 6% 35%;    /* #55605A, AA on white and bone */
     --border: 45 12% 87%;              /* #E3E1DA */
     --warning: 30 89% 29%;             /* #8A4B08, AA for small chip text */

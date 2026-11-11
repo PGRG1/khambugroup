@@ -314,7 +314,7 @@ export default function Clients() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={() => navigate(`/platform/clients/${r.id}`)}
                 >
                   Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
@@ -368,7 +368,7 @@ export default function Clients() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                       >
                         Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
