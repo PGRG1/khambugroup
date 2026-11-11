@@ -52,7 +52,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={tablet ? tabletOpen : sidebarOpen} onOpenChange={onSidebarOpen} style={{ "--sidebar-width-icon": "88px" } as React.CSSProperties}>
+    <VenueScopeProvider><FloatingBaniProvider><SidebarProvider className="tenant-portal" open={tablet ? tabletOpen : sidebarOpen} onOpenChange={onSidebarOpen} style={{ "--sidebar-width-icon": "76px" } as React.CSSProperties}>
       <div className={`tenant-atmosphere ${pathname.startsWith("/assistant") ? "" : "tenant-atmosphere-off"}`} aria-hidden="true" />
       <div className={`min-h-screen flex w-full overflow-x-hidden ${topPad}`}>
         <AppSidebar />

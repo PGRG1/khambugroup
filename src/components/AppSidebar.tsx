@@ -89,15 +89,15 @@ type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: b
 function RailButtonInner({ it }: { it: RailItem }) {
   return (
     <>
-      <span className="relative inline-flex h-[22px] items-center"><it.icon className="h-[19px] w-[19px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
-      <span className={cn("text-[11px] leading-[13px] whitespace-nowrap", it.active ? "font-semibold" : "font-medium")}>{it.title}</span>
+      <span className="relative inline-flex h-[18px] items-center"><it.icon className="h-[17px] w-[17px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>
+      <span className={cn("text-[10.5px] leading-[12px] tracking-[-0.01em] whitespace-nowrap", it.active ? "font-semibold" : "font-medium")}>{it.title}</span>
     </>
   );
 }
 
 function RailSection({ it }: { it: RailItem }) {
   const [open, setOpen] = useState(false);
-  const cls = cn("bani-rail-item flex w-[76px] flex-col items-center gap-[5px] rounded-[12px] pt-2 pb-[7px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active");
+  const cls = cn("bani-rail-item flex w-[66px] flex-col items-center gap-1 rounded-[10px] pt-[7px] pb-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -123,7 +123,7 @@ function RailSection({ it }: { it: RailItem }) {
 function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
   const [, setBaniOpen] = useFloatingBaniOpen();
   return (
-    <SidebarContent className="bani-rail items-center gap-1.5 pb-2">
+    <SidebarContent className="bani-rail items-center gap-1 pb-2">
       <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -138,7 +138,7 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
         <RailSection key={it.title} it={it} />
       ) : (
         <Link key={it.title} to={it.to} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
-          className={cn("bani-rail-item flex w-[76px] flex-col items-center gap-[5px] rounded-[12px] pt-2 pb-[7px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
+          className={cn("bani-rail-item flex w-[66px] flex-col items-center gap-1 rounded-[10px] pt-[7px] pb-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring", it.active && "is-active")}>
           <RailButtonInner it={it} />
         </Link>
       )))}
