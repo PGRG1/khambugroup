@@ -75,7 +75,7 @@ export function VenueScopePicker() {
     </div>
   );
 
-  const note = <p className="venue-note">Applies to every page until you change it.{inactive && " This page can't be split by venue."}</p>;
+  const note = <p className="venue-note">{"\n"}{inactive && " This page can't be split by venue."}</p>;
 
   if (isMobile) {
     return (
