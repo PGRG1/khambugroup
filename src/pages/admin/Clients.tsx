@@ -34,7 +34,7 @@ const STATUS_LABELS: Record<string, string> = {
   suspended: "Suspended",
 };
 const STATUS_CHIP: Record<string, string> = {
-  setup: "chip-warn",
+  setup: "",
   active: "chip-success",
   suspended: "chip-neutral",
 };
@@ -60,7 +60,7 @@ function SetupBar({ setup }: { setup: Setup }) {
         {Array.from({ length: setup.total }, (_, i) => (
           <span
             key={i}
-            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#D3DCD6] dark:bg-white/[0.10]"}`}
+            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`}
           />
         ))}
       </div>
@@ -75,14 +75,14 @@ function SetupBlocks({ setup }: { setup: Setup }) {
   return (
     <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
       {Array.from({ length: setup.total }, (_, i) => (
-        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#D3DCD6] dark:bg-white/[0.10]"}`} />
+        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`} />
       ))}
     </span>
   );
 }
 
 const STATUS_TEXT: Record<string, string> = {
-  setup: "text-warning",
+  setup: "text-muted-foreground",
   active: "text-success",
   suspended: "text-muted-foreground",
 };
@@ -286,7 +286,7 @@ export default function Clients() {
                 {r.setup.phaseLabel} · {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
               </span>
             </button>
-            <Button size="icon" className="h-11 w-11 rounded-xl shrink-0" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
+            <Button size="icon" className="h-11 w-11 rounded-xl shrink-0 bg-accent text-accent-foreground hover:bg-[#DCE8E0]" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
               <LogIn className="h-[18px] w-[18px]" />
             </Button>
           </div>
@@ -314,12 +314,12 @@ export default function Clients() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={() => navigate(`/platform/clients/${r.id}`)}
                 >
                   Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                 </Button>
-                <Button size="sm" className="h-11 px-4 rounded-[10px] whitespace-nowrap" onClick={() => enterClient(r.id, "/")}>
+                <Button size="sm" className="h-11 px-4 rounded-[10px] whitespace-nowrap bg-accent text-accent-foreground hover:bg-[#DCE8E0]" onClick={() => enterClient(r.id, "/")}>
                   <LogIn className="h-4 w-4 mr-1.5" /> Enter
                 </Button>
               </div>
@@ -368,14 +368,14 @@ export default function Clients() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                       >
                         Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                       </Button>
                       <Button
                         size="sm"
-                        className="h-[38px] px-4 rounded-[10px] whitespace-nowrap"
+                        className="h-[38px] px-4 rounded-[10px] whitespace-nowrap bg-accent text-accent-foreground hover:bg-[#DCE8E0]"
                         onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
                       >
                         <LogIn className="h-4 w-4 mr-1.5" /> Enter
