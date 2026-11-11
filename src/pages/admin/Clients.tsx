@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Loader2, LogIn, Clock, Search } from "lucide-react";
+import { Plus, Loader2, LogIn, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -83,14 +83,6 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-function LastEntered() {
-  return (
-    <span className="inline-flex items-center gap-1 h-5 leading-none font-plex text-[10px] uppercase tracking-[0.12em] text-muted-foreground border border-border bg-card rounded-full px-2 whitespace-nowrap">
-      <Clock className="h-3 w-3" /> Last entered
-    </span>
-  );
-}
-
 function ClientTile({ name }: { name: string }) {
   return (
     <span className="shrink-0 h-[38px] w-[38px] rounded-[10px] bg-[#F2F5F3] text-[#1F3F3B] dark:bg-white/[0.05] dark:text-white inline-flex items-center justify-center text-[15px] font-semibold" aria-hidden="true">
@@ -102,7 +94,7 @@ function ClientTile({ name }: { name: string }) {
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const navigate = useNavigate();
-  const { enterClient, lastEnteredTenantId } = useTenantSession();
+  const { enterClient } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
   const [onboarding, setOnboarding] = useState<Record<string, Record<string, StepState>>>({});
@@ -239,17 +231,15 @@ export default function Clients() {
         <div className="xl:hidden divide-y divide-border/70 dark:divide-white/[0.06]">
           {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
           {shown.map((r) => {
-            const isLast = r.id === lastEnteredTenantId;
-            return (
-              <div key={r.id} className={`p-4 sm:p-5 ${isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""}`}>
+                        return (
+              <div key={r.id} className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <ClientTile name={r.name} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
-                        {isLast && <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Last entered" />}
-                      </div>
+                                              </div>
                       <div className="text-xs text-muted-foreground truncate mt-0.5">/{r.slug}</div>
                     </div>
                   </div>
@@ -304,14 +294,11 @@ export default function Clients() {
                 <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
               {shown.map((r) => {
-                const isLast = r.id === lastEnteredTenantId;
-                return (
+                                return (
                   <tr
                     key={r.id}
                     onClick={() => navigate(`/platform/clients/${r.id}`)}
-                    className={`h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025] ${
-                      isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""
-                    }`}
+                    className={`h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
                   >
                     <td className="px-5 py-0">
                       <div className="flex items-center gap-3.5">
@@ -319,8 +306,7 @@ export default function Clients() {
                         <div className="min-w-0 flex flex-col gap-0.5">
                           <div className="flex items-center gap-2.5 flex-nowrap h-5">
                             <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
-                            {isLast && <LastEntered />}
-                          </div>
+                                                      </div>
                           <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
                         </div>
                       </div>
