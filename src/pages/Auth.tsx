@@ -65,39 +65,60 @@ const Auth = () => {
     setLoading(false);
   };
 
+  // Hold the rotating team member still while someone is typing.
+  const rotRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [holdIndex, setHoldIndex] = useState<number | null>(null);
+  const onFormFocus = () => {
+    if (holdIndex !== null || !rotRef.current) return;
+    let best = 0, bestOpacity = -1;
+    Array.from(rotRef.current.children).forEach((el, i) => {
+      const o = parseFloat(getComputedStyle(el).opacity);
+      if (o > bestOpacity) { bestOpacity = o; best = i; }
+    });
+    setHoldIndex(best);
+  };
+  const onFormBlur = () => {
+    window.setTimeout(() => {
+      if (formRef.current && !formRef.current.contains(document.activeElement)) setHoldIndex(null);
+    }, 0);
+  };
+
   return (
     <div className="bani-login">
       <div className="bl-page">
-        <div className="bl-col">
-          <section className="bl-intro">
-            <div className="bl-logo" style={{ opacity: brandVisible ? 1 : 0 }}>
-              <BaniLoginMark svgRef={markRef} className="bl-mark" />
-              <span ref={wordRef} className="bl-word">Bani</span>
-            </div>
+        <header className="bl-hd">
+          <div className="bl-logo" style={{ opacity: brandVisible ? 1 : 0 }}>
+            <BaniLoginMark svgRef={markRef} className="bl-mark" />
+            <span ref={wordRef} className="bl-word">Bani</span>
+          </div>
+        </header>
+
+        <div className="bl-core">
+          <section className="bl-msg">
             <h1 className="bl-h1">Your restaurant&rsquo;s<br />finance team.</h1>
-            {/* Phone: one team member at a time */}
-            <div className="bl-rot" aria-label={`Your team: ${ROLES.map((r) => r.title).join(", ")}`}>
+            <div
+              ref={rotRef}
+              className={`bl-rot${holdIndex !== null ? " hold" : ""}`}
+              aria-label={`Your team: ${ROLES.map((r) => r.title).join(", ")}`}
+            >
               {ROLES.map((r, i) => (
-                <div key={r.key} className="bl-ri" style={{ animationDelay: `${i * 3.2}s` }} aria-hidden="true">
-                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={26} /></span>
+                <div
+                  key={r.key}
+                  className={`bl-ri${holdIndex === i ? " on" : ""}`}
+                  style={{ animationDelay: `${i * 3.2}s` }}
+                  aria-hidden="true"
+                >
+                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={40} /></span>
                   <span className="bl-rx"><b>{r.title}</b><span>{r.sub}</span></span>
                 </div>
               ))}
             </div>
-            {/* Computer: the whole team */}
-            <ul className="bl-team" aria-label="Your team">
-              {ROLES.map((r) => (
-                <li key={r.key}>
-                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={34} /></span>
-                  <span>{r.title}</span>
-                </li>
-              ))}
-            </ul>
           </section>
 
-          <section className="bl-box">
+          <section className="bl-act">
             <h2 className="bl-h2">Sign in</h2>
-            <form onSubmit={handleSubmit} className="bl-form">
+            <form ref={formRef} onSubmit={handleSubmit} onFocus={onFormFocus} onBlur={onFormBlur} className="bl-form">
               <div className="bl-fl">
                 <input
                   id="auth-email"
@@ -144,7 +165,7 @@ const Auth = () => {
               </div>
 
               {error && <p className="bl-error" role="alert">{error}</p>}
-              {message && <p className="bl-msg" role="status">{message}</p>}
+              {message && <p className="bl-msgtext" role="status">{message}</p>}
 
               <button type="submit" disabled={loading} className="bl-go">
                 {loading ? "Please wait..." : "Sign in"}
@@ -152,9 +173,10 @@ const Auth = () => {
             </form>
           </section>
         </div>
-      </div>
 
-      <footer className="bl-foot">© {new Date().getFullYear()} Bani Technology Limited</footer>
+        <div className="bl-space" />
+        <footer className="bl-foot">© {new Date().getFullYear()} Bani Technology Limited</footer>
+      </div>
 
       {!entranceDone && (
         <AuthEntrance

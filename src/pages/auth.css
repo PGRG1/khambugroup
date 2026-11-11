@@ -1,53 +1,77 @@
-/* Login page (approved design, Nov 2026). Light bone + sage, one centred column on phones, two columns on computers. */
+/* Login page (approved design, Nov 2026).
+   Logo is the page frame (top left). Sign-in sits in the centre of the screen on phones/tablets with the
+   headline + rotating team member above; computers put them side by side, tops aligned, pair centred. */
 .bani-login{--ink:#121510;--green:#1F3F3B;--teal:#2F5E5A;--muted:#55605A;--faint:#6B746E;--line:#DDE1DA;--bone:#F5F4F0;
-  position:relative;min-height:100vh;width:100%;font-family:"IBM Plex Sans",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
-  background:radial-gradient(70% 45% at 50% 0%,rgba(143,175,126,.22),transparent 70%),radial-gradient(60% 40% at 100% 100%,rgba(47,94,90,.08),transparent 70%),var(--bone)}
-.bani-login .bl-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 24px 64px}
-.bani-login .bl-col{width:100%;max-width:312px}
-.bani-login .bl-logo{display:flex;align-items:center;gap:11px;color:#25372B;transition:opacity .3s}
-.bani-login .bl-mark{width:16px;height:30px;flex:none}
-.bani-login .bl-word{font-size:23px;font-weight:300;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
-.bani-login .bl-h1{margin:30px 0 0;font-size:27px;line-height:1.14;font-weight:300;letter-spacing:-.02em}
-.bani-login .bl-av{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1px rgba(31,63,59,.06);display:inline-flex;align-items:center;justify-content:center}
-.bani-login .bl-rot{position:relative;height:38px;margin-top:16px}
-.bani-login .bl-ri{position:absolute;inset:0;display:flex;align-items:center;gap:10px;opacity:0;animation:bl-rot 16s infinite}
+  min-height:100vh;width:100%;font-family:"IBM Plex Sans",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background:radial-gradient(70% 45% at 30% 0%,rgba(143,175,126,.20),transparent 70%),radial-gradient(60% 40% at 100% 100%,rgba(47,94,90,.07),transparent 70%),var(--bone)}
+.bani-login .bl-page{--hd:40px;--py:20px;--px:clamp(24px,6.5vw,32px);--mkh:28px;--wd:22px;--avs:44px;--rb:14px;--rs:13px;
+  min-height:100vh;display:grid;grid-template-rows:var(--hd) minmax(0,1fr) auto minmax(0,1fr) var(--hd);padding:var(--py) var(--px)}
+.bani-login .bl-core{display:contents}
+.bani-login .bl-hd{display:flex;align-items:center}
+.bani-login .bl-logo{display:flex;align-items:center;gap:10px;color:#25372B;transition:opacity .3s}
+.bani-login .bl-mark{height:var(--mkh);width:auto;flex:none}
+.bani-login .bl-word{font-size:var(--wd);font-weight:300;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
+.bani-login .bl-msg{align-self:center;padding:24px 0;width:100%}
+.bani-login .bl-h1{margin:0;font-weight:300;letter-spacing:-.02em;line-height:1.08;font-size:clamp(30px,8.6vw,36px)}
+.bani-login .bl-rot{position:relative;margin-top:20px;height:var(--avs)}
+.bani-login .bl-ri{position:absolute;inset:0;display:flex;align-items:center;gap:12px;opacity:0;animation:bl-rot 16s infinite}
+.bani-login .bl-rot.hold .bl-ri{animation:none;opacity:0;transform:none}
+.bani-login .bl-rot.hold .bl-ri.on{opacity:1}
+.bani-login .bl-av{flex:none;width:var(--avs);height:var(--avs);border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px rgba(31,63,59,.06);display:inline-flex;align-items:center;justify-content:center}
+.bani-login .bl-av .pixel-avatar{transform:scale(.75)}
 .bani-login .bl-rx{display:flex;flex-direction:column;min-width:0}
-.bani-login .bl-rx b{font-size:13px;font-weight:500;color:var(--teal);line-height:17px}
-.bani-login .bl-rx span{font-size:12px;color:var(--faint);line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bani-login .bl-rx b{font-size:var(--rb);font-weight:500;color:var(--teal);line-height:1.3}
+.bani-login .bl-rx span{font-size:var(--rs);color:var(--faint);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @keyframes bl-rot{0%{opacity:0;transform:translateY(5px)}3%,17%{opacity:1;transform:none}20%,100%{opacity:0;transform:translateY(-5px)}}
-@media (prefers-reduced-motion:reduce){.bani-login .bl-ri{animation:none}.bani-login .bl-ri:first-child{opacity:1}}
-.bani-login .bl-team{display:none}
-.bani-login .bl-h2{display:none;margin:0 0 18px;font-size:18px;font-weight:400}
-.bani-login .bl-form{margin-top:32px;display:flex;flex-direction:column;gap:10px}
-.bani-login .bl-fl{position:relative;height:50px;border:1px solid var(--line);border-radius:11px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.bani-login .bl-act{width:100%}
+.bani-login .bl-h2{display:none;margin:0 0 22px;font-size:22px;font-weight:400}
+.bani-login .bl-form{display:flex;flex-direction:column;gap:12px}
+.bani-login .bl-fl{position:relative;height:52px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .15s,box-shadow .15s}
 .bani-login .bl-fl:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,94,90,.12)}
-.bani-login .bl-fl input{position:absolute;inset:0;width:100%;height:100%;border:0;outline:0;background:transparent;border-radius:11px;padding:19px 42px 5px 13px;font:400 16px "IBM Plex Sans",sans-serif;color:var(--ink)}
-.bani-login .bl-fl label{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--faint);pointer-events:none;transition:all .15s ease}
+.bani-login .bl-fl input{position:absolute;inset:0;width:100%;height:100%;border:0;outline:0;background:transparent;border-radius:12px;padding:20px 44px 5px 14px;font:400 16px "IBM Plex Sans",sans-serif;color:var(--ink)}
+.bani-login .bl-fl label{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--faint);pointer-events:none;transition:all .15s ease}
 .bani-login .bl-fl input:focus+label,.bani-login .bl-fl input:not(:placeholder-shown)+label{top:8px;transform:none;font-size:11px;font-weight:500;color:var(--muted)}
-.bani-login .bl-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:transparent;color:var(--faint);display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+.bani-login .bl-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:transparent;color:var(--faint);display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
 .bani-login .bl-eye:hover{color:var(--green)}
-.bani-login .bl-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 2px;font-size:13px}
-.bani-login .bl-row label{display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer}
+.bani-login .bl-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;font-size:14px}
+.bani-login .bl-row label{display:flex;align-items:center;gap:8px;color:var(--muted);cursor:pointer}
 .bani-login .bl-row input{width:16px;height:16px;margin:0;accent-color:var(--green)}
-.bani-login .bl-link{border:0;background:none;padding:0;color:var(--teal);font:500 13px "IBM Plex Sans",sans-serif;cursor:pointer}
+.bani-login .bl-link{border:0;background:none;padding:0;color:var(--teal);font:500 14px "IBM Plex Sans",sans-serif;cursor:pointer}
 .bani-login .bl-link:hover{text-decoration:underline}
 .bani-login .bl-error{margin:2px 0 0;font-size:13px;color:#B42318}
-.bani-login .bl-msg{margin:2px 0 0;font-size:13px;color:var(--muted)}
-.bani-login .bl-go{height:46px;margin-top:6px;border:0;border-radius:11px;background:var(--green);color:var(--bone);font:500 15px "IBM Plex Sans",sans-serif;cursor:pointer;transition:background .15s}
+.bani-login .bl-msgtext{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.bani-login .bl-go{height:50px;margin-top:8px;border:0;border-radius:12px;background:var(--green);color:var(--bone);font:500 16px "IBM Plex Sans",sans-serif;cursor:pointer;transition:background .15s}
 .bani-login .bl-go:hover{background:#2a524d}
 .bani-login .bl-go:disabled{opacity:.6;cursor:default}
-.bani-login .bl-foot{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:11px;color:var(--faint)}
-@media (min-width:900px){
-  .bani-login .bl-page{padding:56px 56px 80px}
-  .bani-login .bl-col{max-width:1040px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:96px;align-items:center}
-  .bani-login .bl-mark{width:17px;height:32px}
-  .bani-login .bl-word{font-size:26px}
-  .bani-login .bl-h1{font-size:52px;line-height:1.06;margin-top:40px}
-  .bani-login .bl-rot{display:none}
-  .bani-login .bl-team{display:flex;gap:22px;list-style:none;padding:0;margin:40px 0 0}
-  .bani-login .bl-team li{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:11px;color:var(--muted);white-space:nowrap}
-  .bani-login .bl-team .bl-av{width:48px;height:48px;border-radius:13px}
-  .bani-login .bl-box{background:#fff;border:1px solid #E5E3DC;border-radius:18px;padding:32px;box-shadow:0 1px 2px rgba(20,45,43,.04),0 24px 48px -30px rgba(20,45,43,.32)}
+.bani-login .bl-foot{grid-row:5;display:flex;align-items:flex-end;justify-content:center;font-size:11px;color:var(--faint)}
+@media (prefers-reduced-motion:reduce){.bani-login .bl-ri{animation:none}.bani-login .bl-ri:first-child{opacity:1}}
+/* short phones: plain stack */
+@media (max-width:599px) and (max-height:700px){
+  .bani-login .bl-page{display:block}
+  .bani-login .bl-msg{padding:40px 0 32px}
+  .bani-login .bl-foot{margin-top:32px}
+}
+/* tablet */
+@media (min-width:600px){
+  .bani-login .bl-page{--hd:48px;--py:32px;--px:40px;--mkh:32px;--wd:24px;--avs:52px;--rb:15px;--rs:14px;justify-items:center}
+  .bani-login .bl-hd{justify-self:stretch}
+  .bani-login .bl-msg,.bani-login .bl-act{max-width:480px}
+  .bani-login .bl-h1{font-size:46px;line-height:1.05;letter-spacing:-.025em}
+  .bani-login .bl-rot{margin-top:24px}
+  .bani-login .bl-av .pixel-avatar{transform:scale(.9)}
+  .bani-login .bl-act{background:#fff;border:1px solid #E5E3DC;border-radius:20px;padding:36px;box-shadow:0 1px 2px rgba(20,45,43,.04),0 24px 48px -30px rgba(20,45,43,.32)}
   .bani-login .bl-h2{display:block}
-  .bani-login .bl-form{margin-top:0}
+}
+/* computer */
+@media (min-width:1100px){
+  .bani-login .bl-page{--hd:48px;--py:32px;--px:0px;justify-items:stretch;width:min(78vw,1320px);margin:0 auto;
+    --mkh:clamp(32px,1.9vw,36px);--wd:clamp(24px,1.5vw,28px);--avs:clamp(60px,3.6vw,68px);--rb:clamp(17px,1.05vw,19px);--rs:clamp(15px,.9vw,16px)}
+  .bani-login .bl-core{display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,25vw,460px);column-gap:clamp(64px,6vw,120px);align-items:start;grid-row:3}
+  .bani-login .bl-msg{max-width:none;padding:8px 0 0;align-self:start}
+  .bani-login .bl-h1{font-size:clamp(56px,3.8vw,74px);line-height:1.04;white-space:nowrap}
+  .bani-login .bl-rot{margin-top:clamp(28px,2.2vw,36px)}
+  .bani-login .bl-av .pixel-avatar{transform:scale(1.12)}
+  .bani-login .bl-act{max-width:none;padding:clamp(32px,2.4vw,44px)}
+  .bani-login .bl-fl{height:clamp(52px,3.2vw,58px)}
+  .bani-login .bl-go{height:clamp(50px,3vw,56px)}
 }
