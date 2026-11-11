@@ -219,7 +219,7 @@ export default function Clients() {
       {/* Client list */}
       <div className="mt-7 card-glass rounded-2xl overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/70 dark:border-white/[0.06]">
-          <span className="text-[15px] font-medium">
+          <span className="text-[15px] font-medium whitespace-nowrap">
             Client groups <span className="text-muted-foreground font-normal tabular-nums">· {totalClients}</span>
           </span>
           <label className="flex items-center gap-2 h-[38px] px-3 w-full sm:w-[280px] rounded-[10px] border border-border bg-card text-muted-foreground">
@@ -285,8 +285,8 @@ export default function Clients() {
 
         {/* Desktop table */}
         <div className="hidden xl:block w-full overflow-x-auto">
-          <table className="w-full text-sm min-w-[960px]">
-            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <table className="w-full text-sm min-w-[1100px]">
+            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
               <tr className="border-b border-border/70 dark:border-white/[0.06]">
                 <th scope="col" className="text-left px-5 py-3.5 font-medium">Client group</th>
                 <th scope="col" className="text-right px-4 py-3.5 font-medium">Venues</th>
@@ -315,11 +315,11 @@ export default function Clients() {
                       <div className="flex items-center gap-3.5">
                         <ClientTile name={r.name} />
                         <div className="min-w-0 flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-medium text-[15px] dark:text-white">{r.name}</span>
+                          <div className="flex items-center gap-2.5 flex-nowrap">
+                            <span className="font-medium text-[15px] whitespace-nowrap dark:text-white">{r.name}</span>
                             {isLast && <LastEntered />}
                           </div>
-                          <span className="text-[12.5px] text-muted-foreground">/{r.slug}</span>
+                          <span className="text-[12.5px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
                         </div>
                       </div>
                     </td>
@@ -333,14 +333,14 @@ export default function Clients() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-[38px] px-3.5 rounded-[10px]"
+                          className="h-[38px] px-3.5 rounded-[10px] whitespace-nowrap"
                           onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                         >
                           Manage
                         </Button>
                         <Button
                           size="sm"
-                          className="h-[38px] px-4 rounded-[10px]"
+                          className="h-[38px] px-4 rounded-[10px] whitespace-nowrap"
                           onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
                         >
                           <LogIn className="h-4 w-4 mr-1.5" /> Enter
