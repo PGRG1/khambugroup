@@ -243,11 +243,11 @@ export default function Clients() {
       </div>
 
       {/* KPIs: plain numbers on phone/tablet, one strip on desktop */}
-      <div className="mt-5 md:hidden grid grid-cols-4 gap-2">
-        {kpis.map((k) => (
-          <div key={k.label} className="min-w-0 flex flex-col gap-1">
+      <div className="mt-5 md:hidden card-glass rounded-2xl grid grid-cols-4 overflow-hidden">
+        {kpis.map((k, i) => (
+          <div key={k.label} className={`min-w-0 flex flex-col items-center gap-1.5 py-3.5 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
             <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{k.value}</span>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{k.short}</span>
+            <span className="text-[12px] text-muted-foreground whitespace-nowrap">{k.short}</span>
           </div>
         ))}
       </div>
