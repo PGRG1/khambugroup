@@ -231,7 +231,7 @@ export default function Clients() {
         <div className="xl:hidden divide-y divide-border/70 dark:divide-white/[0.06]">
           {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
           {shown.map((r) => {
-                        return (
+            return (
               <div key={r.id} className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -239,7 +239,7 @@ export default function Clients() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
-                                              </div>
+                      </div>
                       <div className="text-xs text-muted-foreground truncate mt-0.5">/{r.slug}</div>
                     </div>
                   </div>
@@ -280,12 +280,12 @@ export default function Clients() {
           <table className="w-full text-sm min-w-[1100px]">
             <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
               <tr className="border-b border-border/70 dark:border-white/[0.06]">
-                <th scope="col" className="text-left px-5 py-3.5 font-medium">Client group</th>
-                <th scope="col" className="text-right px-4 py-3.5 font-medium">Venues</th>
-                <th scope="col" className="text-right px-4 py-3.5 font-medium">Users</th>
+                <th scope="col" className="sticky left-0 z-10 bg-card text-left px-5 py-3.5 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Client group</th>
+                <th scope="col" className="text-center px-4 py-3.5 font-medium">Venues</th>
+                <th scope="col" className="text-center px-4 py-3.5 font-medium">Users</th>
                 <th scope="col" className="text-left pl-8 pr-4 py-3.5 font-medium">Setup</th>
-                <th scope="col" className="text-left px-4 py-3.5 font-medium">Status</th>
-                <th scope="col" className="text-left px-4 py-3.5 font-medium">Created</th>
+                <th scope="col" className="text-center px-4 py-3.5 font-medium">Status</th>
+                <th scope="col" className="text-center px-4 py-3.5 font-medium">Created</th>
                 <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
               </tr>
             </thead>
@@ -294,28 +294,28 @@ export default function Clients() {
                 <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
               {shown.map((r) => {
-                                return (
+                return (
                   <tr
                     key={r.id}
                     onClick={() => navigate(`/platform/clients/${r.id}`)}
-                    className={`h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
+                    className={`group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
                   >
-                    <td className="px-5 py-0">
+                    <td className="sticky left-0 z-10 bg-card px-5 py-0 shadow-[1px_0_0_0_hsl(var(--border))] transition-colors group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)]">
                       <div className="flex items-center gap-3.5">
                         <ClientTile name={r.name} />
                         <div className="min-w-0 flex flex-col gap-0.5">
                           <div className="flex items-center gap-2.5 flex-nowrap h-5">
                             <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
-                                                      </div>
+                          </div>
                           <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-0 text-right text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
-                    <td className="px-4 py-0 text-right text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
+                    <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
+                    <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
                     <td className="pl-8 pr-4 py-0"><SetupBar setup={r.setup} /></td>
-                    <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
-                    <td className="px-4 py-0 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="px-4 py-0 text-center"><StatusChip status={r.shownStatus} /></td>
+                    <td className="px-4 py-0 text-center text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
                     <td className="px-5 py-0">
                       <div className="flex items-center justify-end gap-2">
                         <Button
