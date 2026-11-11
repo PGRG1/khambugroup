@@ -86,28 +86,29 @@ type RailChild = { title: string; to: string; active?: boolean };
 type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean; children?: RailChild[] };
 
 /** Collapsed menu: icon with its name underneath; sections with several pages open them beside the menu. */
-function RailButtonInner({ it }: { it: RailItem }) {
-  return (
-    <>
-      <span className={cn("bani-rail-item relative inline-flex h-9 w-9 items-center justify-center rounded-[10px]", it.active && "is-active")}>
-        <it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2 : 1.7} />{it.dot && <span className="bani-dot" aria-hidden="true" />}
-      </span>
-      <span className={cn("bani-rail-label text-[9.5px] leading-[11px] whitespace-nowrap", it.active && "is-active")}>{it.title}</span>
-    </>
-  );
+const RAIL_ICON_CLS = "bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring";
+
+function RailIcon({ it }: { it: RailItem }) {
+  return <span className="relative inline-flex"><it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>;
 }
 
+/** Collapsed menu section with several pages: name on hover, pages open beside the menu on click. */
 function RailSection({ it }: { it: RailItem }) {
   const [open, setOpen] = useState(false);
-  const cls = cn("bani-rail-cell group flex w-[60px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring");
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" aria-label={`${it.title} pages`} aria-current={it.active ? "page" : undefined} className={cls}>
-          <RailButtonInner it={it} />
-        </button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <button type="button" aria-label={it.title} aria-current={it.active ? "page" : undefined} className={cn(RAIL_ICON_CLS, it.active && "is-active")}>
+              <RailIcon it={it} />
+            </button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        {!open && <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>}
+      </Tooltip>
       <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1">
+        <div className="bani-rail-pop-title px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-[#1F3F3B]">{it.title}</div>
         <nav aria-label={it.title} className="flex flex-col gap-px">
           {it.children!.map((c) => (
             <Link key={c.to} to={c.to} onClick={() => setOpen(false)} aria-current={c.active ? "page" : undefined}
@@ -124,7 +125,7 @@ function RailSection({ it }: { it: RailItem }) {
 function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
   const [, setBaniOpen] = useFloatingBaniOpen();
   return (
-    <SidebarContent className="bani-rail items-center gap-2.5 pb-2">
+    <SidebarContent className="bani-rail items-center gap-1 pb-2">
       <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -138,10 +139,15 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
       {items.map((it) => (it.children && it.children.length > 1 ? (
         <RailSection key={it.title} it={it} />
       ) : (
-        <Link key={it.title} to={it.to} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
-          className={cn("bani-rail-cell group flex w-[60px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring")}>
-          <RailButtonInner it={it} />
-        </Link>
+        <Tooltip key={it.title}>
+          <TooltipTrigger asChild>
+            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
+              className={cn(RAIL_ICON_CLS, it.active && "is-active")}>
+              <RailIcon it={it} />
+            </Link>
+          </TooltipTrigger>
+          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
+        </Tooltip>
       )))}
       {footer && <div className="mt-auto pt-2">{footer}</div>}
     </SidebarContent>
