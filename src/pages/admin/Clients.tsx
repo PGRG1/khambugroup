@@ -176,11 +176,11 @@ export default function Clients() {
   const totalVenues = list.reduce((sum, r) => sum + r.c.venues, 0);
   const totalUsers = list.reduce((sum, r) => sum + r.c.users, 0);
 
-  const kpis: { label: string; short: string; value: number; hint?: string; accent?: boolean }[] = [
+  const kpis: { label: string; short: string; value: number; extra?: string; accent?: boolean }[] = [
     { label: "Total clients", short: "Clients", value: totalClients },
     { label: "Active", short: "Active", value: totalActive, accent: true },
     { label: "In setup", short: "In setup", value: totalSetup },
-    { label: "Total venues", short: "Venues", value: totalVenues, hint: `${totalUsers} ${totalUsers === 1 ? "user" : "users"} across all clients` },
+    { label: "Total venues", short: "Venues", value: totalVenues, extra: `${totalUsers} ${totalUsers === 1 ? "user" : "users"}` },
   ];
 
   const MANY = 10;
@@ -253,12 +253,14 @@ export default function Clients() {
       </div>
       <div className="mt-6 xl:mt-7 hidden md:grid card-glass rounded-2xl grid-cols-4 overflow-hidden">
         {kpis.map((k, i) => (
-          <div key={k.label} className={`px-[18px] py-4 xl:px-6 xl:py-[22px] flex flex-col gap-2 xl:gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
+          <div key={k.label} className={`px-[18px] py-4 xl:px-6 xl:py-[18px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
             <div className="font-plex text-[10.5px] xl:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
-            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] xl:text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
-              {k.value}
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] xl:text-[32px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
+                {k.value}
+              </span>
+              {k.extra && <span className="text-[14px] text-muted-foreground tabular-nums whitespace-nowrap">{k.extra}</span>}
             </div>
-            {k.hint && <div className="text-xs xl:text-[12.5px] text-muted-foreground truncate">{k.hint}</div>}
           </div>
         ))}
       </div>
