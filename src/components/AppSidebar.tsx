@@ -17,7 +17,7 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { supabase } from "@/integrations/supabase/client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -99,15 +99,23 @@ function RailButtonInner({ it }: { it: RailItem }) {
 
 function RailSection({ it }: { it: RailItem }) {
   const [open, setOpen] = useState(false);
+  const openT = useRef<number>();
+  const closeT = useRef<number>();
+  const clear = () => { window.clearTimeout(openT.current); window.clearTimeout(closeT.current); };
+  const hoverIn = (e: React.PointerEvent) => { if (e.pointerType !== "mouse") return; clear(); openT.current = window.setTimeout(() => setOpen(true), 120); };
+  const hoverOut = (e: React.PointerEvent) => { if (e.pointerType !== "mouse") return; clear(); closeT.current = window.setTimeout(() => setOpen(false), 180); };
+  useEffect(() => clear, []);
   const cls = cn("bani-rail-cell group flex w-[60px] flex-col items-center gap-1 rounded-[10px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" aria-label={`${it.title} pages`} aria-current={it.active ? "page" : undefined} className={cls}>
+        <button type="button" aria-label={`${it.title} pages`} aria-current={it.active ? "page" : undefined} className={cls}
+          onPointerEnter={hoverIn} onPointerLeave={hoverOut} onClick={(e) => { e.preventDefault(); clear(); setOpen(true); }}>
           <RailButtonInner it={it} />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1">
+      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1"
+        onPointerEnter={hoverIn} onPointerLeave={hoverOut} onOpenAutoFocus={(e) => e.preventDefault()}>
         <nav aria-label={it.title} className="flex flex-col gap-px">
           {it.children!.map((c) => (
             <Link key={c.to} to={c.to} onClick={() => setOpen(false)} aria-current={c.active ? "page" : undefined}
