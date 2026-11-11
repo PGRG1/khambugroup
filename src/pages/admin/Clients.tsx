@@ -59,14 +59,16 @@ function setupFor(steps: Record<string, StepState> | null | undefined): Setup {
   return { done, total: o.total, pct: o.pct, phaseLabel: `Phase ${phaseNum} · ${phase?.title ?? ""}` };
 }
 
-function SetupBar({ setup, wide = false }: { setup: Setup; wide?: boolean }) {
+function SetupBar({ setup }: { setup: Setup }) {
   return (
-    <div className="flex flex-col gap-1.5 min-w-0">
-      <div className="flex items-center gap-2.5" role="img" aria-label={`Onboarding ${setup.pct}% done`}>
-        <div className={`${wide ? "flex-1" : "w-[120px]"} h-1.5 rounded-full bg-muted dark:bg-white/[0.06] overflow-hidden`}>
-          <div className="h-full bg-primary rounded-full" style={{ width: `${setup.pct}%` }} />
-        </div>
-        <span className="text-[13px] font-medium tabular-nums text-foreground">{setup.pct}%</span>
+    <div className="flex flex-col gap-2 min-w-0">
+      <div className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
+        {Array.from({ length: setup.total }, (_, i) => (
+          <span
+            key={i}
+            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#E3E9E5] dark:bg-white/[0.08]"}`}
+          />
+        ))}
       </div>
       <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
         {setup.done} of {setup.total} · {setup.phaseLabel}
@@ -257,7 +259,7 @@ export default function Clients() {
                 </div>
                 <div className="mt-4">
                   <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Setup</div>
-                  <SetupBar setup={r.setup} wide />
+                  <SetupBar setup={r.setup} />
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground tabular-nums">Created {fmtDate(r.created_at)}</span>
