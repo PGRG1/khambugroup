@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Building2, Loader2, ChevronRight, LogIn, Clock } from "lucide-react";
+import { Plus, Loader2, LogIn, Clock, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -12,15 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-
-
+import {
+  ONBOARDING_PHASES, StepState, computeOverallProgress, currentPhase, displayClientStatus,
+} from "@/lib/onboardingSteps";
 
 const fmtDate = (iso: string) => {
   try {
     return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   } catch { return iso; }
 };
-
 
 type ClientRow = { id: string; name: string; slug: string; status: string; created_at: string };
 
@@ -35,12 +35,69 @@ const FY_OPTIONS = [
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-  setup: "Setup",
+  setup: "In setup",
   active: "Active",
   suspended: "Suspended",
 };
+const STATUS_CHIP: Record<string, string> = {
+  setup: "chip-warn",
+  active: "chip-success",
+  suspended: "chip-neutral",
+};
 
-type Counts = { venues: number; users: number; banks: number; invoices: number };
+type Counts = { venues: number; users: number };
+
+type Setup = { done: number; total: number; pct: number; phaseLabel: string };
+
+/** Real onboarding progress from the Onboarding cockpit (skipped steps count as done, same as the cockpit). */
+function setupFor(steps: Record<string, StepState> | null | undefined): Setup {
+  const o = computeOverallProgress(steps);
+  const done = o.done + o.skipped;
+  if (done >= o.total) return { done, total: o.total, pct: 100, phaseLabel: "Complete" };
+  const phaseNum = currentPhase(steps);
+  const phase = ONBOARDING_PHASES.find((p) => p.phase === phaseNum);
+  return { done, total: o.total, pct: o.pct, phaseLabel: `Phase ${phaseNum} · ${phase?.title ?? ""}` };
+}
+
+function SetupBar({ setup, wide = false }: { setup: Setup; wide?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-center gap-2.5" role="img" aria-label={`Onboarding ${setup.pct}% done`}>
+        <div className={`${wide ? "flex-1" : "w-[120px]"} h-1.5 rounded-full bg-muted dark:bg-white/[0.06] overflow-hidden`}>
+          <div className="h-full bg-primary rounded-full" style={{ width: `${setup.pct}%` }} />
+        </div>
+        <span className="text-[13px] font-medium tabular-nums text-foreground">{setup.pct}%</span>
+      </div>
+      <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+        {setup.done} of {setup.total} · {setup.phaseLabel}
+      </span>
+    </div>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  return (
+    <span className={`chip whitespace-nowrap ${STATUS_CHIP[status] ?? "chip-neutral"}`}>
+      <span className="dot" />{STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+function LastEntered() {
+  return (
+    <span className="inline-flex items-center gap-1 font-plex text-[10px] uppercase tracking-[0.12em] text-muted-foreground border border-border bg-card rounded-full px-2 py-0.5 whitespace-nowrap">
+      <Clock className="h-3 w-3" /> Last entered
+    </span>
+  );
+}
+
+function ClientTile({ name }: { name: string }) {
+  return (
+    <span className="shrink-0 h-[38px] w-[38px] rounded-[10px] bg-[#F2F5F3] text-[#1F3F3B] dark:bg-white/[0.05] dark:text-white inline-flex items-center justify-center text-[15px] font-semibold" aria-hidden="true">
+      {name.trim().charAt(0).toUpperCase()}
+    </span>
+  );
+}
 
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
@@ -48,6 +105,8 @@ export default function Clients() {
   const { enterClient, lastEnteredTenantId } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
+  const [onboarding, setOnboarding] = useState<Record<string, Record<string, StepState>>>({});
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -59,14 +118,13 @@ export default function Clients() {
     setRows(tenants);
     if (tenants.length) {
       const ids = tenants.map((d) => d.id);
-      const [{ data: vs }, { data: us }, { data: bs }, { data: is }] = await Promise.all([
+      const [{ data: vs }, { data: us }, { data: ob }] = await Promise.all([
         supabase.from("venues").select("tenant_id").in("tenant_id", ids),
         supabase.from("tenant_members").select("tenant_id, user_id").in("tenant_id", ids),
-        supabase.from("bank_accounts").select("tenant_id").in("tenant_id", ids),
-        supabase.from("invoices").select("tenant_id").in("tenant_id", ids),
+        supabase.from("tenant_onboarding").select("tenant_id, steps").in("tenant_id", ids),
       ]);
       const next: Record<string, Counts> = {};
-      for (const id of ids) next[id] = { venues: 0, users: 0, banks: 0, invoices: 0 };
+      for (const id of ids) next[id] = { venues: 0, users: 0 };
       (vs ?? []).forEach((v: any) => { if (next[v.tenant_id]) next[v.tenant_id].venues += 1; });
       // Distinct users per tenant
       const userSets: Record<string, Set<string>> = {};
@@ -75,248 +133,229 @@ export default function Clients() {
         userSets[m.tenant_id].add(m.user_id);
       });
       for (const id of ids) next[id].users = userSets[id]?.size ?? 0;
-      (bs ?? []).forEach((b: any) => { if (next[b.tenant_id]) next[b.tenant_id].banks += 1; });
-      (is ?? []).forEach((i: any) => { if (next[i.tenant_id]) next[i.tenant_id].invoices += 1; });
       setCounts(next);
+      const steps: Record<string, Record<string, StepState>> = {};
+      (ob ?? []).forEach((o: any) => { steps[o.tenant_id] = (o.steps ?? {}) as Record<string, StepState>; });
+      setOnboarding(steps);
     } else {
       setCounts({});
+      setOnboarding({});
     }
   }, []);
 
   useEffect(() => { if (isPlatformAdmin) refresh(); }, [isPlatformAdmin, refresh]);
 
+  const list = useMemo(() => {
+    return (rows ?? [])
+      .map((r) => ({
+        ...r,
+        shownStatus: displayClientStatus(r.status, onboarding[r.id]),
+        setup: setupFor(onboarding[r.id]),
+        c: counts[r.id] ?? { venues: 0, users: 0 },
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows, onboarding, counts]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? list.filter((r) => r.name.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q)) : list;
+  }, [list, query]);
+
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
 
-  const totalClients = rows?.length ?? 0;
-  const totalActive = (rows ?? []).filter(r => r.status === "active").length;
-  const totalSetup = (rows ?? []).filter(r => r.status === "setup").length;
-  const totalVenues = Object.values(counts).reduce((sum, c) => sum + c.venues, 0);
+  const totalClients = list.length;
+  const totalActive = list.filter((r) => r.shownStatus === "active").length;
+  const totalSetup = list.filter((r) => r.shownStatus === "setup").length;
+  const totalVenues = list.reduce((sum, r) => sum + r.c.venues, 0);
+  const totalUsers = list.reduce((sum, r) => sum + r.c.users, 0);
 
-  const setupScore = (id: string): number => {
-    const c = counts[id];
-    if (!c) return 0;
-    let s = 0;
-    if (c.venues > 0) s += 1;
-    if (c.users > 1) s += 1;
-    if (c.banks > 0) s += 1;
-    if (c.invoices > 0) s += 1;
-    return s;
-  };
-
-  const kpis: { label: string; value: number; accent?: boolean }[] = [
-    { label: "Total clients", value: totalClients },
-    { label: "Active", value: totalActive, accent: true },
-    { label: "In setup", value: totalSetup },
-    { label: "Total venues", value: totalVenues },
+  const kpis: { label: string; value: number; hint: string; accent?: boolean }[] = [
+    { label: "Total clients", value: totalClients, hint: "Client groups on Bani" },
+    { label: "Active", value: totalActive, hint: "Live after go-live steps", accent: true },
+    { label: "In setup", value: totalSetup, hint: "Onboarding still open" },
+    { label: "Total venues", value: totalVenues, hint: `${totalUsers} ${totalUsers === 1 ? "user" : "users"} across all clients` },
   ];
 
-  const sorted = rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : [];
+  const empty = rows === null ? "Loading…" : rows.length === 0 ? "No clients yet." : shown.length === 0 ? "No client groups match your search." : null;
 
   return (
     <div className="w-full">
       {/* Title row */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display font-semibold tracking-tight text-[26px] sm:text-[28px] lg:text-[30px] leading-none dark:text-white">
+          <h1 className="font-display font-medium tracking-tight text-[28px] sm:text-[32px] lg:text-[34px] leading-none dark:text-white">
             Clients
           </h1>
-          <p className="text-sm text-muted-foreground mt-2.5 max-w-xl leading-relaxed">
+          <p className="text-[15px] text-muted-foreground mt-2.5 max-w-xl leading-relaxed">
             Bani client groups provisioned on the platform.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="h-[42px] px-4 shrink-0 w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-1.5" /> Add Client
+        <Button onClick={() => setOpen(true)} className="h-11 px-[18px] rounded-xl text-[15px] shrink-0 w-full sm:w-auto">
+          <Plus className="h-[18px] w-[18px] mr-1.5" /> Add Client
         </Button>
       </div>
 
-      {/* KPI row */}
-      <div className="mt-8 sm:mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
-        {kpis.map((k) => (
+      {/* KPI strip */}
+      <div className="mt-7 card-glass rounded-2xl grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
+        {kpis.map((k, i) => (
           <div
             key={k.label}
-            className="glass-surface rounded-xl border border-border/60 px-4 sm:px-5 py-4 sm:py-[22px] min-h-[96px] sm:min-h-[112px] flex flex-col justify-between gap-3 min-w-0"
+            className={`px-5 sm:px-6 py-5 sm:py-[22px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${
+              i % 2 === 1 ? "border-l" : ""
+            } ${i >= 2 ? "border-t lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}
           >
-            <div className="text-[10px] sm:text-[10.5px] uppercase tracking-[0.16em] sm:tracking-[0.18em] text-muted-foreground font-medium truncate">
+            <div className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">
               {k.label}
             </div>
-            <div
-              className={`font-display font-semibold td-num tabular-nums leading-none text-[26px] sm:text-[30px] ${
-                k.accent ? "text-primary" : "dark:text-white"
-              }`}
-            >
+            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] sm:text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
               {k.value}
             </div>
+            <div className="text-[12.5px] text-muted-foreground truncate">{k.hint}</div>
           </div>
         ))}
       </div>
 
-      {/* Mobile / tablet card list */}
-      <div className="mt-7 grid grid-cols-1 gap-3.5 xl:hidden">
-        {rows === null && (
-          <div className="card-glass rounded-xl px-5 py-8 text-center text-muted-foreground">Loading…</div>
-        )}
-        {rows?.length === 0 && (
-          <div className="card-glass rounded-xl px-5 py-8 text-center text-muted-foreground">No clients yet.</div>
-        )}
-        {sorted.map((r) => {
-          const c = counts[r.id];
-          const score = setupScore(r.id);
-          const fillClass = score >= 4 ? "bg-primary" : "bg-primary/45";
-          const isLast = r.id === lastEnteredTenantId;
-          return (
-            <div key={r.id} className="card-glass rounded-xl p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                    <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
+      {/* Client list */}
+      <div className="mt-7 card-glass rounded-2xl overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/70 dark:border-white/[0.06]">
+          <span className="text-[15px] font-medium">
+            Client groups <span className="text-muted-foreground font-normal tabular-nums">· {totalClients}</span>
+          </span>
+          <label className="flex items-center gap-2 h-[38px] px-3 w-full sm:w-[280px] rounded-[10px] border border-border bg-card text-muted-foreground">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search client groups"
+              aria-label="Search client groups"
+              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground"
+            />
+          </label>
+        </div>
+
+        {/* Mobile / tablet cards */}
+        <div className="xl:hidden divide-y divide-border/70 dark:divide-white/[0.06]">
+          {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
+          {shown.map((r) => {
+            const isLast = r.id === lastEnteredTenantId;
+            return (
+              <div key={r.id} className={`p-4 sm:p-5 ${isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ClientTile name={r.name} />
+                    <div className="min-w-0">
+                      <div className="font-medium text-[15px] truncate dark:text-white">{r.name}</div>
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">/{r.slug}</div>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground/70 mt-1">/{r.slug}</div>
+                  <StatusChip status={r.shownStatus} />
                 </div>
-                <span className={`chip shrink-0 ${r.status === "active" ? "chip-success" : r.status === "setup" ? "chip-warn" : "chip-neutral"}`}>
-                  <span className="dot" />{STATUS_LABELS[r.status] ?? r.status}
-                </span>
+                {isLast && <div className="mt-3"><LastEntered /></div>}
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Venues</div>
+                    <div className="text-[15px] mt-1 tabular-nums dark:text-white">{r.c.venues}</div>
+                  </div>
+                  <div>
+                    <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Users</div>
+                    <div className="text-[15px] mt-1 tabular-nums dark:text-white">{r.c.users}</div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Setup</div>
+                  <SetupBar setup={r.setup} wide />
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground tabular-nums">Created {fmtDate(r.created_at)}</span>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" className="h-11 sm:h-9 px-3.5 rounded-[10px]" onClick={() => navigate(`/platform/clients/${r.id}`)}>
+                      Manage
+                    </Button>
+                    <Button size="sm" className="h-11 sm:h-9 px-3.5 rounded-[10px]" onClick={() => enterClient(r.id, "/")}>
+                      <LogIn className="h-3.5 w-3.5 mr-1.5" /> Enter
+                    </Button>
+                  </div>
+                </div>
               </div>
+            );
+          })}
+        </div>
 
-              {isLast && (
-                <span className="mt-3 inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground/70 bg-muted/50 dark:bg-white/[0.04] rounded-full px-2 py-0.5">
-                  <Clock className="h-3 w-3" /> Last entered
-                </span>
+        {/* Desktop table */}
+        <div className="hidden xl:block w-full overflow-x-auto">
+          <table className="w-full text-sm min-w-[960px]">
+            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="border-b border-border/70 dark:border-white/[0.06]">
+                <th scope="col" className="text-left px-5 py-3.5 font-medium">Client group</th>
+                <th scope="col" className="text-right px-4 py-3.5 font-medium">Venues</th>
+                <th scope="col" className="text-right px-4 py-3.5 font-medium">Users</th>
+                <th scope="col" className="text-left pl-8 pr-4 py-3.5 font-medium">Setup</th>
+                <th scope="col" className="text-left px-4 py-3.5 font-medium">Status</th>
+                <th scope="col" className="text-left px-4 py-3.5 font-medium">Created</th>
+                <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {empty && (
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
-
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Venues</div>
-                  <div className="td-num text-sm mt-1 dark:text-white">{c?.venues ?? 0}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Users</div>
-                  <div className="td-num text-sm mt-1 dark:text-white">{c?.users ?? 0}</div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Setup</div>
-                <div className="mt-2 h-1.5 w-full bg-muted dark:bg-white/[0.06] rounded-full overflow-hidden">
-                  <div className={`h-full ${fillClass}`} style={{ width: `${(score / 4) * 100}%` }} />
-                </div>
-                <div className="text-[10px] text-muted-foreground mt-1.5">{score}/4 steps</div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground td-num">Created {fmtDate(r.created_at)}</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-muted-foreground hover:text-foreground"
+              {shown.map((r) => {
+                const isLast = r.id === lastEnteredTenantId;
+                return (
+                  <tr
+                    key={r.id}
                     onClick={() => navigate(`/platform/clients/${r.id}`)}
+                    className={`border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025] ${
+                      isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""
+                    }`}
                   >
-                    Manage
-                  </Button>
-                  <Button size="sm" className="h-9 px-3.5" onClick={() => enterClient(r.id, "/")}>
-                    <LogIn className="h-3.5 w-3.5 mr-1" /> Enter
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Client table (desktop) */}
-      <div className="mt-8 card-glass rounded-xl overflow-hidden hidden xl:block">
-        <div className="w-full overflow-x-auto">
-        <table className="w-full text-sm min-w-[820px]">
-
-          <thead className="bg-muted/30 dark:bg-white/[0.02] text-muted-foreground text-[10px] uppercase tracking-[0.16em] font-plex">
-            <tr className="border-b border-border/50 dark:border-white/[0.06]">
-              <th className="text-left px-5 py-3.5 font-medium">Client Group</th>
-              <th className="text-left px-5 py-3.5 font-medium">Venues</th>
-              <th className="text-left px-5 py-3.5 font-medium">Users</th>
-              <th className="text-left px-5 py-3.5 font-medium">Setup</th>
-              <th className="text-left px-5 py-3.5 font-medium">Status</th>
-              <th className="text-left px-5 py-3.5 font-medium">Created</th>
-              <th className="text-right px-5 py-3.5 font-medium">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows === null && (
-              <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">Loading…</td></tr>
-            )}
-            {rows?.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">No clients yet.</td></tr>
-            )}
-            {(rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : []).map((r) => {
-              const c = counts[r.id];
-              const score = setupScore(r.id);
-              const fillClass = score >= 4 ? "bg-primary" : "bg-primary/45";
-              const isLast = r.id === lastEnteredTenantId;
-              return (
-                <tr
-                  key={r.id}
-                  onClick={() => navigate(`/platform/clients/${r.id}`)}
-                  className="h-[72px] border-t border-border/30 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.025]"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2.5">
-                      <Building2 className="h-4 w-4 text-muted-foreground/70" />
-                      <span className="font-medium text-[14.5px] dark:text-white">{r.name}</span>
-                      <span className="text-xs text-muted-foreground/70">/{r.slug}</span>
-                      {isLast && (
-                        <span className="inline-flex items-center gap-1 text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground/70 bg-muted/50 dark:bg-white/[0.04] rounded-full px-2 py-0.5">
-                          <Clock className="h-3 w-3" /> Last entered
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 td-num text-muted-foreground">{c?.venues ?? 0}</td>
-                  <td className="px-5 py-4 td-num text-muted-foreground">{c?.users ?? 0}</td>
-                  <td className="px-5 py-4">
-                    <div className="w-20 h-1.5 bg-muted dark:bg-white/[0.06] rounded-full overflow-hidden">
-                      <div className={`h-full ${fillClass}`} style={{ width: `${(score / 4) * 100}%` }} />
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1.5">{score}/4 steps</div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`chip ${r.status === "active" ? "chip-success" : r.status === "setup" ? "chip-warn" : "chip-neutral"}`}>
-                      <span className="dot" />{STATUS_LABELS[r.status] ?? r.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground td-num">{fmtDate(r.created_at)}</td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="inline-flex items-center gap-3">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
-                      >
-                        Manage <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-9 px-3.5"
-                        onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
-                      >
-                        <LogIn className="h-3.5 w-3.5 mr-1" /> Enter
-                      </Button>
-                    </div>
-                  </td>
-
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3.5">
+                        <ClientTile name={r.name} />
+                        <div className="min-w-0 flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="font-medium text-[15px] dark:text-white">{r.name}</span>
+                            {isLast && <LastEntered />}
+                          </div>
+                          <span className="text-[12.5px] text-muted-foreground">/{r.slug}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
+                    <td className="px-4 py-4 text-right text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
+                    <td className="pl-8 pr-4 py-4"><SetupBar setup={r.setup} /></td>
+                    <td className="px-4 py-4"><StatusChip status={r.shownStatus} /></td>
+                    <td className="px-4 py-4 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-[38px] px-3.5 rounded-[10px]"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
+                        >
+                          Manage
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-[38px] px-4 rounded-[10px]"
+                          onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
+                        >
+                          <LogIn className="h-4 w-4 mr-1.5" /> Enter
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="h-16" />
-
-
 
       <AddClientDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
     </div>

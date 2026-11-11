@@ -114,3 +114,19 @@ export function currentPhase(steps: Record<string, StepState> | null | undefined
   }
   return ONBOARDING_PHASES.length;
 }
+
+/** Last phase that must be done (complete or skipped) before a client counts as Active.
+ * Phases after it (accounting opening balances, team) don't hold a client in setup. */
+export const GO_LIVE_PHASE = 3;
+
+export function isOnboardingLive(steps: Record<string, StepState> | null | undefined): boolean {
+  return ONBOARDING_PHASES
+    .filter((p) => p.phase <= GO_LIVE_PHASE)
+    .every((p) => { const prog = computePhaseProgress(steps, p); return prog.done >= prog.total; });
+}
+
+/** Status shown on the platform Clients list. Suspended stays manual; otherwise it follows onboarding. */
+export function displayClientStatus(storedStatus: string, steps: Record<string, StepState> | null | undefined): "active" | "setup" | "suspended" {
+  if (storedStatus === "suspended") return "suspended";
+  return isOnboardingLive(steps) ? "active" : "setup";
+}
