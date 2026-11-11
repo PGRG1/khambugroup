@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Loader2, LogIn, Search } from "lucide-react";
+import { Plus, Loader2, LogIn, Search, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -66,7 +66,7 @@ function SetupBar({ setup }: { setup: Setup }) {
         {Array.from({ length: setup.total }, (_, i) => (
           <span
             key={i}
-            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#E3E9E5] dark:bg-white/[0.08]"}`}
+            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#D3DCD6] dark:bg-white/[0.10]"}`}
           />
         ))}
       </div>
@@ -85,14 +85,6 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-function ClientTile({ name }: { name: string }) {
-  return (
-    <span className="shrink-0 h-[38px] w-[38px] rounded-[10px] bg-[#F2F5F3] text-[#1F3F3B] dark:bg-white/[0.05] dark:text-white inline-flex items-center justify-center text-[15px] font-semibold" aria-hidden="true">
-      {name.trim().charAt(0).toUpperCase()}
-    </span>
-  );
-}
-
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const navigate = useNavigate();
@@ -102,6 +94,7 @@ export default function Clients() {
   const [onboarding, setOnboarding] = useState<Record<string, Record<string, StepState>>>({});
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const refresh = useCallback(async () => {
     const { data } = await supabase
@@ -214,7 +207,7 @@ export default function Clients() {
       <div className="mt-7 card-glass rounded-2xl overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/70 dark:border-white/[0.06]">
           <span className="text-[15px] font-medium whitespace-nowrap">
-            Client groups <span className="text-muted-foreground font-normal tabular-nums">· {totalClients}</span>
+            Client groups
           </span>
           <label className="flex items-center gap-2 h-[38px] px-3 w-full sm:w-[280px] rounded-[10px] border border-border bg-card text-muted-foreground">
             <Search className="h-4 w-4 shrink-0" />
@@ -237,7 +230,6 @@ export default function Clients() {
               <div key={r.id} className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <ClientTile name={r.name} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
@@ -264,8 +256,8 @@ export default function Clients() {
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground tabular-nums">Created {fmtDate(r.created_at)}</span>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" className="h-11 sm:h-9 px-3.5 rounded-[10px]" onClick={() => navigate(`/platform/clients/${r.id}`)}>
-                      Manage
+                    <Button size="sm" variant="ghost" className="h-11 sm:h-9 px-2.5 rounded-[10px] text-muted-foreground hover:text-foreground" onClick={() => navigate(`/platform/clients/${r.id}`)}>
+                      Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                     </Button>
                     <Button size="sm" className="h-11 sm:h-9 px-3.5 rounded-[10px]" onClick={() => enterClient(r.id, "/")}>
                       <LogIn className="h-3.5 w-3.5 mr-1.5" /> Enter
@@ -278,14 +270,14 @@ export default function Clients() {
         </div>
 
         {/* Desktop table */}
-        <div className="hidden xl:block w-full overflow-x-auto">
-          <table className="w-full text-sm min-w-[1100px]">
+        <div className="hidden xl:block w-full overflow-x-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}>
+          <table className="w-full text-sm min-w-[980px]">
             <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
               <tr className="border-b border-border/70 dark:border-white/[0.06]">
-                <th scope="col" className="sticky left-0 z-10 bg-card text-left px-5 py-3.5 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Client group</th>
+                <th scope="col" className={`sticky left-0 z-10 bg-card text-left px-5 py-3.5 font-medium transition-shadow ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>Client group</th>
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Venues</th>
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Users</th>
-                <th scope="col" className="text-left pl-8 pr-4 py-3.5 font-medium">Setup</th>
+                <th scope="col" className="text-left pl-6 pr-4 py-3.5 font-medium">Setup</th>
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Status</th>
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Created</th>
                 <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
@@ -302,9 +294,8 @@ export default function Clients() {
                     onClick={() => navigate(`/platform/clients/${r.id}`)}
                     className={`group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
                   >
-                    <td className="sticky left-0 z-10 bg-card px-5 py-0 shadow-[1px_0_0_0_hsl(var(--border))] transition-colors group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)]">
-                      <div className="flex items-center gap-3.5">
-                        <ClientTile name={r.name} />
+                    <td className={`sticky left-0 z-10 bg-card px-5 py-0 transition-[background-color,box-shadow] group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)] ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>
+                      <div className="flex items-center">
                         <div className="min-w-0 flex flex-col gap-0.5">
                           <div className="flex items-center gap-2.5 flex-nowrap h-5">
                             <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
@@ -315,18 +306,18 @@ export default function Clients() {
                     </td>
                     <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
                     <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
-                    <td className="pl-8 pr-4 py-0"><SetupBar setup={r.setup} /></td>
+                    <td className="pl-6 pr-4 py-0"><SetupBar setup={r.setup} /></td>
                     <td className="px-4 py-0 text-center"><StatusChip status={r.shownStatus} /></td>
                     <td className="px-4 py-0 text-center text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
                     <td className="px-5 py-0">
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-[38px] px-3.5 rounded-[10px] whitespace-nowrap"
+                          variant="ghost"
+                          className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
                           onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                         >
-                          Manage
+                          Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                         </Button>
                         <Button
                           size="sm"
