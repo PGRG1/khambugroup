@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Building2, PanelLeft } from "lucide-react";
+import { Building2, PanelLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/UserMenu";
@@ -47,18 +47,45 @@ function NavBody({
   );
 }
 
-function Branding({ collapsed = false }: { collapsed?: boolean }) {
+function Branding({
+  collapsed = false,
+  onCollapse,
+  onExpand,
+}: {
+  collapsed?: boolean;
+  onCollapse?: () => void;
+  onExpand?: () => void;
+}) {
+  if (collapsed) {
+    return (
+      <div className="bani-rail-head flex items-center justify-center h-16 shrink-0 border-b border-[rgba(31,63,59,0.12)] dark:border-transparent">
+        <button
+          type="button"
+          onClick={onExpand}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="bani-rail-expand bani-rail-logo inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] text-[#25372B] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        >
+          <BaniLoginMark className="bani-rail-mark h-[26px] w-[16px]" />
+          <ChevronsRight className="bani-rail-chev h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
   return (
-    <div
-      className={`flex items-center h-16 shrink-0 border-b border-[rgba(31,63,59,0.12)] dark:border-transparent ${
-        collapsed ? "justify-center px-0" : "gap-3 px-5"
-      }`}
-    >
-      <BaniLoginMark className="h-6 w-[13px] shrink-0 text-[#25372B] dark:text-white" />
-      {!collapsed && (
-        <span className="font-geist font-light tracking-tight text-[17px] whitespace-nowrap text-[#121510] dark:text-white">
-          Bani Platform
-        </span>
+    <div className="bani-sidebar-head flex items-center gap-2 h-16 shrink-0 px-4 border-b border-[rgba(31,63,59,0.12)] dark:border-transparent">
+      <BaniLoginMark className="bani-brand-mark h-[30px] w-[18px] shrink-0 dark:text-white" />
+      <span className="bani-brand-word font-light tracking-tight leading-none whitespace-nowrap dark:text-white">Bani Platform</span>
+      {onCollapse && (
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+          className="bani-collapse-btn ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </button>
       )}
     </div>
   );
@@ -87,10 +114,10 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
       {/* Persistent desktop sidebar */}
       <aside
         className={`hidden lg:flex shrink-0 flex-col overflow-hidden border-r border-[rgba(31,63,59,0.12)] dark:border-white/[0.06] bg-white dark:bg-sidebar transition-[width] duration-300 ease-out ${
-          collapsed ? "w-[60px]" : "w-[220px]"
+          collapsed ? "w-[60px]" : "w-[240px]"
         }`}
       >
-        <Branding collapsed={collapsed} />
+        <Branding collapsed={collapsed} onCollapse={() => setCollapsed(true)} onExpand={() => setCollapsed(false)} />
         <div className="pt-4">
           <NavBody active={active} collapsed={collapsed} />
         </div>
@@ -118,16 +145,6 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
               className="h-9 w-9 shrink-0 lg:hidden"
               onClick={() => setOpen(true)}
               aria-label="Open navigation"
-            >
-              <PanelLeft className="h-4.5 w-4.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden lg:inline-flex h-9 w-9 shrink-0"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-              aria-expanded={!collapsed}
             >
               <PanelLeft className="h-4.5 w-4.5" />
             </Button>
