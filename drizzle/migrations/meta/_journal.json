@@ -1163,6 +1163,13 @@
       "when": 1794149378989,
       "tag": "0165_bani_guarded_record_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1794440197851,
+      "tag": "0166_tighten_tenant_reads_and_storage",
+      "breakpoints": true
     }
   ]
 }

@@ -16796,6 +16796,7 @@ export type Database = {
           venue_id: string
         }[]
       }
+      profile_visible: { Args: { _profile_user: string }; Returns: boolean }
       rebuild_journal_from_operations: {
         Args: { p_tenant_id: string }
         Returns: Json
@@ -17078,6 +17079,10 @@ export type Database = {
         Returns: undefined
       }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
+      storage_object_readable: {
+        Args: { _bucket: string; _name: string; _owner: string }
+        Returns: boolean
+      }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json
