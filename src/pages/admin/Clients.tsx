@@ -16,12 +16,6 @@ import {
   ONBOARDING_PHASES, StepState, computeOverallProgress, currentPhase, displayClientStatus,
 } from "@/lib/onboardingSteps";
 
-const fmtDate = (iso: string) => {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  } catch { return iso; }
-};
-
 type ClientRow = { id: string; name: string; slug: string; status: string; created_at: string };
 
 const COUNTRIES = ["Hong Kong","Singapore","Macau","United Kingdom","France","Nepal","India","Thailand","Vietnam","Other"];
@@ -71,9 +65,33 @@ function SetupBar({ setup }: { setup: Setup }) {
         ))}
       </div>
       <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
-        {setup.done} of {setup.total} · {setup.phaseLabel}
+        {setup.phaseLabel}
       </span>
     </div>
+  );
+}
+
+function SetupBlocks({ setup }: { setup: Setup }) {
+  return (
+    <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
+      {Array.from({ length: setup.total }, (_, i) => (
+        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#D3DCD6] dark:bg-white/[0.10]"}`} />
+      ))}
+    </span>
+  );
+}
+
+const STATUS_TEXT: Record<string, string> = {
+  setup: "text-warning",
+  active: "text-success",
+  suspended: "text-muted-foreground",
+};
+
+function StatusText({ status }: { status: string }) {
+  return (
+    <span className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ${STATUS_TEXT[status] ?? "text-muted-foreground"}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />{STATUS_LABELS[status] ?? status}
+    </span>
   );
 }
 
@@ -95,6 +113,7 @@ export default function Clients() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [filter, setFilter] = useState<"all" | "active" | "setup">("all");
 
   const refresh = useCallback(async () => {
     const { data } = await supabase
@@ -157,121 +176,128 @@ export default function Clients() {
   const totalVenues = list.reduce((sum, r) => sum + r.c.venues, 0);
   const totalUsers = list.reduce((sum, r) => sum + r.c.users, 0);
 
-  const kpis: { label: string; value: number; hint: string; accent?: boolean }[] = [
-    { label: "Total clients", value: totalClients, hint: "Client groups on Bani" },
-    { label: "Active", value: totalActive, hint: "Live after go-live steps", accent: true },
-    { label: "In setup", value: totalSetup, hint: "Onboarding still open" },
-    { label: "Total venues", value: totalVenues, hint: `${totalUsers} ${totalUsers === 1 ? "user" : "users"} across all clients` },
+  const kpis: { label: string; short: string; value: number; hint?: string; accent?: boolean }[] = [
+    { label: "Total clients", short: "Clients", value: totalClients },
+    { label: "Active", short: "Active", value: totalActive, accent: true },
+    { label: "In setup", short: "In setup", value: totalSetup },
+    { label: "Total venues", short: "Venues", value: totalVenues, hint: `${totalUsers} ${totalUsers === 1 ? "user" : "users"} across all clients` },
   ];
 
-  const empty = rows === null ? "Loading…" : rows.length === 0 ? "No clients yet." : shown.length === 0 ? "No client groups match your search." : null;
+  const MANY = 10;
+  const showFilters = totalClients > MANY;
+  const filters: { key: "all" | "active" | "setup"; label: string; n: number }[] = [
+    { key: "all", label: "All", n: totalClients },
+    { key: "active", label: "Active", n: totalActive },
+    { key: "setup", label: "In setup", n: totalSetup },
+  ];
+  const visible = showFilters && filter !== "all" ? shown.filter((r) => r.shownStatus === filter) : shown;
+
+  const empty = rows === null ? "Loading…" : rows.length === 0 ? "No clients yet." : visible.length === 0 ? "No clients match." : null;
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+  const searchBox = (cls: string) => (
+    <label className={`flex items-center gap-2 h-11 px-3.5 rounded-xl border border-border bg-card text-muted-foreground ${cls}`}>
+      <Search className="h-4 w-4 shrink-0" />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search clients"
+        aria-label="Search clients"
+        className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-foreground placeholder:text-muted-foreground"
+      />
+    </label>
+  );
+
+  const filterPills = showFilters && (
+    <div className="flex gap-2 overflow-x-auto">
+      {filters.map((f) => (
+        <button
+          key={f.key}
+          type="button"
+          onClick={() => setFilter(f.key)}
+          aria-pressed={filter === f.key}
+          className={`h-9 px-3.5 rounded-full border text-[13px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+            filter === f.key ? "bg-primary border-primary text-primary-foreground" : "bg-card border-border text-foreground hover:bg-muted/60"
+          }`}
+        >
+          {f.label}<span className="opacity-70 tabular-nums">{f.n}</span>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="w-full">
       {/* Title row */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="font-display font-medium tracking-tight text-[28px] sm:text-[32px] lg:text-[34px] leading-none dark:text-white">
-            Clients
-          </h1>
-          <p className="text-[15px] text-muted-foreground mt-2.5 max-w-xl leading-relaxed">
-            Bani client groups provisioned on the platform.
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display font-medium tracking-tight text-[30px] sm:text-[32px] lg:text-[34px] leading-none dark:text-white">
+          Clients
+        </h1>
+        <div className="flex items-center gap-3">
+          {searchBox("hidden xl:flex w-[280px]")}
+          <Button onClick={() => setOpen(true)} aria-label="Add Client" className="h-11 w-11 sm:w-auto sm:px-[18px] p-0 rounded-xl text-[15px] shrink-0">
+            <Plus className="h-5 w-5 sm:h-[18px] sm:w-[18px] sm:mr-1.5" /><span className="hidden sm:inline">Add Client</span>
+          </Button>
         </div>
-        <Button onClick={() => setOpen(true)} className="h-11 px-[18px] rounded-xl text-[15px] shrink-0 w-full sm:w-auto">
-          <Plus className="h-[18px] w-[18px] mr-1.5" /> Add Client
-        </Button>
       </div>
 
-      {/* KPI strip */}
-      <div className="mt-7 card-glass rounded-2xl grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
+      {/* KPIs: plain numbers on phone/tablet, one strip on desktop */}
+      <div className="mt-5 lg:hidden grid grid-cols-4 gap-2">
+        {kpis.map((k) => (
+          <div key={k.label} className="min-w-0 flex flex-col gap-1">
+            <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{k.value}</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{k.short}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-7 hidden lg:grid card-glass rounded-2xl grid-cols-4 overflow-hidden">
         {kpis.map((k, i) => (
-          <div
-            key={k.label}
-            className={`px-5 sm:px-6 py-5 sm:py-[22px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${
-              i % 2 === 1 ? "border-l" : ""
-            } ${i >= 2 ? "border-t lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}
-          >
-            <div className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">
-              {k.label}
-            </div>
-            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] sm:text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
+          <div key={k.label} className={`px-6 py-[22px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
+            <div className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
+            <div className={`font-display font-medium tabular-nums leading-none tracking-tight text-[34px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
               {k.value}
             </div>
-            <div className="text-[12.5px] text-muted-foreground truncate">{k.hint}</div>
+            {k.hint && <div className="text-[12.5px] text-muted-foreground truncate">{k.hint}</div>}
           </div>
         ))}
       </div>
 
-      {/* Client list */}
-      <div className="mt-7 card-glass rounded-2xl overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/70 dark:border-white/[0.06]">
-          <span className="text-[15px] font-medium whitespace-nowrap">
-            Client groups
-          </span>
-          <label className="flex items-center gap-2 h-[38px] px-3 w-full sm:w-[280px] rounded-[10px] border border-border bg-card text-muted-foreground">
-            <Search className="h-4 w-4 shrink-0" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search client groups"
-              aria-label="Search client groups"
-              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground"
-            />
-          </label>
-        </div>
+      {/* Phone / tablet: search, filters, one list */}
+      <div className="xl:hidden mt-5 flex flex-col gap-2.5">
+        {searchBox("w-full")}
+        {filterPills}
+      </div>
+      <div className="xl:hidden mt-4 card-glass rounded-2xl overflow-hidden divide-y divide-border/70 dark:divide-white/[0.06]">
+        {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
+        {visible.map((r) => (
+          <div key={r.id} className="flex items-center gap-3 min-h-[92px] px-4">
+            <button
+              type="button"
+              onClick={() => navigate(`/platform/clients/${r.id}`)}
+              className="flex-1 min-w-0 flex flex-col gap-[7px] text-left py-3"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="font-medium text-[15.5px] leading-5 truncate dark:text-white">{r.name}</span>
+                <StatusText status={r.shownStatus} />
+              </span>
+              <SetupBlocks setup={r.setup} />
+              <span className="text-[12.5px] text-muted-foreground truncate tabular-nums">
+                {r.setup.phaseLabel} · {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
+              </span>
+            </button>
+            <Button size="icon" className="h-11 w-11 rounded-xl shrink-0" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
+              <LogIn className="h-[18px] w-[18px]" />
+            </Button>
+          </div>
+        ))}
+      </div>
 
-        {/* Mobile / tablet cards */}
-        <div className="xl:hidden divide-y divide-border/70 dark:divide-white/[0.06]">
-          {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
-          {shown.map((r) => {
-            return (
-              <div key={r.id} className="p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate mt-0.5">/{r.slug}</div>
-                    </div>
-                  </div>
-                  <StatusChip status={r.shownStatus} />
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Venues</div>
-                    <div className="text-[15px] mt-1 tabular-nums dark:text-white">{r.c.venues}</div>
-                  </div>
-                  <div>
-                    <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Users</div>
-                    <div className="text-[15px] mt-1 tabular-nums dark:text-white">{r.c.users}</div>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Setup</div>
-                  <SetupBar setup={r.setup} />
-                </div>
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground tabular-nums">Created {fmtDate(r.created_at)}</span>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-11 sm:h-9 px-2.5 rounded-[10px] text-muted-foreground hover:text-foreground" onClick={() => navigate(`/platform/clients/${r.id}`)}>
-                      Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-                    </Button>
-                    <Button size="sm" className="h-11 sm:h-9 px-3.5 rounded-[10px]" onClick={() => enterClient(r.id, "/")}>
-                      <LogIn className="h-3.5 w-3.5 mr-1.5" /> Enter
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden xl:block w-full overflow-x-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}>
-          <table className="w-full text-sm min-w-[980px]">
+      {/* Desktop: filters (more than 10 clients) + table */}
+      {showFilters && <div className="hidden xl:block mt-6">{filterPills}</div>}
+      <div className={`hidden xl:block card-glass rounded-2xl overflow-hidden ${showFilters ? "mt-3" : "mt-7"}`}>
+        <div className="w-full overflow-x-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}>
+          <table className="w-full text-sm min-w-[860px]">
             <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
               <tr className="border-b border-border/70 dark:border-white/[0.06]">
                 <th scope="col" className={`sticky left-0 z-10 bg-card text-left px-5 py-3.5 font-medium transition-shadow ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>Client group</th>
@@ -279,58 +305,50 @@ export default function Clients() {
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Users</th>
                 <th scope="col" className="text-left pl-6 pr-4 py-3.5 font-medium">Setup</th>
                 <th scope="col" className="text-left px-4 py-3.5 font-medium">Status</th>
-                <th scope="col" className="text-left px-4 py-3.5 font-medium">Created</th>
                 <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {empty && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
-              {shown.map((r) => {
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={() => navigate(`/platform/clients/${r.id}`)}
-                    className={`group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
-                  >
-                    <td className={`sticky left-0 z-10 bg-card px-5 py-0 transition-[background-color,box-shadow] group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)] ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>
-                      <div className="flex items-center">
-                        <div className="min-w-0 flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2.5 flex-nowrap h-5">
-                            <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
-                          </div>
-                          <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
-                    <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
-                    <td className="pl-6 pr-4 py-0"><SetupBar setup={r.setup} /></td>
-                    <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
-                    <td className="px-4 py-0 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                    <td className="px-5 py-0">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
-                        >
-                          Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-[38px] px-4 rounded-[10px] whitespace-nowrap"
-                          onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
-                        >
-                          <LogIn className="h-4 w-4 mr-1.5" /> Enter
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {visible.map((r) => (
+                <tr
+                  key={r.id}
+                  onClick={() => navigate(`/platform/clients/${r.id}`)}
+                  className="group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]"
+                >
+                  <td className={`sticky left-0 z-10 bg-card px-5 py-0 transition-[background-color,box-shadow] group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)] ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
+                      <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
+                  <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
+                  <td className="pl-6 pr-4 py-0"><SetupBar setup={r.setup} /></td>
+                  <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
+                  <td className="px-5 py-0">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:text-foreground"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
+                      >
+                        Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-[38px] px-4 rounded-[10px] whitespace-nowrap"
+                        onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
+                      >
+                        <LogIn className="h-4 w-4 mr-1.5" /> Enter
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
