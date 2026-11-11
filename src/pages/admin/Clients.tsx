@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Loader2, LogIn, Clock, Search } from "lucide-react";
+import { Plus, Loader2, LogIn, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -83,14 +83,6 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-function LastEntered() {
-  return (
-    <span className="inline-flex items-center gap-1 font-plex text-[10px] uppercase tracking-[0.12em] text-muted-foreground border border-border bg-card rounded-full px-2 py-0.5 whitespace-nowrap">
-      <Clock className="h-3 w-3" /> Last entered
-    </span>
-  );
-}
-
 function ClientTile({ name }: { name: string }) {
   return (
     <span className="shrink-0 h-[38px] w-[38px] rounded-[10px] bg-[#F2F5F3] text-[#1F3F3B] dark:bg-white/[0.05] dark:text-white inline-flex items-center justify-center text-[15px] font-semibold" aria-hidden="true">
@@ -102,7 +94,7 @@ function ClientTile({ name }: { name: string }) {
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const navigate = useNavigate();
-  const { enterClient, lastEnteredTenantId } = useTenantSession();
+  const { enterClient } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
   const [onboarding, setOnboarding] = useState<Record<string, Record<string, StepState>>>({});
@@ -219,7 +211,7 @@ export default function Clients() {
       {/* Client list */}
       <div className="mt-7 card-glass rounded-2xl overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/70 dark:border-white/[0.06]">
-          <span className="text-[15px] font-medium">
+          <span className="text-[15px] font-medium whitespace-nowrap">
             Client groups <span className="text-muted-foreground font-normal tabular-nums">· {totalClients}</span>
           </span>
           <label className="flex items-center gap-2 h-[38px] px-3 w-full sm:w-[280px] rounded-[10px] border border-border bg-card text-muted-foreground">
@@ -239,20 +231,20 @@ export default function Clients() {
         <div className="xl:hidden divide-y divide-border/70 dark:divide-white/[0.06]">
           {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
           {shown.map((r) => {
-            const isLast = r.id === lastEnteredTenantId;
-            return (
-              <div key={r.id} className={`p-4 sm:p-5 ${isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""}`}>
+                        return (
+              <div key={r.id} className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <ClientTile name={r.name} />
                     <div className="min-w-0">
-                      <div className="font-medium text-[15px] truncate dark:text-white">{r.name}</div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium text-[15px] truncate dark:text-white">{r.name}</span>
+                                              </div>
                       <div className="text-xs text-muted-foreground truncate mt-0.5">/{r.slug}</div>
                     </div>
                   </div>
                   <StatusChip status={r.shownStatus} />
                 </div>
-                {isLast && <div className="mt-3"><LastEntered /></div>}
                 <div className="mt-4 grid grid-cols-2 gap-4">
                   <div>
                     <div className="font-plex text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Venues</div>
@@ -285,8 +277,8 @@ export default function Clients() {
 
         {/* Desktop table */}
         <div className="hidden xl:block w-full overflow-x-auto">
-          <table className="w-full text-sm min-w-[960px]">
-            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <table className="w-full text-sm min-w-[1100px]">
+            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
               <tr className="border-b border-border/70 dark:border-white/[0.06]">
                 <th scope="col" className="text-left px-5 py-3.5 font-medium">Client group</th>
                 <th scope="col" className="text-right px-4 py-3.5 font-medium">Venues</th>
@@ -302,45 +294,41 @@ export default function Clients() {
                 <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
               {shown.map((r) => {
-                const isLast = r.id === lastEnteredTenantId;
-                return (
+                                return (
                   <tr
                     key={r.id}
                     onClick={() => navigate(`/platform/clients/${r.id}`)}
-                    className={`border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025] ${
-                      isLast ? "bg-[#F7FAF8] dark:bg-white/[0.02]" : ""
-                    }`}
+                    className={`h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]`}
                   >
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-0">
                       <div className="flex items-center gap-3.5">
                         <ClientTile name={r.name} />
                         <div className="min-w-0 flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-medium text-[15px] dark:text-white">{r.name}</span>
-                            {isLast && <LastEntered />}
-                          </div>
-                          <span className="text-[12.5px] text-muted-foreground">/{r.slug}</span>
+                          <div className="flex items-center gap-2.5 flex-nowrap h-5">
+                            <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
+                                                      </div>
+                          <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-right text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
-                    <td className="px-4 py-4 text-right text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
-                    <td className="pl-8 pr-4 py-4"><SetupBar setup={r.setup} /></td>
-                    <td className="px-4 py-4"><StatusChip status={r.shownStatus} /></td>
-                    <td className="px-4 py-4 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-0 text-right text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
+                    <td className="px-4 py-0 text-right text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
+                    <td className="pl-8 pr-4 py-0"><SetupBar setup={r.setup} /></td>
+                    <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
+                    <td className="px-4 py-0 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="px-5 py-0">
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-[38px] px-3.5 rounded-[10px]"
+                          className="h-[38px] px-3.5 rounded-[10px] whitespace-nowrap"
                           onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                         >
                           Manage
                         </Button>
                         <Button
                           size="sm"
-                          className="h-[38px] px-4 rounded-[10px]"
+                          className="h-[38px] px-4 rounded-[10px] whitespace-nowrap"
                           onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
                         >
                           <LogIn className="h-4 w-4 mr-1.5" /> Enter
