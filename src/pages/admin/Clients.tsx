@@ -278,8 +278,8 @@ export default function Clients() {
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Venues</th>
                 <th scope="col" className="text-center px-4 py-3.5 font-medium">Users</th>
                 <th scope="col" className="text-left pl-6 pr-4 py-3.5 font-medium">Setup</th>
-                <th scope="col" className="text-center px-4 py-3.5 font-medium">Status</th>
-                <th scope="col" className="text-center px-4 py-3.5 font-medium">Created</th>
+                <th scope="col" className="text-left px-4 py-3.5 font-medium">Status</th>
+                <th scope="col" className="text-left px-4 py-3.5 font-medium">Created</th>
                 <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
               </tr>
             </thead>
@@ -307,8 +307,8 @@ export default function Clients() {
                     <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
                     <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
                     <td className="pl-6 pr-4 py-0"><SetupBar setup={r.setup} /></td>
-                    <td className="px-4 py-0 text-center"><StatusChip status={r.shownStatus} /></td>
-                    <td className="px-4 py-0 text-center text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                    <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
+                    <td className="px-4 py-0 text-muted-foreground tabular-nums whitespace-nowrap">{fmtDate(r.created_at)}</td>
                     <td className="px-5 py-0">
                       <div className="flex items-center justify-end gap-2">
                         <Button
