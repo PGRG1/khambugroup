@@ -711,7 +711,12 @@ html:not(.dark) .bani-rail-expand:hover { color: #1F3F3B; }
 html:not(.dark) .tenant-portal .bani-rail-item { color: #55605A !important; background: transparent !important; }
 html:not(.dark) .tenant-portal .bani-rail-item:is(:hover, :focus-visible) { color: #1F3F3B !important; background: rgba(20,45,43,0.06) !important; }
 html:not(.dark) .tenant-portal .bani-rail-item.is-active { color: #1F3F3B !important; background: #E9F1EC !important; }
-html:not(.dark) .bani-rail-pop { background: #FFFFFF; border: 1px solid #E3E1DA; border-radius: 12px; box-shadow: 0 12px 30px -16px rgba(20,45,43,0.30); }
+.bani-rail-label { color: #6B746E; font-weight: 500; }
+.bani-rail-label.is-active { color: #1F3F3B; font-weight: 600; }
+html:not(.dark) .tenant-portal .bani-rail-cell, html:not(.dark) .tenant-portal .bani-rail-cell:hover { background: transparent !important; }
+html:not(.dark) .tenant-portal .bani-rail-cell:is(:hover, :focus-visible) .bani-rail-item:not(.is-active) { color: #1F3F3B !important; background: rgba(20,45,43,0.06) !important; }
+html:not(.dark) .tenant-portal .bani-rail-cell:hover .bani-rail-label { color: #1F3F3B; }
+html:not(.dark) .bani-rail-pop { background: #FFFFFF; border: 1px solid #E3E1DA; border-radius: 10px; box-shadow: 0 10px 24px -14px rgba(20,45,43,0.30); }
 .bani-rail-pop-link { color: #121510; }
 .bani-rail-pop-link:hover { background: rgba(20,45,43,0.05); color: #1F3F3B; }
 .bani-rail-pop-link.is-active { background: #E9F1EC; color: #1F3F3B; font-weight: 600; }
