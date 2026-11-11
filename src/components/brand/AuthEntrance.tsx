@@ -18,9 +18,9 @@ const T = {
   solidDur: 550,
   moveStart: 1700,
   moveDur: 1650,
-  wordStart: 2650,
-  wordDur: 650,
-  fadeStart: 3400,
+  wordStart: 3350,
+  wordDur: 850,
+  fadeStart: 4400,
   fadeDur: 650,
 };
 
@@ -32,7 +32,7 @@ interface AuthEntranceProps {
   onHandoff: () => void;
 }
 
-/** One-shot branded entrance: line trace -> solid mark -> flight into the header brand. */
+/** One-shot branded entrance: line trace -> solid mark -> flight into the header brand -> word slides out from behind the mark. */
 export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntranceProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const [solid, setSolid] = useState(false);
@@ -40,7 +40,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
   const [word, setWord] = useState(false);
   const [fading, setFading] = useState(false);
   const [transform, setTransform] = useState<string>("none");
-  const [wordBox, setWordBox] = useState<{ left: number; top: number; fontSize: string; lineHeight: string } | null>(null);
+  const [wordBox, setWordBox] = useState<{ clipLeft: number; offset: number; top: number; fontSize: string; lineHeight: string } | null>(null);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -59,7 +59,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
       if (w) {
         const r = w.getBoundingClientRect();
         const cs = getComputedStyle(w);
-        setWordBox({ left: r.left, top: r.top, fontSize: cs.fontSize, lineHeight: cs.lineHeight });
+        setWordBox({ clipLeft: b.right, offset: r.left - b.right, top: r.top, fontSize: cs.fontSize, lineHeight: cs.lineHeight });
       }
     };
     measure();
@@ -84,7 +84,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 z-50 bg-carbon"
+      className="fixed inset-0 z-50 bg-[#F5F4F0]"
       style={{
         opacity: fading ? 0 : 1,
         transition: `opacity ${T.fadeDur}ms ${FADE_EASE}`,
@@ -149,7 +149,7 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
           {/* Solid mark */}
           <svg
             viewBox="0 0 320 600"
-            className="absolute inset-0 h-full w-full text-bone"
+            className="absolute inset-0 h-full w-full text-[#25372B]"
             fill="currentColor"
             style={{
               opacity: solid ? 1 : 0,
@@ -163,20 +163,21 @@ export const AuthEntrance = ({ markRef, wordRef, onFinish, onHandoff }: AuthEntr
         </div>
       </div>
 
-      {/* Wordmark, revealed exactly where the header wordmark sits */}
+      {/* Wordmark: once the mark has landed, slides out from behind its right edge to where the header wordmark sits */}
       {wordBox && (
-        <span
-          className="absolute font-geist font-light tracking-tight text-bone"
-          style={{
-            left: wordBox.left,
-            top: wordBox.top,
-            fontSize: wordBox.fontSize,
-            lineHeight: wordBox.lineHeight,
-            opacity: word ? 1 : 0,
-            transition: `opacity ${T.wordDur}ms ${FADE_EASE}`,
-          }}
-        >
-          Bani
+        <span className="absolute overflow-hidden" style={{ left: wordBox.clipLeft, top: wordBox.top }}>
+          <span
+            className="inline-block font-light tracking-tight text-[#121510]"
+            style={{
+              marginLeft: wordBox.offset,
+              fontSize: wordBox.fontSize,
+              lineHeight: wordBox.lineHeight,
+              transform: word ? "none" : `translateX(calc(-100% - ${wordBox.offset + 4}px))`,
+              transition: `transform ${T.wordDur}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+            }}
+          >
+            Bani
+          </span>
         </span>
       )}
     </div>

@@ -5,14 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { AuthEntrance } from "@/components/brand/AuthEntrance";
+import { PixelAvatar } from "@/components/team/PixelAvatar";
+import { ROLES } from "@/pages/YourTeam";
+import "./auth.css";
 
-
-const RAIL = [
-  { k: "CAPTURE", v: "OPERATING DATA" },
-  { k: "PROCESS", v: "FINANCIAL WORKFLOWS" },
-  { k: "INTELLIGENCE", v: "LIVE SIGNALS" },
-  { k: "ACT", v: "CLEAR PRIORITIES" },
-];
 
 const Auth = () => {
   const { session, loading: authLoading } = useAuth();
@@ -69,170 +65,96 @@ const Auth = () => {
     setLoading(false);
   };
 
-  const inputClass =
-    "w-full px-3.5 h-12 rounded-md border border-bone/20 bg-carbon/45 text-bone text-sm font-inter placeholder:text-bone/30 focus-visible:outline-none focus-visible:border-sage/70 focus-visible:ring-1 focus-visible:ring-sage/40 transition";
-
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-carbon text-bone">
-      {/* Subtle neutral vignette */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.035), transparent 60%), radial-gradient(100% 80% at 50% 110%, rgba(0,0,0,0.45), transparent 70%)",
-        }}
-      />
-
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1520px] flex-col px-5 sm:px-8 lg:px-[clamp(2rem,4vw,4.5rem)]">
-        {/* Header row: logo + stage blocks share one line */}
-        <header className="flex shrink-0 items-center gap-0 py-6 lg:pb-4 lg:pt-[clamp(1.75rem,3.2vw,2.9rem)]">
-          <div
-            className="flex items-center gap-4 pr-8 lg:pr-14"
-            style={{ opacity: brandVisible ? 1 : 0 }}
-          >
-            <BaniLoginMark svgRef={markRef} className="h-9 w-[22px] text-bone lg:h-[52px] lg:w-[28px]" />
-            <span ref={wordRef} className="font-geist text-2xl font-light tracking-tight text-bone lg:text-[28px]">Bani</span>
-          </div>
-
-          <div className="hidden min-[1100px]:grid ml-auto grid-flow-col auto-cols-max gap-x-11">
-            {RAIL.map((r) => (
-              <div
-                key={r.k}
-                className="font-plex text-[10px] leading-[1.9] tracking-[0.16em]"
-              >
-                <div className="whitespace-nowrap text-bone/75">{r.k}</div>
-                <div className="whitespace-nowrap text-bone/35">{r.v}</div>
-              </div>
-            ))}
-          </div>
-        </header>
-
-        {/* Main */}
-        <main className="relative grid flex-1 items-center gap-10 py-14 lg:grid-cols-[minmax(0,1fr)_minmax(400px,477px)] lg:items-center lg:gap-16 lg:py-0">
-          {/* Headline */}
-          <section className="lg:pl-[clamp(0px,2vw,3rem)]">
-            <h1 className="font-geist text-4xl font-light leading-[1.06] tracking-tight sm:text-5xl lg:whitespace-nowrap lg:text-[clamp(2.6rem,3.7vw,4rem)]">
-              Your restaurant&rsquo;s
-              <span className="block">finance team.</span>
-            </h1>
-          </section>
-
-
-
-          {/* Glass form panel */}
-          <section className="relative z-10 w-full lg:justify-self-end">
-            <div
-              className="relative overflow-hidden rounded-xl px-7 pb-14 pt-9 sm:px-10 sm:pb-[64px] sm:pt-16"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(143,175,126,0.035) 45%, rgba(255,255,255,0.045) 100%), rgba(28,31,28,0.55)",
-                backdropFilter: "blur(20px) saturate(115%)",
-                WebkitBackdropFilter: "blur(20px) saturate(115%)",
-                border: "1px solid rgba(210,220,205,0.14)",
-                boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.12), inset 1px 0 0 rgba(255,255,255,0.06), 0 32px 70px -34px rgba(0,0,0,0.75)",
-              }}
-            >
-
-
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-xl"
-                style={{
-                  background:
-                    "linear-gradient(128deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 26%, transparent 55%)",
-                }}
-              />
-              <div className="mb-14 sm:mb-[62px]">
-                <h2 className="font-geist text-2xl font-light tracking-tight text-bone">Welcome back</h2>
-
-                <p className="mt-1.5 font-inter text-sm text-bone/45">
-                  Sign in to continue to your workspace.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-7">
-                <div>
-                  <label htmlFor="auth-email" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
-                    Email or username
-                  </label>
-                  <input
-                    id="auth-email"
-                    type="text"
-                    autoComplete="username"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="auth-password" className="mb-1.5 block font-plex text-[11px] uppercase tracking-[0.12em] text-bone/40">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="auth-password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${inputClass} pr-10`}
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-bone/25 transition hover:text-bone/70 focus-visible:text-sage focus-visible:outline-none"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 font-inter text-sm text-bone/55">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-bone/25 bg-transparent accent-sage focus:ring-sage"
-                    />
-                    Remember me
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="font-inter text-sm text-sage/90 transition hover:text-sage hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-
-                {error && <p className="font-inter text-sm text-destructive">{error}</p>}
-                {message && <p className="font-inter text-sm text-bone/70">{message}</p>}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="group inline-flex h-12 w-full items-center justify-center rounded-md bg-sage font-inter text-sm font-medium text-carbon transition hover:bg-sage/85 disabled:opacity-50"
-                >
-                  {loading ? "Please wait..." : "Sign In"}
-                </button>
-              </form>
+    <div className="bani-login">
+      <div className="bl-page">
+        <div className="bl-col">
+          <section className="bl-intro">
+            <div className="bl-logo" style={{ opacity: brandVisible ? 1 : 0 }}>
+              <BaniLoginMark svgRef={markRef} className="bl-mark" />
+              <span ref={wordRef} className="bl-word">Bani</span>
             </div>
+            <h1 className="bl-h1">Your restaurant&rsquo;s<br />finance team.</h1>
+            {/* Phone: one team member at a time */}
+            <div className="bl-rot" aria-label={`Your team: ${ROLES.map((r) => r.title).join(", ")}`}>
+              {ROLES.map((r, i) => (
+                <div key={r.key} className="bl-ri" style={{ animationDelay: `${i * 3.2}s` }} aria-hidden="true">
+                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={26} /></span>
+                  <span className="bl-rx"><b>{r.title}</b><span>{r.sub}</span></span>
+                </div>
+              ))}
+            </div>
+            {/* Computer: the whole team */}
+            <ul className="bl-team" aria-label="Your team">
+              {ROLES.map((r) => (
+                <li key={r.key}>
+                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={34} /></span>
+                  <span>{r.title}</span>
+                </li>
+              ))}
+            </ul>
           </section>
-        </main>
 
-        <footer className="shrink-0 pb-[clamp(1.75rem,4vh,3.5rem)] pt-8 font-plex text-[11px] tracking-wide text-bone/25">
-          © {new Date().getFullYear()} Bani Technology Limited
-        </footer>
+          <section className="bl-box">
+            <h2 className="bl-h2">Sign in</h2>
+            <form onSubmit={handleSubmit} className="bl-form">
+              <div className="bl-fl">
+                <input
+                  id="auth-email"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder=" "
+                />
+                <label htmlFor="auth-email">Email or username</label>
+              </div>
+
+              <div className="bl-fl">
+                <input
+                  id="auth-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder=" "
+                />
+                <label htmlFor="auth-password">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="bl-eye"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              <div className="bl-row">
+                <label>
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  Remember me
+                </label>
+                <button type="button" onClick={handleForgotPassword} className="bl-link">
+                  Forgot password?
+                </button>
+              </div>
+
+              {error && <p className="bl-error" role="alert">{error}</p>}
+              {message && <p className="bl-msg" role="status">{message}</p>}
+
+              <button type="submit" disabled={loading} className="bl-go">
+                {loading ? "Please wait..." : "Sign in"}
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
+
+      <footer className="bl-foot">© {new Date().getFullYear()} Bani Technology Limited</footer>
 
       {!entranceDone && (
         <AuthEntrance

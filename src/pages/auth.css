@@ -1,0 +1,53 @@
+/* Login page (approved design, Nov 2026). Light bone + sage, one centred column on phones, two columns on computers. */
+.bani-login{--ink:#121510;--green:#1F3F3B;--teal:#2F5E5A;--muted:#55605A;--faint:#6B746E;--line:#DDE1DA;--bone:#F5F4F0;
+  position:relative;min-height:100vh;width:100%;font-family:"IBM Plex Sans",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background:radial-gradient(70% 45% at 50% 0%,rgba(143,175,126,.22),transparent 70%),radial-gradient(60% 40% at 100% 100%,rgba(47,94,90,.08),transparent 70%),var(--bone)}
+.bani-login .bl-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 24px 64px}
+.bani-login .bl-col{width:100%;max-width:312px}
+.bani-login .bl-logo{display:flex;align-items:center;gap:11px;color:#25372B;transition:opacity .3s}
+.bani-login .bl-mark{width:16px;height:30px;flex:none}
+.bani-login .bl-word{font-size:23px;font-weight:300;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
+.bani-login .bl-h1{margin:30px 0 0;font-size:27px;line-height:1.14;font-weight:300;letter-spacing:-.02em}
+.bani-login .bl-av{flex:none;width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1px rgba(31,63,59,.06);display:inline-flex;align-items:center;justify-content:center}
+.bani-login .bl-rot{position:relative;height:38px;margin-top:16px}
+.bani-login .bl-ri{position:absolute;inset:0;display:flex;align-items:center;gap:10px;opacity:0;animation:bl-rot 16s infinite}
+.bani-login .bl-rx{display:flex;flex-direction:column;min-width:0}
+.bani-login .bl-rx b{font-size:13px;font-weight:500;color:var(--teal);line-height:17px}
+.bani-login .bl-rx span{font-size:12px;color:var(--faint);line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes bl-rot{0%{opacity:0;transform:translateY(5px)}3%,17%{opacity:1;transform:none}20%,100%{opacity:0;transform:translateY(-5px)}}
+@media (prefers-reduced-motion:reduce){.bani-login .bl-ri{animation:none}.bani-login .bl-ri:first-child{opacity:1}}
+.bani-login .bl-team{display:none}
+.bani-login .bl-h2{display:none;margin:0 0 18px;font-size:18px;font-weight:400}
+.bani-login .bl-form{margin-top:32px;display:flex;flex-direction:column;gap:10px}
+.bani-login .bl-fl{position:relative;height:50px;border:1px solid var(--line);border-radius:11px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.bani-login .bl-fl:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(47,94,90,.12)}
+.bani-login .bl-fl input{position:absolute;inset:0;width:100%;height:100%;border:0;outline:0;background:transparent;border-radius:11px;padding:19px 42px 5px 13px;font:400 16px "IBM Plex Sans",sans-serif;color:var(--ink)}
+.bani-login .bl-fl label{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--faint);pointer-events:none;transition:all .15s ease}
+.bani-login .bl-fl input:focus+label,.bani-login .bl-fl input:not(:placeholder-shown)+label{top:8px;transform:none;font-size:11px;font-weight:500;color:var(--muted)}
+.bani-login .bl-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:transparent;color:var(--faint);display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+.bani-login .bl-eye:hover{color:var(--green)}
+.bani-login .bl-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 2px;font-size:13px}
+.bani-login .bl-row label{display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer}
+.bani-login .bl-row input{width:16px;height:16px;margin:0;accent-color:var(--green)}
+.bani-login .bl-link{border:0;background:none;padding:0;color:var(--teal);font:500 13px "IBM Plex Sans",sans-serif;cursor:pointer}
+.bani-login .bl-link:hover{text-decoration:underline}
+.bani-login .bl-error{margin:2px 0 0;font-size:13px;color:#B42318}
+.bani-login .bl-msg{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.bani-login .bl-go{height:46px;margin-top:6px;border:0;border-radius:11px;background:var(--green);color:var(--bone);font:500 15px "IBM Plex Sans",sans-serif;cursor:pointer;transition:background .15s}
+.bani-login .bl-go:hover{background:#2a524d}
+.bani-login .bl-go:disabled{opacity:.6;cursor:default}
+.bani-login .bl-foot{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:11px;color:var(--faint)}
+@media (min-width:900px){
+  .bani-login .bl-page{padding:56px 56px 80px}
+  .bani-login .bl-col{max-width:1040px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:96px;align-items:center}
+  .bani-login .bl-mark{width:17px;height:32px}
+  .bani-login .bl-word{font-size:26px}
+  .bani-login .bl-h1{font-size:52px;line-height:1.06;margin-top:40px}
+  .bani-login .bl-rot{display:none}
+  .bani-login .bl-team{display:flex;gap:22px;list-style:none;padding:0;margin:40px 0 0}
+  .bani-login .bl-team li{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:11px;color:var(--muted);white-space:nowrap}
+  .bani-login .bl-team .bl-av{width:48px;height:48px;border-radius:13px}
+  .bani-login .bl-box{background:#fff;border:1px solid #E5E3DC;border-radius:18px;padding:32px;box-shadow:0 1px 2px rgba(20,45,43,.04),0 24px 48px -30px rgba(20,45,43,.32)}
+  .bani-login .bl-h2{display:block}
+  .bani-login .bl-form{margin-top:0}
+}
