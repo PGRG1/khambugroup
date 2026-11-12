@@ -4,14 +4,16 @@
 .bani-login{--ink:#121510;--green:#1F3F3B;--teal:#2F5E5A;--muted:#55605A;--faint:#6B746E;--line:#DDE1DA;--bone:#F5F4F0;
   min-height:100vh;width:100%;font-family:"IBM Plex Sans",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
   background:radial-gradient(70% 45% at 30% 0%,rgba(143,175,126,.20),transparent 70%),radial-gradient(60% 40% at 100% 100%,rgba(47,94,90,.07),transparent 70%),var(--bone)}
+/* Phone and tablet: headline and sign-in sit together as one group, a little above the middle of the screen
+   (2 parts of the spare space above, 3 below), instead of the headline floating near the top. */
 .bani-login .bl-page{--hd:40px;--py:20px;--px:clamp(24px,6.5vw,32px);--mkh:28px;--wd:22px;--avs:44px;--rb:14px;--rs:13px;
-  min-height:100vh;display:grid;grid-template-rows:var(--hd) minmax(0,1fr) auto minmax(0,1fr) var(--hd);padding:var(--py) var(--px)}
+  min-height:100vh;display:grid;grid-template-rows:var(--hd) minmax(0,2fr) auto auto minmax(0,3fr) var(--hd);padding:var(--py) var(--px)}
 .bani-login .bl-core{display:contents}
 .bani-login .bl-hd{display:flex;align-items:center}
 .bani-login .bl-logo{display:flex;align-items:center;gap:10px;color:#25372B;transition:opacity .3s}
 .bani-login .bl-mark{height:var(--mkh);width:auto;flex:none}
 .bani-login .bl-word{font-size:var(--wd);font-weight:300;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
-.bani-login .bl-msg{align-self:center;padding:24px 0;width:100%}
+.bani-login .bl-msg{grid-row:3;padding:24px 0 36px;width:100%}
 .bani-login .bl-h1{margin:0;font-weight:300;letter-spacing:-.02em;line-height:1.08;font-size:clamp(30px,8.6vw,36px)}
 .bani-login .bl-rot{position:relative;margin-top:20px;height:var(--avs)}
 /* Team member change ("step up"): the character drops out of view and the next one steps up into place in
@@ -45,7 +47,8 @@
 @keyframes bl-blink-soft{0%,4.5%{background:#2A221E}4.6%,5.4%{background:var(--ta-skin)}5.5%,11.6%{background:#2A221E}11.7%,12.6%{background:var(--ta-skin)}12.7%,100%{background:#2A221E}}
 @keyframes bl-blink-late{0%,10.4%{background:#2A221E}10.5%,11.4%{background:var(--ta-skin)}11.5%,100%{background:#2A221E}}
 @keyframes bl-text{0%,2%{opacity:0}4.5%,18%{opacity:1}19.5%,100%{opacity:0}}
-.bani-login .bl-act{width:100%}
+.bani-login .bl-act{grid-row:4;width:100%}
+.bani-login .bl-space{display:none}
 .bani-login .bl-h2{display:none;margin:0 0 22px;font-size:22px;font-weight:400}
 .bani-login .bl-form{display:flex;flex-direction:column;gap:12px}
 .bani-login .bl-fl{position:relative;height:52px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .15s,box-shadow .15s}
@@ -67,7 +70,7 @@
 .bani-login .bl-go{height:50px;margin-top:8px;border:0;border-radius:12px;background:var(--green);color:var(--bone);font:500 16px "IBM Plex Sans",sans-serif;cursor:pointer;transition:background .15s}
 .bani-login .bl-go:hover{background:#2a524d}
 .bani-login .bl-go:disabled{opacity:.6;cursor:default}
-.bani-login .bl-foot{grid-row:5;display:flex;align-items:flex-end;justify-content:center;font-size:11px;color:var(--faint)}
+.bani-login .bl-foot{grid-row:6;display:flex;align-items:flex-end;justify-content:center;font-size:11px;color:var(--faint)}
 @media (prefers-reduced-motion:reduce){.bani-login .bl-ri{opacity:0}.bani-login .bl-ri:first-child{opacity:1}.bani-login .bl-ri .team-avatar,.bani-login .bl-ri .bl-rx{animation:none;transform:none;opacity:1}}
 /* short phones: plain stack */
 @media (max-width:599px) and (max-height:700px){
@@ -89,13 +92,15 @@
 @media (min-width:1100px){
   .bani-login .bl-page{--hd:48px;--py:32px;--px:0px;justify-items:stretch;width:min(78vw,1320px);margin:0 auto;
     --mkh:clamp(32px,1.9vw,36px);--wd:clamp(24px,1.5vw,28px);--avs:clamp(60px,3.6vw,68px);--rb:clamp(17px,1.05vw,19px);--rs:clamp(15px,.9vw,16px)}
+  .bani-login .bl-page{grid-template-rows:var(--hd) minmax(0,1fr) auto minmax(0,1fr) var(--hd)}
+  .bani-login .bl-foot{grid-row:5}
   .bani-login .bl-core{display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,25vw,460px);column-gap:clamp(64px,6vw,120px);align-items:start;grid-row:3}
   /* headline lines up with the "Sign in" title inside the box (box padding, less the headline's line spacing) */
-  .bani-login .bl-msg{max-width:none;padding:calc(clamp(32px,2.4vw,44px) - 6px) 0 0;align-self:start}
+  .bani-login .bl-msg{grid-row:auto;max-width:none;padding:calc(clamp(32px,2.4vw,44px) - 6px) 0 0;align-self:start}
   .bani-login .bl-h1{font-size:clamp(56px,3.8vw,74px);line-height:1.04;white-space:nowrap}
   .bani-login .bl-rot{margin-top:clamp(28px,2.2vw,36px)}
   .bani-login .bl-av{--ta-px:3px}
-  .bani-login .bl-act{max-width:none;padding:clamp(32px,2.4vw,44px)}
+  .bani-login .bl-act{grid-row:auto;max-width:none;padding:clamp(32px,2.4vw,44px)}
   .bani-login .bl-fl{height:clamp(52px,3.2vw,58px)}
   .bani-login .bl-go{height:clamp(50px,3vw,56px)}
 }
