@@ -73,7 +73,8 @@ const Auth = () => {
     if (holdIndex !== null || !rotRef.current) return;
     let best = 0, bestOpacity = -1;
     Array.from(rotRef.current.children).forEach((el, i) => {
-      const o = parseFloat(getComputedStyle(el).opacity);
+      // the member on screen is the one whose name is showing
+      const o = parseFloat(getComputedStyle(el.querySelector(".bl-rx") ?? el).opacity);
       if (o > bestOpacity) { bestOpacity = o; best = i; }
     });
     setHoldIndex(best);
@@ -106,7 +107,7 @@ const Auth = () => {
                 <div
                   key={r.key}
                   className={`bl-ri${holdIndex === i ? " on" : ""}`}
-                  style={{ animationDelay: `${i * 3.2}s` }}
+                  style={{ ["--bl-d" as any]: `${i * 3.2}s` }}
                   aria-hidden="true"
                 >
                   <span className="bl-av"><TeamAvatar role={r.key} /></span>
