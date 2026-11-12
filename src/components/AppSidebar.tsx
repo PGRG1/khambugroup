@@ -95,19 +95,26 @@ function RailIcon({ it }: { it: RailItem }) {
 /** Collapsed menu section with several pages: name on hover, pages open beside the menu on click. */
 function RailSection({ it }: { it: RailItem }) {
   const [open, setOpen] = useState(false);
+  const [tip, setTip] = useState(false);
+  // Only one pop-up at a time: the name tooltip is suppressed while the pages pop-out is open,
+  // and stays off after it closes until the pointer leaves the icon.
+  const [tipBlocked, setTipBlocked] = useState(false);
+  const onPopover = (o: boolean) => { setOpen(o); setTip(false); if (o) setTipBlocked(true); };
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
+    <Popover open={open} onOpenChange={onPopover}>
+      <Tooltip open={tip && !open && !tipBlocked} onOpenChange={(t) => setTip(t)}>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <button type="button" aria-label={it.title} aria-current={it.active ? "page" : undefined} className={cn(RAIL_ICON_CLS, it.active && "is-active")}>
+            <button type="button" aria-label={it.title} aria-current={it.active ? "page" : undefined} className={cn(RAIL_ICON_CLS, it.active && "is-active")}
+              onPointerLeave={() => { if (!open) setTipBlocked(false); }}>
               <RailIcon it={it} />
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
-        {!open && <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>}
+        <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
       </Tooltip>
-      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1">
+      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1"
+        onCloseAutoFocus={(e) => e.preventDefault()} onPointerLeave={() => setTipBlocked(false)}>
         <div className="bani-rail-pop-title px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-[#1F3F3B]">{it.title}</div>
         <nav aria-label={it.title} className="flex flex-col gap-px">
           {it.children!.map((c) => (
