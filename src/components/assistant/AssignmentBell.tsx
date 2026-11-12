@@ -9,7 +9,7 @@ import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { useVenueScope } from '@/hooks/useVenueScope';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/utils/fetchAllRows';
-import { formatDate, formatTableInteger } from '@/utils/format';
+import { formatDate } from '@/utils/format';
 import { assignedWorkForPerson, assignmentNoticeId, assignmentReceiptKey, readAssignmentReceipts, type AssignedWork } from '@/utils/assignmentNotices';
 import { useFloatingBaniStore } from './FloatingBaniContext';
 
@@ -74,9 +74,10 @@ export function AssignmentBell() {
   }, [viewing, key, preview.isPreviewActive, store?.open[0], store?.messages[0]]);
 
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 rounded-full border border-[rgba(31,63,59,0.22)] bg-white text-[#3D4A44] transition-colors hover:border-[rgba(47,107,79,0.55)] hover:bg-white hover:text-[#2F6B4F] data-[state=open]:border-[rgba(47,107,79,0.55)] data-[state=open]:bg-white data-[state=open]:text-[#2F6B4F]" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
-      <Bell className="h-4 w-4" />
-      {unread.length > 0 && <span className="absolute -right-1 -top-1 h-[17px] min-w-[17px] rounded-full bg-[#2F6B4F] px-1 text-center text-[10px] font-semibold leading-[17px] text-white ring-2 ring-white td-num">{formatTableInteger(unread.length)}</span>}
+    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 rounded-md bg-transparent text-[#3D4A44] transition-colors hover:bg-transparent hover:text-[#1F3F3B] data-[state=open]:bg-transparent data-[state=open]:text-[#1F3F3B]" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
+      <Bell className="h-[19px] w-[19px]" strokeWidth={1.8} />
+      {/* Plain bell; a small amber dot (Bani's "needs attention" colour) when something is unread. The count stays in the aria-label and the list. */}
+      {unread.length > 0 && <span aria-hidden="true" className="absolute right-[7px] top-[7px] h-2 w-2 rounded-full bg-[#D9822B] shadow-[0_0_0_2px_hsl(var(--background))]" />}
     </Button></PopoverTrigger>
     <PopoverContent align="end" className="w-80 max-w-[calc(100vw-24px)] p-3" aria-label="Assigned work">
       <h2 className="mb-2 text-sm font-medium">Assigned to you</h2>
