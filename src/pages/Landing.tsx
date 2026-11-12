@@ -16,7 +16,7 @@ import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
 import { accruedStaff, accruedProfit, menuCostPercent, theoreticalStock, rotaStaff, type ShiftRow, type PayRow } from "@/utils/landingAccrual";
-import { roleViews, type Review, type Role } from "./YourTeam";
+import { roleViews, type Review, type Role } from "@/lib/financeTeamRoles";
 import type { Finding } from "../../supabase/functions/_shared/financeTeamReview";
 import { WEEKDAYS, type SaleRow } from "@/utils/landingNumbers";
 import "./landing.css";

@@ -1,7 +1,7 @@
 /* Generated from the approved character designs (see the "Bani team · merch characters" preview). Do not edit by hand. */
 export type TeamSprite = { w: number; h: number; pal: string[]; px: string; fx: string };
 export type TeamCharacter = { full: TeamSprite; bust: TeamSprite; skin: string; delay: number; tint: string };
-export type TeamCharacterKey = "revenue" | "procurement" | "accountant" | "people" | "controller" | "director";
+export type TeamCharacterKey = "revenue" | "procurement" | "accountant" | "people" | "controller";
 export const TEAM_CHARACTERS: Record<TeamCharacterKey, TeamCharacter> = {
  "revenue": {
   "full": {
@@ -238,52 +238,5 @@ export const TEAM_CHARACTERS: Record<TeamCharacterKey, TeamCharacter> = {
   "skin": "#DEB08A",
   "delay": 1.9,
   "tint": "#F5EBD3"
- },
- "director": {
-  "full": {
-   "w": 21,
-   "h": 16,
-   "pal": [
-    "#2A221E",
-    "#3B3836",
-    "#A9A6A2",
-    "#E6B994",
-    "#CFA07B",
-    "#D9B44A",
-    "#FFFFFF",
-    "#CFE7F0",
-    "#A17C5F",
-    "#6B4E3A",
-    "#5A3F66",
-    "#F3F1EA",
-    "#4A3355",
-    "#2F7D5B",
-    "#26664A"
-   ],
-   "px": "....000000..............01112110............0111111210...........0111111110...........0211113320...0000....0234334340..055550..03330330344005677750..0333343340.05777750..0333883340.05777750..0333333340..055550....04444440....00990.....004400.......0990..00aabbaa00....03990.0aaacdbcaaa0000003300aaaaadaaaaaaaaaaaac00aaaaaeaaaccaaaaaaac0",
-   "fx": "...................................................................................................................................e..e......g.................................................................................................................................................................................................."
-  },
-  "bust": {
-   "w": 14,
-   "h": 17,
-   "pal": [
-    "#2A221E",
-    "#3B3836",
-    "#A9A6A2",
-    "#E6B994",
-    "#CFA07B",
-    "#A17C5F",
-    "#5A3F66",
-    "#F3F1EA",
-    "#4A3355",
-    "#2F7D5B",
-    "#26664A"
-   ],
-   "px": "....000000.......01112110.....0111111210....0111111110....0211113320....0234334340...033303303440...0333343340....0333553340....0333333340.....04444440.......004400......0066776600...066689786660.06666696666680066666a6668880.000000000000.",
-   "fx": ".........................................................................................e..e................................................................................................................................................."
-  },
-  "skin": "#E6B994",
-  "delay": 3.1,
-  "tint": "#ECE5F1"
  }
 };

@@ -4,7 +4,7 @@ import { TEAM_CHARACTERS, type TeamCharacterKey } from "./teamCharacters";
 
 /**
  * One of Bani's team characters, drawn as crisp pixel art.
- * - variant "full": the character holding their prop (chart board, box, calculator, clipboard, key, magnifying glass)
+ * - variant "full": the character holding their prop (chart board, box, calculator, clipboard, key)
  * - variant "bust": head and shoulders only, for very small spots
  * Each cell is a whole number of screen pixels (`px`, or the `--ta-px` CSS variable when set), so it never blurs.
  * With `tile`, it sits on its own pale signature colour, aligned to the bottom edge.

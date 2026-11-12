@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { AuthEntrance } from "@/components/brand/AuthEntrance";
 import { TeamAvatar } from "@/components/team/TeamAvatar";
-import { ROLES } from "@/pages/YourTeam";
+import { ROLES } from "@/lib/financeTeamRoles";
 import "./auth.css";
 
 
