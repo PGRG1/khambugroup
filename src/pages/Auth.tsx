@@ -106,7 +106,7 @@ const Auth = () => {
               {ROLES.map((r, i) => (
                 <div
                   key={r.key}
-                  className={`bl-ri${holdIndex === i ? " on" : ""}`}
+                  className={`bl-ri r-${r.key}${holdIndex === i ? " on" : ""}`}
                   style={{ ["--bl-d" as any]: `${i * 3.2}s` }}
                   aria-hidden="true"
                 >
