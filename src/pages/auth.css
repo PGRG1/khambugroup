@@ -32,8 +32,8 @@
 .bani-login .bl-ri.r-controller .team-avatar i.e{animation-name:bl-blink-late}
 .bani-login .bl-rot.hold .bl-ri .team-avatar i.e{animation:ta-blink 4.6s steps(1,end) infinite;animation-delay:0s}
 /* team character stands on the page; cells are whole pixels (2px phone/tablet, 3px computer) so it stays sharp.
-   Fixed width (22 cells) so the name and role line up for every character. */
-.bani-login .bl-av{--ta-px:2px;display:inline-flex;justify-content:center;align-items:flex-end;flex:none;height:var(--avs);width:calc(var(--ta-px) * 22);overflow:hidden}
+   Slot is exactly the character's size (22 x 17 cells), so the character and the words are centred on each other. */
+.bani-login .bl-av{--ta-px:2px;display:inline-flex;justify-content:center;align-items:flex-end;flex:none;height:calc(var(--ta-px) * 17);width:calc(var(--ta-px) * 22);overflow:hidden}
 .bani-login .bl-dot{font-style:normal;font-weight:400;color:#9AA59F;margin:0 2px}
 .bani-login .bl-rx{display:flex;flex-direction:column;min-width:0}
 .bani-login .bl-rx b{font-size:var(--rb);font-weight:500;color:var(--teal);line-height:1.3}
