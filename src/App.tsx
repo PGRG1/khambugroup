@@ -130,15 +130,25 @@ const pageKeyMap: Record<string, string> = {
   "/assistant": "assistant",
 };
 
+/** Plain screen in the page colour while access is checked (no text or layout that could flash). */
+const QuietLoading = () => <div className="min-h-screen bg-background" role="status" aria-busy="true" aria-label="Loading" />;
+
 /** One tenant shell; auth redirects never belong to individual pages. */
 const TenantShell = () => {
   const { session, loading, roleLoading } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
-  if (!loading && !roleLoading && !platLoading) {
+  // Until the first access decision is made, show a plain screen instead of the client portal,
+  // so platform admins (sent on to /platform/clients) never see the portal flash after signing in.
+  // Once decided, the shell stays mounted through later reloads (tenant/preview switches).
+  const decidedOnce = React.useRef(false);
+  const settled = !loading && !roleLoading && !platLoading;
+  if (settled) {
     const decision = resolveAuthRoute({ session, isPlatformAdmin,
       enteredTenantId: localStorage.getItem("khambu.enteredTenantId") });
     if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
+    decidedOnce.current = true;
   }
+  if (!decidedOnce.current) return <QuietLoading />;
   return <AppLayout>{loading || roleLoading || platLoading
     ? <p className="p-6 text-muted-foreground" role="status">Checking access…</p>
     : <Outlet />}</AppLayout>;
@@ -166,7 +176,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
-  if (loading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading || platLoading) return <QuietLoading />;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
   return <PlatformLayout>{children}</PlatformLayout>;
