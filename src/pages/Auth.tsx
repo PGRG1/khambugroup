@@ -100,7 +100,7 @@ const Auth = () => {
             <div
               ref={rotRef}
               className={`bl-rot${holdIndex !== null ? " hold" : ""}`}
-              aria-label={`Your team: ${ROLES.map((r) => r.title).join(", ")}`}
+              aria-label={`Your team: ${ROLES.map((r) => `${r.name}, ${r.title}`).join("; ")}`}
             >
               {ROLES.map((r, i) => (
                 <div
@@ -109,8 +109,8 @@ const Auth = () => {
                   style={{ animationDelay: `${i * 3.2}s` }}
                   aria-hidden="true"
                 >
-                  <TeamAvatar role={r.key} tile className="bl-av" />
-                  <span className="bl-rx"><b>{r.title}</b><span>{r.sub}</span></span>
+                  <span className="bl-av"><TeamAvatar role={r.key} /></span>
+                  <span className="bl-rx"><b>{r.name} <i className="bl-dot">&middot;</i> {r.title}</b><span>{r.sub}</span></span>
                 </div>
               ))}
             </div>
