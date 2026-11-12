@@ -3,12 +3,12 @@
 import type { Finding, Figure, SpecialistReport, Synthesis } from "../../supabase/functions/_shared/financeTeamReview";
 
 export type Role = "revenue" | "procurement" | "accountant" | "people" | "controller";
-export const ROLES: { key: Role; title: string; sub: string }[] = [
-  { key: "revenue", title: "Revenue Manager", sub: "Looks after your sales" },
-  { key: "procurement", title: "Procurement Manager", sub: "Looks after suppliers and stock" },
-  { key: "accountant", title: "Accountant", sub: "Looks after bills to pay and the books" },
-  { key: "people", title: "People Manager", sub: "Looks after rosters, leave and pay" },
-  { key: "controller", title: "Financial Controller", sub: "Looks after cash, running costs and month-end" },
+export const ROLES: { key: Role; name: string; title: string; sub: string }[] = [
+  { key: "revenue", name: "Marcus", title: "Revenue Manager", sub: "Looks after your sales" },
+  { key: "procurement", name: "Dex", title: "Procurement Manager", sub: "Looks after suppliers and stock" },
+  { key: "accountant", name: "Mr Lau", title: "Accountant", sub: "Looks after bills to pay and the books" },
+  { key: "people", name: "Amara", title: "People Manager", sub: "Looks after rosters, leave and pay" },
+  { key: "controller", name: "Vivian", title: "Financial Controller", sub: "Looks after cash, running costs and month-end" },
 ];
 
 /** Old saved reviews used role "accounting"; map their finding keys onto the new roles. */
