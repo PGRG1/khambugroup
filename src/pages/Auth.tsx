@@ -5,8 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { AuthEntrance } from "@/components/brand/AuthEntrance";
-import { PixelAvatar } from "@/components/team/PixelAvatar";
-import { ROLES } from "@/pages/YourTeam";
+import { TeamAvatar } from "@/components/team/TeamAvatar";
+import { ROLES } from "@/lib/financeTeamRoles";
 import "./auth.css";
 
 
@@ -109,7 +109,7 @@ const Auth = () => {
                   style={{ animationDelay: `${i * 3.2}s` }}
                   aria-hidden="true"
                 >
-                  <span className="bl-av"><PixelAvatar seed={r.seed} palette={r.pal} size={40} /></span>
+                  <TeamAvatar role={r.key} tile className="bl-av" />
                   <span className="bl-rx"><b>{r.title}</b><span>{r.sub}</span></span>
                 </div>
               ))}

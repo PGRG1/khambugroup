@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { PixelAvatar } from "@/components/team/PixelAvatar";
+import { TeamAvatar } from "@/components/team/TeamAvatar";
+import { TEAM_CHARACTERS } from "@/components/team/teamCharacters";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
@@ -15,7 +16,7 @@ import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
 import { accruedStaff, accruedProfit, menuCostPercent, theoreticalStock, rotaStaff, type ShiftRow, type PayRow } from "@/utils/landingAccrual";
-import { ROLES, roleViews, type Review, type Role } from "./YourTeam";
+import { roleViews, type Review, type Role } from "@/lib/financeTeamRoles";
 import type { Finding } from "../../supabase/functions/_shared/financeTeamReview";
 import { WEEKDAYS, type SaleRow } from "@/utils/landingNumbers";
 import "./landing.css";
@@ -393,7 +394,7 @@ export default function Landing() {
       <div className="l2-team">
         <span className="l2-tw">
           <span className="l2-tw-w">Your finance team</span>
-          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { const m = ROLES.find((x) => x.key === r)!; return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i }}><PixelAvatar seed={m.seed} palette={m.pal} size={22} /></span>; })}</span>
+          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i, background: TEAM_CHARACTERS[r].tint }}><TeamAvatar role={r} variant="bust" px={1} /></span>; })}</span>
         </span>
         {handled > 0
           ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>

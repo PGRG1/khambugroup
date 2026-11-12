@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { roleViews, type Review, type Role } from "@/pages/YourTeam";
+import { roleViews, type Review, type Role } from "@/lib/financeTeamRoles";
 
 export type NavSection = "revenue" | "purchasing" | "people" | "finance";
 const SECTION: Record<Role, NavSection> = { revenue: "revenue", procurement: "purchasing", people: "people", accountant: "finance", controller: "finance" };
