@@ -10,7 +10,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PixelAvatar } from "@/components/team/PixelAvatar";
+import { TeamAvatar } from "@/components/team/TeamAvatar";
 import "@/components/team/team.css";
 import {
   fmtHKD, fmtDate, type Finding, type Figure, type SpecialistReport, type Synthesis,
@@ -25,7 +25,6 @@ export const ROLES: { key: Role; title: string; sub: string; seed: number; pal: 
   { key: "people", title: "People Manager", sub: "Looks after rosters, leave and pay", seed: 41, pal: 3 },
   { key: "controller", title: "Financial Controller", sub: "Looks after cash, running costs and month-end", seed: 58, pal: 4 },
 ];
-const FD = { seed: 3, pal: 0 };
 const roleMeta = (r: Role) => ROLES.find((x) => x.key === r)!;
 
 /** Old saved reviews used role "accounting"; map their finding keys onto the new roles. */
@@ -552,7 +551,7 @@ export default function YourTeam() {
       <div className="mt-4 rounded-2xl p-5 text-[#F2F7F4]" style={{ background: "#1F3F3B" }}>
         {mixedScope ? (
           <div className="flex items-start gap-4">
-            <PixelAvatar seed={FD.seed} palette={FD.pal} size={56} />
+            <TeamAvatar role="director" tile className="h-[56px] px-1.5" />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Finance Director</p>
               <p className="text-[18px] leading-snug mt-1">Your team prepares updates for one venue or all venues. Pick one venue, or all venues, to see their work.</p>
@@ -577,7 +576,7 @@ export default function YourTeam() {
           <div className="space-y-2"><Skeleton className="h-6 w-2/3 bg-white/10" /><Skeleton className="h-4 w-1/3 bg-white/10" /></div>
         ) : !review ? (
           <div className="flex items-start gap-4">
-            <PixelAvatar seed={FD.seed} palette={FD.pal} size={56} />
+            <TeamAvatar role="director" tile className="h-[56px] px-1.5" />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Finance Director</p>
               <p className="text-[21px] leading-snug mt-1">{running ? "Your team is looking at the books now…" : "Your team hasn't looked at the books yet."}</p>
@@ -592,7 +591,7 @@ export default function YourTeam() {
           </div>
         ) : (
           <div className="flex items-start gap-4">
-            <PixelAvatar seed={FD.seed} palette={FD.pal} size={56} />
+            <TeamAvatar role="director" tile className="h-[56px] px-1.5" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -654,7 +653,7 @@ export default function YourTeam() {
                 <button key={v.role} onClick={() => openDesk(v.role)}
                   className="yt-glass rounded-xl p-4 text-left hover:brightness-[1.02] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[40px]">
                   <div className="flex items-center gap-3">
-                    <PixelAvatar seed={meta.seed} palette={meta.pal} size={44} />
+                    <TeamAvatar role={meta.key} tile className="h-[44px] px-1" />
                     <div className="min-w-0">
                       <p className="text-[14px] font-semibold truncate">{meta.title}</p>
                       <p className="text-[11px] text-muted-foreground truncate">{meta.sub}</p>
@@ -748,7 +747,7 @@ function Desk({ view, meta, thread, asking, onClose, onChip, onConfirm }: {
   return (
     <div className="mt-6">
       <div className="flex items-center gap-3">
-        <PixelAvatar seed={meta.seed} palette={meta.pal} size={48} />
+        <TeamAvatar role={meta.key} tile className="h-[48px] px-1" />
         <div className="min-w-0 flex-1">
           <p className="text-[16px] font-semibold">{meta.title}</p>
           <p className="text-[12px] text-muted-foreground">{meta.sub}</p>

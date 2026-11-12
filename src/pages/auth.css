@@ -17,8 +17,8 @@
 .bani-login .bl-ri{position:absolute;inset:0;display:flex;align-items:center;gap:12px;opacity:0;animation:bl-rot 16s infinite}
 .bani-login .bl-rot.hold .bl-ri{animation:none;opacity:0;transform:none}
 .bani-login .bl-rot.hold .bl-ri.on{opacity:1}
-.bani-login .bl-av{flex:none;width:var(--avs);height:var(--avs);border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px rgba(31,63,59,.06);display:inline-flex;align-items:center;justify-content:center}
-.bani-login .bl-av .pixel-avatar{transform:scale(.75)}
+/* team character on its own pale colour; cells are whole pixels (2px phone/tablet, 3px computer) so it stays sharp */
+.bani-login .bl-av{--ta-px:2px;height:var(--avs);padding:0 6px;border-radius:12px}
 .bani-login .bl-rx{display:flex;flex-direction:column;min-width:0}
 .bani-login .bl-rx b{font-size:var(--rb);font-weight:500;color:var(--teal);line-height:1.3}
 .bani-login .bl-rx span{font-size:var(--rs);color:var(--faint);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -58,7 +58,6 @@
   .bani-login .bl-msg,.bani-login .bl-act{max-width:480px}
   .bani-login .bl-h1{font-size:46px;line-height:1.05;letter-spacing:-.025em}
   .bani-login .bl-rot{margin-top:24px}
-  .bani-login .bl-av .pixel-avatar{transform:scale(.9)}
   .bani-login .bl-act{background:#fff;border:1px solid #E5E3DC;border-radius:20px;padding:36px;box-shadow:0 1px 2px rgba(20,45,43,.04),0 24px 48px -30px rgba(20,45,43,.32)}
   .bani-login .bl-h2{display:block}
 }
@@ -70,7 +69,7 @@
   .bani-login .bl-msg{max-width:none;padding:8px 0 0;align-self:start}
   .bani-login .bl-h1{font-size:clamp(56px,3.8vw,74px);line-height:1.04;white-space:nowrap}
   .bani-login .bl-rot{margin-top:clamp(28px,2.2vw,36px)}
-  .bani-login .bl-av .pixel-avatar{transform:scale(1.12)}
+  .bani-login .bl-av{--ta-px:3px;padding:0 8px}
   .bani-login .bl-act{max-width:none;padding:clamp(32px,2.4vw,44px)}
   .bani-login .bl-fl{height:clamp(52px,3.2vw,58px)}
   .bani-login .bl-go{height:clamp(50px,3vw,56px)}
