@@ -69,21 +69,9 @@ const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resol
 });
 const revoke = (files: BaniAttachment[]) => files.forEach(f => f.url && URL.revokeObjectURL(f.url));
 
-function useHomeSlot(active: boolean) {
-  const [el, setEl] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!active) { setEl(null); return; }
-    const find = () => setEl(document.getElementById("bani-home-slot"));
-    find();
-    const mo = new MutationObserver(find); mo.observe(document.body, { childList: true, subtree: true });
-    return () => mo.disconnect();
-  }, [active]);
-  return el;
-}
-
 let hintCanvas: CanvasRenderingContext2D | null = null;
 /** Cut a hint to the box's width with "…" so it stays on one line. */
-function fitHint(el: HTMLTextAreaElement, text: string) {
+export function fitHint(el: HTMLTextAreaElement, text: string) {
   const cs = getComputedStyle(el);
   const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
   if (room <= 0) return text;
@@ -262,7 +250,15 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const hasConversation = useRef(false);
   hasConversation.current = messages.some(m => !m.hidden);
   // On home the typing box lives inside the page (the slot under the greeting), so it scrolls with it.
-  const homeSlot = useHomeSlot(home && !open);
+  // Home registers the slot directly (no page-wide DOM watching while Home loads).
+  const homeSlot = home && !open ? store?.homeSlot[0] ?? null : null;
+  const inHomeSlot = !!homeSlot && allowed && !(!hosted && host);
+  const setComposerShown = store?.homeComposerShown[1];
+  useEffect(() => { setComposerShown?.(inHomeSlot); }, [inHomeSlot, setComposerShown]);
+  useEffect(() => () => setComposerShown?.(false), [setComposerShown]);
+  // A tap on Home's placeholder bar before Bani was ready focuses the real input once it is here.
+  const [pendingFocus, setPendingFocus] = store?.pendingFocus ?? [false, () => {}];
+  useEffect(() => { if (!inHomeSlot || !pendingFocus) return; input.current?.focus(); setPendingFocus(false); }, [inHomeSlot, pendingFocus, setPendingFocus]);
   // Landing on another page (e.g. Bani's "Open Revenue") leaves Bani as the small sphere.
   useEffect(() => { if (hosted || lastPath.current === pathname) return; lastPath.current = pathname; if (keepOpenNav.current) { keepOpenNav.current = false; return; } if (!hasConversation.current) setOpen(false); }, [pathname, hosted, setOpen]);
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);

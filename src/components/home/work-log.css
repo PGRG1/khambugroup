@@ -22,3 +22,17 @@
 .l2-team-btn{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .l2-team-btn:hover b{text-decoration:underline}
 .l2-team-btn .ar{color:var(--brand)}
+/* Rows that cannot be opened, and checks that expand in place */
+button.wl-row{width:100%;background:none;border:0;border-bottom:1px solid hsl(var(--border));font:inherit;text-align:left;cursor:pointer}
+button.wl-row:disabled{cursor:default}
+.wl-row.is-static:hover .wl-what b{color:inherit}
+.wl-go-open{transform:rotate(180deg)}
+.wl-findings{list-style:none;margin:0;padding:4px 0 10px 86px;border-bottom:1px solid hsl(var(--border))}
+.wl-findings li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px}
+.wl-findings i{width:7px;height:7px;border-radius:50%;background:#C6D1CB;flex:none;margin-top:6px}
+.wl-findings i.amb{background:#D9822B}
+.wl-findings span{flex:1;min-width:0}
+.wl-findings b{display:block;font-weight:500}
+.wl-findings em{display:block;font-style:normal;color:hsl(var(--muted-foreground));font-size:12.5px}
+.wl-findings button{flex:none;font-size:12.5px;color:#fff;background:#2F6B4F;border:0;border-radius:999px;padding:5px 11px;cursor:pointer}
+@media (max-width:640px){.wl-findings{padding-left:0}}

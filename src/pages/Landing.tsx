@@ -2,7 +2,6 @@ import { ReceiptIntakes, useReceiptIntakes } from "@/components/sales/ReceiptInt
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -10,7 +9,9 @@ import { useVenueScope } from "@/hooks/useVenueScope";
 import { TeamAvatar } from "@/components/team/TeamAvatar";
 import { TEAM_CHARACTERS } from "@/components/team/teamCharacters";
 import "@/components/team/team.css";
-import { useBaniAsk, useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext";
+import { useBaniAsk, useFloatingBaniOpen, useHomeComposerSlot } from "@/components/assistant/FloatingBaniContext";
+import { HomeComposerPlaceholder } from "@/components/assistant/HomeComposerPlaceholder";
+import { readCachedName, writeCachedName, firstName } from "@/utils/displayNameCache";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
@@ -64,6 +65,30 @@ function useWidth() {
   return [ref, box.w, box.left] as const;
 }
 
+/** Placeholder line the height of the text it stands in for (same classes as the real block, so the same size). */
+const Sk = ({ w }: { w: string }) => <span className="l2-sk" style={{ width: w }}>&nbsp;</span>;
+
+/** The month snapshot's exact shape with placeholders in place of figures. */
+function SnapSkeleton() {
+  const top = () => <div className="l2-top"><div className="k"><Sk w="38%" /></div><div className="v"><Sk w="55%" /></div><div className="d"><Sk w="70%" /></div><div className="s"><Sk w="50%" /></div></div>;
+  return (
+    <div className="l2-snap is-loading" role="status" aria-busy="true" aria-label="Loading this month">
+      <section className="l2-col">{top()}<div className="l2-ch"><div className="pt"><Sk w="62%" /></div><div className="l2-bars" /></div></section>
+      <section className="l2-col">{top()}<div className="l2-bud"><Sk w="60%" /></div><div className="l2-ch"><div className="pt"><Sk w="50%" /></div><div className="l2-bars" /></div></section>
+      <section className="l2-col">{top()}<div className="l2-ch l2-pl">{[0, 1, 2, 3].map((i) => <div key={i}><Sk w="40%" /><b><Sk w="4em" /></b></div>)}<div className="tot"><Sk w="45%" /><b><Sk w="4em" /></b></div></div><div className="l2-cash"><Sk w="35%" /><Sk w="30%" /></div></section>
+    </div>
+  );
+}
+
+/** The work row's shape (needs-you, month-end, performance) with placeholder lines. */
+function WorkSkeleton() {
+  return (
+    <div className="l2-work is-loading" role="status" aria-busy="true" aria-label="Loading your team's work">
+      {[0, 1, 2].map((i) => <section key={i} className="l2-wb"><div className="wh"><Sk w="55%" /></div><div className="wl">{[0, 1, 2].map((j) => <div key={j}><Sk w={["80%", "65%", "72%"][j]} /></div>)}</div></section>)}
+    </div>
+  );
+}
+
 type Tile = { label: string; value: string; sub: React.ReactNode; status: string; tone: "ok" | "amb" | "quiet"; to: string };
 
 export default function Landing() {
@@ -73,7 +98,7 @@ export default function Landing() {
   const ask = useBaniAsk();
   const [talking] = useFloatingBaniOpen();
   const [ref, width, left] = useWidth();
-  const askSlot = useRef<HTMLDivElement>(null);
+  const slot = useHomeComposerSlot();
   const size = width >= 1100 ? "wide" : width >= 700 ? "tab" : "ph";
 
   // Bani's typing box is rendered inside the ask slot (see FloatingBani); these centre the conversation when it opens.
@@ -109,7 +134,14 @@ export default function Landing() {
     enabled: !!user?.id,
     queryFn: async () => (await supabase.from("profiles").select("display_name").eq("user_id", user!.id).maybeSingle()).data?.display_name ?? "",
   });
-  const first = (profile.data || (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "").split(/\s+/)[0];
+  // Never the email: the profile name (or the sign-up full name), remembered on this device so the
+  // greeting is complete from the first frame. With nothing remembered yet, the name fades in once.
+  const [cachedName] = useState(() => readCachedName(user?.id));
+  const nameSettled = profile.isSuccess || profile.isError;
+  const liveName = nameSettled ? firstName(profile.data || (user?.user_metadata as any)?.full_name) : "";
+  useEffect(() => { if (profile.isSuccess) writeCachedName(user?.id, liveName); }, [profile.isSuccess, liveName, user?.id]);
+  const first = nameSettled ? liveName || cachedName : cachedName;
+  const nameFades = !cachedName;
   const hour = now.getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
@@ -161,7 +193,7 @@ export default function Landing() {
       return out;
     },
   });
-  const { targets } = useRevenueTargets();
+  const { targets, loading: targetsLoading } = useRevenueTargets();
   const bankGl = useQuery({
     queryKey: ["landing2", "bank-gl", tenantId],
     enabled: !!tenantId,
@@ -256,7 +288,11 @@ export default function Landing() {
       return { shifts, pay: (pay ?? []) as PayRow[] };
     },
   });
-  const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending;
+  // One reveal per block: nothing in the snapshot shows until every figure it uses has settled,
+  // so no tile changes from a placeholder value ("…", "No target set") to a real one in front of the person.
+  const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending || targetsLoading
+    || buyQ.isPending || menuPct.isPending || wasteQ.isPending || rotaQ.isPending || bankGl.isPending || lastClosed.isPending;
+  const workLoading = loading || (reviewQ.isPending && !mixed) || intakes.q.isPending;
 
   const k = useMemo(() => {
     const rows = salesQ.data ?? [];
@@ -388,26 +424,32 @@ export default function Landing() {
 
   return (
     <div ref={ref} className={`ld l2 ${size}`}>
-      <div className="l2-head">
-        <h1 className="ld-h1">{greet}{first ? `, ${first}` : ""}</h1>
+      <div className="l2-head l2-enter">
+        <h1 className="ld-h1">{greet}<span className={nameFades ? "l2-name l2-fade" : "l2-name"}>{first ? `, ${first}` : ""}</span></h1>
       </div>
-      <div className="l2-team">
+      <div className="l2-team l2-enter">
         <span className="l2-tw">
           <span className="l2-tw-w">Your finance team</span>
-          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i, background: TEAM_CHARACTERS[r].tint }}><TeamAvatar role={r} variant="bust" px={1} /></span>; })}</span>
+          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i, background: TEAM_CHARACTERS[r].tint }}><TeamAvatar role={r} variant="bust" px={1} /></span>)}</span>
         </span>
-        {handled > 0
-          ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
-          : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
+        <span className="l2-status">
+          {workQ.isPending ? null : handled > 0
+            ? <button type="button" className="l2-team-btn l2-fade" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
+            : <span className="l2-fade">has nothing new to book this week</span>}
+        </span>
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />
       {/* The chat bar sits in the page at every width, under the greeting. */}
-      <div ref={askSlot} id="bani-home-slot" className="l2-askslot" />
-      <div className="l2-pills">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
+      <div className="l2-askslot l2-enter">
+        {/* Same size as the real chat bar, which Bani portals into the inner slot; the placeholder steps aside, nothing moves. */}
+        <div ref={slot.register} id="bani-home-slot" />
+        {!slot.shown && <div className="l2-askph"><HomeComposerPlaceholder onTap={slot.requestFocus} /></div>}
+      </div>
+      <div className="l2-pills l2-enter">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
-      {loading ? <div className="l2-snap">{[0, 1, 2].map((i) => <section key={i} className="l2-col"><Skeleton className="h-4 w-1/3 !animate-none" /><Skeleton className="h-8 w-2/3 mt-2 !animate-none" /><Skeleton className="h-[150px] w-full mt-6 !animate-none" /></section>)}</div> :
-      <div className="l2-snap loading-reveal">
+      {loading ? <SnapSkeleton /> :
+      <div className="l2-snap l2-reveal">
         <section className="l2-col">
           <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
@@ -417,7 +459,7 @@ export default function Landing() {
         </section>
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">{isCurrent ? "Purchases so far" : "Purchases"}</div>
-            <div className="v">{buyQ.isPending ? "…" : k.spent ? short(k.spent) : "—"}</div>
+            <div className="v">{k.spent ? short(k.spent) : "—"}</div>
             <div className="d">{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : k.lastInv ? "" : "No supplier invoices yet"}</div>
             <div className={`s ${k.spentPct != null && k.usualFood && k.spentPct > k.usualFood + 1 ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.usualFood ? `Usual ${pctTxt(k.usualFood)}` : "Nothing to compare yet"}{k.lastInv ? ` · last invoice ${new Date(`${k.lastInv.invoice_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</div></Link>
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.spent)} of {short(k.budget)} budget</span></div>
@@ -439,8 +481,8 @@ export default function Landing() {
         </section>
       </div>}
 
-      {loading || (reviewQ.isPending && !mixed) ? <div className="l2-work">{[0, 1, 2].map((i) => <section key={i} className="l2-wb"><Skeleton className="h-5 w-1/2 !animate-none" /><Skeleton className="h-4 w-3/4 mt-4 !animate-none" /><Skeleton className="h-4 w-2/3 mt-2 !animate-none" /></section>)}</div> :
-      <div className="l2-work loading-reveal">
+      {workLoading ? <WorkSkeleton /> :
+      <div className="l2-work l2-reveal">
         <section className="l2-wb">
           <div className="wh"><span className="wn">{total}</span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
             {total > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through with Bani</button>}</div>

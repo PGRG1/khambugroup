@@ -764,3 +764,9 @@ html:not(.dark) .bani-side a.bani-sub.glass-active, html:not(.dark) .bani-side a
 .bani-rail-logo:hover .bani-rail-chev, .bani-rail-logo:focus-visible .bani-rail-chev { display: block; }
 html:not(.dark) .bani-rail-logo { background: transparent; }
 html:not(.dark) .bani-rail-logo:hover, html:not(.dark) .bani-rail-logo:focus-visible { background: #F2F5F3; }
+
+/* Platform Clients figures: a neutral bar until every figure is loaded, then one fade (never 0 first). */
+.clients-sk { display: inline-block; width: 1.4em; height: .8em; border-radius: 4px; background: hsl(var(--muted)); vertical-align: middle; }
+.clients-fade { animation: clients-fade .25s ease-out both; }
+@keyframes clients-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .clients-fade { animation: none; } }

@@ -124,6 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem("khambu.enteredTenantId");
       localStorage.removeItem("khambu.activeTenantId");
       localStorage.removeItem("khambu.homeTenantId");
+      localStorage.removeItem("bani-last-shell");
     } catch {}
     setSession(null);
     setIsAdmin(false);

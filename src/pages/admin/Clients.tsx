@@ -121,7 +121,6 @@ export default function Clients() {
       .select("id, name, slug, status, created_at")
       .order("created_at", { ascending: false });
     const tenants = (data ?? []) as ClientRow[];
-    setRows(tenants);
     if (tenants.length) {
       const ids = tenants.map((d) => d.id);
       const [{ data: vs }, { data: us }, { data: ob }] = await Promise.all([
@@ -143,9 +142,11 @@ export default function Clients() {
       const steps: Record<string, Record<string, StepState>> = {};
       (ob ?? []).forEach((o: any) => { steps[o.tenant_id] = (o.steps ?? {}) as Record<string, StepState>; });
       setOnboarding(steps);
+      setRows(tenants);
     } else {
       setCounts({});
       setOnboarding({});
+      setRows(tenants);
     }
   }, []);
 
@@ -170,6 +171,8 @@ export default function Clients() {
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
 
+  // All four figures appear together once the client list and its counts are both loaded (never as 0 first).
+  const ready = rows !== null;
   const totalClients = list.length;
   const totalActive = list.filter((r) => r.shownStatus === "active").length;
   const totalSetup = list.filter((r) => r.shownStatus === "setup").length;
@@ -246,7 +249,7 @@ export default function Clients() {
       <div className="mt-5 md:hidden card-glass rounded-2xl grid grid-cols-4 overflow-hidden">
         {kpis.map((k, i) => (
           <div key={k.label} className={`min-w-0 flex flex-col items-center gap-1.5 py-3.5 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
-            <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{k.value}</span>
+            <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{ready ? <span className="clients-fade">{k.value}</span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}</span>
             <span className="text-[12px] text-muted-foreground whitespace-nowrap">{k.short}</span>
           </div>
         ))}
@@ -257,9 +260,9 @@ export default function Clients() {
             <div className="font-plex text-[10.5px] xl:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
             <div className="flex items-baseline gap-2 min-w-0">
               <span className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] xl:text-[32px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
-                {k.value}
+                {ready ? <span className="clients-fade">{k.value}</span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}
               </span>
-              {k.extra && <span className="text-[14px] text-muted-foreground tabular-nums whitespace-nowrap">{k.extra}</span>}
+              {k.extra && ready && <span className="clients-fade text-[14px] text-muted-foreground tabular-nums whitespace-nowrap">{k.extra}</span>}
             </div>
           </div>
         ))}

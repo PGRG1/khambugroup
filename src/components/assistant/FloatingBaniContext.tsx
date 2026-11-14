@@ -31,6 +31,12 @@ type Store = {
   /** Which saved chat is on screen (null = not saved yet), and whether the phone chat list is open. */
   chatId: S<string | null>;
   chatsOpen: S<boolean>;
+  /** Home's slot for the chat bar (registered by Landing through a callback ref, null when Home unmounts). */
+  homeSlot: S<HTMLElement | null>;
+  /** True while the real composer is portalled into Home's slot, so Home can retire its placeholder. */
+  homeComposerShown: S<boolean>;
+  /** The person tapped Home's placeholder bar before Bani was ready: focus the real input once it mounts. */
+  pendingFocus: S<boolean>;
 };
 const Context = createContext<Store | null>(null);
 
@@ -44,6 +50,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
     sales: useState<SalesDraft | null>(null),
     work: useState<{ path: string; items: PageWorkItem[] } | null>(null), continueToPage: useState(false), ask: useState<string | null>(null),
+    homeSlot: useState<HTMLElement | null>(null), homeComposerShown: useState(false), pendingFocus: useState(false),
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
@@ -97,3 +104,11 @@ export const useFloatingBaniSay = () => {
     setHidden?.(false); setOpen?.(true);
   }, [setMessages, setOpen, setHidden]);
 };
+/** Home registers its chat-bar slot and learns whether the real composer has arrived in it. */
+export function useHomeComposerSlot() {
+  const s = useContext(Context);
+  const setSlot = s?.homeSlot[1], setPending = s?.pendingFocus[1];
+  const register = useCallback((el: HTMLElement | null) => setSlot?.(el), [setSlot]);
+  const requestFocus = useCallback(() => setPending?.(true), [setPending]);
+  return { register, shown: s?.homeComposerShown[0] ?? false, requestFocus };
+}

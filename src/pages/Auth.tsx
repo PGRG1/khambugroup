@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { resolveAuthRoute } from "@/utils/authRouting";
 import { Eye, EyeOff } from "lucide-react";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { AuthEntrance } from "@/components/brand/AuthEntrance";
@@ -32,9 +34,17 @@ const Auth = () => {
   const handleFinish = useCallback(() => setEntranceDone(true), []);
 
 
+  // Go straight to the final destination once it is known (session + platform-admin check),
+  // so there is no hop through "/" and its loading screen. The button keeps "Please wait…" until then.
+  const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
+  const routing = !authLoading && !!session;
   useEffect(() => {
-    if (!authLoading && session) navigate("/", { replace: true });
-  }, [session, authLoading, navigate]);
+    if (authLoading || !session || platLoading) return;
+    let entered: string | null = null;
+    try { entered = localStorage.getItem("khambu.enteredTenantId"); } catch { /* none */ }
+    const decision = resolveAuthRoute({ session, isPlatformAdmin, enteredTenantId: entered });
+    navigate(decision.kind === "redirect" ? decision.to : "/", { replace: true });
+  }, [session, authLoading, platLoading, isPlatformAdmin, navigate]);
 
   const handleForgotPassword = async () => {
     if (!email) { setError("Enter your email first"); return; }
@@ -168,8 +178,8 @@ const Auth = () => {
               {error && <p className="bl-error" role="alert">{error}</p>}
               {message && <p className="bl-msgtext" role="status">{message}</p>}
 
-              <button type="submit" disabled={loading} className="bl-go">
-                {loading ? "Please wait..." : "Sign in"}
+              <button type="submit" disabled={loading || routing} className="bl-go">
+                {loading || routing ? "Please wait..." : "Sign in"}
               </button>
             </form>
           </section>

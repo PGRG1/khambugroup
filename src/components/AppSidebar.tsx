@@ -423,7 +423,8 @@ export function AppSidebar() {
     queryKey: ["sidebar", "name", user?.id], enabled: !!user?.id, staleTime: 600000,
     queryFn: async () => (await supabase.from("profiles").select("display_name").eq("user_id", user!.id).maybeSingle()).data?.display_name ?? "",
   });
-  const myName = nameQ.data || (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
+  // Wait for the profile before falling back, so the email part never flashes before the real name.
+  const myName = nameQ.isPending ? "" : nameQ.data || (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
 
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 

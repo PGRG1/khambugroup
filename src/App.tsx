@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, useLocation, Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { resolveAuthRoute } from "@/utils/authRouting";
+import { readLastShell, writeLastShell } from "@/utils/lastShell";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
@@ -133,6 +134,27 @@ const pageKeyMap: Record<string, string> = {
 /** Plain screen in the page colour while access is checked (no text or layout that could flash). */
 const QuietLoading = () => <div className="min-h-screen bg-background" role="status" aria-busy="true" aria-label="Loading" />;
 
+/**
+ * Empty client-portal frame (sage page, 52px top bar, sidebar column on desktop) shown while the
+ * first access decision is made, but only when this browser last opened the client portal.
+ * No data, links or names, so nothing in it can be wrong for the person signing in.
+ */
+const ShellFrame = () => {
+  let sidebarOpen = true;
+  try { sidebarOpen = localStorage.getItem("bani.sidebar.open") !== "0"; } catch { /* default open */ }
+  return (
+    <div className="tenant-portal min-h-screen flex w-full overflow-x-hidden" role="status" aria-busy="true" aria-label="Loading">
+      <div className="hidden md:block shrink-0 bg-sidebar border-r border-sidebar-border" style={{ width: sidebarOpen ? "16rem" : "64px" }} />
+      <main className="app-shell app-atmosphere app-bg-sage flex-1 min-w-0 flex flex-col">
+        <header className="tenant-topbar sticky top-0 z-30 h-[52px] shrink-0 border-b border-border backdrop-blur" />
+      </main>
+    </div>
+  );
+};
+
+/** Content area kept at full height, with nothing in it, while access is re-checked inside the frame. */
+const QuietArea = () => <div className="min-h-[calc(100dvh-52px)]" role="status" aria-busy="true" aria-label="Loading" />;
+
 /** One tenant shell; auth redirects never belong to individual pages. */
 const TenantShell = () => {
   const { session, loading, roleLoading } = useAuth();
@@ -147,11 +169,12 @@ const TenantShell = () => {
       enteredTenantId: localStorage.getItem("khambu.enteredTenantId") });
     if (decision.kind === "redirect") return <Navigate to={decision.to} replace />;
     decidedOnce.current = true;
+    if (!isPlatformAdmin) writeLastShell("tenant");
   }
-  if (!decidedOnce.current) return <QuietLoading />;
-  return <AppLayout>{loading || roleLoading || platLoading
-    ? <p className="p-6 text-muted-foreground" role="status">Checking access…</p>
-    : <Outlet />}</AppLayout>;
+  // Returning client users see the empty portal frame instead of a blank screen; everyone else
+  // (platform admins, first visits) keeps the plain screen so the portal never flashes for them.
+  if (!decidedOnce.current) return readLastShell() === "tenant" ? <ShellFrame /> : <QuietLoading />;
+  return <AppLayout>{loading || roleLoading || platLoading ? <QuietArea /> : <Outlet />}</AppLayout>;
 };
 
 const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
@@ -159,7 +182,7 @@ const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; page
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { canAccessPage, loading } = useUserPermissions(effectiveUserId || undefined);
-  if (loading) return <p className="p-6 text-muted-foreground" role="status">Checking access…</p>;
+  if (loading) return <QuietArea />;
   if (pageKey && (!isAdmin || isPreviewActive) && !canAccessPage(pageKey)) return <AccessDenied />;
   return <>{children}</>;
 };
@@ -179,6 +202,7 @@ const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading || platLoading) return <QuietLoading />;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
+  writeLastShell("platform");
   return <PlatformLayout>{children}</PlatformLayout>;
 };
 
