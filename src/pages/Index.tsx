@@ -18,6 +18,7 @@ import { SoFarCard } from "@/components/revenue-overview/SoFarCard";
 import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
+import { CumulativeSales, type CumulativeDay } from "@/components/revenue-overview/CumulativeSales";
 import { aggregate, mtdRange } from "@/components/revenue-overview/utils";
 import { MONTHS, comparisonWindow, iso, monthSoFarLabel, targetPace } from "@/utils/revenueOverview";
 
@@ -68,6 +69,26 @@ const Index = () => {
   const venueIds = useMemo(() => vs.selectedVenues.map((v) => v.id), [vs.selectedVenues]);
   const targets = useScopedProjections(venueIds, tYear, tMonth, singleMonth && access.forecast);
   const pace = useMemo(() => targetPace(targets.rows, todayIso), [targets.rows, todayIso]);
+
+  // Running total for a single month: each day's sales, plus each remaining day's projection
+  // (from the same month projection rows as the target bar; without them, current pace is used).
+  const running = useMemo(() => {
+    if (!singleMonth || !from) return null;
+    const y = from.getFullYear(), m = from.getMonth();
+    const end = new Date(y, m + 1, 0).getDate();
+    const sold = new Map<string, number>();
+    for (const r of filtered) sold.set(r.date, (sold.get(r.date) ?? 0) + r.totalSales);
+    const proj = new Map(targets.rows.map((r) => [r.date, r.effectiveForecast]));
+    const days: CumulativeDay[] = Array.from({ length: end }, (_, i) => {
+      const date = `${y}-${String(m + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+      return { date, actual: sold.get(date) ?? null, forecast: proj.get(date) ?? null };
+    });
+    const monthEnd = days[days.length - 1].date;
+    if (days[0].date > todayIso) return null;
+    const lastCounted = monthEnd < todayIso ? monthEnd : sold.has(todayIso) ? todayIso : iso(new Date(Date.now() - 864e5));
+    if (lastCounted < days[0].date) return null;
+    return { days, lastCounted };
+  }, [singleMonth, from, filtered, targets.rows, todayIso]);
 
   const { summary: forecastSummary } = useRevenueForecastOverview({
     sales: data,
@@ -133,6 +154,8 @@ const Index = () => {
             spendPerGuest={cur.guests ? cur.revenue / cur.guests : null}
             averageDay={cur.days ? cur.revenue / cur.days : 0}
           />
+
+          {running && <CumulativeSales days={running.days} lastCounted={running.lastCounted} target={targets.hasManagerTarget && pace ? pace.target : null} />}
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
             <div className="min-w-0">
