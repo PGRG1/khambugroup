@@ -1,8 +1,9 @@
+/* Screen changes: the frame stays put and the new content rises in slightly. */
 @keyframes route-content-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
-.route-content-enter { animation: route-content-enter 150ms ease-out; }
+.route-content-enter { animation: route-content-enter 220ms cubic-bezier(.2,.8,.2,1); }
 .route-content-enter[data-slot-loading="true"] { animation: none; }
 .loading-reveal { animation: route-content-enter 150ms ease-out; }
 .loading-reveal .loading-reveal { animation: none; }

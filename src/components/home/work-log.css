@@ -22,17 +22,40 @@
 .l2-team-btn{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .l2-team-btn:hover b{text-decoration:underline}
 .l2-team-btn .ar{color:var(--brand)}
-/* Rows that cannot be opened, and checks that expand in place */
-button.wl-row{width:100%;background:none;border:0;border-bottom:1px solid hsl(var(--border));font:inherit;text-align:left;cursor:pointer}
-button.wl-row:disabled{cursor:default}
-.wl-row.is-static:hover .wl-what b{color:inherit}
-.wl-go-open{transform:rotate(180deg)}
-.wl-findings{list-style:none;margin:0;padding:4px 0 10px 86px;border-bottom:1px solid hsl(var(--border))}
-.wl-findings li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px}
+/* Rows open a detail panel that slides over the list (the list stays where it was underneath). */
+button.wl-row{width:100%;background:none;border:0;border-bottom:1px solid hsl(var(--border));font:inherit;text-align:left;cursor:pointer;transition:transform .12s ease-out}
+button.wl-row:active{transform:scale(.99)}
+
+.wl-detail{position:absolute;inset:0;display:flex;flex-direction:column;background:hsl(var(--background));animation:wl-in .28s cubic-bezier(.2,.8,.2,1) both}
+@keyframes wl-in{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+.wl-dhead{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px 14px;border-bottom:1px solid hsl(var(--border));padding-right:48px}
+.wl-back{display:inline-flex;align-items:center;gap:2px;font-size:13.5px;color:#2F6B4F;background:none;border:0;padding:6px;cursor:pointer}
+.wl-dbody{overflow-y:auto;overscroll-behavior:contain;padding:16px 24px;flex:1;min-height:0}
+.wl-dtitle{font-size:17px;font-weight:600;margin:0}
+.wl-dwhen{font-size:12.5px;color:hsl(var(--muted-foreground));margin:2px 0 12px}
+.wl-dsaid{font-size:14.5px;line-height:1.5;margin:0 0 14px}
+.wl-dload{display:flex;flex-direction:column;gap:12px;padding:6px 0}
+.wl-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0 0 14px;padding:12px 14px;background:#F4F7F5;border-radius:12px}
+.wl-facts dt{font-size:11.5px;color:hsl(var(--muted-foreground))}
+.wl-facts dd{margin:0;font-size:13.5px;font-weight:500;overflow-wrap:anywhere}
+.wl-dnote{font-size:13px;color:hsl(var(--muted-foreground));margin:0 0 14px}
+.wl-dsub{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:hsl(var(--muted-foreground));margin:4px 0 6px}
+.wl-dlines{list-style:none;margin:0;padding:0}
+.wl-dlines li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid hsl(var(--border));font-size:13.5px}
+.wl-dlines li:last-child{border-bottom:0}
+.wl-dlines em{display:block;font-style:normal;font-size:12px;color:hsl(var(--muted-foreground))}
+.wl-dlines b{font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wl-dfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 16px;border-top:1px solid hsl(var(--border))}
+.wl-ask{font-size:13.5px;color:#fff;background:#2F6B4F;border:0;border-radius:999px;padding:9px 16px;cursor:pointer}
+.wl-open{font-size:13px;color:#2F6B4F;text-decoration:none;margin-left:auto}
+.wl-open:hover{text-decoration:underline}
+.wl-findings{list-style:none;margin:0;padding:0}
+.wl-findings li{display:flex;align-items:flex-start;gap:10px;padding:8px 0;font-size:13px;border-bottom:1px solid hsl(var(--border))}
+.wl-findings li:last-child{border-bottom:0}
 .wl-findings i{width:7px;height:7px;border-radius:50%;background:#C6D1CB;flex:none;margin-top:6px}
 .wl-findings i.amb{background:#D9822B}
 .wl-findings span{flex:1;min-width:0}
 .wl-findings b{display:block;font-weight:500}
 .wl-findings em{display:block;font-style:normal;color:hsl(var(--muted-foreground));font-size:12.5px}
 .wl-findings button{flex:none;font-size:12.5px;color:#fff;background:#2F6B4F;border:0;border-radius:999px;padding:5px 11px;cursor:pointer}
-@media (max-width:640px){.wl-findings{padding-left:0}}
+@media (prefers-reduced-motion:reduce){.wl-detail{animation:none}button.wl-row:active{transform:none}}

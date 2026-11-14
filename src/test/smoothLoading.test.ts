@@ -7,6 +7,7 @@ describe("work log links", () => {
   it("opens the exact invoice and sales record", () => {
     expect(workLink({ kind: "invoice", id: "abc" }).to).toBe("/procurement/invoices?invoice=abc");
     expect(workLink({ kind: "sales", id: "s1" }).to).toBe("/sales-data/s1");
+    expect(workLink({ kind: "invoice", id: "abc" }).label).toBe("Open in Purchasing");
   });
   it("never links to retired routes that bounce to Home", () => {
     const all = [

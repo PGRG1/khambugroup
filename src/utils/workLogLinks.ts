@@ -3,7 +3,7 @@
  * screen that holds it (never a retired route that bounces back to Home). `page`/`admin` say which
  * access the destination needs, so rows the person cannot open are shown as plain text.
  */
-export type WorkLink = { to: string; page?: string; admin?: boolean };
+export type WorkLink = { to: string; label: string; page?: string; admin?: boolean };
 
 export type WorkLinkSource =
   | { kind: "invoice"; id: string }
@@ -16,13 +16,13 @@ export type WorkLinkSource =
 export function workLink(src: WorkLinkSource): WorkLink {
   switch (src.kind) {
     // Invoices open in their review drawer through the existing ?invoice= deep link.
-    case "invoice": return { to: `/procurement/invoices?invoice=${encodeURIComponent(src.id)}`, page: "invoices" };
-    case "sales": return { to: `/sales-data/${encodeURIComponent(src.id)}`, page: "revenue" };
+    case "invoice": return { to: `/procurement/invoices?invoice=${encodeURIComponent(src.id)}`, label: "Open in Purchasing", page: "invoices" };
+    case "sales": return { to: `/sales-data/${encodeURIComponent(src.id)}`, label: "Open in Sales records", page: "revenue" };
     // Bills and bank lines have no record deep link yet: open the screen that lists them.
-    case "bill": return { to: "/expenses/bills", admin: true };
-    case "bank": return { to: "/finance/cash?view=transactions&filter=all", admin: true };
-    case "payroll_accrual": return { to: "/hr/payroll", page: "people" };
-    case "depreciation": return { to: `/finance/close?month=${src.month.slice(0, 7)}`, admin: true };
+    case "bill": return { to: "/expenses/bills", label: "Open in Expenses", admin: true };
+    case "bank": return { to: "/finance/cash?view=transactions&filter=all", label: "Open in Cash & bank", admin: true };
+    case "payroll_accrual": return { to: "/hr/payroll", label: "Open in Payroll", page: "people" };
+    case "depreciation": return { to: `/finance/close?month=${src.month.slice(0, 7)}`, label: "Open Month close", admin: true };
   }
 }
 

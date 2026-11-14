@@ -137,3 +137,37 @@
 .ld.ph .l2-snap{grid-template-columns:1fr}
 .ld.ph .l2-col{border-right:0;border-bottom:1px solid var(--line)}
 .ld.ph .l2-col:last-child{border-bottom:0}
+/* ---- First-reveal choreography (once per session; .l2-play is only set on that reveal) ----
+   Order: cards rise left to right, numbers count up, bars grow one after another, fills run,
+   lists cascade, and the signal (the slow weekday) lands last. Transform/opacity only. */
+.l2-play .l2-col,.l2-play .l2-wb{animation:l2rise .45s cubic-bezier(.2,.8,.2,1) both}
+.l2-play .l2-col:nth-child(2),.l2-play .l2-wb:nth-child(2){animation-delay:80ms}
+.l2-play .l2-col:nth-child(3),.l2-play .l2-wb:nth-child(3){animation-delay:160ms}
+.l2-play .l2-bars i{transform-origin:bottom;animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--b,0) * 60ms) both}
+.l2-play .l2-bars i.low{animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--b,0) * 60ms) both,l2low .5s ease-out 1.25s both}
+.l2-play .l2-bars .pv{animation:l2fade .3s ease-out calc(600ms + var(--b,0) * 60ms) both}
+.l2-play .cbar i{transform-origin:left;animation:l2fill .9s cubic-bezier(.2,.8,.2,1) .4s both}
+.l2-play .l2-pl>div{animation:l2slide .4s cubic-bezier(.2,.8,.2,1) both}
+.l2-play .l2-pl>div:nth-child(1){animation-delay:330ms}.l2-play .l2-pl>div:nth-child(2){animation-delay:400ms}
+.l2-play .l2-pl>div:nth-child(3){animation-delay:470ms}.l2-play .l2-pl>div:nth-child(4){animation-delay:540ms}
+.l2-play .l2-pl>div:nth-child(5){animation-delay:640ms}
+.l2-play .l2-wb .wn{display:inline-block;animation:l2pop .5s cubic-bezier(.34,1.56,.64,1) .25s both}
+.l2-play .l2-wb .go{animation:l2fade .3s ease-out .65s both}
+.l2-play .l2-wb .wl>*{animation:l2rise .35s cubic-bezier(.2,.8,.2,1) both}
+.l2-play .l2-wb .wl>:nth-child(1){animation-delay:360ms}.l2-play .l2-wb .wl>:nth-child(2){animation-delay:430ms}
+.l2-play .l2-wb .wl>:nth-child(3){animation-delay:500ms}.l2-play .l2-wb .wl>:nth-child(4){animation-delay:570ms}
+.l2-play .l2-top .s.ok i,.l2-play .l2-wb .wl i.ok{animation:l2ping 1.1s ease-out 1.1s 1}
+@keyframes l2grow{from{transform:scaleY(0)}to{transform:none}}
+@keyframes l2fill{from{transform:scaleX(0)}to{transform:none}}
+@keyframes l2slide{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes l2pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+@keyframes l2low{from{background:var(--pos)}to{background:#D9822B}}
+@keyframes l2ping{from{box-shadow:0 0 0 0 rgba(34,181,115,.45)}to{box-shadow:0 0 0 8px rgba(34,181,115,0)}}
+/* Instant press feedback on everything tappable on Home. */
+.l2 :is(.l2-top,.l2-pills button,.l2-wb .wi,.l2-wb .wh,.l2-bud,.l2-cash,.l2-team-btn){transition:transform .12s ease-out}
+.l2 :is(.l2-top,.l2-pills button,.l2-wb .wi,.l2-wb .wh,.l2-bud,.l2-cash,.l2-team-btn):active{transform:scale(.985)}
+/* Depth: cards lift slightly off the page instead of sitting flat. */
+.l2-snap,.l2-wb{box-shadow:0 1px 2px rgba(23,48,44,.05),0 10px 26px -12px rgba(23,48,44,.16)}
+@media (prefers-reduced-motion:reduce){.l2-play *,.l2-play{animation:none!important}.l2 :is(.l2-top,.l2-pills button,.l2-wb .wi,.l2-wb .wh,.l2-bud,.l2-cash,.l2-team-btn):active{transform:none}}
+
+.l2-pillset{display:flex;flex:none;gap:10px}

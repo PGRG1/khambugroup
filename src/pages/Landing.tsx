@@ -11,6 +11,7 @@ import { TEAM_CHARACTERS } from "@/components/team/teamCharacters";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen, useHomeComposerSlot } from "@/components/assistant/FloatingBaniContext";
 import { HomeComposerPlaceholder } from "@/components/assistant/HomeComposerPlaceholder";
+import { Num, useHomePlay } from "@/components/home/HomeMotion";
 import { readCachedName, writeCachedName, firstName } from "@/utils/displayNameCache";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
@@ -398,7 +399,7 @@ export default function Landing() {
         line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
-    return { tiles, week, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
+    return { salesN: days > 0 ? sales : null, tiles, week, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -417,6 +418,11 @@ export default function Landing() {
   ].filter(Boolean) as string[];
 
   const needLine = (f: Finding) => { const fig = (f.figures ?? []).find((x: any) => Number(x.value)); return f.title + (fig?.display ? ` · ${fig.display}` : ""); };
+
+  // First reveal this session plays the full choreography; afterwards only changed numbers roll.
+  const playSnap = useHomePlay(tenantId ? `${tenantId}:snap` : null, !loading);
+  const playWork = useHomePlay(tenantId ? `${tenantId}:work` : null, !workLoading);
+  const money = (n: number) => short(n);
 
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
 
@@ -438,53 +444,54 @@ export default function Landing() {
             : <span className="l2-fade">has nothing new<span className="l2-wk"> to book this week</span></span>}
         </span>
       </div>
-      <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />
+      <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} tenantId={tenantId} />
       {/* The chat bar sits in the page at every width, under the greeting. */}
       <div className="l2-askslot l2-enter">
         {/* Same size as the real chat bar, which Bani portals into the inner slot; the placeholder steps aside, nothing moves. */}
         <div ref={slot.register} id="bani-home-slot" />
         {!slot.shown && <div className="l2-askph"><HomeComposerPlaceholder onTap={slot.requestFocus} /></div>}
       </div>
-      <div className="l2-pills l2-enter">{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div>
+      {/* Suggestions depend on the month's figures; when they change, the row fades rather than jumps. */}
+      <div className="l2-pills l2-enter"><div key={loading ? "pre" : pills.join("|")} className={`l2-pillset ${loading ? "" : "l2-fade"}`}>{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div></div>
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
       {loading ? <SnapSkeleton /> :
-      <div className="l2-snap l2-reveal">
+      <div className={`l2-snap l2-reveal ${playSnap ? "l2-play" : ""}`}>
         <section className="l2-col">
-          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
+          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
           <div className="l2-ch"><div className="pt">Sales by weekday <span>· average a day, last 8 weeks</span></div>
-            {k.week.length ? <div className="l2-bars">{k.week.map((w) => <div key={w.d}><span className="pv">{short(w.v).replace("HK$", "")}</span><span className="l2-pm-bar"><i style={{ height: w.v > 0 ? `max(4px, ${(w.v / maxW) * 100}%)` : "0px" }} className={k.low?.d === w.d ? "low" : ""} /></span><span className="pd">{w.d}</span></div>)}</div>
+            {k.week.length ? <div className="l2-bars">{k.week.map((w, i) => <div key={w.d} style={{ ["--b" as any]: i }}><span className="pv">{short(w.v).replace("HK$", "")}</span><span className="l2-pm-bar"><i style={{ height: w.v > 0 ? `max(4px, ${(w.v / maxW) * 100}%)` : "0px" }} className={k.low?.d === w.d ? "low" : ""} /></span><span className="pd">{w.d}</span></div>)}</div>
               : <p className="l2-empty">No sales in the last 8 weeks.</p>}</div>
         </section>
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">{isCurrent ? "Purchases so far" : "Purchases"}</div>
-            <div className="v">{k.spent ? short(k.spent) : "—"}</div>
+            <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={230} /> : "—"}</div>
             <div className="d">{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : k.lastInv ? "" : "No supplier invoices yet"}</div>
             <div className={`s ${k.spentPct != null && k.usualFood && k.spentPct > k.usualFood + 1 ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.usualFood ? `Usual ${pctTxt(k.usualFood)}` : "Nothing to compare yet"}{k.lastInv ? ` · last invoice ${new Date(`${k.lastInv.invoice_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</div></Link>
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.spent)} of {short(k.budget)} budget</span></div>
             : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
           <div className="l2-ch"><div className="pt">Purchases <span>· last 3 months</span></div>
-            {k.purch.some((x) => x.amt > 0) ? <div className="l2-bars l2-pm">{k.purch.map((x) => <div key={x.m}><span className="pv">{short(x.amt)}</span><span className="l2-pm-bar"><i className={x.m === month ? "" : "old"} style={{ height: x.amt > 0 ? `max(4px, ${(x.amt / Math.max(1, ...k.purch.map((y) => y.amt))) * 100}%)` : "0px" }} /></span><span className="pd"><span>{monthName(x.m).slice(0, 3)}</span><span>{x.m === month && isCurrent ? "so far" : x.pct != null ? pctTxt(x.pct) : ""}</span></span></div>)}</div>
+            {k.purch.some((x) => x.amt > 0) ? <div className="l2-bars l2-pm">{k.purch.map((x, i) => <div key={x.m} style={{ ["--b" as any]: i }}><span className="pv">{short(x.amt)}</span><span className="l2-pm-bar"><i className={x.m === month ? "" : "old"} style={{ height: x.amt > 0 ? `max(4px, ${(x.amt / Math.max(1, ...k.purch.map((y) => y.amt))) * 100}%)` : "0px" }} /></span><span className="pd"><span>{monthName(x.m).slice(0, 3)}</span><span>{x.m === month && isCurrent ? "so far" : x.pct != null ? pctTxt(x.pct) : ""}</span></span></div>)}</div>
               : <p className="l2-empty">No supplier invoices yet.</p>}</div>
         </section>
         <section className="l2-col">
           <Link to="/finance/reports?view=pl" className="l2-top"><div className="k">P&amp;L</div>
-            <div className="v">{k.profit != null ? short(k.profit) : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
+            <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={310} /> : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
             <div className="d">Accrual basis</div>
             <div className={`s ${k.profitTile.tone}`}><i />{k.profitTile.status}</div></Link>
           <div className="l2-ch l2-pl">
             {k.plLines.map((l) => <div key={l.name}><span>{l.name}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
-            <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? short(k.profit) : "—"}</b></div>
+            <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={700} duration={600} /> : "—"}</b></div>
           </div>
           <Link to="/finance/cash" className="l2-cash"><span>Cash {k.cash ?? "not linked"}</span>{overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : <span>No bills overdue</span>}</Link>
         </section>
       </div>}
 
       {workLoading ? <WorkSkeleton /> :
-      <div className="l2-work l2-reveal">
+      <div className={`l2-work l2-reveal ${playWork ? "l2-play" : ""}`}>
         <section className="l2-wb">
-          <div className="wh"><span className="wn">{total}</span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
+          <div className="wh"><span className="wn"><Num value={total} format={(n) => String(Math.round(n))} play={playWork} delay={250} duration={600} /></span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
             {total > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through with Bani</button>}</div>
           <div className="wl">
             {mixed ? <div>Pick one venue or all venues to see what your team found.</div>
@@ -496,7 +503,7 @@ export default function Landing() {
         <section className="l2-wb">
           <Link to={`/finance/close?month=${closeMonth}`} className="wh">
             <span className="wt">Month-end checklist</span>
-            {closed ? <span className="wc">{monthName(closeMonth)} closed</span> : <><span className="cbar"><i style={{ width: `${counted ? (done.length / counted) * 100 : 0}%` }} /></span><span className="wc">{done.length} of {counted}</span></>}
+            {closed ? <span className="wc">{monthName(closeMonth)} closed</span> : <><span className="cbar"><i style={{ width: `${counted ? (done.length / counted) * 100 : 0}%` }} /></span><span className="wc"><Num value={done.length} format={(n) => String(Math.round(n))} play={playWork} delay={350} duration={800} /> of {counted}</span></>}
             <span className="ar">→</span>
           </Link>
           <div className="wl">
