@@ -435,7 +435,7 @@ export default function Landing() {
         <span className="l2-status">
           {workQ.isPending ? null : handled > 0
             ? <button type="button" className="l2-team-btn l2-fade" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
-            : <span className="l2-fade">has nothing new to book this week</span>}
+            : <span className="l2-fade">has nothing new<span className="l2-wk"> to book this week</span></span>}
         </span>
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} />

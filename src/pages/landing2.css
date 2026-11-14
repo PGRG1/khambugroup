@@ -15,7 +15,7 @@
 @keyframes l2avIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
 /* Fixed-size status slot: empty while the week's work loads, then the line fades in once. */
 .l2-status{display:inline-block;min-width:14.5em;text-align:left}
-.ld.ph .l2-status{min-width:9.5em}
+.ld.ph .l2-status{min-width:9.5em;max-width:calc(100vw - 190px);overflow:hidden;text-overflow:ellipsis}
 /* One entrance for everything Home knows straight away; one reveal per data block when it is complete. */
 .l2-enter{animation:l2rise .42s cubic-bezier(.2,.8,.2,1) both}
 .l2-team.l2-enter{animation-delay:60ms}.l2-askslot.l2-enter{animation-delay:110ms}.l2-pills.l2-enter{animation-delay:160ms}
@@ -93,8 +93,8 @@
 .ld.ph .l2-kpi:last-child{grid-column:1/-1}
 .ld.ph .l2-perf,.ld.ph .l2-work,.ld.tab .l2-work{grid-template-columns:1fr}
 /* the home composer is rendered inside the slot, so it scrolls with the page */
-#bani-home-slot .floating-bani{position:relative;inset:auto;z-index:auto}
-#bani-home-slot .floating-bani-panel.is-home{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto;margin:0 auto;padding-bottom:0}
+#bani-home-slot .floating-bani,.l2-askph .floating-bani{position:relative;inset:auto;z-index:auto}
+#bani-home-slot .floating-bani-panel.is-home,.l2-askph .floating-bani-panel.is-home{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto;margin:0 auto;padding-bottom:0}
 /* One month panel: Sales, Purchases, P&L side by side, each with its chart */
 .l2-lab{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:clamp(10px,3vh,32px) 0 10px 4px}
 .l2-snap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
