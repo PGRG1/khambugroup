@@ -94,14 +94,8 @@ const Index = () => {
         </div>
         <section className="card-glass rounded-xl border border-border/60 p-4"><LoadingLines rows={3} /></section>
       </div> : error && !data.length ? null : filtered.length === 0 ? (
-        <div className="card-glass rounded-xl p-8 sm:p-12 text-center max-w-xl mx-auto space-y-3">
-          <p className="font-display text-lg text-foreground">There is no trading history for this period yet.</p>
-          <p className="text-sm text-muted-foreground">
-            Bani needs at least 7–14 trading days of sales records before trends, pacing and forecasts are reliable. Until then, any projection would be a guess.
-          </p>
-          <p className="text-sm text-foreground">
-            Next step: scan the Z-reports for these days in Sales records, or set a target from your budget.
-          </p>
+        <div className="card-glass rounded-xl p-8 sm:p-12 text-center max-w-xl mx-auto">
+          <p className="font-display text-lg text-foreground">No sales recorded</p>
         </div>
       ) : (
         <div className="space-y-5 loading-reveal">
