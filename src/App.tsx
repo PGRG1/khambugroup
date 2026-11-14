@@ -1,4 +1,5 @@
-import React from "react";
+import React, { Suspense } from "react";
+import { lazyPage, prefetchPages } from "@/utils/lazyPage";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,105 +17,106 @@ import { PlatformLayout } from "@/components/platform/PlatformLayout";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
-import Index from "./pages/Index";
+const Index = lazyPage(() => import("./pages/Index"));
 import Landing from "./pages/Landing";
 
-import DataPage from "./pages/DataPage";
-import SalesRecordDetail from "./pages/SalesRecordDetail";
-import Settings from "./pages/Settings";
+const DataPage = lazyPage(() => import("./pages/DataPage"));
+const SalesRecordDetail = lazyPage(() => import("./pages/SalesRecordDetail"));
+const Settings = lazyPage(() => import("./pages/Settings"));
 
-import ForecastInput from "./pages/ForecastInput";
-import RevenueTargets from "./pages/RevenueTargets";
-import RevenueTargetsNew from "./pages/RevenueTargetsNew";
-import AuditLog from "./pages/AuditLog";
-import PLReport from "./pages/PLReport";
+const ForecastInput = lazyPage(() => import("./pages/ForecastInput"));
+const RevenueTargets = lazyPage(() => import("./pages/RevenueTargets"));
+const RevenueTargetsNew = lazyPage(() => import("./pages/RevenueTargetsNew"));
+const AuditLog = lazyPage(() => import("./pages/AuditLog"));
+const PLReport = lazyPage(() => import("./pages/PLReport"));
 
-import AiRules from "./pages/admin/AiRules";
-import Clients from "./pages/admin/Clients";
-import ClientDetail from "./pages/admin/ClientDetail";
-import ClientOnboarding from "./pages/admin/ClientOnboarding";
-import BusinessStructure from "./pages/admin/BusinessStructure";
-import MasterData from "./pages/admin/MasterData";
-import Preferences from "./pages/admin/Preferences";
+const AiRules = lazyPage(() => import("./pages/admin/AiRules"));
+const Clients = lazyPage(() => import("./pages/admin/Clients"));
+const ClientDetail = lazyPage(() => import("./pages/admin/ClientDetail"));
+const ClientOnboarding = lazyPage(() => import("./pages/admin/ClientOnboarding"));
+const BusinessStructure = lazyPage(() => import("./pages/admin/BusinessStructure"));
+const MasterData = lazyPage(() => import("./pages/admin/MasterData"));
+const Preferences = lazyPage(() => import("./pages/admin/Preferences"));
 
 
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import UserAccessControl from "./pages/UserAccessControl";
-import Reconciliation from "./pages/revenue/Reconciliation";
-import RevenueAnalysis from "./pages/revenue/Analysis";
-import RevenueSetup from "./pages/revenue/RevenueSetup";
+const UserAccessControl = lazyPage(() => import("./pages/UserAccessControl"));
+const Reconciliation = lazyPage(() => import("./pages/revenue/Reconciliation"));
+const RevenueAnalysis = lazyPage(() => import("./pages/revenue/Analysis"));
+const RevenueSetup = lazyPage(() => import("./pages/revenue/RevenueSetup"));
 import AccessDenied from "./pages/AccessDenied";
 
-import Procurement from "./pages/Procurement";
-import CreditNotes from "./pages/procurement/CreditNotes";
-import StockCounts from "./pages/procurement/StockCounts";
-import StockMenuOverview from "./pages/procurement/StockMenuOverview";
-import StockMovementsTab from "./components/procurement/StockMovementsTab";
-import SupplierAccountsPage from "./pages/procurement/SupplierAccounts";
-import SupplierAccountPage from "./pages/procurement/SupplierAccount";
-import OpeningBalances from "./pages/procurement/OpeningBalances";
+const Procurement = lazyPage(() => import("./pages/Procurement"));
+const CreditNotes = lazyPage(() => import("./pages/procurement/CreditNotes"));
+const StockCounts = lazyPage(() => import("./pages/procurement/StockCounts"));
+const StockMenuOverview = lazyPage(() => import("./pages/procurement/StockMenuOverview"));
+const StockMovementsTab = lazyPage(() => import("./components/procurement/StockMovementsTab"));
+const SupplierAccountsPage = lazyPage(() => import("./pages/procurement/SupplierAccounts"));
+const SupplierAccountPage = lazyPage(() => import("./pages/procurement/SupplierAccount"));
+const OpeningBalances = lazyPage(() => import("./pages/procurement/OpeningBalances"));
 
-import Cashflow from "./pages/finance/Cashflow";
-import CashflowLedger from "./pages/finance/CashflowLedger";
-import CashflowStatement from "./pages/finance/CashflowStatement";
-import CashflowCombined from "./pages/finance/CashflowCombined";
-import BalanceSheet from "./pages/finance/BalanceSheet";
-import Ledger from "./pages/finance/Ledger";
-import Journal from "./pages/finance/Journal";
-import ChartOfAccounts from "./pages/finance/ChartOfAccounts";
-import TrialBalance from "./pages/finance/TrialBalance";
-import LedgerPL from "./pages/finance/LedgerPL";
-import Receivables from "./pages/finance/Receivables";
-import Payables from "./pages/finance/Payables";
-import StaffReimbursements from "./pages/finance/StaffReimbursements";
-import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
-import FinanceDashboard from "./pages/finance/Dashboard";
-import FinanceReports from "./pages/finance/Reports";
-import FinanceBooks from "./pages/finance/Books";
-import CashBank from "./pages/finance/CashBank";
-import MonthClose from "./pages/finance/MonthClose";
+const Cashflow = lazyPage(() => import("./pages/finance/Cashflow"));
+const CashflowLedger = lazyPage(() => import("./pages/finance/CashflowLedger"));
+const CashflowStatement = lazyPage(() => import("./pages/finance/CashflowStatement"));
+const CashflowCombined = lazyPage(() => import("./pages/finance/CashflowCombined"));
+const BalanceSheet = lazyPage(() => import("./pages/finance/BalanceSheet"));
+const Ledger = lazyPage(() => import("./pages/finance/Ledger"));
+const Journal = lazyPage(() => import("./pages/finance/Journal"));
+const ChartOfAccounts = lazyPage(() => import("./pages/finance/ChartOfAccounts"));
+const TrialBalance = lazyPage(() => import("./pages/finance/TrialBalance"));
+const LedgerPL = lazyPage(() => import("./pages/finance/LedgerPL"));
+const Receivables = lazyPage(() => import("./pages/finance/Receivables"));
+const Payables = lazyPage(() => import("./pages/finance/Payables"));
+const StaffReimbursements = lazyPage(() => import("./pages/finance/StaffReimbursements"));
+const LedgerAuditLog = lazyPage(() => import("./pages/finance/LedgerAuditLog"));
+const FinanceDashboard = lazyPage(() => import("./pages/finance/Dashboard"));
+const FinanceReports = lazyPage(() => import("./pages/finance/Reports"));
+const FinanceBooks = lazyPage(() => import("./pages/finance/Books"));
+const CashBank = lazyPage(() => import("./pages/finance/CashBank"));
+const MonthClose = lazyPage(() => import("./pages/finance/MonthClose"));
 
 
-import DocumentCentre from "./pages/finance/DocumentCentre";
-import DocumentsBills from "./pages/finance/DocumentsBills";
+const DocumentCentre = lazyPage(() => import("./pages/finance/DocumentCentre"));
+const DocumentsBills = lazyPage(() => import("./pages/finance/DocumentsBills"));
 // Bills entry unified under /expenses/bills — the finance route below just redirects.
-import PaymentsDashboardPage from "./pages/payments/PaymentsDashboardPage";
-import PaymentsBatchesPage from "./pages/payments/PaymentsBatchesPage";
-import PaymentsFeeAuditPage from "./pages/payments/PaymentsFeeAuditPage";
-import PaymentsMonthlyPage from "./pages/payments/PaymentsMonthlyPage";
-import PaymentsProcessorsPage from "./pages/payments/PaymentsProcessorsPage";
-import PaymentsMerchantsPage from "./pages/payments/PaymentsMerchantsPage";
-import PaymentsFeeRatesPage from "./pages/payments/PaymentsFeeRatesPage";
-import PaymentsImportsPage from "./pages/payments/PaymentsImportsPage";
-import PettyCashOverviewPage from "./pages/petty-cash/PettyCashOverviewPage";
-import PettyCashReceiptsPage from "./pages/petty-cash/PettyCashReceiptsPage";
-import PettyCashReplenishmentsPage from "./pages/petty-cash/PettyCashReplenishmentsPage";
-import PettyCashFloatsPage from "./pages/petty-cash/PettyCashFloatsPage";
-import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassificationsPage";
+const PaymentsDashboardPage = lazyPage(() => import("./pages/payments/PaymentsDashboardPage"));
+const PaymentsBatchesPage = lazyPage(() => import("./pages/payments/PaymentsBatchesPage"));
+const PaymentsFeeAuditPage = lazyPage(() => import("./pages/payments/PaymentsFeeAuditPage"));
+const PaymentsMonthlyPage = lazyPage(() => import("./pages/payments/PaymentsMonthlyPage"));
+const PaymentsProcessorsPage = lazyPage(() => import("./pages/payments/PaymentsProcessorsPage"));
+const PaymentsMerchantsPage = lazyPage(() => import("./pages/payments/PaymentsMerchantsPage"));
+const PaymentsFeeRatesPage = lazyPage(() => import("./pages/payments/PaymentsFeeRatesPage"));
+const PaymentsImportsPage = lazyPage(() => import("./pages/payments/PaymentsImportsPage"));
+const PettyCashOverviewPage = lazyPage(() => import("./pages/petty-cash/PettyCashOverviewPage"));
+const PettyCashReceiptsPage = lazyPage(() => import("./pages/petty-cash/PettyCashReceiptsPage"));
+const PettyCashReplenishmentsPage = lazyPage(() => import("./pages/petty-cash/PettyCashReplenishmentsPage"));
+const PettyCashFloatsPage = lazyPage(() => import("./pages/petty-cash/PettyCashFloatsPage"));
+const PettyCashClassificationsPage = lazyPage(() => import("./pages/petty-cash/PettyCashClassificationsPage"));
 
-import HREmployees from "./pages/hr/HREmployees";
-import PeopleOverview, {PeopleEntry} from "./pages/hr/PeopleOverview";
-import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
-import PeopleSettings from "./pages/admin/PeopleSettings";
-import AccountingSettings from "./pages/admin/Accounting";
-import CardProcessors from "./pages/admin/CardProcessors";
+const HREmployees = lazyPage(() => import("./pages/hr/HREmployees"));
+const PeopleOverview = lazyPage(() => import("./pages/hr/PeopleOverview"));
+const PeopleEntry = lazyPage(() => import("./pages/hr/PeopleOverview").then((m) => ({ default: m.PeopleEntry })));
+const HREmployeeProfile = lazyPage(() => import("./pages/hr/HREmployeeProfile"));
+const PeopleSettings = lazyPage(() => import("./pages/admin/PeopleSettings"));
+const AccountingSettings = lazyPage(() => import("./pages/admin/Accounting"));
+const CardProcessors = lazyPage(() => import("./pages/admin/CardProcessors"));
 import { legacyFinanceDestination } from "@/utils/financeWorkingCapital";
 
-import HRSchedule from "./pages/hr/HRSchedule";
-import HRClock from "./pages/hr/HRClock";
+const HRSchedule = lazyPage(() => import("./pages/hr/HRSchedule"));
+const HRClock = lazyPage(() => import("./pages/hr/HRClock"));
 
-import HRPayroll from "./pages/hr/HRPayroll";
+const HRPayroll = lazyPage(() => import("./pages/hr/HRPayroll"));
 
 
-import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
-import ExpensesOverview from "./pages/expenses/ExpensesOverview";
+const ExpenseBillsPage = lazyPage(() => import("./pages/expenses/ExpenseBills"));
+const ExpensesOverview = lazyPage(() => import("./pages/expenses/ExpensesOverview"));
 
-import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
-import ExpenseCategoriesPage from "./pages/expenses/Categories";
-import ExpenseMappingPage from "./pages/expenses/Mapping";
-import ExpenseVendorAccountPage from "./pages/expenses/VendorAccount";
+const RecurringExpensesPage = lazyPage(() => import("./pages/expenses/RecurringExpenses"));
+const ExpenseCategoriesPage = lazyPage(() => import("./pages/expenses/Categories"));
+const ExpenseMappingPage = lazyPage(() => import("./pages/expenses/Mapping"));
+const ExpenseVendorAccountPage = lazyPage(() => import("./pages/expenses/VendorAccount"));
 
 
 function ExpensesEntry(){const location=useLocation();return <Navigate to={{pathname:location.search?'/expenses/bills':'/expenses/overview',search:location.search}} state={location.state} replace/>;}
@@ -163,6 +165,8 @@ const TenantShell = () => {
   // so platform admins (sent on to /platform/clients) never see the portal flash after signing in.
   // Once decided, the shell stays mounted through later reloads (tenant/preview switches).
   const decidedOnce = React.useRef(false);
+  // Other screens download in the background once the portal is up, so moving around stays instant.
+  React.useEffect(() => { if (session) prefetchPages(); }, [session]);
   const settled = !loading && !roleLoading && !platLoading;
   if (settled) {
     const decision = resolveAuthRoute({ session, isPlatformAdmin,
@@ -174,7 +178,7 @@ const TenantShell = () => {
   // Returning client users see the empty portal frame instead of a blank screen; everyone else
   // (platform admins, first visits) keeps the plain screen so the portal never flashes for them.
   if (!decidedOnce.current) return readLastShell() === "tenant" ? <ShellFrame /> : <QuietLoading />;
-  return <AppLayout>{loading || roleLoading || platLoading ? <QuietArea /> : <Outlet />}</AppLayout>;
+  return <AppLayout>{loading || roleLoading || platLoading ? <QuietArea /> : <Suspense fallback={<QuietArea />}><Outlet /></Suspense>}</AppLayout>;
 };
 
 const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
@@ -203,7 +207,7 @@ const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   if (!session) return <Navigate to="/auth" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
   writeLastShell("platform");
-  return <PlatformLayout>{children}</PlatformLayout>;
+  return <PlatformLayout><Suspense fallback={<QuietArea />}>{children}</Suspense></PlatformLayout>;
 };
 
 // Legacy /admin/clients* → /platform/clients* redirects (preserves :tenantId).
@@ -229,6 +233,7 @@ function App() {
               <Sonner />
               <PreviewBanner />
               <CrossTabTenantGuard />
+              <Suspense fallback={<QuietLoading />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/admin/clients" element={<Navigate to="/platform/clients" replace />} />
@@ -404,6 +409,7 @@ function App() {
 
                 </Route>
               </Routes>
+              </Suspense>
             </BrowserRouter>
             </PreviewModeProvider>
           </ThemeProvider>

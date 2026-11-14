@@ -14,6 +14,7 @@ import { HomeComposerPlaceholder } from "@/components/assistant/HomeComposerPlac
 import { Num, useHomePlay } from "@/components/home/HomeMotion";
 import { readCachedName, writeCachedName, firstName } from "@/utils/displayNameCache";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
+import { parallelPages } from "@/utils/parallelPages";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { closeRows, financeProfit } from "@/utils/financeOverview";
@@ -183,16 +184,13 @@ export default function Landing() {
       const eight = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 56));
       const oldest = `${addMonths(thisMonth, -4)}-01`;
       const from = eight < oldest ? eight : oldest;
-      const out: SaleRow[] = [];
-      for (let off = 0; ; off += 1000) {
+      // Pages read in parallel; id breaks date ties so pages never overlap or skip a row.
+      return parallelPages<SaleRow>((a, b) => {
         let q = (supabase as any).from("sales_records").select("date,venue_id,subtotal,service_charge,guests")
-          .eq("tenant_id", tenantId).gte("date", from).order("date", { ascending: true }).range(off, off + 999);
+          .eq("tenant_id", tenantId).gte("date", from).order("date", { ascending: true }).order("id", { ascending: true }).range(a, b);
         if (scopeIds) q = q.in("venue_id", scopeIds);
-        const { data, error } = await q; if (error) throw error;
-        out.push(...((data ?? []) as SaleRow[]));
-        if (!data || data.length < 1000) break;
-      }
-      return out;
+        return q;
+      });
     },
   });
   const { targets, loading: targetsLoading } = useRevenueTargets();
@@ -279,12 +277,7 @@ export default function Landing() {
       const db = supabase as any;
       const from = `${addMonths(month, -3)}-01`;
       const last = `${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()).padStart(2, "0")}`;
-      const shifts: ShiftRow[] = [];
-      for (let i = 0; ; i += 1000) {
-        const { data } = await db.from("hr_shifts").select("employee_id,shift_date,start_time,end_time,break_minutes,actual_hours_worked,no_show,venue_id").eq("tenant_id", tenantId).gte("shift_date", from).lte("shift_date", last).order("id").range(i, i + 999);
-        shifts.push(...(data ?? []));
-        if (!data || data.length < 1000) break;
-      }
+      const shifts = await parallelPages<ShiftRow>((a, b) => db.from("hr_shifts").select("employee_id,shift_date,start_time,end_time,break_minutes,actual_hours_worked,no_show,venue_id").eq("tenant_id", tenantId).gte("shift_date", from).lte("shift_date", last).order("id").range(a, b));
       const y = Number(addMonths(month, -3).slice(0, 4));
       const { data: pay } = await db.from("hr_payroll").select("employee_id,year,month,gross_salary,mpf_employer").eq("tenant_id", tenantId).gte("year", y).limit(5000);
       return { shifts, pay: (pay ?? []) as PayRow[] };

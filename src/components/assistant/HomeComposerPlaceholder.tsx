@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AudioLines, History, Mic, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { fitHint } from "./FloatingBani";
+import { fitHint } from "./composerText";
 
 const HINT = "Chat with your finance team";
 const canDictate = typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined";

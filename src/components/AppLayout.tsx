@@ -1,7 +1,5 @@
-import { SupplierProfileDialog } from "@/components/vendors/SupplierProfileDialog";
-import { BaniChatsDialog } from "@/components/assistant/BaniChatsDialog";
 import { AssignmentBell } from "@/components/assistant/AssignmentBell";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TopBarToday } from "@/components/TopBarToday";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -18,13 +16,17 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useBaseCurrency } from "@/hooks/useFxRate";
 import { setBaseCurrency } from "@/utils/money";
 import { FloatingBaniProvider } from "@/components/assistant/FloatingBaniContext";
-import { FloatingBani } from "@/components/assistant/FloatingBani";
 import { VenueScopeProvider } from "@/hooks/useVenueScope";
 import { VenueScopePicker } from "@/components/venue/VenueScopePicker";
 import "@/components/assistant/floating-bani.css";
 import "@/components/route-transitions.css";
 
 const SIDEBAR_OPEN_KEY = "bani.sidebar.open";
+// Bani's chat (voice, orb, chat formatting) and the app-wide dialogs load just after the page,
+// not with it. Home shows a same-size stand-in bar until Bani's own bar arrives.
+const FloatingBani = lazy(() => import("@/components/assistant/FloatingBani").then((m) => ({ default: m.FloatingBani })));
+const BaniChatsDialog = lazy(() => import("@/components/assistant/BaniChatsDialog").then((m) => ({ default: m.BaniChatsDialog })));
+const SupplierProfileDialog = lazy(() => import("@/components/vendors/SupplierProfileDialog").then((m) => ({ default: m.SupplierProfileDialog })));
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -82,9 +84,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-      <SupplierProfileDialog />
-      <FloatingBani />
-      <BaniChatsDialog />
+      <Suspense fallback={null}>
+        <SupplierProfileDialog />
+        <FloatingBani />
+        <BaniChatsDialog />
+      </Suspense>
     </SidebarProvider></FloatingBaniProvider></VenueScopeProvider>
   );
 }
