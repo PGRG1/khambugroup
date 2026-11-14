@@ -1,14 +1,13 @@
 import {baseSymbol} from '@/utils/money';
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   ComposedChart,
   Line,
-  ReferenceDot,
-  Scatter,
   Cell,
+  Customized,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -28,17 +27,61 @@ interface Props {
   markBestWorst?: boolean;
 }
 
-function MarkLabel({ viewBox, text, color }: { viewBox?: { x: number; y: number }; text: string; color: string }) {
-  if (!viewBox) return null;
-  const w = text.length * 6.2 + 12;
-  const x = Math.max(4, viewBox.x - w / 2);
-  const y = Math.max(2, viewBox.y - 24);
-  return (
-    <g>
-      <rect x={x} y={y} width={w} height={18} rx={5} fill="hsl(var(--card))" stroke={color} strokeOpacity={0.5} />
-      <text x={x + w / 2} y={y + 12.5} textAnchor="middle" fontSize={11} fontWeight={600} fill={color}>{text}</text>
-    </g>
-  );
+const PROJECTION = "hsl(var(--foreground))";
+const BEST = "#16A34A";
+const WORST = "#E07B1A";
+
+/**
+ * Best and worst day, labelled on the chart: each label sits in the strip above the plot, over its
+ * own bar where possible (kept inside the chart and apart from the other label), with a thin line
+ * down to the bar. Labels never sit on top of other bars or run off the edge.
+ */
+let measureCtx: CanvasRenderingContext2D | null = null;
+function textWidth(text: string) {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return text.length * 6.6;
+  measureCtx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
+  return measureCtx.measureText(text).width;
+}
+
+function BestWorstMarks(props: any) {
+  const { marks, offset } = props;
+  const bars = (props.formattedGraphicalItems ?? []).find((g: any) => g?.item?.props?.dataKey === "revenue")?.props?.data ?? [];
+  if (!offset || !bars.length) return null;
+  const left = offset.left, right = offset.left + offset.width, top = offset.top;
+  const chip = (key: string, text: string, color: string) => {
+    const b = bars.find((x: any) => x?.payload?.key === key);
+    if (!b) return null;
+    const w = textWidth(text) + 18;
+    return { cx: b.x + b.width / 2, barTop: b.y, w, text, color, x: 0 };
+  };
+  const items = [chip(marks.best.key, marks.bestText, BEST), chip(marks.worst.key, marks.worstText, WORST)].filter(Boolean) as any[];
+  const h = 20, gap = 6;
+  for (const it of items) { it.x = Math.min(Math.max(it.cx - it.w / 2, left), right - it.w); it.row = 0; }
+  if (items.length === 2) {
+    const [a, b] = [...items].sort((p, q) => p.x - q.x);
+    const overlap = a.x + a.w + gap - b.x;
+    if (overlap > 0) {
+      if (a.w + b.w + gap <= right - left) {
+        // Room for both on one line: push them apart, kept inside the chart.
+        a.x = Math.max(left, a.x - overlap / 2); b.x = a.x + a.w + gap;
+        if (b.x + b.w > right) { b.x = right - b.w; a.x = Math.max(left, b.x - gap - a.w); }
+      } else {
+        // Not enough room (phones): the worst day's label drops to a second row.
+        const low = items.find((i: any) => i.color === WORST); if (low) low.row = 1;
+      }
+    }
+  }
+  const rows = Math.max(...items.map((i: any) => i.row)) + 1;
+  return <g>{items.map((it: any) => {
+    const y = top - 8 - (rows - it.row) * (h + 6) + 6;
+    const lineX = Math.min(Math.max(it.cx, it.x + 8), it.x + it.w - 8);
+    return <g key={it.text}>
+      <polyline points={`${it.cx},${it.barTop - 2} ${it.cx},${y + h + 4} ${lineX},${y + h + 4} ${lineX},${y + h}`} fill="none" stroke={it.color} strokeWidth={1.25} strokeDasharray="2 2" />
+      <rect x={it.x} y={y} width={it.w} height={h} rx={6} fill={it.color} />
+      <text x={it.x + it.w / 2} y={y + 13.5} textAnchor="middle" fontSize={11} fontWeight={600} fill="#fff">{it.text}</text>
+    </g>;
+  })}</g>;
 }
 
 export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: Props) {
@@ -56,7 +99,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
         const guests = d?.guests ?? 0;
         return {
           key: date,
-          label: new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+          label: new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
           revenue,
           forecast: forecast?.forecast ?? null,
           variance: forecast?.variance ?? null,
@@ -101,8 +144,13 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
       const dt = new Date(`${p.key}T00:00:00`);
       return `${dt.toLocaleDateString("en-GB", { weekday: "short" })} ${dt.getDate()} · ${shortMoney(p.revenue)}`;
     };
-    return { best: bw.best, worst: bw.worst, bestText: `Best · ${text(bw.best)}`, worstText: `Worst · ${text(bw.worst)}` };
+    return { best: bw.best, worst: bw.worst, bestText: `Best ${text(bw.best)}`, worstText: `Worst ${text(bw.worst)}` };
   }, [markBestWorst, view, chartData]);
+
+  // Weekly date marks (1, 8, 15, 22, 29) so the axis is evenly spaced on every screen size.
+  const ticks = useMemo(() => view === "daily"
+    ? chartData.filter((d) => [1, 8, 15, 22, 29].includes(Number(d.key.slice(8, 10)))).map((d) => d.label)
+    : undefined, [view, chartData]);
 
   // Flat benchmark: average of days that actually traded (matches "Average day").
   const avgDay = useMemo(() => {
@@ -110,6 +158,15 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
     const traded = chartData.filter((d) => d.revenue > 0);
     return traded.length ? traded.reduce((s, d) => s + d.revenue, 0) / traded.length : 0;
   }, [view, chartData]);
+
+  // Narrow charts (phones) leave room for the best and worst labels on two rows.
+  const [narrow, setNarrow] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = boxRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => setNarrow(el.clientWidth < 460)); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const tooltipContent = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
@@ -156,22 +213,22 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
         {showForecast && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Actual</span>
-            <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-foreground" />Projection</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2" style={{ borderColor: PROJECTION }} />Projection</span>
           </div>
         )}
       </div>
-      <div style={{ width: "100%", height: 320 }}>
+      <div ref={boxRef} style={{ width: "100%", height: 320 }}>
         <ResponsiveContainer>
-          <ComposedChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: marks ? (narrow ? 60 : 34) : 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" vertical={false} />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
               axisLine={false}
               tickLine={false}
-              interval="preserveStartEnd"
-              minTickGap={30}
+              {...(ticks ? { ticks, interval: 0 } : { interval: "preserveStartEnd" as const, minTickGap: 30 })}
             />
+
             <YAxis
               tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
               axisLine={false}
@@ -182,30 +239,24 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
             <Tooltip content={tooltipContent} />
             <Bar dataKey="revenue" isAnimationActive={false} fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
               {chartData.map((d) => (
-                <Cell key={d.key} fill={marks && d.key === marks.worst.key ? "hsl(var(--warning))" : "hsl(var(--primary))"} />
+                <Cell key={d.key} fill={marks && d.key === marks.best.key ? BEST : marks && d.key === marks.worst.key ? WORST : "hsl(var(--primary))"} fillOpacity={marks && (d.key === marks.best.key || d.key === marks.worst.key) ? 1 : 0.85} />
               ))}
             </Bar>
-            {marks && (
-              <ReferenceDot x={marks.best.label} y={marks.best.revenue} r={0} ifOverflow="extendDomain"
-                label={(props: any) => <MarkLabel {...props} text={marks.bestText} color="hsl(var(--foreground))" />} />
-            )}
-            {marks && (
-              <ReferenceDot x={marks.worst.label} y={marks.worst.revenue} r={0} ifOverflow="extendDomain"
-                label={(props: any) => <MarkLabel {...props} text={marks.worstText} color="hsl(var(--warning))" />} />
-            )}
+            {marks && <Customized component={(props: any) => <BestWorstMarks {...props} marks={marks} />} />}
             {showForecast && (
-              <Scatter
-                dataKey="forecast"
-                isAnimationActive={false}
-                shape={(props: any) => {
-                  if (props.payload?.forecast == null || props.cx == null || props.cy == null) return <g />;
-                  const w = Math.max(10, Math.min(40, (props.width ?? 24) + 6));
-                  return (
-                    <line x1={props.cx - w / 2} x2={props.cx + w / 2} y1={props.cy} y2={props.cy}
-                      stroke="hsl(var(--foreground))" strokeWidth={2} strokeLinecap="round" />
-                  );
-                }}
-              />
+              // Each projection mark is drawn from its own day's bar (same x and width), so it always sits exactly on it.
+              <Customized component={(props: any) => {
+                const bars = (props.formattedGraphicalItems ?? []).find((g: any) => g?.item?.props?.dataKey === "revenue")?.props?.data ?? [];
+                const yAxis: any = Object.values(props.yAxisMap ?? {})[0];
+                if (!yAxis?.scale) return null;
+                return <g>{bars.map((b: any) => b?.payload?.forecast == null ? null : (
+                  // A thin light edge keeps the mark readable where it crosses a dark bar.
+                  <g key={b.payload.key}>
+                    <line x1={b.x - 1} x2={b.x + b.width + 1} y1={yAxis.scale(b.payload.forecast)} y2={yAxis.scale(b.payload.forecast)} stroke="#fff" strokeOpacity={0.9} strokeWidth={4} />
+                    <line x1={b.x} x2={b.x + b.width} y1={yAxis.scale(b.payload.forecast)} y2={yAxis.scale(b.payload.forecast)} stroke={PROJECTION} strokeWidth={2.5} />
+                  </g>
+                ))}</g>;
+              }} />
             )}
           </ComposedChart>
         </ResponsiveContainer>
