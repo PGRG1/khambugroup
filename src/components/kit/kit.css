@@ -134,3 +134,22 @@
   .sales-message-content { position: sticky; left: 0; width: min(310px, calc(100vw - 64px)); white-space: normal; }
   .sales-week-row th span { position: sticky; left: 12px; }
 }
+
+/* Toolbar: one row on wide screens (as before). On phones the controls keep one line and never wrap:
+   Filter keeps its label; Sort and Columns become icon buttons (labels stay in their menus and for
+   screen readers); download stays at the end. Search gets its own full-width line. */
+.kit-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kit-toolbar-controls { display: contents; }
+@media (min-width: 641px) { .kit-toolbar { flex-wrap: nowrap; } .kit-toolbar > .kit-search { flex: 1; min-width: 0; } .kit-toolbar-dl { order: 9; } }
+@media (max-width: 640px) {
+  .kit-toolbar { flex-direction: column; align-items: stretch; }
+  .kit-toolbar > .kit-search { width: 100%; }
+  .kit-toolbar-search-below > .kit-search { order: 2; }
+  .kit-toolbar-controls { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; }
+  .kit-toolbar-controls .kit-tool-label, .kit-toolbar-controls .kit-tool-chev { display: none; }
+  .kit-toolbar-controls .kit-tool-btn { padding: 0 11px; flex: none; }
+}
+
+
+/* Pinned header cells (phone): solid card colour, so scrolled columns don't show through, without a white block. */
+@media (max-width: 639px) { .sales-table thead th:nth-child(-n+2) { background: #F8FBFA; } }

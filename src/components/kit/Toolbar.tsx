@@ -20,18 +20,22 @@ export function Toolbar({ search, onSearch, placeholder = "Search", filter, sort
   </label>;
   return (
     <div className="kit space-y-2">
-      <div className={mobileSearchBelow ? "flex flex-wrap min-[641px]:flex-nowrap items-center gap-2 [&>.kit-search]:min-w-0 [&>.kit-search]:min-[641px]:flex-1 [&>.kit-search]:max-[640px]:order-last [&>.kit-search]:max-[640px]:basis-full [&>.kit-search]:max-[640px]:w-full" : "flex flex-wrap items-center gap-2"}>
+      {/* Wide screens: one row as before. Phones: the controls share one line (never wrapping), and
+          search, when there is one, takes its own full-width line above (or below) them. */}
+      <div className={`kit-toolbar ${mobileSearchBelow ? "kit-toolbar-search-below" : ""}`}>
         {!searchAfterControls && searchControl}
-        {filter}
-        {sort}
-        {columns}
+        <div className="kit-toolbar-controls">
+          {filter}
+          {sort}
+          {columns}
+          {downloadControl && <div className="kit-toolbar-dl ml-auto">{downloadControl}</div>}
+          {onDownload && (
+            <button type="button" className="kit-toolbar-dl kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
+              <Download className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         {searchAfterControls && searchControl}
-        {downloadControl && <div className="ml-auto">{downloadControl}</div>}
-        {onDownload && (
-          <button type="button" className="kit-btn kit-btn-secondary kit-btn-icon ml-auto" onClick={onDownload} aria-label={downloadLabel} title={downloadLabel}>
-            <Download className="h-4 w-4" />
-          </button>
-        )}
       </div>
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">

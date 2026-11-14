@@ -4,7 +4,8 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable 
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { SalesRecord } from "@/types/sales";
 import type { SalesNote } from "@/hooks/useSalesNotes";
-import { ChoiceChips, FilterGroup, FilterPanel, Segmented, SortMenu, Toolbar, type ActiveChip } from "@/components/kit";
+import { downloadExcel } from "@/utils/excelDownload";
+import { ChoiceChips, DownloadMenu, type DownloadFormat, FilterGroup, FilterPanel, Segmented, SortMenu, Toolbar, type ActiveChip } from "@/components/kit";
 import { addDaysIso, attentionReason, firstSaleDates, missingDays, salesListCounts, shortDay } from "@/utils/salesRecordChecks";
 import type { ClosedInfo } from "@/utils/venueClosures";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
@@ -197,23 +198,28 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   if (f.receipt !== "any") chips.push({ key: "receipt", label: f.receipt === "yes" ? "Receipt attached" : "Receipt missing", onRemove: () => setF({ ...f, receipt: "any" }) });
   if (f.period !== "all") chips.push({ key: "period", label: periodName(f.period) ?? "Service period", onRemove: () => setF({ ...f, period: "all" }) });
 
-  // ---- CSV (existing export columns) ----
-  const download = () => {
+  // ---- Download (same columns for Excel and CSV) ----
+  const download = async (format: DownloadFormat) => {
     const recs = visible.filter((x): x is Extract<DayItem, { kind: "record" }> => x.kind === "record").map((x) => x.r);
     const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","JCB","Alipay","WeChat","PayMe","Cash","Card Tips"];
-    const esc = (v: string | number) => {
-      if (typeof v === "number") return String(v);
-      const s = /^[=+@\t\r-]/.test(v) ? `'${v}` : v;
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const rows = recs.map((s) => [s.date,s.day,s.venue,s.reportNumber,s.orders,s.guests,s.subtotal,s.serviceCharge,-Math.abs(s.discount),s.totalSales,s.visa,s.mastercard,s.amex,s.unionPay,s.jcb,s.alipay,s.wechat,s.payme,s.cash,s.cardTips].map(esc).join(","));
-    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const data = recs.map((s) => [s.date,s.day,s.venue,s.reportNumber,s.orders,s.guests,s.subtotal,s.serviceCharge,-Math.abs(s.discount),s.totalSales,s.visa,s.mastercard,s.amex,s.unionPay,s.jcb,s.alipay,s.wechat,s.payme,s.cash,s.cardTips] as (string | number)[]);
     const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sales";
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    a.download = `${slug(tenantName)}-sales-${slug(periodLabel)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const name = `${slug(tenantName)}-sales-${slug(periodLabel)}`;
+    if (format === "excel") {
+      await downloadExcel(headers, data, name, "Sales");
+    } else {
+      const esc = (v: string | number) => {
+        if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+        const s = /^[=+@\t\r-]/.test(v) ? `'${v}` : v;
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const csv = "\uFEFF" + [headers.join(","), ...data.map((r) => r.map(esc).join(","))].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+      a.download = `${name}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
     toast(`Downloaded ${recs.length} record${recs.length === 1 ? "" : "s"}`);
   };
 
@@ -272,7 +278,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
         }
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={setSortKey} />}
         columns={<ColumnsMenu order={order} onToggle={toggleColumn} onReorder={persist} venueLocked={singleVenue} />}
-        onDownload={download} downloadLabel="Download as spreadsheet (CSV)"
+        downloadControl={<DownloadMenu formats={["excel", "csv"]} onDownload={download} label="Download sales records" />}
         chips={chips}
         onClear={() => setF(EMPTY)}
       />

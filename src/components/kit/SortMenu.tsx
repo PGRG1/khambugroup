@@ -12,7 +12,7 @@ export function SortMenu<K extends string>({ options, value, onChange }: { optio
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" className="kit kit-btn kit-tool-btn" aria-label={`Sort: ${current}`}>
-          <ArrowUpDown className="h-4 w-4" /> {compact ? <><span className="max-[640px]:hidden">{current}</span><span className="min-[641px]:hidden">{compact}</span></> : current} <ChevronDown className="h-4 w-4" />
+          <ArrowUpDown className="h-4 w-4" /> <span className="kit-tool-label">{compact ? <><span className="max-[640px]:hidden">{current}</span><span className="min-[641px]:hidden">{compact}</span></> : current}</span> <ChevronDown className="kit-tool-chev h-4 w-4" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="kit kit-pop w-56 p-1.5" role="menu">

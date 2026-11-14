@@ -37,7 +37,7 @@ export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
   return <Popover>
     <PopoverTrigger asChild>
       <button type="button" className="kit kit-btn kit-tool-btn" aria-label="Columns">
-        <Columns3 /> Columns <ChevronDown />
+        <Columns3 /> <span className="kit-tool-label">Columns</span> <ChevronDown className="kit-tool-chev" />
       </button>
     </PopoverTrigger>
     <PopoverContent align="start" className="kit kit-pop kit-menu-panel w-64 max-h-[70vh] overflow-y-auto" role="menu" aria-label="Visible columns">
