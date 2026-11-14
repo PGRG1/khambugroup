@@ -19,7 +19,18 @@ import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
 import { aggregate, mtdRange } from "@/components/revenue-overview/utils";
-import { MONTHS, comparisonSentence, comparisonWindow, iso, monthSoFarLabel, targetPace } from "@/utils/revenueOverview";
+import { MONTHS, comparisonWindow, iso, monthSoFarLabel, targetPace } from "@/utils/revenueOverview";
+
+/** "Aug" when the comparison covers the whole month; "1–13 Oct" when it covers part of it; "Sep 2025" / "last year" for a year back. */
+function compareLabel(c: { from: string; to: string; kind: "last-year" | "last-month" }, singleMonth: boolean): string {
+  const f = new Date(`${c.from}T00:00:00`), t = new Date(`${c.to}T00:00:00`);
+  const monthEnd = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
+  const whole = f.getDate() === 1 && t.getMonth() === f.getMonth() && t.getDate() === monthEnd;
+  const mon = f.toLocaleDateString("en-GB", { month: "short" });
+  const yr = c.kind === "last-year" ? ` ${f.getFullYear()}` : "";
+  if (c.kind === "last-year" && !singleMonth) return "last year";
+  return whole ? `${mon}${yr}` : `${f.getDate()}–${t.getDate()} ${mon}${yr}`;
+}
 
 const Index = () => {
   const { data, loading, error, refetch } = useSalesData(true);
@@ -86,7 +97,7 @@ const Index = () => {
       {loading || !vs.ready ? <div role="status" aria-label="Loading revenue" className="space-y-5">
         <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4">
           <p className="text-[13px] font-medium text-muted-foreground">{periodName}</p><Skeleton className="h-10 w-52 !animate-none" /><Skeleton className="h-4 w-3/4 !animate-none" />
-          <div className="grid grid-cols-3 gap-3 border-t border-border/50 pt-3">{['Guests','Spent per guest','Average day'].map(l => <div key={l}><p className="text-[11px] text-muted-foreground">{l}</p><Skeleton className="h-5 w-20 max-w-full mt-1 !animate-none" /></div>)}</div>
+          <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{['Guests','Per guest','Average day'].map(l => <div key={l}><p className="text-[11px] text-muted-foreground">{l}</p><Skeleton className="h-5 w-20 max-w-full mt-1 !animate-none" /></div>)}</div>
         </section>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
           <section className="card-glass rounded-xl border border-border/60 p-4"><div className="mb-3"><p className="text-[13px] font-medium">Daily sales</p><p className="text-[11px] text-muted-foreground">Each trading day</p></div><Skeleton className="h-[320px] w-full !animate-none" /></section>
@@ -102,17 +113,24 @@ const Index = () => {
           <SoFarCard
             label={periodName}
             revenue={cur.revenue}
-            comparison={compare && prev ? comparisonSentence(cur.revenue, prev.revenue, compare) : null}
+            compare={compare && prev && prev.revenue > 0 ? {
+              // Name exactly what is compared: the whole month ("Aug"), or the same stretch of it ("1–13 Oct").
+              short: compareLabel(compare, singleMonth),
+              revenue: prev.revenue,
+              guests: prev.guests,
+              spendPerGuest: prev.guests ? prev.revenue / prev.guests : null,
+              averageDay: prev.days ? prev.revenue / prev.days : 0,
+            } : null}
             target={singleMonth && access.forecast && !targets.loading ? {
               monthName: MONTHS[tMonth - 1],
               pace,
               hasTarget: targets.hasManagerTarget,
               canSet: access.forecast,
+              ended: !!to && to < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
             } : null}
             targetLoading={singleMonth && access.forecast && targets.loading}
             guests={cur.guests}
             spendPerGuest={cur.guests ? cur.revenue / cur.guests : null}
-            prevSpendPerGuest={compare && prev?.guests ? { value: prev.revenue / prev.guests, name: compare.name } : null}
             averageDay={cur.days ? cur.revenue / cur.days : 0}
           />
 
