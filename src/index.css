@@ -770,3 +770,22 @@ html:not(.dark) .bani-rail-logo:hover, html:not(.dark) .bani-rail-logo:focus-vis
 .clients-fade { animation: clients-fade .25s ease-out both; }
 @keyframes clients-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .clients-fade { animation: none; } }
+
+/* Platform Clients: holds until the list is in, then one entrance (same motion as Home).
+   The first time per session the figures count up, rows rise in order and setup steps fill. */
+.clients-page.cl-hold > * { opacity: 0; pointer-events: none; }
+.clients-page.cl-go > * { animation: cl-rise .42s cubic-bezier(.2,.8,.2,1) both; }
+.clients-page.cl-go > :nth-child(2) { animation-delay: 70ms; }
+.clients-page.cl-go > :nth-child(3) { animation-delay: 120ms; }
+.clients-page.cl-go > :nth-child(4) { animation-delay: 170ms; }
+.clients-page.cl-go > :nth-child(n+5) { animation-delay: 220ms; }
+.clients-page.cl-play .cl-row { animation: cl-rise .42s cubic-bezier(.2,.8,.2,1) calc(280ms + var(--r, 0) * 80ms) both; }
+.clients-page.cl-play .cl-seg { transform-origin: left; animation: cl-seg .35s cubic-bezier(.34,1.56,.64,1) calc(520ms + var(--r, 0) * 80ms + var(--s, 0) * 70ms) both; }
+.clients-page .cl-row { transition: transform .12s ease-out; }
+.clients-page .cl-row:active { transform: scale(.99); }
+@keyframes cl-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes cl-seg { from { opacity: 0; transform: scaleX(.2); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .clients-page.cl-go > *, .clients-page.cl-play .cl-row, .clients-page.cl-play .cl-seg { animation: none; }
+  .clients-page .cl-row:active { transform: none; }
+}

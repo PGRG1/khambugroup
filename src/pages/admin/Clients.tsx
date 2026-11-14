@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Plus, Loader2, LogIn, Search, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { Num, useHomePlay } from "@/components/home/HomeMotion";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +61,8 @@ function SetupBar({ setup }: { setup: Setup }) {
         {Array.from({ length: setup.total }, (_, i) => (
           <span
             key={i}
-            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`}
+            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary cl-seg" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`}
+            style={{ ["--s" as any]: i }}
           />
         ))}
       </div>
@@ -75,7 +77,7 @@ function SetupBlocks({ setup }: { setup: Setup }) {
   return (
     <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
       {Array.from({ length: setup.total }, (_, i) => (
-        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`} />
+        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary cl-seg" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`} style={{ ["--s" as any]: i }} />
       ))}
     </span>
   );
@@ -168,7 +170,18 @@ export default function Clients() {
     return q ? list.filter((r) => r.name.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q)) : list;
   }, [list, query]);
 
-  if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
+  const loaded = rows !== null;
+  const [go, setGo] = useState(loaded);
+  useEffect(() => {
+    if (go) return;
+    if (loaded) { setGo(true); return; }
+    const t = window.setTimeout(() => setGo(true), 2500);
+    return () => window.clearTimeout(t);
+  }, [loaded, go]);
+  const play = useHomePlay("platform-clients", go && loaded);
+
+  // Like Home: hold the page until the list and its counts are in (up to 2.5s), then one entrance.
+  if (gateLoading) return <div className="min-h-[50vh]" role="status" aria-busy="true" aria-label="Loading" />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
 
   // All four figures appear together once the client list and its counts are both loaded (never as 0 first).
@@ -231,7 +244,7 @@ export default function Clients() {
   );
 
   return (
-    <div className="w-full">
+    <div className={`w-full clients-page ${go ? `cl-go ${play ? "cl-play" : ""}` : "cl-hold"}`}>
       {/* Title row */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-display font-medium tracking-tight text-[30px] sm:text-[32px] lg:text-[34px] leading-none dark:text-white">
@@ -249,7 +262,7 @@ export default function Clients() {
       <div className="mt-5 md:hidden card-glass rounded-2xl grid grid-cols-4 overflow-hidden">
         {kpis.map((k, i) => (
           <div key={k.label} className={`min-w-0 flex flex-col items-center gap-1.5 py-3.5 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
-            <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{ready ? <span className="clients-fade">{k.value}</span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}</span>
+            <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{ready ? <span className="clients-fade"><Num value={k.value} format={(n) => String(Math.round(n))} play={play} delay={260 + i * 70} duration={700} /></span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}</span>
             <span className="text-[12px] text-muted-foreground whitespace-nowrap">{k.short}</span>
           </div>
         ))}
@@ -260,7 +273,7 @@ export default function Clients() {
             <div className="font-plex text-[10.5px] xl:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
             <div className="flex items-baseline gap-2 min-w-0">
               <span className={`font-display font-medium tabular-nums leading-none tracking-tight text-[28px] xl:text-[32px] ${k.accent ? "text-primary dark:text-primary" : "dark:text-white"}`}>
-                {ready ? <span className="clients-fade">{k.value}</span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}
+                {ready ? <span className="clients-fade"><Num value={k.value} format={(n) => String(Math.round(n))} play={play} delay={260 + i * 70} duration={700} /></span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}
               </span>
               {k.extra && ready && <span className="clients-fade text-[14px] text-muted-foreground tabular-nums whitespace-nowrap">{k.extra}</span>}
             </div>
@@ -275,8 +288,8 @@ export default function Clients() {
       </div>
       <div className="md:hidden mt-4 card-glass rounded-2xl overflow-hidden divide-y divide-border/70 dark:divide-white/[0.06]">
         {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
-        {visible.map((r) => (
-          <div key={r.id} className="flex items-center gap-3 min-h-[92px] px-4">
+        {visible.map((r, ri) => (
+          <div key={r.id} className="cl-row flex items-center gap-3 min-h-[92px] px-4" style={{ ["--r" as any]: ri }}>
             <button
               type="button"
               onClick={() => navigate(`/platform/clients/${r.id}`)}
@@ -301,8 +314,8 @@ export default function Clients() {
       {/* Tablet: two columns of cards */}
       <div className="hidden md:grid xl:hidden mt-4 grid-cols-2 gap-3">
         {empty && <div className="col-span-2 card-glass rounded-2xl px-5 py-8 text-center text-muted-foreground">{empty}</div>}
-        {visible.map((r) => (
-          <div key={r.id} className="card-glass rounded-[14px] p-4 flex flex-col gap-3.5 min-w-0">
+        {visible.map((r, ri) => (
+          <div key={r.id} className="cl-row card-glass rounded-[14px] p-4 flex flex-col gap-3.5 min-w-0" style={{ ["--r" as any]: ri }}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex flex-col gap-0.5">
                 <span className="font-medium text-[15px] leading-5 truncate dark:text-white">{r.name}</span>
@@ -352,11 +365,12 @@ export default function Clients() {
               {empty && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
               )}
-              {visible.map((r) => (
+              {visible.map((r, ri) => (
                 <tr
                   key={r.id}
+                  style={{ ["--r" as any]: ri }}
                   onClick={() => navigate(`/platform/clients/${r.id}`)}
-                  className="group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]"
+                  className="cl-row group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]"
                 >
                   <td className={`sticky left-0 z-10 bg-card px-5 py-0 transition-[background-color,box-shadow] group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)] ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>
                     <div className="flex flex-col gap-0.5">
