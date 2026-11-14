@@ -789,3 +789,22 @@ html:not(.dark) .bani-rail-logo:hover, html:not(.dark) .bani-rail-logo:focus-vis
   .clients-page.cl-go > *, .clients-page.cl-play .cl-row, .clients-page.cl-play .cl-seg { animation: none; }
   .clients-page .cl-row:active { transform: none; }
 }
+
+/* Section tab rows (phone): one frosted track; only the current tab is a solid white pill,
+   the others sit on the track without their own box, so you can always see where you are. */
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row {
+  background: hsl(var(--tenant-white) / 0.45);
+  border: 1px solid var(--tenant-glass-border);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row nav[aria-label] a {
+  background: transparent; border: 1px solid transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
+  color: hsl(175 20% 28% / 0.8);
+}
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row nav[aria-label] a[aria-current="page"] {
+  background: hsl(var(--tenant-white) / 0.98);
+  border-color: var(--tenant-hairline);
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px rgba(20,45,43,.08), 0 4px 12px -6px rgba(20,45,43,.28);
+}
+html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row .bg-gradient-to-l { --tw-gradient-from: #D6E5DE var(--tw-gradient-from-position); }
