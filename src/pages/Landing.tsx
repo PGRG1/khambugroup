@@ -38,6 +38,7 @@ const short = (n: number) => {
   return `${n < 0 ? "−" : ""}HK$${s}`;
 };
 const pctTxt = (n: number) => `${n.toFixed(1)}%`;
+const HOLD_MS = 2500;
 const DAYNAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /** Counts up from the number this viewer last saw to the new one; still when nothing changed. */
@@ -420,8 +421,24 @@ export default function Landing() {
   const needLine = (f: Finding) => { const fig = (f.figures ?? []).find((x: any) => Number(x.value)); return f.title + (fig?.display ? ` · ${fig.display}` : ""); };
 
   // First reveal this session plays the full choreography; afterwards only changed numbers roll.
-  const playSnap = useHomePlay(tenantId ? `${tenantId}:snap` : null, !loading);
-  const playWork = useHomePlay(tenantId ? `${tenantId}:work` : null, !workLoading);
+  // One entrance for the whole view: Home holds quietly (frame only) until every block has its figures,
+  // then the page flows in top to bottom as a single sequence. If the figures take longer than
+  // HOLD_MS, the page enters with placeholders and the late blocks reveal on their own.
+  const allReady = !loading && !workLoading;
+  const [go, setGo] = useState(allReady);
+  useEffect(() => {
+    if (go) return;
+    if (allReady) { setGo(true); return; }
+    const t = window.setTimeout(() => setGo(true), HOLD_MS);
+    return () => window.clearTimeout(t);
+  }, [allReady, go]);
+  const together = useRef<boolean | null>(null);
+  if (go && together.current === null) together.current = allReady;
+  const showSnap = go && !loading, showWork = go && !workLoading;
+  const playSnap = useHomePlay(tenantId ? `${tenantId}:snap` : null, showSnap);
+  const playWork = useHomePlay(tenantId ? `${tenantId}:work` : null, showWork);
+  // When everything arrives together, the cards follow straight on from the top of the page.
+  const snapAt = together.current ? 260 : 0, workAt = together.current ? 460 : 0;
   const money = (n: number) => short(n);
 
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
@@ -429,7 +446,7 @@ export default function Landing() {
   const maxW = Math.max(1, ...k.week.map((w) => w.v));
 
   return (
-    <div ref={ref} className={`ld l2 ${size}`}>
+    <div ref={ref} className={`ld l2 ${size} ${go ? "l2-go" : "l2-hold"}`}>
       <div className="l2-head l2-enter">
         <h1 className="ld-h1">{greet}<span className={nameFades ? "l2-name l2-fade" : "l2-name"}>{first ? `, ${first}` : ""}</span></h1>
       </div>
@@ -452,13 +469,13 @@ export default function Landing() {
         {!slot.shown && <div className="l2-askph"><HomeComposerPlaceholder onTap={slot.requestFocus} /></div>}
       </div>
       {/* Suggestions depend on the month's figures; when they change, the row fades rather than jumps. */}
-      <div className="l2-pills l2-enter"><div key={loading ? "pre" : pills.join("|")} className={`l2-pillset ${loading ? "" : "l2-fade"}`}>{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div></div>
+      <div className="l2-pills l2-enter"><div key={showSnap ? pills.join("|") : "pre"} className={`l2-pillset ${showSnap && !together.current ? "l2-fade" : ""}`}>{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div></div>
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
-      {loading ? <SnapSkeleton /> :
-      <div className={`l2-snap l2-reveal ${playSnap ? "l2-play" : ""}`}>
+      {!showSnap ? <SnapSkeleton /> :
+      <div className={`l2-snap l2-reveal ${playSnap ? "l2-play" : ""}`} style={{ ["--d" as any]: `${snapAt}ms` }}>
         <section className="l2-col">
-          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
+          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
           <div className="l2-ch"><div className="pt">Sales by weekday <span>· average a day, last 8 weeks</span></div>
             {k.week.length ? <div className="l2-bars">{k.week.map((w, i) => <div key={w.d} style={{ ["--b" as any]: i }}><span className="pv">{short(w.v).replace("HK$", "")}</span><span className="l2-pm-bar"><i style={{ height: w.v > 0 ? `max(4px, ${(w.v / maxW) * 100}%)` : "0px" }} className={k.low?.d === w.d ? "low" : ""} /></span><span className="pd">{w.d}</span></div>)}</div>
@@ -466,7 +483,7 @@ export default function Landing() {
         </section>
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">{isCurrent ? "Purchases so far" : "Purchases"}</div>
-            <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={230} /> : "—"}</div>
+            <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={snapAt + 230} /> : "—"}</div>
             <div className="d">{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : k.lastInv ? "" : "No supplier invoices yet"}</div>
             <div className={`s ${k.spentPct != null && k.usualFood && k.spentPct > k.usualFood + 1 ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.usualFood ? `Usual ${pctTxt(k.usualFood)}` : "Nothing to compare yet"}{k.lastInv ? ` · last invoice ${new Date(`${k.lastInv.invoice_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</div></Link>
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.spent)} of {short(k.budget)} budget</span></div>
@@ -477,21 +494,21 @@ export default function Landing() {
         </section>
         <section className="l2-col">
           <Link to="/finance/reports?view=pl" className="l2-top"><div className="k">P&amp;L</div>
-            <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={310} /> : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
+            <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 310} /> : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
             <div className="d">Accrual basis</div>
             <div className={`s ${k.profitTile.tone}`}><i />{k.profitTile.status}</div></Link>
           <div className="l2-ch l2-pl">
             {k.plLines.map((l) => <div key={l.name}><span>{l.name}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
-            <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={700} duration={600} /> : "—"}</b></div>
+            <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 700} duration={600} /> : "—"}</b></div>
           </div>
           <Link to="/finance/cash" className="l2-cash"><span>Cash {k.cash ?? "not linked"}</span>{overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : <span>No bills overdue</span>}</Link>
         </section>
       </div>}
 
-      {workLoading ? <WorkSkeleton /> :
-      <div className={`l2-work l2-reveal ${playWork ? "l2-play" : ""}`}>
+      {!showWork ? <WorkSkeleton /> :
+      <div className={`l2-work l2-reveal ${playWork ? "l2-play" : ""}`} style={{ ["--d" as any]: `${workAt}ms` }}>
         <section className="l2-wb">
-          <div className="wh"><span className="wn"><Num value={total} format={(n) => String(Math.round(n))} play={playWork} delay={250} duration={600} /></span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
+          <div className="wh"><span className="wn"><Num value={total} format={(n) => String(Math.round(n))} play={playWork} delay={workAt + 250} duration={600} /></span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
             {total > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through with Bani</button>}</div>
           <div className="wl">
             {mixed ? <div>Pick one venue or all venues to see what your team found.</div>
@@ -503,7 +520,7 @@ export default function Landing() {
         <section className="l2-wb">
           <Link to={`/finance/close?month=${closeMonth}`} className="wh">
             <span className="wt">Month-end checklist</span>
-            {closed ? <span className="wc">{monthName(closeMonth)} closed</span> : <><span className="cbar"><i style={{ width: `${counted ? (done.length / counted) * 100 : 0}%` }} /></span><span className="wc"><Num value={done.length} format={(n) => String(Math.round(n))} play={playWork} delay={350} duration={800} /> of {counted}</span></>}
+            {closed ? <span className="wc">{monthName(closeMonth)} closed</span> : <><span className="cbar"><i style={{ width: `${counted ? (done.length / counted) * 100 : 0}%` }} /></span><span className="wc"><Num value={done.length} format={(n) => String(Math.round(n))} play={playWork} delay={workAt + 350} duration={800} /> of {counted}</span></>}
             <span className="ar">→</span>
           </Link>
           <div className="wl">

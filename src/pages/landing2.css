@@ -11,21 +11,26 @@
 .l2-tw-w{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .l2-tw-a{display:flex;align-items:center;gap:2px;pointer-events:none}
 .l2-av{width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid #fff;background:#EEF2EF;display:grid;place-items:end center;--ta-px:1px;box-shadow:0 2px 6px rgba(20,35,31,.18);
-  animation:l2avIn .5s cubic-bezier(.34,1.56,.64,1) calc(120ms + var(--i) * 70ms) both}
+}
+.l2-go .l2-av{animation:l2avIn .5s cubic-bezier(.34,1.56,.64,1) calc(120ms + var(--i) * 70ms) both}
 @keyframes l2avIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
 /* Fixed-size status slot: empty while the week's work loads, then the line fades in once. */
 .l2-status{display:inline-block;min-width:14.5em;text-align:left}
 .ld.ph .l2-status{min-width:9.5em;max-width:calc(100vw - 190px);overflow:hidden;text-overflow:ellipsis}
 /* One entrance for everything Home knows straight away; one reveal per data block when it is complete. */
-.l2-enter{animation:l2rise .42s cubic-bezier(.2,.8,.2,1) both}
-.l2-team.l2-enter{animation-delay:60ms}.l2-askslot.l2-enter{animation-delay:110ms}.l2-pills.l2-enter{animation-delay:160ms}
-.l2-reveal{animation:l2rise .32s cubic-bezier(.2,.8,.2,1) both}
+/* Until Home is ready it holds as the empty frame; then the whole view flows in as one sequence. */
+.l2-hold>*{opacity:0;pointer-events:none}
+.l2-go .l2-enter{animation:l2rise .42s cubic-bezier(.2,.8,.2,1) both}
+.l2-go .l2-team.l2-enter{animation-delay:60ms}.l2-go .l2-askslot.l2-enter{animation-delay:110ms}.l2-go .l2-pills.l2-enter{animation-delay:160ms}
+.l2-go .l2-lab{animation:l2rise .42s cubic-bezier(.2,.8,.2,1) 210ms both}
+.l2-go .l2-snap.is-loading,.l2-go .l2-work.is-loading{animation:l2rise .42s cubic-bezier(.2,.8,.2,1) 240ms both}
+.l2-reveal{animation:l2rise .32s cubic-bezier(.2,.8,.2,1) var(--d,0ms) both}
 .l2-fade{animation:l2fade .25s ease-out both}
 @keyframes l2rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes l2fade{from{opacity:0}to{opacity:1}}
 .l2-sk{display:inline-block;max-width:100%;height:.8em;vertical-align:middle;border-radius:4px;background:#EEF2EF;color:transparent;overflow:hidden}
 .l2-snap.is-loading .l2-bars::after{bottom:0}
-@media (prefers-reduced-motion:reduce){.l2-av,.l2-enter,.l2-reveal,.l2-fade,#bani-home-slot .floating-bani{animation:none}}
+@media (prefers-reduced-motion:reduce){.l2 .l2-av,.l2 .l2-enter,.l2 .l2-reveal,.l2 .l2-fade,.l2 .l2-lab,.l2 .is-loading,#bani-home-slot .floating-bani{animation:none!important}}
 /* The real chat bar and its placeholder share one grid cell, so the slot is always the bar's own size. */
 .l2-askslot{display:grid;max-width:760px;margin:clamp(8px,2.5vh,30px) auto 0}
 .l2-askslot>*{grid-area:1/1;min-width:0}
@@ -139,24 +144,23 @@
 .ld.ph .l2-col:last-child{border-bottom:0}
 /* ---- First-reveal choreography (once per session; .l2-play is only set on that reveal) ----
    Order: cards rise left to right, numbers count up, bars grow one after another, fills run,
-   lists cascade, and the signal (the slow weekday) lands last. Transform/opacity only. */
-.l2-play .l2-col,.l2-play .l2-wb{animation:l2rise .45s cubic-bezier(.2,.8,.2,1) both}
-.l2-play .l2-col:nth-child(2),.l2-play .l2-wb:nth-child(2){animation-delay:80ms}
-.l2-play .l2-col:nth-child(3),.l2-play .l2-wb:nth-child(3){animation-delay:160ms}
-.l2-play .l2-bars i{transform-origin:bottom;animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--b,0) * 60ms) both}
-.l2-play .l2-bars i.low{animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--b,0) * 60ms) both,l2low .5s ease-out 1.25s both}
-.l2-play .l2-bars .pv{animation:l2fade .3s ease-out calc(600ms + var(--b,0) * 60ms) both}
-.l2-play .cbar i{transform-origin:left;animation:l2fill .9s cubic-bezier(.2,.8,.2,1) .4s both}
-.l2-play .l2-pl>div{animation:l2slide .4s cubic-bezier(.2,.8,.2,1) both}
-.l2-play .l2-pl>div:nth-child(1){animation-delay:330ms}.l2-play .l2-pl>div:nth-child(2){animation-delay:400ms}
-.l2-play .l2-pl>div:nth-child(3){animation-delay:470ms}.l2-play .l2-pl>div:nth-child(4){animation-delay:540ms}
-.l2-play .l2-pl>div:nth-child(5){animation-delay:640ms}
-.l2-play .l2-wb .wn{display:inline-block;animation:l2pop .5s cubic-bezier(.34,1.56,.64,1) .25s both}
-.l2-play .l2-wb .go{animation:l2fade .3s ease-out .65s both}
-.l2-play .l2-wb .wl>*{animation:l2rise .35s cubic-bezier(.2,.8,.2,1) both}
-.l2-play .l2-wb .wl>:nth-child(1){animation-delay:360ms}.l2-play .l2-wb .wl>:nth-child(2){animation-delay:430ms}
-.l2-play .l2-wb .wl>:nth-child(3){animation-delay:500ms}.l2-play .l2-wb .wl>:nth-child(4){animation-delay:570ms}
-.l2-play .l2-top .s.ok i,.l2-play .l2-wb .wl i.ok{animation:l2ping 1.1s ease-out 1.1s 1}
+   lists cascade, and the signal (the slow weekday) lands last. --d shifts a block so it follows
+   straight on from the top of the page when everything arrives together. Transform/opacity only. */
+.l2-reveal.l2-play{animation:l2rise .45s cubic-bezier(.2,.8,.2,1) var(--d,0ms) both}
+.l2-play .l2-col,.l2-play .l2-wb{animation:l2rise .45s cubic-bezier(.2,.8,.2,1) var(--d,0ms) both}
+.l2-play .l2-col:nth-child(2),.l2-play .l2-wb:nth-child(2){animation-delay:calc(var(--d,0ms) + 80ms)}
+.l2-play .l2-col:nth-child(3),.l2-play .l2-wb:nth-child(3){animation-delay:calc(var(--d,0ms) + 160ms)}
+.l2-play .l2-bars i{transform-origin:bottom;animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(var(--d,0ms) + 320ms + var(--b,0) * 60ms) both}
+.l2-play .l2-bars i.low{animation:l2grow .7s cubic-bezier(.34,1.3,.64,1) calc(var(--d,0ms) + 320ms + var(--b,0) * 60ms) both,l2low .5s ease-out calc(var(--d,0ms) + 1250ms) both}
+.l2-play .l2-bars .pv{animation:l2fade .3s ease-out calc(var(--d,0ms) + 600ms + var(--b,0) * 60ms) both}
+.l2-play .cbar i{transform-origin:left;animation:l2fill .9s cubic-bezier(.2,.8,.2,1) calc(var(--d,0ms) + 400ms) both}
+.l2-play .l2-pl>div{animation:l2slide .4s cubic-bezier(.2,.8,.2,1) calc(var(--d,0ms) + 330ms + var(--r,0) * 70ms) both}
+.l2-play .l2-pl>div:nth-child(2){--r:1}.l2-play .l2-pl>div:nth-child(3){--r:2}.l2-play .l2-pl>div:nth-child(4){--r:3}.l2-play .l2-pl>div:nth-child(5){--r:4.4}
+.l2-play .l2-wb .wn{display:inline-block;animation:l2pop .5s cubic-bezier(.34,1.56,.64,1) calc(var(--d,0ms) + 250ms) both}
+.l2-play .l2-wb .go{animation:l2fade .3s ease-out calc(var(--d,0ms) + 650ms) both}
+.l2-play .l2-wb .wl>*{animation:l2rise .35s cubic-bezier(.2,.8,.2,1) calc(var(--d,0ms) + 360ms + var(--r,0) * 70ms) both}
+.l2-play .l2-wb .wl>:nth-child(2){--r:1}.l2-play .l2-wb .wl>:nth-child(3){--r:2}.l2-play .l2-wb .wl>:nth-child(4){--r:3}
+.l2-play .l2-top .s.ok i,.l2-play .l2-wb .wl i.ok{animation:l2ping 1.1s ease-out calc(var(--d,0ms) + 1100ms) 1}
 @keyframes l2grow{from{transform:scaleY(0)}to{transform:none}}
 @keyframes l2fill{from{transform:scaleX(0)}to{transform:none}}
 @keyframes l2slide{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
