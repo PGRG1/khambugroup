@@ -443,16 +443,17 @@ export default function Landing() {
       <div className="l2-head l2-enter">
         <h1 className="ld-h1">{greet}<span className={nameFades ? "l2-name l2-fade" : "l2-name"}>{first ? `, ${first}` : ""}</span></h1>
       </div>
-      <div className="l2-team l2-enter">
+      {/* Team line exactly as designed (looping avatars and words); the wrapper only adds the page entrance. */}
+      <div className="l2-teamwrap l2-enter">
+      <div className="l2-team">
         <span className="l2-tw">
           <span className="l2-tw-w">Your finance team</span>
-          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i, background: TEAM_CHARACTERS[r].tint }}><TeamAvatar role={r} variant="bust" px={1} /></span>)}</span>
+          <span className="l2-tw-a" aria-hidden="true">{ORDER.map((r, i) => { return <span key={r} className="l2-av" title={TEAMNAME[r]} style={{ ["--i" as any]: i, background: TEAM_CHARACTERS[r].tint }}><TeamAvatar role={r} variant="bust" px={1} /></span>; })}</span>
         </span>
-        <span className="l2-status">
-          {workQ.isPending ? null : handled > 0
-            ? <button type="button" className="l2-team-btn l2-fade" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
-            : <span className="l2-fade">has nothing new<span className="l2-wk"> to book this week</span></span>}
-        </span>
+        {handled > 0
+          ? <button type="button" className="l2-team-btn" onClick={() => setLogOpen(true)} aria-label="See what your finance team did this week">handled <b><CountUp value={handled} storeKey={`bani-handled-${tenantId}`} /> {handled === 1 ? "thing" : "things"}</b><span className="l2-wk"> this week</span> <span className="ar" aria-hidden="true">→</span></button>
+          : <span>{workQ.isPending ? "is catching up" : "has nothing new to book this week"}</span>}
+      </div>
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} tenantId={tenantId} />
       {/* The chat bar sits in the page at every width, under the greeting. */}
