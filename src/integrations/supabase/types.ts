@@ -16763,6 +16763,7 @@ export type Database = {
       is_platform_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      is_sales_line_mode: { Args: { p_tenant: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
@@ -17219,6 +17220,17 @@ export type Database = {
           p_venue_id: string
         }
         Returns: undefined
+      }
+      save_sales_day_lines: {
+        Args: {
+          p_date: string
+          p_lines: Json
+          p_record: string
+          p_report: string
+          p_tenant: string
+          p_venue: string
+        }
+        Returns: string
       }
       save_stock_count_area: {
         Args: {

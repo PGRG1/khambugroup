@@ -1212,6 +1212,20 @@
       "when": 1794729483331,
       "tag": "0172_map_sales_line_printed_name",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1794736142428,
+      "tag": "0173_save_sales_day_lines",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1794736155458,
+      "tag": "0174_exclude_line_mode_sales_rebuild",
+      "breakpoints": true
     }
   ]
 }
