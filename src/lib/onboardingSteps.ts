@@ -47,6 +47,7 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
       { key: "coa", label: "Chart of accounts", description: "Load the F&B template, import a CSV, or start from a blank chart." },
       { key: "suppliers", label: "Suppliers", description: "Bulk-import the client's supplier list or add manually." },
       { key: "revenue", label: "Revenue sources & service periods", description: "Confirm revenue sources and per-venue service periods so sales can land from day one." },
+      { key: "sales_report", label: "Sales report setup", description: "Add sample sales reports per venue; confirm what each printed line counts as." },
     ],
   },
   {

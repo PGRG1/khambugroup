@@ -1,3 +1,4 @@
+import { StepSalesReport } from "@/components/onboarding/StepSalesReport";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronRight, CircleDashed, CheckCircle2, MinusCircle, PlayCircle } from "lucide-react";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
@@ -27,6 +28,7 @@ const STEP_COMPONENTS: Record<string, React.ComponentType<any>> = {
   coa: StepCoA,
   suppliers: StepSuppliers,
   revenue: StepRevenue,
+  sales_report: StepSalesReport,
   first_sale: StepFirstSale,
   first_invoice: StepFirstInvoice,
   gl_opening: StepGLOpening,

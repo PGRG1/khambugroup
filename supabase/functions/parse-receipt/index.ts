@@ -3,6 +3,7 @@ import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from "../_shared/salesEvidence.ts";
 import { z } from "npm:zod@3";
 import { receiptIntake } from "./intake.ts";
+import { DISCOVER_PROMPT, normalizeDiscovered } from "./discoverLines.ts";
 import { retainDocument } from "../_shared/documentRetention.ts";
 import { documentContext } from "../_shared/documentContext.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
@@ -121,6 +122,36 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Evidence capture or retrieval unavailable" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
+    if (body?.op === "discover_lines") {
+      // Onboarding only (Bani team): list every line a sample report prints. Nothing is saved.
+      const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const admin = adminClient();
+      const { data: isPlatform } = await admin.rpc("is_platform_admin", { _user_id: auth.user.id });
+      if (!isPlatform) return json({ success: false, error: "Only the Bani team can set up sales reports" }, 403);
+      const file = String(body.imageBase64 ?? ""), type = String(body.mimeType ?? "image/jpeg");
+      if (!file || file.length > 14_000_000) return json({ success: false, error: "Add a receipt image or PDF under 10 MB" }, 400);
+      const key = Deno.env.get("LOVABLE_API_KEY");
+      if (!key) return json({ success: false, error: "AI not configured" }, 500);
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: DISCOVER_PROMPT },
+            { role: "user", content: [
+              type === "application/pdf" ? chatPDF(String(body.fileName || "report.pdf"), file) : chatImage(`data:${type};base64,${file}`),
+              { type: "text", text: "List every line on this sales report." },
+            ] },
+          ],
+        }),
+      });
+      if (!res.ok) return json({ success: false, error: "Bani cannot read this report right now" }, res.status);
+      const content = String((await res.json()).choices?.[0]?.message?.content ?? "").trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      try { return json({ success: true, data: normalizeDiscovered(JSON.parse(content)) }); }
+      catch { return json({ success: false, error: "Could not read this report. Try a clearer image." }, 422); }
+    }
+
     const { imageBase64, mimeType } = body;
     const scoped = await documentContext(auth.user.id, body?.tenantId ?? null, req.headers.get("Authorization") ?? "", "sales");
     const venues = scoped.venues;
