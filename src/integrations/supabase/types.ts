@@ -12918,6 +12918,78 @@ export type Database = {
           },
         ]
       }
+      sales_record_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          line_id: string | null
+          printed_name: string
+          sales_record_id: string
+          source: string
+          tenant_id: string
+          venue_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          line_id?: string | null
+          printed_name: string
+          sales_record_id: string
+          source?: string
+          tenant_id: string
+          venue_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          line_id?: string | null
+          printed_name?: string
+          sales_record_id?: string
+          source?: string
+          tenant_id?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_record_lines_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "sales_report_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_record_lines_sales_record_id_fkey"
+            columns: ["sales_record_id"]
+            isOneToOne: false
+            referencedRelation: "sales_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_record_lines_sales_record_id_fkey"
+            columns: ["sales_record_id"]
+            isOneToOne: false
+            referencedRelation: "sales_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_record_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_record_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_record_notes: {
         Row: {
           author_id: string

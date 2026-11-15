@@ -1184,6 +1184,13 @@
       "when": 1794717059243,
       "tag": "0168_create_sales_report_lines_and_setups",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1794723292568,
+      "tag": "0169_sync_sales_record_lines",
+      "breakpoints": true
     }
   ]
 }
