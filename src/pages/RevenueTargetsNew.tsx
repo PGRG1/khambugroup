@@ -7,11 +7,12 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { useSalesData } from "@/hooks/useSalesData";
 import { shortMoney } from "@/utils/revenueOverview";
 import { useVenueScope } from "@/hooks/useVenueScope";
-import { useScopedProjections } from "@/hooks/useScopedProjections";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { ChevronDown } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useDailyProjections } from "@/hooks/useDailyProjections";
 import {
-  buildProjectionRows,
   distributeMonthlyTarget,
   formatHkd,
   monthDates,
@@ -39,22 +40,40 @@ export default function RevenueTargetsNew() {
 
   // The venue a target is saved to: the single scoped venue, or the one picked in the target box.
   const effectiveVenueId = singleScope?.id ?? (venueId && vs.venues.some((v) => v.id === venueId) ? venueId : null);
-  const { projections, actuals, history, loading: editLoading, saveProjection } = useDailyProjections(effectiveVenueId, year, month);
-  const scopeIds = useMemo(() => scopeVenues.map((v) => v.id), [scopeVenues]);
-  const scoped = useScopedProjections(scopeIds, year, month, !singleScope);
-  const singleRows = useMemo(
-    () => buildProjectionRows(year, month, projections, actuals, history),
-    [year, month, projections, actuals, history],
-  );
-  const rows = singleScope ? singleRows : scoped.rows;
-  const loading = singleScope ? editLoading : scoped.loading;
-
+  const { history, saveProjection } = useDailyProjections(effectiveVenueId, year, month);
   const [goal, setGoal] = useState("");
   const [applying, setApplying] = useState(false);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+  const { tenantId } = useActiveTenant();
+  const { user } = useAuth();
+  const dates = useMemo(() => monthDates(year, month), [year, month]);
 
-
-
+  // ---- Saved targets for every venue in view, with who set them ----
+  const [projTick, setProjTick] = useState(0);
+  const [proj, setProj] = useState<Map<string, { v: number; by: string; at: string }>>(new Map());
+  const [projLoading, setProjLoading] = useState(true);
+  const scopeKey = scopeVenues.map((v) => v.id).sort().join(",");
+  useEffect(() => {
+    const ids = scopeKey ? scopeKey.split(",") : [];
+    if (!tenantId || !ids.length) { setProj(new Map()); setProjLoading(false); return; }
+    let live = true;
+    (async () => {
+      const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, projected_sales, created_by, updated_at")
+        .eq("tenant_id", tenantId).in("venue_id", ids).gte("target_date", dates[0]).lte("target_date", dates[dates.length - 1]);
+      const who = [...new Set((data ?? []).map((r) => r.created_by).filter(Boolean))] as string[];
+      const names = new Map<string, string>();
+      if (who.length) {
+        const { data: ps } = await supabase.from("profiles").select("user_id, display_name").in("user_id", who);
+        for (const p of ps ?? []) if (p.display_name) names.set(p.user_id, p.display_name);
+      }
+      if (live) {
+        setProj(new Map((data ?? []).map((r) => [`${r.venue_id}|${r.target_date}`, { v: Number(r.projected_sales), by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
+        setProjLoading(false);
+      }
+    })();
+    return () => { live = false; };
+  }, [tenantId, scopeKey, dates, projTick]);
+  const loading = projLoading || !vs.ready;
 
   const applyGoal = async () => {
     const parsed = parseProjectedInput(goal);
@@ -73,108 +92,103 @@ export default function RevenueTargetsNew() {
     setApplying(false);
     if (failed) toast({ title: "Some days were not saved", description: `${failed} day(s) failed. Try again.`, variant: "destructive" });
     else { toast({ title: "Monthly target set", description: `${formatHkd(parsed.value)} spread across ${split.size} days.` }); setGoal(""); }
-    if (!singleScope) scoped.reload();
+    setProjTick((t) => t + 1);
   };
 
-
-  // ---- Guests x spend: the auto target for each day ----
+  // ---- Each venue's day: guests x spend forecast, saved target, sold ----
   // Guests: average of the last 8 same weekdays with sales. Spend per guest: those days' sales / guests.
   const { data: allSales } = useSalesData();
-  const scopeNames = useMemo(() => new Set(scopeVenues.map((v) => v.name)), [scopeVenues]);
-  const dayHist = useMemo(() => {
-    const m = new Map<string, { sales: number; guests: number }>();
+  const histByVenue = useMemo(() => {
+    const m = new Map<string, Map<string, { sales: number; guests: number }>>();
+    const names = new Set(scopeVenues.map((v) => v.name));
     for (const r of allSales) {
-      if (!scopeNames.has(r.venue)) continue;
-      const d = m.get(r.date) ?? { sales: 0, guests: 0 };
-      d.sales += r.totalSales || 0; d.guests += r.guests || 0; m.set(r.date, d);
+      if (!names.has(r.venue)) continue;
+      const vm = m.get(r.venue) ?? new Map(); m.set(r.venue, vm);
+      const d = vm.get(r.date) ?? { sales: 0, guests: 0 };
+      d.sales += r.totalSales || 0; d.guests += r.guests || 0; vm.set(r.date, d);
     }
     return m;
-  }, [allSales, scopeNames]);
-  const autoGS = useMemo(() => {
-    const dates = [...dayHist.keys()].filter((d) => (dayHist.get(d)?.guests ?? 0) > 0).sort();
-    const out = new Map<string, { guests: number; spend: number }>();
-    for (const r of rows) {
-      const dow = new Date(`${r.date}T00:00:00`).getDay();
-      const same = dates.filter((d) => d < r.date && new Date(`${d}T00:00:00`).getDay() === dow).slice(-8);
-      if (same.length < 4) continue;
-      const g = same.reduce((a, d) => a + dayHist.get(d)!.guests, 0), sl = same.reduce((a, d) => a + dayHist.get(d)!.sales, 0);
-      out.set(r.date, { guests: Math.round(g / same.length), spend: Math.round(sl / g) });
-    }
-    return out;
-  }, [rows, dayHist]);
+  }, [allSales, scopeVenues]);
 
-  // One row per day: guests, spend, target, sold and where the target came from.
-  const table = rows.map((r) => {
-    const auto = autoGS.get(r.date);
-    const manager = r.projectedSales !== null;
-    const target = manager ? r.projectedSales! : auto ? auto.guests * auto.spend : r.effectiveForecast;
-    const guests = auto?.guests ?? null;
-    const spend = manager && guests ? Math.round(r.projectedSales! / guests) : auto?.spend ?? null;
-    return { ...r, guests, spend, target, source: manager ? "Manager" : target != null ? "Auto" : "" };
-  });
-  const tTarget = table.reduce((a, r) => a + (r.target ?? 0), 0);
-  const lastSold = table.filter((r) => r.actualSales !== null).map((r) => r.date).pop() ?? null;
-  const tSold = table.reduce((a, r) => a + (r.actualSales ?? 0), 0);
-  const tToDate = lastSold ? table.filter((r) => r.date <= lastSold).reduce((a, r) => a + (r.target ?? 0), 0) : 0;
-  const daysLeft = table.filter((r) => r.date > (lastSold && lastSold > todayIso ? lastSold : todayIso)).length;
+  type Line = { venueId: string; venue: string; date: string; guests: number | null; spend: number | null; target: number | null; sold: number | null; source: "Manager" | "Auto" | ""; by?: string; at?: string };
+  const days = useMemo(() => dates.map((date) => {
+    const dow = new Date(`${date}T00:00:00`).getDay();
+    const lines: Line[] = scopeVenues.map((v) => {
+      const h = histByVenue.get(v.name) ?? new Map();
+      const prior = [...h.keys()].filter((d) => d < date && (h.get(d)?.guests ?? 0) > 0 && new Date(`${d}T00:00:00`).getDay() === dow).sort().slice(-8);
+      let ag: number | null = null, as: number | null = null;
+      if (prior.length >= 4) {
+        const g = prior.reduce((a, d) => a + h.get(d)!.guests, 0), sl = prior.reduce((a, d) => a + h.get(d)!.sales, 0);
+        ag = Math.round(g / prior.length); as = Math.round(sl / g);
+      }
+      const saved = proj.get(`${v.id}|${date}`);
+      const target = saved ? saved.v : ag != null && as != null ? ag * as : null;
+      const spend = saved && ag ? Math.round(saved.v / ag) : as;
+      const sold = h.get(date)?.sales ?? null;
+      return { venueId: v.id, venue: v.name, date, guests: ag, spend, target, sold: sold || sold === 0 && h.has(date) ? sold : null, source: saved ? "Manager" : target != null ? "Auto" : "", by: saved?.by, at: saved?.at };
+    });
+    const sum = (k: "guests" | "target" | "sold") => { const xs = lines.map((l) => l[k]).filter((x): x is number => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; };
+    const guests = sum("guests"), target = sum("target");
+    return { date, lines, guests, target, sold: sum("sold"), spend: guests && target ? Math.round(target / guests) : null };
+  }), [dates, scopeVenues, histByVenue, proj]);
+
+  const tTarget = days.reduce((a, d) => a + (d.target ?? 0), 0);
+  const lastSold = days.filter((d) => d.sold != null).map((d) => d.date).pop() ?? null;
+  const tSold = days.reduce((a, d) => a + (d.sold ?? 0), 0);
+  const tToDate = lastSold ? days.filter((d) => d.date <= lastSold).reduce((a, d) => a + (d.target ?? 0), 0) : 0;
+  const daysLeft = days.filter((d) => d.date > (lastSold && lastSold > todayIso ? lastSold : todayIso)).length;
   const needDay = daysLeft > 0 ? Math.max(0, tTarget - tSold) / daysLeft : null;
   const ahead = tSold - tToDate;
   const pctDone = tTarget > 0 ? tSold / tTarget : null;
   const monthName = new Date(`${ym}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long" });
 
-  // Pace: sold so far, then each remaining day at its target, against the target line.
+  // Pace: actual so far, then each remaining day at its target, against the target line.
   const pace = (() => {
     let t = 0, a = 0;
-    return table.map((r) => {
+    return days.map((r) => {
       t += r.target ?? 0;
       const sold = lastSold && r.date <= lastSold;
-      if (sold) a += r.actualSales ?? 0;
-      const proj = lastSold && r.date >= lastSold ? (r.date === lastSold ? a : (a += r.target ?? 0)) : null;
-      return { day: Number(r.date.slice(8)), target: Math.round(t), actual: sold ? a : null, proj };
+      if (sold) a += r.sold ?? 0;
+      const projV = lastSold && r.date >= lastSold ? (r.date === lastSold ? a : (a += r.target ?? 0)) : null;
+      return { day: Number(r.date.slice(8)), target: Math.round(t), actual: sold ? a : null, proj: projV };
     });
   })();
   const projEnd = pace[pace.length - 1]?.proj ?? null;
 
-  const saveDay = async (date: string, value: number | null) => {
-    const ok = await saveProjection(date, value);
-    setRowError((p) => { const n = { ...p }; if (ok) delete n[date]; else n[date] = "Not saved"; return n; });
+  // Save one venue's day; null puts it back to auto.
+  const saveLine = async (venueId: string, date: string, value: number | null) => {
+    const key = `${venueId}|${date}`;
+    const res = value === null
+      ? await supabase.from("revenue_daily_projections").delete().eq("tenant_id", tenantId!).eq("venue_id", venueId).eq("target_date", date)
+      : await supabase.from("revenue_daily_projections").upsert({ tenant_id: tenantId!, venue_id: venueId, target_date: date, projected_sales: value, created_by: user?.id ?? null }, { onConflict: "tenant_id,venue_id,target_date" });
+    setRowError((p) => { const n = { ...p }; if (!res.error) delete n[key]; else n[key] = "Not saved"; return n; });
+    setProjTick((t) => t + 1);
+    return !res.error;
   };
-  // Who last set each day, shown when a Manager row is tapped.
-  const [metaTick, setMetaTick] = useState(0);
-  const [meta, setMeta] = useState<Map<string, { by: string; at: string }>>(new Map());
-  useEffect(() => {
-    if (!effectiveVenueId) { setMeta(new Map()); return; }
-    let live = true;
-    const from = `${ym}-01`, to = `${ym}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
-    (async () => {
-      const { data } = await supabase.from("revenue_daily_projections").select("target_date, created_by, updated_at")
-        .eq("venue_id", effectiveVenueId).gte("target_date", from).lte("target_date", to);
-      const ids = [...new Set((data ?? []).map((r) => r.created_by).filter(Boolean))] as string[];
-      const names = new Map<string, string>();
-      if (ids.length) {
-        const { data: ps } = await supabase.from("profiles").select("user_id, display_name").in("user_id", ids);
-        for (const p of ps ?? []) if (p.display_name) names.set(p.user_id, p.display_name);
-      }
-      if (live) setMeta(new Map((data ?? []).map((r) => [r.target_date, { by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
-    })();
-    return () => { live = false; };
-  }, [effectiveVenueId, ym, year, month, metaTick]);
 
-  const [edit, setEdit] = useState<{ date: string; field: "guests" | "spend" | "target"; value: string } | null>(null);
+  const [edit, setEdit] = useState<{ key: string; field: "guests" | "spend" | "target"; value: string } | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [openDays, setOpenDays] = useState<Set<string>>(new Set());
   const cancelRef = useRef(false);
+  // What a line's target will be while it is being typed, so the day total follows along.
+  const previewOf = (l: Line): number | null => {
+    if (!edit || edit.key !== `${l.venueId}|${l.date}`) return null;
+    const v = num(edit.value); if (v == null) return null;
+    return edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
+  };
+  const num = (v: string) => { const n = Number(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) && v.trim() ? n : null; };
   const confirmEdit = async () => {
     if (cancelRef.current) { cancelRef.current = false; return; }
     if (!edit) return;
-    const r = table.find((x) => x.date === edit.date); const v = num(edit.value);
+    const [venueId, date] = edit.key.split("|");
+    const l = days.find((d) => d.date === date)?.lines.find((x) => x.venueId === venueId); const v = num(edit.value);
     setEdit(null);
-    if (!r || v == null) return;
-    const total = edit.field === "target" ? v : edit.field === "guests" ? (r.spend ? v * r.spend : null) : (r.guests ? v * r.guests : null);
-    if (total == null || Math.round(total) === Math.round(r.target ?? -1)) return;
-    await saveDay(r.date, Math.round(total)); setMetaTick((t) => t + 1);
-    toast({ title: `${new Date(`${r.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} target ${Math.round(total).toLocaleString("en-US")}` });
+    if (!l || v == null) return;
+    const total = edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
+    if (total == null || Math.round(total) === Math.round(l.target ?? -1)) return;
+    if (await saveLine(venueId, date, Math.round(total)))
+      toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} target ${Math.round(total).toLocaleString("en-US")}` });
   };
-  const num = (v: string) => { const n = Number(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) && v.trim() ? n : null; };
   const cell = "h-11 px-2 text-right whitespace-nowrap border-b border-[var(--kit-line)]";
 
   return (
@@ -189,7 +203,7 @@ export default function RevenueTargetsNew() {
         </div>
         <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (pctDone ?? 0) * 100)}%` }} /></div>
         <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-[12px] tabular-nums">
-          <span><span className="text-muted-foreground">Sold</span> <b className="font-semibold">{shortMoney(tSold)}</b>{pctDone != null && <span className="text-muted-foreground"> · {Math.round(pctDone * 100)}%</span>}</span>
+          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold">{shortMoney(tSold)}</b>{pctDone != null && <span className="text-muted-foreground"> · {Math.round(pctDone * 100)}%</span>}</span>
           <span className="font-medium">{
             !lastSold ? <span className="text-muted-foreground">No sales yet</span>
             : tSold >= tTarget && tTarget > 0 ? <span style={{ color: "#15803D" }}>Target reached</span>
@@ -200,10 +214,10 @@ export default function RevenueTargetsNew() {
 
       {/* Set the month */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {!singleScope && (
             <Select value={effectiveVenueId ?? undefined} onValueChange={setVenueId} disabled={venuesLoading || vs.venues.length === 0}>
-              <SelectTrigger aria-label="Venue" className="h-9 w-[150px] text-[13px]"><SelectValue placeholder="Venue" /></SelectTrigger>
+              <SelectTrigger aria-label="Venue" className="h-9 w-full sm:w-[150px] text-[13px]"><SelectValue placeholder="Venue" /></SelectTrigger>
               <SelectContent>{vs.venues.filter((v) => v.id && v.name).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
             </Select>
           )}
@@ -218,7 +232,7 @@ export default function RevenueTargetsNew() {
       <section className="card-glass rounded-xl border border-border/60 p-4">
         <h2 className="text-[13px] font-medium">Pace</h2>
         <div className="mt-1.5 mb-2 flex flex-nowrap items-center gap-x-3 whitespace-nowrap overflow-hidden text-[12px] tabular-nums">
-          <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2.5" /></svg><span className="text-muted-foreground">Sold</span></span>
+          <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2.5" /></svg><span className="text-muted-foreground">Actual</span></span>
           {projEnd != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="2 3" /></svg><span className="text-muted-foreground">Projected</span><b className="font-semibold">{shortMoney(projEnd)}</b></span>}
           <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--muted-foreground))" strokeWidth="2" strokeDasharray="5 3" /></svg><span className="text-muted-foreground">Target</span></span>
         </div>
@@ -241,7 +255,6 @@ export default function RevenueTargetsNew() {
       </section>
 
       {/* Day by day */}
-      {!singleScope && <p className="text-[12px] text-muted-foreground px-1">Pick one venue in the top bar to edit days.</p>}
       <div className="kit overflow-x-auto overscroll-x-contain rounded-xl border border-border/60" style={{ background: "#fff", ["--kit-line" as string]: "#ECEAE3" }}>
         <table className="w-full min-w-[560px] text-[13px] tabular-nums border-separate border-spacing-0" data-testid="new-targets-table">
           <colgroup><col className="w-[84px]" /><col className="w-[76px]" /><col className="w-[84px]" /><col className="w-[110px]" /><col className="w-[92px]" /><col className="w-[86px]" /></colgroup>
@@ -251,64 +264,86 @@ export default function RevenueTargetsNew() {
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Guests</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Spend</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Target</th>
-              <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Sold</th>
+              <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Actual</th>
               <th className="px-3 text-left font-medium" style={{ background: "#fff" }}>Source</th>
             </tr>
           </thead>
           <tbody>
-            {table.map((r) => {
-              const d = new Date(`${r.date}T00:00:00`);
+            {days.map((day) => {
+              const d = new Date(`${day.date}T00:00:00`);
               const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
-              const isToday = r.date === todayIso;
-              const can = !!singleScope && r.date >= todayIso; // only today and future days change
-              const info = meta.get(r.date);
-              const open = openRow === r.date;
-              const numCell = (field: "guests" | "spend" | "target", value: number | null, bold = false) => {
-                const on = edit && edit.date === r.date && edit.field === field;
-                if (on) return (
-                  <input autoFocus inputMode="numeric" enterKeyHint="done" aria-label={`${field} ${r.date}`} value={edit!.value}
-                    onClick={(ev) => ev.stopPropagation()} onFocus={(ev) => ev.target.select()}
-                    onChange={(ev) => setEdit({ ...edit!, value: ev.target.value })}
-                    onBlur={() => confirmEdit()}
-                    onKeyDown={(ev) => { if (ev.key === "Enter") (ev.target as HTMLInputElement).blur(); if (ev.key === "Escape") { cancelRef.current = true; setEdit(null); } }}
-                    className={`ml-auto block h-8 w-[5.5rem] max-w-full rounded-md px-1.5 -mr-1.5 text-right tabular-nums outline-none ${bold ? "font-semibold" : ""}`}
-                    style={{ background: "#EEF0EE", border: "none", caretColor: "hsl(var(--foreground))" }} />
-                );
-                // While guests or spend is being changed, the target shows what it will become.
-                const live = field === "target" && edit && edit.date === r.date && edit.field !== "target" ? (() => { const v = num(edit.value); return edit.field === "guests" ? (v != null && r.spend ? v * r.spend : null) : (v != null && r.guests ? v * r.guests : null); })() : null;
-                if (live != null) return <span className="font-semibold tabular-nums">{Math.round(live).toLocaleString("en-US")}</span>;
-                const text = value == null ? "—" : Math.round(value).toLocaleString("en-US");
-                return can
-                  ? <button type="button" className={`tabular-nums rounded px-1 -mx-1 hover:bg-[#F3F4F2] ${bold ? "font-semibold" : ""}`} aria-label={`Change ${field} ${r.date}`}
-                      onClick={(e) => { e.stopPropagation(); setOpenRow(null); setEdit({ date: r.date, field, value: value == null ? "" : String(Math.round(value)) }); }}>{text}</button>
-                  : <span className={bold ? "font-semibold" : ""}>{text}</span>;
+              const isToday = day.date === todayIso, past = day.date < todayIso;
+              const many = day.lines.length > 1;
+              const fmt = (v: number | null) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
+              const soldStyle = (sold: number | null, target: number | null) => sold != null && target != null ? { color: sold >= target ? "#15803D" : "#B45309", fontWeight: 600 } : undefined;
+              const pill = (src: string) => src === "Manager"
+                ? <span className="rounded-full px-2 py-0.5 text-[11px] font-medium text-foreground" style={{ background: "#E4E6E3" }}>Manager</span>
+                : src ? <span className="rounded-full px-2 py-0.5 text-[11px] text-muted-foreground" style={{ background: "#F1F2F0" }}>Auto</span> : null;
+
+              // One venue's line; editable on today and future days.
+              const lineRow = (l: Line, sub: boolean) => {
+                const key = `${l.venueId}|${l.date}`;
+                const can = !past;
+                const open = openRow === key, editingThis = edit?.key === key;
+                const numCell = (field: "guests" | "spend" | "target", value: number | null, bold = false) => {
+                  if (edit && edit.key === key && edit.field === field) return (
+                    <input autoFocus inputMode="numeric" enterKeyHint="done" aria-label={`${field} ${l.venue} ${l.date}`} value={edit.value}
+                      onClick={(ev) => ev.stopPropagation()} onFocus={(ev) => ev.target.select()}
+                      onChange={(ev) => setEdit({ ...edit, value: ev.target.value })}
+                      onBlur={() => confirmEdit()}
+                      onKeyDown={(ev) => { if (ev.key === "Enter") (ev.target as HTMLInputElement).blur(); if (ev.key === "Escape") { cancelRef.current = true; setEdit(null); } }}
+                      className={`ml-auto block h-8 w-[5.5rem] max-w-full rounded-md px-1.5 -mr-1.5 text-right tabular-nums outline-none ${bold ? "font-semibold" : ""}`}
+                      style={{ background: "#EEF0EE", border: "none", caretColor: "hsl(var(--foreground))" }} />
+                  );
+                  if (field === "target" && edit && edit.key === key && edit.field !== "target") {
+                    const v = num(edit.value); const pv = edit.field === "guests" ? (v != null && l.spend ? v * l.spend : null) : (v != null && l.guests ? v * l.guests : null);
+                    if (pv != null) return <span className="font-semibold tabular-nums">{fmt(pv)}</span>;
+                  }
+                  return can
+                    ? <button type="button" className={`tabular-nums rounded px-1 -mx-1 hover:bg-[#F3F4F2] ${bold ? "font-semibold" : ""}`} aria-label={`Change ${field} ${l.venue} ${l.date}`}
+                        onClick={(e) => { e.stopPropagation(); setOpenRow(null); setEdit({ key, field, value: value == null ? "" : String(Math.round(value)) }); }}>{fmt(value)}</button>
+                    : <span className={bold ? "font-semibold" : ""}>{fmt(value)}</span>;
+                };
+                return [
+                  <tr key={key} className="bg-white cursor-pointer" onClick={() => setOpenRow(open ? null : key)}>
+                    <td className={`sticky left-0 z-[1] h-11 whitespace-nowrap border-b border-[var(--kit-line)] text-left ${sub ? "pl-6 pr-3 text-[12px] text-muted-foreground" : `px-3 ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`}`} style={{ background: "#fff" }}>{sub ? l.venue : label}</td>
+                    <td className={cell}>{numCell("guests", l.guests)}</td>
+                    <td className={cell}>{numCell("spend", l.spend)}</td>
+                    <td className={cell}>{numCell("target", l.target, true)}{rowError[key] && <p className="text-[10px] text-destructive">{rowError[key]}</p>}</td>
+                    <td className={cell} style={soldStyle(l.sold, l.target)}>{l.sold == null ? <span className="text-muted-foreground">—</span> : fmt(l.sold)}</td>
+                    <td className="h-11 px-3 whitespace-nowrap border-b border-[var(--kit-line)]">{pill(l.source)}</td>
+                  </tr>,
+                  open && !editingThis && (
+                    <tr key={`${key}-more`} className="bg-white">
+                      <td colSpan={6} className="p-0 border-b border-[var(--kit-line)]" style={{ background: "#FAFCFB" }}>
+                        <div className="sticky left-0 px-3 py-2 text-[12px] text-muted-foreground" style={{ width: "min(100%, calc(100vw - 64px))" }}>
+                          {l.source === "Manager"
+                            ? <span>Set by <b className="font-medium text-foreground">{l.by ?? "a manager"}</b>{l.at ? ` · ${new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+                                {can && <> · <button type="button" className="underline" onClick={(ev) => { ev.stopPropagation(); saveLine(l.venueId, l.date, null); setOpenRow(null); }}>Back to auto</button></>}</span>
+                            : l.source === "Auto" ? <span>Bani: {l.guests ?? "—"} guests × {baseSymbol()}{l.spend ?? "—"}, from recent {d.toLocaleDateString("en-GB", { weekday: "long" })}s</span> : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                ];
               };
-              const editingThis = edit?.date === r.date;
+
+              if (!day.lines.length) return null;
+              if (!many) return lineRow(day.lines[0], false);
+              // Several venues: the day's total, then one line per venue.
+              const dayOpen = openDays.has(day.date);
+              const toggleDay = () => setOpenDays((o) => { const n = new Set(o); if (n.has(day.date)) n.delete(day.date); else n.add(day.date); return n; });
               return [
-                <tr key={r.date} className="bg-white cursor-pointer" onClick={() => setOpenRow(open ? null : r.date)}>
-                  <td className={`sticky left-0 z-[1] h-11 px-3 text-left whitespace-nowrap border-b border-[var(--kit-line)] ${isToday ? "font-semibold" : ""} ${r.date < todayIso ? "text-muted-foreground" : ""}`} style={{ background: "#fff" }}>{label}</td>
-                  <td className={cell}>{numCell("guests", r.guests)}</td>
-                  <td className={cell}>{numCell("spend", r.spend)}</td>
-                  <td className={cell}>{numCell("target", r.target, true)}{rowError[r.date] && <p className="text-[10px] text-destructive">{rowError[r.date]}</p>}</td>
-                  <td className={cell} style={r.actualSales != null && r.target != null ? { color: r.actualSales >= r.target ? "#15803D" : "#B45309", fontWeight: 600 } : undefined}>{r.actualSales == null ? <span className="text-muted-foreground">—</span> : Math.round(r.actualSales).toLocaleString("en-US")}</td>
-                  <td className="h-11 px-3 whitespace-nowrap border-b border-[var(--kit-line)]">
-                    {r.source === "Manager"
-                      ? <span className="rounded-full px-2 py-0.5 text-[11px] font-medium text-foreground" style={{ background: "#E4E6E3" }}>Manager</span>
-                      : r.source ? <span className="rounded-full px-2 py-0.5 text-[11px] text-muted-foreground" style={{ background: "#F1F2F0" }}>Auto</span> : null}
-                  </td>
+                <tr key={day.date} className="cursor-pointer" style={{ background: dayOpen ? "#F7F8F6" : "#fff" }} onClick={toggleDay} aria-expanded={dayOpen}>
+                  <td className={`sticky left-0 z-[1] h-11 px-3 text-left whitespace-nowrap border-b border-[var(--kit-line)] ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`} style={{ background: dayOpen ? "#F7F8F6" : "#fff" }}>
+                    <span className="inline-flex items-center gap-1">{label}<ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${dayOpen ? "rotate-180" : ""}`} /></span></td>
+                  <td className={cell}>{fmt(day.guests)}</td>
+                  <td className={cell}>{fmt(day.spend)}</td>
+                  <td className={`${cell} font-semibold`}>{fmt(day.lines.some((l) => previewOf(l) != null) ? day.lines.reduce((a, l) => a + (previewOf(l) ?? l.target ?? 0), 0) : day.target)}</td>
+                  <td className={cell} style={soldStyle(day.sold, day.target)}>{day.sold == null ? <span className="text-muted-foreground">—</span> : fmt(day.sold)}</td>
+                  <td className="h-11 px-3 border-b border-[var(--kit-line)] text-[11px] text-muted-foreground whitespace-nowrap">{day.lines.filter((l) => l.source === "Manager").length ? `${day.lines.filter((l) => l.source === "Manager").length} set` : ""}</td>
                 </tr>,
-                open && !editingThis && (
-                  <tr key={`${r.date}-more`} className="bg-white">
-                    <td colSpan={6} className="p-0 border-b border-[var(--kit-line)]" style={{ background: "#FAFCFB" }}>
-                      <div className="sticky left-0 px-3 py-2 text-[12px] text-muted-foreground" style={{ width: "min(100%, calc(100vw - 64px))" }}>
-                        {r.source === "Manager"
-                          ? <span>Set by <b className="font-medium text-foreground">{info?.by ?? "a manager"}</b>{info?.at ? ` · ${new Date(info.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
-                              {can && <> · <button type="button" className="underline" onClick={(ev) => { ev.stopPropagation(); saveDay(r.date, null).then(() => setMetaTick((t) => t + 1)); setOpenRow(null); }}>Back to auto</button></>}</span>
-                          : r.source === "Auto" ? <span>Bani: {r.guests ?? "—"} guests × {baseSymbol()}{r.spend ?? "—"}, from recent {d.toLocaleDateString("en-GB", { weekday: "long" })}s</span> : null}
-                      </div>
-                    </td>
-                  </tr>
-                ),
+                ...(dayOpen ? day.lines.flatMap((l) => lineRow(l, true)) : []),
               ];
             })}
           </tbody>
