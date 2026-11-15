@@ -872,37 +872,30 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
    PHONE GLASS (below 768px): the floating glass section bar (MobileTabBar), glass buttons on the
    sky (bell, venue, initials), and glass section tabs that stick under the sky while scrolling.
    ========================================================= */
-.glass-tabbar-wrap { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40; display: flex; justify-content: flex-start;
-  pointer-events: none; transition: transform 0.25s ease, opacity 0.25s ease; font-family: "IBM Plex Sans", system-ui, sans-serif; }
-.glass-tabbar-wrap.is-hidden { transform: translateY(calc(100% + 24px)); opacity: 0; }
-.glass-tabbar { pointer-events: auto; position: relative; display: flex; align-items: center; gap: 2px; width: 100%; height: 58px; padding: 0 6px; border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
-  -webkit-backdrop-filter: blur(12px) saturate(220%) contrast(1.04) brightness(1.04); backdrop-filter: blur(12px) saturate(220%) contrast(1.04) brightness(1.04);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 10px 30px -14px rgba(20, 45, 43, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 12px 18px -14px rgba(255, 255, 255, 0.85), inset 0 -12px 18px -14px rgba(255, 255, 255, 0.55); }
-.glass-tabbar::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0.3) 100%); mix-blend-mode: soft-light; }
-.glass-tabbar-row { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent);
-          mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); }
+.glass-tabbar-wrap { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; transition: transform 0.25s ease, opacity 0.25s ease; font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.glass-tabbar-wrap.is-hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
+.glass-tabbar { position: relative; display: flex; align-items: stretch; width: 100%; padding: 0 4px env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.68));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(31, 63, 59, 0.12); box-shadow: 0 -8px 24px -16px rgba(20, 45, 43, 0.35); }
+.glass-tabbar-row { display: flex; align-items: stretch; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
 .glass-tabbar-row::-webkit-scrollbar { display: none; }
-.glass-tabbar-sep { width: 1px; height: 26px; background: rgba(31, 63, 59, 0.14); flex-shrink: 0; margin: 0 2px; }
-.glass-tab { flex-shrink: 0; scroll-snap-align: start; display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 46px; min-width: 46px; padding: 0 2px;
-  border-radius: 999px; color: #2A3A35; font-size: 13px; font-weight: 600; white-space: nowrap; text-decoration: none; -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease, padding 0.2s ease; }
-.glass-tab .glass-tab-icon { width: 21px; height: 21px; flex-shrink: 0; }
-.glass-tab.is-pinned { min-width: 50px; }
-.glass-tab.is-active { color: #16231F; padding: 0 16px 0 13px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28));
-  box-shadow: 0 4px 12px -8px rgba(20, 45, 43, 0.35); }
+.glass-tabbar-sep { width: 1px; height: 28px; align-self: center; background: rgba(31, 63, 59, 0.12); flex-shrink: 0; }
+.glass-tab { position: relative; flex-shrink: 0; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  height: 58px; min-width: 64px; padding: 0 6px; color: #8A9690; font-size: 11px; font-weight: 500; line-height: 1; white-space: nowrap; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; transition: color 0.2s ease; }
+.glass-tab .glass-tab-icon { width: 23px; height: 23px; flex-shrink: 0; }
+.glass-tab.is-active { color: #1F3F3B; font-weight: 700; }
+.glass-tab.is-active::before { content: ""; position: absolute; top: -1px; left: 50%; width: 28px; margin-left: -14px; height: 3px; border-radius: 0 0 3px 3px; background: #1F3F3B; }
 .glass-tab:focus { outline: none; }
-.glass-tab:focus-visible { outline: 2px solid #2F5E5A; outline-offset: -2px; }
+.glass-tab:focus-visible { outline: 2px solid #2F5E5A; outline-offset: -4px; border-radius: 10px; }
 @media (min-width: 768px) { .glass-tabbar-wrap { display: none; } }
 
 @media (max-width: 767px) {
   /* Room for the bar under the page; the Bani sphere sits just above it. */
-  .tenant-portal .app-shell { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
-  body:has(.glass-tabbar-wrap:not(.is-hidden)) .floating-bani-sphere { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+  .tenant-portal .app-shell { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  body:has(.glass-tabbar-wrap:not(.is-hidden)) .floating-bani-sphere { bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
 
   /* Glass buttons on the sky: the weather shows through. The venue picker is more frosted so it always reads. */
   .tenant-topbar .venue-pill, .tenant-topbar .mobile-me .bani-me-initials {
@@ -920,14 +913,15 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
   .tenant-topbar .mobile-me .bani-me-initials { width: 36px; height: 36px; color: #16231F; }
   .tenant-topbar:has(.topbar-sky[data-tone="dark"]) .mobile-me .bani-me-initials { color: #FFFFFF; }
 
-  /* Section tabs: frosted glass with a brighter bubble on the current tab; they stick just under the sky. */
+  /* Section tabs: frosted glass; the current tab is a solid white pill and the others are grey, so they read as one level
+     below the bottom bar (the only dark green on screen). They stick just under the sky. */
   .tenant-portal .section-pill-row { background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16)) !important;
     -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(1.05); backdrop-filter: blur(20px) saturate(150%) brightness(1.05);
     border: 1px solid rgba(255, 255, 255, 0.45) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 10px 16px -12px rgba(255, 255, 255, 0.8), 0 8px 22px -14px rgba(20, 45, 43, 0.3) !important; }
-  .tenant-portal .section-pill-row nav[aria-label] a[aria-current="page"] { background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.32)) !important;
-    border-color: transparent !important; box-shadow: 0 4px 12px -8px rgba(20, 45, 43, 0.35) !important; }
-  .tenant-portal .section-pill-row nav[aria-label] a:not([aria-current="page"]) { background: transparent !important; }
+  .tenant-portal .section-pill-row nav[aria-label] a[aria-current="page"] { background: #FFFFFF !important; color: #1F3F3B !important; font-weight: 600;
+    border-color: transparent !important; box-shadow: 0 6px 16px -6px rgba(20, 45, 43, 0.4) !important; }
+  .tenant-portal .section-pill-row nav[aria-label] a:not([aria-current="page"]) { background: transparent !important; color: #7A8782 !important; }
   .section-pill-sticky { position: sticky; top: 60px; z-index: 20; }
 }
 /* A sticky row only travels within its parent, and the phone rows sit in small "phone only" wrappers:

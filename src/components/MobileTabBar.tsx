@@ -7,9 +7,10 @@ import { useFloatingBaniOpen } from "@/components/assistant/FloatingBaniContext"
 export type TabItem = { title: string; to: string; icon: any; active: boolean };
 
 /**
- * Phone navigation (below 768px): a floating glass bar. Bani team stays pinned on the left; every other
- * section the person can open sits beside it as an icon and slides sideways (nothing hidden under "More").
- * The section you are on shows its name in a brighter glass bubble and always slides into view.
+ * Phone navigation (below 768px): the app's main navigation, a frosted bar across the bottom edge of the screen.
+ * Bani team stays pinned on the left; every other section the person can open sits beside it (icon with its name
+ * underneath) and slides sideways (nothing hidden under "More"). The section you are on is dark green and bold with
+ * a short line along the top, and always slides into view.
  * It steps aside while you type and while a conversation with Bani fills the screen.
  * Desktop and tablet keep the side menu.
  */
@@ -38,10 +39,10 @@ export function MobileTabBar({ home, items }: { home: TabItem; items: TabItem[] 
   }, []);
 
   const Tab = ({ it, pinned }: { it: TabItem; pinned?: boolean }) => (
-    <Link to={it.to} aria-current={it.active ? "page" : undefined} aria-label={it.title} title={it.title}
+    <Link to={it.to} aria-current={it.active ? "page" : undefined}
       className={cn("glass-tab", pinned && "is-pinned", it.active && "is-active")}>
-      <it.icon className="glass-tab-icon" strokeWidth={it.active ? 2 : 1.8} aria-hidden="true" />
-      {it.active && <span>{it.title}</span>}
+      <it.icon className="glass-tab-icon" strokeWidth={it.active ? 2.2 : 1.8} aria-hidden="true" />
+      <span className="glass-tab-label">{it.title}</span>
     </Link>
   );
 
