@@ -190,3 +190,16 @@ export function purchasingSalesForecast(month: string, venueIds: string[], sales
     actual: elapsed.reduce((sum, row) => sum + (row.actualSales ?? 0), 0),
   };
 }
+
+/**
+ * The days of last month to compare against: the same days so far while the month is running
+ * (1–14 Oct against 1–14 Nov), the whole month once it is complete. null means the whole month.
+ */
+export function comparisonCutoff(period: string, today: string, throughDay?: number): number | null {
+  const previous = previousCalendarMonth(period);
+  if (!previous || period !== today.slice(0, 7)) return null;
+  // Through the last day with invoices or sales, so the figures match "By the 14th" on the pace chart.
+  const day = throughDay && throughDay > 0 ? throughDay : Number(today.slice(8, 10));
+  return day >= daysInMonth(previous) ? null : day;
+}
+export const withinCutoff = (date: string, cutoff: number | null) => cutoff == null || Number(date.slice(8, 10)) <= cutoff;
