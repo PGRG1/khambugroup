@@ -1,5 +1,10 @@
+/** A printed line for clients set up line by line (sales_report_lines); kind comes from their setup. */
+export interface SalesLine { printed: string; amount: number | null; kind?: string | null; known?: boolean }
+
 export interface SalesRecord {
   id?: string;
+  /** Present for clients read line by line: every printed line, saved with the day. */
+  lines?: SalesLine[];
   date: string;
   rawPrintedDate?: string;
   printedWeekday?: string | null;

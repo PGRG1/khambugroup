@@ -5,6 +5,8 @@ import { receiptReviewReasons } from "../_shared/receiptIntakePolicy.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
 import { checkDocumentDate } from "../_shared/documentChecks.ts";
 import { figureProblems, hkToday, TENDERS, verificationMismatches } from "../_shared/receiptAutoPost.ts";
+import { basicsFromLines, linesForVenue, matchRead, setupMismatches, setupProblems, type SetupKind } from "../_shared/setupReceipt.ts";
+import { loadSetup, readWithSetup } from "./setupRead.ts";
 
 const schema = z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid().nullable(),
   imageBase64: z.string().min(1).max(14_000_000), mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]),
@@ -63,8 +65,19 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
 
   // Decide whether this receipt may be recorded on its own.
   const t = input.tentative;
-  const problems = figureProblems(t, !!venue, hkToday());
-  if (['vouchersSold','depositsTaken','vouchersUsed','depositsUsed'].some(k => Number(t[k] ?? 0) > 0)) problems.push('Deferred revenue requires confirmation and monthly draft approval');
+  // Clients set up line by line: the same checks on their own lines, with kinds resolved here from the
+  // setup (never from the browser). KHAMBU-style clients keep the fixed-field checks.
+  const setupRows = Array.isArray(t.lines) ? await loadSetup(admin, tenant.tenant_id) : null;
+  const first = setupRows
+    ? matchRead({ ...t, lines: t.lines }, linesForVenue(setupRows, venue?.id ?? null).map((r) => ({ printed: r.printed_name, kind: r.kind as SetupKind })))
+    : null;
+  // Date and venue checks only (the fixed-field balance is replaced by the line balance below).
+  const problems = first ? figureProblems({ date: t.date, totalSales: 1, subtotal: 1, cash: 1 }, !!venue, hkToday()) : figureProblems(t, !!venue, hkToday());
+  if (first) {
+    problems.push(...setupProblems(first.lines));
+    const b = basicsFromLines(first.lines);
+    if (b.vouchersSold || b.vouchersUsed || b.depositsTaken || b.depositsUsed) problems.push('Deferred revenue requires confirmation and monthly draft approval');
+  } else if (['vouchersSold','depositsTaken','vouchersUsed','depositsUsed'].some(k => Number(t[k] ?? 0) > 0)) problems.push('Deferred revenue requires confirmation and monthly draft approval');
   if (!input.scanId) problems.push("Original scan audit unavailable");
   if (venue && !problems.some(p => p.startsWith("Trading date"))) {
     const date = String(t.date);
@@ -78,8 +91,14 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
   let second: Record<string, unknown> | null = null;
   if (!problems.length) {
     const { data: vs } = await admin.from("venues").select("name").eq("tenant_id", tenant.tenant_id);
-    second = await independentRead(input.imageBase64, input.mimeType, (vs ?? []).map((v: any) => v.name));
-    problems.push(...verificationMismatches(t, second));
+    if (first && setupRows) {
+      const out = await readWithSetup(admin, tenant.tenant_id, setupRows, (vs ?? []).map((v: any) => v.name), input.imageBase64, input.mimeType, input.fileName, "google/gemini-3.8-flash");
+      second = out.ok ? out.read as unknown as Record<string, unknown> : null;
+      problems.push(...setupMismatches(first, out.ok ? out.read : null));
+    } else {
+      second = await independentRead(input.imageBase64, input.mimeType, (vs ?? []).map((v: any) => v.name));
+      problems.push(...verificationMismatches(t, second));
+    }
     if (second) problems.push(...checkDocumentDate({ date: String(t.date ?? ""), raw: String(second.rawPrintedDate ?? ""), weekday: second.printedWeekday ? String(second.printedWeekday) : null, uploadDay: hkToday(), explicitHistorical: second.clearlyHistorical === true }).reasons);
   }
 
@@ -108,7 +127,10 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
     const { data: stored } = await admin.storage.from("sales-receipts").download(receiptPath);
     if (!stored || await sha256(new Uint8Array(await stored.arrayBuffer())) !== hash) return { ...data, reasons: ["Receipt retained; source attachment could not be linked"] };
   }
-  const { data: committed, error: commitError } = await admin.rpc("document_commit_receipt", { p_intake: previous?.id ?? data.intakeId, p_verification: second, p_values: t, p_path: receiptPath });
+  const { data: committed, error: commitError } = first
+    ? await admin.rpc("document_commit_receipt_lines", { p_intake: previous?.id ?? data.intakeId, p_verification: second,
+        p_values: { date: t.date, venue: venue.name, reportNumber: t.reportNumber ?? "", lines: first.lines.map((l) => ({ printed: l.printed, amount: l.amount })) }, p_path: receiptPath })
+    : await admin.rpc("document_commit_receipt", { p_intake: previous?.id ?? data.intakeId, p_verification: second, p_values: t, p_path: receiptPath });
   if (commitError) {
     await admin.from("sales_receipt_intakes").update({ reasons: [commitError.message], verification: second }).eq("id", previous?.id ?? data.intakeId);
     return { ...data, status: "flagged", reasons: [commitError.message] };

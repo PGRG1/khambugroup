@@ -4,6 +4,8 @@ import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from ".
 import { z } from "npm:zod@3";
 import { receiptIntake } from "./intake.ts";
 import { DISCOVER_PROMPT, normalizeDiscovered } from "./discoverLines.ts";
+import { loadSetup, readWithSetup } from "./setupRead.ts";
+import { basicsFromLines } from "../_shared/setupReceipt.ts";
 import { retainDocument } from "../_shared/documentRetention.ts";
 import { documentContext } from "../_shared/documentContext.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
@@ -173,6 +175,22 @@ Deno.serve(async (req) => {
     }
 
     const jobId = await retainDocument(scoped.admin, scoped.tenantId, auth.user.id, "sales", imageBase64, mimeType || "image/jpeg", body.fileName || "report");
+
+    // Clients set up line by line are read with their own lines (KHAMBU keeps the fixed read below).
+    const setupRows = await loadSetup(scoped.admin, scoped.tenantId);
+    if (setupRows) {
+      const out = await readWithSetup(scoped.admin, scoped.tenantId, setupRows, venueList, imageBase64, mimeType || "image/jpeg", body.fileName || "report", "google/gemini-3-flash-preview");
+      if (!out.ok) {
+        await scoped.admin.from("document_read_jobs").update({ status: "failed", error_message: out.error }).eq("id", jobId);
+        return new Response(JSON.stringify({ success: false, error: out.error }), { status: out.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const data = { ...out.read, ...basicsFromLines(out.read.lines), mode: "lines" };
+      await scoped.admin.from("document_read_jobs").update({ status: "needs_answer", extraction: data }).eq("id", jobId);
+      let scanEvidenceId: string | null = null;
+      try { scanEvidenceId = await captureExtraction(scoped.admin, scoped.tenantId, auth.user.id, data, imageBase64, mimeType || "image/jpeg"); }
+      catch { console.warn("Receipt evidence capture unavailable; scan result preserved"); }
+      return new Response(JSON.stringify({ success: true, data, scanEvidenceId }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(

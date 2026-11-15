@@ -1,3 +1,4 @@
+import { setupProblems, type SetupKind } from "../../supabase/functions/_shared/setupReceipt";
 import {baseSymbol} from '@/utils/money';
 // Pure rules for the Sales records page: "doesn't add up", missing days, unusual days, week groups.
 import type { SalesRecord } from "@/types/sales";
@@ -115,8 +116,12 @@ export function unusualDay(record: Pick<SalesRecord, "date" | "venue" | "totalSa
 /** Plain sentence for the add-sales prompt, or null when nothing looks off. */
 export function notePrompt(record: SalesRecord, history: SalesRecord[]): string | null {
   if (!record.date || !record.totalSales) return null;
-  const c = checkRecord(record);
-  if (!c.ok) return "This day doesn't add up. What happened?";
+  // Clients read line by line: their lines decide whether the day adds up.
+  const off = record.lines
+    ? setupProblems(record.lines.map((l) => ({ printed: l.printed, amount: l.amount, kind: (l.kind ?? null) as SetupKind | null, known: !!l.known })))
+        .some((p) => p.startsWith("Payments") || p.startsWith("Total sales"))
+    : !checkRecord(record).ok;
+  if (off) return "This day doesn't add up. What happened?";
   const u = unusualDay(record, history);
   if (!u) return null;
   return `Sales are ${Math.abs(u.pct)}% ${u.pct < 0 ? "below" : "above"} a usual ${u.weekday}. What happened?`;

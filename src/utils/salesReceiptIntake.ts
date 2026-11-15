@@ -23,7 +23,7 @@ export async function saveReceiptIntake(record: SalesRecord, file: File | null, 
       mimeType: file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"), fileName: file.name, tentative: record,
     } });
     if (!error && data?.status === "saved" && typeof data.recordId === "string")
-      return { status: "saved", recordId: data.recordId, journal: data.journal === "completed" ? "completed" : "failed" };
+      return { status: "saved", recordId: data.recordId, journal: data.journal === "completed" ? "completed" : data.journal === "none" ? "none" : "failed" };
     if (error || data?.status !== "flagged" || typeof data.intakeId !== "string") return { status: "failed", error: data?.error || "Receipt could not be saved for review; retry safely" };
     return { status: "flagged", intakeId: data.intakeId, repeated: data.repeated === true, reasons: Array.isArray(data.reasons) ? data.reasons.map(String) : [] };
   } catch { return { status: "failed", error: "Receipt could not be saved for review; retry safely" }; }

@@ -4,7 +4,8 @@ import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { useFloatingBaniSales, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
 import { salesOutcomeMessage, type SalesSaveResult } from "@/utils/salesSaveResult";
 
-import { SalesRecord } from "@/types/sales";
+import { SalesRecord, type SalesLine } from "@/types/sales";
+import { basicsFromLines, setupProblems, type SetupKind } from "../../../supabase/functions/_shared/setupReceipt";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
@@ -247,6 +248,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
         foodpanda: Number(raw.foodpanda) || 0,
         keeta: Number(raw.keeta) || 0,
         cardTips: -(Math.abs(Number(raw.cardTips) || 0)),
+        // Clients read line by line: their own lines, with the day's usual figures worked out from them.
+        ...(raw.mode === "lines" && Array.isArray(raw.lines) ? { lines: raw.lines as SalesLine[] } : {}),
       };
 
       scannedRef.current = record;
@@ -359,10 +362,16 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     : false;
 
   const venueUnmatched = !!extractedData && !activeVenueNames.includes(extractedData.venue);
-  const diagnosis = extractedData ? diagnoseSalesScan(extractedData) : null;
+  // Clients read line by line are checked on their own lines (KHAMBU's fixed boxes are empty for them).
+  const lineProblems = extractedData?.lines
+    ? setupProblems(extractedData.lines.map((l) => ({ printed: l.printed, amount: l.amount, kind: (l.kind ?? null) as SetupKind | null, known: !!l.known })))
+    : [];
+  const diagnosis = extractedData
+    ? (extractedData.lines ? { balanced: !lineProblems.length, message: lineProblems[0] ?? "", fields: [] as string[] } : diagnoseSalesScan(extractedData))
+    : null;
   const flagged = new Set<string>(diagnosis?.fields ?? []);
   const ready = !!extractedData && !!diagnosis?.balanced && !venueUnmatched && !!extractedData.date;
-  const compact = !showDetails;
+  const compact = !showDetails && !extractedData?.lines;
   const flagCls = (f: string) => (flagged.has(f) ? " ring-2 ring-warning/60 border-warning/60" : "");
 
   const handleSave = async () => {
@@ -512,7 +521,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
             </div>
           )}
 
-          {!compact && diagnosis && !diagnosis.balanced && (
+          {!compact && !extractedData.lines && diagnosis && !diagnosis.balanced && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
               <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
               <span className="text-foreground">{diagnosis.message}</span>
@@ -579,7 +588,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
                 className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("reportNumber")}
               />
             </div>
-            <div>
+            {!extractedData.lines && <div>
               <label className="text-xs text-muted-foreground block mb-1">Orders</label>
               <input
                 type="number"
@@ -587,8 +596,8 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
                 onChange={(e) => handleFieldChange("orders", e.target.value)}
                 className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("orders")}
               />
-            </div>
-            <div>
+            </div>}
+            {!extractedData.lines && <div>
               <label className="text-xs text-muted-foreground block mb-1">Guests</label>
               <input
                 type="number"
@@ -596,9 +605,41 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
                 onChange={(e) => handleFieldChange("guests", e.target.value)}
                 className={"w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" + flagCls("guests")}
               />
-            </div>
+            </div>}
           </div>
 
+          {extractedData.lines ? (() => {
+            const lines = extractedData.lines;
+            const problems = setupProblems(lines.map((l) => ({ printed: l.printed, amount: l.amount, kind: (l.kind ?? null) as SetupKind | null, known: !!l.known })));
+            const setLine = (i: number, v: string) => setExtractedData((prev) => {
+              if (!prev?.lines) return prev;
+              const next = prev.lines.map((l, j) => (j === i ? { ...l, amount: v === "" ? null : Number(v) } : l));
+              const b = basicsFromLines(next.map((l) => ({ printed: l.printed, amount: l.amount, kind: (l.kind ?? null) as SetupKind | null, known: !!l.known })));
+              return { ...prev, lines: next, totalSales: b.totalSales ?? 0, subtotal: b.subtotal ?? 0, serviceCharge: b.serviceCharge, discount: b.discount,
+                guests: b.guests, orders: b.orders, cardTips: b.cardTips };
+            });
+            return (
+              <div className="rounded-lg border border-border bg-background/40 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-foreground">Lines on this report</h4>
+                  <span className="text-xs text-muted-foreground">Total sales <strong className="text-foreground tabular-nums">{extractedData.totalSales.toFixed(2)}</strong></span>
+                </div>
+                {lines.map((l, i) => (
+                  <div key={l.printed} className="flex items-center justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
+                    <span className="min-w-0 flex-1 text-[14px] [overflow-wrap:anywhere]">{l.printed}
+                      {!l.known && <span className="ml-2 rounded-full px-2 py-0.5 text-[11px]" style={{ background: "#FBF1E6", color: "#B45309" }}>New</span>}</span>
+                    <input type="number" inputMode="decimal" aria-label={l.printed} value={l.amount ?? ""} onChange={(e) => setLine(i, e.target.value)}
+                      className={"h-9 w-28 rounded-md border-0 px-2 text-right text-[14px] tabular-nums outline-none" + flagCls(l.printed)} style={{ background: "#EEF0EE" }} />
+                  </div>
+                ))}
+                {problems.length > 0 && (
+                  <div className="mt-3 space-y-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#FBF1E6", color: "#B45309" }}>
+                    {problems.map((p) => <p key={p}>{p}</p>)}
+                  </div>
+                )}
+              </div>
+            );
+          })() : (<>
           {/* Revenue section */}
           <div className="rounded-lg border border-border bg-background/40 p-4">
             <div className="flex items-center justify-between mb-3">
@@ -679,6 +720,7 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
             </div>
           </div>
 
+          </>)}
           </>)}
 
           <DeferredSalesFields record={extractedData} onChange={(key,value)=>setExtractedData({...extractedData,[key]:value})} />
