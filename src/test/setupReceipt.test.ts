@@ -32,7 +32,7 @@ describe("setup clients' receipts", () => {
     const off = read([["Net sales", 10450], ["Octopus", 3200], ["Cash", 850]]);
     expect(setupProblems(off.lines)).toContain("Payments do not add up to total sales");
     const fresh = read([...good.lines.map((l) => [l.printed, l.amount] as [string, number | null]), ["Gift card", 300]]);
-    expect(setupProblems(fresh.lines)[0]).toBe("New on this report: Gift card. Map it in the sales report setup");
+    expect(setupProblems(fresh.lines)[0]).toBe("New on this report: Gift card. Tell Bani what it is");
   });
   it("the second read must agree on every line", () => {
     expect(setupMismatches(good, good)).toEqual([]);

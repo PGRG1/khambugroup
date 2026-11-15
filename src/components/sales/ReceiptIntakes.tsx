@@ -7,6 +7,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency, formatDate, formatTableInteger } from "@/utils/format";
+import { NewLinesAnswer } from "./NewLinesAnswer";
+import { newLineNames, newLineTitle } from "../../../supabase/functions/_shared/newReportLines";
 
 const counts = ["orders", "guests"];
 const texts = ["date", "day", "venue", "reportNumber", "servicePeriodId"];
@@ -41,6 +43,9 @@ export function ReceiptIntakes({ revision = 0, venueIds, home }: { revision?: nu
   const { q, rows } = useReceiptIntakes(venueIds, revision);
   useBaniWorkPublisher('/sales-data',rows.filter(r=>(r.verification as Record<string,unknown>|null)?.evidence_only).map(r=>({id:r.id,tone:'amber' as const,title:`Receipt date needs your answer: ${r.source_name}`,detail:String(r.reasons),label:'Review',question:`Review receipt evidence ${r.id}: ${r.source_name}`})),!q.isLoading);
   const current = rows.find(r => r.id === selected);
+  const venueName = (r: { tentative_values: unknown }) => String(((r.tentative_values ?? {}) as Record<string, unknown>).venue ?? "") || null;
+  const rowTitle = (r: (typeof rows)[number]) => { const names = newLineNames(r.reasons); return names.length ? newLineTitle(names, venueName(r)) : `Check sales receipt ${r.source_name}`; };
+  const currentNew = current ? newLineNames(current.reasons) : [];
   const comparisons = useQuery({ queryKey: ["receipt-comparison", tenantId, current?.id], enabled: !!current,
     queryFn: async () => {
       if (!current || !tenantId || !current.existing_record_ids.length) return [];
@@ -67,18 +72,19 @@ export function ReceiptIntakes({ revision = 0, venueIds, home }: { revision?: nu
   if (q.isError) return home ? null : <p className="text-sm text-warning">Flagged receipts could not be loaded.</p>;
   if (!rows.length) return null;
   return <>
-    {home && rows.slice(0, 2).map(r => <button key={r.id} className="wi" onClick={() => { setSelected(r.id); setSourceError(""); }}><i className="amb" />Check sales receipt {r.source_name}</button>)}
+    {home && rows.slice(0, 2).map(r => <button key={r.id} className="wi" onClick={() => { setSelected(r.id); setSourceError(""); }}><i className="amb" />{rowTitle(r)}</button>)}
     {home && rows.length > 2 && <div className="more">+ {rows.length - 2} more receipts</div>}
     <Dialog open={!!current} onOpenChange={open => { if (!open) setSelected(null); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader><DialogTitle>Receipt needs review</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{currentNew.length ? newLineTitle(currentNew, venueName(current!)) : "Receipt needs review"}</DialogTitle></DialogHeader>
         {current && <>
           <p className="break-all text-sm">{current.source_name}</p>
           <ExpenseDocumentPreview path={current.source_path} bucket={(current.verification as Record<string,unknown>|null)?.source_bucket==='sales-receipts'?'sales-receipts':'sales-receipt-intake'} label="Receipt photo"/><Button variant="link" onClick={()=>topic(`Which sales record does receipt evidence ${current.id} (${current.source_name}) belong to?`)}>Ask Bani</Button>
           {sourceError && <p className="text-sm text-warning">{sourceError}</p>}
+          {currentNew.length > 0 && tenantId && <NewLinesAnswer tenantId={tenantId} intakeId={current.id} onDone={saved => { const refresh = () => { qc.invalidateQueries({ queryKey: ["receipt-intakes"] }); qc.invalidateQueries({ queryKey: ["sales-records"] }); }; if (saved) setTimeout(() => { setSelected(null); refresh(); }, 1600); else refresh(); }} />}
           <ul className="list-disc pl-4 text-sm text-warning">{(Array.isArray(current.reasons) ? current.reasons : []).map((reason, i) => <li key={i}>{String(reason)}</li>)}</ul>
           <h4 className="text-sm font-semibold">Original extraction / tentative figures · unverified, not posted</h4>
-          <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">{Object.entries((current.tentative_values ?? {}) as Record<string, unknown>).filter(([k]) => !["receiptFileUrl", "receiptFileName", "id"].includes(k)).map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-muted-foreground capitalize">{key.replace(/([a-z])([A-Z])/g, "$1 $2")}</dt><dd className="break-words td-num">{receiptValue(key, (current.original_values as Record<string, unknown>)?.[key])} / {receiptValue(key, value)}</dd></div>)}</dl>
+          <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">{Object.entries((current.tentative_values ?? {}) as Record<string, unknown>).filter(([k]) => !["receiptFileUrl", "receiptFileName", "id", "lines", "mode"].includes(k)).map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-muted-foreground capitalize">{key.replace(/([a-z])([A-Z])/g, "$1 $2")}</dt><dd className="break-words td-num">{receiptValue(key, (current.original_values as Record<string, unknown>)?.[key])} / {receiptValue(key, value)}</dd></div>)}</dl>
           <h4 className="text-sm font-semibold">Existing records</h4>
           {comparisons.isError ? <p className="text-sm text-warning">Comparison lookup failed.</p> : comparisons.isPending ? <p className="text-sm">Loading comparison…</p> : comparisons.data?.length ? comparisons.data.map(r => <p key={r.id} className="text-sm">{r.venue} · {formatDate(r.date)} · {r.report_number || "No report number"} · {formatCurrency(Number(r.total_sales))}</p>) : <p className="text-sm text-muted-foreground">No matching date or report found. Distinct sessions still need checking.</p>}
           <p className="text-sm text-muted-foreground">Nothing has been posted from this receipt. If the sales are already recorded or the scan isn't needed, clear it. To record these sales, use Scan Receipt on Sales Data again.</p>

@@ -80,7 +80,7 @@ export function basicsFromLines(lines: ReadLine[]) {
 export function setupProblems(lines: ReadLine[]): string[] {
   const p: string[] = [];
   const unknown = lines.filter((l) => !l.known && l.amount != null && l.amount !== 0);
-  if (unknown.length) p.push(`New on this report: ${unknown.map((l) => l.printed).join(", ")}. Map ${unknown.length === 1 ? "it" : "them"} in the sales report setup`);
+  if (unknown.length) p.push(`New on this report: ${unknown.map((l) => l.printed).join(", ")}. Tell Bani what ${unknown.length === 1 ? "it is" : "they are"}`);
   if (lines.some((l) => l.known && l.amount != null && !Number.isFinite(l.amount))) { p.push("Invalid amounts"); return p; }
   const b = basicsFromLines(lines);
   if (b.totalSales == null || b.totalSales <= 0) { p.push("Total sales is zero, negative or missing"); return p; }

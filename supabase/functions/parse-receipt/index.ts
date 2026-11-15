@@ -4,6 +4,7 @@ import { captureExtraction, captureSavedExample, retrieveSalesEvidence } from ".
 import { z } from "npm:zod@3";
 import { receiptIntake } from "./intake.ts";
 import { DISCOVER_PROMPT, normalizeDiscovered } from "./discoverLines.ts";
+import { recheckIntake, suggestNewLines } from "./newLines.ts";
 import { loadSetup, readWithSetup } from "./setupRead.ts";
 import { basicsFromLines } from "../_shared/setupReceipt.ts";
 import { retainDocument } from "../_shared/documentRetention.ts";
@@ -103,6 +104,18 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error) {
         return new Response(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "Receipt intake failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+    if (body?.op === "suggest_new_lines" || body?.op === "recheck_intake") {
+      // Held reports with lines the setup doesn't know yet (client managers or the Bani team).
+      const { op, ...input } = body;
+      try {
+        const result = op === "suggest_new_lines"
+          ? await suggestNewLines(adminClient(), auth.user.id, req.headers.get("Authorization") ?? "", input)
+          : await recheckIntake(adminClient(), auth.user.id, req.headers.get("Authorization") ?? "", input);
+        return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (error) {
+        return new Response(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "Could not check this report" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
     if (body?.op === "capture_evidence" || body?.op === "retrieve_evidence") {
