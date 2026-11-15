@@ -18,6 +18,7 @@ import { SalesRecord } from "@/types/sales";
 import { fmtHKD, fmtNum, toDaily } from "./utils";
 import { getMonthKey as gm } from "@/utils/salesUtils";
 import type { ForecastOverviewDay } from "@/utils/revenueForecastOverview";
+import { BandCursor } from "@/components/charts/BandCursor";
 import { bestWorst, shortMoney } from "@/utils/revenueOverview";
 
 interface Props {
@@ -238,7 +239,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
               tickFormatter={(v) => fmtHKD(v as number, true)}
               width={48}
             />
-            <Tooltip content={tooltipContent} />
+            <Tooltip cursor={<BandCursor count={chartData.length} />} content={tooltipContent} />
             <Bar dataKey="revenue" {...barBuild(play, 2)} fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
               {chartData.map((d) => (
                 <Cell key={d.key} fill={marks && d.key === marks.best.key ? BEST : marks && d.key === marks.worst.key ? WORST : "hsl(var(--primary))"} fillOpacity={marks && (d.key === marks.best.key || d.key === marks.worst.key) ? 1 : 0.85} />

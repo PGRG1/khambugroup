@@ -12,6 +12,7 @@ import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
 import { baseSymbol } from "@/utils/money";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { BandCursor } from "@/components/charts/BandCursor";
 
 // Same look as Revenue's Trends: cards, keys with values, light grid, months along the bottom.
 const PRIMARY = "hsl(var(--primary))";
@@ -74,7 +75,7 @@ function MonthBars({ s, months, current, play, card }: { s: TrendSeries; months:
           <ComposedChart data={rows} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
             <XAxis dataKey="label" interval={0} {...AXIS} tick={{ fontSize: 10, fill: MUTED }} />
             <YAxis hide domain={[0, "dataMax"]} />
-            <Tooltip cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.4 }} content={({ active, payload }: any) => active && payload?.length
+            <Tooltip cursor={<BandCursor count={12} />} content={({ active, payload }: any) => active && payload?.length
               ? <Tip rows={[[monthLong(payload[0].payload.key), ""], [payload[0].payload.key === current ? "So far" : "Spend", payload[0].payload.v == null ? "Nothing" : shortMoney(payload[0].payload.v)]]} /> : null} />
             <Bar dataKey="v" radius={[2, 2, 0, 0]} {...barBuild(play, card)}>
               {rows.map((r) => <Cell key={r.key} fill={PRIMARY} fillOpacity={r.key === current ? 0.35 : 0.85} />)}
@@ -98,8 +99,22 @@ function MonthLines({ title, rows, total, months, current, play, mobile }: { tit
             <CartesianGrid {...GRID} />
             <XAxis dataKey="label" interval={0} {...AXIS} tick={{ fontSize: 10, fill: MUTED }} />
             <YAxis domain={[0, ticks[ticks.length - 1]]} ticks={ticks} tickFormatter={(v) => fmtHKD(v as number, true)} width={44} {...AXIS} />
-            <Tooltip cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.4 }} content={({ active, payload }: any) => active && payload?.length
-              ? <Tip rows={[[`${monthLong(payload[0].payload.key)}${payload[0].payload.key === current ? " (so far)" : ""}`, ""], ...rows.map((r, j) => [r.name, payload[0].payload[`s${j}`] ? shortMoney(payload[0].payload[`s${j}`]) : "—"] as [string, string])]} /> : null} />
+            <Tooltip cursor={<BandCursor count={12} />} content={({ active, payload }: any) => {
+              if (!active || !payload?.length) return null; const p = payload[0].payload;
+              const total = rows.reduce((n, _, j) => n + (p[`s${j}`] || 0), 0);
+              return (
+                <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums">
+                  <div className="font-medium mb-1">{monthLong(p.key)}{p.key === current ? " (so far)" : ""}</div>
+                  {rows.map((r, j) => ({ r, j })).reverse().map(({ r, j }) => (
+                    <div key={r.id} className="flex items-center justify-between gap-4 py-px">
+                      <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: SERIES[j] }} /><span className="truncate max-w-[200px]">{r.name}</span></span>
+                      <span>{p[`s${j}`] ? shortMoney(p[`s${j}`]) : "—"}</span>
+                    </div>
+                  ))}
+                  <div className="mt-1 pt-1 border-t border-border/60 flex justify-between gap-4 font-medium"><span>Total</span><span>{shortMoney(total)}</span></div>
+                </div>
+              );
+            }} />
             {rows.map((r, j) => <Bar key={r.id} dataKey={`s${j}`} stackId="top" fill={SERIES[j]} radius={j === rows.length - 1 ? [2, 2, 0, 0] : 0} {...barBuild(play, 3)}>
               {data.map((d) => <Cell key={d.key} fillOpacity={d.key === current ? 0.4 : 0.9} />)}
             </Bar>)}
@@ -168,7 +183,7 @@ export default function PurchasingTrendsTab() {
                     <XAxis dataKey="label" interval={0} {...AXIS} tick={{ fontSize: 10, fill: MUTED }} />
                     <YAxis yAxisId="money" domain={[0, ticks[ticks.length - 1]]} ticks={ticks} tickFormatter={(v) => fmtHKD(v as number, true)} width={44} {...AXIS} />
                     <YAxis yAxisId="pct" orientation="right" domain={[0, pctTop]} tickFormatter={(v) => `${v}%`} width={34} {...AXIS} />
-                    <Tooltip cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.4 }} content={({ active, payload }: any) => {
+                    <Tooltip cursor={<BandCursor count={12} />} content={({ active, payload }: any) => {
                       if (!active || !payload?.length) return null; const p = payload[0].payload;
                       return <Tip rows={[[monthLong(p.key), ""], [p.key === current ? "So far" : "Spend", `${baseSymbol()}${fmtHKD(p.spend)}`], ["% of sales", p.pct == null ? "—" : `${p.pct.toFixed(1)}%`]]} />;
                     }} />

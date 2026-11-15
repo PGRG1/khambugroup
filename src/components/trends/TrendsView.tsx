@@ -7,6 +7,7 @@ import { baseSymbol } from "@/utils/money";
 import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
 import { barBuild, lineBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
+import { BandCursor } from "@/components/charts/BandCursor";
 
 /**
  * Trends: the longer picture, no period filter. Each chart keeps its own natural window:
@@ -285,7 +286,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
               <CartesianGrid {...GRID} />
               <XAxis dataKey="label" interval={0} {...AXIS} tick={{ fontSize: 10, fill: MUTED }} />
               <YAxis domain={[0, monthTicks[monthTicks.length - 1]]} ticks={monthTicks} tickFormatter={(v) => fmtHKD(v as number, true)} width={44} {...AXIS} />
-              <Tooltip cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.4 }} content={({ active, payload }: any) => {
+              <Tooltip cursor={<BandCursor count={m.months.length} />} content={({ active, payload }: any) => {
                 if (!active || !payload?.length) return null; const p = payload[0].payload;
                 const rows: [string, string][] = [[new Date(`${p.key}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }), ""], [p.isCur ? "So far" : "Sales", money(p.actual)]];
                 if (p.rest) rows.push(["Projected", money(p.actual + p.rest)]);
