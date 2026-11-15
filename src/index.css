@@ -906,8 +906,8 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
 .mobile-account-list button:hover, .mobile-account-list button:focus-visible { background: rgba(20, 45, 43, 0.05); }
 .mobile-account-list button svg { color: #3D4842; flex-shrink: 0; }
 
-/* Tab rows and the period/summary buttons are white pills. A tap never leaves a black outline;
-   keyboard users get a thin sage ring instead. */
+/* Tab rows keep Bani's rounded-rectangle shape; a tap never leaves a black outline, keyboard users get a
+   thin sage ring. The period and summary buttons are white with a thin outline, like Bani's other white buttons. */
 .section-pill-row a:focus, .section-tabs a:focus { outline: none; }
 .section-pill-row a:focus-visible, .section-tabs a:focus-visible { outline: 2px solid #8FAF7E; outline-offset: -2px; }
 html:not(.dark) .tenant-portal .period-pill { background: #FFFFFF; color: #121510; border: 1px solid rgba(31, 63, 59, 0.12); box-shadow: 0 1px 2px rgba(20, 45, 43, 0.06); }
