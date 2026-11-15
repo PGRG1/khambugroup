@@ -36,7 +36,7 @@ export function SectionPillRow({ label, items, activePath }: {
     const ro = new ResizeObserver(check); ro.observe(nav);
     return () => { nav.removeEventListener("scroll", check); ro.disconnect(); };
   }, [navRef, items.length]);
-  return <div className="mb-5 min-w-0">
+  return <div className="section-pill-sticky mb-5 min-w-0">
     <div className="section-pill-row relative min-w-0 max-w-full overflow-hidden rounded-full bg-muted/50">
       <nav ref={navRef} aria-label={label} className="flex min-w-0 max-w-full gap-0.5 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Tabs share the row evenly when they fit (equal edges); when they don't, they keep their width and scroll. */}
