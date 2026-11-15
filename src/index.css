@@ -908,13 +908,16 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
   body:has(.glass-tabbar-wrap:not(.is-hidden)) .floating-bani-sphere { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
 
   /* Glass buttons on the sky: the weather shows through. The venue picker is more frosted so it always reads. */
-  .tenant-topbar .venue-pill, .tenant-topbar button[aria-label^="Assigned work"], .tenant-topbar .mobile-me .bani-me-initials {
+  .tenant-topbar .venue-pill, .tenant-topbar .mobile-me .bani-me-initials {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.14)) !important;
     -webkit-backdrop-filter: blur(8px) saturate(180%) brightness(1.08); backdrop-filter: blur(8px) saturate(180%) brightness(1.08);
     border: 1px solid rgba(255, 255, 255, 0.5) !important;
     box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.85), inset 0 -1px 1px rgba(255, 255, 255, 0.25), 0 6px 16px -8px rgba(0, 0, 0, 0.35) !important; }
-  .tenant-topbar button[aria-label^="Assigned work"] { width: 36px !important; height: 36px !important; border-radius: 999px !important; }
-  .tenant-topbar .venue-pill { max-width: 34vw; height: 36px; color: #16231F !important;
+  /* The bell is a plain icon (no circle), so the bar doesn't feel crowded; it turns white on dark skies. */
+  .tenant-topbar button[aria-label^="Assigned work"] { width: 34px !important; }
+  /* The venue picker shows its name without the pin icon, so "All venues" fits. */
+  .tenant-topbar .venue-pill svg.lucide-map-pin, .tenant-topbar .venue-pill-main svg.lucide-map-pin { display: none; }
+  .tenant-topbar .venue-pill { max-width: 38vw; height: 36px; color: #16231F !important;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.46)) !important; }
   .tenant-topbar .venue-pill .venue-pill-main { color: #16231F; }
   .tenant-topbar .mobile-me .bani-me-initials { width: 36px; height: 36px; color: #16231F; }
