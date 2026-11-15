@@ -13,7 +13,7 @@ export function usePurchasingData(tenantId: string | null | undefined) {
         fetchAllRows("suppliers", "id,name", undefined, id),
         fetchAllRowsParallel("sales_records", "id,date,total_sales,venue", id),
         fetchAllRowsParallel("invoice_line_items", "id,invoice_id,product_master_id,total,unit_price,unit,quantity", id),
-        fetchAllRows("product_master", "id,internal_product_name,financial_treatment,level1_category,level2_category,unit", undefined, id),
+        fetchAllRows("product_master", "id,internal_product_name,financial_treatment,level1_category,level2_category,level3_category,unit", undefined, id),
         fetchAllRows("product_categories", "name,level,is_active", undefined, id),
       ]);
       return { invoices: invoices as OverviewInvoice[], suppliers: suppliers as { id: string; name: string }[], sales: sales as OverviewSale[], lines: lines as OverviewLine[], products: products as OverviewProduct[], categoryRows: categoryRows as { name: string; level: number; is_active: boolean }[] };

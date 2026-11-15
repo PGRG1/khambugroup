@@ -51,7 +51,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
   const activeTab = defaultTab;
 
   return (
-    <div className={["trends", "invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) ? "w-full mx-auto space-y-6" : "p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto"}>
+    <div className={["dashboard", "trends", "invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) ? "w-full mx-auto space-y-6" : "p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto"}>
       {!["dashboard", "trends", "purchase-orders", "invoices", "line-items", "receiving", "inventory", "menu-costing"].includes(activeTab) && <PageHeader title={tabTitles[activeTab] || "Procurement"} />}
 
 

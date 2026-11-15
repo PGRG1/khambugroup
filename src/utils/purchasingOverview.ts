@@ -10,7 +10,7 @@ export interface OverviewLine {
   unit: string | null; quantity: number;
 }
 export interface OverviewProduct {
-  id: string; internal_product_name: string; financial_treatment: string | null; level1_category: string | null; level2_category?: string | null; unit: string | null;
+  id: string; internal_product_name: string; financial_treatment: string | null; level1_category: string | null; level2_category?: string | null; level3_category?: string | null; unit: string | null;
 }
 export interface OverviewSale { date: string; total_sales: number; venue: string | null; }
 export function previousCalendarMonth(month: string): string | null {
@@ -70,12 +70,35 @@ export function itemRanking(lines: OverviewLine[], previous: OverviewLine[], pro
   }).sort((a, b) => b.value - a.value);
 }
 
-export function categoryRanking(lines: OverviewLine[], invoices: OverviewInvoice[], products: Map<string, OverviewProduct>) {
-  const map = new Map<string, number>();
-  lines.forEach(row => { const name = (row.product_master_id ? products.get(row.product_master_id)?.level1_category : null) || "Uncategorized"; map.set(name, (map.get(name) ?? 0) + Number(row.total)); });
+export interface CategoryPart { id: string; name: string; value: number; share: number | null }
+/** Spend by top-level category with its second-level split (Beverages → Alcoholic, Non-Alcoholic).
+ * Refundable deposits (asset lines) are shown last, on their own, never mixed into a category. */
+export type CategoryTree = CategoryPart & { subs: CategoryTree[] };
+/** Spend by level 1 category, each holding its level 2 parts and their level 3 parts (for drill-down). */
+export function categoryRanking(lines: OverviewLine[], invoices: OverviewInvoice[], products: Map<string, OverviewProduct>): CategoryTree[] {
+  const total = sumSpend(invoices);
+  type Node = { value: number; subs: Map<string, Node> };
+  const node = (): Node => ({ value: 0, subs: new Map() });
+  const add = (parent: Node, key: string) => { const next = parent.subs.get(key) ?? node(); parent.subs.set(key, next); return next; };
+  const root = node();
+  let deposits = 0;
+  lines.forEach(row => {
+    const product = row.product_master_id ? products.get(row.product_master_id) : undefined;
+    const value = Number(row.total);
+    if ((product?.financial_treatment ?? "").startsWith("Asset")) { deposits += value; return; }
+    const top = add(root, product?.level1_category || "Uncategorized"); top.value += value;
+    if (!product?.level1_category) return;
+    const sub = add(top, product.level2_category || "Other"); sub.value += value;
+    if (product.level2_category) { const leaf = add(sub, product.level3_category || "Other"); leaf.value += value; }
+  });
+  const tree = (n: Node, path: string): CategoryTree[] => [...n.subs].map(([name, child]) => {
+    const id = path ? `${path}/${name}` : name;
+    return { id, name, value: child.value, share: percentage(child.value, total), subs: tree(child, id) };
+  }).sort((a, b) => b.value - a.value);
+  const result = tree(root, "");
+  if (deposits) result.push({ id: "deposits", name: "Deposits (refundable)", value: deposits, share: percentage(deposits, total), subs: [] });
   const deductions = invoices.reduce((n, row) => n + Math.abs(Number(row.discount) || 0), 0);
-  const result = [...map].map(([name, value]) => ({ id: name, name, value, share: percentage(value, sumSpend(invoices)) })).sort((a, b) => b.value - a.value);
-  if (deductions) result.push({ id: "deductions", name: "Discount / Refund", value: -deductions, share: percentage(-deductions, sumSpend(invoices)) });
+  if (deductions) result.push({ id: "deductions", name: "Discount / Refund", value: -deductions, share: percentage(-deductions, total), subs: [] });
   return result;
 }
 

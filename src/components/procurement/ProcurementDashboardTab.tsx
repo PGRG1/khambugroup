@@ -1,11 +1,9 @@
 import {baseSymbol} from '@/utils/money';
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, Search } from "lucide-react";
-import { Bar, ComposedChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Customized } from "recharts";
-import { fetchAllRows, fetchAllRowsParallel } from "@/utils/fetchAllRows";
+import { ArrowUpDown, ChevronRight, Search } from "lucide-react";
+import { CategoryBreakdown, categoryOpens } from "@/components/procurement/CategoryBreakdown";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useAuth } from "@/hooks/useAuth";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
@@ -13,10 +11,10 @@ import { usePurchasingBudgets, usePurchasingSalesForecast } from "@/hooks/usePur
 import { purchasingOverviewRows } from "@/utils/purchasingMode";
 import { KpiCard } from "@/components/expenses/shared";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
-import { PRIMARY, chartAxis, chartGrid, chartTooltipContentStyle, compactHK, monthOpacity } from "@/components/revenue-overview/chartTheme";
 import { PageTop } from "@/components/kit/PageTop";
+import { usePurchasingData } from "@/hooks/usePurchasingData";
 import { Num } from "@/components/home/HomeMotion";
-import { RevenueEnter, barBuild, lineBuild, useRevenueCount } from "@/components/revenue/RevenueMotion";
+import { RevenueEnter, useRevenueCount } from "@/components/revenue/RevenueMotion";
 import { shortMoney } from "@/utils/revenueOverview";
 import { PurchasingRunningTotal } from "./PurchasingRunningTotal";
 import { usePagePeriod } from "@/hooks/usePagePeriod";
@@ -26,8 +24,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatMenuCurrency as priceMoney, formatCurrency as money, formatTableInteger as integer, formatPercent as pct, formatDecimal, formatDate } from "@/utils/format";
-import { purchasingChecks, priceMoves, categoryRanking, itemRanking, supplierRanking, monthPace, previousCalendarMonth, periodIncludes, sumSpend, sumRevenue, percentage, changePercent, budgetByDay, isBudgetableCategory, hongKongDate, daysInMonth, suggestBudgets, comparisonCutoff, withinCutoff, type OverviewInvoice, type OverviewLine, type OverviewProduct, type OverviewSale } from "@/utils/purchasingOverview";
-import { budgetBarScale, rankedBudgetCategories, defaultInvoiceMonth, trailingMonths } from "./purchasingOverviewPresentation";
+import { type CategoryTree, purchasingChecks, priceMoves, categoryRanking, itemRanking, supplierRanking, monthPace, previousCalendarMonth, periodIncludes, sumSpend, sumRevenue, percentage, changePercent, budgetByDay, isBudgetableCategory, hongKongDate, daysInMonth, suggestBudgets, comparisonCutoff, withinCutoff, type OverviewInvoice, type OverviewLine, type OverviewProduct, type OverviewSale } from "@/utils/purchasingOverview";
+import { budgetBarScale, rankedBudgetCategories } from "./purchasingOverviewPresentation";
 import { PurchasingBudgetsDialog } from "./PurchasingBudgetsDialog";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +34,6 @@ const monthName = formatMonthLabel;
 const delta = (value: number | null) => value == null ? "—" : `${value >= 0 ? "+" : ""}${pct(value)}`;
 const wholePct = (value: number | null) => value == null ? "—" : `${integer(value)}%`;
 type Item = ReturnType<typeof itemRanking>[number];
-const WARM = "hsl(var(--chart-7))";
 function OverviewChartShell({ children, className, ...props }: Parameters<typeof ChartShell>[0]) {
   return <ChartShell {...props} className={cn("[&>div:first-child>div:first-child>div:first-child]:text-[15px] [&>div:first-child>div:first-child>div:first-child]:font-semibold [&>p]:text-[12.5px] [&>div:first-child]:flex-wrap [&>div:first-child>div:last-child]:max-w-full [&>div:first-child>div:last-child]:shrink [&>div:first-child>div:last-child]:min-w-0 max-sm:[&>div:first-child>div:last-child]:basis-full", className)}>{children}</ChartShell>;
 }
@@ -56,6 +53,26 @@ function RankedList({ rows }: { rows: Ranked[] }) {
     <span className="min-w-0 truncate" title={row.name}>{row.name}</span>
     <div className="h-2 rounded-full purchasing-track"><div className="h-full rounded-full purchasing-bar" style={{ width: `${Math.min(100, Math.abs(row.value) / maximum * 100)}%` }} /></div>
     <span className="td-num whitespace-nowrap text-right" title={money(row.value)}>{integer(row.value)}</span><span className="td-num text-right text-muted-foreground whitespace-nowrap">{pct(row.share)}</span>
+  </div>)}</div> : <p className="py-8 text-sm text-muted-foreground">No spend in this period.</p>;
+}
+
+type CategoryRow = CategoryTree;
+/** A level 1 category name; when it has parts below it, a tap opens the breakdown pop-up. */
+function CategoryName({ row, onOpen, className }: { row: CategoryRow; onOpen: (row: CategoryRow) => void; className?: string }) {
+  if (!categoryOpens(row)) return <span className={cn("min-w-0 truncate", className)} title={row.name}>{row.name}</span>;
+  return <button type="button" onClick={() => onOpen(row)} title={`See what's in ${row.name}`}
+    className={cn("min-w-0 inline-flex items-center gap-0.5 text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm", className)}>
+    <span className="truncate">{row.name}</span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+  </button>;
+}
+function CategoryList({ rows, onOpen }: { rows: CategoryRow[]; onOpen: (row: CategoryRow) => void }) {
+  const maximum = Math.max(1, ...rows.map(row => Math.abs(row.value)));
+  return rows.length ? <div className="divide-y divide-border/40">{rows.map(row => <div key={row.id} className="py-1">
+    <div className={cn("grid grid-cols-[minmax(0,150px)_minmax(20px,1fr)_70px_38px] max-sm:grid-cols-[minmax(0,1fr)_56px_64px_44px] items-center gap-x-2 h-[30px] text-[13px]", (row.id === "deposits" || row.id === "deductions") && "text-muted-foreground")}>
+      <CategoryName row={row} onOpen={onOpen} className="font-medium" />
+      <div className="h-2 rounded-full purchasing-track"><div className="h-full rounded-full purchasing-bar" style={{ width: `${Math.min(100, Math.abs(row.value) / maximum * 100)}%` }} /></div>
+      <span className="td-num whitespace-nowrap text-right" title={money(row.value)}>{integer(row.value)}</span><span className="td-num text-right text-muted-foreground whitespace-nowrap">{pct(row.share)}</span>
+    </div>
   </div>)}</div> : <p className="py-8 text-sm text-muted-foreground">No spend in this period.</p>;
 }
 
@@ -114,32 +131,19 @@ export default function ProcurementDashboardTab() {
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
+  const [breakdown, setBreakdown] = useState<CategoryRow | null>(null);
   const [budgetSuggestions, setBudgetSuggestions] = useState<Map<string, number> | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: "name" | "value" | "change"; desc: boolean }>({ key: "value", desc: true });
-  const [hiddenMonths, setHiddenMonths] = useState<Set<string>>(new Set());
-  const data = useQuery({
-    queryKey: ["proc-dash", "overview-redesign", purchasing.tenantId], enabled: !!purchasing.tenantId, staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const id = purchasing.tenantId;
-      const [invoices, suppliers, sales, lines, products, categoryRows] = await Promise.all([
-        fetchAllRowsParallel("invoices", "id,supplier_id,invoice_date,total_amount,discount,venue,created_at,review_status,has_disputes", id, { col: "invoice_date", asc: false }),
-        fetchAllRows("suppliers", "id,name", undefined, id),
-        fetchAllRowsParallel("sales_records", "id,date,total_sales,venue", id),
-        fetchAllRowsParallel("invoice_line_items", "id,invoice_id,product_master_id,total,unit_price,unit,quantity", id),
-        fetchAllRows("product_master", "id,internal_product_name,financial_treatment,level1_category,unit", undefined, id),
-        fetchAllRows("product_categories", "name,level,is_active", undefined, id),
-      ]);
-      return { invoices: invoices as OverviewInvoice[], suppliers: suppliers as { id: string; name: string }[], sales: sales as OverviewSale[], lines: lines as OverviewLine[], products: products as OverviewProduct[], categoryRows: categoryRows as { name: string; level: number; is_active: boolean }[] };
-    },
-  });
+  const data = usePurchasingData(purchasing.tenantId);
   // Draft invoices are not spend: excluded from every Overview/budgets figure.
   const invoices = useMemo(() => purchasingOverviewRows(data.data?.invoices ?? [], purchasing.mode, scope.includesName).filter(row => row.review_status !== "Draft"), [data.data, purchasing.mode, scope.includesName]);
   const sales = useMemo(() => purchasingOverviewRows(data.data?.sales ?? [], purchasing.mode, scope.includesName), [data.data, purchasing.mode, scope.includesName]);
   const products = useMemo(() => new Map((data.data?.products ?? []).map(row => [row.id, row])), [data.data]);
   const names = useMemo(() => new Map((data.data?.suppliers ?? []).map(row => [row.id, row.name])), [data.data]);
   const currentMonth = hongKongDate().slice(0, 7);
-  const datePeriod = usePagePeriod(invoices.map(row => row.invoice_date));
+  // One month at a time (this month by default); the longer picture is on Trends.
+  const datePeriod = usePagePeriod(invoices.map(row => row.invoice_date), "mtd", "month");
   const { from, to } = datePeriod;
   const period = datePeriod.fromIso.slice(0,7) === datePeriod.toIso.slice(0,7) ? datePeriod.month : "custom";
   const fallback = false;
@@ -209,20 +213,6 @@ export default function ProcurementDashboardTab() {
   const previousPace = previous ? monthPace(previous, invoices, sales) : [];
   const pairRows = Array.from({ length: Math.max(currentPace.length, previousPace.length) }, (_, i) => ({ day: i + 1, current: currentPace[i]?.spend ?? null, prior: previousPace[i]?.spend ?? null, currentPct: currentPace[i]?.pct ?? null, priorPct: previousPace[i]?.pct ?? null, budget: budgetSeries[i] ?? null }));
   const finalPct = percentage(spend, revenue);
-  const allMonthKeys = [...new Set([...currentInvoices.map(row => row.invoice_date.slice(0, 7)), ...currentSales.map(row => row.date.slice(0, 7))])].sort().reverse();
-  const paces = new Map(allMonthKeys.map(month => [month, monthPace(month, currentInvoices, currentSales)]));
-  const allRows = Array.from({ length: 31 }, (_, i) => {
-    const row: Record<string, number | null> = { day: i + 1 };
-    allMonthKeys.forEach(month => { row[`spend_${month}`] = paces.get(month)?.[i]?.spend ?? null; row[`pct_${month}`] = paces.get(month)?.[i]?.pct ?? null; });
-    return row;
-  });
-  const chartDates = previous ? trailingMonths(period) : [...new Set([...currentInvoices.map(row => row.invoice_date.slice(0,7)), ...currentSales.map(row => row.date.slice(0,7))])].sort();
-  const combinedRows = chartDates.map(date => {
-    const spendValue = sumSpend((previous ? invoices : currentInvoices).filter(row => row.invoice_date.startsWith(date)));
-    const revenueValue = sumRevenue((previous ? sales : currentSales).filter(row => row.date.startsWith(date)));
-    return { date, label: monthLabel(date), spend: spendValue, pct: percentage(spendValue, revenueValue) };
-  });
-  const lastRatioIndex = combinedRows.reduce((last, row, index) => row.pct != null ? index : last, -1);
   const visibleItems = items.filter(row => row.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => {
     if (sort.key === "change" && a.change == null && b.change == null) return a.name.localeCompare(b.name);
     if (sort.key === "change" && a.change == null) return 1;
@@ -231,14 +221,13 @@ export default function ProcurementDashboardTab() {
     return sort.desc ? -cmp : cmp;
   });
   const toggleSort = (key: "name" | "value" | "change") => setSort(old => ({ key, desc: old.key === key ? !old.desc : key !== "name" }));
-  const paceChart = (percent: boolean) => <div className="min-w-0"><div className="h-[200px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={previous ? pairRows : allRows} margin={{ top: 8, right: 12, left: -10, bottom: 5 }}><CartesianGrid {...chartGrid} /><XAxis dataKey="day" {...chartAxis} domain={percent ? [3, 31] : [1, 31]} type="number" allowDataOverflow /><YAxis {...chartAxis} tickFormatter={value => percent ? `${integer(Number(value))}%` : compactHK(Number(value))} /><Tooltip contentStyle={chartTooltipContentStyle} labelFormatter={label => `Day ${label}`} formatter={(value: number, name: string) => [percent ? pct(value) : money(value), name]} />{previous ? <><Line dataKey={percent ? "currentPct" : "current"} name={monthLabel(period)} stroke={percent ? WARM : PRIMARY} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} /><Line dataKey={percent ? "priorPct" : "prior"} name={monthLabel(previous)} stroke={percent ? WARM : PRIMARY} strokeOpacity={0.45} strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />{!percent && budgetsExist && <Line dataKey="budget" name="Budget" stroke={WARM} strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />}</> : allMonthKeys.map((month, i) => <Line key={month} dataKey={`${percent ? "pct" : "spend"}_${month}`} name={monthLabel(month)} stroke={percent ? WARM : PRIMARY} strokeOpacity={monthOpacity(i)} strokeWidth={2} dot={false} hide={hiddenMonths.has(month)} connectNulls={false} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div></div>;
 
   if (data.isError || purchasing.isError) return <Alert><AlertDescription>Could not load purchasing figures. Please reload to try again.</AlertDescription></Alert>;
   if (!data.isSuccess || !purchasing.isSuccess) return <div className="space-y-4 py-4" aria-label="Loading purchasing overview"><div className="h-10 w-44 animate-pulse rounded-lg bg-muted/40" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(n => <div key={n} className="h-28 rounded-xl bg-card/40 animate-pulse" />)}</div><div className="h-80 rounded-xl bg-card/40 animate-pulse" /></div>;
   return <div data-purchasing-overview className="space-y-5 min-w-0 td-num">
     <PageTop title="Purchasing overview" period={datePeriod.control} actions={isAdmin && singleMonth && (purchasing.mode === "central" || scope.selectedVenues.length === 1) ? <Button variant="outline" size="sm" className="h-10" onClick={() => { setBudgetSuggestions(null); setBudgetsOpen(true); }}>Budgets</Button> : undefined} />
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{purchasing.mode === "central" ? "Whole group (bought centrally)" : scope.label} · last invoice <span className="whitespace-nowrap">{latestUpload ? formatDate(latestUpload) : "—"}</span></span>{(fallback || (isCurrent && !currentInvoices.length)) && <span className="rounded-full bg-warning/10 text-warning border border-warning/30 px-2 py-1">No {monthName(currentMonth)} invoices yet{fallback ? ` · showing ${monthName(period)}` : ""}</span>}</div>
-    <RevenueEnter id="purchasing" className="space-y-5">{(play: boolean) => <>
+    <RevenueEnter id="purchasing" className="space-y-5">{() => <>
     <SpendSoFar label={previous ? (isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : monthLabel(period)) : periodLabel} spend={spend} previousSpend={previous ? previousSpend : null} previousLabel={previousLabel}
       budget={budgetsExist ? { total: totalBudget, spent: budgetedSpend, daysLeft: isCurrent ? daysLeft : null } : null}
       stats={[
@@ -246,41 +235,21 @@ export default function ProcurementDashboardTab() {
         { label: "Invoices", value: integer(currentInvoices.length), was: previous ? `was ${integer(previousInvoices.length)}` : null },
         { label: "Suppliers", value: integer(suppliers.length), was: previous ? `was ${integer(new Set(previousInvoices.map(row => row.supplier_id)).size)}` : null },
       ]} />
-    {previous ? <PurchasingRunningTotal month={period} currentName={monthLabel(period).split(" ")[0]} priorName={monthLabel(previous).split(" ")[0]} days={pairRows.map(row => ({ day: row.day, current: row.current, prior: row.prior, budget: row.budget }))} /> : <>
-    <OverviewChartShell headerRight={<div aria-label="Pace key" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">{previous ? <>
-      <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-foreground" />{monthLabel(period)}</span>
-      <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-dashed border-foreground opacity-[0.45]" />{monthLabel(previous)}</span>
-      {budgetsExist && <span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-dashed border-warning" />Budget</span>}
-    </> : allMonthKeys.map((month,i) => <Button key={month} variant="ghost" aria-pressed={!hiddenMonths.has(month)} onClick={() => setHiddenMonths(old => { const next = new Set(old); next.has(month) ? next.delete(month) : next.add(month); return next; })} className={cn("inline-flex h-auto items-center gap-1.5 rounded-none p-0 text-[11px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground", hiddenMonths.has(month) && "line-through opacity-50")}><span className="w-3 border-t-2 border-foreground" style={{ opacity: monthOpacity(i) }} />{monthLabel(month)}</Button>)}</div>} title="Running total" className="[&>div:first-child]:mb-3">{paceChart(false)}</OverviewChartShell>
-    </>}
+    {previous && <PurchasingRunningTotal month={period} currentName={monthLabel(period).split(" ")[0]} priorName={monthLabel(previous).split(" ")[0]} days={pairRows.map(row => ({ day: row.day, current: row.current, prior: row.prior, budget: row.budget }))} />}
     <OverviewChartShell title={budgetsExist ? "Categories against budget" : "Categories"}>{budgetsExist ? <div className="space-y-4"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span className="h-3 w-[2px] bg-foreground opacity-[0.55]" aria-hidden />Budget</div>{categoryBudgetRows.map(({ name, value: spentValue, budget: budgetValue }) => {
       const hasBudget = budgetValue != null;
       const over = hasBudget && spentValue > budgetValue;
       const latestChange = budgetChanges.filter(row => row.category === name).sort((a, b) => b.changed_at.localeCompare(a.changed_at))[0];
       const changedAt = latestChange ? format(new Date(`${hongKongDate(latestChange.changed_at)}T12:00:00`), "d MMM") : null;
       const changeWord = latestChange?.old_amount == null ? "set" : Number(latestChange.new_amount) > Number(latestChange.old_amount) ? "raised" : "lowered";
-      return <div key={name} data-budget-category={name}><div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-[13px]"><span className="min-w-0" title={name}>{name}</span><span className="ml-auto flex items-baseline justify-end gap-2 whitespace-nowrap td-num"><span>{integer(spentValue)}</span>{hasBudget && <><span className="text-muted-foreground">{`of ${integer(budgetValue)}`}</span><span className={cn("font-semibold", over && "text-warning")}>{wholePct(budgetValue > 0 ? spentValue / budgetValue * 100 : null)}</span></>}</span></div><div className="mt-1"><BudgetBar share={spentValue / categoryBarMaximum * 100} over={over} tick={hasBudget ? budgetValue / categoryBarMaximum * 100 : null} /></div><p className="mt-1 text-[11px] text-muted-foreground td-num">{hasBudget ? `Budget ${integer(budgetValue)}${changedAt ? ` · ${changeWord} ${changedAt}` : ""}` : "Not budgeted"}</p></div>;
-    })}</div> : <RankedList rows={categories} />}</OverviewChartShell>
+      // Refundable deposits are not spend: one quiet line, no bar and no budget.
+      if (name.startsWith("Deposits")) return <div key={name} className="flex items-baseline justify-between gap-2 border-t border-border/40 pt-3 text-[13px] text-muted-foreground"><span className="min-w-0 truncate">{name}</span><span className="td-num whitespace-nowrap">{integer(spentValue)}</span></div>;
+      return <div key={name} data-budget-category={name}><div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-[13px]">{(() => { const row = categories.find(r => r.name === name); return row ? <CategoryName row={row} onOpen={setBreakdown} /> : <span className="min-w-0" title={name}>{name}</span>; })()}<span className="ml-auto flex items-baseline justify-end gap-2 whitespace-nowrap td-num"><span>{integer(spentValue)}</span>{hasBudget && <><span className="text-muted-foreground">{`of ${integer(budgetValue)}`}</span><span className={cn("font-semibold", over && "text-warning")}>{wholePct(budgetValue > 0 ? spentValue / budgetValue * 100 : null)}</span></>}</span></div><div className="mt-1"><BudgetBar share={spentValue / categoryBarMaximum * 100} over={over} tick={hasBudget ? budgetValue / categoryBarMaximum * 100 : null} /></div><p className="mt-1 text-[11px] text-muted-foreground td-num">{hasBudget ? `Budget ${integer(budgetValue)}${changedAt ? ` · ${changeWord} ${changedAt}` : ""}` : "Not budgeted"}</p></div>;
+    })}</div> : <CategoryList rows={categories} onOpen={setBreakdown} />}</OverviewChartShell>
     <OverviewChartShell title="Items"><ItemsTable rows={items.slice(0,10)} previous={previousLabel} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setItemsOpen(true)}>See all {integer(items.length)} items</Button></OverviewChartShell>
     <OverviewChartShell title="Suppliers"><RankedList rows={suppliers.slice(0,10)} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setSupplierOpen(true)}>See all {integer(suppliers.length)} suppliers</Button></OverviewChartShell>
-    <OverviewChartShell title="Spend vs revenue" headerRight={<div aria-label="Spend key" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"><span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Spend</span><span className="inline-flex items-center gap-1.5"><span className="w-3 border-t-2 border-warning" />Spend % of revenue</span></div>}><div className="h-[280px] md:h-[320px]">{combinedRows.length ? <ResponsiveContainer width="100%" height="100%"><ComposedChart data={combinedRows} margin={{ top: 12, right: 12, left: -10, bottom: 5 }}><CartesianGrid {...chartGrid} /><XAxis dataKey="label" {...chartAxis} interval="preserveStartEnd" /><YAxis yAxisId="money" {...chartAxis} tickFormatter={compactHK} /><YAxis yAxisId="pct" orientation="right" {...chartAxis} tickFormatter={value => `${integer(value)}%`} /><Tooltip contentStyle={chartTooltipContentStyle} formatter={(value: number,name: string)=>[name.includes("%") ? pct(value) : money(value),name]} /><Bar yAxisId="money" dataKey="spend" name="Spend" fill={PRIMARY} radius={[3,3,0,0]} {...barBuild(play, 5)}>{combinedRows.map((row,i) => <Cell key={row.date} fillOpacity={previous ? row.date === period ? 1 : 0.55 : i === combinedRows.length - 1 ? 1 : 0.55} />)}</Bar><Line yAxisId="pct" dataKey="pct" name="Spend % of revenue" stroke={WARM} strokeWidth={2} dot={false} connectNulls={false} {...lineBuild(play, 5, true)}></Line><Customized component={(props: { xAxisMap?: Record<string, { scale: ((value: string) => number) & { bandwidth?: () => number } }>; yAxisMap?: Record<string, { scale: (value: number) => number }>; offset?: { left: number; top: number; width: number; height: number } }) => {
-      const row = combinedRows[lastRatioIndex], xAxis = Object.values(props.xAxisMap ?? {})[0];
-      const moneyAxis = props.yAxisMap?.money, ratioAxis = props.yAxisMap?.pct, bounds = props.offset;
-      if (!row || row.pct == null || !xAxis || !moneyAxis || !ratioAxis || !bounds) return <g />;
-      const text = pct(row.pct), width = text.length * 6.2 + 12;
-      const pointX = xAxis.scale(row.label) + (xAxis.scale.bandwidth?.() ?? 0) / 2;
-      const pointY = ratioAxis.scale(row.pct);
-      const tagX = Math.max(bounds.left + 2, Math.min(pointX - width / 2, bounds.left + bounds.width - width - 2));
-      const band = xAxis.scale.bandwidth?.() ?? 0;
-      const coveredBars = combinedRows.filter(candidate => {
-        const centre = xAxis.scale(candidate.label) + band / 2;
-        return centre + band * 0.4 >= tagX && centre - band * 0.4 <= tagX + width;
-      });
-      const barTop = Math.min(...coveredBars.map(candidate => moneyAxis.scale(candidate.spend)));
-      const tagY = Math.max(2, Math.min(pointY - 26, barTop - 24));
-      return <g data-percentage-tag><rect x={tagX} y={tagY} width={width} height={18} rx={5} fill="hsl(var(--card))" stroke={WARM} strokeOpacity={0.5} /><text x={tagX + width / 2} y={tagY + 12.5} textAnchor="middle" fontSize={11} fontWeight={600} fill="color-mix(in srgb, hsl(var(--chart-7)) 75%, hsl(var(--foreground)))">{text}</text></g>;
-    }} /></ComposedChart></ResponsiveContainer> : <p className="py-12 text-sm text-muted-foreground">No data in this period.</p>}</div></OverviewChartShell>
     </>}</RevenueEnter>
+    <CategoryBreakdown category={breakdown} period={previous && isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : periodLabel} onClose={() => setBreakdown(null)} />
     <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}><DialogContent className="max-w-[900px] overflow-hidden"><DialogHeader className="text-left pr-8"><DialogTitle>Suppliers</DialogTitle><DialogDescription>{periodLabel} · {purchasing.mode === "central" ? "Whole group" : scope.label}</DialogDescription></DialogHeader><div className="max-h-[65svh] overflow-y-auto overflow-x-hidden"><table className="w-full table-fixed text-xs sm:text-sm"><thead className="sticky top-0 z-10 bg-card"><tr className="border-b border-border text-xs text-muted-foreground"><th className="px-1 py-3 sm:px-3 text-left font-medium">Supplier</th><th className="px-1 py-3 sm:px-3 text-right font-medium whitespace-nowrap">Spend ({baseSymbol()})</th>{previous && <th className="px-1 py-3 sm:px-3 text-right font-medium whitespace-nowrap">vs {previousLabel}</th>}<th className="px-1 py-3 sm:px-3 text-right font-medium">Share</th></tr></thead><tbody>{suppliers.map(row => <tr key={row.id} className="border-b border-border/40 hover:bg-muted/20"><td className="p-3 whitespace-normal break-words max-w-[360px]">{row.name}</td><td title={money(row.value)} className="px-1 py-3 sm:px-3 text-right td-num truncate">{money(row.value)}</td>{previous && <td className="px-1 py-3 sm:px-3 text-right td-num truncate">{delta(row.change)}</td>}<td className="px-1 py-3 sm:px-3 text-right td-num truncate">{pct(row.share)}</td></tr>)}</tbody></table></div></DialogContent></Dialog>
     <Dialog open={itemsOpen} onOpenChange={setItemsOpen}><DialogContent className="max-w-[1100px] overflow-hidden"><DialogHeader className="text-left pr-8"><DialogTitle>Items</DialogTitle><DialogDescription>{periodLabel} · {purchasing.mode === "central" ? "Whole group" : scope.label}</DialogDescription></DialogHeader><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search items" placeholder="Search items" className="pl-9" value={search} onChange={event=>setSearch(event.target.value)} /></div><div className="max-h-[60svh] overflow-auto"><ItemsTable rows={visibleItems} previous={previousLabel} full sort={sort} onSort={toggleSort} /></div></DialogContent></Dialog>
     {singleMonth && <PurchasingBudgetsDialog open={budgetsOpen} onOpenChange={setBudgetsOpen} defaultMonth={period} scopeLabel={purchasing.mode === "central" ? "Whole group · bought centrally" : scope.label} venueId={budgetVenueId} isAdmin={isAdmin} categories={budgetCategories} spendFor={spendForMonth} revenueFor={revenueForMonth} venueIds={scopeVenueIds} initialSuggestions={budgetSuggestions} />}
