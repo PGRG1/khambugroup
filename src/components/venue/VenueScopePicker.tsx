@@ -36,7 +36,8 @@ function Choices({ big = false }: { big?: boolean }) {
   );
 }
 
-/** Top-bar pill: always white; ✕ resets to all venues. With one venue it just names it (nothing to pick). */
+/** Top-bar pill: always white; on desktop ✕ resets to all venues (on a phone "All venues" is the first choice in the list,
+ * so the ✕ is left out and the venue name gets the room). With one venue it just names it (nothing to pick). */
 export function VenueScopePicker() {
   const s = useVenueScope();
   const isMobile = useIsMobile();
@@ -48,7 +49,7 @@ export function VenueScopePicker() {
     </div>
   );
   const inactive = s.mode === "none";
-  const showClear = !s.isAll;
+  const showClear = !s.isAll && !isMobile;
 
   const trigger = (
     <button
