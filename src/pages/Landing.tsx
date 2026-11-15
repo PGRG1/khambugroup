@@ -460,13 +460,13 @@ export default function Landing() {
       </div>
       <WorkLogDialog open={logOpen} onOpenChange={setLogOpen} rows={workQ.data ?? []} tenantId={tenantId} />
       {/* The chat bar sits in the page at every width, under the greeting. */}
-      <div className="l2-askslot l2-enter">
+      {!slot.unavailable && <div className="l2-askslot l2-enter">
         {/* Same size as the real chat bar, which Bani portals into the inner slot; the placeholder steps aside, nothing moves. */}
         <div ref={slot.register} id="bani-home-slot" />
         {!slot.shown && <div className="l2-askph"><HomeComposerPlaceholder onTap={slot.requestFocus} /></div>}
-      </div>
+      </div>}
       {/* Suggestions depend on the month's figures; when they change, the row fades rather than jumps. */}
-      <div className="l2-pills l2-enter"><div key={showSnap ? pills.join("|") : "pre"} className={`l2-pillset ${showSnap && !together.current ? "l2-fade" : ""}`}>{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div></div>
+      {!slot.unavailable && <div className="l2-pills l2-enter"><div key={showSnap ? pills.join("|") : "pre"} className={`l2-pillset ${showSnap && !together.current ? "l2-fade" : ""}`}>{pills.map((p) => <button key={p} onClick={() => ask(p)}>{p}</button>)}</div></div>}
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
       {!showSnap ? <SnapSkeleton /> :

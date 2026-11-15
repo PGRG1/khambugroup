@@ -135,6 +135,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const rechecking = authLoading || roleLoading || tenantLoading || permissionsLoading;
   const allowed = allowedNow || (rechecking && shownFor.current === identity && !isPreviewActive && pathname !== "/assistant" && !pathname.startsWith("/platform") && pathname !== "/auth");
   const liveIdentity = useRef(identity); liveIdentity.current = identity;
+  // Tell Home once it is settled that Bani won't appear for this person (only the page-wide instance reports).
+  const decidedOff = !!user && !!tenantId && !rechecking && !allowedNow;
+  const setUnavailable = store?.unavailable[1];
+  useEffect(() => { if (!hosted) setUnavailable?.(decidedOff); }, [hosted, decidedOff, setUnavailable]);
+  useEffect(() => () => { if (!hosted) setUnavailable?.(false); }, [hosted, setUnavailable]);
   const binding = review?.binding;
   const filesRef = useRef(files); filesRef.current = files;
   const lastFilesRef = useRef(lastFiles); lastFilesRef.current = lastFiles;
