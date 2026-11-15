@@ -21,7 +21,9 @@ import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { DailyRecords, itemKey, type DayItem } from "@/components/sales/DailyRecords";
 import { SalesDayDialog } from "@/components/sales/SalesDayDialog";
 import { useVenueClosures } from "@/hooks/useVenueClosures";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSalesLines } from "@/hooks/useSalesLines";
+import { LinesDayForm } from "@/components/sales/LinesDayForm";
 import { weekdayOf } from "@/utils/venueClosures";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useSalesNotes } from "@/hooks/useSalesNotes";
@@ -124,7 +126,13 @@ const DataPage = () => {
   const today = tenantToday(tenantZone?.id === tenantId ? tenantZone.zone : "Asia/Hong_Kong");
   const fromIso = from ? isoDay(from) : (scopedData.map((r) => r.date).sort()[0] ?? today);
   const toIso = to ? isoDay(to) : today;
-  const periodRecords = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
+  const periodRecordsRaw = useMemo(() => scopedData.filter((r) => r.date >= fromIso && r.date <= toIso), [scopedData, fromIso, toIso]);
+  // Clients read line by line: each day carries its own report lines (KHAMBU: unchanged).
+  const qc = useQueryClient();
+  const sl = useSalesLines(useMemo(() => periodRecordsRaw.map((r) => r.id).filter((id): id is string => !!id), [periodRecordsRaw]));
+  const periodRecords = useMemo(() => (sl.lineMode ? periodRecordsRaw.map((r) => ({ ...r, lines: (r.id && sl.byRecord.get(r.id)) || [] })) : periodRecordsRaw), [periodRecordsRaw, sl.lineMode, sl.byRecord]);
+  const lineColumns = useMemo(() => (sl.lineMode ? [...new Map(sl.setup.filter((x) => x.kind !== "ignore").map((x) => [x.printed_name.toLowerCase(), x.printed_name])).values()] : undefined), [sl.lineMode, sl.setup]);
+  const linesSaved = async () => { await refetch(); await qc.invalidateQueries({ queryKey: ["sales-record-lines"] }); };
   const scopedPeriods = useMemo(
     () => allPeriods.filter((p: any) => p.isActive && !p.isRollupOnly && vs.includesId(p.venueId)).map((p: any) => ({ id: p.id, name: p.name })),
     [allPeriods, vs.includesId],
@@ -138,7 +146,7 @@ const DataPage = () => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || loading || !vs.ready) return;
     const venue = vs.selectedVenues.find(v => v.id === venueId);
     const record = scopedData.find(r => r.date === date && (!venueId || r.venue === venue?.name));
-    if (record) setOpenItem({ kind: 'record', r: record, reason: null, notes: [], closed: null });
+    if (record) setOpenItem({ kind: 'record', r: sl.lineMode ? { ...record, lines: (record.id && sl.byRecord.get(record.id)) || [] } : record, reason: null, notes: [], closed: null });
     else if (venue) setOpenItem({ kind: 'missing', date, venue: venue.name, venueId: venue.id });
     const next = new URLSearchParams(params); next.delete('date'); next.delete('venue');
     setParams(next, { replace: true });
@@ -165,7 +173,8 @@ const DataPage = () => {
 
   const closePanels = () => { setShowUpload(false); setShowManual(false); setShowScanner(false); setScanFile(null); };
 
-  const canUpload = !hideUpload, canScan = !hideScanReceipt, canType = !hideManualEntry, canOther = true;
+  // File uploads use KHAMBU's fixed columns, so clients read line by line scan or type in instead.
+  const canUpload = !hideUpload && !sl.lineMode, canScan = !hideScanReceipt, canType = !hideManualEntry, canOther = true;
   const actions = isAdmin && (canUpload || canScan || canType || canOther) ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -208,8 +217,8 @@ const DataPage = () => {
 
   // Wait for closed days too: they decide which days show as missing, so the list enters complete.
   const firstReady = useRef(false);
-  if (!loading && datePeriod.settled && !closures.loading) firstReady.current = true;
-  const holding = loading || !datePeriod.settled || (!firstReady.current && closures.loading);
+  if (!loading && datePeriod.settled && !closures.loading && !sl.loading) firstReady.current = true;
+  const holding = loading || !datePeriod.settled || (!firstReady.current && (closures.loading || sl.loading));
   const slowLoad = useSlowLoad(holding);
   return (
     <div className="w-full mx-auto space-y-6">
@@ -254,7 +263,13 @@ const DataPage = () => {
               onClose={() => { setShowScanner(false); setScanFile(null); }}
             />
           )}
-          {isAdmin && !hideManualEntry && showManual && (
+          {isAdmin && !hideManualEntry && showManual && sl.lineMode && (
+            <LinesDayForm key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} venues={vs.selectedVenues.map((v) => ({ id: v.id, name: v.name }))} setupFor={sl.forVenue}
+              initial={prefill ? { date: prefill.date, venueId: venueIdByName.get(prefill.venue) ?? null } : null}
+              onSaved={async () => { await linesSaved(); toast({ title: "Sales saved" }); setShowManual(false); setPrefill(null); }}
+              onClose={() => { setShowManual(false); setPrefill(null); }} />
+          )}
+          {isAdmin && !hideManualEntry && showManual && !sl.lineMode && (
             <ManualInput key={prefill ? `${prefill.venue}-${prefill.date}` : "blank"} initial={prefill} history={openHistory}
               onAdd={async (record, file, note) => { const result = await addRecord(record, file); if (result.status === "saved") { await saveNote(record, note).catch(() => { toast({ title: "Sales saved, but note could not be saved", variant: "destructive" }); }); setPrefill(null); if (result.journal === "failed") toast({ title: "Sales recorded, but journal rebuild failed", description: "Do not submit this day again.", variant: "destructive" }); } else toast({ title: "Sales not saved", description: result.status === "failed" ? result.error : "Receipt needs review", variant: "destructive" }); return result; }}
               onClose={() => { setShowManual(false); setPrefill(null); }} />
@@ -262,7 +277,8 @@ const DataPage = () => {
 
           <RevenueEnter id="sales"><div ref={dailyRef} className="scroll-mt-16">
             <DailyRecords
-              key={`${tenantId}:${user?.id}`}
+              key={`${tenantId}:${user?.id}:${sl.lineMode}`}
+              lineColumns={lineColumns}
               records={periodRecords}
               history={scopedData}
               userId={user?.id}
@@ -325,6 +341,8 @@ const DataPage = () => {
               return ok;
             }}
             closerName={(id) => closersQ.data?.get(id)}
+            lineMode={sl.lineMode && openRecord ? { setupFor: sl.forVenue, venueId: venueIdByName.get(openRecord.venue) ?? null,
+              onSaved: async () => { await linesSaved(); toast({ title: "Record updated" }); setOpenItem(null); } } : undefined}
           />
           {viewingReceipt?.receiptFileUrl && (
             <AttachmentViewerDialog open onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}

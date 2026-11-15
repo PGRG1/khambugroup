@@ -1,4 +1,3 @@
-import { setupProblems, type SetupKind } from "../../supabase/functions/_shared/setupReceipt";
 import {baseSymbol} from '@/utils/money';
 // Pure rules for the Sales records page: "doesn't add up", missing days, unusual days, week groups.
 import type { SalesRecord } from "@/types/sales";
@@ -18,7 +17,24 @@ export interface AddUpCheck {
   partsWrong: boolean;
 }
 
+/** Clients read line by line: payments are their own payment lines, checked against the day's total. */
+export function lineTotals(lines: NonNullable<SalesRecord["lines"]>, totalSales: number) {
+  const amt = (k: string[]) => lines.filter((l) => k.includes(l.kind ?? "")).reduce((n, l) => n + (Number(l.amount) || 0), 0);
+  const paid = amt(["payment", "delivery", "voucher_used", "deposit_used"]);
+  const tips = Math.abs(amt(["tip"]));
+  // Card tips may be included in, or left out of, the payment lines.
+  const gap = [paid - totalSales, paid - tips - totalSales, paid + tips - totalSales].reduce((best, g) => (Math.abs(g) < Math.abs(best) ? g : best));
+  return { paid, tips, gap };
+}
+
 export function checkRecord(r: SalesRecord): AddUpCheck {
+  if (r.lines?.length) {
+    const { gap } = lineTotals(r.lines, r.totalSales);
+    const partsTotal = r.subtotal + r.serviceCharge + r.discount;
+    const paymentsWrong = Math.abs(gap) > ADD_UP_TOLERANCE;
+    const partsWrong = Math.abs(partsTotal - r.totalSales) > ADD_UP_TOLERANCE;
+    return { ok: !paymentsWrong && !partsWrong, paymentGap: gap, partsTotal, paymentsWrong, partsWrong };
+  }
   const payments = getPaymentTotal(r);
   const paymentGap = payments - r.totalSales;
   const partsTotal = r.subtotal + r.serviceCharge + r.discount;
@@ -116,12 +132,7 @@ export function unusualDay(record: Pick<SalesRecord, "date" | "venue" | "totalSa
 /** Plain sentence for the add-sales prompt, or null when nothing looks off. */
 export function notePrompt(record: SalesRecord, history: SalesRecord[]): string | null {
   if (!record.date || !record.totalSales) return null;
-  // Clients read line by line: their lines decide whether the day adds up.
-  const off = record.lines
-    ? setupProblems(record.lines.map((l) => ({ printed: l.printed, amount: l.amount, kind: (l.kind ?? null) as SetupKind | null, known: !!l.known })))
-        .some((p) => p.startsWith("Payments") || p.startsWith("Total sales"))
-    : !checkRecord(record).ok;
-  if (off) return "This day doesn't add up. What happened?";
+  if (!checkRecord(record).ok) return "This day doesn't add up. What happened?";
   const u = unusualDay(record, history);
   if (!u) return null;
   return `Sales are ${Math.abs(u.pct)}% ${u.pct < 0 ? "below" : "above"} a usual ${u.weekday}. What happened?`;

@@ -89,6 +89,7 @@
 .sales-col-discount, .sales-col-reportNumber, .sales-col-cash { width: 120px; }
 .sales-col-servicePeriod, .sales-col-ewallets { width: 150px; }
 .sales-col-delivery { width: 190px; }
+.sales-col-line { width: 130px; }
 .sales-table td, .sales-table th { padding: 0 12px; height: 44px; border-bottom: 1px solid var(--kit-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sales-table thead th { color: var(--kit-muted); font-weight: 500; font-size: 12px; }
 .sales-cell-left { text-align: left; }

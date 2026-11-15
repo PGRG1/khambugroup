@@ -13,17 +13,24 @@ export const EXTRA_COLUMNS = [
   { key: "cash", label: "Cash", width: 120 },
   { key: "delivery", label: "Delivery platforms total", width: 190 },
 ] as const;
-export type ExtraColumn = (typeof EXTRA_COLUMNS)[number]["key"];
+/** Optional columns: KHAMBU's fixed ones, or for clients read line by line their own lines ("line:<printed>"). */
+export type ExtraColumn = string;
 /** Columns that can be reordered: the fixed trio plus any optional ones. */
-export type OrderColumn = "venue" | "guests" | "sales" | ExtraColumn;
+export type OrderColumn = string;
+export type ColumnDef = { key: string; label: string };
+/** Clients read line by line: the basics plus one column per line on their report. */
+export const lineModeColumns = (printed: string[]): ColumnDef[] => [
+  ...EXTRA_COLUMNS.filter((c) => ["orders", "reportNumber", "servicePeriod"].includes(c.key)),
+  ...printed.map((p) => ({ key: `line:${p}`, label: p })),
+];
 export const BASE_COLUMNS: { key: OrderColumn; label: string }[] = [
   { key: "venue", label: "Venue" }, { key: "guests", label: "Guests" }, { key: "sales", label: "Sales" },
 ];
-export const columnLabel = (k: OrderColumn) => BASE_COLUMNS.find((c) => c.key === k)?.label ?? EXTRA_COLUMNS.find((c) => c.key === k)?.label ?? k;
+export const columnLabel = (k: OrderColumn) => BASE_COLUMNS.find((c) => c.key === k)?.label ?? EXTRA_COLUMNS.find((c) => c.key === k)?.label ?? (k.startsWith("line:") ? k.slice(5) : k);
 
 /** `order` lists the "on" columns in table order; Venue is shown but can't be hidden or moved when only one venue is chosen. */
-export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
-  order: OrderColumn[]; onToggle: (key: ExtraColumn) => void; onReorder: (next: OrderColumn[]) => void; venueLocked?: boolean;
+export function ColumnsMenu({ order, onToggle, onReorder, venueLocked, extras = EXTRA_COLUMNS }: {
+  order: OrderColumn[]; onToggle: (key: ExtraColumn) => void; onReorder: (next: OrderColumn[]) => void; venueLocked?: boolean; extras?: readonly ColumnDef[];
 }) {
   const shown = order.filter((k) => !(venueLocked && k === "venue"));
   const shift = (k: OrderColumn, dir: -1 | 1) => {
@@ -33,7 +40,7 @@ export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
     [nextShown[i], nextShown[j]] = [nextShown[j], nextShown[i]];
     onReorder(venueLocked && order.includes("venue") ? ["venue", ...nextShown] : nextShown);
   };
-  const off = EXTRA_COLUMNS.filter((c) => !order.includes(c.key));
+  const off = extras.filter((c) => !order.includes(c.key));
   return <Popover>
     <PopoverTrigger asChild>
       <button type="button" className="kit kit-btn kit-tool-btn" aria-label="Columns">
@@ -42,7 +49,7 @@ export function ColumnsMenu({ order, onToggle, onReorder, venueLocked }: {
     </PopoverTrigger>
     <PopoverContent align="start" className="kit kit-pop kit-menu-panel w-64 max-h-[70vh] overflow-y-auto" role="menu" aria-label="Visible columns">
           {shown.map((k, i) => {
-            const extra = EXTRA_COLUMNS.find((c) => c.key === k);
+            const extra = extras.find((c) => c.key === k);
             const label = columnLabel(k);
             return (
               <div key={k} className={`kit-sort-row${extra ? " cursor-pointer" : ""}`} role="menuitemcheckbox" aria-checked="true"

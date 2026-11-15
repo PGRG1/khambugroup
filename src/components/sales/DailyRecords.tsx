@@ -11,7 +11,7 @@ import type { ClosedInfo } from "@/utils/venueClosures";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ColumnsMenu, EXTRA_COLUMNS, columnLabel, type ExtraColumn, type OrderColumn } from "./ColumnsMenu";
+import { ColumnsMenu, EXTRA_COLUMNS, columnLabel, lineModeColumns, type ExtraColumn, type OrderColumn } from "./ColumnsMenu";
 import { toast } from "sonner";
 
 type SortKey = "date" | "sales" | "guests" | "venue" | "attention" | ExtraColumn;
@@ -67,19 +67,22 @@ export interface DailyRecordsProps {
   onOpen: (item: DayItem) => void;
   onAddDay?: (date: string, venue: string) => void;
   onQuickClose?: (venueId: string, date: string) => Promise<boolean>;
+  /** Clients read line by line: every line on their reports, in setup order (records carry `lines`). */
+  lineColumns?: string[];
 }
 
-export function DailyRecords({ records, history, userId, venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, closedLookup, openKey, onOpen, onAddDay, onQuickClose }: DailyRecordsProps) {
+export function DailyRecords({ records, history, userId, venues, from, to, today, periodLabel, tenantName, notesByRecord, servicePeriods, closedLookup, openKey, onOpen, onAddDay, onQuickClose, lineColumns }: DailyRecordsProps) {
+  const extras = useMemo(() => (lineColumns ? lineModeColumns(lineColumns) : [...EXTRA_COLUMNS]), [lineColumns]);
   const [closing, setClosing] = useState<string | null>(null);
   const [f, setF] = useState<Filters>(EMPTY);
   const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
-  const storageKey = userId ? `sales-record-columns:${userId}` : null;
+  const storageKey = userId ? `sales-record-columns:${userId}${lineColumns ? ":lines" : ""}` : null;
   const [order, setOrder] = useState<OrderColumn[]>(() => {
     const base: OrderColumn[] = ["venue", "guests", "sales"];
     try {
       const saved: unknown = storageKey ? JSON.parse(localStorage.getItem(storageKey) ?? "null") : null;
-      const valid = new Set<string>([...base, ...EXTRA_COLUMNS.map((c) => c.key)]);
-      if (Array.isArray(saved)) return [...base, ...EXTRA_COLUMNS.filter((c) => saved.includes(c.key)).map((c) => c.key)];
+      const valid = new Set<string>([...base, ...extras.map((c) => c.key)]);
+      if (Array.isArray(saved)) return [...base, ...extras.filter((c) => saved.includes(c.key)).map((c) => c.key)];
       if (saved && typeof saved === "object" && Array.isArray((saved as { order?: unknown }).order)) {
         const list = [...new Set(((saved as { order: unknown[] }).order).filter((k): k is OrderColumn => typeof k === "string" && valid.has(k)))];
         for (const b of base) if (!list.includes(b)) list.push(b);
@@ -120,12 +123,15 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
 
   const venueIdOf = (name: string) => venues.find((v) => v.name === name)?.id;
   const extraValue = (r: SalesRecord, key: ExtraColumn): number | string => {
+    if (key.startsWith("line:")) { const name = key.slice(5).toLowerCase(); return (r.lines ?? []).filter((l) => l.printed.toLowerCase() === name).reduce((n, l) => n + (Number(l.amount) || 0), 0); }
     if (key === "servicePeriod") return periodName(r.servicePeriodId) ?? "";
     if (key === "cards") return r.visa + r.mastercard + r.amex + r.unionPay + r.jcb;
     if (key === "ewallets") return r.alipay + r.wechat + r.payme;
     if (key === "delivery") return (r.deliveroo ?? 0) + (r.foodpanda ?? 0) + (r.keeta ?? 0);
-    return r[key];
+    return (r as unknown as Record<string, number | string>)[key] ?? 0;
   };
+  // Count lines (guests, orders) show as whole numbers, not money.
+  const countLine = (key: string) => key === "orders" || (key.startsWith("line:") && records.some((r) => r.lines?.some((l) => l.printed.toLowerCase() === key.slice(5).toLowerCase() && (l.kind === "guests" || l.kind === "orders"))));
 
   const allRows = useMemo<DayItem[]>(() => [
     ...records.map((r): DayItem => {
@@ -184,7 +190,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   const sortKey = `${sort.key}-${sort.dir}`;
   if (sortKey === "guests-asc") sortOptions.push({ key: "guests-asc", label: "Fewest guests" });
   if (sort.key === "venue") sortOptions.push({ key: sortKey, label: sort.dir === "asc" ? "Venue A–Z" : "Venue Z–A" });
-  const sortedExtra = EXTRA_COLUMNS.find((c) => c.key === sort.key);
+  const sortedExtra = extras.find((c) => c.key === sort.key);
   if (sortedExtra) sortOptions.push({ key: sortKey, label: `${sortedExtra.label}: ${sort.dir === "asc" ? "ascending" : "descending"}` });
   const setSortKey = (k: string) => { const [key, dir] = k.split("-") as [SortKey, "asc" | "desc"]; setSort({ key, dir }); };
   const headerSort = (key: SortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "venue" ? "asc" : "desc" }));
@@ -201,8 +207,13 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
   // ---- Download (same columns for Excel and CSV) ----
   const download = async (format: DownloadFormat) => {
     const recs = visible.filter((x): x is Extract<DayItem, { kind: "record" }> => x.kind === "record").map((x) => x.r);
-    const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","JCB","Alipay","WeChat","PayMe","Cash","Card Tips"];
-    const data = recs.map((s) => [s.date,s.day,s.venue,s.reportNumber,s.orders,s.guests,s.subtotal,s.serviceCharge,-Math.abs(s.discount),s.totalSales,s.visa,s.mastercard,s.amex,s.unionPay,s.jcb,s.alipay,s.wechat,s.payme,s.cash,s.cardTips] as (string | number)[]);
+    // Clients read line by line download their own lines, as printed on their reports.
+    const headers = lineColumns
+      ? ["Date", "Day", "Venue", "Report #", ...lineColumns, "Total Sales"]
+      : ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","JCB","Alipay","WeChat","PayMe","Cash","Card Tips"];
+    const data = lineColumns
+      ? recs.map((s) => [s.date, s.day, s.venue, s.reportNumber, ...lineColumns.map((c) => extraValue(s, `line:${c}`)), s.totalSales] as (string | number)[])
+      : recs.map((s) => [s.date,s.day,s.venue,s.reportNumber,s.orders,s.guests,s.subtotal,s.serviceCharge,-Math.abs(s.discount),s.totalSales,s.visa,s.mastercard,s.amex,s.unionPay,s.jcb,s.alipay,s.wechat,s.payme,s.cash,s.cardTips] as (string | number)[]);
     const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sales";
     const name = `${slug(tenantName)}-sales-${slug(periodLabel)}`;
     if (format === "excel") {
@@ -277,7 +288,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
           </FilterPanel>
         }
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={setSortKey} />}
-        columns={<ColumnsMenu order={order} onToggle={toggleColumn} onReorder={persist} venueLocked={singleVenue} />}
+        columns={<ColumnsMenu order={order} onToggle={toggleColumn} onReorder={persist} venueLocked={singleVenue} extras={extras} />}
         downloadControl={<DownloadMenu formats={["excel", "csv"]} onDownload={download} label="Download sales records" />}
         chips={chips}
         onClear={() => setF(EMPTY)}
@@ -297,7 +308,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
           <colgroup>
             <col className="sales-col-flag" />
             <col className="sales-col-date" />
-            {shownCols.map((k) => <col key={k} className={`sales-col-${k}`} />)}
+            {shownCols.map((k) => <col key={k} className={k.startsWith("line:") ? "sales-col-line" : `sales-col-${k}`} />)}
           </colgroup>
           <thead><tr>
             <th scope="col" className="sales-flag-cell"><span className="sr-only">Needs attention</span></th>
@@ -351,7 +362,7 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
                   if (k === "guests") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>{formatTableInteger(x.r.guests)}</td>;
                   if (k === "sales") return <td key={k} style={colMove(k)} className={`kit-num${dc(k)}`}>{hkd0(x.r.totalSales)}</td>;
                   const value = extraValue(x.r, k);
-                  return <td key={k} style={colMove(k)} className={`${leftAligned(k) ? "sales-cell-left" : "kit-num"}${dc(k)}`} title={String(value)}>{typeof value === "string" ? value || "—" : k === "orders" ? formatTableInteger(value) : hkd0(value)}</td>;
+                  return <td key={k} style={colMove(k)} className={`${leftAligned(k) ? "sales-cell-left" : "kit-num"}${dc(k)}`} title={String(value)}>{typeof value === "string" ? value || "—" : countLine(k) ? formatTableInteger(value) : hkd0(value)}</td>;
                 })}
               </tr>
             );

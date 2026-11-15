@@ -12,6 +12,10 @@ import { ExistingDeferredSales } from './ExistingDeferredSales';
 import type { DayItem } from "./DailyRecords";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import "@/components/kit/kit.css";
+import { LinesDayForm } from "./LinesDayForm";
+import type { SetupRow } from "@/hooks/useSalesLines";
+import { groupOf } from "@/utils/salesReportSetup";
+import { lineTotals } from "@/utils/salesRecordChecks";
 
 const money = formatTableCurrency;
 const money0 = formatTableCurrency;
@@ -48,6 +52,8 @@ export interface SalesDayDialogProps {
   onMarkClosed: (venueId: string, date: string, reason: string | null, note: string | null, everyWeekday: boolean) => Promise<boolean>;
   onUnmark: (venueId: string, date: string) => Promise<boolean>;
   closerName?: (userId: string) => string | undefined;
+  /** Clients read line by line: the day shows, and is fixed as, its own report lines. */
+  lineMode?: { setupFor: (venueId: string | null) => SetupRow[]; venueId: string | null; onSaved: (recordId: string) => Promise<void> };
 }
 
 export function SalesDayDialog(p: SalesDayDialogProps) {
@@ -59,8 +65,9 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
   const [marking, setMarking] = useState(false);
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fixingLines, setFixingLines] = useState(false);
   const itemId = x ? (x.kind === "record" ? x.r.id ?? x.r.date : `${x.kind}-${x.date}`) : null;
-  useEffect(() => { setReason(null); setNote(""); setWeekly(false); setMarking(false); setDraft(null); }, [itemId]);
+  useEffect(() => { setReason(null); setNote(""); setWeekly(false); setMarking(false); setDraft(null); setFixingLines(false); }, [itemId]);
 
   const run = async (fn: () => Promise<boolean>) => { setBusy(true); const ok = await fn(); setBusy(false); if (ok) p.onClose(); };
 
@@ -116,7 +123,22 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
                     : <span className="shrink-0">Change it in Settings</span>}
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5">
+              {p.lineMode && r.lines && (fixingLines
+                ? <LinesDayForm compact venues={[]} setupFor={p.lineMode.setupFor} recordId={r.id}
+                    initial={{ date: r.date, venueId: p.lineMode.venueId, report: r.reportNumber, lines: r.lines }}
+                    onSaved={async (id) => { await p.lineMode!.onSaved(id); setFixingLines(false); }} onClose={() => setFixingLines(false)} />
+                : <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5">
+                  {(["Sales", "Basics", "Payments", "Other"] as const).map((g) => {
+                    const rows = r.lines!.filter((l) => l.kind && l.kind !== "ignore" && groupOf(l.kind as never) === g);
+                    if (!rows.length) return null;
+                    const isPay = g === "Payments";
+                    return <section key={g}><h3 className="kit-group-h pb-1">{g === "Basics" ? "Details" : isPay ? "Paid by" : g}</h3>
+                      {rows.map((l) => <Line key={l.printed} label={l.printed} value={l.kind === "guests" || l.kind === "orders" ? formatTableInteger(Number(l.amount)) : money(Number(l.amount))} />)}
+                      {isPay && <Line label="Payments total" value={money(lineTotals(r.lines!, r.totalSales).paid)} total />}
+                    </section>;
+                  })}
+                </div>)}
+              {!(p.lineMode && r.lines) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5">
                 <section><h3 className="kit-group-h pb-1">Sales</h3>
                   {SALES_FIELDS.map(([k, label]) => <Line key={k} label={label} value={money(Number(view[k]))} edit={field(k)} />)}
                   <Line label="Total" value={money(view.totalSales)} total edit={field("totalSales")} />
@@ -127,11 +149,11 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
                   <Line label="Payments total" value={money(getPaymentTotal(view))} total />
                   {payOff && <p className="text-[12px] pt-1" style={{ color: "#C53030" }}>Payments are {money(getPaymentTotal(next!) - next!.totalSales)} off the total.</p>}
                 </section>
-              </div>
-              <ExistingDeferredSales record={r} canWrite={p.canFix} />
+              </div>}
+              {!(p.lineMode && r.lines) && <ExistingDeferredSales record={r} canWrite={p.canFix} />}
               {invalid && <p className="text-[13px]" style={{ color: "#C53030" }}>Use numbers only.</p>}
               {r.receiptFileUrl&&<ExpenseDocumentPreview path={r.receiptFileUrl} bucket="sales-receipts" label="Receipt photo"/>}
-              {!editing && <section className="space-y-2"><h3 className="kit-group-h">Notes</h3>
+              {!editing && !fixingLines && <section className="space-y-2"><h3 className="kit-group-h">Notes</h3>
                 {x.notes.length > 0 && <ol className="space-y-2.5">
                   {x.notes.map((n) => (
                     <li key={n.id} className="text-[13px] space-y-0.5">
@@ -146,15 +168,15 @@ export function SalesDayDialog(p: SalesDayDialogProps) {
                 </ol>}
                 <NoteComposer onSend={p.onAddNote} />
               </section>}
-              <div className="kit-divider pt-4 flex flex-wrap items-center justify-end gap-2">
+              {!fixingLines && <div className="kit-divider pt-4 flex flex-wrap items-center justify-end gap-2">
                 {editing ? <>
                   <button type="button" className="kit-btn kit-btn-secondary" disabled={saving} onClick={() => setDraft(null)}>Cancel</button>
                   <button type="button" className="kit-btn kit-btn-primary" disabled={saving || invalid} onClick={save}>{saving ? "Saving…" : "Save"}</button>
                 </> : <>
                   {r.receiptFileUrl && <button type="button" className="kit-btn kit-btn-secondary" onClick={p.onViewReceipt}>View receipt</button>}
-                  {p.canFix && r.id && <button type="button" className="kit-btn kit-btn-primary" onClick={startEdit}>Fix this day</button>}
+                  {p.canFix && r.id && <button type="button" className="kit-btn kit-btn-primary" onClick={() => (p.lineMode && r.lines ? setFixingLines(true) : startEdit())}>Fix this day</button>}
                 </>}
-              </div>
+              </div>}
             </>;
           })()}
 

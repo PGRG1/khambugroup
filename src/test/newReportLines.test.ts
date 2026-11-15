@@ -41,3 +41,37 @@ describe("new report lines", () => {
     expect(mappingOf("drop_table")).toBeNull();
   });
 });
+
+import { checkRecord, attentionReason } from "@/utils/salesRecordChecks";
+import { linesCheck } from "@/components/sales/LinesDayForm";
+import type { SalesRecord } from "@/types/sales";
+
+describe("sales days read line by line", () => {
+  const base = { date: "2026-11-14", day: "Sat", venue: "Assembly", reportNumber: "", orders: 0, guests: 82, subtotal: 9500, serviceCharge: 950, discount: 0, totalSales: 10450,
+    visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0 } as SalesRecord;
+  const lines = [
+    { printed: "Food", amount: 7200, kind: "sales", known: true }, { printed: "Wine", amount: 2300, kind: "sales", known: true },
+    { printed: "Svc", amount: 950, kind: "service_charge", known: true }, { printed: "Octopus", amount: 3200, kind: "payment", known: true },
+    { printed: "Visa", amount: 6250, kind: "payment", known: true }, { printed: "Foodpanda", amount: 1000, kind: "delivery", known: true },
+  ];
+  it("checks payments from the client's own lines, not KHAMBU's columns", () => {
+    expect(checkRecord({ ...base, lines }).ok).toBe(true);
+    expect(attentionReason({ ...base, lines })).toBeNull();
+    expect(attentionReason({ ...base, lines: lines.filter((l) => l.printed !== "Foodpanda") })).toMatch(/1,000 short/);
+    // Without lines (KHAMBU) the fixed columns still decide.
+    expect(checkRecord(base).ok).toBe(false);
+  });
+  it("totals a typed-in day and refuses gift card days", () => {
+    const setup = [
+      { id: "1", venue_id: null, printed_name: "Food", kind: "sales", category: "food", legacy_field: null, sort_order: 1 },
+      { id: "2", venue_id: null, printed_name: "Cash", kind: "payment", category: null, legacy_field: null, sort_order: 2 },
+      { id: "3", venue_id: null, printed_name: "Gift card", kind: "voucher_used", category: null, legacy_field: null, sort_order: 3 },
+    ] as never[];
+    const ok = linesCheck(setup, { Food: "500", Cash: "500" });
+    expect(ok).toMatchObject({ total: 500, gap: 0, invalid: false, deferred: false });
+    expect(ok.lines).toHaveLength(2);
+    expect(linesCheck(setup, { Food: "500", Cash: "400" }).gap).toBe(-100);
+    expect(linesCheck(setup, { Food: "abc" }).invalid).toBe(true);
+    expect(linesCheck(setup, { Food: "500", "Gift card": "500" }).deferred).toBe(true);
+  });
+});
