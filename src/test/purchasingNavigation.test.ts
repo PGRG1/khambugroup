@@ -71,9 +71,9 @@ describe("Purchasing navigation access", () => {
 });
 
 describe("Purchasing section destinations", () => {
-  it("lists the four Purchasing links in the approved order", () => {
+  it("lists the Purchasing links in the approved order (Trends after Overview, as in Revenue)", () => {
     expect(purchasingSectionPages.map(page => page.url)).toEqual([
-      "/procurement/dashboard", "/procurement/purchase-orders", "/procurement/invoices",
+      "/procurement/dashboard", "/procurement/trends", "/procurement/purchase-orders", "/procurement/invoices",
       "/procurement/finance/suppliers",
     ]);
   });

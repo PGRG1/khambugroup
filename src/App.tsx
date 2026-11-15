@@ -322,6 +322,7 @@ function App() {
                 
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
                 <Route path="/procurement/dashboard" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="dashboard" /></ProtectedRoute>} />
+                <Route path="/procurement/trends" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="trends" /></ProtectedRoute>} />
                 <Route path="/procurement/suppliers" element={<ProtectedRoute pageKey="invoices"><Navigate to="/settings?tab=master-data" replace /></ProtectedRoute>} />
                 <Route path="/procurement/products" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="product-master" /></ProtectedRoute>} />
                 <Route path="/procurement/categories" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="categories" /></ProtectedRoute>} />

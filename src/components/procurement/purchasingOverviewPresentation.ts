@@ -23,5 +23,5 @@ export function rankedBudgetCategories(spend: { name: string; value: number }[],
   return [...names].filter(name => name !== "Discount / Refund").map(name => ({
     name, value: spend.find(row => row.name === name)?.value ?? 0,
     budget: budgets.has(name) ? Number(budgets.get(name)) : null,
-  })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  })).sort((a, b) => Number(a.name.startsWith("Deposits")) - Number(b.name.startsWith("Deposits")) || b.value - a.value || a.name.localeCompare(b.name));
 }
