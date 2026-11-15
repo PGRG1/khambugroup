@@ -208,8 +208,8 @@ const DataPage = () => {
 
   // Wait for closed days too: they decide which days show as missing, so the list enters complete.
   const firstReady = useRef(false);
-  if (!loading && !closures.loading) firstReady.current = true;
-  const holding = loading || (!firstReady.current && closures.loading);
+  if (!loading && datePeriod.settled && !closures.loading) firstReady.current = true;
+  const holding = loading || !datePeriod.settled || (!firstReady.current && closures.loading);
   const slowLoad = useSlowLoad(holding);
   return (
     <div className="w-full mx-auto space-y-6">

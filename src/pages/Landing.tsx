@@ -11,7 +11,7 @@ import { TEAM_CHARACTERS } from "@/components/team/teamCharacters";
 import "@/components/team/team.css";
 import { useBaniAsk, useFloatingBaniOpen, useHomeComposerSlot } from "@/components/assistant/FloatingBaniContext";
 import { HomeComposerPlaceholder } from "@/components/assistant/HomeComposerPlaceholder";
-import { Num, useHomePlay } from "@/components/home/HomeMotion";
+import { Num, useHomePlay, useQuickPlay } from "@/components/home/HomeMotion";
 import { readCachedName, writeCachedName, firstName } from "@/utils/displayNameCache";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
 import { parallelPages } from "@/utils/parallelPages";
@@ -430,6 +430,9 @@ export default function Landing() {
   const showSnap = go && !loading, showWork = go && !workLoading;
   const playSnap = useHomePlay(tenantId ? `${tenantId}:snap` : null, showSnap);
   const playWork = useHomePlay(tenantId ? `${tenantId}:work` : null, showWork);
+  // Every other visit: a quick version of the same reveal (numbers shown as they are).
+  const quickSnap = useQuickPlay(showSnap, playSnap), quickWork = useQuickPlay(showWork, playWork);
+  const snapCls = playSnap ? "l2-play" : quickSnap ? "l2-play l2-quick" : "", workCls = playWork ? "l2-play" : quickWork ? "l2-play l2-quick" : "";
   // When everything arrives together, the cards follow straight on from the top of the page.
   const snapAt = together.current ? 260 : 0, workAt = together.current ? 460 : 0;
   const money = (n: number) => short(n);
@@ -467,7 +470,7 @@ export default function Landing() {
 
       <div className="l2-lab">{isCurrent ? `${monthName(month)} so far · day ${k.daysGone} of ${k.dim}` : monthName(month)}</div>
       {!showSnap ? <SnapSkeleton /> :
-      <div className={`l2-snap l2-reveal ${playSnap ? "l2-play" : ""}`} style={{ ["--d" as any]: `${snapAt}ms` }}>
+      <div className={`l2-snap l2-reveal ${snapCls}`} style={{ ["--d" as any]: `${snapAt}ms` }}>
         <section className="l2-col">
           <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
@@ -500,7 +503,7 @@ export default function Landing() {
       </div>}
 
       {!showWork ? <WorkSkeleton /> :
-      <div className={`l2-work l2-reveal ${playWork ? "l2-play" : ""}`} style={{ ["--d" as any]: `${workAt}ms` }}>
+      <div className={`l2-work l2-reveal ${workCls}`} style={{ ["--d" as any]: `${workAt}ms` }}>
         <section className="l2-wb">
           <div className="wh"><span className="wn"><Num value={total} format={(n) => String(Math.round(n))} play={playWork} delay={workAt + 250} duration={600} /></span><span className="wt">{total === 1 ? "thing needs you" : "things need you"}</span>
             {total > 0 && <button className="go" onClick={() => ask("Go through what needs me, one at a time")}>Go through with Bani</button>}</div>

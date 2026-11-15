@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Num } from "@/components/home/HomeMotion";
-import { useRevenuePlay } from "@/components/revenue/RevenueMotion";
+import { useRevenueCount } from "@/components/revenue/RevenueMotion";
 import { shortMoney, goalStatus, type MonthGoal } from "@/utils/revenueOverview";
 import { fmtNum } from "./utils";
 
@@ -41,7 +41,7 @@ function Stat({ label, value, prev }: { label: string; value: string; prev: stri
 }
 
 export function SoFarCard({ label, revenue, compare, target, guests, spendPerGuest, averageDay, targetLoading = false }: Props) {
-  const play = useRevenuePlay();
+  const play = useRevenueCount();
   const targetRef = useRef<HTMLDivElement>(null);
   const lastTargetH = useRef(0);
   useLayoutEffect(() => { if (!targetLoading && targetRef.current) lastTargetH.current = targetRef.current.offsetHeight; });
@@ -70,7 +70,7 @@ export function SoFarCard({ label, revenue, compare, target, guests, spendPerGue
           <div className="space-y-2">
             <div className="relative h-3 rounded-full bg-muted overflow-hidden" role="img"
               aria-label={`Actual ${shortMoney(g!.actual)}, projected ${shortMoney(g!.projected)} of ${shortMoney(g!.target!)} target`}>
-              <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${projPct}%` }} />
+              <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${projPct}%` , ["--fd" as string]: ".8s" }} />
               <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${actualPct}%` }} />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground td-num">

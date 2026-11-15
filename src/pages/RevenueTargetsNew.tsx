@@ -9,7 +9,7 @@ import { shortMoney } from "@/utils/revenueOverview";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ChevronDown } from "lucide-react";
-import { RevenueEnter, chartBuild } from "@/components/revenue/RevenueMotion";
+import { RevenueEnter, lineBuild } from "@/components/revenue/RevenueMotion";
 import { Num } from "@/components/home/HomeMotion";
 import { useMonthTarget } from "@/hooks/useMonthTarget";
 import { useAuth } from "@/hooks/useAuth";
@@ -85,7 +85,7 @@ export default function RevenueTargetsNew() {
     })();
     return () => { live = false; };
   }, [tenantId, scopeKey, dates, projTick, projWant]);
-  const loading = projLoading || targetLoading || !vs.ready;
+  const loading = projLoading || targetLoading || !vs.ready || !period.settled || plan.isLoading; // the saved month first, so only that month loads
 
 
   // ---- Each venue's day: guests x spend forecast, saved target, sold ----
@@ -202,7 +202,7 @@ export default function RevenueTargetsNew() {
       <RevenuePageTop title="Targets" period={<div className="flex items-center gap-3">{period.control}{loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}</div>} />
 
       <RevenueEnter id="targets" ready={ready} className="space-y-4">
-        {(play) => (<>
+        {(play, count) => (<>
       {/* Summary: one target figure, the projected month, and the gap */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
         <div className="flex items-baseline justify-between gap-2">
@@ -214,7 +214,7 @@ export default function RevenueTargetsNew() {
               className="h-9 w-36 rounded-md px-2 text-right text-xl font-display font-semibold tabular-nums outline-none" style={{ background: "#EEF0EE", border: "none" }} />
           ) : target != null ? (
             <button type="button" aria-label="Change target" onClick={() => setGoalEdit(String(target))}
-              className="rounded px-1 -mx-1 text-xl font-display font-semibold tabular-nums hover:bg-[#F3F4F2]"><Num value={target} format={shortMoney} play={play} /></button>
+              className="rounded px-1 -mx-1 text-xl font-display font-semibold tabular-nums hover:bg-[#F3F4F2]">{shortMoney(target!)}</button>
           ) : goalElsewhere ? (
             <span className="text-[12px] text-muted-foreground text-right">Set for {goalNames.join(" + ")}</span>
           ) : (
@@ -224,13 +224,13 @@ export default function RevenueTargetsNew() {
         {target != null && (
           <div className="mt-3 relative h-2 rounded-full bg-muted overflow-hidden" role="img"
             aria-label={`Actual ${shortMoney(tSold)}, projected ${shortMoney(tProjected)} of ${shortMoney(target)} target`}>
-            <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${Math.min(100, (tProjected / target) * 100)}%` }} />
+            <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${Math.min(100, (tProjected / target) * 100)}%` , ["--fd" as string]: ".8s" }} />
             <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${Math.min(100, (tSold / target) * 100)}%` }} />
           </div>
         )}
         <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12px] tabular-nums">
-          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold"><Num value={tSold} format={shortMoney} play={play} /></b>
-            <span className="text-muted-foreground"> · Projected</span> <b className="font-semibold"><Num value={tProjected} format={shortMoney} play={play} /></b></span>
+          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold"><Num value={tSold} format={shortMoney} play={count} /></b>
+            <span className="text-muted-foreground"> · Projected</span> <b className="font-semibold"><Num value={tProjected} format={shortMoney} play={count} /></b></span>
           {gap != null && (gap >= 0
             ? <span className="font-medium" style={{ color: "#15803D" }}>{tSold >= target! ? "Target reached" : `On track · ${shortMoney(gap)} over`}</span>
             : <span className="font-medium" style={{ color: "#B45309" }}>Short by {shortMoney(-gap)}</span>)}
@@ -260,8 +260,8 @@ export default function RevenueTargetsNew() {
               }} />
               {target != null && <ReferenceLine y={target} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 4" strokeWidth={1.5}
                 label={{ value: `Target ${shortMoney(target)}`, position: "insideTopLeft", fontSize: 11, fill: "hsl(var(--muted-foreground))", offset: 6 }} />}
-              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} {...chartBuild(play, 1)} />
-              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} {...chartBuild(play, 1)} />
+              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} {...lineBuild(play, 1, true)} />
+              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} {...lineBuild(play, 1)} />
             </LineChart>
           </ResponsiveContainer>
         </div>

@@ -110,8 +110,8 @@ const Index = () => {
   // and nothing changes size afterwards; later target reloads keep their space (SoFarCard).
   const firstReady = useRef(false);
   const targetsPending = singleMonth && access.forecast && (targets.loading || month.loading);
-  if (!loading && vs.ready && !targetsPending) firstReady.current = true;
-  const holding = loading || !vs.ready || (!firstReady.current && targetsPending);
+  if (!loading && vs.ready && datePeriod.settled && !targetsPending) firstReady.current = true;
+  const holding = loading || !vs.ready || !datePeriod.settled || (!firstReady.current && targetsPending);
   const slowLoad = useSlowLoad(holding);
   return (
     <div className="w-full mx-auto space-y-5">

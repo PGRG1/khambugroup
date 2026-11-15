@@ -6,7 +6,7 @@ import type { SalesRecord } from "@/types/sales";
 import { baseSymbol } from "@/utils/money";
 import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
-import { chartBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
+import { barBuild, lineBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 
 /**
  * Trends: the longer picture, no period filter. Each chart keeps its own natural window:
@@ -263,9 +263,9 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
                   }} />
                   {target != null && <ReferenceLine y={target} stroke={MUTED} strokeOpacity={0.6} strokeDasharray="4 4" ifOverflow="extendDomain"
                     label={{ value: `Target ${shortMoney(target)}`, position: "insideTopLeft", fill: MUTED, fontSize: 11 }} />}
-                  {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />)}
-                  {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />}
-                  <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} {...chartBuild(play, 0)} connectNulls={false}
+                  {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} {...lineBuild(play, 0)} connectNulls={false} />)}
+                  {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} {...lineBuild(play, 0, true)} connectNulls={false} />}
+                  <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} {...lineBuild(play, 0)} connectNulls={false}
                     dot={(p: { cx: number; cy: number; index: number; payload: { day: number } }) => p.payload.day === a.curDay ? <circle key="now" cx={p.cx} cy={p.cy} r={4.5} fill={PRIMARY} stroke="#fff" strokeWidth={2} /> : <g key={p.index} />} />
                 </LineChart>
               </ResponsiveContainer>
@@ -291,10 +291,10 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
                 if (p.rest) rows.push(["Projected", money(p.actual + p.rest)]);
                 return <Tip rows={rows} />;
               }} />
-              <Bar dataKey="actual" stackId="m" {...chartBuild(play, 1)}>
+              <Bar dataKey="actual" stackId="m" {...barBuild(play, 1)}>
                 {m.months.map((x) => <Cell key={x.key} fill={PRIMARY} fillOpacity={0.85} />)}
               </Bar>
-              <Bar dataKey="rest" stackId="m" {...chartBuild(play, 1)} fill="hsl(var(--primary))" fillOpacity={0.08} stroke={PRIMARY} strokeDasharray="3 3" strokeWidth={1.5} />
+              <Bar dataKey="rest" stackId="m" {...barBuild(play, 1, true)} fill="hsl(var(--primary))" fillOpacity={0.08} stroke={PRIMARY} strokeDasharray="3 3" strokeWidth={1.5} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -352,7 +352,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
                     <YAxis domain={[Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)]} tickCount={3} tickFormatter={(v) => String(Math.round(v as number))} width={40} {...AXIS} />
                     <Tooltip content={({ active, payload }: any) => active && payload?.length && payload[0].value != null
                       ? <Tip rows={[[new Date(`${payload[0].payload.key}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }), ""], [title, f(payload[0].value)]]} /> : null} />
-                    <Line dataKey={key} type="monotone" stroke={PRIMARY} strokeWidth={2} {...chartBuild(play, 3)} connectNulls={false}
+                    <Line dataKey={key} type="monotone" stroke={PRIMARY} strokeWidth={2} {...lineBuild(play, 3)} connectNulls={false}
                       dot={{ r: 2.5, fill: PRIMARY, strokeWidth: 0 }} />
                   </LineChart>
                 </ResponsiveContainer>

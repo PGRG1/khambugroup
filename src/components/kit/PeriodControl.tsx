@@ -61,19 +61,25 @@ export function useSharedPeriod(mode: PeriodMode, initial = mode === 'asat' ? 't
   const fiscalStart = options.financialYear ? books.fiscalStart : 1;
   const defaultValue = () => options.defaultMonth ? { ...monthSelection(options.defaultMonth, books.today, mode), to: options.allowFuture && options.defaultMonth > books.today.slice(0,7) ? monthEnd(options.defaultMonth) : monthSelection(options.defaultMonth, books.today, mode).to } : shortcutSelection(initial, books.today, fiscalStart);
   const [value, setValue] = useState<PeriodSelection>(defaultValue), [changed, setChanged] = useState(false);
-  useEffect(() => {
-    if (!books.data) return;
+  // The saved selection (or the default) is applied during render as soon as the books window is
+  // known, so the page never shows, or loads, the default month first and then switches.
+  const settleKey = books.data ? [storageKey, books.today, books.start, fiscalStart, options.defaultMonth, options.allowFuture].join('|') : null;
+  const [appliedKey, setAppliedKey] = useState<string | null>(null);
+  if (settleKey && appliedKey !== settleKey) {
     let saved: PeriodSelection | undefined;
     try { saved = validSessionSelection(JSON.parse(sessionStorage.getItem(storageKey) ?? 'null'), books.today, books.start, options.allowFuture ? monthEnd(options.allowFuture) : books.today); } catch { /* unavailable session storage */ }
     const next = saved ?? defaultValue();
     setValue({ ...next, from: next.from < books.start ? books.start.slice(0, 7) + '-01' : next.from });
     setChanged(!!saved);
-  }, [storageKey, books.today, books.start, fiscalStart, options.defaultMonth, options.allowFuture]);
+    setAppliedKey(settleKey);
+  }
+  const settled = !!settleKey && appliedKey === settleKey;
   const onChange = (next: PeriodSelection) => {
     setValue(next); setChanged(true);
     try { sessionStorage.setItem(storageKey, JSON.stringify({ day: books.today, value: next })); } catch { /* unavailable session storage */ }
   };
-  return { value, onChange, changed, booksStart: books.start, month: value.from.slice(0, 7), fromIso: value.from, toIso: value.to, label: selectionLabel(value, mode, books.today, fiscalStart), inPeriod: (date?: string | null) => !!date && date.slice(0, 10) >= value.from && date.slice(0, 10) <= value.to, control: <PeriodControl mode={mode} value={value} onChange={onChange} {...options}/> };
+  return { value, onChange, changed, settled, booksStart: books.start, month: value.from.slice(0, 7), fromIso: value.from, toIso: value.to, label: selectionLabel(value, mode, books.today, fiscalStart), inPeriod: (date?: string | null) => !!date && date.slice(0, 10) >= value.from && date.slice(0, 10) <= value.to, // Until settled the control keeps its space but stays blank, so its label never changes in front of you.
+    control: <div style={settled ? undefined : { visibility: 'hidden' }}><PeriodControl mode={mode} value={value} onChange={onChange} {...options}/></div> };
 }
 
 export function useFinancePeriod(mode: PeriodMode, initial = mode === 'asat' ? 'today' : 'mtd', options: { hints?: Record<string, string>; dataMonths?: string[]; extraShortcuts?: boolean; defaultMonth?: string } = {}) {
