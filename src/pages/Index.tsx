@@ -44,10 +44,8 @@ const Index = () => {
   const vs = useVenueScope();
   const venue = vs.selectedVenues.length === 1 ? vs.selectedVenues[0].name : "All Venues";
   const scopedData = useMemo(() => data.filter((r) => vs.includesName(r.venue)), [data, vs.includesName]);
-  // One month at a time (this month by default); the longer picture is on Trends.
-  const datePeriod = usePagePeriod(data.map(r => r.date), "mtd", "month");
-  const { from, to } = datePeriod;
-  const periodName = datePeriod.month === iso(new Date()).slice(0, 7) ? `${datePeriod.label.split(" ")[0]} so far` : datePeriod.label;
+  const datePeriod = usePagePeriod(data.map(r => r.date));
+  const { from, to, label: periodName } = datePeriod;
   const [showMTDText, setShowMTDText] = useState(false);
 
   const filtered = useMemo(() => filterData(scopedData, "All Venues", from, to), [scopedData, from, to]);

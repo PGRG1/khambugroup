@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAllRows, fetchAllRowsParallel } from "@/utils/fetchAllRows";
 import type { OverviewInvoice, OverviewLine, OverviewProduct, OverviewSale } from "@/utils/purchasingOverview";
 
-/** Invoices, lines, products, suppliers and sales for Purchasing Overview and Trends (one shared cache). */
+/** Invoices, lines, products, suppliers and sales for Purchasing Trends. */
 export function usePurchasingData(tenantId: string | null | undefined) {
   return useQuery({
-    queryKey: ["proc-dash", "overview-redesign", tenantId], enabled: !!tenantId, staleTime: 5 * 60 * 1000,
+    queryKey: ["purchasing-trends", tenantId], enabled: !!tenantId, staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const id = tenantId as string;
       const [invoices, suppliers, sales, lines, products, categoryRows] = await Promise.all([

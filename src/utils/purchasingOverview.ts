@@ -70,31 +70,12 @@ export function itemRanking(lines: OverviewLine[], previous: OverviewLine[], pro
   }).sort((a, b) => b.value - a.value);
 }
 
-export interface CategoryPart { id: string; name: string; value: number; share: number | null }
-/** Spend by top-level category with its second-level split (Beverages → Alcoholic, Non-Alcoholic).
- * Refundable deposits (asset lines) are shown last, on their own, never mixed into a category. */
 export function categoryRanking(lines: OverviewLine[], invoices: OverviewInvoice[], products: Map<string, OverviewProduct>) {
-  const total = sumSpend(invoices);
-  const tops = new Map<string, { value: number; subs: Map<string, number> }>();
-  let deposits = 0;
-  lines.forEach(row => {
-    const product = row.product_master_id ? products.get(row.product_master_id) : undefined;
-    const value = Number(row.total);
-    if ((product?.financial_treatment ?? "").startsWith("Asset")) { deposits += value; return; }
-    const name = product?.level1_category || "Uncategorized";
-    const top = tops.get(name) ?? { value: 0, subs: new Map<string, number>() };
-    top.value += value;
-    const sub = product?.level2_category || (product?.level1_category ? "Other" : "");
-    if (sub) top.subs.set(sub, (top.subs.get(sub) ?? 0) + value);
-    tops.set(name, top);
-  });
-  const result: (CategoryPart & { subs: CategoryPart[] })[] = [...tops].map(([name, top]) => ({
-    id: name, name, value: top.value, share: percentage(top.value, total),
-    subs: [...top.subs].map(([sub, value]) => ({ id: `${name}/${sub}`, name: sub, value, share: percentage(value, total) })).sort((a, b) => b.value - a.value),
-  })).sort((a, b) => b.value - a.value);
-  if (deposits) result.push({ id: "deposits", name: "Deposits (refundable)", value: deposits, share: percentage(deposits, total), subs: [] });
+  const map = new Map<string, number>();
+  lines.forEach(row => { const name = (row.product_master_id ? products.get(row.product_master_id)?.level1_category : null) || "Uncategorized"; map.set(name, (map.get(name) ?? 0) + Number(row.total)); });
   const deductions = invoices.reduce((n, row) => n + Math.abs(Number(row.discount) || 0), 0);
-  if (deductions) result.push({ id: "deductions", name: "Discount / Refund", value: -deductions, share: percentage(-deductions, total), subs: [] });
+  const result = [...map].map(([name, value]) => ({ id: name, name, value, share: percentage(value, sumSpend(invoices)) })).sort((a, b) => b.value - a.value);
+  if (deductions) result.push({ id: "deductions", name: "Discount / Refund", value: -deductions, share: percentage(-deductions, sumSpend(invoices)) });
   return result;
 }
 
