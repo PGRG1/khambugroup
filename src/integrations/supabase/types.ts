@@ -12431,7 +12431,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          projected_guests: number | null
           projected_sales: number
+          projected_spend: number | null
+          source: string
           target_date: string
           tenant_id: string
           updated_at: string
@@ -12441,7 +12444,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          projected_guests?: number | null
           projected_sales?: number
+          projected_spend?: number | null
+          source?: string
           target_date: string
           tenant_id: string
           updated_at?: string
@@ -12451,7 +12457,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          projected_guests?: number | null
           projected_sales?: number
+          projected_spend?: number | null
+          source?: string
           target_date?: string
           tenant_id?: string
           updated_at?: string

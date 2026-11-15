@@ -1170,6 +1170,13 @@
       "when": 1794440197851,
       "tag": "0166_tighten_tenant_reads_and_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1794708973440,
+      "tag": "0167_add_revenue_projection_guests_spend_source",
+      "breakpoints": true
     }
   ]
 }
