@@ -53,6 +53,8 @@ import { visibleExpenseTabs } from "@/utils/expenses";
 import { financeTabs } from "@/utils/financeClose";
 import { useExpenseClaimsExist } from "@/hooks/useExpenseClaimsExist";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
+import { MobileTabBar } from "@/components/MobileTabBar";
+import { createPortal } from "react-dom";
 import { SUPPLIER_DIRECTORY_TAB, isSupplierDirectoryRoute, isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPages, stockMenuSectionPages } from "@/utils/purchasingNavigation";
 import { usePurchasingNavigationAccess } from "@/hooks/usePurchasingNavigationAccess";
 
@@ -162,17 +164,20 @@ function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpan
 }
 
 /** Navigation-only page finder (⌘K). Never sends anything to Bani. */
-function GoToPage({ pages }: { pages: { title: string; to: string }[] }) {
-  const [open, setOpen] = useState(false);
+function GoToPage({ pages, open: openProp, onOpenChange, button = true }: { pages: { title: string; to: string }[]; open?: boolean; onOpenChange?: (o: boolean) => void; button?: boolean }) {
+  const [openSelf, setOpenSelf] = useState(false);
+  const open = openProp ?? openSelf;
+  const setOpen = (o: boolean | ((p: boolean) => boolean)) => { const v = typeof o === "function" ? o(open) : o; setOpenSelf(v); onOpenChange?.(v); };
   const navigate = useNavigate();
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen((o) => !o); } };
+    if (!button) return;
+    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpenSelf((o) => !o); } };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
-  }, []);
+  }, [button]);
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-goto mx-3 flex items-center gap-2 rounded-md px-2.5 h-9 text-[13px]">
+    {button && <button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-goto mx-3 flex items-center gap-2 rounded-md px-2.5 h-9 text-[13px]">
       <Search className="h-4 w-4 shrink-0" /><span className="flex-1 text-left">Go to a page</span><kbd className="text-[11px]">⌘K</kbd>
-    </button>
+    </button>}
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput placeholder="Go to a page" aria-label="Go to a page" />
       <CommandList>
@@ -521,7 +526,59 @@ export function AppSidebar() {
     </DropdownMenu>
   );
 
-  return (
+  const railItems: RailItem[] = [
+          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
+          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, children: revenueChildren.map((c) => ({ title: c.title, to: c.to, active: revenueActive && revSection === c.key })) }] : []),
+          ...(showProcurement ? [
+            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, children: purchasingChildren.map((c) => ({ title: c.title, to: c.url, active: purchasingActive && purchasingChildActive(c.url) })) },
+            { title: "Stock", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
+          ] : []),
+          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), children: peopleChildren.map((c) => ({ title: c.title, to: c.to, active: peopleActivePath === c.to })) }] : []),
+          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
+          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
+
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsChildren.map((c) => ({ title: c.title, to: c.to, active: pathname === "/settings" && c.active })) }] : []),
+        ];
+
+  // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
+  const [mobileAccount, setMobileAccount] = useState(false);
+  const [goOpen, setGoOpen] = useState(false);
+  const [accountSlot, setAccountSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setAccountSlot(isMobile ? document.getElementById("mobile-account-slot") : null); }, [isMobile]);
+  const homeItem = railItems.find((it) => it.to === "/");
+  const tabItems = railItems.filter((it) => it.to !== "/").map((it) => ({ title: it.title === "Stock" ? "Stock & menu" : it.title, to: it.to, icon: it.icon, active: it.active }));
+  const initials = initialsOf(myName || user?.email || "") || "?";
+  const mobile = isMobile && (
+    <>
+      {homeItem && <MobileTabBar home={{ title: homeItem.title, to: "/", icon: HomeOrb, active: homeItem.active }} items={tabItems} />}
+      {accountSlot && createPortal(
+        <button type="button" onClick={() => setMobileAccount(true)} className="mobile-me" aria-label="Your account, sign out and more"><span className="bani-me-initials">{initials}</span></button>,
+        accountSlot,
+      )}
+      <Dialog open={mobileAccount} onOpenChange={setMobileAccount}>
+        <DialogContent className="mobile-account max-w-[360px] gap-3 rounded-2xl p-4">
+          <DialogHeader className="sr-only"><DialogTitle>Your account</DialogTitle></DialogHeader>
+          <div className="flex items-center gap-3 px-1 pt-1">
+            <span className="bani-me-initials !h-10 !w-10">{initials}</span>
+            <span className="min-w-0"><span className="block truncate text-[15px] font-medium">{myName}</span>
+              <span className="block truncate text-[13px] bani-me-role">{[myRole, clientName].filter(Boolean).join(" · ")}</span></span>
+          </div>
+          <TenantSwitcher />
+          <div className="mobile-account-list">
+            <button type="button" onClick={() => { setMobileAccount(false); setGoOpen(true); }}><Search className="h-[18px] w-[18px]" />Go to a page</button>
+            <button type="button" onClick={() => { setMobileAccount(false); setAccountOpen(true); }}><UserRound className="h-[18px] w-[18px]" />Your account</button>
+            {isPlatformAdmin && isInsideClient && <button type="button" onClick={() => { setMobileAccount(false); exitToPlatform(); }}><ArrowLeft className="h-[18px] w-[18px]" />Exit to Platform</button>}
+            <button type="button" onClick={() => { setMobileAccount(false); void signOut(); }}><LogOut className="h-[18px] w-[18px]" />Sign out</button>
+          </div>
+          <PushNotificationsRow />
+        </DialogContent>
+      </Dialog>
+      <GoToPage pages={goPages} open={goOpen} onOpenChange={setGoOpen} button={false} />
+    </>
+  );
+
+  return (<>
+    {mobile}
     <Sidebar variant="sidebar" collapsible="icon" className="bani-side">
       {collapsed ? (
         <div className={cn(isPreviewActive && "mt-10")} />
@@ -564,19 +621,7 @@ export function AppSidebar() {
       )}
 
       {collapsed ? (
-        <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={[
-          ...visibleItems.map((it) => ({ title: it.title, to: it.url, icon: it.icon, active: it.end ? pathname === it.url : pathname === it.url || pathname.startsWith(it.url + "/") })),
-          ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, children: revenueChildren.map((c) => ({ title: c.title, to: c.to, active: revenueActive && revSection === c.key })) }] : []),
-          ...(showProcurement ? [
-            { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, children: purchasingChildren.map((c) => ({ title: c.title, to: c.url, active: purchasingActive && purchasingChildActive(c.url) })) },
-            { title: "Stock", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
-          ] : []),
-          ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), children: peopleChildren.map((c) => ({ title: c.title, to: c.to, active: peopleActivePath === c.to })) }] : []),
-          ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
-          ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
-
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsChildren.map((c) => ({ title: c.title, to: c.to, active: pathname === "/settings" && c.active })) }] : []),
-        ]} />
+        <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={railItems} />
       ) : (
       <SidebarContent className="py-2 gap-3">
         {/* Top-level items, no group label */}
@@ -669,8 +714,9 @@ export function AppSidebar() {
       )}
 
       {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-2">{me}</SidebarFooter>}
-      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} name={myName} email={user?.email ?? ""} onSignOut={() => { setAccountOpen(false); void signOut(); }} />
     </Sidebar>
-  );
+    {/* Outside the menu so it also opens on a phone, where the side menu is never shown. */}
+    <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} name={myName} email={user?.email ?? ""} onSignOut={() => { setAccountOpen(false); void signOut(); }} />
+  </>);
 }
 

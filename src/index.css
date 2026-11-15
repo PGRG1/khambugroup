@@ -867,3 +867,41 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky) {
 html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) [data-sidebar="trigger"],
 html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) button[aria-label^="Assigned work"],
 html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) button[aria-label^="Assigned work"]:hover { color: #FFFFFF; }
+
+/* =========================================================
+   PHONE NAVIGATION (MobileTabBar, below 768px): sections along the bottom, Bani team pinned
+   on the left, the rest slide sideways. Account behind the initials in the top bar.
+   ========================================================= */
+.mobile-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; align-items: stretch;
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid rgba(31, 63, 59, 0.1); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.22s ease, opacity 0.22s ease; font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.mobile-tabbar.is-hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
+.mobile-tabbar-row { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent);
+          mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent); }
+.mobile-tabbar-row::-webkit-scrollbar { display: none; }
+.mobile-tab { flex: 0 0 74px; min-height: 48px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: #6B756F; font-size: 11px; font-weight: 500; white-space: nowrap; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.mobile-tab.is-pinned { flex: 0 0 76px; border-right: 1px solid rgba(31, 63, 59, 0.1); }
+.mobile-tab.is-active { color: #1F3F3B; font-weight: 600; }
+.mobile-tab .mobile-tab-icon { width: 22px; height: 22px; }
+.mobile-tab:focus-visible { outline: 2px solid #2F5E5A; outline-offset: -2px; border-radius: 10px; }
+@media (min-width: 768px) { .mobile-tabbar { display: none; } }
+
+/* Room for the bar under the page, and the Bani sphere sits just above it. */
+@media (max-width: 767px) {
+  .tenant-portal .app-shell { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  body:has(.mobile-tabbar:not(.is-hidden)) .floating-bani-sphere { bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+  .tenant-topbar .venue-pill { max-width: 34vw; }
+}
+
+/* Top bar on a phone: the Bani mark (back to Bani team) and the initials (account). */
+.mobile-mark { color: #1F3F3B; }
+.tenant-topbar:has(.topbar-sky[data-tone="dark"]) .mobile-mark { color: #FFFFFF; }
+.mobile-me { display: inline-flex; align-items: center; justify-content: center; height: 40px; width: 36px; border: 0; background: none; padding: 0; }
+.mobile-me .bani-me-initials { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6); }
+.mobile-account-list { display: flex; flex-direction: column; }
+.mobile-account-list button { display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 8px; border: 0; background: none; border-radius: 10px; font-size: 15px; color: #121510; text-align: left; }
+.mobile-account-list button:hover, .mobile-account-list button:focus-visible { background: rgba(20, 45, 43, 0.05); }
+.mobile-account-list button svg { color: #3D4842; flex-shrink: 0; }
