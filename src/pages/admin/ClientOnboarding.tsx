@@ -11,7 +11,7 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  PageHeader, KpiCard, KpiGrid, StatusPill,
+  StatusPill,
 } from "@/components/expenses/shared";
 import {
   StepOrganizations, StepVenues, StepLocalisation,
@@ -65,20 +65,23 @@ export default function ClientOnboarding() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <Button variant="ghost" size="sm" onClick={() => navigate(`/platform/clients/${tenantId}`)}>
-        <ArrowLeft className="h-4 w-4 mr-1"/>Back to client
-      </Button>
-      <PageHeader
-        title="Onboarding cockpit"
-        description="White-glove implementation driver. Every step is resumable and can be skipped with a reason."
-      />
-      <KpiGrid>
-        <KpiCard label="Overall complete" value={`${overall.pct}%`} hint={`${overall.done} done · ${overall.skipped} skipped`}/>
-        <KpiCard label="Current phase" value={`Phase ${row?.current_phase ?? 1}`}/>
-        <KpiCard label="Steps done" value={String(overall.done)}/>
-        <KpiCard label="Steps skipped" value={String(overall.skipped)} tone={overall.skipped ? "warning" : "default"}/>
-      </KpiGrid>
+    <div className="px-4 py-5 sm:p-6 space-y-5 max-w-[1100px] mx-auto">
+      <div className="space-y-3">
+        <button type="button" onClick={() => navigate(`/platform/clients/${tenantId}`)} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4"/> Client
+        </button>
+        <h1 className="text-[22px] sm:text-2xl font-semibold tracking-tight">Onboarding</h1>
+      </div>
+      <section className="card-glass rounded-xl border border-border/60 p-4 sm:p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-sm font-semibold">Phase {row?.current_phase ?? 1}</span>
+          <span className="text-sm font-semibold tabular-nums">{overall.pct}%</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-primary" style={{ width: `${overall.pct}%` }}/>
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground">{overall.done} done · {overall.skipped} skipped · {overall.total - overall.done - overall.skipped} to go</div>
+      </section>
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading state…</div>
@@ -88,9 +91,9 @@ export default function ClientOnboarding() {
             const prog = phaseProgress(phase.phase);
             return (
               <AccordionItem key={phase.phase} value={`phase-${phase.phase}`} className="card-glass rounded-xl border border-border/60 overflow-hidden">
-                <AccordionTrigger className="px-5 py-4 hover:no-underline">
-                  <div className="flex-1 flex items-center justify-between gap-4">
-                    <div className="text-left">
+                <AccordionTrigger className="px-4 sm:px-5 py-4 hover:no-underline">
+                  <div className="flex-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 pr-2">
+                    <div className="text-left min-w-0">
                       <div className="text-sm font-semibold flex items-center gap-2">
                         Phase {phase.phase} · {phase.title}
                         {phase.optional && <Badge variant="outline" className="text-[10px]">Optional</Badge>}
@@ -105,7 +108,7 @@ export default function ClientOnboarding() {
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="px-5 pb-5 space-y-4">
+                <AccordionContent className="px-3 sm:px-5 pb-4 sm:pb-5 space-y-3 sm:space-y-4">
                   {phase.phase === 4 && (
                     <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-muted/20">
                       <div>
@@ -172,16 +175,16 @@ function StepRow({
 }) {
   return (
     <div className="border border-border/60 rounded-lg">
-      <div className="flex items-center justify-between px-4 py-3 gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <StatusIcon status={state.status}/>
+      <div className="flex items-start justify-between px-3 sm:px-4 py-3 gap-2">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div className="mt-0.5"><StatusIcon status={state.status}/></div>
           <div className="min-w-0">
-            <div className="text-sm font-medium flex items-center gap-2">
+            <div className="text-sm font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
               {step.label}
               {step.optional && <Badge variant="outline" className="text-[10px]">Optional</Badge>}
               <StatusPill variant={stepVariant(state.status)} className="capitalize">{state.status.replace("_", " ")}</StatusPill>
             </div>
-            <div className="text-xs text-muted-foreground truncate">{step.description}{state.skipped_reason ? ` · Skipped: ${state.skipped_reason}` : ""}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{step.description}{state.skipped_reason ? ` · Skipped: ${state.skipped_reason}` : ""}</div>
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
@@ -192,7 +195,7 @@ function StepRow({
           )}
         </div>
       </div>
-      <div className="px-4 pb-4">{children}</div>
+      <div className="px-3 sm:px-4 pb-4">{children}</div>
     </div>
   );
 }

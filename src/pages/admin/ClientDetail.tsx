@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, Rocket, ChevronRight, LogIn } from "lucide-react";
+import { ArrowLeft, ChevronRight, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantOnboarding } from "@/hooks/useTenantOnboarding";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 
 type Tenant = {
@@ -22,8 +21,8 @@ type Tenant = {
 };
 
 const COST_MODES: { value: "single_venue" | "multi_venue"; label: string; desc: string }[] = [
-  { value: "single_venue", label: "Single Venue", desc: "One venue for the whole client. Simplifies COGS/inventory reporting." },
-  { value: "multi_venue", label: "Multi-Venue", desc: "Costs are split and reported per venue." },
+  { value: "single_venue", label: "Single venue", desc: "One venue for the whole client." },
+  { value: "multi_venue", label: "Multi-venue", desc: "Costs split and reported per venue." },
 ];
 
 export default function ClientDetail() {
@@ -40,11 +39,11 @@ export default function ClientDetail() {
 
   const refresh = useCallback(async () => {
     if (!tenantId) return;
-    const [{ data: t }, { data: vs }, { data: bs }, { data: is }, { data: ms }, { data: os }] = await Promise.all([
+    const [{ data: t }, { data: vs }, { data: bs }, { count: invoiceCount }, { data: ms }, { data: os }] = await Promise.all([
       supabase.from("tenants").select("*").eq("id", tenantId).maybeSingle(),
       supabase.from("venues").select("id").eq("tenant_id", tenantId),
       supabase.from("bank_accounts").select("id").eq("tenant_id", tenantId),
-      supabase.from("invoices").select("id").eq("tenant_id", tenantId),
+      supabase.from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
       supabase.from("tenant_members").select("user_id").eq("tenant_id", tenantId),
       supabase.from("organizations").select("legal_name, name").eq("tenant_id", tenantId).limit(1),
     ]);
@@ -53,7 +52,7 @@ export default function ClientDetail() {
       venues: (vs ?? []).length,
       users: new Set((ms ?? []).map((x: any) => x.user_id)).size,
       banks: (bs ?? []).length,
-      invoices: (is ?? []).length,
+      invoices: invoiceCount ?? 0,
     });
     setOrgName(os?.[0]?.legal_name ?? os?.[0]?.name ?? "");
   }, [tenantId]);
@@ -74,55 +73,51 @@ export default function ClientDetail() {
     toast({ title: "Cost reporting mode updated" });
   };
 
+  const toGo = overall.total - overall.done - overall.skipped;
+  const details = [tenant?.slug ? `/${tenant.slug}` : null, orgName || null, tenant?.country, tenant?.base_currency, tenant?.timezone].filter(Boolean).join(" · ");
+  const status = tenant?.status ?? "";
+
   return (
-    <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/platform/clients")}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Clients
-          </Button>
-          <div>
+    <div className="px-4 py-5 sm:p-6 space-y-5 max-w-[1100px] mx-auto">
+      <div className="space-y-3">
+        <button type="button" onClick={() => navigate("/platform/clients")} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Clients
+        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
-              <h1 className="text-2xl font-semibold tracking-tight">{tenant?.name ?? "…"}</h1>
-              <Badge variant="outline" className="text-[10px]">/{tenant?.slug}</Badge>
-              <Badge className={
-                tenant?.status === "active" ? "bg-primary/15 text-primary border-primary/30"
-                : tenant?.status === "setup" ? "bg-warning/15 text-warning border-warning/30"
-                : "bg-muted text-muted-foreground"
-              }>{tenant?.status}</Badge>
+              <h1 className="truncate text-[22px] sm:text-2xl font-semibold tracking-tight">{tenant?.name ?? "…"}</h1>
+              {status && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
+                status === "active" ? "bg-primary/10 text-primary" : status === "setup" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"
+              }`}>{status}</span>}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {orgName || "No organization yet"} · {tenant?.country ?? "—"} · {tenant?.base_currency ?? "—"} · {tenant?.timezone ?? "—"}
-            </p>
+            {details && <p className="mt-1 text-[13px] text-muted-foreground">{details}</p>}
           </div>
+          <Button className="w-full sm:w-auto shrink-0" onClick={() => tenantId && enterClient(tenantId, "/")}>
+            <LogIn className="h-4 w-4 mr-1.5" /> Enter client
+          </Button>
         </div>
-        <Button size="sm" onClick={() => tenantId && enterClient(tenantId, "/")}>
-          <LogIn className="h-4 w-4 mr-1.5" /> Enter client
-        </Button>
       </div>
 
-      {/* Continue Onboarding card — replaces the old fake 8-boolean checklist. */}
       <section
-        className="card-glass rounded-xl p-5 flex items-center justify-between gap-4 border border-primary/30 cursor-pointer hover:border-primary/60 transition"
+        className="card-glass rounded-xl p-4 sm:p-5 flex items-center gap-4 border border-border/60 cursor-pointer hover:border-primary/40 transition"
         onClick={() => navigate(`/platform/clients/${tenantId}/onboarding`)}
         role="button"
+        aria-label="Open onboarding"
       >
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 ring-1 ring-primary/25 flex items-center justify-center shrink-0">
-            <Rocket className="h-6 w-6 text-primary" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-sm font-semibold">Onboarding</span>
+            <span className="text-sm font-semibold tabular-nums">{overall.pct}%</span>
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">Continue onboarding</div>
-            <div className="text-xs text-muted-foreground">
-              {overall.pct}% complete · Currently in Phase {onboarding?.current_phase ?? 1} · {overall.done} done, {overall.skipped} skipped, {overall.total - overall.done - overall.skipped} to go
-            </div>
-            <div className="mt-2 w-64 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-primary" style={{ width: `${overall.pct}%` }} />
-            </div>
+          <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: `${overall.pct}%` }} />
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {toGo > 0 ? `Phase ${onboarding?.current_phase ?? 1} · ${toGo} step${toGo === 1 ? "" : "s"} to go` : "All steps done"}
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
       </section>
 
       {/* At-a-glance counts */}
@@ -134,17 +129,17 @@ export default function ClientDetail() {
           { label: "Invoices", value: counts.invoices },
         ].map((k) => (
           <div key={k.label} className="glass-surface rounded-xl border border-border/60 p-4">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{k.label}</div>
+            <div className="text-[12px] text-muted-foreground">{k.label}</div>
             <div className="mt-1 text-xl md:text-2xl font-semibold td-num tabular-nums">{k.value}</div>
           </div>
         ))}
       </section>
 
       {/* Cost reporting mode (kept — this is client-level policy, not onboarding). */}
-      <section className="card-glass rounded-lg p-5">
+      <section className="card-glass rounded-xl p-4 sm:p-5">
         <div className="mb-3">
-          <div className="text-sm font-semibold">Cost Reporting Mode</div>
-          <div className="text-xs text-muted-foreground">Controls how procurement costs and inventory are reported.</div>
+          <div className="text-sm font-semibold">Cost reporting</div>
+          <div className="text-xs text-muted-foreground">How purchasing costs and stock are reported.</div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {COST_MODES.map(m => {
