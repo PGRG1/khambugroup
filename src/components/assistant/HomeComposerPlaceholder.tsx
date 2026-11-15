@@ -9,7 +9,7 @@ const canDictate = typeof window !== "undefined" && !!navigator.mediaDevices?.ge
 
 /**
  * Home's chat bar as it looks before Bani is ready: the same classes and rows as the real
- * composer ("Your chats" + the pill), so it is exactly the same size and nothing moves when the
+ * composer (the "Your chats" button + the pill), so it is exactly the same size and nothing moves when the
  * real one arrives. It does nothing except remember a tap, so the real input can take focus.
  */
 export function HomeComposerPlaceholder({ onTap }: { onTap: () => void }) {
@@ -27,7 +27,7 @@ export function HomeComposerPlaceholder({ onTap }: { onTap: () => void }) {
     <div className="floating-bani" aria-hidden="true" onPointerDown={onTap}>
       <section className={`floating-bani-panel is-home ${isMobile ? "is-mobile" : ""}`}>
         <div className="floating-bani-main">
-          <button type="button" tabIndex={-1} className="floating-bani-resume"><History className="h-[15px] w-[15px]" />Your chats</button>
+          <button type="button" tabIndex={-1} className="floating-bani-resume"><History className="h-[19px] w-[19px]" strokeWidth={1.9} /></button>
           <form className="floating-bani-composer" onSubmit={(e) => e.preventDefault()}>
             <div className="floating-bani-row floating-bani-typing">
               <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-plus"><Plus className="h-5 w-5" /></Button>
