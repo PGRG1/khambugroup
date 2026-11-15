@@ -803,7 +803,7 @@ html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-r
 }
 html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row nav[aria-label] a[aria-current="page"] {
   background: hsl(var(--tenant-white) / 0.98);
-  border-color: var(--tenant-hairline);
+  border-color: transparent;
   color: hsl(var(--foreground));
   box-shadow: 0 1px 2px rgba(20,45,43,.08), 0 4px 12px -6px rgba(20,45,43,.28);
 }
@@ -894,7 +894,7 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
 .glass-tab .glass-tab-icon { width: 21px; height: 21px; flex-shrink: 0; }
 .glass-tab.is-pinned { min-width: 50px; }
 .glass-tab.is-active { color: #16231F; padding: 0 16px 0 13px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.55), 0 4px 12px -8px rgba(20, 45, 43, 0.35); }
+  box-shadow: 0 4px 12px -8px rgba(20, 45, 43, 0.35); }
 .glass-tab:focus { outline: none; }
 .glass-tab:focus-visible { outline: 2px solid #2F5E5A; outline-offset: -2px; }
 @media (min-width: 768px) { .glass-tabbar-wrap { display: none; } }
@@ -926,7 +926,7 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
     border: 1px solid rgba(255, 255, 255, 0.45) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 10px 16px -12px rgba(255, 255, 255, 0.8), 0 8px 22px -14px rgba(20, 45, 43, 0.3) !important; }
   .tenant-portal .section-pill-row nav[aria-label] a[aria-current="page"] { background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.32)) !important;
-    border-color: transparent !important; box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.55), 0 4px 12px -8px rgba(20, 45, 43, 0.35) !important; }
+    border-color: transparent !important; box-shadow: 0 4px 12px -8px rgba(20, 45, 43, 0.35) !important; }
   .tenant-portal .section-pill-row nav[aria-label] a:not([aria-current="page"]) { background: transparent !important; }
   .section-pill-sticky { position: sticky; top: 60px; z-index: 20; }
 }

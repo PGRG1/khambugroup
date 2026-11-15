@@ -20,7 +20,7 @@ export default function CategoriesTab() {
             className={cn(
               "px-3.5 py-1.5 text-xs sm:text-sm rounded-full font-medium transition-colors min-h-[36px]",
               tab === t.value
-                ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

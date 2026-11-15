@@ -39,7 +39,7 @@ export function PurchasingNavigation() {
         const active = matchesPurchasingPath(pathname, tab.url);
         return <Link key={tab.url} to={tab.url} aria-current={active ? "page" : undefined} className={cn(
           "px-3.5 py-1.5 text-xs sm:text-sm rounded-full font-medium transition-colors min-h-[36px] whitespace-nowrap",
-          active ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground",
+          active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
         )}>{tab.title}</Link>;
       })}
     </div>
