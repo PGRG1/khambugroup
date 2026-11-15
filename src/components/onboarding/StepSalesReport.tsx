@@ -118,13 +118,25 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
     setSaving(true);
     const venueId = scope || null;
     const { data: me } = await supabase.auth.getUser();
-    const del = supabase.from("sales_report_lines").delete().eq("tenant_id", tenantId);
-    const delRes = await (venueId ? del.eq("venue_id", venueId) : del.is("venue_id", null));
-    const insRes = delRes.error ? delRes : await supabase.from("sales_report_lines").insert(lines.map((l, i) => ({
-      tenant_id: tenantId, venue_id: venueId, printed_name: l.printed, kind: l.kind, category: l.kind === "sales" ? l.category ?? "other" : null,
+    // Update lines in place (saved sales days link to them), add new ones, retire removed ones.
+    const eq = supabase.from("sales_report_lines").select("id, printed_name").eq("tenant_id", tenantId);
+    const { data: existing, error: readErr } = await (venueId ? eq.eq("venue_id", venueId) : eq.is("venue_id", null));
+    const byName = new Map((existing ?? []).map((r) => [r.printed_name.trim().toLowerCase(), r.id]));
+    const row = (l: Line, i: number) => ({
+      kind: l.kind, category: l.kind === "sales" ? l.category ?? "other" : null,
       settles_to: l.kind === "payment" ? l.settlesTo ?? "bank" : null, bank_account_id: l.kind === "payment" ? l.bankAccountId : null,
-      gl_account_id: l.glAccountId ?? null, legacy_field: l.legacyField ?? null, sort_order: i, created_by: me.user?.id ?? null,
-    })));
+      gl_account_id: l.glAccountId ?? null, legacy_field: l.legacyField ?? null, sort_order: i, is_active: true,
+    });
+    let insRes: { error: { message: string } | null } = { error: readErr };
+    const keep = new Set<string>();
+    for (const [i, l] of lines.entries()) {
+      if (insRes.error) break;
+      const id = byName.get(l.printed.trim().toLowerCase());
+      if (id) { keep.add(id); insRes = await supabase.from("sales_report_lines").update(row(l, i)).eq("id", id); }
+      else insRes = await supabase.from("sales_report_lines").insert({ tenant_id: tenantId, venue_id: venueId, printed_name: l.printed, created_by: me.user?.id ?? null, ...row(l, i) });
+    }
+    const gone = (existing ?? []).filter((r) => !keep.has(r.id)).map((r) => r.id);
+    if (!insRes.error && gone.length) insRes = await supabase.from("sales_report_lines").update({ is_active: false }).in("id", gone);
     let setupErr = insRes.error;
     if (!setupErr) {
       const sdel = supabase.from("sales_report_setups").delete().eq("tenant_id", tenantId);
