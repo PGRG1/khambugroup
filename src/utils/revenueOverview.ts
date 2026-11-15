@@ -95,60 +95,48 @@ export function comparisonSentence(cur: number, prev: number, win: ComparisonWin
   return `${Math.round(Math.abs(pct))}% ${pct > 0 ? "more" : "less"} than ${span}.`;
 }
 
-export interface TargetPace {
-  target: number;
-  sold: number;
-  /** Sum of daily targets up to and including the last counted day. */
-  shouldBy: number;
-  /** Calendar days still to come in the month. */
+/**
+ * The month against its target. The target is one flat figure (never spread across days);
+ * projected = actual where a day has sales, the day's projection where it does not yet.
+ */
+export interface MonthGoal {
+  /** The month's target, or null when none is set for the venues in view. */
+  target: number | null;
+  actual: number;
+  projected: number;
+  /** Today onward with no sales yet: the only days a plan can still change. */
   remainingDays: number;
-  /** (target − sold) ÷ remaining days; null when no days remain. */
+  /** (target − actual) ÷ remaining days; null without a target or remaining days. */
   needPerDay: number | null;
-  /** Sold ÷ elapsed days. */
-  averaging: number;
-  elapsedDays: number;
+  /** What the remaining days are projected to bring, per day. */
+  projectedPerDay: number | null;
+  ended: boolean;
 }
 
-/**
- * Month pacing from (combined) projection rows. The last counted day is
- * today, or yesterday when today has no sales yet; for past months it is the
- * month end.
- */
-export function targetPace(rows: DailyProjectionRow[], today: string): TargetPace | null {
+export function monthGoal(rows: DailyProjectionRow[], today: string, target: number | null): MonthGoal | null {
   if (!rows.length) return null;
-  const monthEnd = rows[rows.length - 1].date;
-  let cutoff = today > monthEnd ? monthEnd : today;
-  if (cutoff === today) {
-    const todayRow = rows.find((r) => r.date === today);
-    if (todayRow && todayRow.actualSales === null) cutoff = addDays(today, -1);
-  }
-  const target = rows.reduce((a, r) => a + (r.effectiveForecast ?? 0), 0);
-  const sold = rows.reduce((a, r) => a + (r.actualSales ?? 0), 0);
-  const counted = rows.filter((r) => r.date <= cutoff);
-  const shouldBy = counted.reduce((a, r) => a + (r.effectiveForecast ?? 0), 0);
-  const remainingDays = rows.filter((r) => r.date > cutoff).length;
-  const elapsedDays = counted.length;
+  const actual = rows.reduce((a, r) => a + (r.actualSales ?? 0), 0);
+  const projected = rows.reduce((a, r) => a + (r.actualSales ?? r.effectiveForecast ?? 0), 0);
+  const remaining = rows.filter((r) => r.date >= today && r.actualSales === null);
+  const remainingProj = remaining.reduce((a, r) => a + (r.effectiveForecast ?? 0), 0);
+  const n = remaining.length;
   return {
-    target, sold, shouldBy, remainingDays, elapsedDays,
-    needPerDay: remainingDays > 0 ? Math.max(0, target - sold) / remainingDays : null,
-    averaging: elapsedDays > 0 ? sold / elapsedDays : 0,
+    target, actual, projected, remainingDays: n,
+    needPerDay: target != null && n > 0 ? Math.max(0, target - (projected - remainingProj)) / n : null,
+    projectedPerDay: n > 0 ? remainingProj / n : null,
+    ended: rows[rows.length - 1].date < today,
   };
 }
 
-export function paceSentence(p: TargetPace): string {
-  if (p.target <= 0) return "";
-  if (p.remainingDays === 0) {
-    return `The month finished at ${Math.round((p.sold / p.target) * 100)}% of the ${shortMoney(p.target)} target.`;
-  }
-  if (p.sold >= p.target) return `You've already passed the ${shortMoney(p.target)} target. You're averaging ${shortMoney(p.averaging)} a day.`;
-  const at = p.shouldBy > 0 ? Math.round((p.sold / p.shouldBy) * 100) : null;
-  const days = `${p.remainingDays} day${p.remainingDays === 1 ? "" : "s"}`;
-  const lead = at === null
-    ? "No sales counted yet this month."
-    : p.sold >= p.shouldBy
-      ? `You're ahead: at ${at}% of where you should be by today.`
-      : `You're at ${at}% of where you should be by today.`;
-  return `${lead} To reach ${shortMoney(p.target)} you need about ${shortMoney(p.needPerDay ?? 0)} a day for the last ${days}. You're averaging ${shortMoney(p.averaging)}.`;
+/** Where the month stands against its target, in the same words as the Targets page. */
+export function goalStatus(g: MonthGoal): { text: string; good: boolean; detail: string | null } | null {
+  if (g.target == null || g.target <= 0) return null;
+  if (g.ended) return { text: `Finished at ${Math.round((g.actual / g.target) * 100)}%`, good: g.actual >= g.target, detail: null };
+  if (g.actual >= g.target) return { text: "Target reached", good: true, detail: null };
+  const gap = g.projected - g.target;
+  const detail = gap < 0 && g.needPerDay != null && g.projectedPerDay != null
+    ? `Need ${shortMoney(g.needPerDay)} a day · projected ${shortMoney(g.projectedPerDay)}` : null;
+  return gap >= 0 ? { text: `On track · ${shortMoney(gap)} over`, good: true, detail } : { text: `Short by ${shortMoney(-gap)}`, good: false, detail };
 }
 
 /** Sum per-venue projection rows into one row per date. */

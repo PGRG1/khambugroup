@@ -3,7 +3,7 @@ import {usePlannedMonths} from '@/hooks/usePlannedMonths';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
 import { useSalesData } from "@/hooks/useSalesData";
 import { shortMoney } from "@/utils/revenueOverview";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -11,46 +11,52 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ChevronDown } from "lucide-react";
 import { RevenueEnter, chartBuild } from "@/components/revenue/RevenueMotion";
 import { Num } from "@/components/home/HomeMotion";
+import { useMonthTarget } from "@/hooks/useMonthTarget";
 import { useAuth } from "@/hooks/useAuth";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
-import { useDailyProjections } from "@/hooks/useDailyProjections";
 import {
-  distributeMonthlyTarget,
-  formatHkd,
   monthDates,
-  parseProjectedInput,
 } from "@/utils/dailyProjections";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-/** Unified Targets page: monthly goal, pacing, chart and a light daily table. */
+/** Targets: one monthly target figure, the projected month (actual + remaining days), pace and the daily projection table. */
 export default function RevenueTargetsNew() {
   const vs = useVenueScope();
-  // Viewing follows the shared venue scope; editing needs exactly one venue.
+  // Follows the shared venue scope; with several venues each day splits into one line per venue.
   const scopeVenues = useMemo(() => vs.selectedVenues.filter((v) => v.is_active && v.id && v.name), [vs.selectedVenues]);
-  const singleScope = scopeVenues.length === 1 ? scopeVenues[0] : null;
-  const venuesLoading = !vs.ready;
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const [venueId, setVenueId] = useState<string | null>(null);
   const plan=usePlannedMonths("targets");
   const period=usePagePeriod(plan.months.map(m=>m+"-01"),"mtd","month",{allowFuture:plan.end});
   const ym=period.month;
   const [year, month] = ym.split("-").map(Number);
 
-  // The venue a target is saved to: the single scoped venue, or the one picked in the target box.
-  const effectiveVenueId = singleScope?.id ?? (venueId && vs.venues.some((v) => v.id === venueId) ? venueId : null);
-  const { history, saveProjection } = useDailyProjections(effectiveVenueId, year, month);
-  const [goal, setGoal] = useState("");
-  const [applying, setApplying] = useState(false);
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const { tenantId } = useActiveTenant();
   const { user } = useAuth();
   const dates = useMemo(() => monthDates(year, month), [year, month]);
 
-  // ---- Saved targets for every venue in view, with who set them ----
+  // ---- The month's target: one figure for the venues it covers (revenue_targets) ----
+  // The target applies when the venues in view are exactly the venues it covers (none listed = all venues).
+  const allNames = useMemo(() => vs.venues.filter((v) => v.is_active && v.name).map((v) => v.name).sort(), [vs.venues]);
+  const scopeNames = useMemo(() => scopeVenues.map((v) => v.name).sort(), [scopeVenues]);
+  const goal = useMonthTarget(year, month, scopeNames, allNames);
+  const target = goal.target;
+  const targetLoading = goal.loading;
+  const goalElsewhere = !!goal.elsewhere; // set, but for a different set of venues
+  const goalNames = goal.elsewhere ?? [];
+  const [goalEdit, setGoalEdit] = useState<string | null>(null);
+  const saveGoal = async (raw: string) => {
+    setGoalEdit(null);
+    const v = Number(raw.replace(/[^0-9.]/g, ""));
+    if (!raw.trim() || !Number.isFinite(v) || v <= 0 || !tenantId) return;
+    if (goalElsewhere) return;
+    const { ok } = await goal.save(v);
+    if (!ok) toast({ title: "Target not saved", description: "Only owners and managers can set targets.", variant: "destructive" });
+    else toast({ title: `${monthName} target ${shortMoney(Math.round(v))}` });
+  };
+
+  // ---- Saved projections for every venue in view, with who set them ----
   const [projTick, setProjTick] = useState(0);
   const [proj, setProj] = useState<Map<string, { v: number; by: string; at: string }>>(new Map());
   const [projLoading, setProjLoading] = useState(true);
@@ -75,27 +81,8 @@ export default function RevenueTargetsNew() {
     })();
     return () => { live = false; };
   }, [tenantId, scopeKey, dates, projTick]);
-  const loading = projLoading || !vs.ready;
+  const loading = projLoading || targetLoading || !vs.ready;
 
-  const applyGoal = async () => {
-    const parsed = parseProjectedInput(goal);
-    if (!parsed.ok || parsed.value === null) {
-      toast({ title: "Enter a monthly target", description: parsed.error, variant: "destructive" });
-      return;
-    }
-    if (!effectiveVenueId) {
-      toast({ title: "Pick a venue", description: "A target is always saved to one venue.", variant: "destructive" });
-      return;
-    }
-    setApplying(true);
-    const split = distributeMonthlyTarget(parsed.value, monthDates(year, month), history);
-    let failed = 0;
-    for (const [date, v] of split) if (!(await saveProjection(date, v))) failed++;
-    setApplying(false);
-    if (failed) toast({ title: "Some days were not saved", description: `${failed} day(s) failed. Try again.`, variant: "destructive" });
-    else { toast({ title: "Monthly target set", description: `${formatHkd(parsed.value)} spread across ${split.size} days.` }); setGoal(""); }
-    setProjTick((t) => t + 1);
-  };
 
   // ---- Each venue's day: guests x spend forecast, saved target, sold ----
   // Guests: average of the last 8 same weekdays with sales. Spend per guest: those days' sales / guests.
@@ -135,28 +122,35 @@ export default function RevenueTargetsNew() {
     return { date, lines, guests, target, sold: sum("sold"), spend: guests && target ? Math.round(target / guests) : null };
   }), [dates, scopeVenues, histByVenue, proj]);
 
-  const tTarget = days.reduce((a, d) => a + (d.target ?? 0), 0);
-  const lastSold = days.filter((d) => d.sold != null).map((d) => d.date).pop() ?? null;
+  // Projected month = actual where a day has sales, the projection where it does not yet.
   const tSold = days.reduce((a, d) => a + (d.sold ?? 0), 0);
-  const tToDate = lastSold ? days.filter((d) => d.date <= lastSold).reduce((a, d) => a + (d.target ?? 0), 0) : 0;
-  const daysLeft = days.filter((d) => d.date > (lastSold && lastSold > todayIso ? lastSold : todayIso)).length;
-  const needDay = daysLeft > 0 ? Math.max(0, tTarget - tSold) / daysLeft : null;
-  const ahead = tSold - tToDate;
-  const pctDone = tTarget > 0 ? tSold / tTarget : null;
+  const tProjected = days.reduce((a, d) => a + (d.sold ?? d.target ?? 0), 0);
+  const lastSold = days.filter((d) => d.sold != null).map((d) => d.date).pop() ?? null;
+  // Remaining days: today onward with no sales yet. Only these can change.
+  const remaining = days.filter((d) => d.date >= todayIso && d.sold == null);
+  const remainingProj = remaining.reduce((a, d) => a + (d.target ?? 0), 0);
+  const gap = target != null ? tProjected - target : null;
+  const needDay = target != null && remaining.length ? Math.max(0, target - (tProjected - remainingProj)) / remaining.length : null;
+  const projDay = remaining.length ? remainingProj / remaining.length : null;
   const monthName = new Date(`${ym}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long" });
 
-  // Pace: actual so far, then each remaining day at its target, against the target line.
+  // Pace: actual so far (solid), then projected to month end (dotted); the target is one flat line.
   const pace = (() => {
-    let t = 0, a = 0;
+    let a = 0;
     return days.map((r) => {
-      t += r.target ?? 0;
-      const sold = lastSold && r.date <= lastSold;
-      if (sold) a += r.sold ?? 0;
-      const projV = lastSold && r.date >= lastSold ? (r.date === lastSold ? a : (a += r.target ?? 0)) : null;
-      return { day: Number(r.date.slice(8)), target: Math.round(t), actual: sold ? a : null, proj: projV };
+      a += r.sold ?? r.target ?? 0;
+      const isActual = !!lastSold && r.date <= lastSold;
+      return { day: Number(r.date.slice(8)), actual: isActual ? Math.round(a) : null, proj: !lastSold || r.date >= lastSold ? Math.round(a) : null };
     });
   })();
   const projEnd = pace[pace.length - 1]?.proj ?? null;
+  // Round y-axis steps with headroom above the higher of projection and target.
+  const paceTicks = (() => {
+    const peak = Math.max(projEnd ?? 0, ...pace.map((p) => p.actual ?? 0), target ?? 0) * 1.08 || 1;
+    const raw = peak / 4, mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((x) => x * mag).find((x) => x >= raw) ?? raw;
+    return Array.from({ length: Math.ceil(peak / step) + 1 }, (_, i) => i * step);
+  })();
 
   // Save one venue's day; null puts it back to auto.
   const saveLine = async (venueId: string, date: string, value: number | null) => {
@@ -190,7 +184,7 @@ export default function RevenueTargetsNew() {
     const total = edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
     if (total == null || Math.round(total) === Math.round(l.target ?? -1)) return;
     if (await saveLine(venueId, date, Math.round(total)))
-      toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} target ${Math.round(total).toLocaleString("en-US")}` });
+      toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} projected ${Math.round(total).toLocaleString("en-US")}` });
   };
   const cell = "h-11 px-2 text-right whitespace-nowrap border-b border-[var(--kit-line)]";
 
@@ -200,60 +194,65 @@ export default function RevenueTargetsNew() {
 
       <RevenueEnter id="targets" ready={ready} className="space-y-4">
         {(play) => (<>
-      {/* Summary */}
+      {/* Summary: one target figure, the projected month, and the gap */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[13px] font-medium">{monthName} target</span>
-          <span className="text-xl font-display font-semibold tabular-nums">{tTarget > 0 ? <Num value={tTarget} format={shortMoney} play={play} /> : "—"}</span>
-        </div>
-        <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="rv-fill h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (pctDone ?? 0) * 100)}%` }} /></div>
-        <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-[12px] tabular-nums">
-          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold"><Num value={tSold} format={shortMoney} play={play} /></b>{pctDone != null && <span className="text-muted-foreground"> · {Math.round(pctDone * 100)}%</span>}</span>
-          <span className="font-medium">{
-            !lastSold ? <span className="text-muted-foreground">No sales yet</span>
-            : tSold >= tTarget && tTarget > 0 ? <span style={{ color: "#15803D" }}>Target reached</span>
-            : ahead >= 0 ? <span style={{ color: "#15803D" }}>Ahead by {shortMoney(ahead)}</span>
-            : <span style={{ color: "#B45309" }}>Behind by {shortMoney(-ahead)}{needDay ? ` · need ${shortMoney(needDay)} a day` : ""}</span>}</span>
-        </div>
-      </section>
-
-      {/* Set the month */}
-      <section className="card-glass rounded-xl border border-border/60 p-4">
-        <div className="flex flex-wrap gap-2">
-          {!singleScope && (
-            <Select value={effectiveVenueId ?? undefined} onValueChange={setVenueId} disabled={venuesLoading || vs.venues.length === 0}>
-              <SelectTrigger aria-label="Venue" className="h-9 w-full sm:w-[150px] text-[13px]"><SelectValue placeholder="Venue" /></SelectTrigger>
-              <SelectContent>{vs.venues.filter((v) => v.id && v.name).map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
-            </Select>
+          {goalEdit != null ? (
+            <input autoFocus inputMode="numeric" enterKeyHint="done" aria-label="Monthly target" value={goalEdit}
+              onFocus={(e) => e.target.select()} onChange={(e) => setGoalEdit(e.target.value)} onBlur={(e) => saveGoal(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setGoalEdit(null); }}
+              className="h-9 w-36 rounded-md px-2 text-right text-xl font-display font-semibold tabular-nums outline-none" style={{ background: "#EEF0EE", border: "none" }} />
+          ) : target != null ? (
+            <button type="button" aria-label="Change target" onClick={() => setGoalEdit(String(target))}
+              className="rounded px-1 -mx-1 text-xl font-display font-semibold tabular-nums hover:bg-[#F3F4F2]"><Num value={target} format={shortMoney} play={play} /></button>
+          ) : goalElsewhere ? (
+            <span className="text-[12px] text-muted-foreground text-right">Set for {goalNames.join(" + ")}</span>
+          ) : (
+            <button type="button" onClick={() => setGoalEdit("")} className="text-[13px] font-medium text-primary hover:underline">Set target</button>
           )}
-          <Input inputMode="decimal" placeholder={`${monthName} target`} aria-label="Monthly target" className="h-9 flex-1 min-w-0 text-right td-num"
-            value={goal} onChange={(e) => setGoal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") applyGoal(); }} />
-          <Button size="sm" className="h-9" onClick={applyGoal} disabled={applying || !effectiveVenueId || !goal.trim()}>{applying ? "Setting…" : "Set"}</Button>
         </div>
-        <p className="mt-2 text-[12px] text-muted-foreground">Spread across the days by weekday pattern.</p>
+        {target != null && (
+          <div className="mt-3 relative h-2 rounded-full bg-muted overflow-hidden" role="img"
+            aria-label={`Actual ${shortMoney(tSold)}, projected ${shortMoney(tProjected)} of ${shortMoney(target)} target`}>
+            <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${Math.min(100, (tProjected / target) * 100)}%` }} />
+            <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${Math.min(100, (tSold / target) * 100)}%` }} />
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12px] tabular-nums">
+          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold"><Num value={tSold} format={shortMoney} play={play} /></b>
+            <span className="text-muted-foreground"> · Projected</span> <b className="font-semibold"><Num value={tProjected} format={shortMoney} play={play} /></b></span>
+          {gap != null && (gap >= 0
+            ? <span className="font-medium" style={{ color: "#15803D" }}>{tSold >= target! ? "Target reached" : `On track · ${shortMoney(gap)} over`}</span>
+            : <span className="font-medium" style={{ color: "#B45309" }}>Short by {shortMoney(-gap)}</span>)}
+        </div>
+        {gap != null && gap < 0 && needDay != null && projDay != null && (
+          <p className="mt-1 text-[12px] text-muted-foreground tabular-nums">Need {shortMoney(needDay)} a day · projected {shortMoney(projDay)}</p>
+        )}
       </section>
 
-      {/* Pace */}
+      {/* Pace: actual, projected, and the target as one flat line */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
         <h2 className="text-[13px] font-medium">Pace</h2>
         <div className="mt-1.5 mb-2 flex flex-nowrap items-center gap-x-3 whitespace-nowrap overflow-hidden text-[12px] tabular-nums">
-          <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2.5" /></svg><span className="text-muted-foreground">Actual</span></span>
+          {lastSold && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2.5" /></svg><span className="text-muted-foreground">Actual</span></span>}
           {projEnd != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="2 3" /></svg><span className="text-muted-foreground">Projected</span><b className="font-semibold">{shortMoney(projEnd)}</b></span>}
-          <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--muted-foreground))" strokeWidth="2" strokeDasharray="5 3" /></svg><span className="text-muted-foreground">Target</span></span>
+          {target != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--muted-foreground))" strokeWidth="2" strokeDasharray="5 3" /></svg><span className="text-muted-foreground">Target</span></span>}
         </div>
         <div className="h-52">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={pace} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+            <LineChart data={pace} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" />
               <XAxis dataKey="day" ticks={[1, 8, 15, 22, 29]} tickLine={false} axisLine={false} fontSize={11} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={(v) => shortMoney(v as number).replace(baseSymbol(), "")} tickLine={false} axisLine={false} fontSize={11} width={40} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip content={({ active, payload, label }: { active?: boolean; payload?: { payload: { actual: number | null; proj: number | null; target: number } }[]; label?: number }) => {
-                if (!active || !payload?.length) return null; const p = payload[0].payload; const v = p.actual ?? p.proj;
-                return <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums"><div className="text-muted-foreground">Day {label}</div>{v != null && <div className="font-semibold">{shortMoney(v)}</div>}<div className="text-muted-foreground">Target {shortMoney(p.target)}</div></div>;
+              <YAxis domain={[0, paceTicks[paceTicks.length - 1]]} ticks={paceTicks} tickFormatter={(v) => shortMoney(v as number).replace(baseSymbol(), "")} tickLine={false} axisLine={false} fontSize={11} width={40} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip content={({ active, payload, label }: { active?: boolean; payload?: { payload: { actual: number | null; proj: number | null } }[]; label?: number }) => {
+                if (!active || !payload?.length) return null; const p = payload[0].payload; const v = p.actual ?? p.proj; if (v == null) return null;
+                return <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums"><div className="text-muted-foreground">Day {label}{p.actual == null ? " · projected" : ""}</div><div className="font-semibold">{shortMoney(v)}</div></div>;
               }} />
-              <Line type="monotone" dataKey="target" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 4" dot={false} strokeWidth={1.75} {...chartBuild(play, 2)} />
-              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} {...chartBuild(play, 2)} />
-              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} {...chartBuild(play, 2)} />
+              {target != null && <ReferenceLine y={target} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 4" strokeWidth={1.5}
+                label={{ value: `Target ${shortMoney(target)}`, position: "insideTopLeft", fontSize: 11, fill: "hsl(var(--muted-foreground))", offset: 6 }} />}
+              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} {...chartBuild(play, 1)} />
+              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} {...chartBuild(play, 1)} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -268,7 +267,7 @@ export default function RevenueTargetsNew() {
               <th className="sticky left-0 z-[2] h-9 px-3 text-left font-medium" style={{ background: "#fff" }}>Date</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Guests</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Spend</th>
-              <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Target</th>
+              <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Projected</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Actual</th>
               <th className="px-3 text-left font-medium" style={{ background: "#fff" }}>Source</th>
             </tr>
@@ -288,7 +287,7 @@ export default function RevenueTargetsNew() {
               // One venue's line; editable on today and future days.
               const lineRow = (l: Line, sub: boolean) => {
                 const key = `${l.venueId}|${l.date}`;
-                const can = !past;
+                const can = l.date >= todayIso && l.sold == null; // remaining days only: today onward, no sales yet
                 const open = openRow === key, editingThis = edit?.key === key;
                 const numCell = (field: "guests" | "spend" | "target", value: number | null, bold = false) => {
                   if (edit && edit.key === key && edit.field === field) return (

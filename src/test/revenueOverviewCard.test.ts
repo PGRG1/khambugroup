@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { comparisonWindow, comparisonSentence, targetPace, paceSentence, combineProjectionRows, monthSoFarLabel } from "@/utils/revenueOverview";
+import { comparisonWindow, comparisonSentence, monthGoal, goalStatus, combineProjectionRows, monthSoFarLabel } from "@/utils/revenueOverview";
 import { seatsOn, seatTotals, seatsForDate } from "@/utils/seatHistory";
 import type { DailyProjectionRow } from "@/utils/dailyProjections";
 
@@ -32,23 +32,27 @@ describe("comparison window", () => {
   });
 });
 
-describe("target pace", () => {
-  it("need per day = (target − sold) ÷ remaining days", () => {
-    const rows = [row("2026-10-01", 100, 80), row("2026-10-02", 100, 90), row("2026-10-03", 100, null), row("2026-10-04", 100, null)];
-    const p = targetPace(rows, "2026-10-02")!;
-    expect(p.target).toBe(400);
-    expect(p.sold).toBe(170);
-    expect(p.shouldBy).toBe(200);
-    expect(p.remainingDays).toBe(2);
-    expect(p.needPerDay).toBe(115);
-    expect(p.averaging).toBe(85);
-    expect(paceSentence(p)).toContain("85% of where you should be by today");
+describe("month target", () => {
+  const rows = [row("2026-10-01", 100, 80), row("2026-10-02", 100, 90), row("2026-10-03", 100, null), row("2026-10-04", 100, null)];
+  it("target is one flat figure; projected = actual + remaining projections", () => {
+    const g = monthGoal(rows, "2026-10-03", 500)!;
+    expect(g.target).toBe(500);
+    expect(g.actual).toBe(170);
+    expect(g.projected).toBe(370);
+    expect(g.remainingDays).toBe(2);
+    expect(g.needPerDay).toBe(165);
+    expect(g.projectedPerDay).toBe(100);
+    expect(goalStatus(g)).toEqual({ text: "Short by HK$130", good: false, detail: "Need HK$165 a day · projected HK$100" });
   });
-  it("does not count today when today's sales are not in yet", () => {
-    const rows = [row("2026-10-01", 100, 100), row("2026-10-02", 100, null), row("2026-10-03", 100, null)];
-    const p = targetPace(rows, "2026-10-02")!;
-    expect(p.shouldBy).toBe(100);
-    expect(p.remainingDays).toBe(2);
+  it("today counts as remaining until it has sales", () => {
+    const g = monthGoal(rows, "2026-10-02", 300)!;
+    expect(g.remainingDays).toBe(2);
+    expect(goalStatus(g)!.text).toBe("On track · HK$70 over");
+  });
+  it("no target: projection only, no sentence", () => {
+    const g = monthGoal(rows, "2026-10-03", null)!;
+    expect(g.needPerDay).toBeNull();
+    expect(goalStatus(g)).toBeNull();
   });
   it("sums venues by date", () => {
     const c = combineProjectionRows([[row("2026-10-01", 100, 50)], [row("2026-10-01", 200, null)]]);

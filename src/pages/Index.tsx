@@ -10,6 +10,7 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useRevenueForecastOverview } from "@/hooks/useRevenueForecastOverview";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { useScopedProjections } from "@/hooks/useScopedProjections";
+import { useMonthTarget } from "@/hooks/useMonthTarget";
 import { usePagePeriod } from "@/hooks/usePagePeriod";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import { FileText } from "lucide-react";
@@ -21,7 +22,7 @@ import { VenueContribution } from "@/components/revenue-overview/VenueContributi
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
 import { CumulativeSales, type CumulativeDay } from "@/components/revenue-overview/CumulativeSales";
 import { aggregate, mtdRange } from "@/components/revenue-overview/utils";
-import { MONTHS, comparisonWindow, iso, monthSoFarLabel, targetPace } from "@/utils/revenueOverview";
+import { MONTHS, comparisonWindow, iso, monthSoFarLabel, monthGoal } from "@/utils/revenueOverview";
 
 /** "Aug" when the comparison covers the whole month; "1–13 Oct" when it covers part of it; "Sep 2025" / "last year" for a year back. */
 function compareLabel(c: { from: string; to: string; kind: "last-year" | "last-month" }, singleMonth: boolean): string {
@@ -69,7 +70,11 @@ const Index = () => {
   const tMonth = (from?.getMonth() ?? 0) + 1;
   const venueIds = useMemo(() => vs.selectedVenues.map((v) => v.id), [vs.selectedVenues]);
   const targets = useScopedProjections(venueIds, tYear, tMonth, singleMonth && access.forecast);
-  const pace = useMemo(() => targetPace(targets.rows, todayIso), [targets.rows, todayIso]);
+  // The month's target is one flat figure for the venues in view (revenue_targets); the rows are the projection.
+  const allNames = useMemo(() => vs.venues.filter((v) => v.is_active && v.name).map((v) => v.name).sort(), [vs.venues]);
+  const scopeNames = useMemo(() => vs.selectedVenues.map((v) => v.name).sort(), [vs.selectedVenues]);
+  const month = useMonthTarget(singleMonth ? tYear : 0, singleMonth ? tMonth : 0, scopeNames, allNames);
+  const goal = useMemo(() => monthGoal(targets.rows, todayIso, month.target), [targets.rows, todayIso, month.target]);
 
   // Running total for a single month: each day's sales, plus each remaining day's projection
   // (from the same month projection rows as the target bar; without them, current pace is used).
@@ -104,7 +109,7 @@ const Index = () => {
   // The first visit waits for everything the page shows (sales and targets), so it enters complete
   // and nothing changes size afterwards; later target reloads keep their space (SoFarCard).
   const firstReady = useRef(false);
-  const targetsPending = singleMonth && access.forecast && targets.loading;
+  const targetsPending = singleMonth && access.forecast && (targets.loading || month.loading);
   if (!loading && vs.ready && !targetsPending) firstReady.current = true;
   const holding = loading || !vs.ready || (!firstReady.current && targetsPending);
   const slowLoad = useSlowLoad(holding);
@@ -150,20 +155,18 @@ const Index = () => {
               spendPerGuest: prev.guests ? prev.revenue / prev.guests : null,
               averageDay: prev.days ? prev.revenue / prev.days : 0,
             } : null}
-            target={singleMonth && access.forecast && !targets.loading ? {
+            target={singleMonth && access.forecast && !targetsPending ? {
               monthName: MONTHS[tMonth - 1],
-              pace,
-              hasTarget: targets.hasManagerTarget,
-              canSet: access.forecast,
-              ended: !!to && to < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+              goal,
+              canSet: access.forecast && !month.elsewhere,
             } : null}
-            targetLoading={singleMonth && access.forecast && targets.loading}
+            targetLoading={targetsPending}
             guests={cur.guests}
             spendPerGuest={cur.guests ? cur.revenue / cur.guests : null}
             averageDay={cur.days ? cur.revenue / cur.days : 0}
           />
 
-          {running && <CumulativeSales days={running.days} lastCounted={running.lastCounted} target={targets.hasManagerTarget && pace ? pace.target : null} />}
+          {running && <CumulativeSales days={running.days} lastCounted={running.lastCounted} target={month.target} />}
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
             <div className="min-w-0">

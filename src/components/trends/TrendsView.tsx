@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bar, CartesianGrid, Cell, ComposedChart, Customized, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, CartesianGrid, Cell, ComposedChart, Customized, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { SalesRecord } from "@/types/sales";
 import { baseSymbol } from "@/utils/money";
@@ -68,7 +68,7 @@ const Tip = ({ rows }: { rows: [string, string][] }) => (
   </div>
 );
 
-export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; today?: Date }) {
+export function TrendsView({ data, target = null, projected, today = new Date() }: { data: SalesRecord[]; target?: number | null; projected?: Map<string, number>; today?: Date }) {
   const m = useMemo(() => {
     // One row per date, all selected venues added together.
     const byDate = new Map<string, Day>();
@@ -109,12 +109,14 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
 
     // Projection for the rest of this month: each remaining day at its weekday's average over the last 8 weeks.
     const dowAvg = Array.from({ length: 7 }, (_, dow) => statIn(addDays(lastD, -55), lastD, dow).avg ?? 0);
-    const projDay = (date: string) => dowAvg[dowOf(new Date(`${date}T00:00:00`))];
+    // Remaining days use the month's saved projection (the same one Overview and Targets show);
+    // without it, this month's weekday averages.
+    const projDay = (date: string) => projected?.get(date) ?? dowAvg[dowOf(new Date(`${date}T00:00:00`))];
     const curDays = daysIn(curKey), curDay = curLast ? Number(curLast.slice(8, 10)) : 0;
     let restTotal = 0;
     for (let d = curDay + 1; d <= curDays; d++) restTotal += projDay(`${curKey}-${String(d).padStart(2, "0")}`);
     // Project only once the month has at least one day of sales; before that it would be a pure guess.
-    const canProject = curDay > 0 && dowAvg.some((v) => v > 0);
+    const canProject = curDay > 0 && (!!projected?.size || dowAvg.some((v) => v > 0));
 
     // Monthly sales: 12 months.
     const months = Array.from({ length: 12 }, (_, i) => shiftMonth(curKey, i - 11)).map((k) => {
@@ -169,7 +171,7 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       return { name, long: DOW_LONG[dow], trend };
     });
     return { monthRun, monthAt, weekdays, months };
-  }, [data, today]);
+  }, [data, today, projected]);
 
   const play = useRevenuePlay();
   const [pick, setPick] = useState<[number, number] | null>(null);
@@ -208,7 +210,7 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       {(() => {
         const a = m.monthAt;
         const mName = (k: string) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long" });
-        const top = niceTicks(Math.max(...m.monthRun.flatMap((r) => [r.cur, r.proj, ...a.past.map((k) => (r as Record<string, number | null>)[k])].filter((v) => v != null) as number[])));
+        const top = niceTicks(Math.max(...m.monthRun.flatMap((r) => [r.cur, r.proj, ...a.past.map((k) => (r as Record<string, number | null>)[k])].filter((v) => v != null) as number[]), target ?? 0));
         return (
           <Card title="Month to date" oneLine legend={<>
             {a.cur != null
@@ -259,6 +261,8 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
                       </div>
                     );
                   }} />
+                  {target != null && <ReferenceLine y={target} stroke={MUTED} strokeOpacity={0.6} strokeDasharray="4 4" ifOverflow="extendDomain"
+                    label={{ value: `Target ${shortMoney(target)}`, position: "insideTopLeft", fill: MUTED, fontSize: 11 }} />}
                   {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />)}
                   {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />}
                   <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} {...chartBuild(play, 0)} connectNulls={false}

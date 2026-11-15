@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Num } from "@/components/home/HomeMotion";
 import { useRevenuePlay } from "@/components/revenue/RevenueMotion";
-import { shortMoney, paceSentence, type TargetPace } from "@/utils/revenueOverview";
+import { shortMoney, goalStatus, type MonthGoal } from "@/utils/revenueOverview";
 import { fmtNum } from "./utils";
 
 /** The comparison period ("Aug", "Sep 2025") and its figures. */
@@ -12,8 +12,8 @@ interface Props {
   label: string;
   revenue: number;
   compare: SoFarCompare | null;
-  /** Shown only for a single month. A finished month without a target shows nothing. */
-  target: { monthName: string; pace: TargetPace | null; hasTarget: boolean; canSet: boolean; ended: boolean } | null;
+  /** Shown only for a single month: the target (one flat figure) against actual and projected. */
+  target: { monthName: string; goal: MonthGoal | null; canSet: boolean } | null;
   guests: number;
   spendPerGuest: number | null;
   averageDay: number;
@@ -45,11 +45,10 @@ export function SoFarCard({ label, revenue, compare, target, guests, spendPerGue
   const targetRef = useRef<HTMLDivElement>(null);
   const lastTargetH = useRef(0);
   useLayoutEffect(() => { if (!targetLoading && targetRef.current) lastTargetH.current = targetRef.current.offsetHeight; });
-  const p = target?.pace;
-  const showBar = target && target.hasTarget && p && p.target > 0;
-  const soldPct = showBar ? Math.min(100, (p!.sold / p!.target) * 100) : 0;
-  const shouldPct = showBar ? Math.min(100, (p!.shouldBy / p!.target) * 100) : 0;
-  const behind = showBar && p!.sold < p!.shouldBy;
+  const g = target?.goal;
+  const showBar = !!g && g.target != null && g.target > 0;
+  const actualPct = showBar ? Math.min(100, (g!.actual / g!.target!) * 100) : 0;
+  const projPct = showBar ? Math.min(100, (g!.projected / g!.target!) * 100) : 0;
 
   return (
     <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4" aria-label={label}>
@@ -69,23 +68,24 @@ export function SoFarCard({ label, revenue, compare, target, guests, spendPerGue
       {targetLoading ? null : target && (
         showBar ? (
           <div className="space-y-2">
-            <div className="relative h-3 rounded-full bg-muted" role="img"
-              aria-label={`Sold ${shortMoney(p!.sold)} of ${shortMoney(p!.target)} target; should be at ${shortMoney(p!.shouldBy)} by today`}>
-              <div className={`absolute inset-y-0 left-0 rounded-full ${behind ? "bg-warning" : "bg-primary"}`} style={{ width: `${soldPct}%` }} />
-              {p!.remainingDays > 0 && (
-                <div className="absolute -top-1 -bottom-1 w-0.5 bg-foreground" style={{ left: `calc(${shouldPct}% - 1px)` }} title="Where you should be by today" />
-              )}
+            <div className="relative h-3 rounded-full bg-muted overflow-hidden" role="img"
+              aria-label={`Actual ${shortMoney(g!.actual)}, projected ${shortMoney(g!.projected)} of ${shortMoney(g!.target!)} target`}>
+              <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: `${projPct}%` }} />
+              <div className="rv-fill absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${actualPct}%` }} />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground td-num">
-              <span>Sold {shortMoney(p!.sold)}</span>
-              <span>Target {shortMoney(p!.target)}</span>
+              <span>Actual {shortMoney(g!.actual)} · Projected {shortMoney(g!.projected)}</span>
+              <span>Target {shortMoney(g!.target!)}</span>
             </div>
-            <p className="text-[13px] text-foreground/85">{paceSentence(p!)}</p>
+            {(() => { const st = goalStatus(g!); return st && <div className="text-[13px] tabular-nums">
+              <p className="font-medium" style={{ color: st.good ? "#15803D" : "#B45309" }}>{st.text}</p>
+              {st.detail && <p className="mt-0.5 text-[12px] text-muted-foreground">{st.detail}</p>}
+            </div>; })()}
           </div>
         ) : (
-          // A month that has finished without a target shows nothing here; setting one now would not help.
-          target.ended ? null : <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-            <span className="text-muted-foreground">No target for {target.monthName}</span>
+          // No target: the projection, and a way to set one (not for a finished month).
+          g && g.ended ? null : <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+            {g && <span className="text-muted-foreground tabular-nums">Projected {shortMoney(g.projected)}</span>}
             {target.canSet && <Link to="/revenue/targets-new" className="font-medium text-primary hover:underline">Set a target →</Link>}
           </div>
         )
