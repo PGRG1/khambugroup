@@ -850,3 +850,20 @@ html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-r
 }
 .rv-appear { animation: rv-fade .3s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .rv-appear { animation: none; } }
+
+/* Top bar live sky (TopBarSky): the sky is the bar's background, so the bar drops its own fill and line.
+   On a dark sky (night, storms) the date, weather, menu button and bell turn white; the venue pill stays white. */
+html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky) {
+  background: transparent;
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.tenant-topbar:has(.topbar-sky[data-tone="dark"]) .topbar-today,
+.tenant-topbar:has(.topbar-sky[data-tone="dark"]) .topbar-today .text-foreground\/85 { color: rgba(255, 255, 255, 0.92); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.tenant-topbar:has(.topbar-sky[data-tone="dark"]) .topbar-today .bg-muted-foreground\/50 { background: rgba(255, 255, 255, 0.55); }
+.tenant-topbar:has(.topbar-sky[data-tone="light"]) .topbar-today { color: #3D4842; text-shadow: 0 0 6px rgba(255, 255, 255, 0.35); }
+.tenant-topbar:has(.topbar-sky[data-tone="light"]) .topbar-today .text-foreground\/85 { color: #16231F; }
+html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) [data-sidebar="trigger"],
+html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) button[aria-label^="Assigned work"],
+html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"]) button[aria-label^="Assigned work"]:hover { color: #FFFFFF; }
