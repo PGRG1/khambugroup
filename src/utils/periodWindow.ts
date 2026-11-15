@@ -40,6 +40,21 @@ export function selectionLabel(value: PeriodSelection, mode: PeriodMode, today: 
   }
   return `${formatDate(value.from)} – ${formatDate(value.to)}`;
 }
+/** Short wording for the period button: "3–14 Nov", "28 Oct – 14 Nov", "28 Dec 2025 – 3 Jan", "3 Nov";
+ *  the year only when it isn't this year. Shortcuts keep their own words ("Nov so far", "Last 12 months"). */
+export function shortDate(iso: string, today: string, withMonth = true) {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+  return `${d}${withMonth ? ` ${mon}` : ''}${withMonth && String(y) !== today.slice(0, 4) ? ` ${y}` : ''}`;
+}
+export function buttonLabel(value: PeriodSelection, mode: PeriodMode, today: string, fiscalStart = 1) {
+  if (mode === 'asat') return shortDate(value.to, today);
+  if (value.key !== 'custom') return selectionLabel(value, mode, today, fiscalStart);
+  const { from, to } = value;
+  if (from === to) return shortDate(from, today);
+  if (from.slice(0, 7) === to.slice(0, 7)) return `${shortDate(from, today, false)}–${shortDate(to, today)}`;
+  return `${shortDate(from, today)} – ${shortDate(to, today)}`;
+}
 export function validSessionSelection(stored: { day?: string; value?: PeriodSelection } | null, today: string, start: string, end = today) {
   const v = stored?.value;
   return stored?.day === today && v && v.from >= start.slice(0, 7) + '-01' && v.to <= end && v.from <= v.to ? v : undefined;
