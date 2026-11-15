@@ -59,11 +59,15 @@ export default function RevenueTargetsNew() {
   // ---- Saved projections for every venue in view, with who set them ----
   const [projTick, setProjTick] = useState(0);
   const [proj, setProj] = useState<Map<string, { v: number; g: number | null; s: number | null; bani: boolean; by: string; at: string }>>(new Map());
-  const [projLoading, setProjLoading] = useState(true);
   const scopeKey = scopeVenues.map((v) => v.id).sort().join(",");
+  // Loading is "the rows in hand are not for what is in view", so no render ever shows a
+  // new month or venue with the old (or no) projections. Saves reload without counting as loading.
+  const projWant = `${tenantId}|${scopeKey}|${dates[0]}`;
+  const [projHave, setProjHave] = useState<string | null>(null);
+  const projLoading = projHave !== projWant;
   useEffect(() => {
     const ids = scopeKey ? scopeKey.split(",") : [];
-    if (!tenantId || !ids.length) { setProj(new Map()); setProjLoading(false); return; }
+    if (!tenantId || !ids.length) { setProj(new Map()); setProjHave(projWant); return; }
     let live = true;
     (async () => {
       const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, projected_sales, projected_guests, projected_spend, source, created_by, updated_at")
@@ -76,11 +80,11 @@ export default function RevenueTargetsNew() {
       }
       if (live) {
         setProj(new Map((data ?? []).map((r) => [`${r.venue_id}|${r.target_date}`, { v: Number(r.projected_sales), g: r.projected_guests == null ? null : Number(r.projected_guests), s: r.projected_spend == null ? null : Number(r.projected_spend), bani: r.source === "bani", by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
-        setProjLoading(false);
+        setProjHave(projWant);
       }
     })();
     return () => { live = false; };
-  }, [tenantId, scopeKey, dates, projTick]);
+  }, [tenantId, scopeKey, dates, projTick, projWant]);
   const loading = projLoading || targetLoading || !vs.ready;
 
 
@@ -264,7 +268,7 @@ export default function RevenueTargetsNew() {
       </section>
 
       {/* Day by day */}
-      <div className="kit overflow-x-auto overscroll-x-contain rounded-xl border border-border/60" style={{ background: "#fff", ["--kit-line" as string]: "#ECEAE3" }}>
+      <div data-rv className="kit overflow-x-auto overscroll-x-contain rounded-xl border border-border/60" style={{ background: "#fff", ["--kit-line" as string]: "#ECEAE3" }}>
         <table className="w-full min-w-[560px] text-[13px] tabular-nums border-separate border-spacing-0" data-testid="new-targets-table">
           <colgroup><col className="w-[84px]" /><col className="w-[76px]" /><col className="w-[84px]" /><col className="w-[110px]" /><col className="w-[92px]" /><col className="w-[86px]" /></colgroup>
           <thead>

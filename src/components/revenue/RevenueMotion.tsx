@@ -31,9 +31,14 @@ export function RevenueEnter({ id, ready = true, className = "", children }: {
   id: string; ready?: boolean; className?: string; children: ReactNode | ((play: boolean) => ReactNode);
 }) {
   const first = useHomePlay(`revenue-${id}`, ready);
-  // Switch off once the entrance has run, so data refreshes never replay it.
-  const [play, setPlay] = useState(first);
-  useEffect(() => { setPlay(first); if (!first) return; const t = setTimeout(() => setPlay(false), 2600); return () => clearTimeout(t); }, [first]);
+  // On in the very render the page becomes ready (never a frame of the finished page first),
+  // and off once the entrance has run, so data refreshes never replay it.
+  const [done, setDone] = useState(false);
+  const play = first && !done;
+  useEffect(() => { if (!first) return; const t = setTimeout(() => setDone(true), 2600); return () => clearTimeout(t); }, [first]);
+  // Nothing is drawn until the first time it is ready, so figures never mount with half-loaded data.
+  const [shown, setShown] = useState(ready);
+  if (ready && !shown) setShown(true);
   const ref = useRef<HTMLDivElement>(null);
 
   // Number the cards and the first table rows in page order, so they enter one after another.
@@ -53,7 +58,7 @@ export function RevenueEnter({ id, ready = true, className = "", children }: {
 
   return (
     <PlayCtx.Provider value={play}>
-      <div ref={ref} className={`${className} ${!ready ? "rv-hold" : play ? "rv-play" : ""}`}>{typeof children === "function" ? children(play) : children}</div>
+      <div ref={ref} className={`${className} ${!ready ? "rv-hold" : play ? "rv-play" : ""}`}>{!shown ? null : typeof children === "function" ? children(play) : children}</div>
     </PlayCtx.Provider>
   );
 }

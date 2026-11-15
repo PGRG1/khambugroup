@@ -15,22 +15,24 @@ export function useMonthTarget(year: number, month: number, scopeNames: string[]
   const { tenantId } = useActiveTenant();
   const { user } = useAuth();
   const [row, setRow] = useState<{ amount: number | null; venues: string[] } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  // Loading until the row in hand is for this tenant and month (never a stale render in between).
+  const want = `${tenantId}|${year}|${month}`;
+  const [have, setHave] = useState<string | null>(null);
+  const loading = !!tenantId && !!year && !!month && have !== want;
 
   useEffect(() => {
-    if (!tenantId || !year || !month) { setLoading(false); return; }
+    if (!tenantId || !year || !month) return;
     let live = true;
-    setLoading(true);
     (async () => {
       const { data } = await supabase.from("revenue_targets").select("target_amount, venues")
         .eq("tenant_id", tenantId).eq("year", year).eq("month", month).maybeSingle();
       if (!live) return;
       setRow(data ? { amount: data.target_amount == null ? null : Number(data.target_amount), venues: data.venues ?? [] } : null);
-      setLoading(false);
+      setHave(want);
     })();
     return () => { live = false; };
-  }, [tenantId, year, month, tick]);
+  }, [tenantId, year, month, tick, want]);
 
   const scopeKey = [...scopeNames].sort().join("|");
   const covers = useMemo(() => (row ? (row.venues.length ? [...row.venues].sort() : [...allNames].sort()) : []), [row, allNames]);
