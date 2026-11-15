@@ -1,4 +1,4 @@
-import type { DiscoveredReport, LineKind, Category } from "../../supabase/functions/parse-receipt/discoverLines";
+import { choiceValue, type DiscoveredReport, type LineKind, type Category } from "../../supabase/functions/parse-receipt/discoverLines";
 
 export type { LineKind, Category };
 
@@ -11,6 +11,14 @@ export interface SetupLine {
   bankAccountId: string | null;
   /** Amount printed on each sample (by sample id); absent when that sample has no such line. */
   amounts: Record<string, number | null>;
+  /** Bani is sure, or the team has answered: no question needed. Saved lines are settled. */
+  sure?: boolean;
+  /** Bani's reason, shown in the full list. */
+  reason?: string;
+  /** Other likely meanings Bani offers when unsure (choice values). */
+  alternatives?: string[];
+  /** Settled by the team's answer: later samples never reopen it. */
+  answered?: boolean;
 }
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -51,7 +59,7 @@ export function valueOf(l: Pick<SetupLine, "kind" | "category" | "settlesTo" | "
   return l.kind;
 }
 
-export function applyValue(l: SetupLine, value: string): SetupLine {
+export function applyValue<T extends SetupLine>(l: T, value: string): T {
   const [kind, a, b] = value.split(":");
   if (kind === "sales") return { ...l, kind: "sales", category: (a as Category) || "other", settlesTo: null, bankAccountId: null };
   if (kind === "payment") return { ...l, kind: "payment", category: null, settlesTo: a === "cash" ? "cash" : "bank", bankAccountId: a === "bank" && b ? b : null };
@@ -68,10 +76,52 @@ export function addSample(lines: SetupLine[], sampleId: string, report: Discover
   const out = lines.map((l) => ({ ...l, amounts: { ...l.amounts } }));
   for (const d of report.lines) {
     const hit = out.find((l) => norm(l.printed) === norm(d.printed));
-    if (hit) { hit.amounts[sampleId] = d.amount; continue; }
-    out.push({ printed: d.printed, kind: d.kind, category: d.category, settlesTo: d.settlesTo, bankAccountId: null, amounts: { [sampleId]: d.amount } });
+    if (hit) {
+      hit.amounts[sampleId] = d.amount;
+      // Saved lines (sure undefined), lines already in question, and the team's answers stand.
+      if (hit.sure !== true || hit.answered) continue;
+      // Reports that disagree about a line (or a doubtful read) turn it into a question, never a silent pick.
+      const v = choiceValue(d), mine = valueOf(hit).replace(/^payment:bank:.*/, "payment:bank");
+      if (v !== mine || !d.sure) {
+        hit.sure = false;
+        hit.alternatives = [...new Set([...(hit.alternatives ?? []), ...(v !== mine ? [v] : []), ...d.alternatives])].filter((x) => x !== mine).slice(0, 3);
+      }
+      continue;
+    }
+    out.push({ printed: d.printed, kind: d.kind, category: d.category, settlesTo: d.settlesTo, bankAccountId: null, amounts: { [sampleId]: d.amount },
+      sure: d.sure, reason: d.reason, alternatives: d.alternatives });
   }
   return out;
+}
+
+export interface Question { printed: string; type: "what" | "where"; choices: string[] }
+
+/**
+ * What Bani still needs a person for: lines it isn't sure of, and (with more than one bank
+ * account) which account a card or wallet payment lands in. Everything else it has decided.
+ */
+export function openQuestions(lines: SetupLine[], banks: { id: string }[]): Question[] {
+  const qs: Question[] = [];
+  for (const l of lines) {
+    if (l.sure === false) {
+      const mine = valueOf(l).replace(/^payment:bank:.*/, "payment:bank");
+      qs.push({ printed: l.printed, type: "what", choices: [mine, ...(l.alternatives ?? []).filter((a) => a !== mine)].slice(0, 3) });
+    } else if (l.kind === "payment" && l.settlesTo === "bank" && !l.bankAccountId && banks.length > 1) {
+      qs.push({ printed: l.printed, type: "where", choices: [...banks.map((b) => `payment:bank:${b.id}`), "payment:cash"] });
+    }
+  }
+  return qs;
+}
+
+/** The team's answer settles the line. */
+export function answer(lines: SetupLine[], printed: string, value: string): SetupLine[] {
+  return lines.map((l) => (l.printed === printed ? { ...applyValue(l, value), sure: true, answered: true } : l));
+}
+
+/** With one bank account there is nothing to ask: card and wallet payments land there. */
+export function withOnlyBank(lines: SetupLine[], banks: { id: string }[]): SetupLine[] {
+  if (banks.length !== 1) return lines;
+  return lines.map((l) => (l.kind === "payment" && l.settlesTo === "bank" && !l.bankAccountId ? { ...l, bankAccountId: banks[0].id } : l));
 }
 
 export interface SampleCheck { ok: boolean; reason: string | null }

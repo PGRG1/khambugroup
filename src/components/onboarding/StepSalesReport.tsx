@@ -2,17 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, Plus, Receipt } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus, Receipt } from "lucide-react";
 import {
-  addSample, applyValue, checkSample, groupOf, GROUPS, lineOptions, missingBasics, valueOf,
+  addSample, answer, applyValue, checkSample, groupOf, GROUPS, lineOptions, missingBasics, openQuestions, valueOf, withOnlyBank,
   type Group, type SetupLine,
 } from "@/utils/salesReportSetup";
 import type { StepProps } from "./OnboardingSteps";
 
 /**
- * Onboarding: set up how a client's sales report reads. The Bani team adds two or three sample
- * reports, Bani lists every printed line with a suggested meaning, the team confirms. Saved per
- * venue (or for all venues on the same POS). Clients can view the result; only the team edits it.
+ * Onboarding: how a client's sales report reads. The Bani team adds two or three sample reports;
+ * Bani decides every line it is sure of and asks only about the rest (and, with more than one bank
+ * account, where card payments land). Once nothing is open and every sample adds up, it saves by
+ * itself. The full list stays one tap away to check or correct. Saved per venue, or for all venues
+ * on the same POS. Clients can view it; only the team changes it.
  */
 type Line = SetupLine & { legacyField?: string | null; glAccountId?: string | null };
 type Sample = { id: string; name: string; date: string | null; status: "reading" | "done" | "error"; error?: string };
@@ -38,6 +40,9 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [other, setOther] = useState<string | null>(null); // question answered with "Something else"
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
         legacyField: r.legacy_field, amounts: {},
       })));
       setConfirmedAt(s.data?.confirmed_at ?? null);
+      setShowAll(false); setDirty(false);
       setLoading(false);
     })();
     return () => { live = false; };
@@ -86,6 +92,7 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
         });
         if (error || !data?.success) throw new Error(data?.error || "Could not read this report");
         setLines((ls) => addSample(ls, id, data.data) as Line[]);
+        setDirty(true);
         setSamples((s) => s.map((x) => (x.id === id ? { ...x, status: "done", date: data.data.date } : x)));
       } catch (e) {
         setSamples((s) => s.map((x) => (x.id === id ? { ...x, status: "error", error: e instanceof Error ? e.message : "Could not read" } : x)));
@@ -94,12 +101,19 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
   };
 
   const options = useMemo(() => lineOptions(banks), [banks]);
+  const label = (v: string) => options.find((o) => o.value === v)?.label ?? v;
+  const settled = useMemo(() => withOnlyBank(lines, banks) as Line[], [lines, banks]);
+  const questions = openQuestions(settled, banks);
+  const reading = samples.some((s) => s.status === "reading");
   const read = samples.filter((s) => s.status === "done");
-  const checks = read.map((s) => ({ s, c: checkSample(lines, s.id) }));
+  const checks = read.map((s) => ({ s, c: checkSample(settled, s.id) }));
+  const balanced = checks.every((x) => x.c.ok);
   const missing = lines.length ? missingBasics(lines) : [];
+  const sureCount = settled.filter((l) => l.sure !== false).length;
   const scopeName = scope ? venues.find((v) => v.id === scope)?.name ?? "venue" : "all venues";
 
   const save = async () => {
+    const lines = settled;
     if (!lines.length) { toast({ title: "Add a sample report first" }); return; }
     setSaving(true);
     const venueId = scope || null;
@@ -121,15 +135,24 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
     }
     setSaving(false);
     if (setupErr) { toast({ title: "Setup not saved", description: "Only the Bani team can change a sales report setup.", variant: "destructive" }); return; }
+    setDirty(false);
     toast({ title: `Sales report set up for ${scopeName}` });
     await onComplete();
   };
 
+  // Bani's own decision: nothing open, every sample adds up, all reports read: save.
+  useEffect(() => {
+    if (dirty && !saving && !reading && read.length > 0 && questions.length === 0 && balanced) save();
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pick = (printed: string, value: string) => { setLines((ls) => answer(ls, printed, value) as Line[]); setDirty(true); setOther(null); };
+
   const row = (l: Line) => (
     <div key={l.printed} className="flex items-center justify-between gap-3 border-b border-border/60 py-2 last:border-b-0">
-      <span className="min-w-[5.5rem] flex-1 text-[14px] leading-snug [overflow-wrap:anywhere]">{l.printed}</span>
+      <span className="min-w-[5.5rem] flex-1 text-[14px] leading-snug [overflow-wrap:anywhere]">{l.printed}
+        {l.reason && <span className="block text-[11px] text-muted-foreground">{l.reason}</span>}</span>
       <select aria-label={`${l.printed} counts as`} value={valueOf(l)}
-        onChange={(e) => setLines((ls) => ls.map((x) => (x === l ? (applyValue(x, e.target.value) as Line) : x)))}
+        onChange={(e) => { const v = e.target.value; setLines((ls) => ls.map((x) => (x.printed === l.printed ? { ...applyValue(x, v), sure: true, answered: true } : x))); setDirty(true); }}
         className="h-8 min-w-0 max-w-[11rem] flex-1 rounded-md border-0 px-2 text-[13px] outline-none" style={{ background: "#EEF0EE" }}>
         {GROUPS.map((g) => (
           <optgroup key={g} label={g}>{options.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>
@@ -164,10 +187,60 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
         <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => { readFiles(e.target.files); e.target.value = ""; }} />
       </div>
       {!samples.length && !lines.length && !loading && <p className="text-[12px] text-muted-foreground">Add 2 or 3 sales reports from this venue's POS.</p>}
-      {read.length > 0 && <p className="text-[12px] text-muted-foreground">{lines.length} lines on {read.length} report{read.length === 1 ? "" : "s"}</p>}
+      {reading && <p className="text-[13px] text-muted-foreground">Bani is reading the reports…</p>}
+      {!reading && read.length > 0 && (
+        <p className="text-[13px]">{!dirty && !saving ? `${lines.length} lines set up` : `Bani set up ${sureCount} of ${lines.length} lines`}{questions.length ? <span className="text-muted-foreground"> · {questions.length} question{questions.length === 1 ? "" : "s"}</span> : null}</p>
+      )}
 
-      {GROUPS.map((g: Group) => {
-        const ls = lines.filter((l) => groupOf(l.kind) === g);
+      {!reading && questions.map((q) => {
+        const l = settled.find((x) => x.printed === q.printed)!;
+        const amt = Object.values(l.amounts).find((v) => v != null);
+        return (
+          <div key={`${q.type}:${q.printed}`} className="rounded-lg border border-border/70 p-3">
+            <p className="text-[14px]">
+              {q.type === "what"
+                ? <>What is <b className="font-medium">{q.printed}</b>{amt != null ? <span className="text-muted-foreground tabular-nums"> ({amt.toLocaleString("en-US")})</span> : null}?</>
+                : <>Where does <b className="font-medium">{q.printed}</b> money go?</>}
+            </p>
+            {l.reason && q.type === "what" && <p className="mt-0.5 text-[12px] text-muted-foreground">{l.reason}</p>}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {q.choices.map((v) => (
+                <button key={v} type="button" onClick={() => pick(q.printed, v)}
+                  className="h-8 rounded-full px-3 text-[13px] hover:bg-[#E4E6E3]" style={{ background: "#EEF0EE" }}>{q.type === "where" ? label(v).replace(/^Paid → /, "") : label(v)}</button>
+              ))}
+              {q.type === "what" && (other === q.printed
+                ? <select autoFocus aria-label={`${q.printed} is`} defaultValue="" onChange={(e) => e.target.value && pick(q.printed, e.target.value)}
+                    className="h-8 rounded-full border-0 px-3 text-[13px] outline-none" style={{ background: "#EEF0EE" }}>
+                    <option value="" disabled>Choose…</option>
+                    {GROUPS.map((g) => <optgroup key={g} label={g}>{options.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>)}
+                  </select>
+                : <button type="button" onClick={() => setOther(q.printed)} className="h-8 px-2 text-[13px] text-muted-foreground hover:text-foreground">Something else</button>)}
+            </div>
+          </div>
+        );
+      })}
+
+      {!reading && checks.length > 0 && (balanced
+        ? <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#E7F3EC", color: "#15803D" }}>
+            <Check className="h-4 w-4" />Sales and payments balance on {checks.length === 1 ? "the report" : `all ${checks.length} reports`}
+          </div>
+        : <div className="space-y-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#FBF1E6", color: "#B45309" }}>
+            {checks.filter((x) => !x.c.ok).map(({ s, c }) => <p key={s.id}>{shortDate(s.date)}: {c.reason}</p>)}
+          </div>)}
+      {!reading && dirty && read.length > 0 && !questions.length && !balanced && (
+        <Button variant="outline" className="w-full sm:w-auto" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save anyway"}</Button>
+      )}
+      {saving && <p className="text-[12px] text-muted-foreground">Saving…</p>}
+
+      {lines.length > 0 && (
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
+          {showAll ? "Hide lines" : `See all lines (${lines.length})`}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showAll ? "rotate-180" : ""}`} />
+        </button>
+      )}
+
+      {showAll && GROUPS.map((g: Group) => {
+        const ls = settled.filter((l) => groupOf(l.kind) === g);
         const miss = g === "Basics" ? missing : [];
         if (!ls.length && !miss.length) return null;
         return (
@@ -183,23 +256,13 @@ export function StepSalesReport({ tenantId, onComplete, onProgress }: StepProps)
         );
       })}
 
-      {lines.length > 0 && (adding === null
+      {showAll && (adding === null
         ? <button type="button" onClick={() => setAdding("")} className="text-[13px] text-muted-foreground hover:text-foreground">+ Add a line</button>
         : <input autoFocus value={adding} placeholder="Line as printed" aria-label="New line"
             onChange={(e) => setAdding(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Escape") setAdding(null); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-            onBlur={() => { const p = (adding ?? "").trim(); if (p && !lines.some((l) => l.printed.toLowerCase() === p.toLowerCase())) setLines((ls) => [...ls, { printed: p, kind: "sales", category: "other", settlesTo: null, bankAccountId: null, amounts: {} }]); setAdding(null); }}
+            onBlur={() => { const p = (adding ?? "").trim(); if (p && !lines.some((l) => l.printed.toLowerCase() === p.toLowerCase())) { setLines((ls) => [...ls, { printed: p, kind: "sales", category: "other", settlesTo: null, bankAccountId: null, amounts: {}, sure: false, reason: "Added by hand" }]); setDirty(true); } setAdding(null); }}
             className="h-9 w-full rounded-md border-0 px-2 text-[14px] outline-none" style={{ background: "#EEF0EE" }} />)}
-
-      {checks.length > 0 && (checks.every((x) => x.c.ok)
-        ? <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#E7F3EC", color: "#15803D" }}>
-            <Check className="h-4 w-4" />Sales and payments balance on {checks.length === 1 ? "the report" : `all ${checks.length} reports`}
-          </div>
-        : <div className="space-y-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "#FBF1E6", color: "#B45309" }}>
-            {checks.filter((x) => !x.c.ok).map(({ s, c }) => <p key={s.id}>{shortDate(s.date)}: {c.reason}</p>)}
-          </div>)}
-
-      {lines.length > 0 && <Button className="w-full sm:w-auto" onClick={save} disabled={saving}>{saving ? "Saving…" : confirmedAt ? "Save changes" : "Confirm setup"}</Button>}
     </div>
   );
 }

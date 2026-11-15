@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { normalizeDiscovered } from "../../supabase/functions/parse-receipt/discoverLines";
-import { addSample, applyValue, checkSample, missingBasics, valueOf, groupOf, type SetupLine } from "@/utils/salesReportSetup";
+import { addSample, answer, applyValue, checkSample, missingBasics, openQuestions, valueOf, groupOf, withOnlyBank, type SetupLine } from "@/utils/salesReportSetup";
 
-const report = normalizeDiscovered({
+const sureAll = (r: { lines: Record<string, unknown>[]; [k: string]: unknown }) => ({ ...r, lines: r.lines.map((l) => ({ sure: true, why: "label says so", ...l })) });
+const report = normalizeDiscovered(sureAll({
   date: "2026-11-12", venue: "Harbour Kitchen",
   lines: [
     { printed: "Net sales", amount: 10450, kind: "total" },
@@ -15,14 +16,14 @@ const report = normalizeDiscovered({
     { printed: "Cash", amount: 850, kind: "payment", settlesTo: "cash" },
     { printed: "Foodpanda", amount: 1000, kind: "delivery" },
   ],
-});
+}));
 
 describe("reading a sample report", () => {
   it("keeps valid lines and never guesses unknown kinds into sales or payments", () => {
     const r = normalizeDiscovered({ lines: [{ printed: "Mystery", amount: "1,200", kind: "spaceship" }, { printed: "Snacks", amount: 5, kind: "sales", category: "x" }, { printed: "mystery", amount: 1 }] });
-    expect(r.lines).toEqual([
-      { printed: "Mystery", amount: 1200, kind: "ignore", category: null, settlesTo: null },
-      { printed: "Snacks", amount: 5, kind: "sales", category: "other", settlesTo: null },
+    expect(r.lines.map(({ printed, amount, kind, category, settlesTo, sure }) => ({ printed, amount, kind, category, settlesTo, sure }))).toEqual([
+      { printed: "Mystery", amount: 1200, kind: "ignore", category: null, settlesTo: null, sure: false },
+      { printed: "Snacks", amount: 5, kind: "sales", category: "other", settlesTo: null, sure: false },
     ]);
     expect(r.date).toBeNull();
   });
@@ -58,5 +59,31 @@ describe("setup lines", () => {
   });
   it("lists basics the report doesn't print", () => {
     expect(missingBasics(lines)).toEqual(["orders"]);
+  });
+});
+
+describe("Bani decides, asks only when unsure", () => {
+  const banks = [{ id: "hsbc" }, { id: "hangseng" }];
+  it("lines Bani is sure of need no question; an unsure one is asked with its alternatives", () => {
+    const r = normalizeDiscovered({ lines: [
+      { printed: "Food", amount: 100, kind: "sales", category: "food", sure: true },
+      { printed: "Gift card", amount: 300, kind: "payment", settlesTo: "bank", sure: false, or: ["voucher_sold", "voucher_used", "nonsense"] },
+    ] });
+    const q = openQuestions(addSample([], "s1", r), []);
+    expect(q).toEqual([{ printed: "Gift card", type: "what", choices: ["payment:bank", "voucher_sold", "voucher_used"] }]);
+  });
+  it("asks which account a card payment lands in only when there is more than one", () => {
+    const lines = addSample([], "s1", report);
+    expect(openQuestions(lines, banks).map((q) => `${q.type}:${q.printed}`)).toEqual(["where:Octopus", "where:VISA/MC"]);
+    expect(openQuestions(withOnlyBank(lines, [{ id: "hsbc" }]), [{ id: "hsbc" }])).toEqual([]);
+  });
+  it("reports that disagree turn the line into a question; an answer settles it for good", () => {
+    let lines = addSample([], "s1", report);
+    lines = addSample(lines, "s2", normalizeDiscovered({ lines: [{ printed: "Wine & beer", amount: 1, kind: "sales", category: "bev_non", sure: true }] }));
+    expect(openQuestions(lines, []).map((q) => q.printed)).toEqual(["Wine & beer"]);
+    lines = answer(lines, "Wine & beer", "sales:bev_alc");
+    lines = addSample(lines, "s3", normalizeDiscovered({ lines: [{ printed: "Wine & beer", amount: 1, kind: "sales", category: "food", sure: false }] }));
+    expect(openQuestions(lines, [])).toEqual([]);
+    expect(lines.find((l) => l.printed === "Wine & beer")!.category).toBe("bev_alc");
   });
 });

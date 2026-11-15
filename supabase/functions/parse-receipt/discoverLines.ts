@@ -15,14 +15,29 @@ export interface DiscoveredLine {
   kind: LineKind;
   category: Category | null;
   settlesTo: "bank" | "cash" | null;
+  /** Bani is sure what this line is (the label says so plainly). */
+  sure: boolean;
+  /** Why, in a few words, so the team can see the reasoning. */
+  reason: string;
+  /** Other likely meanings when unsure, as choice values (see choiceValue). */
+  alternatives: string[];
 }
+
+/** One string per meaning, shared with the setup screen: sales:food, payment:cash, payment:bank, delivery, guests... */
+export const CHOICES = [
+  ...CATEGORIES.map((c) => `sales:${c}`), "payment:bank", "payment:cash",
+  ...LINE_KINDS.filter((k) => k !== "sales" && k !== "payment"),
+];
+export const choiceValue = (l: Pick<DiscoveredLine, "kind" | "category" | "settlesTo">) =>
+  l.kind === "sales" ? `sales:${l.category ?? "other"}` : l.kind === "payment" ? `payment:${l.settlesTo ?? "bank"}` : l.kind;
 export interface DiscoveredReport { date: string | null; venue: string; lines: DiscoveredLine[] }
 
 export const DISCOVER_PROMPT = `You read one restaurant daily sales report (a POS Z report or end-of-day summary) for onboarding.
 List EVERY line that carries an amount or a count, in the order printed. Return ONLY JSON:
 {"date":"YYYY-MM-DD or null (the business day; for a From/To range use From)","venue":"as printed or \\"\\"",
  "lines":[{"printed":"line label in English, as printed (translate non-English)","amount":number or null,
-   "kind":"one of ${LINE_KINDS.join("|")}","category":"for kind sales only: ${CATEGORIES.join("|")}","settlesTo":"for kind payment only: bank|cash"}]}
+   "kind":"one of ${LINE_KINDS.join("|")}","category":"for kind sales only: ${CATEGORIES.join("|")}","settlesTo":"for kind payment only: bank|cash",
+   "sure":true or false,"why":"a few words: why this meaning","or":["other likely meanings when not sure, from: ${CHOICES.join("|")}"]}]}
 Kinds:
 - total: the sales total that payments should add up to (net sales / total sales / grand total)
 - subtotal: sales before service charge
@@ -34,6 +49,9 @@ Kinds:
 - delivery: a delivery platform tender (Foodpanda, Deliveroo, Keeta, Uber Eats...)
 - voucher_sold / voucher_used / deposit_taken / deposit_used: gift cards, vouchers and deposits
 - ignore: anything else with a number (tax notes, rounding, void counts, report numbers)
+sure: true only when the label plainly says what it is (Visa, Cash, Food, Covers, Service charge). false for anything a
+restaurant could mean more than one way (gift card, house account, staff meal, Other, Misc, unreadable abbreviations); then give
+your best guess as kind and up to 2 other likely meanings in "or".
 Rules: amounts are plain numbers with the printed sign, no currency symbols. Missing is null, never 0 unless printed.
 Never invent lines or totals. Skip headers, addresses, times, staff names and registration numbers.`;
 
@@ -61,7 +79,11 @@ export function normalizeDiscovered(raw: unknown): DiscoveredReport {
       ? ((CATEGORIES as readonly string[]).includes(String(l.category)) ? l.category as Category : "other")
       : null;
     const settlesTo = kind === "payment" ? (l.settlesTo === "cash" ? "cash" : "bank") : null;
-    lines.push({ printed, amount: money(l.amount), kind, category, settlesTo });
+    const value = choiceValue({ kind, category, settlesTo });
+    const alternatives = (Array.isArray(l.or) ? l.or : []).map(String).filter((v) => CHOICES.includes(v) && v !== value).filter((v, i, a) => a.indexOf(v) === i).slice(0, 2);
+    // An unknown meaning is never "sure"; Bani asks instead of guessing.
+    const sure = l.sure === true && (LINE_KINDS as readonly string[]).includes(String(l.kind));
+    lines.push({ printed, amount: money(l.amount), kind, category, settlesTo, sure, reason: text(l.why, 80), alternatives });
     if (lines.length >= 80) break;
   }
   return { date, venue: text(r.venue, 120), lines };
