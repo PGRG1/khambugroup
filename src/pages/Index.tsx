@@ -121,7 +121,7 @@ const Index = () => {
           datePeriod.control
         )}
         actions={isAdmin && (
-          <Button variant="outline" size="sm" className="period-pill h-10 rounded-md px-3.5" onClick={() => setShowMTDText(true)} aria-label="Text summary">
+          <Button variant="outline" size="sm" className="period-pill h-10 rounded-full px-4" onClick={() => setShowMTDText(true)} aria-label="Text summary">
             <FileText className="h-4 w-4" /><span className="sm:hidden">Summary</span><span className="hidden sm:inline">Text summary</span>
           </Button>
         )}

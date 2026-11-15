@@ -74,7 +74,7 @@ export function AssignmentBell() {
   }, [viewing, key, preview.isPreviewActive, store?.open[0], store?.messages[0]]);
 
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 rounded-md bg-transparent text-[#3D4A44] transition-colors hover:bg-transparent hover:text-[#1F3F3B] data-[state=open]:bg-transparent data-[state=open]:text-[#1F3F3B]" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
+    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0 rounded-full bg-transparent text-[#3D4A44] transition-colors hover:bg-transparent hover:text-[#1F3F3B] data-[state=open]:bg-transparent data-[state=open]:text-[#1F3F3B]" aria-label={`Assigned work${unread.length ? `, ${unread.length} unread` : ''}`} title="Assigned work">
       <Bell className="h-[19px] w-[19px]" strokeWidth={1.8} />
       {/* Plain bell; a small amber dot (Bani's "needs attention" colour) when something is unread. The count stays in the aria-label and the list. */}
       {unread.length > 0 && <span aria-hidden="true" className="absolute right-[7px] top-[7px] h-2 w-2 rounded-full bg-[#D9822B] shadow-[0_0_0_2px_hsl(var(--background))]" />}

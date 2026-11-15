@@ -34,11 +34,11 @@ export function PurchasingNavigation() {
     </div>}
     {!!tabs?.length && invoiceFamily && tabHost && createPortal(<div className="relative min-w-0"><nav ref={invoiceTabsRef} aria-label="Purchasing pages" className="max-w-full overflow-x-auto border-b border-border"><div className="flex w-max gap-5 pr-5">{tabs.map(tab => <Link key={tab.url} to={tab.url} aria-current={matchesPurchasingPath(pathname, tab.url) ? "page" : undefined} className={cn("py-3 text-[13px] font-medium whitespace-nowrap border-b-2", matchesPurchasingPath(pathname, tab.url) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab.url === "/procurement/credit-notes" ? <><span className="max-[640px]:hidden">{tab.title}</span><span className="min-[641px]:hidden">Credit &amp; Debit</span></> : tab.title}</Link>)}</div></nav><div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent min-[641px]:hidden" /></div>, tabHost)}
     {!!tabs?.length && !invoiceFamily && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
-    <div className="section-tabs inline-flex w-max items-center gap-1 rounded-lg bg-muted/40 p-1 border border-border/50">
+    <div className="section-tabs inline-flex w-max items-center gap-1 rounded-full bg-muted/40 p-1 border border-border/50">
       {tabs.map(tab => {
         const active = matchesPurchasingPath(pathname, tab.url);
         return <Link key={tab.url} to={tab.url} aria-current={active ? "page" : undefined} className={cn(
-          "px-3 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-colors min-h-[36px] whitespace-nowrap",
+          "px-3.5 py-1.5 text-xs sm:text-sm rounded-full font-medium transition-colors min-h-[36px] whitespace-nowrap",
           active ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground",
         )}>{tab.title}</Link>;
       })}

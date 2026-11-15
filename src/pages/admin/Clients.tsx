@@ -304,7 +304,7 @@ export default function Clients() {
                 {r.setup.phaseLabel} · {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
               </span>
             </button>
-            <Button size="icon" className="h-11 w-11 rounded-xl shrink-0 bg-accent text-accent-foreground hover:bg-[#DCE8E0]" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
+            <Button size="icon" className="h-11 w-11 rounded-full shrink-0 bg-accent text-accent-foreground hover:bg-[#DCE8E0]" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
               <LogIn className="h-[18px] w-[18px]" />
             </Button>
           </div>
