@@ -808,3 +808,20 @@ html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-r
   box-shadow: 0 1px 2px rgba(20,45,43,.08), 0 4px 12px -6px rgba(20,45,43,.28);
 }
 html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-row .bg-gradient-to-l { --tw-gradient-from: #D6E5DE var(--tw-gradient-from-position); }
+
+/* Revenue tabs' first-visit entrance (RevenueMotion.tsx): cards rise in order, first rows fade in,
+   bars and progress grow. Nothing moves on later visits or with reduced motion. */
+.rv-hold { opacity: 0; pointer-events: none; }
+.rv-play .rv-item { animation: rv-rise .45s cubic-bezier(.2,.8,.2,1) calc(var(--rv-i, 0) * 70ms) both; }
+.rv-play .rv-row { animation: rv-fade .35s ease-out calc(260ms + var(--rv-r, 0) * 35ms) both; }
+.rv-play .rv-grow { transform-origin: bottom; animation: rv-grow .5s cubic-bezier(.2,.8,.2,1) calc(140ms + var(--g, 0) * 18ms) both; }
+.rv-play .rv-fill { transform-origin: left; animation: rv-fill .7s cubic-bezier(.2,.8,.2,1) .1s both; }
+@keyframes rv-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes rv-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rv-grow { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes rv-fill { from { transform: scaleX(0); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rv-play .rv-item, .rv-play .rv-row, .rv-play .rv-grow, .rv-play .rv-fill { animation: none; }
+}
+.rv-appear { animation: rv-fade .3s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .rv-appear { animation: none; } }

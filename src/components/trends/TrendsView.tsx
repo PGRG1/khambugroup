@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar, CartesianGrid, Cell, ComposedChart, Customized, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -6,6 +6,7 @@ import type { SalesRecord } from "@/types/sales";
 import { baseSymbol } from "@/utils/money";
 import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
+import { chartBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 
 /**
  * Trends: the longer picture, no period filter. Each chart keeps its own natural window:
@@ -118,12 +119,11 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
     // Monthly sales: 12 months.
     const months = Array.from({ length: 12 }, (_, i) => shiftMonth(curKey, i - 11)).map((k) => {
       const t = sum(`${k}-01`, `${k}-31`);
-      const ly = sum(`${shiftMonth(k, -12)}-01`, `${shiftMonth(k, -12)}-31`);
       let g = 0;
       for (const d of byDate.values()) if (monthKey(d.date) === k) g += d.guests;
       const isCur = k === curKey;
       return {
-        key: k, label: monthShort(k), actual: t.s, rest: isCur && canProject ? Math.round(restTotal) : 0, lastYear: ly.s > 0 && t.s > 0 ? ly.s : null, isCur,
+        key: k, label: monthShort(k), actual: t.s, rest: isCur && canProject ? Math.round(restTotal) : 0, isCur,
         guestsPerDay: t.n ? Math.round(g / t.n) : null, spendPerGuest: g ? Math.round(t.s / g) : null,
         hasData: t.s > 0,
       };
@@ -171,14 +171,33 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
     return { monthRun, monthAt, weekdays, months };
   }, [data, today]);
 
+  const play = useRevenuePlay();
   const [pick, setPick] = useState<[number, number] | null>(null);
   // Sales by weekday: only months that have sales, all bars on one scale from zero.
   const shownIdx = Array.from({ length: 12 }, (_, i) => i).filter((i) => m.weekdays.some((w) => w.trend[i]?.v != null));
   const wkMax = Math.max(1, ...m.weekdays.flatMap((w) => w.trend.map((t) => t.v ?? 0)));
+  // Tapping anywhere outside the weekday rows closes their details.
+  const wkRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pick) return;
+    const off = (e: PointerEvent) => { if (!wkRef.current?.contains(e.target as Node)) setPick(null); };
+    document.addEventListener("pointerdown", off);
+    return () => document.removeEventListener("pointerdown", off);
+  }, [pick]);
+  // Finger or mouse over a weekday row: the month under it, so details follow as you slide.
+  const scrubWeek = (x: number, y: number) => {
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-wk-row]")];
+    const el = rows.find((r) => { const b = r.getBoundingClientRect(); return y >= b.top - 4 && y <= b.bottom + 4; });
+    if (!el || !shownIdx.length) return;
+    const b = el.getBoundingClientRect();
+    const k = Math.max(0, Math.min(shownIdx.length - 1, Math.floor(((x - b.left) / b.width) * shownIdx.length)));
+    const next: [number, number] = [Number(el.dataset.wkRow), shownIdx[k]];
+    if (!pick || pick[0] !== next[0] || pick[1] !== next[1]) setPick(next);
+  };
   // Month to date: the month whose line is nearest the pointer, and the chart's y scale to measure it.
   const [near, setNear] = useState<string | null>(null);
   const yScale = useRef<((v: number) => number) | null>(null);
-  const monthTicks = niceTicks(Math.max(...m.months.map((x) => Math.max(x.actual + x.rest, x.lastYear ?? 0))));
+  const monthTicks = niceTicks(Math.max(...m.months.map((x) => x.actual + x.rest)));
   const green = "#15803D", amber = "#B45309";
   const tone = (p: number | null) => (p == null ? undefined : p >= 0 ? green : amber);
   const money = (v: number) => `${baseSymbol()}${fmtHKD(v)}`;
@@ -240,9 +259,9 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
                       </div>
                     );
                   }} />
-                  {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} isAnimationActive={false} connectNulls={false} />)}
-                  {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} isAnimationActive={false} connectNulls={false} />}
-                  <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} isAnimationActive={false} connectNulls={false}
+                  {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />)}
+                  {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} {...chartBuild(play, 0)} connectNulls={false} />}
+                  <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} {...chartBuild(play, 0)} connectNulls={false}
                     dot={(p: { cx: number; cy: number; index: number; payload: { day: number } }) => p.payload.day === a.curDay ? <circle key="now" cx={p.cx} cy={p.cy} r={4.5} fill={PRIMARY} stroke="#fff" strokeWidth={2} /> : <g key={p.index} />} />
                 </LineChart>
               </ResponsiveContainer>
@@ -255,7 +274,6 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       <Card title="Monthly sales" legend={<>
         <Key kind="bar" label="Actual" />
         {m.months.some((x) => x.rest > 0) && <Key kind="dash" label="Projected" />}
-        {m.months.some((x) => x.lastYear) && <span className="inline-flex items-center gap-1.5"><svg width="16" height="10" aria-hidden="true"><rect x="0" y="0" width="16" height="10" rx="2" fill={PRIMARY} fillOpacity={0.85} /><line x1="2" x2="14" y1="5" y2="5" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" /><line x1="3" x2="13" y1="5" y2="5" stroke="hsl(var(--foreground))" strokeWidth="2" strokeLinecap="round" /></svg><span className="text-muted-foreground">Last year</span></span>}
       </>}>
         <div style={{ width: "100%", height: 220 }}>
           <ResponsiveContainer>
@@ -267,16 +285,12 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
                 if (!active || !payload?.length) return null; const p = payload[0].payload;
                 const rows: [string, string][] = [[new Date(`${p.key}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }), ""], [p.isCur ? "So far" : "Sales", money(p.actual)]];
                 if (p.rest) rows.push(["Projected", money(p.actual + p.rest)]);
-                if (p.lastYear) rows.push(["Last year", `${money(p.lastYear)} ${pctText(pct(p.isCur ? p.actual + p.rest : p.actual, p.lastYear))}`]);
                 return <Tip rows={rows} />;
               }} />
-              <Bar dataKey="actual" stackId="m" isAnimationActive={false}>
+              <Bar dataKey="actual" stackId="m" {...chartBuild(play, 1)}>
                 {m.months.map((x) => <Cell key={x.key} fill={PRIMARY} fillOpacity={0.85} />)}
               </Bar>
-              <Bar dataKey="rest" stackId="m" isAnimationActive={false} fill="hsl(var(--primary))" fillOpacity={0.08} stroke={PRIMARY} strokeDasharray="3 3" strokeWidth={1.5} />
-              <Line dataKey="lastYear" stroke="none" isAnimationActive={false} connectNulls={false}
-                dot={(p: any) => p.value == null ? <g key={p.index} /> : <g key={p.index}><line x1={p.cx - 10} x2={p.cx + 10} y1={p.cy} y2={p.cy} stroke="#fff" strokeWidth={5.5} strokeLinecap="round" /><line x1={p.cx - 9} x2={p.cx + 9} y1={p.cy} y2={p.cy} stroke="hsl(var(--foreground))" strokeWidth={2.5} strokeLinecap="round" /></g>}
-                activeDot={false} />
+              <Bar dataKey="rest" stackId="m" {...chartBuild(play, 1)} fill="hsl(var(--primary))" fillOpacity={0.08} stroke={PRIMARY} strokeDasharray="3 3" strokeWidth={1.5} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -284,20 +298,23 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
 
       {/* Sales by weekday: tap or hover a month for its details */}
       <Card title="Sales by weekday">
-        <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 text-[12px] tabular-nums">
+        <div ref={wkRef} className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 text-[12px] tabular-nums" style={{ touchAction: "pan-y" }}
+          onPointerDown={(e) => scrubWeek(e.clientX, e.clientY)}
+          onPointerMove={(e) => { if (e.pointerType === "mouse" || e.buttons) scrubWeek(e.clientX, e.clientY); }}
+          onPointerLeave={(e) => { if (e.pointerType === "mouse") setPick(null); }}>
           <span /><span className="flex justify-between text-muted-foreground text-[11px]"><span>{monthShort(m.weekdays[0].trend[shownIdx[0] ?? 0].k)}</span><span>{monthShort(m.weekdays[0].trend[shownIdx[shownIdx.length - 1] ?? 11].k)}</span></span>
           {m.weekdays.map((w, row) => {
             const act = pick && pick[0] === row ? w.trend[pick[1]] : null;
             return [
               <span key={`${w.name}n`} className="font-medium py-2 border-t border-border/50">{w.name}</span>,
-              <div key={`${w.name}s`} className="relative h-10 border-t border-border/50 flex items-end gap-[2px] py-1.5" onMouseLeave={() => setPick(null)}>
+              <div key={`${w.name}s`} data-wk-row={row} className="relative h-10 border-t border-border/50 flex items-end gap-[2px] py-1.5">
                 {w.trend.map((t, i) => {
                   if (!shownIdx.includes(i)) return null;
                   const h = t.v == null ? 0 : (100 * t.v) / wkMax; // from zero, one scale for every weekday
                   const on = act === t;
                   return <button key={t.k} type="button" aria-label={`${w.long} ${monthShort(t.k)}`} className="flex-1 h-full flex items-end"
-                    onMouseEnter={() => setPick([row, i])} onFocus={() => setPick([row, i])} onClick={() => setPick(on ? null : [row, i])}>
-                    <span className="w-full rounded-[1px]" style={{ height: `${h}%`, background: PRIMARY, opacity: on ? 1 : i === shownIdx[shownIdx.length - 1] ? 0.9 : 0.35 }} />
+                    onFocus={() => setPick([row, i])}>
+                    <span className="rv-grow w-full rounded-[1px]" style={{ ["--g" as string]: row * 3 + shownIdx.indexOf(i), height: `${h}%`, background: PRIMARY, opacity: on ? 0.95 : 0.35 }} /* every month light; only the touched month is dark */ />
                   </button>;
                 })}
                 {act && (
@@ -331,7 +348,7 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
                     <YAxis domain={[Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)]} tickCount={3} tickFormatter={(v) => String(Math.round(v as number))} width={40} {...AXIS} />
                     <Tooltip content={({ active, payload }: any) => active && payload?.length && payload[0].value != null
                       ? <Tip rows={[[new Date(`${payload[0].payload.key}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }), ""], [title, f(payload[0].value)]]} /> : null} />
-                    <Line dataKey={key} type="monotone" stroke={PRIMARY} strokeWidth={2} isAnimationActive={false} connectNulls={false}
+                    <Line dataKey={key} type="monotone" stroke={PRIMARY} strokeWidth={2} {...chartBuild(play, 3)} connectNulls={false}
                       dot={{ r: 2.5, fill: PRIMARY, strokeWidth: 0 }} />
                   </LineChart>
                 </ResponsiveContainer>

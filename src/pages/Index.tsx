@@ -1,7 +1,8 @@
 import { useVenueScope } from "@/hooks/useVenueScope";
+import { RevenueEnter, useSlowLoad } from "@/components/revenue/RevenueMotion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingLines } from "@/components/kit/LoadingSlots";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
@@ -100,6 +101,13 @@ const Index = () => {
 
   const hideDateRange = isActionHidden("revenue.date_range");
 
+  // The first visit waits for everything the page shows (sales and targets), so it enters complete
+  // and nothing changes size afterwards; later target reloads keep their space (SoFarCard).
+  const firstReady = useRef(false);
+  const targetsPending = singleMonth && access.forecast && targets.loading;
+  if (!loading && vs.ready && !targetsPending) firstReady.current = true;
+  const holding = loading || !vs.ready || (!firstReady.current && targetsPending);
+  const slowLoad = useSlowLoad(holding);
   return (
     <div className="w-full mx-auto space-y-5">
       <RevenuePageTop
@@ -115,7 +123,7 @@ const Index = () => {
       />
 
       {error && <p role="alert" className="text-sm text-destructive">Sales could not be loaded. <Button variant="outline" size="sm" onClick={() => void refetch()}>Retry</Button></p>}
-      {loading || !vs.ready ? <div role="status" aria-label="Loading revenue" className="space-y-5">
+      {holding ? !slowLoad ? null : <div role="status" aria-label="Loading revenue" className="space-y-5">
         <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4">
           <p className="text-[13px] font-medium text-muted-foreground">{periodName}</p><Skeleton className="h-10 w-52 !animate-none" /><Skeleton className="h-4 w-3/4 !animate-none" />
           <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{['Guests','Per guest','Average day'].map(l => <div key={l}><p className="text-[11px] text-muted-foreground">{l}</p><Skeleton className="h-5 w-20 max-w-full mt-1 !animate-none" /></div>)}</div>
@@ -130,7 +138,7 @@ const Index = () => {
           <p className="font-display text-lg text-foreground">No sales recorded</p>
         </div>
       ) : (
-        <div className="space-y-5 loading-reveal">
+        <RevenueEnter id="overview" className="space-y-5 loading-reveal">
           <SoFarCard
             label={periodName}
             revenue={cur.revenue}
@@ -167,7 +175,7 @@ const Index = () => {
           </div>
 
           <VenueContribution data={filtered} prevData={priorFiltered} venue={venue} />
-        </div>
+        </RevenueEnter>
       )}
 
       <MTDTextReport open={showMTDText} onOpenChange={setShowMTDText} data={filtered} from={from} to={to} />

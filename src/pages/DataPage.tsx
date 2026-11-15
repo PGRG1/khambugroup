@@ -1,4 +1,5 @@
 import { useVenueScope } from "@/hooks/useVenueScope";
+import { RevenueEnter, useSlowLoad } from "@/components/revenue/RevenueMotion";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -205,6 +206,11 @@ const DataPage = () => {
   }, [loading]);
 
 
+  // Wait for closed days too: they decide which days show as missing, so the list enters complete.
+  const firstReady = useRef(false);
+  if (!loading && !closures.loading) firstReady.current = true;
+  const holding = loading || (!firstReady.current && closures.loading);
+  const slowLoad = useSlowLoad(holding);
   return (
     <div className="w-full mx-auto space-y-6">
       <RevenuePageTop
@@ -215,11 +221,11 @@ const DataPage = () => {
         actions={actions}
       />
 
-      {loading ? (
+      {holding ? (
         <>
-          <div className="card-glass rounded-xl">
+          {slowLoad && <div className="card-glass rounded-xl">
             <TableSkeleton rows={8} cols={7} />
-          </div>
+          </div>}
         </>
       ) : (
         <>
@@ -254,7 +260,7 @@ const DataPage = () => {
               onClose={() => { setShowManual(false); setPrefill(null); }} />
           )}
 
-          <div ref={dailyRef} className="scroll-mt-16">
+          <RevenueEnter id="sales"><div ref={dailyRef} className="scroll-mt-16">
             <DailyRecords
               key={`${tenantId}:${user?.id}`}
               records={periodRecords}
@@ -280,7 +286,7 @@ const DataPage = () => {
                 requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
               } : undefined}
             />
-          </div>
+          </div></RevenueEnter>
           <section ref={otherRef} className="scroll-mt-16 space-y-3" aria-labelledby="other-income">
             <h2 id="other-income" className="text-lg font-display font-semibold">Other income</h2>
             <div className="card-glass rounded-xl p-3 sm:p-4"><OtherRevenuePanel embedded /></div>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { chartBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList } from "recharts";
 import { baseSymbol } from "@/utils/money";
 import { shortMoney } from "@/utils/revenueOverview";
@@ -27,6 +28,7 @@ interface Props {
  * month's average sold day so far.
  */
 export function CumulativeSales({ days, lastCounted, target }: Props) {
+  const play = useRevenuePlay();
   const model = useMemo(() => {
     const sold = days.filter((d) => d.date <= lastCounted);
     const soldDays = sold.filter((d) => (d.actual ?? 0) > 0).length;
@@ -92,13 +94,13 @@ export function CumulativeSales({ days, lastCounted, target }: Props) {
             <Tooltip content={tip} />
             {target ? <ReferenceLine y={target} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" strokeOpacity={0.7}
               label={{ value: `Target ${shortMoney(target)}`, position: "insideTopLeft", fontSize: 11, fill: "hsl(var(--muted-foreground))", offset: 6 }} /> : null}
-            <Area type="monotone" dataKey="actual" stroke="none" fill="url(#cumFill)" isAnimationActive={false} connectNulls={false} />
-            <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} isAnimationActive={false} connectNulls={false}>
+            <Area type="monotone" dataKey="actual" stroke="none" fill="url(#cumFill)" {...chartBuild(play, 1)} connectNulls={false} />
+            <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} {...chartBuild(play, 1)} connectNulls={false}>
               <LabelList dataKey="actual" content={(p: any) => p.index === model.points.findIndex((x) => x.label === lastLabel) && p.value != null
                 ? <g><circle cx={p.x} cy={p.y} r={4} fill="hsl(var(--primary))" stroke="#fff" strokeWidth={2} /></g> : null} />
             </Line>
             {model.future && (
-              <Line type="monotone" dataKey="projected" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 5" dot={false} isAnimationActive={false} connectNulls>
+              <Line type="monotone" dataKey="projected" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 5" dot={false} {...chartBuild(play, 1)} connectNulls>
                 <LabelList dataKey="projected" content={(p: any) => p.index === model.points.length - 1 && p.value != null
                   ? <circle cx={p.x} cy={p.y} r={4} fill="#fff" stroke="hsl(var(--primary))" strokeWidth={2} /> : null} />
               </Line>

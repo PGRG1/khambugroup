@@ -1,4 +1,5 @@
 import {baseSymbol} from '@/utils/money';
+import { chartBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
@@ -85,6 +86,7 @@ function BestWorstMarks(props: any) {
 }
 
 export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: Props) {
+  const play = useRevenuePlay();
   const showForecast = view === "daily" && forecastDaily.some((day) => day.forecast !== null);
   const chartData = useMemo(() => {
     if (view === "daily") {
@@ -237,7 +239,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
               width={48}
             />
             <Tooltip content={tooltipContent} />
-            <Bar dataKey="revenue" isAnimationActive={false} fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
+            <Bar dataKey="revenue" {...chartBuild(play, 2)} fill="hsl(var(--primary))" fillOpacity={0.85} radius={[2, 2, 0, 0]} maxBarSize={40}>
               {chartData.map((d) => (
                 <Cell key={d.key} fill={marks && d.key === marks.best.key ? BEST : marks && d.key === marks.worst.key ? WORST : "hsl(var(--primary))"} fillOpacity={marks && (d.key === marks.best.key || d.key === marks.worst.key) ? 1 : 0.85} />
               ))}

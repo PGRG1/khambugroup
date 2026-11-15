@@ -9,6 +9,8 @@ import { shortMoney } from "@/utils/revenueOverview";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ChevronDown } from "lucide-react";
+import { RevenueEnter, chartBuild } from "@/components/revenue/RevenueMotion";
+import { Num } from "@/components/home/HomeMotion";
 import { useAuth } from "@/hooks/useAuth";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
 import { useDailyProjections } from "@/hooks/useDailyProjections";
@@ -97,7 +99,8 @@ export default function RevenueTargetsNew() {
 
   // ---- Each venue's day: guests x spend forecast, saved target, sold ----
   // Guests: average of the last 8 same weekdays with sales. Spend per guest: those days' sales / guests.
-  const { data: allSales } = useSalesData();
+  const { data: allSales, loading: salesLoading } = useSalesData();
+  const ready = !loading && !salesLoading; // forecasts need the sales history: enter only when both are in
   const histByVenue = useMemo(() => {
     const m = new Map<string, Map<string, { sales: number; guests: number }>>();
     const names = new Set(scopeVenues.map((v) => v.name));
@@ -195,15 +198,17 @@ export default function RevenueTargetsNew() {
     <div className="space-y-4">
       <RevenuePageTop title="Targets" period={<div className="flex items-center gap-3">{period.control}{loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}</div>} />
 
+      <RevenueEnter id="targets" ready={ready} className="space-y-4">
+        {(play) => (<>
       {/* Summary */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[13px] font-medium">{monthName} target</span>
-          <span className="text-xl font-display font-semibold tabular-nums">{tTarget > 0 ? shortMoney(tTarget) : "—"}</span>
+          <span className="text-xl font-display font-semibold tabular-nums">{tTarget > 0 ? <Num value={tTarget} format={shortMoney} play={play} /> : "—"}</span>
         </div>
-        <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (pctDone ?? 0) * 100)}%` }} /></div>
+        <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden"><div className="rv-fill h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (pctDone ?? 0) * 100)}%` }} /></div>
         <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-[12px] tabular-nums">
-          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold">{shortMoney(tSold)}</b>{pctDone != null && <span className="text-muted-foreground"> · {Math.round(pctDone * 100)}%</span>}</span>
+          <span><span className="text-muted-foreground">Actual</span> <b className="font-semibold"><Num value={tSold} format={shortMoney} play={play} /></b>{pctDone != null && <span className="text-muted-foreground"> · {Math.round(pctDone * 100)}%</span>}</span>
           <span className="font-medium">{
             !lastSold ? <span className="text-muted-foreground">No sales yet</span>
             : tSold >= tTarget && tTarget > 0 ? <span style={{ color: "#15803D" }}>Target reached</span>
@@ -246,9 +251,9 @@ export default function RevenueTargetsNew() {
                 if (!active || !payload?.length) return null; const p = payload[0].payload; const v = p.actual ?? p.proj;
                 return <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums"><div className="text-muted-foreground">Day {label}</div>{v != null && <div className="font-semibold">{shortMoney(v)}</div>}<div className="text-muted-foreground">Target {shortMoney(p.target)}</div></div>;
               }} />
-              <Line type="monotone" dataKey="target" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 4" dot={false} strokeWidth={1.75} isAnimationActive={false} />
-              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="target" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 4" dot={false} strokeWidth={1.75} {...chartBuild(play, 2)} />
+              <Line type="monotone" dataKey="proj" stroke="hsl(var(--primary))" strokeDasharray="2 4" dot={false} strokeWidth={2.25} connectNulls={false} {...chartBuild(play, 2)} />
+              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" dot={false} strokeWidth={2.75} connectNulls={false} {...chartBuild(play, 2)} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -349,6 +354,8 @@ export default function RevenueTargetsNew() {
           </tbody>
         </table>
       </div>
+        </>)}
+      </RevenueEnter>
     </div>
   );
 }

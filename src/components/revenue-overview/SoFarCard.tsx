@@ -1,5 +1,7 @@
+import { useLayoutEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Num } from "@/components/home/HomeMotion";
+import { useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { shortMoney, paceSentence, type TargetPace } from "@/utils/revenueOverview";
 import { fmtNum } from "./utils";
 
@@ -39,6 +41,10 @@ function Stat({ label, value, prev }: { label: string; value: string; prev: stri
 }
 
 export function SoFarCard({ label, revenue, compare, target, guests, spendPerGuest, averageDay, targetLoading = false }: Props) {
+  const play = useRevenuePlay();
+  const targetRef = useRef<HTMLDivElement>(null);
+  const lastTargetH = useRef(0);
+  useLayoutEffect(() => { if (!targetLoading && targetRef.current) lastTargetH.current = targetRef.current.offsetHeight; });
   const p = target?.pace;
   const showBar = target && target.hasTarget && p && p.target > 0;
   const soldPct = showBar ? Math.min(100, (p!.sold / p!.target) * 100) : 0;
@@ -50,13 +56,17 @@ export function SoFarCard({ label, revenue, compare, target, guests, spendPerGue
       <div>
         <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <p className="text-[36px] sm:text-[42px] leading-none font-semibold td-num tabular-nums text-foreground">{shortMoney(revenue)}</p>
+          <p className="text-[36px] sm:text-[42px] leading-none font-semibold td-num tabular-nums text-foreground"><Num value={revenue} format={shortMoney} play={play} /></p>
           {compare && <Change cur={revenue} prev={compare.revenue} short={compare.short} />}
         </div>
         {compare && compare.revenue > 0 && <p className="mt-2 text-[13px] text-muted-foreground tabular-nums">{shortMoney(compare.revenue)} in {compare.short}</p>}
       </div>
 
-      {targetLoading ? <div className="min-h-14 space-y-2" role="status" aria-label="Loading target"><Skeleton className="h-3 w-full !animate-none"/><Skeleton className="h-4 w-2/3 !animate-none"/></div> : target && (
+      {/* Target section: while new figures load it keeps its last height and stays empty,
+          so nothing below moves; the figures then fade in. */}
+      <div ref={targetRef} style={targetLoading && lastTargetH.current ? { height: lastTargetH.current } : undefined}
+        className={targetLoading ? "" : "rv-appear"} aria-busy={targetLoading || undefined}>
+      {targetLoading ? null : target && (
         showBar ? (
           <div className="space-y-2">
             <div className="relative h-3 rounded-full bg-muted" role="img"
@@ -80,6 +90,7 @@ export function SoFarCard({ label, revenue, compare, target, guests, spendPerGue
           </div>
         )
       )}
+      </div>
 
       {/* Three figures side by side on every screen, each with the same comparison underneath. */}
       <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
