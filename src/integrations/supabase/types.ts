@@ -16794,6 +16794,16 @@ export type Database = {
         }
         Returns: string
       }
+      map_new_sales_line: {
+        Args: {
+          p_category?: string
+          p_intake: string
+          p_kind: string
+          p_printed: string
+          p_settles_to?: string
+        }
+        Returns: string
+      }
       merge_expense_vendor: {
         Args: { p_from: string; p_into: string; p_tenant: string }
         Returns: number
