@@ -2,7 +2,9 @@
 // Proposals only validate and store a pending card; writes happen on Confirm, as the signed-in user (RLS applies).
 import { formatTenantCurrency } from '../_shared/tenantCurrency.ts';
 import { loadTeamRecipients } from './teamRecipients.ts';
-import { buildRevenuePlan } from './revenuePlan.ts';
+import { buildRevenuePlan, planWindow } from './revenuePlan.ts';
+const hkToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Hong_Kong' });
+const monthRange = (y: number, m: number) => [`${y}-${String(m).padStart(2, '0')}-01`, `${y}-${String(m).padStart(2, '0')}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`];
 
 export const TARGET_KINDS = ['set_revenue_target', 'set_purchasing_budget', 'send_team_notification'] as const;
 const monthOk = (m: unknown) => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
@@ -41,26 +43,34 @@ export async function proposeTargetAction(args: any, admin: any, t: string, u: s
     const { data: existing } = await admin.from('revenue_targets').select('target_amount').eq('tenant_id', t).eq('year', y).eq('month', m).maybeSingle();
     // Daily plan from the last 8 weeks of same-weekday sales, skipping recurring closed weekdays.
     const since = new Date(Date.now() - 56 * 86400000).toISOString().slice(0, 10);
-    const [{ data: sales }, { data: rules }] = await Promise.all([
+    // The plan only changes remaining days (today onward, no sales yet); past days and days
+    // with sales stay as they are, and the goal left after them is spread over the rest.
+    const [mFrom, mTo] = monthRange(y, m);
+    const [{ data: sales }, { data: rules }, { data: monthSales }, { data: saved }] = await Promise.all([
       admin.from('sales_records').select('venue_id,date,total_sales,guests').eq('tenant_id', t).in('venue_id', ids).gte('date', since).limit(5000),
       admin.from('venue_closure_rules').select('venue_id,weekday,end_date').eq('tenant_id', t).in('venue_id', ids).not('weekday', 'is', null),
+      admin.from('sales_records').select('venue_id,date,total_sales').eq('tenant_id', t).in('venue_id', ids).gte('date', mFrom).lte('date', mTo).limit(5000),
+      admin.from('revenue_daily_projections').select('venue_id,target_date,projected_sales').eq('tenant_id', t).in('venue_id', ids).gte('target_date', mFrom).lte('target_date', mTo),
     ]);
+    const win = planWindow(hkToday(), (monthSales ?? []) as any, (saved ?? []) as any);
+    const rest = Math.max(0, amount - win.locked);
     const closedW: Record<string, number[]> = {};
     for (const r of rules ?? []) if (!r.end_date) (closedW[r.venue_id] ??= []).push(r.weekday);
     const spendIn = Number(args.avg_spend);
     const guestsIn = Number(args.guests);
     const avgSpend = Number.isFinite(spendIn) && spendIn > 0 ? spendIn : Number.isFinite(guestsIn) && guestsIn > 0 ? amount / guestsIn : null;
-    const plan = buildRevenuePlan(y, m, amount, ids, (sales ?? []) as any, closedW, avgSpend);
+    const plan = buildRevenuePlan(y, m, rest, ids, (sales ?? []) as any, closedW, avgSpend, win.open);
     const money = (n: number) => formatTenantCurrency(n, cur);
     title = `Plan ${label(args.month)}: ${money(amount)}`;
-    detail = [`Venues: ${picked.join(', ')} · ${plan.trading_days} trading days`,
+    detail = [`Venues: ${picked.join(', ')} · ${plan.trading_days} remaining trading days`,
+      win.locked > 0 ? `Already in: ${money(win.locked)} · plan spreads ${money(rest)}` : '',
       `Current target: ${existing?.target_amount != null ? money(Number(existing.target_amount)) : 'not set'}`,
       plan.weekday.filter(w => w.per_day).map(w => `${w.day} ${money(w.per_day)}`).join(' · '),
-      plan.guests ? `${plan.guests.toLocaleString('en-HK')} guests (≈${Math.round(plan.guests / Math.max(1, plan.trading_days))}/day) at ${money(plan.avg_spend!)} each${plan.history_spend ? ` · usual ${money(plan.history_spend)}` : ''}` : 'No guest history to set a spend target'].join('\n');
+      !plan.trading_days ? 'No remaining days to plan; only the monthly target changes.' : plan.guests ? `${plan.guests.toLocaleString('en-HK')} guests (≈${Math.round(plan.guests / Math.max(1, plan.trading_days))}/day) at ${money(plan.avg_spend!)} each${plan.history_spend ? ` · usual ${money(plan.history_spend)}` : ''}` : 'No guest history to set a spend target'].filter(Boolean).join('\n');
     const notes = [typeof args.note === 'string' ? args.note.slice(0, 200) : '', plan.guests ? `Guests ${plan.guests} · avg spend ${plan.avg_spend}` : ''].filter(Boolean).join(' · ');
     payload = { year: y, month: m, amount, venues: picked, notes, daily: plan.plan };
     const { data: card, error } = await admin.from('bani_pending_actions').insert({ tenant_id: t, user_id: u, kind: args.kind, title: title.slice(0, 200), detail: detail.slice(0, 500), payload }).select('id').single();
-    return error ? { ok: false, error: 'Could not create the card.' } : { ok: true, action_id: card.id, title, detail, plan: { weekday: plan.weekday, trading_days: plan.trading_days, guests: plan.guests, avg_spend: plan.avg_spend, usual_spend: plan.history_spend }, note: 'Plan card shown; nothing saved until Confirm. Explain the plan briefly (busiest/quietest days, guests and spend) and offer to adjust the amount, avg spend or guests — re-propose with new values if asked.' };
+    return error ? { ok: false, error: 'Could not create the card.' } : { ok: true, action_id: card.id, title, detail, plan: { weekday: plan.weekday, trading_days: plan.trading_days, guests: plan.guests, avg_spend: plan.avg_spend, usual_spend: plan.history_spend }, note: 'Plan card shown; nothing saved until Confirm. The daily plan covers only remaining days (today onward with no sales); past days and days with sales are not changed. Explain the plan briefly (busiest/quietest days, guests and spend) and offer to adjust the amount, avg spend or guests — re-propose with new values if asked.' };
   } else if (args.kind === 'set_purchasing_budget') {
     if (!monthOk(args.month) || !Array.isArray(args.budgets) || !args.budgets.length) return { ok: false, error: 'Give the month (YYYY-MM) and at least one category amount.' };
     const { data: cats } = await admin.from('product_categories').select('name').eq('tenant_id', t);
@@ -108,12 +118,21 @@ export async function confirmTargetAction(r: any, admin: any, userClient: any, t
   if (r.kind === 'set_revenue_target') {
     const { error } = await userClient.from('revenue_targets').upsert({ tenant_id: t, year: p.year, month: p.month, target_amount: p.amount, venues: p.venues, notes: p.notes ?? '', created_by: u }, { onConflict: 'tenant_id,year,month' });
     if (error) return { status: 403, body: { error: 'Could not save the target: ' + error.message } };
-    if (Array.isArray(p.daily) && p.daily.length) {
-      const rows = p.daily.map((d: any) => ({ tenant_id: t, venue_id: d.venue_id, target_date: d.date, projected_sales: Math.max(0, Number(d.amount) || 0), created_by: u }));
+    // Re-check at confirm time: a day that has passed or got sales since the card was made is left alone.
+    let daily = Array.isArray(p.daily) ? p.daily : [];
+    if (daily.length) {
+      const today = hkToday();
+      const [mFrom, mTo] = monthRange(p.year, p.month);
+      const { data: soldNow } = await admin.from('sales_records').select('venue_id,date').eq('tenant_id', t).in('venue_id', [...new Set(daily.map((d: any) => d.venue_id))]).gte('date', mFrom).lte('date', mTo).limit(5000);
+      const sold = new Set((soldNow ?? []).map((s: any) => `${s.venue_id}|${s.date}`));
+      daily = daily.filter((d: any) => d.date >= today && !sold.has(`${d.venue_id}|${d.date}`));
+    }
+    if (daily.length) {
+      const rows = daily.map((d: any) => ({ tenant_id: t, venue_id: d.venue_id, target_date: d.date, projected_sales: Math.max(0, Number(d.amount) || 0), created_by: u }));
       const { error: dErr } = await userClient.from('revenue_daily_projections').upsert(rows, { onConflict: 'tenant_id,venue_id,target_date' });
       if (dErr) return { status: 403, body: { error: 'Monthly target saved, but the daily plan could not be saved: ' + dErr.message } };
     }
-    return { status: 200, body: { ok: true, message: 'Revenue target and daily plan saved. Open Revenue targets to see each day.' } };
+    return { status: 200, body: { ok: true, message: daily.length ? 'Target saved, and the plan applied to the remaining days. Open Targets to see each day.' : 'Target saved.' } };
   }
   if (r.kind === 'set_purchasing_budget') {
     const { error } = await userClient.rpc('save_purchasing_budgets', { p_tenant_id: t, p_venue_id: p.venue_id, p_month: p.month, p_amounts: p.amounts, p_note: p.note });

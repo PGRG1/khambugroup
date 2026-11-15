@@ -6,7 +6,23 @@ export type PlanDay = { venue_id: string; date: string; amount: number };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dow = (d: string) => new Date(d + 'T00:00:00Z').getUTCDay();
 
-export function buildRevenuePlan(year: number, month: number, amount: number, venueIds: string[], sales: PlanSale[], closedWeekdays: Record<string, number[]>, avgSpend?: number | null) {
+/**
+ * Which venue-days a plan may still change: today onward with no sales recorded yet.
+ * Past days and days with sales are locked; `locked` is what they already account for
+ * (their sales, or their saved projection when no sales came in), so a plan spreads only
+ * the rest of the goal across the open days.
+ */
+export function planWindow(today: string, monthSales: { venue_id: string; date: string; total_sales: number }[], saved: { venue_id: string; target_date: string; projected_sales: number }[]) {
+  const sold = new Map<string, number>();
+  for (const s of monthSales) { const k = `${s.venue_id}|${s.date}`; sold.set(k, (sold.get(k) ?? 0) + (Number(s.total_sales) || 0)); }
+  const open = (v: string, d: string) => d >= today && !sold.has(`${v}|${d}`);
+  let locked = 0;
+  for (const x of sold.values()) locked += x;
+  for (const p of saved) if (!open(p.venue_id, p.target_date) && !sold.has(`${p.venue_id}|${p.target_date}`)) locked += Number(p.projected_sales) || 0;
+  return { open, locked };
+}
+
+export function buildRevenuePlan(year: number, month: number, amount: number, venueIds: string[], sales: PlanSale[], closedWeekdays: Record<string, number[]>, avgSpend?: number | null, open?: (venueId: string, date: string) => boolean) {
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const dates = Array.from({ length: days }, (_, i) => `${year}-${String(month).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`);
   const weights: PlanDay[] = [];
@@ -16,7 +32,7 @@ export function buildRevenuePlan(year: number, month: number, amount: number, ve
     const any = cnt.some(c => c > 0);
     for (const d of dates) {
       const w = dow(d);
-      if ((closedWeekdays[v] ?? []).includes(w)) continue;
+      if ((closedWeekdays[v] ?? []).includes(w) || (open && !open(v, d))) continue;
       const avg = cnt[w] ? sum[w] / cnt[w] : any ? 0 : 1;
       if (avg > 0) weights.push({ venue_id: v, date: d, amount: avg });
     }
