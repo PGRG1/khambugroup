@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  Bar, CartesianGrid, Cell, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, CartesianGrid, Cell, ComposedChart, Customized, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import type { SalesRecord } from "@/types/sales";
 import { baseSymbol } from "@/utils/money";
@@ -21,7 +21,7 @@ const AXIS = { tick: { fontSize: 11, fill: MUTED }, axisLine: false, tickLine: f
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const monthKey = (s: string) => s.slice(0, 7);
-const monthShort = (k: string) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" });
+const monthShort = (k: string) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" }).slice(0, 3);
 const daysIn = (k: string) => { const [y, m] = k.split("-").map(Number); return new Date(y, m, 0).getDate(); };
 const shiftMonth = (k: string, n: number) => { const [y, m] = k.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return iso(d).slice(0, 7); };
 const pct = (a: number, b: number) => (b > 0 ? (a - b) / b : null);
@@ -48,7 +48,7 @@ function Card({ title, note, legend, oneLine, children }: { title: string; note?
 }
 
 function Key({ kind, label, value, color }: { kind: "bar" | "line" | "dash" | "faint"; label: string; value?: string; color?: string }) {
-  const swatch = kind === "bar" ? <rect x="0" y="0" width="10" height="10" rx="2" fill={PRIMARY} fillOpacity={0.45} />
+  const swatch = kind === "bar" ? <rect x="0" y="0" width="10" height="10" rx="2" fill={PRIMARY} fillOpacity={0.85} />
     : kind === "faint" ? <line x1="0" x2="14" y1="5" y2="5" stroke={MUTED} strokeWidth="2" strokeOpacity={0.6} />
     : <line x1="0" x2="14" y1="5" y2="5" stroke={PRIMARY} strokeWidth="2.5" strokeDasharray={kind === "dash" ? "3 3" : undefined} />;
   return (
@@ -123,7 +123,7 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       for (const d of byDate.values()) if (monthKey(d.date) === k) g += d.guests;
       const isCur = k === curKey;
       return {
-        key: k, label: monthShort(k), actual: t.s, rest: isCur && canProject ? Math.round(restTotal) : 0, lastYear: ly.s > 0 ? ly.s : null, isCur,
+        key: k, label: monthShort(k), actual: t.s, rest: isCur && canProject ? Math.round(restTotal) : 0, lastYear: ly.s > 0 && t.s > 0 ? ly.s : null, isCur,
         guestsPerDay: t.n ? Math.round(g / t.n) : null, spendPerGuest: g ? Math.round(t.s / g) : null,
         hasData: t.s > 0,
       };
@@ -172,6 +172,12 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
   }, [data, today]);
 
   const [pick, setPick] = useState<[number, number] | null>(null);
+  // Sales by weekday: only months that have sales, all bars on one scale from zero.
+  const shownIdx = Array.from({ length: 12 }, (_, i) => i).filter((i) => m.weekdays.some((w) => w.trend[i]?.v != null));
+  const wkMax = Math.max(1, ...m.weekdays.flatMap((w) => w.trend.map((t) => t.v ?? 0)));
+  // Month to date: the month whose line is nearest the pointer, and the chart's y scale to measure it.
+  const [near, setNear] = useState<string | null>(null);
+  const yScale = useRef<((v: number) => number) | null>(null);
   const monthTicks = niceTicks(Math.max(...m.months.map((x) => Math.max(x.actual + x.rest, x.lastYear ?? 0))));
   const green = "#15803D", amber = "#B45309";
   const tone = (p: number | null) => (p == null ? undefined : p >= 0 ? green : amber);
@@ -193,23 +199,48 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
           </>}>
             <div style={{ width: "100%", height: 260 }}>
               <ResponsiveContainer>
-                <LineChart data={m.monthRun} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <LineChart data={m.monthRun} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  onMouseLeave={() => setNear(null)}
+                  onMouseMove={(st: { activeTooltipIndex?: number; chartY?: number }) => {
+                    const i = st?.activeTooltipIndex, y = st?.chartY, sc = yScale.current;
+                    if (i == null || y == null || !sc) return;
+                    const row = m.monthRun[i] as Record<string, number | null>;
+                    let best: string | null = null, gap = Infinity;
+                    for (const k of [a.curKey, ...a.past]) {
+                      const v = k === a.curKey ? row.cur ?? row.proj : row[k];
+                      if (v == null) continue;
+                      const g = Math.abs(sc(v) - y);
+                      if (g < gap) { gap = g; best = k; }
+                    }
+                    if (best !== near) setNear(best);
+                  }}>
+                  <Customized component={(props: { yAxisMap?: Record<string, { scale: (v: number) => number }> }) => { const ax = props.yAxisMap && Object.values(props.yAxisMap)[0]; if (ax) yScale.current = ax.scale; return null; }} />
                   <CartesianGrid {...GRID} />
                   <XAxis dataKey="day" type="number" domain={[1, 31]} ticks={[1, 8, 15, 22, 29]} {...AXIS} />
                   <YAxis domain={[0, top[top.length - 1]]} ticks={top} tickFormatter={(v) => fmtHKD(v as number, true)} width={48} {...AXIS} />
                   <Tooltip cursor={{ stroke: MUTED, strokeOpacity: 0.4 }} wrapperStyle={{ zIndex: 20 }} position={{ y: 0 }} content={({ active, payload, label }: { active?: boolean; payload?: { payload: Record<string, number | null> }[]; label?: number }) => {
                     if (!active || !payload?.length) return null;
                     const p = payload[0].payload;
-                    const v = p.cur ?? p.proj;
-                    if (v == null) return null;
+                    // Every month's total at this day, newest first; this month bold, the nearest line darker.
+                    const tagOf = (k: string) => `${mName(k).slice(0, 3)}${k.slice(0, 4) !== a.curKey.slice(0, 4) ? ` ’${k.slice(2, 4)}` : ""}`;
+                    const list = [a.curKey, ...a.past]
+                      .map((k) => ({ k, v: (k === a.curKey ? p.cur ?? p.proj : p[k]) as number | null, proj: k === a.curKey && p.cur == null }))
+                      .filter((x) => x.v != null); // newest month first
+                    if (!list.length) return null;
                     return (
-                      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums">
-                        <div className="text-muted-foreground">Day {label}</div>
-                        <div className="font-semibold">{money(v)}</div>
+                      <div className="rounded-lg border border-border bg-card px-2.5 py-2 text-[11px] leading-[1.45] shadow-lg tabular-nums">
+                        <div className="mb-0.5 text-muted-foreground">Day {label}</div>
+                        <div className="min-w-[8.5rem]">
+                          {list.map((x) => (
+                            <div key={x.k} className={`flex justify-between gap-4 ${x.k === a.curKey ? "font-semibold text-foreground" : x.k === near ? "text-foreground" : "text-muted-foreground"}`}>
+                              <span>{tagOf(x.k)}{x.proj ? "*" : ""}</span><span>{shortMoney(x.v as number).replace(baseSymbol(), "")}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     );
                   }} />
-                  {a.past.map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={0.28} strokeWidth={1.5} dot={false} activeDot={false} isAnimationActive={false} connectNulls={false} />)}
+                  {[...a.past.filter((k) => k !== near), ...a.past.filter((k) => k === near)].map((k) => <Line key={k} dataKey={k} type="monotone" stroke={MUTED} strokeOpacity={k === near ? 0.95 : 0.28} strokeWidth={k === near ? 2.25 : 1.5} dot={false} activeDot={false} isAnimationActive={false} connectNulls={false} />)}
                   {a.projEnd != null && <Line dataKey="proj" type="monotone" stroke={PRIMARY} strokeWidth={2.25} strokeDasharray="2 4" dot={false} activeDot={false} isAnimationActive={false} connectNulls={false} />}
                   <Line dataKey="cur" type="monotone" stroke={PRIMARY} strokeWidth={2.75} isAnimationActive={false} connectNulls={false}
                     dot={(p: { cx: number; cy: number; index: number; payload: { day: number } }) => p.payload.day === a.curDay ? <circle key="now" cx={p.cx} cy={p.cy} r={4.5} fill={PRIMARY} stroke="#fff" strokeWidth={2} /> : <g key={p.index} />} />
@@ -223,7 +254,7 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       {/* Month by month */}
       <Card title="Monthly sales" legend={<>
         <Key kind="bar" label="Actual" />
-        <Key kind="dash" label="Projected" />
+        {m.months.some((x) => x.rest > 0) && <Key kind="dash" label="Projected" />}
         {m.months.some((x) => x.lastYear) && <span className="inline-flex items-center gap-1.5"><svg width="16" height="10" aria-hidden="true"><rect x="0" y="0" width="16" height="10" rx="2" fill={PRIMARY} fillOpacity={0.85} /><line x1="2" x2="14" y1="5" y2="5" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" /><line x1="3" x2="13" y1="5" y2="5" stroke="hsl(var(--foreground))" strokeWidth="2" strokeLinecap="round" /></svg><span className="text-muted-foreground">Last year</span></span>}
       </>}>
         <div style={{ width: "100%", height: 220 }}>
@@ -254,25 +285,24 @@ export function TrendsView({ data, today = new Date() }: { data: SalesRecord[]; 
       {/* Sales by weekday: tap or hover a month for its details */}
       <Card title="Sales by weekday">
         <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 text-[12px] tabular-nums">
-          <span /><span className="flex justify-between text-muted-foreground text-[11px]"><span>{monthShort(m.weekdays[0].trend[0].k)}</span><span>{monthShort(m.weekdays[0].trend[11].k)}</span></span>
+          <span /><span className="flex justify-between text-muted-foreground text-[11px]"><span>{monthShort(m.weekdays[0].trend[shownIdx[0] ?? 0].k)}</span><span>{monthShort(m.weekdays[0].trend[shownIdx[shownIdx.length - 1] ?? 11].k)}</span></span>
           {m.weekdays.map((w, row) => {
-            const vals = w.trend.map((t) => t.v).filter((v): v is number => v != null);
-            const lo = Math.min(...vals), hi = Math.max(...vals);
             const act = pick && pick[0] === row ? w.trend[pick[1]] : null;
             return [
               <span key={`${w.name}n`} className="font-medium py-2 border-t border-border/50">{w.name}</span>,
               <div key={`${w.name}s`} className="relative h-10 border-t border-border/50 flex items-end gap-[2px] py-1.5" onMouseLeave={() => setPick(null)}>
                 {w.trend.map((t, i) => {
-                  const h = t.v == null ? 0 : hi > lo ? 25 + 75 * (t.v - lo) / (hi - lo) : 60;
+                  if (!shownIdx.includes(i)) return null;
+                  const h = t.v == null ? 0 : (100 * t.v) / wkMax; // from zero, one scale for every weekday
                   const on = act === t;
                   return <button key={t.k} type="button" aria-label={`${w.long} ${monthShort(t.k)}`} className="flex-1 h-full flex items-end"
                     onMouseEnter={() => setPick([row, i])} onFocus={() => setPick([row, i])} onClick={() => setPick(on ? null : [row, i])}>
-                    <span className="w-full rounded-[1px]" style={{ height: `${h}%`, background: PRIMARY, opacity: on ? 1 : i === 11 ? 0.9 : 0.35 }} />
+                    <span className="w-full rounded-[1px]" style={{ height: `${h}%`, background: PRIMARY, opacity: on ? 1 : i === shownIdx[shownIdx.length - 1] ? 0.9 : 0.35 }} />
                   </button>;
                 })}
                 {act && (
                   <div className="absolute bottom-full z-20 mb-1 rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg tabular-nums whitespace-nowrap pointer-events-none"
-                    style={pick![1] > 6 ? { right: 0 } : { left: 0 }}>
+                    style={shownIdx.indexOf(pick![1]) > shownIdx.length / 2 ? { right: 0 } : { left: 0 }}>
                     <div className="text-muted-foreground">{w.long} · {new Date(`${act.k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</div>
                     <div className="font-semibold">{act.v != null ? shortMoney(act.v) : "No sales"}</div>
                   </div>
