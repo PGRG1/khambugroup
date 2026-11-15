@@ -1177,6 +1177,13 @@
       "when": 1794708973440,
       "tag": "0167_add_revenue_projection_guests_spend_source",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1794717059243,
+      "tag": "0168_create_sales_report_lines_and_setups",
+      "breakpoints": true
     }
   ]
 }

@@ -13137,6 +13137,155 @@ export type Database = {
           },
         ]
       }
+      sales_report_lines: {
+        Row: {
+          bank_account_id: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          gl_account_id: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          legacy_field: string | null
+          printed_name: string
+          settles_to: string | null
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          bank_account_id?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          legacy_field?: string | null
+          printed_name: string
+          settles_to?: string | null
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          bank_account_id?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          legacy_field?: string | null
+          printed_name?: string
+          settles_to?: string | null
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_report_lines_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_report_setups: {
+        Row: {
+          confirmed_at: string
+          confirmed_by: string | null
+          id: string
+          sample_count: number
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          confirmed_at?: string
+          confirmed_by?: string | null
+          id?: string
+          sample_count?: number
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          confirmed_at?: string
+          confirmed_by?: string | null
+          id?: string
+          sample_count?: number
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_report_setups_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_setups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_scan_examples: {
         Row: {
           captured_at: string
