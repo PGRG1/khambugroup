@@ -5,6 +5,7 @@
     "": {
       "name": "vite_react_shadcn_ts",
       "dependencies": {
+        "@ai-sdk/openai": "^3",
         "@ai-sdk/openai-compatible": "^2",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -106,6 +107,8 @@
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@adobe/css-tools/-/css-tools-4.4.4.tgz", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
 
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.237", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.66", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-77ZtS/ne2hoGTEL5r31q4xqqc3J6lKqdjfeDmOowzTmj1QG4jOwnjiqk+6/XUdpTu/nZuCpWvenWqwRo5A0Mmg=="],
+
+    "@ai-sdk/openai": ["@ai-sdk/openai@3.0.143", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.66" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-Z6Ps7nE5gyG9wH/mN7/T5EXB6p4yhqw9mrIdqPTlQov/vW1QB7DEFTXRZNyB7bnAluJpcS/QTWJv/N6XCSL/VA=="],
 
     "@ai-sdk/openai-compatible": ["@ai-sdk/openai-compatible@2.0.93", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.66" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-5R5H7Opq2raqF+BVrxFULmN6tjV0WxgpZ3SMID99xhuuHBE4xg418vZnJIYBxz542QtXBXc/js5We8x/qMyV8Q=="],
 
