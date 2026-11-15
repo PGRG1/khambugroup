@@ -58,7 +58,7 @@ export default function RevenueTargetsNew() {
 
   // ---- Saved projections for every venue in view, with who set them ----
   const [projTick, setProjTick] = useState(0);
-  const [proj, setProj] = useState<Map<string, { v: number; by: string; at: string }>>(new Map());
+  const [proj, setProj] = useState<Map<string, { v: number; g: number | null; s: number | null; bani: boolean; by: string; at: string }>>(new Map());
   const [projLoading, setProjLoading] = useState(true);
   const scopeKey = scopeVenues.map((v) => v.id).sort().join(",");
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function RevenueTargetsNew() {
     if (!tenantId || !ids.length) { setProj(new Map()); setProjLoading(false); return; }
     let live = true;
     (async () => {
-      const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, projected_sales, created_by, updated_at")
+      const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, projected_sales, projected_guests, projected_spend, source, created_by, updated_at")
         .eq("tenant_id", tenantId).in("venue_id", ids).gte("target_date", dates[0]).lte("target_date", dates[dates.length - 1]);
       const who = [...new Set((data ?? []).map((r) => r.created_by).filter(Boolean))] as string[];
       const names = new Map<string, string>();
@@ -75,7 +75,7 @@ export default function RevenueTargetsNew() {
         for (const p of ps ?? []) if (p.display_name) names.set(p.user_id, p.display_name);
       }
       if (live) {
-        setProj(new Map((data ?? []).map((r) => [`${r.venue_id}|${r.target_date}`, { v: Number(r.projected_sales), by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
+        setProj(new Map((data ?? []).map((r) => [`${r.venue_id}|${r.target_date}`, { v: Number(r.projected_sales), g: r.projected_guests == null ? null : Number(r.projected_guests), s: r.projected_spend == null ? null : Number(r.projected_spend), bani: r.source === "bani", by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
         setProjLoading(false);
       }
     })();
@@ -100,7 +100,7 @@ export default function RevenueTargetsNew() {
     return m;
   }, [allSales, scopeVenues]);
 
-  type Line = { venueId: string; venue: string; date: string; guests: number | null; spend: number | null; target: number | null; sold: number | null; source: "Manager" | "Auto" | ""; by?: string; at?: string };
+  type Line = { venueId: string; venue: string; date: string; guests: number | null; spend: number | null; target: number | null; sold: number | null; source: "Manager" | "Bani plan" | "Auto" | ""; by?: string; at?: string };
   const days = useMemo(() => dates.map((date) => {
     const dow = new Date(`${date}T00:00:00`).getDay();
     const lines: Line[] = scopeVenues.map((v) => {
@@ -113,9 +113,11 @@ export default function RevenueTargetsNew() {
       }
       const saved = proj.get(`${v.id}|${date}`);
       const target = saved ? saved.v : ag != null && as != null ? ag * as : null;
-      const spend = saved && ag ? Math.round(saved.v / ag) : as;
+      // A saved day keeps the guests and spend it was set with; older rows only have the total.
+      const guests = saved?.g ?? ag;
+      const spend = saved?.s ?? (saved && guests ? Math.round(saved.v / guests) : as);
       const sold = h.get(date)?.sales ?? null;
-      return { venueId: v.id, venue: v.name, date, guests: ag, spend, target, sold: sold || sold === 0 && h.has(date) ? sold : null, source: saved ? "Manager" : target != null ? "Auto" : "", by: saved?.by, at: saved?.at };
+      return { venueId: v.id, venue: v.name, date, guests, spend, target, sold: sold || sold === 0 && h.has(date) ? sold : null, source: saved ? (saved.bani ? "Bani plan" : "Manager") : target != null ? "Auto" : "", by: saved?.by, at: saved?.at };
     });
     const sum = (k: "guests" | "target" | "sold") => { const xs = lines.map((l) => l[k]).filter((x): x is number => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; };
     const guests = sum("guests"), target = sum("target");
@@ -153,11 +155,11 @@ export default function RevenueTargetsNew() {
   })();
 
   // Save one venue's day; null puts it back to auto.
-  const saveLine = async (venueId: string, date: string, value: number | null) => {
+  const saveLine = async (venueId: string, date: string, value: number | null, guests: number | null = null, spend: number | null = null) => {
     const key = `${venueId}|${date}`;
     const res = value === null
       ? await supabase.from("revenue_daily_projections").delete().eq("tenant_id", tenantId!).eq("venue_id", venueId).eq("target_date", date)
-      : await supabase.from("revenue_daily_projections").upsert({ tenant_id: tenantId!, venue_id: venueId, target_date: date, projected_sales: value, created_by: user?.id ?? null }, { onConflict: "tenant_id,venue_id,target_date" });
+      : await supabase.from("revenue_daily_projections").upsert({ tenant_id: tenantId!, venue_id: venueId, target_date: date, projected_sales: value, projected_guests: guests, projected_spend: spend, source: "manager", created_by: user?.id ?? null }, { onConflict: "tenant_id,venue_id,target_date" });
     setRowError((p) => { const n = { ...p }; if (!res.error) delete n[key]; else n[key] = "Not saved"; return n; });
     setProjTick((t) => t + 1);
     return !res.error;
@@ -183,7 +185,10 @@ export default function RevenueTargetsNew() {
     if (!l || v == null) return;
     const total = edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
     if (total == null || Math.round(total) === Math.round(l.target ?? -1)) return;
-    if (await saveLine(venueId, date, Math.round(total)))
+    // Keep what was typed: guests and spend stay a pair that makes the total.
+    const g = edit.field === "guests" ? Math.round(v) : l.guests;
+    const sp = edit.field === "spend" ? v : edit.field === "guests" ? l.spend : g ? Math.round(v / g) : null;
+    if (await saveLine(venueId, date, Math.round(total), g, sp))
       toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} projected ${Math.round(total).toLocaleString("en-US")}` });
   };
   const cell = "h-11 px-2 text-right whitespace-nowrap border-b border-[var(--kit-line)]";
@@ -280,8 +285,8 @@ export default function RevenueTargetsNew() {
               const many = day.lines.length > 1;
               const fmt = (v: number | null) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
               const soldStyle = (sold: number | null, target: number | null) => sold != null && target != null ? { color: sold >= target ? "#15803D" : "#B45309", fontWeight: 600 } : undefined;
-              const pill = (src: string) => src === "Manager"
-                ? <span className="rounded-full px-2 py-0.5 text-[11px] font-medium text-foreground" style={{ background: "#E4E6E3" }}>Manager</span>
+              const pill = (src: string) => src === "Manager" || src === "Bani plan"
+                ? <span className="rounded-full px-2 py-0.5 text-[11px] font-medium text-foreground whitespace-nowrap" style={{ background: "#E4E6E3" }}>{src}</span>
                 : src ? <span className="rounded-full px-2 py-0.5 text-[11px] text-muted-foreground" style={{ background: "#F1F2F0" }}>Auto</span> : null;
 
               // One venue's line; editable on today and future days.
@@ -321,8 +326,8 @@ export default function RevenueTargetsNew() {
                     <tr key={`${key}-more`} className="bg-white">
                       <td colSpan={6} className="p-0 border-b border-[var(--kit-line)]" style={{ background: "#FAFCFB" }}>
                         <div className="sticky left-0 px-3 py-2 text-[12px] text-muted-foreground" style={{ width: "min(100%, calc(100vw - 64px))" }}>
-                          {l.source === "Manager"
-                            ? <span>Set by <b className="font-medium text-foreground">{l.by ?? "a manager"}</b>{l.at ? ` · ${new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+                          {l.source === "Manager" || l.source === "Bani plan"
+                            ? <span>{l.source === "Bani plan" ? "Bani plan, approved by" : "Set by"} <b className="font-medium text-foreground">{l.by ?? "a manager"}</b>{l.at ? ` · ${new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
                                 {can && <> · <button type="button" className="underline" onClick={(ev) => { ev.stopPropagation(); saveLine(l.venueId, l.date, null); setOpenRow(null); }}>Back to auto</button></>}</span>
                             : l.source === "Auto" ? <span>Bani: {l.guests ?? "—"} guests × {baseSymbol()}{l.spend ?? "—"}, from recent {d.toLocaleDateString("en-GB", { weekday: "long" })}s</span> : null}
                         </div>
@@ -345,7 +350,7 @@ export default function RevenueTargetsNew() {
                   <td className={cell}>{fmt(day.spend)}</td>
                   <td className={`${cell} font-semibold`}>{fmt(day.lines.some((l) => previewOf(l) != null) ? day.lines.reduce((a, l) => a + (previewOf(l) ?? l.target ?? 0), 0) : day.target)}</td>
                   <td className={cell} style={soldStyle(day.sold, day.target)}>{day.sold == null ? <span className="text-muted-foreground">—</span> : fmt(day.sold)}</td>
-                  <td className="h-11 px-3 border-b border-[var(--kit-line)] text-[11px] text-muted-foreground whitespace-nowrap">{day.lines.filter((l) => l.source === "Manager").length ? `${day.lines.filter((l) => l.source === "Manager").length} set` : ""}</td>
+                  <td className="h-11 px-3 border-b border-[var(--kit-line)] text-[11px] text-muted-foreground whitespace-nowrap">{(() => { const n = day.lines.filter((l) => l.source === "Manager" || l.source === "Bani plan").length; return n ? `${n} set` : ""; })()}</td>
                 </tr>,
                 ...(dayOpen ? day.lines.flatMap((l) => lineRow(l, true)) : []),
               ];

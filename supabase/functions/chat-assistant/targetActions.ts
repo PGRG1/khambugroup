@@ -68,7 +68,7 @@ export async function proposeTargetAction(args: any, admin: any, t: string, u: s
       plan.weekday.filter(w => w.per_day).map(w => `${w.day} ${money(w.per_day)}`).join(' · '),
       !plan.trading_days ? 'No remaining days to plan; only the monthly target changes.' : plan.guests ? `${plan.guests.toLocaleString('en-HK')} guests (≈${Math.round(plan.guests / Math.max(1, plan.trading_days))}/day) at ${money(plan.avg_spend!)} each${plan.history_spend ? ` · usual ${money(plan.history_spend)}` : ''}` : 'No guest history to set a spend target'].filter(Boolean).join('\n');
     const notes = [typeof args.note === 'string' ? args.note.slice(0, 200) : '', plan.guests ? `Guests ${plan.guests} · avg spend ${plan.avg_spend}` : ''].filter(Boolean).join(' · ');
-    payload = { year: y, month: m, amount, venues: picked, notes, daily: plan.plan };
+    payload = { year: y, month: m, amount, venues: picked, notes, avg_spend: plan.avg_spend, daily: plan.plan };
     const { data: card, error } = await admin.from('bani_pending_actions').insert({ tenant_id: t, user_id: u, kind: args.kind, title: title.slice(0, 200), detail: detail.slice(0, 500), payload }).select('id').single();
     return error ? { ok: false, error: 'Could not create the card.' } : { ok: true, action_id: card.id, title, detail, plan: { weekday: plan.weekday, trading_days: plan.trading_days, guests: plan.guests, avg_spend: plan.avg_spend, usual_spend: plan.history_spend }, note: 'Plan card shown; nothing saved until Confirm. The daily plan covers only remaining days (today onward with no sales); past days and days with sales are not changed. Explain the plan briefly (busiest/quietest days, guests and spend) and offer to adjust the amount, avg spend or guests — re-propose with new values if asked.' };
   } else if (args.kind === 'set_purchasing_budget') {
@@ -128,7 +128,11 @@ export async function confirmTargetAction(r: any, admin: any, userClient: any, t
       daily = daily.filter((d: any) => d.date >= today && !sold.has(`${d.venue_id}|${d.date}`));
     }
     if (daily.length) {
-      const rows = daily.map((d: any) => ({ tenant_id: t, venue_id: d.venue_id, target_date: d.date, projected_sales: Math.max(0, Number(d.amount) || 0), created_by: u }));
+      const spend = Number(p.avg_spend) > 0 ? Number(p.avg_spend) : null;
+      const rows = daily.map((d: any) => {
+        const amt = Math.max(0, Number(d.amount) || 0);
+        return { tenant_id: t, venue_id: d.venue_id, target_date: d.date, projected_sales: amt, projected_guests: spend ? Math.round(amt / spend) : null, projected_spend: spend, source: 'bani', created_by: u };
+      });
       const { error: dErr } = await userClient.from('revenue_daily_projections').upsert(rows, { onConflict: 'tenant_id,venue_id,target_date' });
       if (dErr) return { status: 403, body: { error: 'Monthly target saved, but the daily plan could not be saved: ' + dErr.message } };
     }
