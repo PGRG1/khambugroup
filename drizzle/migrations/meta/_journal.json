@@ -1205,6 +1205,13 @@
       "when": 1794729385417,
       "tag": "0171_map_new_sales_line",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1794729483331,
+      "tag": "0172_map_sales_line_printed_name",
+      "breakpoints": true
     }
   ]
 }
