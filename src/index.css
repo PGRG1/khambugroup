@@ -812,37 +812,39 @@ html:not(.dark) .tenant-portal :is(.app-atmosphere,.app-bg-sage) .section-pill-r
 /* Revenue tabs' first-visit entrance (RevenueMotion.tsx): cards rise in order, first rows fade in,
    bars and progress grow. Nothing moves on later visits or with reduced motion. */
 .rv-hold { opacity: 0; pointer-events: none; }
-.rv-play .rv-item { animation: rv-rise .7s cubic-bezier(.16,1,.3,1) calc(var(--rv-i, 0) * 90ms) both; }
-.rv-play .rv-row { animation: rv-row .5s cubic-bezier(.16,1,.3,1) calc(380ms + var(--rv-r, 0) * 40ms) both; }
-.rv-play .rv-grow { transform-origin: bottom; animation: rv-grow .7s cubic-bezier(.16,1,.3,1) calc(250ms + var(--g, 0) * 22ms) both; }
-.rv-play .rv-fill { transform-origin: left; animation: rv-fill 1s cubic-bezier(.16,1,.3,1) var(--fd, .3s) both; }
+/* Same motion as Bani team (landing2.css .l2-play): a short soft rise, cards 80ms apart, bars grow
+   with a small bounce one after another, fills run, list rows slide in from the left. */
+.rv-play .rv-item { animation: rv-rise .45s cubic-bezier(.2,.8,.2,1) calc(var(--rv-i, 0) * 80ms) both; }
+.rv-play .rv-row { animation: rv-slide .4s cubic-bezier(.2,.8,.2,1) calc(330ms + var(--rv-r, 0) * 40ms) both; }
+.rv-play .rv-grow { transform-origin: bottom; animation: rv-grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--g, 0) * 30ms) both; }
+.rv-play .rv-fill { transform-origin: left; animation: rv-fill .9s cubic-bezier(.2,.8,.2,1) var(--fd, .4s) both; }
 /* Chart lines draw left to right; a projection continues once actuals have drawn. */
 .rv-c1 { --c: 1; } .rv-c2 { --c: 2; } .rv-c3 { --c: 3; } .rv-c4 { --c: 4; }
-.rv-play .rv-line { animation: rv-draw .9s cubic-bezier(.45,0,.2,1) calc(220ms + var(--c, 0) * 90ms) both; }
-.rv-play .rv-line.rv-then { animation-duration: .75s; animation-timing-function: cubic-bezier(.2,0,.2,1); animation-delay: calc(1080ms + var(--c, 0) * 90ms); }
+.rv-play .rv-line { animation: rv-draw .7s cubic-bezier(.2,.8,.2,1) calc(320ms + var(--c, 0) * 80ms) both; }
+.rv-play .rv-line.rv-then { animation-duration: .5s; animation-delay: calc(1000ms + var(--c, 0) * 80ms); }
 @keyframes rv-draw { from { clip-path: inset(-8px 100% -8px -8px); } to { clip-path: inset(-8px -8px -8px -8px); } }
-/* Bars grow from the axis one after another; projected parts appear once actuals are up. */
-.rv-play .rv-bars .recharts-bar-rectangle { transform-box: fill-box; transform-origin: bottom; animation: rv-grow .8s cubic-bezier(.16,1,.3,1) calc(220ms + var(--c, 0) * 90ms + var(--b, 0) * 30ms) both; }
-.rv-play .rv-bars.rv-then .recharts-bar-rectangle { animation: rv-fade .5s ease-out calc(1000ms + var(--c, 0) * 90ms) both; }
+/* Bars grow from the axis one after another, with Bani team's bounce; projected parts appear once actuals are up. */
+.rv-play .rv-bars .recharts-bar-rectangle { transform-box: fill-box; transform-origin: bottom; animation: rv-grow .7s cubic-bezier(.34,1.3,.64,1) calc(320ms + var(--c, 0) * 80ms + var(--b, 0) * 30ms) both; }
+.rv-play .rv-bars.rv-then .recharts-bar-rectangle { animation: rv-fade .3s ease-out calc(900ms + var(--c, 0) * 80ms) both; }
 .rv-bars .recharts-bar-rectangle:nth-child(2) { --b: 1; } .rv-bars .recharts-bar-rectangle:nth-child(3) { --b: 2; } .rv-bars .recharts-bar-rectangle:nth-child(4) { --b: 3; } .rv-bars .recharts-bar-rectangle:nth-child(5) { --b: 4; } .rv-bars .recharts-bar-rectangle:nth-child(6) { --b: 5; } .rv-bars .recharts-bar-rectangle:nth-child(7) { --b: 6; } .rv-bars .recharts-bar-rectangle:nth-child(8) { --b: 7; } .rv-bars .recharts-bar-rectangle:nth-child(9) { --b: 8; } .rv-bars .recharts-bar-rectangle:nth-child(10) { --b: 9; } .rv-bars .recharts-bar-rectangle:nth-child(11) { --b: 10; } .rv-bars .recharts-bar-rectangle:nth-child(12) { --b: 11; } .rv-bars .recharts-bar-rectangle:nth-child(13) { --b: 12; } .rv-bars .recharts-bar-rectangle:nth-child(14) { --b: 13; } .rv-bars .recharts-bar-rectangle:nth-child(15) { --b: 14; } .rv-bars .recharts-bar-rectangle:nth-child(16) { --b: 15; } .rv-bars .recharts-bar-rectangle:nth-child(17) { --b: 16; } .rv-bars .recharts-bar-rectangle:nth-child(18) { --b: 17; } .rv-bars .recharts-bar-rectangle:nth-child(19) { --b: 18; } .rv-bars .recharts-bar-rectangle:nth-child(20) { --b: 19; } .rv-bars .recharts-bar-rectangle:nth-child(21) { --b: 20; } .rv-bars .recharts-bar-rectangle:nth-child(22) { --b: 21; } .rv-bars .recharts-bar-rectangle:nth-child(23) { --b: 22; } .rv-bars .recharts-bar-rectangle:nth-child(24) { --b: 23; } .rv-bars .recharts-bar-rectangle:nth-child(25) { --b: 24; } .rv-bars .recharts-bar-rectangle:nth-child(26) { --b: 25; } .rv-bars .recharts-bar-rectangle:nth-child(27) { --b: 26; } .rv-bars .recharts-bar-rectangle:nth-child(28) { --b: 27; } .rv-bars .recharts-bar-rectangle:nth-child(29) { --b: 28; } .rv-bars .recharts-bar-rectangle:nth-child(30) { --b: 29; } .rv-bars .recharts-bar-rectangle:nth-child(31) { --b: 30; }
 /* Flat reference lines (targets) settle in after the data has drawn. */
-.rv-play .recharts-reference-line { animation: rv-fade .6s ease-out 1.6s both; }
-@keyframes rv-rise { from { opacity: 0; transform: translateY(22px) scale(.97); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.rv-play .recharts-reference-line { animation: rv-fade .3s ease-out 1.3s both; }
+@keyframes rv-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rv-slide { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 @keyframes rv-row { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes rv-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rv-grow { from { transform: scaleY(0); } to { transform: none; } }
 @keyframes rv-fill { from { transform: scaleX(0); } to { transform: none; } }
 /* Quick version for every open after the first in a session (~0.6s): same order, shorter and lighter. */
-.rv-play.rv-quick .rv-item { animation: rv-rise-q .4s cubic-bezier(.16,1,.3,1) calc(var(--rv-i, 0) * 45ms) both; }
-.rv-play.rv-quick .rv-row { animation: rv-row .3s cubic-bezier(.16,1,.3,1) calc(140ms + var(--rv-r, 0) * 15ms) both; }
-.rv-play.rv-quick .rv-line { animation-duration: .5s; animation-delay: calc(90ms + var(--c, 0) * 45ms); }
-.rv-play.rv-quick .rv-line.rv-then { animation-duration: .35s; animation-delay: calc(560ms + var(--c, 0) * 45ms); }
-.rv-play.rv-quick .rv-bars .recharts-bar-rectangle { animation-duration: .45s; animation-delay: calc(90ms + var(--c, 0) * 45ms + var(--b, 0) * 10ms); }
-.rv-play.rv-quick .rv-bars.rv-then .recharts-bar-rectangle { animation: rv-fade .3s ease-out calc(450ms + var(--c, 0) * 45ms) both; }
-.rv-play.rv-quick .rv-grow { animation-duration: .45s; animation-delay: calc(90ms + var(--g, 0) * 8ms); }
-.rv-play.rv-quick .rv-fill { animation-duration: .55s; animation-delay: calc(var(--fd, .3s) * .4); }
-.rv-play.rv-quick .recharts-reference-line { animation-duration: .35s; animation-delay: .75s; }
-@keyframes rv-rise-q { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rv-play.rv-quick .rv-item { animation: rv-rise .32s cubic-bezier(.2,.8,.2,1) calc(var(--rv-i, 0) * 40ms) both; }
+.rv-play.rv-quick .rv-row { animation: rv-slide .3s cubic-bezier(.2,.8,.2,1) calc(120ms + var(--rv-r, 0) * 15ms) both; }
+.rv-play.rv-quick .rv-line { animation-duration: .45s; animation-delay: calc(120ms + var(--c, 0) * 40ms); }
+.rv-play.rv-quick .rv-line.rv-then { animation-duration: .3s; animation-delay: calc(560ms + var(--c, 0) * 40ms); }
+.rv-play.rv-quick .rv-bars .recharts-bar-rectangle { animation: rv-grow .45s cubic-bezier(.2,.8,.2,1) calc(120ms + var(--c, 0) * 40ms + var(--b, 0) * 12ms) both; }
+.rv-play.rv-quick .rv-bars.rv-then .recharts-bar-rectangle { animation: rv-fade .25s ease-out calc(450ms + var(--c, 0) * 40ms) both; }
+.rv-play.rv-quick .rv-grow { animation: rv-grow .45s cubic-bezier(.2,.8,.2,1) calc(120ms + var(--g, 0) * 12ms) both; }
+.rv-play.rv-quick .rv-fill { animation-duration: .5s; animation-delay: calc(var(--fd, .4s) * .4); }
+.rv-play.rv-quick .recharts-reference-line { animation-duration: .25s; animation-delay: .7s; }
 @media (prefers-reduced-motion: reduce) {
   .rv-play .rv-item, .rv-play .rv-row, .rv-play .rv-grow, .rv-play .rv-fill, .rv-play .recharts-reference-line, .rv-play .rv-line, .rv-play .rv-bars .recharts-bar-rectangle { animation: none; }
 }
