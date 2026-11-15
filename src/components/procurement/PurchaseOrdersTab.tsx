@@ -315,27 +315,40 @@ export default function PurchaseOrdersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
-        {newPoButton}
-      </div>
+      {/* Phone: the section tab already names the page, and New PO sits at the end of the status row. */}
+      {!isMobile && (
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
+          {newPoButton}
+        </div>
+      )}
 
       {loading ? (
         <div className="card-glass rounded-xl border border-border/60 h-40 animate-pulse" aria-label="Loading purchase orders" />
       ) : pos.length === 0 ? (
         <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
           <p className="font-display text-base font-semibold text-foreground">No purchase orders yet</p>
-          <p className="mx-auto max-w-md text-sm text-muted-foreground">Purchase orders are optional. Use one when you want to agree quantities and prices before the delivery; Bani then checks the delivery and invoice against it.</p>
           {newPoButton}
         </div>
       ) : (<>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Status">
-          {tabs.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={statusFilter === t.key} onClick={() => setStatusFilter(t.key)}
-              className={cn("rounded-full border px-3 py-1 text-xs transition-colors", statusFilter === t.key ? "border-primary bg-primary text-primary-foreground" : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground")}>
-              {t.label} <span className="td-num ml-1 opacity-80">{t.count}</span>
+        {/* Status: the current one is a white pill, the rest grey (dark green is kept for the main navigation).
+            Phone: the row slides sideways and a round + for a new PO sits at its end. */}
+        <div className="flex items-center gap-2">
+          <div className={cn("flex min-w-0 flex-1 gap-1", isMobile ? "po-status-row overflow-x-auto" : "flex-wrap")} role="tablist" aria-label="Status">
+            {tabs.map((t) => (
+              <button key={t.key} type="button" role="tab" aria-selected={statusFilter === t.key} onClick={() => setStatusFilter(t.key)}
+                className={cn("inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[13px] transition-colors",
+                  statusFilter === t.key ? "bg-white font-semibold text-[#1F3F3B] shadow-[0_4px_12px_-6px_rgba(20,45,43,0.35)]" : "text-muted-foreground hover:text-foreground")}>
+                {t.label} <span className="td-num opacity-60">{t.count}</span>
+              </button>
+            ))}
+          </div>
+          {isMobile && canManage && (
+            <button type="button" onClick={() => setCreateOpen(true)} aria-label="New PO" title="New PO"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+              <Plus className="h-5 w-5" />
             </button>
-          ))}
+          )}
         </div>
 
         <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
