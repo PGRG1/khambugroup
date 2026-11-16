@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { lineBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList } from "recharts";
 import { baseSymbol } from "@/utils/money";
@@ -29,6 +30,7 @@ interface Props {
  */
 export function CumulativeSales({ days, lastCounted, target }: Props) {
   const play = useRevenuePlay();
+  const mobile = useIsMobile();
   const model = useMemo(() => {
     const sold = days.filter((d) => d.date <= lastCounted);
     const soldDays = sold.filter((d) => (d.actual ?? 0) > 0).length;
@@ -79,7 +81,7 @@ export function CumulativeSales({ days, lastCounted, target }: Props) {
         {model.future && <span className="inline-flex items-center gap-1.5"><svg width="14" height="4" aria-hidden="true"><line x1="0" x2="14" y1="2" y2="2" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="3 3" /></svg>
           <span className="text-muted-foreground">Projected</span><b className="font-semibold" style={target ? { color: short ? "#B45309" : "#15803D" } : undefined}>{shortMoney(model.endTotal)}</b></span>}
       </div>
-      <div style={{ width: "100%", height: 240 }}>
+      <div style={{ width: "100%", height: mobile ? 160 : 240 }}>
         <ResponsiveContainer>
           <ComposedChart data={model.points} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
             <defs>

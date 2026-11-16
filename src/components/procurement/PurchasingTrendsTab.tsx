@@ -93,7 +93,7 @@ function MonthLines({ title, rows, total, months, current, play, mobile }: { tit
   const ticks = niceTicks(Math.max(1, ...months.map((_, i) => rows.reduce((n, r) => n + Math.max(0, r.months[i] ?? 0), 0))));
   return (
     <Card title={title}>
-      <div className="mt-2" style={{ width: "100%", height: 220 }}>
+      <div className="mt-2" style={{ width: "100%", height: mobile ? 170 : 220 }}>
         <ResponsiveContainer>
           <ComposedChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
             <CartesianGrid {...GRID} />
@@ -160,11 +160,11 @@ export default function PurchasingTrendsTab() {
   const slow = useSlowLoad(loading);
 
   return (
-    <div className="w-full mx-auto space-y-4">
+    <div className="w-full mx-auto space-y-4 max-sm:space-y-3" data-phone-compact>
       <PageTop title="Trends" />
       {data.isError ? <p className="text-sm text-warning">Could not load purchasing figures. Please reload to try again.</p>
         : loading ? (slow ? <div className="h-80 bg-muted/60 rounded-xl animate-pulse" /> : null)
-        : <RevenueEnter id="purchasing-trends" className="space-y-4">{(play: boolean) => {
+        : <RevenueEnter id="purchasing-trends" className="space-y-4 max-sm:space-y-3">{(play: boolean) => {
           const months = t.months;
           const now = t.monthly[t.monthly.length - 1];
           const spendTotal = t.monthly.reduce((n, m) => n + m.spend, 0);
@@ -176,7 +176,7 @@ export default function PurchasingTrendsTab() {
               <Key kind="bar" label={`${monthShort(now.key)} so far`} value={shortMoney(now.spend)} />
               <Key kind="warm" label="% of sales" value={now.pct == null ? "—" : `${Math.round(now.pct)}%`} />
             </>}>
-              <div style={{ width: "100%", height: 240 }}>
+              <div style={{ width: "100%", height: mobile ? 170 : 240 }}>
                 <ResponsiveContainer>
                   <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
                     <CartesianGrid {...GRID} />

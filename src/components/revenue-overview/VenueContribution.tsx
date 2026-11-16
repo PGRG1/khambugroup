@@ -100,6 +100,9 @@ export function VenueContribution({ data, prevData, venue }: Props) {
     </div>
   );
 
+  // Nothing to show until seats are set; the setting lives in Settings → Business & venues.
+  if (!seats) return null;
+
   return (
     <div className="glass-surface rounded-xl border border-border/60 p-4">
       <div className="flex items-baseline justify-between mb-2">

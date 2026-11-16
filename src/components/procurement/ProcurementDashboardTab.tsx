@@ -28,6 +28,7 @@ import { type CategoryTree, purchasingChecks, priceMoves, categoryRanking, itemR
 import { budgetBarScale, rankedBudgetCategories } from "./purchasingOverviewPresentation";
 import { PurchasingBudgetsDialog } from "./PurchasingBudgetsDialog";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const monthLabel = formatMonthLabel;
 const monthName = formatMonthLabel;
@@ -35,7 +36,7 @@ const delta = (value: number | null) => value == null ? "—" : `${value >= 0 ? 
 const wholePct = (value: number | null) => value == null ? "—" : `${integer(value)}%`;
 type Item = ReturnType<typeof itemRanking>[number];
 function OverviewChartShell({ children, className, ...props }: Parameters<typeof ChartShell>[0]) {
-  return <ChartShell {...props} className={cn("[&>div:first-child>div:first-child>div:first-child]:text-[15px] [&>div:first-child>div:first-child>div:first-child]:font-semibold [&>p]:text-[12.5px] [&>div:first-child]:flex-wrap [&>div:first-child>div:last-child]:max-w-full [&>div:first-child>div:last-child]:shrink [&>div:first-child>div:last-child]:min-w-0 max-sm:[&>div:first-child>div:last-child]:basis-full", className)}>{children}</ChartShell>;
+  return <ChartShell {...props} className={cn("max-sm:p-3.5 max-sm:[&>div:first-child]:mb-2", "[&>div:first-child>div:first-child>div:first-child]:text-[15px] [&>div:first-child>div:first-child>div:first-child]:font-semibold [&>p]:text-[12.5px] [&>div:first-child]:flex-wrap [&>div:first-child>div:last-child]:max-w-full [&>div:first-child>div:last-child]:shrink [&>div:first-child>div:last-child]:min-w-0 max-sm:[&>div:first-child>div:last-child]:basis-full", className)}>{children}</ChartShell>;
 }
 function OverviewKpi(props: Parameters<typeof KpiCard>[0]) {
   // Phones: compact 2×2 stats; larger screens unchanged.
@@ -97,14 +98,14 @@ function SpendSoFar({ label, spend, previousSpend, previousLabel, budget, stats 
     : (change ?? 0) > 0 ? { background: "rgba(224,123,26,.15)", color: "#B45309" } : { background: "rgba(22,163,74,.12)", color: "#15803D" };
   const over = !!budget && budget.spent > budget.total;
   const used = budget && budget.total > 0 ? Math.min(100, budget.spent / budget.total * 100) : 0;
-  return <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4" aria-label={label}>
+  return <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3" aria-label={label}>
     <div>
       <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p className="text-[36px] sm:text-[42px] leading-none font-semibold td-num tabular-nums text-foreground"><Num value={spend} format={shortMoney} play={count} /></p>
+        <p className="text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums text-foreground"><Num value={spend} format={shortMoney} play={count} /></p>
         {change != null && previousLabel && <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium tabular-nums" style={tone}>{same ? `Same as ${previousLabel}` : `${change > 0 ? "+" : "−"}${Math.round(Math.abs(change))}% vs ${previousLabel}`}</span>}
       </div>
-      {previousSpend != null && previousSpend > 0 && previousLabel && <p className="mt-2 text-[13px] text-muted-foreground tabular-nums">{shortMoney(previousSpend)} in {previousLabel}</p>}
+      {previousSpend != null && previousSpend > 0 && previousLabel && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-muted-foreground tabular-nums">{shortMoney(previousSpend)} in {previousLabel}</p>}
     </div>
     {budget && <div className="space-y-2">
       <div className="relative h-3 rounded-full bg-muted overflow-hidden" role="img" aria-label={`${integer(used)}% of budget used`}><div className={cn("rv-fill absolute inset-y-0 left-0 rounded-full", over ? "bg-warning" : "bg-primary")} style={{ width: `${used}%` }} /></div>
@@ -132,6 +133,7 @@ export default function ProcurementDashboardTab() {
   const [itemsOpen, setItemsOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [breakdown, setBreakdown] = useState<CategoryRow | null>(null);
+  const mobile = useIsMobile();
   const [budgetSuggestions, setBudgetSuggestions] = useState<Map<string, number> | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: "name" | "value" | "change"; desc: boolean }>({ key: "value", desc: true });
@@ -224,10 +226,10 @@ export default function ProcurementDashboardTab() {
 
   if (data.isError || purchasing.isError) return <Alert><AlertDescription>Could not load purchasing figures. Please reload to try again.</AlertDescription></Alert>;
   if (!data.isSuccess || !purchasing.isSuccess) return <div className="space-y-4 py-4" aria-label="Loading purchasing overview"><div className="h-10 w-44 animate-pulse rounded-lg bg-muted/40" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(n => <div key={n} className="h-28 rounded-xl bg-card/40 animate-pulse" />)}</div><div className="h-80 rounded-xl bg-card/40 animate-pulse" /></div>;
-  return <div data-purchasing-overview className="space-y-5 min-w-0 td-num">
+  return <div data-purchasing-overview data-phone-compact className="space-y-5 max-sm:space-y-3 min-w-0 td-num">
     <PageTop title="Purchasing overview" period={datePeriod.control} actions={isAdmin && singleMonth && (purchasing.mode === "central" || scope.selectedVenues.length === 1) ? <Button variant="outline" size="sm" className="h-10" onClick={() => { setBudgetSuggestions(null); setBudgetsOpen(true); }}>Budgets</Button> : undefined} />
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{purchasing.mode === "central" ? "Whole group (bought centrally)" : scope.label} · last invoice <span className="whitespace-nowrap">{latestUpload ? formatDate(latestUpload) : "—"}</span></span>{(fallback || (isCurrent && !currentInvoices.length)) && <span className="rounded-full bg-warning/10 text-warning border border-warning/30 px-2 py-1">No {monthName(currentMonth)} invoices yet{fallback ? ` · showing ${monthName(period)}` : ""}</span>}</div>
-    <RevenueEnter id="purchasing" className="space-y-5">{() => <>
+    <RevenueEnter id="purchasing" className="space-y-5 max-sm:space-y-3">{() => <>
     <SpendSoFar label={previous ? (isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : monthLabel(period)) : periodLabel} spend={spend} previousSpend={previous ? previousSpend : null} previousLabel={previousLabel}
       budget={budgetsExist ? { total: totalBudget, spent: budgetedSpend, daysLeft: isCurrent ? daysLeft : null } : null}
       stats={[
@@ -236,7 +238,7 @@ export default function ProcurementDashboardTab() {
         { label: "Suppliers", value: integer(suppliers.length), was: previous ? `was ${integer(new Set(previousInvoices.map(row => row.supplier_id)).size)}` : null },
       ]} />
     {previous && <PurchasingRunningTotal month={period} currentName={monthLabel(period).split(" ")[0]} priorName={monthLabel(previous).split(" ")[0]} days={pairRows.map(row => ({ day: row.day, current: row.current, prior: row.prior, budget: row.budget }))} />}
-    <OverviewChartShell title={budgetsExist ? "Categories against budget" : "Categories"}>{budgetsExist ? <div className="space-y-4"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span className="h-3 w-[2px] bg-foreground opacity-[0.55]" aria-hidden />Budget</div>{categoryBudgetRows.map(({ name, value: spentValue, budget: budgetValue }) => {
+    <OverviewChartShell title={budgetsExist ? "Categories against budget" : "Categories"}>{budgetsExist ? <div className="space-y-4 max-sm:space-y-3"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span className="h-3 w-[2px] bg-foreground opacity-[0.55]" aria-hidden />Budget</div>{categoryBudgetRows.map(({ name, value: spentValue, budget: budgetValue }) => {
       const hasBudget = budgetValue != null;
       const over = hasBudget && spentValue > budgetValue;
       const latestChange = budgetChanges.filter(row => row.category === name).sort((a, b) => b.changed_at.localeCompare(a.changed_at))[0];
@@ -246,8 +248,8 @@ export default function ProcurementDashboardTab() {
       if (name.startsWith("Deposits")) return <div key={name} className="flex items-baseline justify-between gap-2 border-t border-border/40 pt-3 text-[13px] text-muted-foreground"><span className="min-w-0 truncate">{name}</span><span className="td-num whitespace-nowrap">{integer(spentValue)}</span></div>;
       return <div key={name} data-budget-category={name}><div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-[13px]">{(() => { const row = categories.find(r => r.name === name); return row ? <CategoryName row={row} onOpen={setBreakdown} /> : <span className="min-w-0" title={name}>{name}</span>; })()}<span className="ml-auto flex items-baseline justify-end gap-2 whitespace-nowrap td-num"><span>{integer(spentValue)}</span>{hasBudget && <><span className="text-muted-foreground">{`of ${integer(budgetValue)}`}</span><span className={cn("font-semibold", over && "text-warning")}>{wholePct(budgetValue > 0 ? spentValue / budgetValue * 100 : null)}</span></>}</span></div><div className="mt-1"><BudgetBar share={spentValue / categoryBarMaximum * 100} over={over} tick={hasBudget ? budgetValue / categoryBarMaximum * 100 : null} /></div><p className="mt-1 text-[11px] text-muted-foreground td-num">{hasBudget ? `Budget ${integer(budgetValue)}${changedAt ? ` · ${changeWord} ${changedAt}` : ""}` : "Not budgeted"}</p></div>;
     })}</div> : <CategoryList rows={categories} onOpen={setBreakdown} />}</OverviewChartShell>
-    <OverviewChartShell title="Items"><ItemsTable rows={items.slice(0,10)} previous={previousLabel} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setItemsOpen(true)}>See all {integer(items.length)} items</Button></OverviewChartShell>
-    <OverviewChartShell title="Suppliers"><RankedList rows={suppliers.slice(0,10)} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setSupplierOpen(true)}>See all {integer(suppliers.length)} suppliers</Button></OverviewChartShell>
+    <OverviewChartShell title="Items"><ItemsTable rows={items.slice(0, mobile ? 5 : 10)} previous={previousLabel} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setItemsOpen(true)}>See all {integer(items.length)} items</Button></OverviewChartShell>
+    <OverviewChartShell title="Suppliers"><RankedList rows={suppliers.slice(0, mobile ? 5 : 10)} /><Button variant="link" className="px-0 h-9 text-xs hover:text-foreground" onClick={()=>setSupplierOpen(true)}>See all {integer(suppliers.length)} suppliers</Button></OverviewChartShell>
     </>}</RevenueEnter>
     <CategoryBreakdown category={breakdown} period={previous && isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : periodLabel} onClose={() => setBreakdown(null)} />
     <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}><DialogContent className="max-w-[900px] overflow-hidden"><DialogHeader className="text-left pr-8"><DialogTitle>Suppliers</DialogTitle><DialogDescription>{periodLabel} · {purchasing.mode === "central" ? "Whole group" : scope.label}</DialogDescription></DialogHeader><div className="max-h-[65svh] overflow-y-auto overflow-x-hidden"><table className="w-full table-fixed text-xs sm:text-sm"><thead className="sticky top-0 z-10 bg-card"><tr className="border-b border-border text-xs text-muted-foreground"><th className="px-1 py-3 sm:px-3 text-left font-medium">Supplier</th><th className="px-1 py-3 sm:px-3 text-right font-medium whitespace-nowrap">Spend ({baseSymbol()})</th>{previous && <th className="px-1 py-3 sm:px-3 text-right font-medium whitespace-nowrap">vs {previousLabel}</th>}<th className="px-1 py-3 sm:px-3 text-right font-medium">Share</th></tr></thead><tbody>{suppliers.map(row => <tr key={row.id} className="border-b border-border/40 hover:bg-muted/20"><td className="p-3 whitespace-normal break-words max-w-[360px]">{row.name}</td><td title={money(row.value)} className="px-1 py-3 sm:px-3 text-right td-num truncate">{money(row.value)}</td>{previous && <td className="px-1 py-3 sm:px-3 text-right td-num truncate">{delta(row.change)}</td>}<td className="px-1 py-3 sm:px-3 text-right td-num truncate">{pct(row.share)}</td></tr>)}</tbody></table></div></DialogContent></Dialog>

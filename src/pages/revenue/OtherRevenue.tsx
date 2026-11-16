@@ -19,7 +19,12 @@ import { ListRow, StatusPill } from "@/components/kit";
 
 const NONE = "__none__";
 
-export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) {
+// On the Sales records page the list sits in that page's own card, so no second card around it.
+function EntriesBox({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <Card className="card-glass p-4">{children}</Card>;
+}
+
+export function OtherRevenuePanel({ embedded = false, formOpen = true, onSaved }: { embedded?: boolean; formOpen?: boolean; onSaved?: () => void }) {
   const mr = useManualRevenue();
   const vs = useVenueScope();
   const entries = mr.entries.filter((r) => vs.includesId(r.venue_id));
@@ -72,6 +77,7 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
       toast.success("Entry saved");
       setAmount(""); setDescription(""); setFile(null); setVenueId(NONE); setSourceId(NONE);
       mr.reload();
+      onSaved?.();
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     } finally {
@@ -102,7 +108,7 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
 
   return (
     <div className={embedded ? "space-y-4" : "p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto"}>
-      <div>
+      {formOpen && <><div>
         {!embedded && <h1 className="text-2xl font-semibold">Other Revenue</h1>}
         <p className="text-sm text-muted-foreground">
           Log revenue that happened outside POS (e.g. a private event paid in cash). Saved as a draft, then posted to the general ledger.
@@ -163,14 +169,14 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
             </Button>
           </div>
         </div>
-      </Card>
+      </Card></>}
 
-      <Card className="card-glass p-4">
-        <h2 className="text-sm font-semibold mb-3">All entries</h2>
+      <EntriesBox embedded={embedded}>
+        {!embedded && <h2 className="text-sm font-semibold mb-3">All entries</h2>}
         {mr.loading ? (
           <div className="text-sm text-muted-foreground py-8 text-center">Loading…</div>
         ) : entries.length === 0 ? (
-          <div className="text-sm text-muted-foreground py-8 text-center">No entries yet.</div>
+          <div className={embedded ? "text-sm text-muted-foreground py-2" : "text-sm text-muted-foreground py-8 text-center"}>No entries yet.</div>
         ) : (
           <div className="space-y-0.5">
             {entries.map((r) => {
@@ -203,7 +209,7 @@ export function OtherRevenuePanel({ embedded = false }: { embedded?: boolean }) 
             })}
           </div>
         )}
-      </Card>
+      </EntriesBox>
     </div>
   );
 }

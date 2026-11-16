@@ -151,3 +151,9 @@
 
 /* Pinned header cells (phone): solid card colour, so scrolled columns don't show through, without a white block. */
 @media (max-width: 639px) { .sales-table thead th:nth-child(-n+2) { background: #F8FBFA; } }
+
+/* Phone sizing for overview and trends pages: tighter cards so a screen holds more.
+   Pages opt in with data-phone-compact; larger screens are unchanged. */
+@media (max-width: 639px) {
+  [data-phone-compact] :is(.card-glass, .glass-surface):is(.p-4, .p-5, .px-5) { padding: 14px; }
+}

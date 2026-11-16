@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Bar, CartesianGrid, Cell, ComposedChart, Customized, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -70,6 +71,7 @@ const Tip = ({ rows }: { rows: [string, string][] }) => (
 );
 
 export function TrendsView({ data, target = null, projected, today = new Date() }: { data: SalesRecord[]; target?: number | null; projected?: Map<string, number>; today?: Date }) {
+  const mobile = useIsMobile();
   const m = useMemo(() => {
     // One row per date, all selected venues added together.
     const byDate = new Map<string, Day>();
@@ -206,7 +208,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
   const money = (v: number) => `${baseSymbol()}${fmtHKD(v)}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-sm:space-y-3" data-phone-compact>
       {/* Month to date: every month of the past year, this month in front */}
       {(() => {
         const a = m.monthAt;
@@ -219,7 +221,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
               : <span className="text-muted-foreground">No {mName(a.curKey)} sales yet</span>}
             {a.projEnd != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke={PRIMARY} strokeWidth="2" strokeDasharray="2 3" /></svg><span className="text-muted-foreground">Projected</span><b className="font-semibold">{shortMoney(a.projEnd)}</b></span>}
           </>}>
-            <div style={{ width: "100%", height: 260 }}>
+            <div style={{ width: "100%", height: mobile ? 170 : 260 }}>
               <ResponsiveContainer>
                 <LineChart data={m.monthRun} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                   onMouseLeave={() => setNear(null)}
@@ -280,7 +282,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
         <Key kind="bar" label="Actual" />
         {m.months.some((x) => x.rest > 0) && <Key kind="dash" label="Projected" />}
       </>}>
-        <div style={{ width: "100%", height: 220 }}>
+        <div style={{ width: "100%", height: mobile ? 160 : 220 }}>
           <ResponsiveContainer>
             <ComposedChart data={m.months} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
               <CartesianGrid {...GRID} />
@@ -345,7 +347,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
           const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.25 || hi * 0.1 || 1;
           return (
             <Card key={key} title={title} legend={<>{now != null && <b className="font-semibold text-foreground">{f(now)}</b>}{ch != null && <span className="text-muted-foreground">vs {pts[0].label} <b className="font-semibold" style={{ color: tone(ch) }}>{pctText(ch)}</b></span>}</>}>
-              <div style={{ width: "100%", height: 150 }}>
+              <div style={{ width: "100%", height: mobile ? 120 : 150 }}>
                 <ResponsiveContainer>
                   <LineChart data={m.months} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid {...GRID} />

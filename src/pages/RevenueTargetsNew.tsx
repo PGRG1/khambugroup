@@ -198,10 +198,10 @@ export default function RevenueTargetsNew() {
   const cell = "h-11 px-2 text-right whitespace-nowrap border-b border-[var(--kit-line)]";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-sm:space-y-3" data-phone-compact>
       <RevenuePageTop title="Targets" period={<div className="flex items-center gap-3">{period.control}{loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}</div>} />
 
-      <RevenueEnter id="targets" ready={ready} className="space-y-4">
+      <RevenueEnter id="targets" ready={ready} className="space-y-4 max-sm:space-y-3">
         {(play, count) => (<>
       {/* Summary: one target figure, the projected month, and the gap */}
       <section className="card-glass rounded-xl border border-border/60 p-4">
@@ -248,7 +248,7 @@ export default function RevenueTargetsNew() {
           {projEnd != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="2 3" /></svg><span className="text-muted-foreground">Projected</span><b className="font-semibold">{shortMoney(projEnd)}</b></span>}
           {target != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke="hsl(var(--muted-foreground))" strokeWidth="2" strokeDasharray="5 3" /></svg><span className="text-muted-foreground">Target</span></span>}
         </div>
-        <div className="h-52">
+        <div className="h-52 max-sm:h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={pace} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" />
@@ -269,16 +269,16 @@ export default function RevenueTargetsNew() {
 
       {/* Day by day */}
       <div data-rv className="kit overflow-x-auto overscroll-x-contain rounded-xl border border-border/60" style={{ background: "#fff", ["--kit-line" as string]: "#ECEAE3" }}>
-        <table className="w-full min-w-[560px] text-[13px] tabular-nums border-separate border-spacing-0" data-testid="new-targets-table">
-          <colgroup><col className="w-[84px]" /><col className="w-[76px]" /><col className="w-[84px]" /><col className="w-[110px]" /><col className="w-[92px]" /><col className="w-[86px]" /></colgroup>
+        <table className="w-full min-w-[560px] max-sm:min-w-0 max-sm:text-[12px] text-[13px] tabular-nums border-separate border-spacing-0" data-testid="new-targets-table">
+          <colgroup><col className="w-[84px] max-sm:w-[76px]" /><col className="w-[76px] max-sm:w-[52px]" /><col className="w-[84px] max-sm:w-[56px]" /><col className="w-[110px] max-sm:w-[78px]" /><col className="w-[92px] max-sm:w-[70px]" /><col className="w-[86px] max-sm:hidden" /></colgroup>
           <thead>
             <tr className="text-[11px] text-muted-foreground [&>th]:border-b [&>th]:border-[var(--kit-line)]">
-              <th className="sticky left-0 z-[2] h-9 px-3 text-left font-medium" style={{ background: "#fff" }}>Date</th>
+              <th className="sticky left-0 z-[2] h-9 px-3 max-sm:px-2 text-left font-medium" style={{ background: "#fff" }}>Date</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Guests</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Spend</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Projected</th>
               <th className="px-2 text-right font-medium" style={{ background: "#fff" }}>Actual</th>
-              <th className="px-3 text-left font-medium" style={{ background: "#fff" }}>Source</th>
+              <th className="px-3 text-left font-medium max-sm:hidden" style={{ background: "#fff" }}>Source</th>
             </tr>
           </thead>
           <tbody>
@@ -319,12 +319,12 @@ export default function RevenueTargetsNew() {
                 };
                 return [
                   <tr key={key} className="bg-white cursor-pointer" onClick={() => setOpenRow(open ? null : key)}>
-                    <td className={`sticky left-0 z-[1] h-11 whitespace-nowrap border-b border-[var(--kit-line)] text-left ${sub ? "pl-6 pr-3 text-[12px] text-muted-foreground" : `px-3 ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`}`} style={{ background: "#fff" }}>{sub ? l.venue : label}</td>
+                    <td className={`sticky left-0 z-[1] h-11 whitespace-nowrap border-b border-[var(--kit-line)] text-left ${sub ? "pl-6 pr-3 text-[12px] text-muted-foreground" : `px-3 max-sm:px-2 ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`}`} style={{ background: "#fff" }}>{sub ? l.venue : label}</td>
                     <td className={cell}>{numCell("guests", l.guests)}</td>
                     <td className={cell}>{numCell("spend", l.spend)}</td>
                     <td className={cell}>{numCell("target", l.target, true)}{rowError[key] && <p className="text-[10px] text-destructive">{rowError[key]}</p>}</td>
                     <td className={cell} style={soldStyle(l.sold, l.target)}>{l.sold == null ? <span className="text-muted-foreground">—</span> : fmt(l.sold)}</td>
-                    <td className="h-11 px-3 whitespace-nowrap border-b border-[var(--kit-line)]">{pill(l.source)}</td>
+                    <td className="h-11 px-3 whitespace-nowrap border-b border-[var(--kit-line)] max-sm:hidden">{pill(l.source)}</td>
                   </tr>,
                   open && !editingThis && (
                     <tr key={`${key}-more`} className="bg-white">
@@ -348,13 +348,13 @@ export default function RevenueTargetsNew() {
               const toggleDay = () => setOpenDays((o) => { const n = new Set(o); if (n.has(day.date)) n.delete(day.date); else n.add(day.date); return n; });
               return [
                 <tr key={day.date} className="cursor-pointer" style={{ background: dayOpen ? "#F7F8F6" : "#fff" }} onClick={toggleDay} aria-expanded={dayOpen}>
-                  <td className={`sticky left-0 z-[1] h-11 px-3 text-left whitespace-nowrap border-b border-[var(--kit-line)] ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`} style={{ background: dayOpen ? "#F7F8F6" : "#fff" }}>
+                  <td className={`sticky left-0 z-[1] h-11 px-3 max-sm:px-2 text-left whitespace-nowrap border-b border-[var(--kit-line)] ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`} style={{ background: dayOpen ? "#F7F8F6" : "#fff" }}>
                     <span className="inline-flex items-center gap-1">{label}<ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${dayOpen ? "rotate-180" : ""}`} /></span></td>
                   <td className={cell}>{fmt(day.guests)}</td>
                   <td className={cell}>{fmt(day.spend)}</td>
                   <td className={`${cell} font-semibold`}>{fmt(day.lines.some((l) => previewOf(l) != null) ? day.lines.reduce((a, l) => a + (previewOf(l) ?? l.target ?? 0), 0) : day.target)}</td>
                   <td className={cell} style={soldStyle(day.sold, day.target)}>{day.sold == null ? <span className="text-muted-foreground">—</span> : fmt(day.sold)}</td>
-                  <td className="h-11 px-3 border-b border-[var(--kit-line)] text-[11px] text-muted-foreground whitespace-nowrap">{(() => { const n = day.lines.filter((l) => l.source === "Manager" || l.source === "Bani plan").length; return n ? `${n} set` : ""; })()}</td>
+                  <td className="h-11 px-3 border-b border-[var(--kit-line)] text-[11px] text-muted-foreground whitespace-nowrap max-sm:hidden">{(() => { const n = day.lines.filter((l) => l.source === "Manager" || l.source === "Bani plan").length; return n ? `${n} set` : ""; })()}</td>
                 </tr>,
                 ...(dayOpen ? day.lines.flatMap((l) => lineRow(l, true)) : []),
               ];

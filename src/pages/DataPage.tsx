@@ -35,7 +35,7 @@ import { monthSoFarLabel } from "@/utils/revenueOverview";
 import type { DayNote } from "@/components/dashboard/ManualInput";
 import type { SalesRecord } from "@/types/sales";
 import { OtherRevenuePanel } from "@/pages/revenue/OtherRevenue";
-import { Upload, PenLine, ScanLine, ChevronDown, Coins } from "lucide-react";
+import { Upload, PenLine, ScanLine, ChevronDown, Coins, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -68,6 +68,7 @@ const DataPage = () => {
   // ?view= links scroll to the matching section; both sections always show.
   const dailyRef = useRef<HTMLDivElement>(null);
   const otherRef = useRef<HTMLElement>(null);
+  const [otherFormOpen, setOtherFormOpen] = useState(false);
   const setView = (v: ViewKey) => {
     setParams({ view: v }, { replace: true });
     requestAnimationFrame(() => (v === "other" ? otherRef : dailyRef).current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -200,7 +201,7 @@ const DataPage = () => {
           </DropdownMenuItem>
         )}
         {canOther && (
-          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setView("other"); }}>
+          <DropdownMenuItem className="min-h-10" onSelect={() => { closePanels(); setOtherFormOpen(true); setView("other"); }}>
             <Coins className="h-4 w-4 mr-2" /> Add other income
           </DropdownMenuItem>
         )}
@@ -221,7 +222,7 @@ const DataPage = () => {
   const holding = loading || !datePeriod.settled || (!firstReady.current && (closures.loading || sl.loading));
   const slowLoad = useSlowLoad(holding);
   return (
-    <div className="w-full mx-auto space-y-6">
+    <div className="w-full mx-auto space-y-6 max-sm:space-y-4" data-phone-compact>
       <RevenuePageTop
         title="Sales records"
         period={!isActionHidden("revenue.date_range") && (
@@ -304,8 +305,12 @@ const DataPage = () => {
             />
           </div></RevenueEnter>
           <section ref={otherRef} className="scroll-mt-16 space-y-3" aria-labelledby="other-income">
-            <h2 id="other-income" className="text-lg font-display font-semibold">Other income</h2>
-            <div className="card-glass rounded-xl p-3 sm:p-4"><OtherRevenuePanel embedded /></div>
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="other-income" className="text-lg font-display font-semibold">Other income</h2>
+              {isAdmin && !otherFormOpen && <Button variant="outline" size="sm" onClick={() => setOtherFormOpen(true)}><Plus className="h-4 w-4 mr-1" />Add other income</Button>}
+              {otherFormOpen && <Button variant="ghost" size="sm" onClick={() => setOtherFormOpen(false)}>Cancel</Button>}
+            </div>
+            <div className="card-glass rounded-xl p-3 sm:p-4"><OtherRevenuePanel embedded formOpen={otherFormOpen} onSaved={() => setOtherFormOpen(false)} /></div>
           </section>
 
           <SalesDayDialog

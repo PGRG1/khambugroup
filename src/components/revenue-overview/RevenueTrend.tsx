@@ -1,4 +1,5 @@
 import {baseSymbol} from '@/utils/money';
+import { useIsMobile } from "@/hooks/use-mobile";
 import { barBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -87,6 +88,7 @@ function BestWorstMarks(props: any) {
 }
 
 export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: Props) {
+  const mobile = useIsMobile();
   const play = useRevenuePlay();
   const showForecast = view === "daily" && forecastDaily.some((day) => day.forecast !== null);
   const chartData = useMemo(() => {
@@ -220,7 +222,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
           </div>
         )}
       </div>
-      <div ref={boxRef} style={{ width: "100%", height: 320 }}>
+      <div ref={boxRef} style={{ width: "100%", height: mobile ? 210 : 320 }}>
         <ResponsiveContainer>
           <ComposedChart data={chartData} margin={{ top: marks ? (narrow ? 60 : 34) : 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" vertical={false} />

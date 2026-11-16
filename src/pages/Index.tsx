@@ -114,7 +114,7 @@ const Index = () => {
   const holding = loading || !vs.ready || !datePeriod.settled || (!firstReady.current && targetsPending);
   const slowLoad = useSlowLoad(holding);
   return (
-    <div className="w-full mx-auto space-y-5">
+    <div className="w-full mx-auto space-y-5 max-sm:space-y-3" data-phone-compact>
       <RevenuePageTop
         title="Revenue overview"
         period={!hideDateRange && (
@@ -143,7 +143,7 @@ const Index = () => {
           <p className="font-display text-lg text-foreground">No sales recorded</p>
         </div>
       ) : (
-        <RevenueEnter id="overview" className="space-y-5 loading-reveal">
+        <RevenueEnter id="overview" className="space-y-5 max-sm:space-y-3 loading-reveal">
           <SoFarCard
             label={periodName}
             revenue={cur.revenue}
@@ -168,7 +168,7 @@ const Index = () => {
 
           {running && <CumulativeSales days={running.days} lastCounted={running.lastCounted} target={month.target} />}
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
+          <div className="grid gap-4 max-sm:gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-stretch">
             <div className="min-w-0">
               <RevenueTrend data={filtered} view="daily" forecastDaily={forecastSummary.daily} markBestWorst />
             </div>
