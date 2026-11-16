@@ -1,10 +1,27 @@
 import type { ReactNode } from "react";
 import {useFeedHealth} from '@/hooks/useFeedHealth';
+import { useIsMobile } from "@/hooks/use-mobile";
 
-/** Shared page top: title, then Period (left) and actions (right). */
-export function PageTop({ title, titleDetail, period, actions, actionsBesideTitle = false }: { title: string; titleDetail?: ReactNode; period?: ReactNode; actions?: ReactNode; actionsBesideTitle?: boolean }) {
+/**
+ * Shared page top: title, then Period (left) and actions (right).
+ * tabsAbove: the page sits under a row of section tabs on phone, where the highlighted tab already
+ * names the page, so the title is kept for screen readers only and Period and actions share one row.
+ */
+export function PageTop({ title, titleDetail, period, actions, actionsBesideTitle = false, tabsAbove = false }: { title: string; titleDetail?: ReactNode; period?: ReactNode; actions?: ReactNode; actionsBesideTitle?: boolean; tabsAbove?: boolean }) {
   const areas:Record<string,string[]>={'Sales records':['sales'],'Bank & cash':['bank'],'Receivables':['payments'],'Finance overview':['sales','payments','bank','finance']};
   const status=useFeedHealth(areas[title]??[]);
+  const mobile = useIsMobile();
+  if (tabsAbove && mobile) return (
+    <div className="space-y-2">
+      <h1 className="sr-only">{title}</h1>
+      {(period || actions) && <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">{period}</div>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>}
+      {titleDetail}
+      {status&&<p role="status" className="text-xs text-muted-foreground">{status}</p>}
+    </div>
+  );
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">

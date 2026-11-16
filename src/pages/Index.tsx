@@ -116,7 +116,7 @@ const Index = () => {
   return (
     <div className="w-full mx-auto space-y-5 max-sm:space-y-3" data-phone-compact>
       <RevenuePageTop
-        title="Revenue overview"
+        tabsAbove title="Revenue overview"
         period={!hideDateRange && (
           datePeriod.control
         )}

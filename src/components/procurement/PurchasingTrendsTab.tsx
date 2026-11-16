@@ -161,7 +161,7 @@ export default function PurchasingTrendsTab() {
 
   return (
     <div className="w-full mx-auto space-y-4 max-sm:space-y-3" data-phone-compact>
-      <PageTop title="Trends" />
+      <PageTop tabsAbove title="Trends" />
       {data.isError ? <p className="text-sm text-warning">Could not load purchasing figures. Please reload to try again.</p>
         : loading ? (slow ? <div className="h-80 bg-muted/60 rounded-xl animate-pulse" /> : null)
         : <RevenueEnter id="purchasing-trends" className="space-y-4 max-sm:space-y-3">{(play: boolean) => {

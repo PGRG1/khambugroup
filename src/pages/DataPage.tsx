@@ -224,7 +224,7 @@ const DataPage = () => {
   return (
     <div className="w-full mx-auto space-y-6 max-sm:space-y-4" data-phone-compact>
       <RevenuePageTop
-        title="Sales records"
+        tabsAbove title="Sales records"
         period={!isActionHidden("revenue.date_range") && (
           datePeriod.control
         )}

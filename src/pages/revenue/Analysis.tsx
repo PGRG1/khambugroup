@@ -40,7 +40,7 @@ export default function RevenueAnalysis() {
 
   return (
     <div className="w-full mx-auto space-y-4">
-      <RevenuePageTop title="Trends" />
+      <RevenuePageTop tabsAbove title="Trends" />
       {loading ? null : scoped.length === 0
         ? <div className="card-glass rounded-xl p-12 text-center"><p className="text-muted-foreground">No sales recorded</p></div>
         : <RevenueEnter id="trends"><TrendsView data={scoped} target={target} projected={access.forecast ? projected : undefined} /></RevenueEnter>}

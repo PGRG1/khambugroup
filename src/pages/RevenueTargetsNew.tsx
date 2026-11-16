@@ -199,7 +199,7 @@ export default function RevenueTargetsNew() {
 
   return (
     <div className="space-y-4 max-sm:space-y-3" data-phone-compact>
-      <RevenuePageTop title="Targets" period={<div className="flex items-center gap-3">{period.control}{loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}</div>} />
+      <RevenuePageTop tabsAbove title="Targets" period={<div className="flex items-center gap-3">{period.control}{loading && <span className="text-[12px] text-muted-foreground">Loading…</span>}</div>} />
 
       <RevenueEnter id="targets" ready={ready} className="space-y-4 max-sm:space-y-3">
         {(play, count) => (<>
