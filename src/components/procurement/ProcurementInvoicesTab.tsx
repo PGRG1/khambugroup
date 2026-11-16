@@ -31,6 +31,7 @@ import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
+import { InvoicePages } from "@/components/invoices/InvoicePages";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -271,6 +272,8 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [currencyEdit, setCurrencyEdit] = useState(false);
+  useEffect(() => { setCurrencyEdit(false); }, [selectedInvoice?.id]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailPosted,setDetailPosted]=useState(true);
@@ -1978,7 +1981,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
       />
 
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent className="kit sales-day-dialog max-w-[760px] grid-cols-[minmax(0,1fr)] p-0 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto">
+        <DialogContent className={`kit sales-day-dialog ${selectedInvoice && hasDurableAttachment(selectedInvoice.file_url) ? "max-w-[1080px]" : "max-w-[760px]"} grid-cols-[minmax(0,1fr)] p-0 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto`}>
           {selectedInvoice && (() => {
             const inv = selectedInvoice;
             const rs = inv.review_status || "Approved";
@@ -1995,13 +1998,16 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
             const held = Number((inv as any).held_amount) || 0;
             const deliverySummary = changed.length ? changed.map(row => `${row.line.description}: ${formatDecimal(row.invQty)} ${row.line.unit || ""} invoiced, ${formatDecimal(row.recvQty ?? 0)} received`).join(" · ") + (held ? ` · ${formatCurrency(held)} held` : "") : grnItemsForInvoice.length ? "received as invoiced" : "delivery not recorded";
             const statusTone = (REVIEW_BADGE[rs] || REVIEW_BADGE["Under Review"]).split(" ").filter(token => token.startsWith("text-")).join(" ");
-            return <div className="min-w-0 p-5 sm:p-7 space-y-5 text-foreground">
-              <div className="space-y-1.5 pr-8"><DialogTitle className="text-[16px] font-semibold break-words"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "Supplier"}</SupplierNameLink></DialogTitle><DialogDescription className="text-[13px]">{inv.invoice_number} · <span className={statusTone}>{rs}</span></DialogDescription></div>
-              <InvoiceCurrencyReview key={inv.id} invoice={{...inv,line_items:lineItems as any}} posted={detailPosted} onSaved={async()=>{await fetchAll();const {data}=await supabase.from('invoices').select('*').eq('tenant_id',tenantId??'').eq('id',inv.id).single();if(data)setSelectedInvoice({...inv,...data} as Invoice);setLineItems(await fetchLineItems(inv.id));}}/>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">{[["Date",formatDate(inv.invoice_date)],["Venue",inv.venue],["Due",inv.due_date ? formatDate(inv.due_date) : "Not set"],["Total",formatTableCurrency(Number(inv.total_amount))]].map(([label,value]) => <div key={label} className="min-w-0"><p className="kit-group-h mb-1">{label}</p><p className={label === "Total" ? "td-num font-semibold" : "break-words"}>{value}</p></div>)}</div>
+            const hasPages = hasDurableAttachment(inv.file_url);
+            const openPages = () => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); };
+            const details = <div className="min-w-0 space-y-5">
+              <div className="flex items-start justify-between gap-4 pr-8"><div className="min-w-0 space-y-1"><DialogTitle className="text-[16px] font-semibold break-words"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "Supplier"}</SupplierNameLink></DialogTitle><DialogDescription className="text-[13px]">{[shortDay(inv.invoice_date), inv.venue, inv.invoice_number, inv.due_date ? `Due ${shortDay(inv.due_date)}` : null].filter(Boolean).map((part, i) => <span key={i} className="whitespace-nowrap">{i > 0 && " · "}{part}</span>)}{rs !== "Approved" && <span className={`whitespace-nowrap ${statusTone}`}> · {rs}</span>}</DialogDescription></div><p className="td-num text-[18px] font-semibold shrink-0">{formatTableCurrency(Number(inv.total_amount))}</p></div>
+              {hasPages && <div className="min-[900px]:hidden"><InvoicePages fileUrl={inv.file_url} layout="strip" onOpen={openPages} /></div>}
+              <InvoiceCurrencyReview key={inv.id} editOpen={currencyEdit} onEditOpenChange={setCurrencyEdit} invoice={{...inv,line_items:lineItems as any}} posted={detailPosted} onSaved={async()=>{await fetchAll();const {data}=await supabase.from('invoices').select('*').eq('tenant_id',tenantId??'').eq('id',inv.id).single();if(data)setSelectedInvoice({...inv,...data} as Invoice);setLineItems(await fetchLineItems(inv.id));}}/>
               <BaniScanSummary invoiceId={inv.id} compact deliverySummary={short.length ? `${short.length} line${short.length === 1 ? "" : "s"} short: ${deliverySummary}` : deliverySummary} deliveryProblem={changed.length > 0}
                 moreActions={<>
                   {!hasDurableAttachment(inv.file_url) && <DropdownMenuItem onClick={() => setAttachTarget(inv)}>Attach source</DropdownMenuItem>}
+                  <DropdownMenuItem disabled={detailPosted} onClick={() => setCurrencyEdit(true)}>Change currency</DropdownMenuItem>
                   <DropdownMenuItem disabled={detailPosted} className="text-destructive" onClick={() => { setDrawerOpen(false); setDeletingId(inv.id); setDeleteOpen(true); }}>Delete invoice</DropdownMenuItem>
                 </>}
                 footerActions={<>
@@ -2011,9 +2017,12 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
                 <div className="hidden min-[641px]:block overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}<InvoiceAssetProposal invoice={inv} line={line}/></td><td className="td-num text-right px-1">{formatDecimal(invQty)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty)}</td>}<td className="td-num text-right px-1">{formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
                 <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><InvoiceAssetProposal invoice={inv} line={line}/><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
                 {inv.notes && <p className="text-[13px] whitespace-pre-wrap"><span className="kit-group-h">Notes</span><br />{inv.notes}</p>}
-                <InvoiceAttachmentPreview invoice={inv} onView={() => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); }} onAttach={() => setAttachTarget(inv)} />
+                {!hasPages && <InvoiceAttachmentPreview invoice={inv} onView={openPages} onAttach={() => setAttachTarget(inv)} />}
               </BaniScanSummary>
             </div>;
+            return hasPages
+              ? <div className="p-5 sm:p-7 text-foreground min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-7"><div className="hidden min-[900px]:block min-w-0 max-h-[calc(100dvh-7.5rem)] overflow-y-auto pr-1"><InvoicePages fileUrl={inv.file_url} layout="column" onOpen={openPages} /></div>{details}</div>
+              : <div className="p-5 sm:p-7 text-foreground">{details}</div>;
           })()}
         </DialogContent>
       </Dialog>
@@ -2186,6 +2195,6 @@ function InvoiceAttachmentPreview({invoice,onView,onAttach}:{invoice:Invoice;onV
   const paths = parseAttachmentPaths(invoice.file_url);
   const path = paths[0];
   useEffect(() => { let active = true; setThumbnail(null); if (path && /\.(jpe?g|png|webp)$/i.test(path)) supabase.storage.from("invoice-files").createSignedUrl(path,300).then(({data}) => { if (active) setThumbnail(data?.signedUrl || null); }); return () => {active=false;}; },[path]);
-  if (!paths.length) return <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={onAttach}>Attachment missing · Attach source</Button>;
+  if (!paths.length) return <p className="text-[13px] text-muted-foreground">No photo of the invoice yet · <Button variant="link" className="kit-link p-0 h-auto" onClick={onAttach}>Attach it</Button></p>;
   return <div className="flex items-center gap-3 text-[13px]"><Button variant="ghost" className="h-14 w-12 shrink-0 overflow-hidden border border-border p-0" onClick={onView} aria-label="View invoice attachment">{thumbnail ? <img src={thumbnail} alt="Invoice thumbnail" className="h-full w-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground" />}</Button><span>{path && /\.pdf$/i.test(path) ? "Invoice PDF" : "Invoice photo"} · {formatTableInteger(paths.length)} {paths.length === 1 ? "page" : "pages"} · <Button variant="link" className="kit-link p-0 h-auto" onClick={onView}>View</Button></span></div>;
 }

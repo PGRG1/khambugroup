@@ -58,10 +58,10 @@ export function BaniScanSummary({ invoiceId, compact, deliverySummary, deliveryP
     const issues = flags.map(f => f.reason || f.type).filter(Boolean).join(" · ");
     const checked = Boolean(data?.ai_suggestions || anomaly);
     return <>
-      <p className={`flex items-start gap-2 text-[13px] ${deliveryProblem || flags.length ? "text-warning" : checked ? "text-success" : "text-muted-foreground"}`}>
+      {(running || deliveryProblem || flags.length > 0 || checked) && <p className={`flex items-start gap-2 text-[13px] ${deliveryProblem || flags.length ? "text-warning" : checked ? "text-success" : "text-muted-foreground"}`}>
         {deliveryProblem || flags.length ? <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> : checked ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : null}
-        <span>{running ? "Bani is checking…" : deliveryProblem ? deliverySummary : issues || (checked ? `Checked by Bani${deliverySummary ? ` · ${deliverySummary}` : ""} · price as usual` : "Not checked by Bani yet")}</span>
-      </p>
+        <span>{running ? "Bani is checking…" : deliveryProblem ? deliverySummary : issues || (checked ? `Checked by Bani${deliverySummary ? ` · ${deliverySummary}` : ""} · price as usual` : "")}</span>
+      </p>}
       {children}
       <div className="kit-divider pt-4 flex flex-wrap items-center justify-between gap-2">
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="kit-btn"><MoreHorizontal className="h-4 w-4" />More</Button></DropdownMenuTrigger><DropdownMenuContent align="start">
