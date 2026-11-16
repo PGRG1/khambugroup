@@ -1226,6 +1226,13 @@
       "when": 1794736155458,
       "tag": "0174_exclude_line_mode_sales_rebuild",
       "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1794836055271,
+      "tag": "0175_payroll_override_static_update",
+      "breakpoints": true
     }
   ]
 }
