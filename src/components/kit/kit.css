@@ -162,11 +162,16 @@
 html:not(.dark) .tenant-portal .app-shell .kit-search input { background: transparent !important; border: 0 !important; box-shadow: none !important; }
 
 /* Second-level tabs (Invoices · Register · Notes · Received, and On hand · Counts · Movements): plain
-   words on one bottom line, no line under the row. The current page is bold, a little bigger (it grows
-   upwards) and has a soft rounded green bar under it. */
+   words, all one size and never bigger than the pill tabs above them. The current page is semibold and
+   dark, with a short Bani-green highlighter stroke at the foot of the word that fades out to the right. */
 .invoice-switch { display: flex; gap: 24px; align-items: flex-end; }
-.invoice-switch-item { position: relative; display: inline-flex; align-items: flex-end; min-height: 42px; padding-bottom: 12px; line-height: 1; font-size: 14px; font-weight: 500; color: #5F6F69; white-space: nowrap; }
+.invoice-switch-item { position: relative; isolation: isolate; display: inline-flex; align-items: flex-end; min-height: 40px; padding-bottom: 12px; line-height: 1; font-size: 14px; font-weight: 500; color: #5F6F69; white-space: nowrap; }
 .invoice-switch-item:hover { color: hsl(var(--foreground)); }
-.invoice-switch-item.is-active { color: hsl(var(--foreground)); font-weight: 700; font-size: 16px; }
-.invoice-switch-item.is-active::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 3px; height: 4px; border-radius: 999px; background: #2F7A5E; }
-@media (max-width: 640px) { .invoice-switch { justify-content: space-between; gap: 0; } }
+.invoice-switch-item.is-active { color: hsl(var(--foreground)); font-weight: 600; }
+.invoice-switch-item.is-active::after { content: ""; position: absolute; z-index: -1; left: -2px; right: 12%; bottom: 9px; height: 6px; border-radius: 3px 6px 6px 3px; background: linear-gradient(90deg, rgba(47, 122, 94, .9) 0%, rgba(47, 122, 94, .55) 55%, rgba(47, 122, 94, 0) 100%); transform: skewX(-12deg); }
+/* On phone they sit under the section's pill tabs (13px), so they stay a step smaller. */
+@media (max-width: 640px) {
+  .invoice-switch { gap: 20px; }
+  .invoice-switch-item { min-height: 36px; padding-bottom: 11px; font-size: 12px; }
+  .invoice-switch-item.is-active::after { bottom: 9px; height: 5px; }
+}
