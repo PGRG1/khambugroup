@@ -169,9 +169,9 @@ html:not(.dark) .tenant-portal .app-shell .kit-search input { background: transp
 .invoice-switch-item:hover { color: hsl(var(--foreground)); }
 .invoice-switch-item.is-active { color: hsl(var(--foreground)); font-weight: 600; }
 .invoice-switch-item.is-active::after { content: ""; position: absolute; z-index: -1; left: -2px; right: 12%; bottom: 9px; height: 6px; border-radius: 3px 6px 6px 3px; background: linear-gradient(90deg, rgba(47, 122, 94, .9) 0%, rgba(47, 122, 94, .55) 55%, rgba(47, 122, 94, 0) 100%); transform: skewX(-12deg); }
-/* On phone they sit under the section's pill tabs (13px), so they stay a step smaller. */
+/* On phone they sit under the section pill tabs (13px): the same size, never bigger. */
 @media (max-width: 640px) {
   .invoice-switch { gap: 20px; }
-  .invoice-switch-item { min-height: 36px; padding-bottom: 11px; font-size: 12px; }
+  .invoice-switch-item { min-height: 36px; padding-bottom: 11px; font-size: 13px; }
   .invoice-switch-item.is-active::after { bottom: 9px; height: 5px; }
 }
