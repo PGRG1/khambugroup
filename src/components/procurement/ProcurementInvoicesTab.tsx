@@ -2002,7 +2002,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
             const openPages = () => { if (inv.file_url) openAttachmentViewer(inv.file_url, inv.invoice_number); };
             const details = <div className="min-w-0 space-y-5">
               <div className="flex items-start justify-between gap-4 pr-8"><div className="min-w-0 space-y-1"><DialogTitle className="text-[16px] font-semibold break-words"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "Supplier"}</SupplierNameLink></DialogTitle><DialogDescription className="text-[13px]">{[shortDay(inv.invoice_date), inv.venue, inv.invoice_number, inv.due_date ? `Due ${shortDay(inv.due_date)}` : null].filter(Boolean).map((part, i) => <span key={i} className="whitespace-nowrap">{i > 0 && " · "}{part}</span>)}{rs !== "Approved" && <span className={`whitespace-nowrap ${statusTone}`}> · {rs}</span>}</DialogDescription></div><p className="td-num text-[18px] font-semibold shrink-0">{formatTableCurrency(Number(inv.total_amount))}</p></div>
-              {hasPages && <div className="min-[900px]:hidden"><InvoicePages fileUrl={inv.file_url} layout="strip" onOpen={openPages} /></div>}
+              {hasPages && <div className="min-[768px]:hidden"><InvoicePages fileUrl={inv.file_url} layout="strip" onOpen={openPages} /></div>}
               <InvoiceCurrencyReview key={inv.id} editOpen={currencyEdit} onEditOpenChange={setCurrencyEdit} invoice={{...inv,line_items:lineItems as any}} posted={detailPosted} onSaved={async()=>{await fetchAll();const {data}=await supabase.from('invoices').select('*').eq('tenant_id',tenantId??'').eq('id',inv.id).single();if(data)setSelectedInvoice({...inv,...data} as Invoice);setLineItems(await fetchLineItems(inv.id));}}/>
               <BaniScanSummary invoiceId={inv.id} compact deliverySummary={short.length ? `${short.length} line${short.length === 1 ? "" : "s"} short: ${deliverySummary}` : deliverySummary} deliveryProblem={changed.length > 0}
                 moreActions={<>
@@ -2021,7 +2021,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
               </BaniScanSummary>
             </div>;
             return hasPages
-              ? <div className="p-5 sm:p-7 text-foreground min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-7"><div className="hidden min-[900px]:block min-w-0 max-h-[calc(100dvh-7.5rem)] overflow-y-auto pr-1"><InvoicePages fileUrl={inv.file_url} layout="column" onOpen={openPages} /></div>{details}</div>
+              ? <div className="p-5 sm:p-7 text-foreground min-[768px]:grid min-[768px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] min-[768px]:gap-7"><div className="hidden min-[768px]:block min-w-0 max-h-[calc(100dvh-7.5rem)] overflow-y-auto pr-1"><InvoicePages fileUrl={inv.file_url} layout="column" onOpen={openPages} /></div>{details}</div>
               : <div className="p-5 sm:p-7 text-foreground">{details}</div>;
           })()}
         </DialogContent>
