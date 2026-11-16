@@ -2074,6 +2074,19 @@ interface InvoiceTableSectionProps {
   onAttachSource: (inv: any) => void;
 }
 
+/** Why an invoice needs someone to look at it, in plain words; null when it doesn't. Coding gaps are for Bani, not the user. */
+function attentionReason(inv: Invoice, deliveryMismatch: boolean): string | null {
+  if (inv.review_status === "Disputed") return "Disputed";
+  if (deliveryMismatch) return "Delivery doesn't match";
+  const flags: { type?: string | null }[] = (inv as any).ai_anomaly?.flags || [];
+  const flag = flags.find(f => f?.type && f.type !== "missing_coding");
+  if (flag?.type === "credit_note_suspected") return "Looks like a credit note";
+  if (flag?.type) { const words = flag.type.replace(/_/g, " "); return words[0].toUpperCase() + words.slice(1); }
+  if (!inv.file_url) return "No photo of the invoice";
+  return null;
+}
+
+
 function InvoiceTableSection({
   filtered, suppliers, kpis, columns, sortColumns, setSortColumns,
   search, setSearch, supplierFilter, setSupplierFilter,
@@ -2081,11 +2094,14 @@ function InvoiceTableSection({
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
   invoiceVarianceMap, onAttachSource, loading, loadError, retry, periodFrom, periodTo,
 }: InvoiceTableSectionProps) {
-  const pag = usePagination(filtered, 25);
+  const [onlyAttention, setOnlyAttention] = useState(false);
+  const listed = onlyAttention ? filtered.filter(inv => attentionReason(inv, !!invoiceVarianceMap[inv.id])) : filtered;
+  const pag = usePagination(listed, 25);
   const isMobile = useIsMobile();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
+
   const scope = useVenueScope();
   useEffect(() => { setSelectedIds(new Set()); pag.setPage(1); }, [search, supplierFilter, reviewStatusFilter, monthFilter, periodFrom, periodTo]);
   const selected = filtered.filter(inv => selectedIds.has(inv.id));
@@ -2121,12 +2137,7 @@ function InvoiceTableSection({
     } catch { toast.error("Could not download invoice files. Please try again."); }
     finally { setDownloading(false); }
   };
-  const statusText = (inv: Invoice) => {
-    const status = inv.review_status || "Approved";
-    // Reuse the existing review-status palette, without badge framing.
-    const tone = (REVIEW_BADGE[status] || REVIEW_BADGE["Under Review"]).split(" ").filter(token => token.startsWith("text-")).join(" ");
-    return <span className={`text-xs font-medium ${tone}`}>{status}</span>;
-  };
+  const flagMark = (reason: string) => <Tooltip><TooltipTrigger asChild><button type="button" className="sales-flag" aria-label={reason} onClick={e => e.stopPropagation()}>!</button></TooltipTrigger><TooltipContent side="right" sideOffset={6}>{reason}</TooltipContent></Tooltip>;
   const flags = (inv: Invoice) => {
     const issues = (inv as any).ai_anomaly?.flags || [];
     const hasVariance = invoiceVarianceMap[inv.id];
@@ -2134,17 +2145,18 @@ function InvoiceTableSection({
     const text = [...issues.map((issue: any) => `${issue.type}${issue.reason ? ` — ${issue.reason}` : ""}`), ...(hasVariance ? ["GRN variance"] : [])].join("; ");
     return <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="text-warning" tabIndex={0} aria-label={text}><AlertTriangle className="h-3.5 w-3.5" /></span></TooltipTrigger><TooltipContent className="max-w-xs text-xs">{text}</TooltipContent></Tooltip></TooltipProvider>;
   };
-  const upload = <Button onClick={onUploadClick} className="h-9 px-3 min-[641px]:h-10"><ScanLine className="h-4 w-4 mr-1.5" /><span className="min-[641px]:hidden">Upload</span><span className="max-[640px]:hidden">Upload invoice</span></Button>;
-  const download = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download invoices" title="Download invoices" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  const upload = <Button size="sm" className="h-10" onClick={onUploadClick}><ScanLine className="h-4 w-4" /><span>Upload invoice</span></Button>;
+  const more = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download invoices" title="Download invoices" disabled={downloading}>{downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!filtered.length} onClick={handleDownload}>Download list</DropdownMenuItem><DropdownMenuItem disabled={!files.length} onClick={downloadFiles}>Download invoice files</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
   const periodName = datePeriod.label;
-  const checkCount = filtered.filter(inv => inv.review_status === "Disputed" || (inv as any).ai_anomaly?.flags?.length || invoiceVarianceMap[inv.id]).length;
+  const attention = filtered.map(inv => ({ inv, reason: attentionReason(inv, !!invoiceVarianceMap[inv.id]) })).filter((row): row is { inv: Invoice; reason: string } => !!row.reason);
+  const reasons = new Map(attention.map(row => [row.inv.id, row.reason]));
   const sortKey = `${sortColumns[0]?.key || "invoice_date"}:${sortColumns[0]?.dir || "desc"}`;
   const sortOptions = [{key:"invoice_date:desc",label:"Newest first",compactLabel:"Newest"},{key:"invoice_date:asc",label:"Oldest first",compactLabel:"Oldest"},{key:"supplier_name:asc",label:"Supplier A–Z"},{key:"total_amount:desc",label:"Amount: highest first"},{key:"total_amount:asc",label:"Amount: lowest first"},{key:"review_status:asc",label:"Status"}];
   return <div className="space-y-6 min-w-0 max-[640px]:pb-24">
-    <RevenuePageTop title="Invoices" actionsBesideTitle period={datePeriod.control} actions={upload} />
     <div data-invoice-tabs-host />
+    <RevenuePageTop tabsAbove title="Invoices" period={datePeriod.control} actions={upload} />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0 invoice-loading-shell" aria-label="Invoice records">
-      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Invoice summary"><span>{periodName}</span>{loading || (loadError && !filtered.length) ? <Skeleton className="h-5 w-64 max-w-full !animate-none" /> : <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} · {formatTableCurrency(kpis.totalValue)} · {formatTableInteger(checkCount)} to check</span>}</h2>
+      <h2 className="text-base font-display font-semibold px-1" aria-label={`Invoices, ${periodName}`}>{loading || (loadError && !filtered.length) ? <Skeleton className="h-5 w-64 max-w-full !animate-none" /> : <>{formatTableInteger(kpis.total)} {kpis.total === 1 ? "invoice" : "invoices"} <span className="text-[13px] text-muted-foreground font-normal">· {formatTableCurrency(kpis.totalValue)}</span></>}</h2>
       <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search invoice # or supplier"
         filter={<FilterPanel activeCount={Number(supplierFilter !== "all") + Number(reviewStatusFilter !== "all")} onReset={() => { setSupplierFilter("all"); setReviewStatusFilter("all"); }} width={340}>
           <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.filter(s => s.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FilterGroup>
@@ -2153,12 +2165,17 @@ function InvoiceTableSection({
           <FilterGroup title="Bulk actions"><Button variant="outline" className="kit-btn kit-tool-btn" aria-pressed={selectMode} onClick={() => { setSelectMode(!selectMode); if (selectMode) setSelectedIds(new Set()); }}>{selectMode ? "Finish selecting" : "Select invoices"}</Button></FilterGroup>
         </FilterPanel>}
         sort={<SortMenu options={sortOptions} value={sortKey} onChange={value => { const [key,dir] = value.split(":"); setSortColumns([{key,dir:dir === "asc" ? "asc" : "desc"}]); }} />}
-        downloadControl={download} />
+        downloadControl={more}
+        chips={onlyAttention ? [{ key: "attention", label: "Needs attention", onRemove: () => setOnlyAttention(false) }] : []}
+        onClear={() => setOnlyAttention(false)} />
       {selectMode && <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground"><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label="Select all filtered invoices" checked={allSelected} onCheckedChange={() => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(inv => inv.id)))} /><span>{selected.length ? `${formatTableInteger(selected.length)} selected` : "Select invoices"}</span><Button variant="ghost" size="sm" className="ml-auto" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>Done</Button></div>}
       {loadError && <p role="alert" className="text-sm text-destructive">Invoices could not be loaded. <Button variant="outline" size="sm" onClick={retry}>Retry</Button></p>}
-      {loading ? <LoadingTable mobile headings={['Date', 'Supplier', 'Invoice #', `Amount (${baseSymbol()})`, 'Status']} /> : loadError && !filtered.length ? null : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : isMobile ? <ul className="divide-y divide-border/60 loading-reveal">
-        {pag.pageItems.map(inv => <li key={inv.id} className="flex items-center gap-2 px-3 min-h-11 py-2">{selectMode && <Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} />}<Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-[13px]"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></span><span className="td-num shrink-0 text-[13px]">{formatTableCurrency(Number(inv.total_amount))}</span></span><span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><span>{shortDay(inv.invoice_date)} ·</span><span className="break-all">{inv.invoice_number} ·</span>{statusText(inv)}{flags(inv)}</span></Button></li>)}
-      </ul> : <div className="kit sales-table-scroll"><table className="sales-table !w-full" aria-label="Invoices"><colgroup>{selectMode && <col className="w-10" />}<col className="w-[16%]" /><col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[20%]" /><col className="w-[14%]" /></colgroup><thead><tr>{selectMode && <th /> }<th className="sales-cell-left">Date</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left">Invoice #</th><th className="sales-cell-right">Amount ({baseSymbol()})</th><th className="sales-cell-left">Status</th></tr></thead><tbody>{pag.pageItems.map(inv => <tr key={inv.id} tabIndex={0} className="sales-record-row" onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }}>{selectMode && <td onClick={e => e.stopPropagation()}><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></td>}<td className="sales-cell-left">{shortDay(inv.invoice_date)}</td><td className="sales-cell-left" title={inv.supplier_name}><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></td><td className="sales-cell-left td-num"><span className="inline-flex items-center gap-1">{inv.invoice_number}{flags(inv)}</span></td><td className="td-num">{formatTableCurrency(Number(inv.total_amount))}</td><td className="sales-cell-left">{statusText(inv)}</td></tr>)}</tbody></table></div>}
+      {!loading && !!attention.length && !onlyAttention && <p className="kit text-[13px] px-1" style={{ color: "var(--kit-ink)" }}>
+        <strong>{formatTableInteger(attention.length)} {attention.length === 1 ? "invoice needs" : "invoices need"} you</strong> · <button type="button" className="kit-link" onClick={() => setOnlyAttention(true)}>Show them</button>
+      </p>}
+      {loading ? <LoadingTable mobile headings={['Date', 'Supplier', 'Invoice #', `Amount (${baseSymbol()})`]} /> : loadError && !filtered.length ? null : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No invoices match this period and filters.</p> : <TooltipProvider delayDuration={150}>{isMobile ? <ul className="divide-y divide-border/60 loading-reveal">
+        {pag.pageItems.map(inv => <li key={inv.id} className={`flex items-center gap-2 px-2 min-h-11 py-2 ${reasons.has(inv.id) ? "bg-[#FDF3F2]" : ""}`}>{selectMode && <Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} />}<span className="kit w-4 shrink-0">{reasons.has(inv.id) && flagMark(reasons.get(inv.id)!)}</span><Button variant="ghost" onClick={() => openDetail(inv)} className="block flex-1 min-w-0 h-auto p-0 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-[14px]"><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></span><span className="td-num shrink-0 text-[14px]">{formatTableCurrency(Number(inv.total_amount))}</span></span><span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{[shortDay(inv.invoice_date), inv.invoice_number, reasons.get(inv.id)].filter(Boolean).join(" · ")}</span></Button></li>)}
+      </ul> : <div className="kit sales-table-scroll"><table className="sales-table !w-full" aria-label="Invoices"><colgroup>{selectMode && <col className="w-10" />}<col className="sales-col-flag" /><col className="w-[16%]" /><col className="w-[38%]" /><col className="w-[24%]" /><col className="w-[20%]" /></colgroup><thead><tr>{selectMode && <th /> }<th className="sales-flag-cell"><span className="sr-only">Needs attention</span></th><th className="sales-cell-left">Date</th><th className="sales-cell-left">Supplier</th><th className="sales-cell-left">Invoice #</th><th className="sales-cell-right">Amount</th></tr></thead><tbody>{pag.pageItems.map(inv => <tr key={inv.id} tabIndex={0} className={`sales-record-row ${reasons.has(inv.id) ? "sales-attention-row" : ""}`} onClick={() => openDetail(inv)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDetail(inv); } }}>{selectMode && <td onClick={e => e.stopPropagation()}><Checkbox className="!min-h-0 !h-4 w-4 shrink-0 rounded-sm" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} /></td>}<td className="sales-flag-cell">{reasons.has(inv.id) && flagMark(reasons.get(inv.id)!)}</td><td className="sales-cell-left">{shortDay(inv.invoice_date)}</td><td className="sales-cell-left" title={inv.supplier_name}><SupplierNameLink id={inv.supplier_id}>{inv.supplier_name || "—"}</SupplierNameLink></td><td className="sales-cell-left td-num">{inv.invoice_number}</td><td className="sales-cell-right td-num">{formatTableCurrency(Number(inv.total_amount))}</td></tr>)}</tbody></table></div>}</TooltipProvider>}
       {pag.totalPages > 1 && <div className="flex items-center justify-between gap-2 kit-divider pt-2 text-xs text-muted-foreground"><span className="td-num">{formatTableInteger(pag.rangeStart)}–{formatTableInteger(pag.rangeEnd)} of {formatTableInteger(pag.total)}</span><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={pag.page <= 1} onClick={() => pag.setPage(pag.page - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={pag.page >= pag.totalPages} onClick={() => pag.setPage(pag.page + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}
     </section>
   </div>;

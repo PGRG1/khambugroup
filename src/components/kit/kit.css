@@ -157,3 +157,16 @@
 @media (max-width: 639px) {
   [data-phone-compact] :is(.card-glass, .glass-surface):is(.p-4, .p-5, .px-5) { padding: 14px; }
 }
+
+/* Search field: one box. The portal's general input style was painting a white box inside it. */
+html:not(.dark) .tenant-portal .app-shell .kit-search input { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+
+/* Second-level tabs (Invoices · Register · Notes · Received, and On hand · Counts · Movements): plain
+   words on one bottom line, no line under the row. The current page is bold, a little bigger (it grows
+   upwards) and has a soft rounded green bar under it. */
+.invoice-switch { display: flex; gap: 24px; align-items: flex-end; }
+.invoice-switch-item { position: relative; display: inline-flex; align-items: flex-end; min-height: 42px; padding-bottom: 12px; line-height: 1; font-size: 14px; font-weight: 500; color: #5F6F69; white-space: nowrap; }
+.invoice-switch-item:hover { color: hsl(var(--foreground)); }
+.invoice-switch-item.is-active { color: hsl(var(--foreground)); font-weight: 700; font-size: 16px; }
+.invoice-switch-item.is-active::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 3px; height: 4px; border-radius: 999px; background: #2F7A5E; }
+@media (max-width: 640px) { .invoice-switch { justify-content: space-between; gap: 0; } }

@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { SectionPillRow, useActiveNavigationScroll } from "@/components/kit/SectionPillRow";
 import { isStockMenuRoute, matchesPurchasingPath, purchasingParentPath, purchasingSectionPagesForPath, purchasingTabsForPath } from "@/utils/purchasingNavigation";
 
+// Phone names short enough for all four to fit on one line.
+const SHORT_TAB_NAMES: Record<string, string> = { "/procurement/line-items": "Register", "/procurement/credit-notes": "Notes", "/procurement/receiving": "Received" };
+
 /** URL-only navigation; existing page guards and content remain independent. */
 export function PurchasingNavigation() {
   const { pathname } = useLocation();
@@ -32,7 +35,15 @@ export function PurchasingNavigation() {
     {isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
       <SectionPillRow label="Stock & menu" items={pages.map(page => ({ label: page.title, path: page.url }))} activePath={parentPath} />
     </div>}
-    {!!tabs?.length && invoiceFamily && tabHost && createPortal(<div className="relative min-w-0"><nav ref={invoiceTabsRef} aria-label="Purchasing pages" className="max-w-full overflow-x-auto border-b border-border"><div className="flex w-max gap-5 pr-5">{tabs.map(tab => <Link key={tab.url} to={tab.url} aria-current={matchesPurchasingPath(pathname, tab.url) ? "page" : undefined} className={cn("py-3 text-[13px] font-medium whitespace-nowrap border-b-2", matchesPurchasingPath(pathname, tab.url) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab.url === "/procurement/credit-notes" ? <><span className="max-[640px]:hidden">{tab.title}</span><span className="min-[641px]:hidden">Credit &amp; Debit</span></> : tab.title}</Link>)}</div></nav><div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent min-[641px]:hidden" /></div>, tabHost)}
+    {!!tabs?.length && invoiceFamily && tabHost && createPortal(<nav ref={invoiceTabsRef} aria-label="Purchasing pages" className="max-w-full overflow-x-auto">
+      <div className="invoice-switch">{tabs.map(tab => {
+        const active = matchesPurchasingPath(pathname, tab.url);
+        const short = SHORT_TAB_NAMES[tab.url];
+        return <Link key={tab.url} to={tab.url} aria-current={active ? "page" : undefined} className={cn("invoice-switch-item", active && "is-active")}>
+          {short ? <><span className="max-[640px]:hidden">{tab.title}</span><span className="min-[641px]:hidden">{short}</span></> : <span>{tab.title}</span>}
+        </Link>;
+      })}</div>
+    </nav>, tabHost)}
     {!!tabs?.length && !invoiceFamily && <nav aria-label="Purchasing pages" className="mb-4 max-w-full overflow-x-auto">
     <div className="section-tabs inline-flex w-max items-center gap-1 rounded-full bg-muted/40 p-1 border border-border/50">
       {tabs.map(tab => {

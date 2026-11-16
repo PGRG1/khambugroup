@@ -461,7 +461,8 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
   return (
     <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
-      <RevenuePageTop title="Goods received" actionsBesideTitle period={period.control}
+      <div data-invoice-tabs-host />
+      <RevenuePageTop tabsAbove title="Goods received" actionsBesideTitle period={period.control}
         actions={showMore ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary h-9" aria-label="More"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
@@ -473,7 +474,6 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
             </DropdownMenuContent>
           </DropdownMenu>
         ) : undefined} />
-      <div data-invoice-tabs-host />
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Goods received records">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">
