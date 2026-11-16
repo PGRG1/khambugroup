@@ -51,8 +51,8 @@ export default function CreditNotes() {
   const [disputedCount, setDisputedCount] = useState(0);
 
   const [search, setSearch] = useState("");
-  const [supplierFilter, setSupplierFilter] = useState<string>("mtd");
-  const [statusFilter, setStatusFilter] = useState<string>("mtd");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sort, setSort] = useState("newest");
   const [kind, setKind] = useState<"credit" | "debit">("credit");
   const venueScope = useVenueScope();
@@ -199,9 +199,9 @@ export default function CreditNotes() {
   };
 
   const sortOptions = [{ key: "newest", label: "Newest first", compactLabel: "Newest" }, { key: "oldest", label: "Oldest first", compactLabel: "Oldest" }, { key: "amount", label: "Highest amount", compactLabel: "Amount" }, { key: "left", label: "Most left to use", compactLabel: "Left" }, { key: "supplier", label: "Supplier A–Z", compactLabel: "A–Z" }];
-  const activeFilters = Number(supplierFilter !== "mtd") + Number(statusFilter !== "mtd");
+  const activeFilters = Number(supplierFilter !== "all") + Number(statusFilter !== "all");
   const filter = (
-    <FilterPanel activeCount={activeFilters} onReset={() => { setSupplierFilter("mtd"); setStatusFilter("mtd"); }} width={320}>
+    <FilterPanel activeCount={activeFilters} onReset={() => { setSupplierFilter("all"); setStatusFilter("all"); }} width={320}>
       <FilterGroup title="Supplier">
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
           <SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger>
