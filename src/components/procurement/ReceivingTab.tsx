@@ -477,9 +477,9 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Goods received records">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">
-          <span>{period.label}</span>
-          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(kpis.total)} deliveries · {formatTableCurrency(kpis.value)} ·</span>
-          <span className={`text-[13px] font-normal ${kpis.short > 0 ? "text-warning" : "text-muted-foreground"}`}>{formatTableInteger(kpis.short)} short</span>
+          <span>{formatTableInteger(kpis.total)} {kpis.total === 1 ? "delivery" : "deliveries"}</span>
+          {kpis.total > 0 && <span className="text-[13px] text-muted-foreground font-normal">· {formatTableCurrency(kpis.value)}</span>}
+          {kpis.short > 0 && <span className="text-[13px] font-normal text-warning">· {formatTableInteger(kpis.short)} short</span>}
         </h2>
         <Toolbar mobileSearchBelow searchAfterControls search={search} onSearch={setSearch} placeholder="Search supplier, invoice # or GRN #"
           filter={filterPanel}
@@ -487,7 +487,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
           downloadControl={<Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="Download goods received" title="Download CSV" onClick={handleDownload}><Download className="h-4 w-4" /></Button>} />
 
         {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading deliveries…</p>
-          : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">No deliveries match this period and filters.</p>
+          : !filtered.length ? <p className="p-10 text-center text-sm text-muted-foreground">{search ? "No deliveries match your search." : "Nothing recorded for this period yet."}</p>
           : <>
             <ul className="min-[641px]:hidden divide-y divide-border/60" aria-label="Deliveries">
               {pag.pageItems.map((g) => { const st = grnStatusWords(g.status, shortOf(g)); return (

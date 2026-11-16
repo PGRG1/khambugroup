@@ -238,8 +238,8 @@ export default function CreditNotes() {
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Credit notes">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5">
-          <span>{period.label}</span>
-          <span className="text-[13px] text-muted-foreground font-normal">· {formatTableInteger(filtered.length)} credit note{filtered.length === 1 ? "" : "s"} · {formatTableCurrency(leftToUse)} left to use</span>
+          <span>{formatTableInteger(filtered.length)} credit note{filtered.length === 1 ? "" : "s"}</span>
+          {leftToUse > 0 && <span className="text-[13px] text-muted-foreground font-normal">· {formatTableCurrency(leftToUse)} left to use</span>}
         </h2>
         {disputedCount > 0 && (
           <p className="px-1 text-[13px] text-warning">
@@ -254,10 +254,7 @@ export default function CreditNotes() {
 
         {loading ? <p className="p-10 text-center text-sm text-muted-foreground">Loading credit notes…</p>
           : !filtered.length ? (
-            <div className="p-10 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">No credit notes match this period and filters.</p>
-              <Button variant="outline" onClick={() => setCnDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Add credit note</Button>
-            </div>
+            <p className="p-10 text-center text-sm text-muted-foreground">{search || activeFilters ? "No credit notes match your search or filters." : "Nothing recorded for this period yet."}</p>
           ) : <>
             <ul className="min-[641px]:hidden divide-y divide-border/60" aria-label="Credit note list">
               {pag.pageItems.map(c => (
