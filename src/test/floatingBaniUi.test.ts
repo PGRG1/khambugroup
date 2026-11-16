@@ -4,7 +4,7 @@ import { attachmentError, clampPoint, isTap, moduleLabel, overDismiss } from "@/
 describe("floating Bani UI rules", () => {
   it("labels Home and modules truthfully", () => {
     expect(moduleLabel("/")).toBe("Home");
-    expect(moduleLabel("/procurement/invoices")).toBe("Procurement");
+    expect(moduleLabel("/procurement/invoices")).toBe("Purchasing");
     expect(moduleLabel("/finance-team")).toBe("Finance Team");
     expect(moduleLabel("/hr/leave")).toBe("People");
   });

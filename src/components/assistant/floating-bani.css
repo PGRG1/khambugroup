@@ -291,3 +291,50 @@
 /* During an invoice review full screen would lose the review: shown, but greyed out. */
 .floating-bani .fb-head-acts .floating-bani-icon.is-off { opacity: .35; cursor: not-allowed; }
 .floating-bani .fb-head-acts .floating-bani-icon.is-off:hover { background: transparent; color: #3D4A44; }
+
+/* Phone: a proper bottom sheet over a dimmed page (the round button hides while it is open). */
+.fb-sheet-backdrop { position: fixed; inset: 0; z-index: 64; background: rgba(15, 23, 20, .32); animation: fb-fade 160ms ease-out; }
+@keyframes fb-fade { from { opacity: 0; } to { opacity: 1; } }
+.floating-bani-panel.is-centred.is-sheet { left: 0; right: 0; width: auto; border-radius: 20px 20px 0 0; border-left: 0; border-right: 0; border-bottom: 0; transform-origin: bottom center; animation: fb-sheet-up 200ms cubic-bezier(.2, .8, .2, 1); padding-bottom: env(safe-area-inset-bottom); }
+@keyframes fb-sheet-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .floating-bani-panel.is-centred.is-sheet, .fb-sheet-backdrop { animation: none; } }
+
+.floating-bani-panel.is-centred.is-sheet { z-index: 1; }
+.fb-sheet-backdrop { z-index: 0; }
+.floating-bani:has(.floating-bani-panel.is-sheet) { z-index: 90; }
+
+/* ---- Pop-up chat look (not the Home chat): Bani's sage surface, white cards, no hard lines. ---- */
+.floating-bani-panel.is-centred { background: linear-gradient(180deg, #E9F1ED 0%, #F3F7F5 140px, #F8FAF9 100%); border-color: rgba(23, 48, 44, .08); }
+.floating-bani-panel.is-centred .floating-bani-header { border-bottom: 0; padding: .75rem .75rem .5rem 1rem; gap: .6rem; }
+.floating-bani-panel.is-centred.is-mobile .floating-bani-header { padding-top: 1.1rem; }
+.floating-bani-panel.is-centred .floating-bani-title { font-family: inherit; font-size: 15px; line-height: 1.2; }
+.floating-bani-panel.is-centred .floating-bani-context { font-size: 12px; }
+.floating-bani-panel.is-centred .floating-bani-icon { width: 36px; height: 36px; }
+.floating-bani-panel.is-centred .floating-bani-icon:hover { background: rgba(23, 48, 44, .06); }
+.floating-bani-panel.is-centred .floating-bani-transcript { padding: .75rem 1rem 1rem; }
+/* Follow-up suggestions: white pills, no outline. */
+.floating-bani-panel.is-centred .floating-bani-reply { border: 0; background: #fff; box-shadow: 0 1px 2px rgba(23, 48, 44, .08), 0 2px 8px -4px rgba(23, 48, 44, .14); }
+.floating-bani-panel.is-centred .floating-bani-reply:hover { color: #1F3B34; box-shadow: 0 0 0 1px #9DBDAE, 0 2px 8px -4px rgba(23, 48, 44, .14); }
+/* The message bar floats as a white pill. */
+.floating-bani-panel.is-centred .floating-bani-composer { border: 0; background: #fff; box-shadow: 0 1px 2px rgba(23, 48, 44, .06), 0 8px 24px -10px rgba(23, 48, 44, .22); margin: 0 .75rem .5rem; }
+.floating-bani-panel.is-centred .floating-bani-send { width: 38px; height: 38px; }
+
+/* Empty chat: a greeting and a few starting points for the page you're on. */
+.fb-empty { display: flex; flex-direction: column; justify-content: flex-end; min-height: 100%; padding: 8px 0 4px; }
+.fb-empty-title { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: var(--fb-ink); }
+.fb-empty-sub { margin: 4px 0 16px; font-size: 13px; line-height: 1.45; color: var(--fb-muted); }
+.fb-empty-list { display: flex; flex-direction: column; gap: 8px; }
+.fb-empty-q { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font-size: 14px; line-height: 1.3; padding: 12px 14px; border-radius: 14px; border: 0; background: #fff; color: var(--fb-ink); cursor: pointer;
+  box-shadow: 0 1px 2px rgba(23, 48, 44, .06), 0 4px 14px -8px rgba(23, 48, 44, .18); transition: box-shadow 120ms ease, transform 120ms ease; }
+.fb-empty-q > span { flex: 1; min-width: 0; }
+.fb-empty-q > svg { flex-shrink: 0; width: 16px; height: 16px; color: #7FA88F; }
+.fb-empty-q:hover:not(:disabled) { box-shadow: 0 0 0 1px #9DBDAE, 0 4px 14px -8px rgba(23, 48, 44, .18); }
+.fb-empty-q:active:not(:disabled) { transform: scale(.99); }
+.fb-empty-q:disabled { opacity: .5; cursor: default; }
+/* Launcher as the close button while the chat is open (computer). */
+.floating-bani-sphere.is-close { display: grid; place-items: center; background: #1F3B34 !important; color: #fff; }
+.floating-bani-sphere.is-close:hover { background: #17302C !important; }
+/* "Bani can make mistakes" sits under the message bar with room below it, never on the panel's edge. */
+.floating-bani-panel.is-centred .floating-bani-composer { margin-bottom: 6px; }
+.floating-bani-panel.is-centred .fb-disclaimer { margin: 0; padding: 0 16px 14px; }
+.floating-bani-panel.is-centred.is-sheet .fb-disclaimer { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }

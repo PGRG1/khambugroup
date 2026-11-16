@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History, Square } from "lucide-react";
+import { ArrowUp, ArrowUpRight, ChevronDown, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History, Square } from "lucide-react";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -23,7 +23,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
-import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel } from "@/utils/floatingBaniUi";
+import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, starterPrompts } from "@/utils/floatingBaniUi";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -295,7 +295,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   if (!allowed || (!hosted && host)) return null;
   const voiceLabel: Record<VoiceState, string> = { idle: "Listening", listening: "Listening", transcribing: "Thinking", thinking: "Thinking", speaking: "Speaking" } as Record<VoiceState, string>;
   const working = busy || (voiceMode && (voice.state === "thinking" || voice.state === "transcribing"));
-  const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `On: ${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : moduleLabel(pathname)}`;
+  const context = working ? (stepLabel || voice.stepLabel || "Working on it") : `${review ? "Scan Invoice" : salesDraft ? "Scan Receipt" : pageLabel(pathname)}`;
   const openSphere = () => { if (open) { dictation.cancel(); setOpen(false); } else setOpen(true); };
   const enterVoice = () => { if (home) setOpen(true); else if (performance.now() - openedAt.current < 450) return; dictation.cancel(); setError(""); voice.start(); setVoiceMode(true); };
   const exitVoice = () => { voice.end(); abort.current?.abort(); setVoiceMode(false); };
@@ -559,11 +559,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // Mobile: size and place inside the visible viewport so the keyboard can never push the header off-screen.
   const panelStyle = home ? undefined
     : hosted ? (isMobile ? { height: mobileH, maxHeight: mobileH, top: Math.max(8, vv.top + vv.h - 8 - mobileH), bottom: "auto" } : panelPos ? { left: panelPos.x, top: panelPos.y, right: "auto", bottom: "auto" } : undefined)
-    : typeof window !== "undefined" && window.innerWidth < 700 ? { top: vv.top + 24, height: vv.h - 96, maxHeight: vv.h - 96, left: 12, right: 12, bottom: "auto", width: "auto" } : undefined;
+    : typeof window !== "undefined" && window.innerWidth < 700 ? { top: vv.top + 56, height: vv.h - 56, maxHeight: vv.h - 56, left: 0, right: 0, bottom: "auto", width: "auto" } : undefined;
 
   const surface = <div className={`floating-bani ${hosted ? "floating-bani-hosted" : ""}`}>
-    {(open || home) ? (
-      <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${home && open && !isMobile ? "is-wide" : ""} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
+    {(open || home) ? (<>
+      {!home && !hosted && isMobile && <div className="fb-sheet-backdrop" aria-hidden="true" onClick={() => setOpen(false)} />}
+      <section ref={panelEl} className={`floating-bani-panel ${home ? `is-home ${open ? "is-talking" : ""}` : hosted ? "" : "is-centred"} ${!home && !hosted && isMobile ? "is-sheet" : ""} ${home && open && !isMobile ? "is-wide" : ""} ${isMobile ? "is-mobile" : ""}`} style={panelStyle} role="dialog" aria-modal="false" aria-label="Bani assistant" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}>
         {home && open && !isMobile && paneOpen && <aside className="fb-pane" aria-label="Chat history">
           <div className="fb-pane-head"><button type="button" className="fb-pane-btn" aria-label="Hide chat history" title="Hide chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button><span>Chat history</span></div>
           <BaniChatList chats={savedChats} activeId={chatId} onPick={(c) => { setMessages(c.messages as BaniMessage[]); setChatId(c.id); setDraft(""); }} onNew={newChat}
@@ -585,11 +586,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           <BaniOrb size={30} mode={working ? "thinking" : "idle"} />
           <div className="min-w-0 flex-1"><div className="floating-bani-title">Bani</div><div className="floating-bani-context" title={context}>{context}</div></div>
           <div className="fb-head-acts">
-            <Button variant="ghost" type="button" className={`floating-bani-icon ${hosted ? "is-off" : ""}`} aria-label="Open full screen" aria-disabled={hosted || undefined} title={hosted ? "Save or close the review first" : "Open full screen"} onClick={() => { if (hosted) return; keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="fb-ic-max" strokeWidth={2.8} /></Button>
+            {!isMobile && <Button variant="ghost" type="button" className={`floating-bani-icon ${hosted ? "is-off" : ""}`} aria-label="Open full screen" aria-disabled={hosted || undefined} title={hosted ? "Save or close the review first" : "Open full screen"} onClick={() => { if (hosted) return; keepOpenNav.current = true; navigate("/"); }}><Maximize2 className="fb-ic-max" strokeWidth={2.8} /></Button>}
             <Button variant="ghost" type="button" className="floating-bani-icon" aria-label="Close Bani" onClick={() => setOpen(false)}><X className="fb-ic-x" /></Button>
           </div>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
+          {!home && !voiceMode && !messages.length && <div className="fb-empty">
+            <p className="fb-empty-title">What can I help with?</p>
+            <p className="fb-empty-sub">Ask about your numbers, or send a photo of an invoice or receipt.</p>
+            <div className="fb-empty-list" role="group" aria-label="Suggestions">
+              {starterPrompts(pathname).map(q => <button key={q} type="button" className="fb-empty-q" disabled={busy || !allowed} onClick={() => void sendRef.current({ text: q, opts: { voice: false, voiceLanguage: "" } })}><span>{q}</span><ArrowUpRight aria-hidden /></button>)}
+            </div>
+          </div>}
           {messages.map((message, index) => <div dir="auto" key={index} id={message.assignmentNoticeId ? `assignment-notice-${message.assignmentNoticeId}` : undefined} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFinancialTables]} components={{table:({children})=><FinancialTable>{children}</FinancialTable>,td:({children,style})=><VarianceCell style={style}>{children}</VarianceCell>,tr:({children})=><SummaryRow>{children}</SummaryRow>,pre:({children})=><>{children}</>,code:({className,children})=>{const lang=/language-(\w+)/.exec(className??"")?.[1];const src=String(children??"");return lang==="stats"?<StatChips source={src}/>:lang==="calc"?<CalcBreakdown source={src}/>:lang==="daypicker"?<DayPicker source={src} onSend={(t)=>void sendRef.current({ text: t, opts: { voice: false, voiceLanguage: "" } })}/>:lang?<pre><code>{src}</code></pre>:<code>{children}</code>;},a:({href,children})=>{const nav=href?internalNavigation(href):null;return nav?<Button variant="link" className="h-auto whitespace-normal p-0" onClick={()=>{const path=navigationPath(nav);if(path&&canAccessPage(SCREENS[nav.screen].page)){keepOpenNav.current=true;navigate(path);}}}>{children}</Button>:<span>{children}</span>;}}}>{message.content}</ReactMarkdown></div>}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
@@ -704,10 +712,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         {chatDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </div>
       </section>
-    ) : null}
-    {!home && (!open || !hosted) && (
-      <Button variant="ghost" type="button" className="floating-bani-sphere" aria-label="Open Bani" title="Ask Bani" onClick={() => openSphere()}>
-        <BaniOrb size={SPHERE} mode="idle" />
+    </>) : null}
+    {!home && (!open || (!hosted && !isMobile)) && (
+      // While the chat is open (computer), the launcher stays put and becomes its close button, as on Intercom.
+      <Button variant="ghost" type="button" className={`floating-bani-sphere ${open ? "is-close" : ""}`} aria-label={open ? "Close Bani" : "Open Bani"} title={open ? "Close" : "Ask Bani"} aria-expanded={open} onClick={() => open ? setOpen(false) : openSphere()}>
+        {open ? <ChevronDown className="h-5 w-5" aria-hidden /> : <BaniOrb size={SPHERE} mode="idle" />}
       </Button>
     )}
   </div>;

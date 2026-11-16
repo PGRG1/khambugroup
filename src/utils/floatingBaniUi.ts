@@ -1,6 +1,6 @@
 const MODULES: [string, string][] = [
   ["/finance-team", "Finance Team"], ["/revenue", "Revenue"], ["/sales-data", "Revenue"], ["/forecast", "Revenue"],
-  ["/procurement", "Procurement"], ["/finance", "Finance"], ["/pl-report", "Finance"], ["/bank", "Bank"],
+  ["/procurement", "Purchasing"], ["/finance", "Finance"], ["/pl-report", "Finance"], ["/bank", "Bank"],
   ["/expenses", "Expenses"], ["/payments", "Payments"], ["/petty-cash", "Petty Cash"], ["/staff-reimbursements", "Reimbursements"],
   ["/hr", "People"], ["/kpis", "KPIs"], ["/notifications", "Notifications"], ["/activity-log", "Activity Log"],
   ["/settings", "Settings"], ["/admin", "Admin"], ["/user-access", "User Access"],
@@ -11,6 +11,30 @@ export function moduleLabel(pathname: string): string {
   if (pathname === "/" || pathname === "") return "Home";
   const hit = MODULES.find(([root]) => pathname === root || pathname.startsWith(`${root}/`) || pathname.startsWith(`${root}-`));
   return hit ? hit[1] : "Portal";
+}
+
+// The tab inside a section, so the header can say exactly where you are ("Purchasing · Trends").
+const PAGES: [string, string][] = [
+  ["/revenue/analysis", "Trends"], ["/revenue/targets-new", "Targets"], ["/revenue/reconciliation", "Reconciliation"], ["/sales-data", "Sales records"], ["/revenue", "Overview"],
+  ["/procurement/dashboard", "Overview"], ["/procurement/trends", "Trends"], ["/procurement/purchase-orders", "Purchase orders"],
+  ["/procurement/invoices", "Invoices"], ["/procurement/suppliers", "Supplier accounts"],
+];
+
+/** "Purchasing · Trends" where the tab is known, else just the section ("Settings"). */
+export function pageLabel(pathname: string): string {
+  const section = moduleLabel(pathname);
+  const tab = PAGES.find(([root]) => pathname === root || pathname.startsWith(`${root}/`))?.[1];
+  return tab ? `${section} · ${tab}` : section;
+}
+
+/** A few things to ask on an empty chat, fitted to the section you're in. */
+export function starterPrompts(pathname: string): string[] {
+  const section = moduleLabel(pathname);
+  if (section === "Purchasing") return ["What have we spent this month?", "Which supplier cost the most?", "Did any prices go up?", "Scan an invoice"];
+  if (section === "Revenue") return ["How are sales this month?", "What was our best day?", "Are we on track for the target?", "Compare with last month"];
+  if (section === "Expenses" || section === "Payments" || section === "Petty Cash") return ["What's due this week?", "Show this month's expenses", "What's still unpaid?"];
+  if (section === "People") return ["Who's on leave this week?", "What's payroll this month?"];
+  return ["How are sales this month?", "What have we spent this month?", "What needs my attention?"];
 }
 
 export const ATTACH_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
