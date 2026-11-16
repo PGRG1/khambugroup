@@ -183,7 +183,7 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? "—";
 
-  const period = usePagePeriod(grns.map((g) => g.received_date || ""), "MTD");
+  const period = usePagePeriod(grns.map((g) => g.received_date || ""));
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -462,18 +462,18 @@ function GoodsReceived({ controls }: { controls: InvoiceWorkflowControls }) {
   return (
     <div className="w-full mx-auto space-y-6 min-w-0 max-[640px]:pb-24">
       <div data-invoice-tabs-host />
-      <RevenuePageTop tabsAbove title="Goods received" actionsBesideTitle period={period.control}
-        actions={showMore ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" className="kit-btn kit-btn-secondary h-9" aria-label="More"><MoreHorizontal className="h-4 w-4 mr-1" />More</Button></DropdownMenuTrigger>
+      <RevenuePageTop tabsAbove title="Goods received" period={period.control}
+        actions={showMore ? <div className="flex items-center gap-2">
+          {isAdmin && <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="kit-btn kit-tool-btn kit-btn-icon" aria-label="More" title="More"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {canManage && <DropdownMenuItem onSelect={() => { resetForm(); setCreateOpen(true); }}><Plus className="h-4 w-4 mr-2" />New GRN</DropdownMenuItem>}
-              {isAdmin && <DropdownMenuItem disabled={backfilling || !tenantId || !user} onSelect={() => void runBackfill()}>
+              <DropdownMenuItem disabled={backfilling || !tenantId || !user} onSelect={() => void runBackfill()}>
                 {backfilling ? backfillProgress && backfillProgress.total > 0 ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…` : "Backfilling…" : "Backfill"}
-              </DropdownMenuItem>}
+              </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
-        ) : undefined} />
+          </DropdownMenu>}
+          {canManage && <Button size="sm" className="h-10" onClick={() => { resetForm(); setCreateOpen(true); }}><Plus className="h-4 w-4" /><span>Record delivery</span></Button>}
+        </div> : undefined} />
 
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Goods received records">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Goods received summary">

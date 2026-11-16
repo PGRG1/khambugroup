@@ -263,7 +263,13 @@ export function DailyRecords({ records, history, userId, venues, from, to, today
 
   return (
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3" aria-labelledby="daily-records">
-      <h2 id="daily-records" className="text-base font-display font-semibold px-1">Daily records</h2>
+      {/* Same heading style as the Purchasing lists: what's in the list and its total, not a name. */}
+      <h2 id="daily-records" className="text-base font-display font-semibold px-1" aria-label="Daily records">{(() => {
+        const recs = visible.filter((x) => x.kind === "record") as Extract<DayItem, { kind: "record" }>[];
+        const days = new Set(recs.map((x) => x.r.date)).size;
+        const total = recs.reduce((n, x) => n + (Number(x.r.totalSales) || 0), 0);
+        return <>{formatTableInteger(days)} {days === 1 ? "day" : "days"}{days > 0 && <span className="text-[13px] text-muted-foreground font-normal"> · {formatTableCurrency(total)}</span>}</>;
+      })()}</h2>
       <Toolbar
         filter={
           <FilterPanel activeCount={activeCount} onReset={() => setF(EMPTY)} width={340}>
