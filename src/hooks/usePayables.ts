@@ -1,3 +1,4 @@
+import { fetchAllRowsForTenant } from "@/lib/tenantQuery";
 import { getBaseCurrency } from '@/utils/money';
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -367,7 +368,7 @@ export function usePayables() {
         .in("code", ["2030", "2040"]);
       if (payrollAccts && payrollAccts.length > 0) {
         const acctIds = payrollAccts.map((a: any) => a.id);
-        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit", undefined, tenantId);
+        const allLines = await fetchAllRowsForTenant("journal_lines", tenantId, "account_id, debit, credit", q => q.in("account_id", acctIds), { col: "id", asc: true });
         const balByAcct = new Map<string, number>();
         for (const l of allLines as any[]) {
           if (!acctIds.includes(l.account_id)) continue;
