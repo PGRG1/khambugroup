@@ -1,4 +1,5 @@
 import {baseSymbol} from '@/utils/money';
+import { shortDay } from "@/utils/salesRecordChecks";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -85,8 +86,8 @@ function ItemsTable({ rows, previous, sort, onSort, full = false }: { rows: Item
 }
 
 /** Spend so far, built like Revenue's "so far" card: the number, the change, budget, three figures. */
-function SpendSoFar({ label, spend, previousSpend, previousLabel, budget, stats }: {
-  label: string; spend: number; previousSpend: number | null; previousLabel: string | null;
+function SpendSoFar({ label, spend, previousSpend, previousLabel, budget, stats, note }: {
+  label: string; spend: number; previousSpend: number | null; previousLabel: string | null; note?: string | null;
   budget: { total: number; spent: number; daysLeft: number | null } | null;
   stats: { label: string; value: string; was: string | null }[];
 }) {
@@ -106,6 +107,7 @@ function SpendSoFar({ label, spend, previousSpend, previousLabel, budget, stats 
         {change != null && previousLabel && <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium tabular-nums" style={tone}>{same ? `Same as ${previousLabel}` : `${change > 0 ? "+" : "−"}${Math.round(Math.abs(change))}% vs ${previousLabel}`}</span>}
       </div>
       {previousSpend != null && previousSpend > 0 && previousLabel && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-muted-foreground tabular-nums">{shortMoney(previousSpend)} in {previousLabel}</p>}
+      {note && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-muted-foreground">{note}</p>}
     </div>
     {budget && <div className="space-y-2">
       <div className="relative h-3 rounded-full bg-muted overflow-hidden" role="img" aria-label={`${integer(used)}% of budget used`}><div className={cn("rv-fill absolute inset-y-0 left-0 rounded-full", over ? "bg-warning" : "bg-primary")} style={{ width: `${used}%` }} /></div>
@@ -173,7 +175,7 @@ export default function ProcurementDashboardTab() {
   const drinkRatio = percentage(categories.find(c=>c.name==="Beverages")?.value??0,revenue);
   const months = [...new Set([currentMonth, ...invoices.map(row => row.invoice_date.slice(0, 7))])].sort().reverse();
   const periodLabel = previous ? monthLabel(period) : period === "all" ? "All time" : "Custom range";
-  const latestUpload = currentInvoices.map(row => row.created_at).filter(Boolean).sort().at(-1);
+  const lastInvoiceDate = invoices.map(row => row.invoice_date).filter(Boolean).sort().at(-1);
   const latestDay = Math.max(0, ...currentInvoices.map(row => Number(row.invoice_date.slice(8, 10))), ...currentSales.map(row => Number(row.date.slice(8, 10))));
   const isCurrent = period === currentMonth;
   // ---- Purchasing budgets (single-month periods only) ----
@@ -228,9 +230,8 @@ export default function ProcurementDashboardTab() {
   if (!data.isSuccess || !purchasing.isSuccess) return <div className="space-y-4 py-4" aria-label="Loading purchasing overview"><div className="h-10 w-44 animate-pulse rounded-lg bg-muted/40" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(n => <div key={n} className="h-28 rounded-xl bg-card/40 animate-pulse" />)}</div><div className="h-80 rounded-xl bg-card/40 animate-pulse" /></div>;
   return <div data-purchasing-overview data-phone-compact className="space-y-5 max-sm:space-y-3 min-w-0 td-num">
     <PageTop tabsAbove title="Purchasing overview" period={datePeriod.control} actions={isAdmin && singleMonth && (purchasing.mode === "central" || scope.selectedVenues.length === 1) ? <Button variant="outline" size="sm" className="h-10" onClick={() => { setBudgetSuggestions(null); setBudgetsOpen(true); }}>Budgets</Button> : undefined} />
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{purchasing.mode === "central" ? "Whole group (bought centrally)" : scope.label} · last invoice <span className="whitespace-nowrap">{latestUpload ? formatDate(latestUpload) : "—"}</span></span>{(fallback || (isCurrent && !currentInvoices.length)) && <span className="rounded-full bg-warning/10 text-warning border border-warning/30 px-2 py-1">No {monthName(currentMonth)} invoices yet{fallback ? ` · showing ${monthName(period)}` : ""}</span>}</div>
     <RevenueEnter id="purchasing" className="space-y-5 max-sm:space-y-3">{() => <>
-    <SpendSoFar label={previous ? (isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : monthLabel(period)) : periodLabel} spend={spend} previousSpend={previous ? previousSpend : null} previousLabel={previousLabel}
+    <SpendSoFar note={[!currentInvoices.length ? `Nothing recorded yet${lastInvoiceDate ? ` · last invoice ${shortDay(lastInvoiceDate)}` : ""}` : null, purchasing.mode === "central" && !scope.isAll ? "Bought centrally, so this is the whole group" : null].filter(Boolean).join(" · ") || null} label={previous ? (isCurrent ? `${monthLabel(period).split(" ")[0]} so far` : monthLabel(period)) : periodLabel} spend={spend} previousSpend={previous ? previousSpend : null} previousLabel={previousLabel}
       budget={budgetsExist ? { total: totalBudget, spent: budgetedSpend, daysLeft: isCurrent ? daysLeft : null } : null}
       stats={[
         { label: "% of sales", value: checks.waiting ? "—" : pct(finalPct), was: previous && checks.priorRatio != null && !checks.waiting ? `was ${pct(checks.priorRatio)}` : null },
