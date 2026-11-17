@@ -14,7 +14,7 @@ export function NeedYouLine({ findings }: { findings: PageWorkItem[] }) {
   const toggle = (id: string) => setOpen(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
   return <div className="kit space-y-1 px-1 text-[13px]" style={{ color: 'var(--kit-ink)' }} aria-label="Needs you">
     {(all ? findings : findings.slice(0, 1)).map(f => <div key={f.id}>
-      <p><strong>{f.title.replace(/\.$/, '')}</strong> · <button type="button" className="kit-link" aria-expanded={open.includes(f.id)} onClick={() => toggle(f.id)}>{open.includes(f.id) ? 'Hide' : 'Show'}</button>
+      <p><strong>{f.title.replace(/\.$/, '')}</strong> · <button type="button" className="kit-link" aria-expanded={open.includes(f.id)} onClick={() => toggle(f.id)}>{open.includes(f.id) ? 'Hide' : 'Show them'}</button>
         {!all && findings.length > 1 && <> · <button type="button" className="kit-link" onClick={() => setAll(true)}>{findings.length - 1} more</button></>}</p>
       {open.includes(f.id) && <p className="mt-1 text-muted-foreground">{f.detail ? `${f.detail} · ` : ''}<button type="button" className="kit-link" onClick={() => topic(f.question)}>Ask Bani</button></p>}
     </div>)}

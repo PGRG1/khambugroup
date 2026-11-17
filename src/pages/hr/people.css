@@ -112,3 +112,6 @@
 .payroll-sales-table .payroll-group-row th,.payroll-sales-table .payroll-group-row td {height:36px;background:#F6F8F7;color:var(--kit-ink);font-weight:500;}
 .payroll-sales-table .payroll-group-row td {color:var(--kit-muted);}
 .payroll-sales-table .payroll-total-row th,.payroll-sales-table .payroll-total-row td {font-weight:600;border-top:1px solid var(--kit-line);}
+
+/* Group rows read as section headings, as in the payroll design. */
+.payroll-sales-table .payroll-group-row th{color:var(--kit-ink)!important;font-weight:600!important;}
