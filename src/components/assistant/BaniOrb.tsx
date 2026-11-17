@@ -34,6 +34,9 @@ const TARGETS: Record<BaniOrbMode, { sp: number; focus: number; wob: number }> =
   speaking: { sp: 2.8, focus: 1, wob: 0.06 },
 };
 
+/** Orbs this size or smaller are icons and use the still CSS sphere (no WebGL context). */
+const STATIC_MAX = 32;
+
 const VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
 
 /** 3D rolling smoke sphere leaning aqua (same look as the sidebar dot), light spot top-left, fine grain, Bone mark woven into the flow. */
@@ -91,12 +94,20 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
   getRef.current = getLevel;
   const modeRef = useRef(mode);
   modeRef.current = mode;
-  const [fallback, setFallback] = useState(false);
+  // Icon-size orbs (sidebar, rail, phone dock) are drawn without WebGL: browsers only allow a handful of
+  // live WebGL contexts, and when the limit is hit the oldest canvas is dropped and shows a broken icon.
+  const staticOnly = size <= STATIC_MAX;
+  const [fallback, setFallback] = useState(staticOnly);
+  const [rebuild, setRebuild] = useState(0);
 
   useEffect(() => {
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (!root || !canvas) return;
+    if (staticOnly) {
+      setFallback(true);
+      return;
+    }
     const reduced = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const px = Math.max(1, Math.round(size * dpr));
@@ -114,7 +125,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
     let uF: WebGLUniformLocation | null = null;
     let uW: WebGLUniformLocation | null = null;
     let uG: WebGLUniformLocation | null = null;
-    if (gl) {
+    if (gl) try {
       const context = gl;
       const compile = (type: number, src: string) => {
         const s = context.createShader(type);
@@ -124,7 +135,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
         return s;
       };
       const prog = gl.createProgram();
-      if (!prog) return;
+      if (!prog) throw new Error("Unable to create orb program");
       gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
       gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
       gl.linkProgram(prog);
@@ -147,8 +158,21 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
         uG = gl.getUniformLocation(prog, "glow");
         gl.uniform1f(gl.getUniformLocation(prog, "gsz"), Math.max(40, size * 1.15));
       }
+    } catch {
+      gl = null;
     }
     setFallback(!gl);
+
+    // If the browser takes the context away (too many contexts, GPU reset, tab in background),
+    // show the still sphere instead of a blank or broken canvas, and redraw when it comes back.
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      gl = null;
+      setFallback(true);
+    };
+    const onRestored = () => setRebuild((n) => n + 1);
+    canvas.addEventListener("webglcontextlost", onLost);
+    canvas.addEventListener("webglcontextrestored", onRestored);
 
     const cur = { ...TARGETS[modeRef.current] };
     let t = Math.random() * 50;
@@ -171,7 +195,7 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
       lv = followLevel(lv, raw);
       gw += ((m === "speaking" ? lv : 0) - gw) * 0.3;
       if (!reduced) t += dt * cur.sp * (1 + lv * 0.8);
-      if (gl) {
+      if (gl && !gl.isContextLost()) {
         gl.uniform1f(uT, t);
         gl.uniform1f(uL, lv);
         gl.uniform1f(uF, cur.focus);
@@ -189,11 +213,13 @@ export function BaniOrb({ size, mode, getLevel, className }: BaniOrbProps) {
 
     return () => {
       cancelAnimationFrame(raf);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
       root.dataset.level = "0";
       root.style.transform = "";
       gl?.getExtension("WEBGL_lose_context")?.loseContext();
     };
-  }, [size]);
+  }, [size, staticOnly, rebuild]);
 
   const markH = size * 0.36;
   return (
