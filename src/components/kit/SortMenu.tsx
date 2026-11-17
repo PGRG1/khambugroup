@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import "./kit.css";
 
 /** Sort button stating the order in words, with a plain list. */
-export function SortMenu<K extends string>({ options, value, onChange }: { options: { key: K; label: string; compactLabel?: string }[]; value: K; onChange: (k: K) => void }) {
+export function SortMenu<const K extends string>({ options, value, onChange }: { options: readonly { key: NoInfer<K>; label: string; compactLabel?: string }[]; value: K; onChange: (k: NoInfer<K>) => void }) {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.key === value)?.label ?? "Sort";
   const compact = options.find((o) => o.key === value)?.compactLabel;
