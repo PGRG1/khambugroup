@@ -10,8 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, CheckCircle2 } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
-import { classifyTxn } from "@/utils/bankTxnRules";
-import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
+import { loadReconMappingRules } from "@/utils/reconciliationMappingRules";
+import { overlappingStatement, pocketAddsUp, pocketPeriod, savePocket } from "@/utils/bankStatementImport";
 import type { BankAccount } from "@/hooks/useBankModule";
 import { formatMoney } from '@/utils/money';
 
@@ -135,6 +135,7 @@ export function StatementUploadFlow({
       let storedPath=filePath;
       if(!storedPath&&file){storedPath=`${tenantId}/${crypto.randomUUID()}-${file.name}`;const uploaded=await supabase.storage.from("bank-statements").upload(storedPath,file);if(uploaded.error)throw uploaded.error;setFilePath(storedPath);}
       const reconRules = await loadReconMappingRules();
+      const skipped: string[] = []; let saved = 0;
       for (let i = 0; i < extracted.accounts.length; i++) {
         const a = extracted.accounts[i];
         if (!/^[A-Z]{3}$/.test(a.currency||'')) throw new Error('Confirm the statement currency before importing');
@@ -166,78 +167,14 @@ export function StatementUploadFlow({
         if (m.bank_account_id !== "__create__") {
           await supabase.from("bank_accounts").update({ group_label: statementGroupLabel(extracted.bank_name, extracted.accounts) } as any).eq("id", bankAccountId).is("group_label", null);
         }
-        // Save mapping for future uploads
-        if (a.account_number_last4) {
-          await supabase.from("bank_statement_account_mappings" as any).upsert({
-            bank_name: extracted.bank_name,
-            account_number_last4: a.account_number_last4,
-            bank_account_id: bankAccountId,
-          }, { onConflict: "bank_name,account_number_last4" } as any);
-        }
-
-        // Compute period
-        const dates = a.transactions.map((t) => t.txn_date).filter(Boolean).sort();
-        const periodStart = dates[0] || extracted.statement_date;
-        const periodEnd = dates[dates.length - 1] || extracted.statement_date;
-
-        const { data: imp, error: iErr } = await supabase
-          .from("bank_statement_imports")
-          .insert({
-            bank_account_id: bankAccountId,
-            period_start: periodStart,
-            period_end: periodEnd,
-            opening_balance: a.opening_balance || 0,
-            closing_balance: a.closing_balance || 0,
-            file_url: storedPath,
-            file_name: file?.name || null,
-            status: "imported",
-            tenant_id: tenantId,
-          } as any)
-          .select("id")
-          .single();
-        if (iErr || !imp) throw new Error(`Import row failed: ${iErr?.message}`);
-
-        if (a.transactions.length) {
-          const rows = a.transactions.map((t) => {
-            const rec = matchReconRule(t.raw_description, t.deposit || 0, t.withdrawal || 0, reconRules);
-            const cls = rec ? null : classifyTxn(t.raw_description, t.deposit || 0, t.withdrawal || 0, []);
-            return {
-              import_id: imp.id,
-              bank_account_id: bankAccountId,
-              txn_date: t.txn_date,
-              value_date: t.value_date || null,
-              description: t.raw_description,
-              counterparty: t.cleaned_counterparty || "",
-              reference: t.reference || "",
-              money_in: t.deposit || 0,
-              money_out: t.withdrawal || 0,
-              running_balance: t.running_balance ?? null,
-              source_page: t.source_page ?? null,
-              suggested_type: rec?.suggested_type || cls?.suggested_type || null,
-              suggested_category: rec?.suggested_category || cls?.suggested_category || null,
-              status: "unmatched",
-              tenant_id: tenantId,
-              currency: a.currency,
-            } as any;
-          });
-          // Batch insert in chunks
-          for (let j = 0; j < rows.length; j += 200) {
-            const chunk = rows.slice(j, j + 200);
-            const { error: tErr } = await supabase.from("bank_transactions").insert(chunk);
-            if (tErr) throw new Error(`Transactions insert failed: ${tErr.message}`);
-          }
-        }
-
-        // Audit
-        await supabase.from("bank_audit_trail" as any).insert({
-          bank_account_id: bankAccountId,
-          action: "statement_imported",
-          new_status: "imported",
-          notes: { file_name: file?.name, transactions: a.transactions.length, account_type: a.account_type },
-        });
+        // Save through the shared routine: skips a month already saved for this account, never half-saves.
+        const { start, end } = pocketPeriod(a, extracted.statement_date);
+        const already = await overlappingStatement(tenantId, bankAccountId, start, end);
+        if (already) { skipped.push(`${a.account_type} ····${a.account_number_last4 ?? ""}`); continue; }
+        await savePocket({ tenantId, bankAccountId, statement: extracted, pocket: a, storedPath, fileName: file?.name || null, reconRules });
+        saved++;
       }
-
-      toast({ title: "Statement imported", description: `${extracted.accounts.length} account(s) processed.` });
+      toast({ title: saved ? "Statement saved" : "Nothing new to save", description: [saved ? `${saved} account${saved === 1 ? "" : "s"} saved` : "", skipped.length ? `already uploaded: ${skipped.join(", ")}` : ""].filter(Boolean).join(" · ") });
       reload();
       onCommitted();
       reset();
@@ -295,7 +232,7 @@ export function StatementUploadFlow({
                     <div className="text-xs text-right">
                       <div>Open: <span className="td-num">{formatMoney(a.opening_balance,a.currency)}</span></div>
                       <div>Close: <span className="td-num">{formatMoney(a.closing_balance,a.currency)}</span></div>
-                      <div className="text-muted-foreground">{a.transactions.length} txns</div>
+                      <div className="text-muted-foreground">{a.transactions.length} lines</div>{!pocketAddsUp(a)&&<div className="text-[#B45309]">Lines don't add up to the closing balance</div>}
                     </div>
                   </div>
 
