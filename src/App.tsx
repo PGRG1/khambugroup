@@ -75,6 +75,7 @@ const FinanceReports = lazyPage(() => import("./pages/finance/Reports"));
 const FinanceBooks = lazyPage(() => import("./pages/finance/Books"));
 const CashBank = lazyPage(() => import("./pages/finance/CashBank"));
 const MonthClose = lazyPage(() => import("./pages/finance/Close"));
+const FinanceDashboard = lazyPage(() => import("./pages/finance/Dashboard"));
 
 
 const DocumentCentre = lazyPage(() => import("./pages/finance/DocumentCentre"));
@@ -264,8 +265,8 @@ function App() {
 
                 <Route path="/activity-log" element={<Navigate to="/settings?tab=users&view=activity" replace />} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><Navigate to="/finance/reports?view=pl" replace /></ProtectedRoute>} />
-                <Route path="/finance" element={<Navigate to="/finance/cash" replace />} />
-                <Route path="/finance/dashboard" element={<Navigate to="/finance/close?view=approvals" replace />} />
+                <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
+                <Route path="/finance/dashboard" element={<Navigate to="/finance" replace />} />
                 <Route path="/finance/reports" element={<AdminRoute><FinanceReports /></AdminRoute>} />
                 <Route path="/finance/books" element={<AdminRoute><FinanceBooks /></AdminRoute>} />
                 <Route path="/finance/cash" element={<AdminRoute><CashBank /></AdminRoute>} />

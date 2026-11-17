@@ -1,4 +1,5 @@
 export const financeTabs = [
+  { label: "Overview", path: "/finance" },
   { label: "Cash", path: "/finance/cash" },
   { label: "Receivables", path: "/finance/receivables" },
   { label: "Payables", path: "/finance/payables" },
