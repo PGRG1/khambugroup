@@ -1,0 +1,3 @@
+# Settings
+- Settings destinations resolve through settingsNavigation.ts with legacy query compatibility; the page gate retains admin/preview and invoice-only Master data access, so navigation never grants access.
+- Focused editors reuse existing tenant-scoped hooks, mutations and atomic RPCs; query destinations change presentation only, and long work renders in the detail pane rather than a containing modal.

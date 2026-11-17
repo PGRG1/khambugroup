@@ -1,3 +1,8 @@
+## Settings information architecture — current request
+- [ ] Build grouped Settings overview/navigation and preserve legacy links and access gates.
+- [ ] Split Business/Operations, focused venue subsections, People approval policy and inline Finance destinations; retain all existing save handlers.
+- [ ] Verify navigation tests, signed-in desktop/phone flows and preview; no database writes or deployment.
+
 ## Assignment-only bell — current request
 - [x] Add tenant top-bar bell for existing named finance-team assignments, opening their grounded context in Bani without task updates or server writes.
 - [x] Four focused tests and build OK; signed-in existing assignments show 2 unread, opening one in Bani reduces to 1 only after display, original task remains open; phone popover verified. Receipts are device-local; generic team messages and other assignment workflows lack notification linkage and are excluded. No task/financial writes or pushes.

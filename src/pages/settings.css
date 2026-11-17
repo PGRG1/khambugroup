@@ -1,38 +1,43 @@
-/* Settings look: IBM Plex Sans only, tabular numbers, plain underline tabs, light pop-ups. */
-.settings-page, .settings-page *, body[data-settings] [role="dialog"], body[data-settings] [role="dialog"] * {
-  font-family: "IBM Plex Sans", system-ui, sans-serif !important;
-  font-variant-numeric: tabular-nums;
-}
-.settings-tabs { display: flex; gap: 22px; overflow-x: auto; }
-.settings-tabs button { background: none; border: 0; padding: 8px 0; font-size: 14px; color: #55605A; border-bottom: 2px solid transparent; white-space: nowrap; cursor: pointer; }
-.settings-tabs button[aria-selected="true"] { color: #1F3F3B; font-weight: 600; border-bottom-color: #1F3F3B; }
-.settings-row { cursor: pointer; transition: background .12s; }
-.settings-row:hover { background: #F6F8F7 !important; }
-.settings-table-wrap { border: 1px solid #E3E1DA; border-radius: 12px; overflow: hidden; }
-.settings-table th { text-align: left; font-size: 12px; font-weight: 600; color: #55605A; padding: 10px 12px; background: #F8F9F8; }
-.settings-table td { padding: 10px 12px; border-top: 1px solid #ECEBE6; vertical-align: top; }
-.settings-card { background: #fff; border: 1px solid #E3E1DA; border-radius: 16px; }
-.settings-note-amber { color: #8A420B; background: #FDF3E8; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
-.settings-note-green { color: #1F6B5E; background: #EAF4F0; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
-.settings-amber { color: #8A420B; }
-
-/* Centred pop-ups for every Settings dialog. */
-body[data-settings] [role="dialog"][data-state] {
-  position: fixed !important; left: 50% !important; top: 50% !important; right: auto !important; bottom: auto !important;
-  transform: translate(-50%, -50%) !important;
-  width: calc(100vw - 24px) !important; max-width: 540px !important; height: auto !important;
-  max-height: 86dvh !important; overflow-y: auto !important;
-  background: #fff !important; backdrop-filter: none !important;
-  border: 1px solid #E3E1DA !important; border-radius: 18px !important;
-  box-shadow: 0 24px 60px -20px rgba(18,21,16,.28) !important;
-}
-body[data-settings] [role="dialog"][data-state].settings-wide,
-body[data-settings] [role="dialog"][data-state]:has(table) { max-width: 720px !important; }
-body[data-settings] [role="dialog"][data-state] > :last-child:has(> button):not(:only-child),
-body[data-settings] [role="dialog"][data-state] [data-dialog-footer],
-body[data-settings] [role="dialog"][data-state] > div:last-child:is(.flex):has(button) {
-  position: sticky; bottom: -24px; background: #fff; padding-top: 12px; padding-bottom: 12px; margin-bottom: -12px; z-index: 2; border-top: 1px solid #ECEBE6;
-}
-@media (max-width: 699px) {
-  body[data-settings] [role="dialog"][data-state] { max-height: calc(100dvh - 24px) !important; }
-}
+/* Settings uses portal semantic tokens, a single white workspace and IBM Plex. */
+.settings-page, .settings-page *, body[data-settings] [role="dialog"], body[data-settings] [role="dialog"] * { font-family: "IBM Plex Sans", system-ui, sans-serif !important; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.settings-workspace { display:grid; grid-template-columns:220px minmax(0,1fr); background:hsl(var(--card)); color:hsl(var(--card-foreground)); border-radius:8px; min-height:640px; }
+.settings-navigation { padding:24px 14px; border-right:1px solid hsl(var(--border)/.6); }
+.settings-navigation nav { position:sticky; top:84px; }
+.settings-navigation section { margin-top:20px; }
+.settings-navigation h2 { font-size:11px; font-weight:600; color:hsl(var(--muted-foreground)); margin:0 10px 5px; }
+.settings-nav-link { display:flex; width:100%; justify-content:flex-start; height:auto; min-height:34px; padding:7px 10px; font-size:12px; font-weight:400; text-align:left; white-space:normal; }
+.settings-nav-link[aria-current="page"] { font-weight:600; }
+.settings-detail { min-width:0; padding:32px; }
+.settings-detail-heading { margin-bottom:28px; max-width:760px; }
+.settings-destination { min-width:0; }
+.settings-overview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:30px 40px; }
+.settings-destination-link { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid hsl(var(--border)/.5); }
+.settings-destination-link:hover { color:hsl(var(--primary-foreground)); }
+.settings-destination-link:focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:4px; }
+.settings-detail-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0; border-bottom:1px solid hsl(var(--border)/.6); }
+.settings-detail-row > :first-child { min-width:0; }
+.settings-detail-row > button { flex-shrink:0; }
+.settings-venue-facts { display:flex; flex-wrap:wrap; gap:12px 28px; margin-top:16px; }
+.settings-venue-facts dt { color:hsl(var(--muted-foreground)); font-size:11px; }
+.settings-venue-facts dd { font-size:13px; margin-top:3px; }
+.settings-subnav, .settings-tabs { display:flex; flex-wrap:wrap; gap:6px; }
+.settings-subnav { padding-bottom:16px; border-bottom:1px solid hsl(var(--border)/.6); }
+.settings-subnav button, .settings-subnav a { font-size:12px; }
+.settings-tabs button { background:none; border:0; padding:8px; font-size:13px; color:hsl(var(--muted-foreground)); cursor:pointer; }
+.settings-tabs button[aria-selected="true"] { color:hsl(var(--foreground)); font-weight:600; border-bottom:2px solid hsl(var(--primary)); }
+.settings-editor { max-width:680px; padding-top:20px; }
+.settings-empty { padding:28px 0; color:hsl(var(--muted-foreground)); font-size:14px; }
+.settings-row { cursor:pointer; }
+.settings-row:hover { background:hsl(var(--muted)/.4); }
+.settings-table-wrap { overflow-x:auto; }
+.settings-table th { text-align:left; color:hsl(var(--muted-foreground)); }
+.settings-table td, .settings-table th { padding:12px; border-bottom:1px solid hsl(var(--border)/.6); }
+.settings-note-amber, .settings-note-green { font-size:13px; padding:12px 0; border-bottom:1px solid hsl(var(--border)); }
+.settings-note-amber, .settings-amber { color:hsl(var(--warning)); }
+.settings-note-green { color:hsl(var(--foreground)); }
+.settings-card { background:hsl(var(--card)); border:1px solid hsl(var(--border)); border-radius:8px; }
+.settings-detail .card-glass { background:transparent; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; }
+.settings-mobile-navigation { display:none; }
+body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover)); color:hsl(var(--popover-foreground)); max-height:86dvh; overflow-y:auto; border-radius:8px; }
+@media(max-width:1100px) { .settings-workspace { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } .settings-overview { grid-template-columns:1fr; } }
+@media(max-width:767px) { .settings-workspace { display:block; min-height:0; } .settings-navigation { display:none; } .settings-mobile-navigation { display:block; padding:16px 16px 0; } .settings-detail { padding:24px 16px; } .settings-detail-heading { margin-bottom:24px; } .settings-overview { gap:26px; } .settings-detail-row { flex-wrap:wrap; } .settings-detail-row > :first-child { flex:1; } .settings-venue-facts { gap:12px 20px; } }

@@ -537,7 +537,7 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
 
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsChildren.map((c) => ({ title: c.title, to: c.to, active: pathname === "/settings" && c.active })) }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
         ];
 
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
@@ -707,7 +707,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{pathname === "/settings" && settingsChildren.map(c=><FlagChildLink key={c.to} title={c.title} to={c.to} active={c.active}/>)}</SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} /></SidebarMenu></SidebarGroup>}
 
 
       </SidebarContent>
