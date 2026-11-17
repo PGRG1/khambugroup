@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { reduced, useHomePlay } from "@/components/home/HomeMotion";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { reduced } from "@/components/home/HomeMotion";
+import { usePageRevealed, usePageFull } from "@/components/PageMotion";
 
 /**
  * Revenue tabs' entrance, every time a tab opens (and on reload):
@@ -47,11 +48,14 @@ export function useSlowLoad(loading: boolean, ms = 2500) {
 export function RevenueEnter({ id, ready = true, className = "", children }: {
   id: string; ready?: boolean; className?: string; children: ReactNode | ((play: boolean, count: boolean) => ReactNode);
 }) {
-  const first = useHomePlay(`revenue-${id}`, ready);
+  // The screen's entrance (PageStage) decides full or quick and when the screen is on view; charts,
+  // fills and numbers start then, so nothing builds while the screen is still clear.
+  const revealed = usePageRevealed(), first = usePageFull();
+  void id;
   // Decided in the very render the page first becomes ready (never a frame of the finished page
   // first), once per visit; off when the entrance has run, so data refreshes never replay it.
   const [mode, setMode] = useState<"pending" | "full" | "quick" | "off">("pending");
-  if (ready && mode === "pending") setMode(reduced() ? "off" : first ? "full" : "quick");
+  if (ready && revealed && mode === "pending") setMode(reduced() ? "off" : first ? "full" : "quick");
   const [done, setDone] = useState(false);
   const play = (mode === "full" || mode === "quick") && !done;
   const count = mode === "full" && !done;
@@ -63,26 +67,12 @@ export function RevenueEnter({ id, ready = true, className = "", children }: {
   // Nothing is drawn until the first time it is ready, so figures never mount with half-loaded data.
   const [shown, setShown] = useState(ready);
   if (ready && !shown) setShown(true);
-  const ref = useRef<HTMLDivElement>(null);
 
-  // Number the cards and the first table rows in page order, so they enter one after another.
-  useLayoutEffect(() => {
-    const root = ref.current;
-    if (!play || !root) return;
-    let n = 0;
-    root.querySelectorAll<HTMLElement>(".card-glass, .glass-surface, [data-rv]").forEach((el) => {
-      if (el.parentElement?.closest(".rv-item")) return; // a card inside a card moves with its parent
-      el.style.setProperty("--rv-i", String(Math.min(n++, 8)));
-      el.classList.add("rv-item");
-    });
-    root.querySelectorAll<HTMLElement>("tbody > tr").forEach((tr, i) => {
-      if (i < 14) { tr.style.setProperty("--rv-r", String(i)); tr.classList.add("rv-row"); }
-    });
-  }, [play]);
+  // Cards and table rows enter with the screen (PageStage); this only runs the charts, fills and numbers.
 
   return (
     <PlayCtx.Provider value={{ motion: play, count }}>
-      <div ref={ref} className={`${className} ${!ready ? "rv-hold" : play ? (count ? "rv-play" : "rv-play rv-quick") : ""}`}>{!shown ? null : typeof children === "function" ? children(play, count) : children}</div>
+      <div className={`${className} ${!ready ? "rv-hold" : play ? (count ? "rv-play" : "rv-play rv-quick") : ""}`}>{!shown ? null : typeof children === "function" ? children(play, count) : children}</div>
     </PlayCtx.Provider>
   );
 }

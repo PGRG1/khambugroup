@@ -1,0 +1,31 @@
+/* Tab entrance (PageMotion.tsx): the screen stays clear while it loads, then the empty cards rise in
+   one after another and what is inside them sharpens in from a soft blur. Display only. */
+.pg-hold { opacity: 0; pointer-events: none; }
+
+.pg-play .pg-card { animation: pg-shell .45s cubic-bezier(.2,.8,.2,1) calc(var(--pg-i, 0) * 70ms) both; }
+.pg-play .pg-card > * { animation: pg-sharpen .6s cubic-bezier(.2,.8,.2,1) calc(260ms + var(--pg-i, 0) * 80ms) both; }
+.pg-play .pg-loose { animation: pg-sharpen .45s cubic-bezier(.2,.8,.2,1) 40ms both; }
+.pg-play .pg-row { animation: pg-row .4s cubic-bezier(.2,.8,.2,1) calc(420ms + var(--pg-i, 0) * 80ms + var(--pg-r, 0) * 35ms) both; }
+/* Bars and fills marked for growth (People and others); Revenue's charts keep their own build. */
+.pg-play .pg-grow-x { transform-origin: left; animation: pg-grow-x .8s cubic-bezier(.34,1.2,.64,1) calc(520ms + var(--pg-i, 0) * 80ms + var(--g, 0) * 60ms) both; }
+
+/* Quicker version on later opens in a session: same order, shorter and lighter. */
+.pg-play.pg-quick .pg-card { animation-duration: .3s; animation-delay: calc(var(--pg-i, 0) * 35ms); }
+.pg-play.pg-quick .pg-card > * { animation-name: pg-sharpen-soft; animation-duration: .35s; animation-delay: calc(120ms + var(--pg-i, 0) * 40ms); }
+.pg-play.pg-quick .pg-loose { animation-name: pg-sharpen-soft; animation-duration: .3s; animation-delay: 0s; }
+.pg-play.pg-quick .pg-row { animation-duration: .3s; animation-delay: calc(180ms + var(--pg-i, 0) * 40ms + var(--pg-r, 0) * 15ms); }
+.pg-play.pg-quick .pg-grow-x { animation-duration: .5s; animation-delay: calc(220ms + var(--pg-i, 0) * 40ms + var(--g, 0) * 30ms); }
+
+/* A card that arrives after the screen is on view enters on its own, quickly. */
+.pg-card.pg-late { animation: pg-shell .35s cubic-bezier(.2,.8,.2,1) calc(var(--pg-i, 0) * 50ms) both; }
+.pg-card.pg-late > * { animation: pg-sharpen-soft .4s cubic-bezier(.2,.8,.2,1) calc(120ms + var(--pg-i, 0) * 50ms) both; }
+
+@keyframes pg-shell { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes pg-sharpen { from { opacity: 0; filter: blur(8px); } to { opacity: 1; filter: none; } }
+@keyframes pg-sharpen-soft { from { opacity: 0; filter: blur(4px); } to { opacity: 1; filter: none; } }
+@keyframes pg-row { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pg-grow-x { from { transform: scaleX(0); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-play .pg-card, .pg-play .pg-card > *, .pg-card.pg-late, .pg-card.pg-late > *, .pg-play .pg-loose, .pg-play .pg-row, .pg-play .pg-grow-x { animation: none; }
+}

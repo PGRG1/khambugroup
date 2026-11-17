@@ -143,7 +143,7 @@ const Index = () => {
           <p className="font-display text-lg text-foreground">No sales recorded</p>
         </div>
       ) : (
-        <RevenueEnter id="overview" className="space-y-5 max-sm:space-y-3 loading-reveal">
+        <RevenueEnter id="overview" className="space-y-5 max-sm:space-y-3">
           <SoFarCard
             label={periodName}
             revenue={cur.revenue}

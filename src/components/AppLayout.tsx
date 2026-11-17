@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { UserMenu } from "@/components/UserMenu";
 import { Link, useLocation } from "react-router-dom";
+import { PageStage } from "@/components/PageMotion";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
@@ -30,8 +31,10 @@ const BaniChatsDialog = lazy(() => import("@/components/assistant/BaniChatsDialo
 const SupplierProfileDialog = lazy(() => import("@/components/vendors/SupplierProfileDialog").then((m) => ({ default: m.SupplierProfileDialog })));
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { isPreviewActive, previewUserId } = usePreviewMode();
+  const subView = new URLSearchParams(search);
+  const screenKey = [pathname, subView.get("tab"), subView.get("view")].filter(Boolean).join("?");
   const { tenantId } = useActiveTenant();
   const baseCurrency = useBaseCurrency().data?.base ?? "HKD";
   setBaseCurrency(baseCurrency);
@@ -82,7 +85,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
             <div key={`${tenantId}:${previewUserId}:${baseCurrency}`} className="min-w-0">
-              <div key={pathname} data-slot-loading={['/', '/finance', '/finance/reports', '/revenue', '/procurement/invoices'].includes(pathname)} className="route-content-enter min-w-0">{children}</div>
+              {/* One entrance per screen: a new path, or a new ?view= / ?tab= inside a page, starts clear and builds in. */}
+              <PageStage key={screenKey} id={screenKey} animate={pathname !== "/"}>{children}</PageStage>
             </div>
           </div>
         </main>

@@ -51,6 +51,24 @@ export function Num({ value, format, play, delay = 250, duration = 1100 }: {
   const [shown, setShown] = useState(play ? 0 : value);
   const last = useRef(play ? 0 : value);
   const first = useRef(true);
+  const counted = useRef(play);
+  // The screen's entrance can switch play on after the figure is already showing (the screen was
+  // held clear while it loaded): count up once from 0 then.
+  useEffect(() => {
+    if (!play || counted.current || reduced()) return;
+    counted.current = true;
+    let raf = 0, t0 = 0;
+    last.current = 0; setShown(0);
+    const step = (t: number) => {
+      if (!t0) t0 = t + delay;
+      const p = Math.max(0, Math.min(1, (t - t0) / duration));
+      const v = value * easeOut(p);
+      last.current = v; setShown(v);
+      if (p < 1) raf = requestAnimationFrame(step); else last.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [play]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const from = last.current;
     const isFirst = first.current; first.current = false;
