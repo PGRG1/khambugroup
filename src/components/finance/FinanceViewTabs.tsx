@@ -1,8 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { SectionPillRow } from '@/components/kit/SectionPillRow';
-import { cn } from '@/lib/utils';
-export function FinanceViewTabs({items,value,param='view'}:{items:{key:string;label:string}[];value:string;param?:string}){
-  const location=useLocation();const paths=items.map(i=>{const p=new URLSearchParams(location.search);p.set(param,i.key);return {label:i.label,path:`${location.pathname}?${p}`};});
-  return <><div className="md:hidden"><SectionPillRow label="Page views" items={paths} activePath={paths[items.findIndex(i=>i.key===value)]?.path??paths[0]?.path??''}/></div><nav aria-label="Page views" className="hidden md:flex border-b border-border gap-2">{paths.map((i,n)=><Button key={i.path} variant="ghost" asChild className={cn('rounded-none border-b-2 h-10 shadow-none bg-transparent hover:bg-transparent',items[n].key===value?'border-primary':'border-transparent text-muted-foreground')}><Link to={i.path} aria-current={items[n].key===value?'page':undefined}>{i.label}</Link></Button>)}</nav></>;
+import '@/components/kit/kit.css';
+
+/**
+ * A page's own views (Books, Reports, Receivables, Bank & cash…), shown like Purchasing's second-level
+ * tabs (Invoices · Register · Notes · Received): plain words, the current one semibold with the green
+ * highlighter stroke. Never a second row of pills under the section pills. Scrolls sideways on a phone.
+ * Place it first on the page, above PageTop. `drop` removes query params that belong to one view only.
+ */
+export function FinanceViewTabs({items,value,param='view',drop=[]}:{items:{key:string;label:string}[];value:string;param?:string;drop?:string[]}){
+  const location=useLocation();
+  const paths=items.map(i=>{const p=new URLSearchParams(location.search);for(const k of drop)p.delete(k);p.set(param,i.key);return {key:i.key,label:i.label,path:`${location.pathname}?${p}`};});
+  return <nav aria-label="Page views" className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="invoice-switch">{paths.map(i=><Link key={i.key} to={i.path} replace aria-current={i.key===value?'page':undefined} className={`invoice-switch-item ${i.key===value?'is-active':''}`}>{i.label}</Link>)}</div></nav>;
 }
