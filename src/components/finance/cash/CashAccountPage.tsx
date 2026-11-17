@@ -40,7 +40,7 @@ export function CashAccountPage({ accountId, bank, ledger, inPeriod, today, init
   const [closing, setClosing] = useState<StatementImport | null>(null), [note, setNote] = useState(""), [busy, setBusy] = useState(false);
   useEffect(() => { setFilter(initialFilter ?? "needs"); setPage(1); }, [accountId, initialFilter]);
   const account = bank.accounts.find(a => a.id === accountId);
-  if (!account) return <section className="card-glass rounded-xl p-6 text-sm text-muted-foreground">{bank.loading ? "Loading account…" : <>This account isn't available. <Link to="/finance/cash" className="kit-link">Back to accounts</Link></>}</section>;
+  if (!account) return <section className="card-glass rounded-xl p-6 text-sm text-muted-foreground" aria-busy={bank.loading}>{bank.loading ? "Loading account…" : <>This account isn't available. <Link to="/finance/cash" className="kit-link">Back to accounts</Link></>}</section>;
   const foreign = !!account.currency && account.currency !== base;
   const money = (n: number) => foreign ? formatMoney(n, account.currency) : formatTableCurrency(n);
   const p = bankPosition(account, bank.imports, bank.transactions, ledger.booksOn, today);
@@ -71,7 +71,7 @@ export function CashAccountPage({ accountId, bank, ledger, inPeriod, today, init
   const gl = bank.coa.find(c => c.id === account.linked_gl_account_id);
   return <div className="space-y-5 max-sm:space-y-3 min-w-0">
     <Link to="/finance/cash" className="kit kit-link inline-block px-1 text-[13px]">← Accounts</Link>
-    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Account">
+    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Account" aria-busy={ledger.loading}>
       <h2 className="px-1 text-[18px] font-display font-semibold flex flex-wrap items-baseline gap-x-1.5"><span className="truncate">{account.account_name}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {[account.currency || base, gl ? `${gl.code} ${gl.name}` : "not linked to the books"].join(" · ")}</span>{onEdit && !disabled && <button type="button" className="kit kit-link text-[13px] font-normal" onClick={onEdit}>Edit</button>}</h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
         {stat("Bank says", p.bankSays === null ? "—" : money(p.bankSays), p.statement ? `Statement to ${shortDay(p.statement.period_end)}${p.behind ? ` · ${sinceText(p.statement.period_end, today)} behind` : ""}` : "No statement yet", p.behind)}

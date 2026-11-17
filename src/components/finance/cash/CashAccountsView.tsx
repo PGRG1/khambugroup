@@ -2,7 +2,6 @@ import { Fragment, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { BankAccount, useBankModule } from "@/hooks/useBankModule";
 import type { PettyFloat, usePettyCash } from "@/hooks/usePettyCash";
-import type { useFinanceBooks } from "@/hooks/useFinanceBooks";
 import type { useCashLedger } from "@/hooks/useCashLedger";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { Toolbar } from "@/components/kit/Toolbar";
@@ -19,6 +18,9 @@ import type { PageWorkItem } from "@/utils/baniPageWork";
 
 type Row = { key: string; group: string; name: string; dateText: string; reason: string | null; bankSays: number | null; booksSay: number | null; difference: number | null; toMatch: number; currency: string; flag: boolean; open?: () => void; missing?: string };
 
+/** Ledger accounts that hold cash in the tills. */
+export const tillAccountIds = (coa: { id: string; name: string; is_cash: boolean }[]) => new Set(coa.filter(a => a.is_cash && /cash on hand|cash in till/i.test(a.name)).map(a => a.id));
+
 /** "6 months" / "45 days" between a date and today. */
 export function sinceText(from: string, today: string) {
   const days = Math.round((Date.parse(today) - Date.parse(from)) / 86_400_000);
@@ -27,8 +29,8 @@ export function sinceText(from: string, today: string) {
 }
 
 /** Cash › Accounts: every bank account, till and cash box with what the bank says and what the books say. Tap an account to open it. */
-export function CashAccountsView({ bank, books, pc, ledger, asAt, today, onEditCash }: {
-  bank: ReturnType<typeof useBankModule>; books: ReturnType<typeof useFinanceBooks>; pc: ReturnType<typeof usePettyCash>; ledger: ReturnType<typeof useCashLedger>;
+export function CashAccountsView({ bank, pc, ledger, asAt, today, onEditCash }: {
+  bank: ReturnType<typeof useBankModule>; pc: ReturnType<typeof usePettyCash>; ledger: ReturnType<typeof useCashLedger>;
   asAt: string; today: string; onEditCash: (f: PettyFloat) => void;
 }) {
   const navigate = useNavigate(), scope = useVenueScope(), base = getBaseCurrency();
@@ -45,10 +47,9 @@ export function CashAccountsView({ bank, books, pc, ledger, asAt, today, onEditC
       difference: foreign ? null : p.difference, toMatch: p.toMatch, currency: p.account.currency || base, flag: !!reason, open: () => open(p.account), missing: p.account.linked_gl_account_id ? undefined : "Not linked" };
   });
   // Tills: cash taken in sales, as the books show it (not counted in Bani yet).
-  const posted = new Set(books.entries.filter(e => e.status === "posted").map(e => e.id));
-  const tillIds = new Set(books.accounts.filter(a => a.is_cash && /cash on hand|cash in till/i.test(a.name)).map(a => a.id));
+  const tillIds = tillAccountIds(bank.coa);
   const tillRows: Row[] = scope.venues.map(v => ({ key: `till-${v.id}`, group: "Cash in tills and boxes", name: `Tills · ${v.name}`, dateText: "Not counted", reason: null, bankSays: null,
-    booksSay: books.lines.filter(l => !!l.account_id && tillIds.has(l.account_id) && l.venue === v.name && posted.has(l.entry_id)).reduce((n, l) => n + Number(l.debit) - Number(l.credit), 0),
+    booksSay: ledger.venueBooks(tillIds, v.name),
     difference: null, toMatch: 0, currency: base, flag: false }));
   const boxRows: Row[] = pc.floats.filter(f => scope.includesName(f.venue)).map(f => {
     const bal = pc.balanceByFloat[f.id] ?? 0, low = bal < Number(f.replenish_threshold ?? 0);
@@ -74,7 +75,7 @@ export function CashAccountsView({ bank, books, pc, ledger, asAt, today, onEditC
   const download = () => downloadCSV(all.map(r => ({ account: r.name, statement: r.dateText, bank: r.bankSays ?? "", books: r.booksSay ?? "", difference: r.difference ?? "", to_match: r.toMatch })),
     [{ key: "account", label: "Account" }, { key: "statement", label: "Statement or count" }, { key: "bank", label: "Bank says" }, { key: "books", label: "Books say" }, { key: "difference", label: "Difference" }, { key: "to_match", label: "To match" }], "cash-accounts");
   const rowProps = (r: Row) => r.open ? { tabIndex: 0, onClick: r.open, onKeyDown: (e: KeyboardEvent) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); r.open!(); } }, "aria-label": `Open ${r.name}` } : {};
-  return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Accounts">
+  return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Accounts" aria-busy={bank.loading || ledger.loading || pc.loading}>
     <div className="space-y-3">
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5" aria-label="Cash summary"><span className="td-num">{bank.loading || ledger.loading ? "…" : `${formatTableCurrency(total)} cash`}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(banks)} bank {banks === 1 ? "account" : "accounts"}{tills ? ` · ${tills} ${tills === 1 ? "till" : "tills"}` : ""}{boxes ? ` · ${boxes} cash ${boxes === 1 ? "box" : "boxes"}` : ""}</span></h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow onDownload={download} downloadLabel="Download accounts"

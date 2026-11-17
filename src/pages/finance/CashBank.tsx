@@ -1,6 +1,5 @@
 import {useState} from 'react';
 import {Link,Navigate,useSearchParams} from 'react-router-dom';
-import {useFinanceBooks} from '@/hooks/useFinanceBooks';
 import {PayoutsView} from '@/components/finance/PayoutsView';
 import {useBankModule,type BankAccount} from '@/hooks/useBankModule';
 import {usePettyCash,type PettyFloat} from '@/hooks/usePettyCash';
@@ -12,7 +11,7 @@ import {PageTop} from '@/components/kit/PageTop';
 import {FinanceViewTabs} from '@/components/finance/FinanceViewTabs';
 import {CashTransferDialog} from '@/components/finance/CashTransferDialog';
 import {StatementReviewQueue} from '@/components/finance/StatementReviewQueue';
-import {CashAccountsView} from '@/components/finance/cash/CashAccountsView';
+import {CashAccountsView,tillAccountIds} from '@/components/finance/cash/CashAccountsView';
 import {CashAccountPage} from '@/components/finance/cash/CashAccountPage';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -34,10 +33,10 @@ import {tenantToday} from '@/utils/salesRecordChecks';
 // Old links (?view=transactions|statements|match|close, ?type=top-ups) land on the right place.
 export const cashTabs=[{key:'accounts',label:'Accounts'},{key:'payouts',label:'Card payouts'},{key:'petty',label:'Cash boxes'}];
 export default function CashBank(){
- const {organizations}=useOrganizations();const today=tenantToday();const books=useFinanceBooks(Number(today.slice(0,4)));const bank=useBankModule(),pc=usePettyCash(),scope=useVenueScope();const {isPreviewActive}=usePreviewMode();const [params]=useSearchParams();
+ const {organizations}=useOrganizations();const today=tenantToday();const bank=useBankModule(),pc=usePettyCash(),scope=useVenueScope();const {isPreviewActive}=usePreviewMode();const [params]=useSearchParams();
  const requestedView=params.get('view')??'accounts',accountParam=params.get('account'),accountId=accountParam&&accountParam!=='all'?accountParam:null;
  const tab=requestedView==='payouts'?'payouts':requestedView==='petty'||params.get('type')==='top-ups'?'petty':'accounts';
- const ledger=useCashLedger(bank.tenantId,bank.accounts.map(a=>a.linked_gl_account_id??'').filter(Boolean));
+ const ledger=useCashLedger(bank.tenantId,[...bank.accounts.map(a=>a.linked_gl_account_id??''),...tillAccountIds(bank.coa)].filter(Boolean));
  const [transfer,setTransfer]=useState(false),[busy,setBusy]=useState(false),[edit,setEdit]=useState<Partial<BankAccount>|null>(null),[cashEdit,setCashEdit]=useState<Partial<PettyFloat>|null>(null),[chooseUpload,setChooseUpload]=useState(false);
  const period=useFinancePeriod('period','mtd',{dataMonths:bank.transactions.map(t=>t.txn_date.slice(0,7))}),asAt=useFinancePeriod('asat');
  const floats=pc.floats.filter(f=>scope.includesName(f.venue));
@@ -56,7 +55,7 @@ export default function CashBank(){
 {<section className="kit card-glass p-4 space-y-3"><div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">Top-ups</h2><Button variant="link" asChild><Link to="/expenses/bills">Receipts · Paid from cash box</Link></Button></div>{topups.map(r=><div key={r.id} className="border-t border-border py-3 flex flex-wrap justify-between gap-2"><span>{floats.find(f=>f.id===r.float_id)?.venue} · {formatDate(r.replenishment_date)}</span><span className="td-num">{formatCurrency(Number(r.amount))}</span><span className="text-xs text-muted-foreground">{bank.transactions.some(t=>Number(t.money_out)>0&&bankSettled(t)&&t.matched_record_id===r.id)?'Bank withdrawal matched':'Bank withdrawal not matched'}</span></div>)}</section>}
 </>
  :accountId?<CashAccountPage accountId={accountId} bank={bank} ledger={ledger} inPeriod={period.inPeriod} today={today} initialFilter={params.get('filter')==='all'||params.get('filter')==='in'||params.get('filter')==='out'?params.get('filter'):params.get('filter')==='needs'?'needs':null} disabled={isPreviewActive} onEdit={()=>{const a=bank.accounts.find(x=>x.id===accountId);if(a)setEdit(a);}}/>
- :<CashAccountsView bank={bank} books={books} pc={pc} ledger={ledger} asAt={asAt.toIso??today} today={today} onEditCash={f=>setCashEdit(f)}/>;
+ :<CashAccountsView bank={bank} pc={pc} ledger={ledger} asAt={asAt.toIso??today} today={today} onEditCash={f=>setCashEdit(f)}/>;
  return <div className="w-full min-w-0 space-y-5 max-sm:space-y-3 pb-24"><FinanceViewTabs value={tab} items={cashTabs}/><PageTop tabsAbove title="Cash" period={accountId||tab==='petty'?period.control:asAt.control} actions={<>{accountId||tab==='petty'?transferBtn:add}{tab==='petty'?<Button size="sm" className="h-10" disabled={isPreviewActive} onClick={newBox}><Plus className="h-4 w-4"/>Cash box</Button>:upload}</>}/>
  {body}
  <StatementReviewQueue key={bank.tenantId} tenantId={bank.tenantId} accounts={bank.accounts} onChanged={async()=>{await bank.reload();ledger.reload();}} disabled={isPreviewActive} open={chooseUpload} onOpenChange={setChooseUpload}/>

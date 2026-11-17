@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/utils/fetchAllRows";
+import { fetchAllRows, fetchAllRowsParallel } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { classifyTxn, type UserRule } from "@/utils/bankTxnRules";
 
@@ -89,7 +89,6 @@ export function useBankModule() {
   const [rules, setRules] = useState<any[]>([]);
   const [reconRules, setReconRules] = useState<UserRule[]>([]);
   const [coa, setCoa] = useState<CoaAccount[]>([]);
-  const [ledgerByAccount, setLedgerByAccount] = useState<Record<string, number>>({});
   const [fxRates, setFxRates] = useState<FxRate[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
 
@@ -97,20 +96,18 @@ export function useBankModule() {
     if (!tenantId) {
       setAccounts([]); setTransactions([]); setImports([]); setCoa([]);
       setRules([]); setReconRules([]); setFxRates([]); setMatches([]);
-      setLedgerByAccount({});
       setLoading(false);
       return;
     }
     setLoading(true);
-    const [a, t, i, c, jl, r, fx, mt] = await Promise.all([
+    const [a, t, i, c, r, fx, mt] = await Promise.all([
       fetchAllRows("bank_accounts", "*", { col: "sort_order", asc: true }, tenantId),
-      fetchAllRows("bank_transactions", "*", { col: "txn_date", asc: false }, tenantId),
+      fetchAllRowsParallel("bank_transactions", "*", tenantId, { col: "txn_date", asc: false }),
       fetchAllRows("bank_statement_imports", "*", { col: "uploaded_at", asc: false }, tenantId),
       fetchAllRows("chart_of_accounts", "id, code, name, is_cash", { col: "code", asc: true }, tenantId),
-      fetchAllRows("journal_lines", "account_id, debit, credit", undefined, tenantId),
       fetchAllRows("bank_recon_rules", "*", { col: "sort_order", asc: true }, tenantId),
       fetchAllRows("bank_fx_rates", "*", { col: "rate_date", asc: false }, tenantId),
-      fetchAllRows("bank_transaction_matches", "*", undefined, tenantId),
+      fetchAllRowsParallel("bank_transaction_matches", "*", tenantId),
     ]);
     setAccounts(a as BankAccount[]);
     setTransactions(t as BankTxn[]);
@@ -131,11 +128,7 @@ export function useBankModule() {
     setFxRates(fx as FxRate[]);
     setMatches(mt);
 
-    const ledger: Record<string, number> = {};
-    for (const row of jl as Array<{ account_id: string; debit: number; credit: number }>) {
-      ledger[row.account_id] = (ledger[row.account_id] || 0) + Number(row.debit || 0) - Number(row.credit || 0);
-    }
-    setLedgerByAccount(ledger);
+
     setLoading(false);
   }, [tenantId]);
 
@@ -143,10 +136,6 @@ export function useBankModule() {
     load();
   }, [load]);
 
-  const ledgerBalanceFor = (acct: BankAccount): number => {
-    if (!acct.linked_gl_account_id) return Number(acct.opening_balance || 0);
-    return Number(acct.opening_balance || 0) + (ledgerByAccount[acct.linked_gl_account_id] || 0);
-  };
 
   const statementBalanceFor = (acctId: string): number => {
     const latest = imports
@@ -332,7 +321,6 @@ export function useBankModule() {
     matches,
     coa,
     fxRates,
-    ledgerBalanceFor,
     statementBalanceFor,
     currentBalanceFor,
     incoming,

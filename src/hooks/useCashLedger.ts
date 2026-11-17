@@ -5,7 +5,7 @@ import { parallelPages } from "@/utils/parallelPages";
 export type BankPeriodClose = { id: string; bank_account_id: string; period_start: string; period_end: string; status: string; locked_at: string | null; difference: number | null; notes: string | null };
 
 /**
- * Posted ledger lines of the bank accounts' linked ledger accounts, with their dates, so a page can
+ * Posted ledger lines of the bank accounts' linked ledger accounts (and the till cash accounts), with their dates, so a page can
  * say what the books showed on any day (for example the last day of a bank statement). Also reads
  * which bank statement periods are already closed.
  */
@@ -17,8 +17,8 @@ export function useCashLedger(tenantId: string | null | undefined, glIds: string
     staleTime: 60_000,
     queryFn: async () => {
       const sb = supabase as any;
-      return parallelPages<{ account_id: string; debit: number; credit: number; journal_entries: { entry_date: string } }>((a, b) =>
-        sb.from("journal_lines").select("account_id,debit,credit,journal_entries!inner(entry_date,status)")
+      return parallelPages<{ account_id: string; debit: number; credit: number; venue: string | null; journal_entries: { entry_date: string } }>((a, b) =>
+        sb.from("journal_lines").select("account_id,debit,credit,venue,journal_entries!inner(entry_date,status)")
           .eq("tenant_id", tenantId).in("account_id", ids).eq("journal_entries.status", "posted")
           .order("id", { ascending: true }).range(a, b));
     },
@@ -42,7 +42,13 @@ export function useCashLedger(tenantId: string | null | undefined, glIds: string
     for (const r of rows) if (r.account_id === glId && (!date || r.journal_entries.entry_date <= date)) n += Number(r.debit || 0) - Number(r.credit || 0);
     return Math.round(n * 100) / 100;
   };
+  /** Books balance of several ledger accounts for one venue (cash in tills), every posted line. */
+  const venueBooks = (glIds: Set<string>, venue: string): number => {
+    let n = 0;
+    for (const r of rows) if (glIds.has(r.account_id) && r.venue === venue) n += Number(r.debit || 0) - Number(r.credit || 0);
+    return Math.round(n * 100) / 100;
+  };
   const closeFor = (accountId: string, start: string, end: string) =>
     (closes.data ?? []).find(c => c.bank_account_id === accountId && c.status === "closed" && c.period_start === start && c.period_end === end) ?? null;
-  return { loading: lines.isLoading || closes.isLoading, booksOn, closeFor, reload: () => { void lines.refetch(); void closes.refetch(); } };
+  return { loading: lines.isLoading || closes.isLoading, booksOn, venueBooks, closeFor, reload: () => { void lines.refetch(); void closes.refetch(); } };
 }
