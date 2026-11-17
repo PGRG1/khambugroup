@@ -212,9 +212,24 @@ export function ParseSettlementModal({
     try {
       const currencySave=await supabase.from('payment_settlement_imports').update({currency}).eq('tenant_id',tenantId).eq('id',imp.id);
       if(currencySave.error)throw currencySave.error;
+      // Never save the same statement or payout twice: a second save would double the card money.
+      const already = await supabase.from("payment_settlement_batches" as any).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("import_id", imp.id);
+      if (already.error) throw already.error;
+      if ((already.count ?? 0) > 0) throw new Error("This statement is already saved. Delete it first to save it again.");
+      const existing = await supabase.from("payment_settlement_batches" as any)
+        .select("merchant_id,settlement_date,transaction_date,gross_amount,net_settlement")
+        .eq("tenant_id", tenantId).eq("processor_id", processor.id)
+        .in("settlement_date", [...new Set(batches.map((b) => b.settlement_date))]);
+      if (existing.error) throw existing.error;
+      const payoutKey = (m: string, s: string, t: string, g: number, n: number) => `${m}|${s}|${t}|${Number(g).toFixed(2)}|${Number(n).toFixed(2)}`;
+      const saved = new Set(((existing.data ?? []) as any[]).map((x) => payoutKey(x.merchant_id, x.settlement_date, x.transaction_date, x.gross_amount, x.net_settlement)));
+      let skipped = 0;
       for (const b of batches) {
         const merchant = merchantByNumber.get(b.merchant_number);
         if (!merchant) throw new Error(`Unmapped merchant ${b.merchant_number}`);
+        const key = payoutKey(merchant.id, b.settlement_date, b.transaction_date, b.gross_amount, b.net_settlement);
+        if (saved.has(key)) { skipped++; continue; }
+        saved.add(key);
         const { data: inserted, error: be } = await supabase
           .from("payment_settlement_batches" as any)
           .insert({
@@ -288,7 +303,7 @@ export function ParseSettlementModal({
         }
       }
       await supabase.from("payment_settlement_imports" as any).update({ status: "parsed" }).eq("id", imp.id);
-      toast.success(`Settlement imported — ${batches.length} batches saved.`);
+      toast.success(skipped ? `Statement saved — ${batches.length - skipped} payouts saved, ${skipped} already saved before and skipped.` : `Statement saved — ${batches.length} payouts saved.`);
       onCommitted();
       onOpenChange(false);
     } catch (e: any) {

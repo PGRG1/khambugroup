@@ -10,3 +10,4 @@
 
 - Document currency: total/subtotal/tax/line amounts stay base; document-currency values live alongside (original_total/original_balance, line original_unit_price/original_total, allocation original_amount, credit original_currency_amount/original_remaining, opening original_amount + fx_rate). Null currency = base, so base-only consumers never change.
 - Foreign settlements go through SQL fx_settle (document's own rate, last payment clears remaining base, difference to FX-R realised); card-charged foreign documents use fx_card_charge (unposted: rate from bank line; posted: FX-FEE).
+- Card payouts: multi-line bank matches link each settlement batch to the bank line, and a shared bank line books each batch at its own net_settlement; the same payout (merchant, settlement/transaction dates, gross, net) is never saved twice (client skip + zz_settlement_batch_no_duplicate trigger).

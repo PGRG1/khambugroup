@@ -1233,6 +1233,13 @@
       "when": 1794836055271,
       "tag": "0175_payroll_override_static_update",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1794936055271,
+      "tag": "0176_card_payout_fixes",
+      "breakpoints": true
     }
   ]
 }
