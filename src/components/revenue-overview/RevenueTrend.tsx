@@ -21,6 +21,7 @@ import { getMonthKey as gm } from "@/utils/salesUtils";
 import type { ForecastOverviewDay } from "@/utils/revenueForecastOverview";
 import { BandCursor } from "@/components/charts/BandCursor";
 import { bestWorst, shortMoney } from "@/utils/revenueOverview";
+import { chartHeight } from "@/components/kit/chartSize";
 
 interface Props {
   data: SalesRecord[];
@@ -222,7 +223,7 @@ export function RevenueTrend({ data, view, forecastDaily = [], markBestWorst }: 
           </div>
         )}
       </div>
-      <div ref={boxRef} style={{ width: "100%", height: mobile ? 210 : 320 }}>
+      <div ref={boxRef} style={{ width: "100%", height: chartHeight(mobile) }}>
         <ResponsiveContainer>
           <ComposedChart data={chartData} margin={{ top: marks ? (narrow ? 60 : 34) : 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.3} strokeDasharray="2 4" vertical={false} />

@@ -9,6 +9,7 @@ import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
 import { barBuild, lineBuild, useRevenuePlay } from "@/components/revenue/RevenueMotion";
 import { BandCursor } from "@/components/charts/BandCursor";
+import { chartHeight } from "@/components/kit/chartSize";
 
 /**
  * Trends: the longer picture, no period filter. Each chart keeps its own natural window:
@@ -221,7 +222,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
               : <span className="text-muted-foreground">No {mName(a.curKey)} sales yet</span>}
             {a.projEnd != null && <span className="inline-flex items-center gap-1.5"><svg width="12" height="10" aria-hidden="true"><line x1="0" x2="12" y1="5" y2="5" stroke={PRIMARY} strokeWidth="2" strokeDasharray="2 3" /></svg><span className="text-muted-foreground">Projected</span><b className="font-semibold">{shortMoney(a.projEnd)}</b></span>}
           </>}>
-            <div style={{ width: "100%", height: mobile ? 170 : 260 }}>
+            <div style={{ width: "100%", height: chartHeight(mobile) }}>
               <ResponsiveContainer>
                 <LineChart data={m.monthRun} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                   onMouseLeave={() => setNear(null)}
@@ -282,7 +283,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
         <Key kind="bar" label="Actual" />
         {m.months.some((x) => x.rest > 0) && <Key kind="dash" label="Projected" />}
       </>}>
-        <div style={{ width: "100%", height: mobile ? 160 : 220 }}>
+        <div style={{ width: "100%", height: chartHeight(mobile) }}>
           <ResponsiveContainer>
             <ComposedChart data={m.months} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
               <CartesianGrid {...GRID} />
@@ -347,7 +348,7 @@ export function TrendsView({ data, target = null, projected, today = new Date() 
           const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.25 || hi * 0.1 || 1;
           return (
             <Card key={key} title={title} legend={<>{now != null && <b className="font-semibold text-foreground">{f(now)}</b>}{ch != null && <span className="text-muted-foreground">vs {pts[0].label} <b className="font-semibold" style={{ color: tone(ch) }}>{pctText(ch)}</b></span>}</>}>
-              <div style={{ width: "100%", height: mobile ? 120 : 150 }}>
+              <div style={{ width: "100%", height: chartHeight(mobile) }}>
                 <ResponsiveContainer>
                   <LineChart data={m.months} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid {...GRID} />

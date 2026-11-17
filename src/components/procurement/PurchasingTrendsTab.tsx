@@ -13,6 +13,7 @@ import { fmtHKD } from "@/components/revenue-overview/utils";
 import { baseSymbol } from "@/utils/money";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BandCursor } from "@/components/charts/BandCursor";
+import { chartHeight } from "@/components/kit/chartSize";
 
 // Same look as Revenue's Trends: cards, keys with values, light grid, months along the bottom.
 const PRIMARY = "hsl(var(--primary))";
@@ -93,7 +94,7 @@ function MonthLines({ title, rows, total, months, current, play, mobile }: { tit
   const ticks = niceTicks(Math.max(1, ...months.map((_, i) => rows.reduce((n, r) => n + Math.max(0, r.months[i] ?? 0), 0))));
   return (
     <Card title={title}>
-      <div className="mt-2" style={{ width: "100%", height: mobile ? 170 : 220 }}>
+      <div className="mt-2" style={{ width: "100%", height: chartHeight(mobile) }}>
         <ResponsiveContainer>
           <ComposedChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
             <CartesianGrid {...GRID} />
@@ -163,7 +164,7 @@ export default function PurchasingTrendsTab() {
     <div className="w-full mx-auto space-y-4 max-sm:space-y-3" data-phone-compact>
       <PageTop tabsAbove title="Trends" />
       {data.isError ? <p className="text-sm text-warning">Could not load purchasing figures. Please reload to try again.</p>
-        : loading ? (slow ? <div className="h-80 bg-muted/60 rounded-xl animate-pulse" /> : null)
+        : loading ? (slow ? <div className="h-[170px] sm:h-[240px] bg-muted/60 rounded-xl animate-pulse" /> : null)
         : <RevenueEnter id="purchasing-trends" className="space-y-4 max-sm:space-y-3">{(play: boolean) => {
           const months = t.months;
           const now = t.monthly[t.monthly.length - 1];
@@ -176,7 +177,7 @@ export default function PurchasingTrendsTab() {
               <Key kind="bar" label={`${monthShort(now.key)} so far`} value={shortMoney(now.spend)} />
               <Key kind="warm" label="% of sales" value={now.pct == null ? "—" : `${Math.round(now.pct)}%`} />
             </>}>
-              <div style={{ width: "100%", height: mobile ? 170 : 240 }}>
+              <div style={{ width: "100%", height: chartHeight(mobile) }}>
                 <ResponsiveContainer>
                   <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
                     <CartesianGrid {...GRID} />

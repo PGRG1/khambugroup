@@ -25,6 +25,7 @@ import {
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp, Wallet, FileDown, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCSV } from "@/utils/csvDownload";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const fmtMoney = (n: number) =>
   n.toLocaleString("en-HK", { style: "currency", currency: "HKD", maximumFractionDigits: 0 });
@@ -248,7 +249,7 @@ export default function Cashflow() {
         ) : chartData.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-muted-foreground">No cash activity yet.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={340}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <ComposedChart data={chartData} stackOffset="sign">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />

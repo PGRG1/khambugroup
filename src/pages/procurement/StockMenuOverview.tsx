@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { downloadCSV } from "@/utils/csvDownload";
 import { formatCurrency, formatPercent, formatDecimal } from "@/utils/format";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const card = "card-glass rounded-xl p-3 sm:p-4 min-w-0";
 const num = (v: unknown) => Number(v) || 0;
@@ -162,7 +163,7 @@ export default function StockMenuOverview() {
 
           {view.chart.length > 0 && <section className={card}>
             <h2 className="font-display font-semibold mb-4">Stock on hand at each count</h2>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <BarChart data={view.chart} margin={{ top: 24, right: 20, left: 10, bottom: 0 }}>
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={(n) => `${formatDecimal(n / 1000, 0)}k`} width={44} tickLine={false} axisLine={false} />

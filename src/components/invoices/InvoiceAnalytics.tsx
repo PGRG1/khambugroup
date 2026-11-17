@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { DollarSign, FileText, TrendingUp, Clock } from "lucide-react";
 import { Invoice } from "@/hooks/useInvoiceData";
 import { useState } from "react";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const COLORS = [
   "hsl(24, 80%, 50%)",   // primary
@@ -161,7 +162,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold mb-3 text-foreground">Monthly Spending</h3>
             {monthlyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={chartHeight()}>
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 85%)" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
@@ -181,7 +182,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold mb-3 text-foreground">Top Suppliers</h3>
             {topSuppliers.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={chartHeight()}>
                 <BarChart data={topSuppliers} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 85%)" />
                   <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
@@ -202,7 +203,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
             <h3 className="text-sm font-semibold mb-3 text-foreground">Spend by Venue</h3>
             {venueData.length > 0 ? (
               <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={chartHeight()}>
                   <PieChart>
                     <Pie data={venueData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
                       {venueData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -223,7 +224,7 @@ export default function InvoiceAnalytics({ invoices }: Props) {
             <h3 className="text-sm font-semibold mb-3 text-foreground">Invoice Status</h3>
             {statusData.length > 0 ? (
               <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={chartHeight()}>
                   <PieChart>
                     <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, value }) => `${name} (${value})`} labelLine={false}>
                       {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}

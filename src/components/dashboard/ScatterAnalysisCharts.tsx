@@ -22,6 +22,7 @@ import {
   MUTED_FG,
   FG,
 } from "@/components/revenue-overview/chartTheme";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -211,7 +212,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartShell title="Daily Revenue" subtitle="Distribution by day of month">
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <ScatterChart margin={{ top: 10, right: 60, bottom: 10, left: 0 }}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="dayOfMonth" type="number" domain={[0, 31]} ticks={[0, 5, 10, 15, 20, 25, 30]} {...chartAxis} />
@@ -228,7 +229,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
         </ChartShell>
 
         <ChartShell title="No. of Guests" subtitle="Distribution by day of month">
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <ScatterChart margin={{ top: 10, right: 60, bottom: 10, left: 0 }}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="dayOfMonth" type="number" domain={[0, 31]} ticks={[0, 5, 10, 15, 20, 25, 30]} {...chartAxis} />
@@ -245,7 +246,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
         </ChartShell>
 
         <ChartShell title="Spend / Guest" subtitle="Distribution by day of month" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <ScatterChart margin={{ top: 10, right: 60, bottom: 10, left: 0 }}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="dayOfMonth" type="number" domain={[0, 31]} ticks={[0, 5, 10, 15, 20, 25, 30]} {...chartAxis} />

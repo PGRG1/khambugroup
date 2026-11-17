@@ -5,6 +5,7 @@ import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "@/components/revenue-overview/utils";
 import { baseSymbol } from "@/utils/money";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -62,7 +63,7 @@ export function PurchasingRunningTotal({ month, days, currentName, priorName }: 
         {model.budget != null && <span className="inline-flex items-center gap-1 whitespace-nowrap"><svg width="12" height="4" aria-hidden="true"><line x1="0" x2="12" y1="2" y2="2" stroke="hsl(var(--muted-foreground))" strokeWidth="1.5" strokeDasharray="3 3" /></svg>
           <span className="text-muted-foreground">Budget</span><b className="font-semibold">{shortMoney(model.budget)}</b></span>}
       </div>
-      <div style={{ width: "100%", height: mobile ? 160 : 240 }}>
+      <div style={{ width: "100%", height: chartHeight(mobile) }}>
         <ResponsiveContainer>
           <ComposedChart data={model.points} margin={{ top: 12, right: mobile ? 22 : 12, left: 0, bottom: 0 }}>
             <defs>

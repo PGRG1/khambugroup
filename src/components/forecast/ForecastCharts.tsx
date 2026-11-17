@@ -14,6 +14,7 @@ import {
 import { ForecastWithActuals } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
 import ChartCard from "@/components/dashboard/ChartCard";
+import { chartHeight } from "@/components/kit/chartSize";
 
 interface ForecastChartsProps {
   data: ForecastWithActuals[];
@@ -93,7 +94,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Cumulative Sales */}
       <ChartCard title="Cumulative Sales" subtitle="Running total: forecast vs actual" className="lg:col-span-2">
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <LineChart data={cumulativeData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -108,7 +109,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
       {/* Forecast vs Actual Sales */}
       <ChartCard title="Forecast vs Actual Sales" subtitle="Total sales comparison">
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -123,7 +124,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
       {/* Forecast vs Actual Customers */}
       <ChartCard title="Forecast vs Actual Customers" subtitle="Customer count comparison">
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -138,7 +139,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
       {/* Forecast vs Actual Avg Spend per Customer */}
       <ChartCard title="Forecast vs Actual Avg Spend / Customer" subtitle="Per-customer spend comparison">
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -153,7 +154,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
       {/* Forecast Accuracy */}
       <ChartCard title="Forecast Accuracy" subtitle="How close forecasts are to actuals (%)">
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={chartData.filter((d) => d.accuracy !== null)}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -185,7 +186,7 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
       {/* Daily Variance */}
       <ChartCard title="Daily Variance" subtitle="Over/under forecast (actual − forecast)" className="lg:col-span-2">
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={chartData.filter((d) => d.variance !== null)}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />

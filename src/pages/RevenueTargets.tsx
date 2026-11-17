@@ -51,6 +51,7 @@ import type {
   ManagerTargetLine, OperatingStatus, VenueServicePeriod, EventMode,
 } from "@/types/revenueTargetsV2";
 import { AdjustmentReasonDialog, type AdjustmentReasonKind } from "@/components/revenue-targets/AdjustmentReasonDialog";
+import { chartHeight } from "@/components/kit/chartSize";
 
 // ---------- Design tokens (semantic HSL only) ----------
 const C = {
@@ -983,7 +984,7 @@ export default function RevenueTargets() {
           {progressData.rows.length === 0 ? (
             <EmptyChart label="No target data for this period." />
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <LineChart data={progressData.rows}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.grid} opacity={0.35} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
@@ -1045,7 +1046,7 @@ export default function RevenueTargets() {
           {dailyChartData.length === 0 ? (
             <EmptyChart label="No revenue data for this period." />
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <ComposedChart data={dailyChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -1094,7 +1095,7 @@ export default function RevenueTargets() {
       <div className="grid grid-cols-1 gap-3.5">
         <SectionCard title="Daily Revenue Variance to Manager">
           {varianceData.length === 0 ? <EmptyChart label="No completed days yet." /> : (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <BarChart data={varianceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -1117,7 +1118,7 @@ export default function RevenueTargets() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Guest Performance">
           {guestData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <LineChart data={guestData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -1133,7 +1134,7 @@ export default function RevenueTargets() {
         </SectionCard>
         <SectionCard title="Spend per Guest">
           {spgData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={chartHeight()}>
               <LineChart data={spgData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -1160,7 +1161,7 @@ export default function RevenueTargets() {
             <div className="space-y-4">
               <SectionCard title="Revenue Variance Drivers (MTD vs Manager Target, completed days only)">
                 {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
-                  <ResponsiveContainer width="100%" height={240}>
+                  <ResponsiveContainer width="100%" height={chartHeight()}>
                     <BarChart data={varianceDrivers} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                       <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
@@ -1181,7 +1182,7 @@ export default function RevenueTargets() {
               <SectionCard title="Day-of-Week Analysis">
                 {weekdayRows.length === 0 ? <EmptyChart /> : (
                   <>
-                    <ResponsiveContainer width="100%" height={220}>
+                    <ResponsiveContainer width="100%" height={chartHeight()}>
                       <BarChart data={weekdayRows.map((r) => ({ ...r, name: WEEKDAYS[r.weekday] }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -1239,7 +1240,7 @@ export default function RevenueTargets() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <SectionCard title="Venue Target Performance">
                   {venueRows.length === 0 ? <EmptyChart /> : (
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={chartHeight()}>
                       <BarChart data={venueRows}>
                         <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -1258,7 +1259,7 @@ export default function RevenueTargets() {
                   <span className="text-[11px] text-muted-foreground">Manager totals · Actuals unavailable per period</span>
                 }>
                   {servicePeriodMix.length === 0 ? <EmptyChart label="No configured service periods." /> : (
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={chartHeight()}>
                       <BarChart data={servicePeriodMix} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
                         <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />

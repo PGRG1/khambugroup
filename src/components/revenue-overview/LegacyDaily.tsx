@@ -39,6 +39,7 @@ import CumulativeSalesChart from "@/components/dashboard/CumulativeSalesChart";
 import ScatterAnalysisCharts from "@/components/dashboard/ScatterAnalysisCharts";
 import VenuePerformanceChart from "@/components/dashboard/VenuePerformanceChart";
 import PaymentBreakdownChart from "@/components/dashboard/PaymentBreakdownChart";
+import { chartHeight } from "@/components/kit/chartSize";
 
 interface Props {
   data: SalesRecord[];
@@ -175,7 +176,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
           subtitle="Total revenue per day"
           headerRight={<>Avg <span className="text-foreground font-medium">${formatCurrency(a.avgDailySales)}</span></>}
         >
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <LineChart data={a.daily}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
@@ -195,7 +196,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
           subtitle="Guest count per day"
           headerRight={<>Avg <span className="text-foreground font-medium">{a.avgDailyGuests}</span></>}
         >
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <LineChart data={a.daily}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
@@ -219,7 +220,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
           subtitle="Total sales ÷ guests, per day"
           headerRight={<>Avg <span className="text-foreground font-medium">${a.avgPerGuest}</span></>}
         >
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <BarChart data={a.spendData}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
@@ -239,7 +240,7 @@ export function AnalysisTrends({ data, venue, seatingKey }: Props) {
           subtitle="Total sales ÷ orders, per day"
           headerRight={<>Avg <span className="text-foreground font-medium">${a.avgPerOrder}</span></>}
         >
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <BarChart data={a.spendData}>
               <CartesianGrid {...chartGrid} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
@@ -352,7 +353,7 @@ export function AnalysisLeakage({ data, venue, seatingKey }: Props) {
         subtitle="Absolute discount dollars per day"
         headerRight={<>Avg discount <span className="text-foreground font-medium">{a.avgDiscountPct}%</span></>}
       >
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={chartHeight()}>
           <BarChart data={a.discountData}>
             <CartesianGrid {...chartGrid} />
             <XAxis dataKey="date" tickFormatter={formatShortDate} {...chartAxis} minTickGap={30} />
@@ -384,7 +385,7 @@ interface DowChartProps {
 function DowChart({ title, data, months, prefix, fmt, fmtTooltip }: DowChartProps) {
   return (
     <ChartShell title={title}>
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={chartHeight()}>
         <BarChart data={data}>
           <CartesianGrid {...chartGrid} />
           <XAxis dataKey="day" {...chartAxis} />

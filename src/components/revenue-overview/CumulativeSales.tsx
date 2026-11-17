@@ -5,6 +5,7 @@ import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveCont
 import { baseSymbol } from "@/utils/money";
 import { shortMoney } from "@/utils/revenueOverview";
 import { fmtHKD } from "./utils";
+import { chartHeight } from "@/components/kit/chartSize";
 
 export interface CumulativeDay {
   date: string;
@@ -81,7 +82,7 @@ export function CumulativeSales({ days, lastCounted, target }: Props) {
         {model.future && <span className="inline-flex items-center gap-1.5"><svg width="14" height="4" aria-hidden="true"><line x1="0" x2="14" y1="2" y2="2" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="3 3" /></svg>
           <span className="text-muted-foreground">Projected</span><b className="font-semibold" style={target ? { color: short ? "#B45309" : "#15803D" } : undefined}>{shortMoney(model.endTotal)}</b></span>}
       </div>
-      <div style={{ width: "100%", height: mobile ? 160 : 240 }}>
+      <div style={{ width: "100%", height: chartHeight(mobile) }}>
         <ResponsiveContainer>
           <ComposedChart data={model.points} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
             <defs>

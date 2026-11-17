@@ -24,6 +24,7 @@ import {
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp, Wallet, FileDown, BookOpen, Info } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { generateLedgerCashflowPDF } from "@/utils/financePdfReports";
+import { chartHeight } from "@/components/kit/chartSize";
 
 const fmtMoney = (n: number) =>
   n.toLocaleString("en-HK", { style: "currency", currency: "HKD", maximumFractionDigits: 0 });
@@ -192,7 +193,7 @@ export default function CashflowLedger() {
         ) : chartData.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-muted-foreground">No cash activity in the selected range.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={340}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <ComposedChart data={chartData} stackOffset="sign">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />

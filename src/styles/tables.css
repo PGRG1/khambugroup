@@ -1,0 +1,23 @@
+/*
+ * Bani table rules — one set for the whole portal (see AGENTS.md "Tables and charts").
+ * 1. Money, numbers, dates and statuses never wrap and are never cut. If a table does not fit,
+ *    it scrolls sideways (column 1 frozen on phone) instead of squeezing.
+ * 2. Only names (product, supplier, merchant, description) may be cut, on one line with "…",
+ *    at one width for every table: 220px on computer, 140px on phone. Full name on hover / row tap.
+ * 3. One size everywhere: 13px text, 12px headings, 44px rows.
+ */
+:root { --bani-name-max: 220px; }
+@media (max-width: 639px) { :root { --bani-name-max: 140px; } }
+
+/* Numbers anywhere, in any table */
+table .td-num, table th.text-right, table td.text-right { white-space: nowrap; overflow-wrap: normal; word-break: normal; font-variant-numeric: tabular-nums; }
+
+/* Kit tables size to their content; the scroll box takes the overflow */
+table.sales-table.sales-table { table-layout: auto !important; }
+.sales-table.sales-table td, .sales-table.sales-table th { overflow: visible; text-overflow: clip; }
+.sales-table.sales-table td.sales-cell-left:not([colspan]) { max-width: var(--bani-name-max); overflow: hidden; text-overflow: ellipsis; }
+.sales-table.sales-table td[colspan] { white-space: normal; }
+.sales-table.sales-table .sales-flag-cell { width: 30px; min-width: 30px; max-width: 30px; }
+
+/* Older fixed tables with money: let the money set the width instead of being squeezed */
+table.table-fixed:has(.td-num) { table-layout: auto !important; }

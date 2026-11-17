@@ -13,6 +13,7 @@ import {
 } from "./chartTheme";
 import VenuePerformanceChart from "@/components/dashboard/VenuePerformanceChart";
 import PaymentBreakdownChart from "@/components/dashboard/PaymentBreakdownChart";
+import { chartHeight } from "@/components/kit/chartSize";
 
 interface Props {
   data: SalesRecord[];
@@ -92,7 +93,7 @@ interface MiniProps {
 function MiniPanel({ title, data, dataKey, tickFmt, tipFmt }: MiniProps) {
   return (
     <ChartShell title={title}>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={chartHeight()}>
         <BarChart data={data}>
           <CartesianGrid {...chartGrid} />
           <XAxis dataKey="month" {...chartAxis} />

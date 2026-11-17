@@ -12,6 +12,7 @@ import {
   seriesOpacity,
   PRIMARY,
 } from "@/components/revenue-overview/chartTheme";
+import { chartHeight } from "@/components/kit/chartSize";
 
 function median(arr: number[]): number {
   if (arr.length === 0) return 0;
@@ -216,7 +217,7 @@ export default function CumulativeSalesChart({ data }: Props) {
     >
       {cumulativeData.months.length > 0 ? (
         <>
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={chartHeight()}>
             <LineChart data={cumulativeData.rows}>
               <CartesianGrid {...chartGrid} />
               <XAxis
