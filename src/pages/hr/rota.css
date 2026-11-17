@@ -12,12 +12,18 @@
 .rota-page .rota-multi-cell {background:hsl(var(--warning) / 0.14);}
 @media(max-width:767px){.rota-table .person-col{position:sticky;left:0;z-index:2;background:hsl(var(--card));width:150px;}.rota-role-row th{position:static;}}
 
-/* Week board in the Sales records table style (RotaBoard): one-line cells, names fixed on the left. */
-.rota-sales-table { --sales-row-bg: var(--kit-table-surface, #fff); }
-.rota-sales-table thead th:first-child, .rota-sales-table tbody tr > :first-child { position: sticky; left: 0; z-index: 2; background: var(--kit-table-surface, #fff); }
-.rota-sales-table thead th:nth-child(2) { position: static; }
+/* Week board in the Sales records table style (RotaBoard): one white table like Sales records, one-line
+   cells, the Employee column frozen on the left at every width while the days scroll under it. */
+.rota-sales-table { --sales-row-bg: #fff; border-collapse: separate; border-spacing: 0; }
+.rota-page .rota-sales-table thead th, .rota-page .rota-sales-table th, .rota-page .rota-sales-table td { background: #fff; }
+.rota-page .rota-sales-table thead th:first-child, .rota-page .rota-sales-table tbody tr > :first-child { position: sticky; left: 0; z-index: 2; background: #fff; box-shadow: 1px 0 0 var(--kit-line, #ECEAE3); }
+.rota-page .rota-sales-table thead th:nth-child(2) { position: static; }
 .rota-sales-table td.rota-cell { padding: 0 4px; }
 .rota-sales-table .rota-cell [data-rota-cell] { display: block; width: 100%; height: 32px; min-height: 0; padding: 0 6px; font-size: 13px; font-weight: 400; line-height: 32px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 6px; }
 .rota-sales-table .rota-cell [data-rota-cell]:hover { background: #F5F7F5; }
-.rota-sales-table .rota-row:hover td { background: #FAFBFA; }
-.rota-sales-table .rota-total-row th, .rota-sales-table .rota-total-row td { font-weight: 600; border-top: 1px solid var(--kit-line); }
+.rota-page .rota-sales-table .rota-row:hover > * { background: #F5F7F5; }
+.rota-sales-table .rota-total-row th, .rota-sales-table .rota-total-row td { font-weight: 600; border-top: 1px solid var(--kit-line, #ECEAE3); }
+/* Leave / off / two-venue cells keep their tint over the white. */
+.rota-page .rota-sales-table td.rota-leave-cell { background: #EEF4FB; }
+.rota-page .rota-sales-table td.rota-off-cell { background: #F3F4F1; color: hsl(var(--muted-foreground)); }
+.rota-page .rota-sales-table td.rota-multi-cell { background: #FBF1E4; }
