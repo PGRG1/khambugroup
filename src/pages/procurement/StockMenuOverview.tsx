@@ -8,6 +8,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePagePeriod } from "@/hooks/usePagePeriod";
 import { useBaniAsk } from "@/components/assistant/FloatingBaniContext";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
+import { CountStockButton } from "@/components/procurement/CountStockButton";
 import { BaniOrb } from "@/components/assistant/BaniOrb";
 import { Button } from "@/components/ui/button";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -125,16 +126,13 @@ export default function StockMenuOverview() {
   const pctOf = (v: number, t: number) => (t > 0 ? `${Math.round((v / t) * 100)}%` : "—");
 
   return (
-    <div className="kit p-4 sm:p-6 space-y-4 min-w-0 max-w-full overflow-x-clip">
-      <RevenuePageTop title="Stock & menu" actionsBesideTitle actions={<Button onClick={() => navigate("/procurement/stock-counts")}>Count stock</Button>} />
-      <div className="flex flex-wrap justify-between items-center gap-2">{period.control}
-        <Button variant="outline" size="icon" aria-label="Download stock count" disabled={!view?.cur}
+    <div className="kit w-full min-w-0 max-w-full space-y-5 pb-24 overflow-x-clip">
+      <RevenuePageTop tabsAbove title="Stock & menu" period={period.control} actions={<>{view?.cur && <Button variant="outline" size="icon" className="h-10 w-10" aria-label="Download stock count"
           onClick={() => view && "items" in view && downloadCSV(view.items.map((i) => ({ name: i.name, type: i.type, qty: i.qty, unit: i.unit, value: Math.round(i.value) })),
             [{ key: "name", label: "Item" }, { key: "type", label: "Type" }, { key: "qty", label: "Counted" }, { key: "unit", label: "Unit" }, { key: "value", label: "Value" }], "stock-on-hand")}>
-          <Download className="w-4 h-4" /></Button></div>
+          <Download className="w-4 h-4" /></Button>}<CountStockButton /></>} />
       {q.isLoading ? <p>Loading stock…</p> : q.error ? <p role="alert">Stock could not be loaded: {(q.error as Error).message}</p>
-        : !view?.cur ? <section className={card}><p className="text-sm">No stock count yet. Count your stock and this page shows what you hold and what it's made of.</p>
-          <Button className="mt-3" onClick={() => navigate("/procurement/stock-counts")}>Count stock</Button></section>
+        : !view?.cur ? <section className={card}><p className="text-sm text-muted-foreground">Nothing counted yet.</p></section>
         : "items" in view && <>
           <section className="glass-surface border border-border rounded-lg px-4 py-3" aria-label="Bani findings">
             <div className="flex items-center gap-2 mb-1"><BaniOrb size={24} mode="idle" /><h2 className="font-display font-semibold text-sm">Bani</h2></div>

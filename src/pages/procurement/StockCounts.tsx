@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { StockTabsRow, CountStockButton } from "@/components/procurement/CountStockButton";
+import { shortDay } from "@/utils/salesRecordChecks";
+import { formatTableCurrency } from "@/utils/format";
 import StockCountScreen from "@/components/procurement/StockCountScreen";
 import { useSearchParams } from "react-router-dom";
 import { RevenuePageTop } from "@/components/revenue/RevenuePageTop";
@@ -43,8 +46,8 @@ type Session = {
 };
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  in_progress: { label: "In Progress", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  pending_review: { label: "Pending Review", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  in_progress: { label: "In progress", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  pending_review: { label: "To approve", cls: "bg-blue-50 text-blue-700 border-blue-200" },
   approved: { label: "Approved", cls: "bg-green-50 text-green-700 border-green-200" },
 };
 
@@ -103,13 +106,13 @@ function ListView({ onOpen, refreshKey }: { onOpen: (id: string) => void; refres
 
   return (
     <>
-      <RevenuePageTop title="Stock" actionsBesideTitle actions={<Button onClick={() => setShowNew(true)}><Plus className="h-4 w-4" />Count stock</Button>} />
-      <div data-invoice-tabs-host />
-      <section className="kit card-glass overflow-hidden"><div className="p-4 sm:p-5 space-y-3"><h2 className="text-base font-semibold">Counts</h2><p className="text-sm text-muted-foreground">{filtered.length} stock counts</p>
+      <StockTabsRow />
+      <RevenuePageTop tabsAbove actionsBesideTitle title="Stock" actions={<CountStockButton />} />
+      <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0"><div className="space-y-3"><h2 className="text-base font-display font-semibold px-1">{filtered.length} {filtered.length === 1 ? "count" : "counts"}</h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search counts" searchAfterControls mobileSearchBelow filter={<FilterPanel activeCount={statusFilter === "all" ? 0 : 1} onReset={() => setStatusFilter("all")} resultLabel={`Show ${filtered.length} counts`}><FilterGroup title="Status"><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="in_progress">In progress</SelectItem><SelectItem value="pending_review">Pending review</SelectItem><SelectItem value="approved">Approved</SelectItem></SelectContent></Select></FilterGroup></FilterPanel>} sort={<SortMenu value={sort} onChange={setSort} options={[{key:"newest",label:"Newest first",compactLabel:"Newest"},{key:"name",label:"Venue"}]} />} onDownload={() => downloadCSV(filtered.map(s => ({number:s.session_number,venue:s.venue,date:s.count_date,type:s.count_type,status:s.status,value:itemStats[s.id]?.value ?? 0})),[{key:"number",label:"Session #"},{key:"venue",label:"Venue"},{key:"date",label:"Date"},{key:"type",label:"Type"},{key:"status",label:"Status"},{key:"value",label:"Value"}],"stock_counts")} /></div>
-      <table className="hidden min-[641px]:table w-full table-fixed text-sm"><thead className="text-xs text-muted-foreground border-y"><tr>{["Count", "Venue", "Date", "Type", "Status", "Progress", "Value"].map(h => <th key={h} className="text-left px-3 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{filtered.map(s => <tr key={s.id} onClick={() => onOpen(s.id)} className="border-b cursor-pointer hover:bg-muted/40"><td className="px-3 py-3 break-words">{s.session_number}</td><td className="px-3 break-words">{s.venue}</td><td className="px-3">{displayDate(s.count_date)}</td><td className="px-3 capitalize">{s.count_type}</td><td className="px-3">{STATUS_BADGE[s.status].label}</td><td className="px-3 td-num">{itemStats[s.id]?.counted ?? 0}/{itemStats[s.id]?.total ?? 0}</td><td className="px-3 td-num">{s.status === "approved" ? displayCurrency(itemStats[s.id]?.value ?? 0) : "—"}</td></tr>)}</tbody></table>
-      <div className="min-[641px]:hidden divide-y divide-border">{filtered.map(s => <Button key={s.id} variant="ghost" onClick={() => onOpen(s.id)} className="block w-full h-auto rounded-none p-4 text-left whitespace-normal"><div className="font-medium">{s.venue} · {s.session_number}</div><div className="text-xs text-muted-foreground mt-1">{displayDate(s.count_date)} · {s.count_type} · {STATUS_BADGE[s.status].label}</div><div className="text-xs text-muted-foreground mt-1">{itemStats[s.id]?.counted ?? 0}/{itemStats[s.id]?.total ?? 0} counted</div></Button>)}</div>
-      {!filtered.length && <p className="text-center p-8 text-sm text-muted-foreground">No stock counts yet.</p>}</section>
+      {!!filtered.length && <><ul className="min-[641px]:hidden divide-y divide-border/60" aria-label="Stock counts">{filtered.map(s => <li key={s.id}><Button variant="ghost" onClick={() => onOpen(s.id)} className="block w-full h-auto px-2 py-2.5 text-left font-normal hover:bg-transparent"><span className="flex items-baseline justify-between gap-2 text-[14px]"><span className="truncate">{s.venue} · {shortDay(s.count_date)}</span><span className={`shrink-0 text-[13px] ${s.status === "approved" ? "td-num" : "text-muted-foreground"}`}>{s.status === "approved" ? formatTableCurrency(itemStats[s.id]?.value ?? 0) : STATUS_BADGE[s.status].label}</span></span><span className="mt-0.5 block truncate text-[12px] text-muted-foreground td-num">{itemStats[s.id]?.counted ?? 0} of {itemStats[s.id]?.total ?? 0} counted</span></Button></li>)}</ul>
+      <div className="kit sales-table-scroll hidden min-[641px]:block"><table className="sales-table !w-full !table-fixed" aria-label="Stock counts"><colgroup><col className="w-[14%]" /><col /><col className="w-[16%]" /><col className="w-[16%]" /><col className="w-[14%]" /><col className="w-[16%]" /></colgroup><thead><tr><th className="sales-cell-left">Date</th><th className="sales-cell-left">Venue</th><th className="sales-cell-left">Count #</th><th className="sales-cell-left">Status</th><th className="sales-cell-right">Counted</th><th className="sales-cell-right">Value</th></tr></thead><tbody>{filtered.map(s => <tr key={s.id} tabIndex={0} onClick={() => onOpen(s.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(s.id); } }} className="sales-record-row"><td className="sales-cell-left">{shortDay(s.count_date)}</td><td className="sales-cell-left">{s.venue}</td><td className="sales-cell-left td-num">{s.session_number}</td><td className={`sales-cell-left ${s.status === "approved" ? "" : "text-muted-foreground"}`}>{STATUS_BADGE[s.status].label}</td><td className="sales-cell-right td-num">{itemStats[s.id]?.counted ?? 0}/{itemStats[s.id]?.total ?? 0}</td><td className="sales-cell-right td-num">{s.status === "approved" ? formatTableCurrency(itemStats[s.id]?.value ?? 0) : "—"}</td></tr>)}</tbody></table></div></>}
+      {!filtered.length && <p className="p-10 text-center text-sm text-muted-foreground">{search || statusFilter !== "all" ? "Nothing matches your search or filters." : "No stock counts yet."}</p>}</section>
       {showNew && (
         <NewCountDialog
           initialVenue={venueScope.selectedNames.length === 1 ? venueScope.selectedNames[0] : ""}
