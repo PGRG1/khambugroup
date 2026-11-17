@@ -1,8 +1,3 @@
-## Settings information architecture — current request
-- [x] Replace default tab with overview and grouped persistent navigation; preserve legacy links and access boundaries.
-- [x] Split business/operations destinations, focused directly linkable venue subsections, real approvals, inline finance editors; retain existing saves.
-- [x] 35 focused tests passed; signed-in YC Cafe desktop/390px phone navigation, legacy links and unsaved Cancel verified; build OK. No data saves, database changes or publish. Shared selector type-only fixes resolved three existing compile errors.
-
 ## Assignment-only bell — current request
 - [x] Add tenant top-bar bell for existing named finance-team assignments, opening their grounded context in Bani without task updates or server writes.
 - [x] Four focused tests and build OK; signed-in existing assignments show 2 unread, opening one in Bani reduces to 1 only after display, original task remains open; phone popover verified. Receipts are device-local; generic team messages and other assignment workflows lack notification linkage and are excluded. No task/financial writes or pushes.
