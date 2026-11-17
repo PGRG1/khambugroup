@@ -11,13 +11,13 @@ import DocumentCentre from "./DocumentCentre";
 import { FinanceViewTabs } from '@/components/finance/FinanceViewTabs';
 import './books.css';
 const views = [
-  ["journal", "Journal"],
+  ["journal", "Journal entries"],
   ["ledger", "Ledger"],
   ["trial-balance", "Trial balance"],
-  ["chart-of-accounts", "Accounts"],
+  ["chart-of-accounts", "Chart of accounts"],
   ["schedules", "Schedules"],
   ["tax", "Tax"],
-  ["currencies", "Currencies"],
+  ["currencies", "Currency"],
   ["documents", "Documents"],
   ["ledger-audit", "Audit"],
 ];

@@ -1,3 +1,4 @@
+import {BaseCurrencySetting} from '@/components/settings/BaseCurrencySetting';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +29,7 @@ export function CurrenciesView() {
   }
   return <div className="space-y-4">
     <section className="kit card-glass rounded-xl"><div className="px-4 py-4 sm:px-5 grid gap-3 sm:grid-cols-2 text-sm">
-      <div><p className="kit-group-h">Base currency</p><p className="font-medium">{base} · {currencySymbol(base)}</p><p className="text-xs text-muted-foreground">Change it in Settings › Accounting until the first entry is posted.</p></div>
+      <div><BaseCurrencySetting/><p className="text-xs text-muted-foreground mt-1">{base} · {currencySymbol(base)} · can change until the first entry is posted.</p></div>
       <div><p className="kit-group-h">Rate source</p><p>Daily reference rates (open.er-api.com; ECB history for past dates)</p><p className="text-xs text-muted-foreground">Month-end uses the last rate on or before month end. Your own rates win for their date.</p></div>
     </div></section>
     <section className="kit card-glass rounded-xl overflow-hidden">

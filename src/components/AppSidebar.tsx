@@ -463,7 +463,7 @@ export function AppSidebar() {
     { title: "Business", to: "/settings?tab=business", active: sTab === "business", admin: true },
     { title: "Users", to: "/settings?tab=users", active: sTab === "users" && sView !== "activity", admin: true },
     { title: "Activity", to: "/settings?tab=users&view=activity", active: sTab === "users" && sView === "activity", admin: true },
-    { title: "Accounting", to: "/settings?tab=accounting", active: sTab === "accounting", admin: true },
+    { title: "Money setup", to: "/settings?tab=accounting", active: sTab === "accounting", admin: true },
     { title: "Master data", to: "/settings?tab=master-data", active: sTab === "master-data", admin: false },
     { title: "Bani", to: "/settings?tab=bani", active: sTab === "bani", admin: true },
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));

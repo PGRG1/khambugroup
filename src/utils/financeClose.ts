@@ -1,11 +1,15 @@
 export const financeTabs = [
-  { label: "Overview", path: "/finance" },
-  { label: "Payables", path: "/finance/payables" },
+  { label: "Cash", path: "/finance/cash" },
   { label: "Receivables", path: "/finance/receivables" },
-  { label: "Bank & cash", path: "/finance/cash" },
-  { label: "Month close", path: "/finance/close" },
+  { label: "Payables", path: "/finance/payables" },
+  { label: "Close", path: "/finance/close" },
+  { label: "Accounting", path: "/finance/books" },
   { label: "Reports", path: "/finance/reports" },
-  { label: "Books", path: "/finance/books" },
+];
+/** Close tabs (Rillet layout): the checklist, and everything waiting for approval. */
+export const closeTabs = [
+  { key: "checklist", label: "Checklist" },
+  { key: "approvals", label: "Approvals" },
 ];
 export interface MonthCheck {
   month: string;

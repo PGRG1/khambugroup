@@ -1,3 +1,4 @@
+import {AccountingTab} from '@/components/settings/AccountingTab';
 import { useMemo, useState } from "react";
 import {
   useChartOfAccounts, ChartAccount, AccountType, NormalSide,
@@ -327,6 +328,7 @@ export default function ChartOfAccountsPage() {
               <TabsTrigger value="procurement">Procurement</TabsTrigger>
               <TabsTrigger value="payroll">Payroll</TabsTrigger>
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger value="categories">Bills &amp; cash receipts</TabsTrigger>
             </TabsList>
             <TabsContent value="sales-revenue" className="mt-4">
               <RevenueMappingMatrix accounts={items} section="sales" />
@@ -342,6 +344,9 @@ export default function ChartOfAccountsPage() {
             </TabsContent>
             <TabsContent value="expenses" className="mt-4">
               <ExpenseMappingMatrix accounts={items} />
+            </TabsContent>
+            <TabsContent value="categories" className="mt-4">
+              <AccountingTab destination="mappings" />
             </TabsContent>
           </Tabs>
         </TabsContent>

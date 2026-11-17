@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Link,useSearchParams} from 'react-router-dom';
+import {Link,Navigate,useSearchParams} from 'react-router-dom';
 import {ArrowLeft,ChevronRight,Search} from 'lucide-react';
 import {useAuth} from '@/hooks/useAuth';
 import {usePreviewMode} from '@/hooks/usePreviewMode';
@@ -14,7 +14,7 @@ import {UsersTab} from '@/components/settings/UsersTab';
 import {AccountingTab} from '@/components/settings/AccountingTab';
 import {BaniTab} from '@/components/settings/BaniTab';
 import {MasterDataTab} from '@/components/settings/MasterDataTab';
-import {resolveSettingsDestination,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
+import {movedToAccounting,resolveSettingsDestination,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
 import './settings.css';
@@ -26,6 +26,8 @@ export default function Settings(){
  useEffect(()=>{document.body.dataset.settings='1';return()=>{delete document.body.dataset.settings;};},[]);
  const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'));
  const current=resolveSettingsDestination(params);const active=destinations.find(d=>d.id===current);
+ const moved=current!=='overview'&&current!=='denied'?movedToAccounting[current]:undefined;
+ if(moved&&admin)return <Navigate to={moved} replace/>;
  if(!destinations.length||current!=='overview'&&!active)return <AccessDenied/>;
  const groups=[...new Set(destinations.map(d=>d.group))];
  const business=memberships.find(m=>m.tenant_id===tenantId)?.tenant_name??'Current business';

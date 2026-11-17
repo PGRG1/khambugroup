@@ -22,8 +22,16 @@ export const settingsDestinations = [
   {id:'bani',group:'Bani',label:'What Bani learned',description:'Find, inspect and forget learned information',query:'tab=bani'},
 ] as const;
 export type SettingsDestination = typeof settingsDestinations[number]['id'];
+/** Accounting lives in one place: Finance › Accounting. These destinations open there instead of Settings. */
+export const movedToAccounting: Partial<Record<SettingsDestination,string>> = {
+  base:'/finance/books?view=currencies',
+  schedule:'/finance/books?view=schedules',
+  tax:'/finance/books?view=tax',
+  accounts:'/finance/books?view=chart-of-accounts',
+  mappings:'/finance/books?view=chart-of-accounts',
+};
 export function settingsHref(id:SettingsDestination){return `/settings?${settingsDestinations.find(d=>d.id===id)?.query??''}`;}
-export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean){return settingsDestinations.filter(d=>admin||(invoiceAccess&&d.group==='Master data'));}
+export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&(admin||(invoiceAccess&&d.group==='Master data')));}
 export function resolveSettingsDestination(params:URLSearchParams):SettingsDestination|'overview'|'denied'{
  const tab=params.get('tab');const section=params.get('section');const view=params.get('view');
  if(!tab)return 'overview';
@@ -35,7 +43,7 @@ export function resolveSettingsDestination(params:URLSearchParams):SettingsDesti
  if(tab==='accounting'){
    if(view==='categories')return 'mappings';
    if(view==='merchants'||view==='fee-rates')return 'processors';
-   return ['base','books','schedule','tax','accounts','processors','opening'].includes(view??'')?view as SettingsDestination:'base';
+   return ['base','books','schedule','tax','accounts','processors','opening'].includes(view??'')?view as SettingsDestination:'books';
  }
  if(tab==='master-data')return params.get('md')==='products'?'products':params.get('md')==='categories'?'categories':'suppliers';
  return tab==='bani'?'bani':'denied';
