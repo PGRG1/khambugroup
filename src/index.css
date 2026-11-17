@@ -945,6 +945,13 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
 html:not(.dark) .tenant-portal .period-pill { background: #FFFFFF; color: #121510; border: 1px solid rgba(31, 63, 59, 0.12); box-shadow: 0 1px 2px rgba(20, 45, 43, 0.06); }
 html:not(.dark) .tenant-portal .period-pill:hover { background: #F7F9F8; }
 .period-pill:focus { outline: none; }
+/* Top-row actions are the same pill as the date: 40px, fully round, 14px regular text, light shadow.
+   White actions also take the date pill's border; the main action keeps its green fill. */
+.tenant-portal .page-top-actions button { height: 40px; border-radius: 999px; font-size: 14px; font-weight: 400; box-shadow: 0 1px 2px rgba(20, 45, 43, 0.06); }
+.tenant-portal .page-top-actions button:not([class*="w-10"]):not([class*="w-9"]) { padding-left: 16px; padding-right: 16px; }
+html:not(.dark) .tenant-portal .page-top-actions button:not(.bg-primary):not([class*="bg-primary"]) { background: #FFFFFF; color: #121510; border: 1px solid rgba(31, 63, 59, 0.12); }
+html:not(.dark) .tenant-portal .page-top-actions button:not(.bg-primary):not([class*="bg-primary"]):hover { background: #F7F9F8; }
+.tenant-portal .page-top-actions button[class*="bg-primary"] { border: 1px solid transparent; }
 
 /* Purchase orders on a phone: the status row slides sideways, fading out before the round + button. */
 .po-status-row { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); }
