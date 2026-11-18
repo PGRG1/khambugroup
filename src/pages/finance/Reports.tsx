@@ -90,13 +90,12 @@ export default function Reports() {
     const amount = (r: PLRow, i: number) => r.values[i] == null ? '—' : r.percent ? formatPercent(r.values[i]!) : signed(r.values[i] ?? 0);
     const ledger = (r: PLRow) => r.accountId ? () => navigate(`/finance/books?view=ledger&account=${encodeURIComponent(r.accountId!)}`) : undefined;
     const stats: Stat[] = [
-      { label: 'Revenue', value: formatTableCurrency(sales), sub: prevSales ? `${sales >= prevSales ? '+' : '−'}${formatPercent(Math.abs((sales - prevSales) / prevSales * 100))} on ${prevName}` : 'posted sales' },
-      { label: 'Prime cost', value: formatPercent(prime), sub: 'food, drinks and staff · aim under 60%', tone: prime > 60 ? 'amber' : undefined },
       { label: 'Profit before tax', value: signed(profit), sub: sales ? `${formatPercent(profit / sales * 100)} margin` : '', tone: profit >= 0 ? 'green' : 'amber' },
-    ];
+      { label: 'Revenue', value: formatTableCurrency(sales), sub: prevSales ? `${sales >= prevSales ? '+' : '−'}${formatPercent(Math.abs((sales - prevSales) / prevSales * 100))} on ${prevName}` : 'posted sales' },
+      { label: 'Prime cost', value: formatPercent(prime), sub: 'food, drinks and staff · aim under 60%', tone: prime > 60 ? 'amber' : undefined },    ];
     const plExport = shown.map(r => ({ label: r.label, values: r.values, percent: r.percent, section: r.kind === 'section' }));
     return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit and loss', columns, plExport, f)} label="Download profit and loss" disabled={loading || failed} /></>)}{error}
-      <Hero aria="Profit summary" busy={loading} label={`${period.label} · ${scope.label} · posted books, accrual basis`} check={closed ? `${months.length === 1 ? formatMonthLabel(months[0]) : 'Every month'} is closed` : 'Not closed yet · figures can still change'} checkTone={closed ? 'ok' : 'mut'} stats={stats} />
+      <Hero aria="Profit summary" busy={loading} label={period.label} check={closed ? `${months.length === 1 ? formatMonthLabel(months[0]) : 'Every month'} is closed` : 'Not closed yet'} checkTone={closed ? 'ok' : 'mut'} stats={stats} />
       {why && !loading && <p className="px-1 text-[13px] text-muted-foreground"><span className="font-medium text-[color:var(--kit-ink)]">Bani:</span> {why}</p>}
       <Section title="Profit & loss" detail={compare === 'off' ? period.label : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
         <QuickFilter label="Detail" value={detailed} onChange={setDetailed} options={[{ key: 'summary', label: 'Summary' }, { key: 'detail', label: 'Account detail' }]} />

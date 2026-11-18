@@ -23,16 +23,18 @@ export type Stat = { label: string; value: ReactNode; sub?: ReactNode; tone?: 'a
 const COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4' };
 
 export function Hero({ label, check, checkTone = 'ok', stats, busy, aria }: { label: ReactNode; check?: ReactNode; checkTone?: Tone; stats: Stat[]; busy?: boolean; aria: string }) {
-  return <section className="card-glass rounded-xl p-4 min-w-0" aria-label={aria} aria-busy={busy}>
-    <div className="flex items-baseline justify-between gap-3 px-1">
-      <p className="min-w-0 truncate text-[12px] text-muted-foreground">{label}</p>
-      {check && <p className="shrink-0 text-[12px] whitespace-nowrap"><Status text={check} tone={checkTone} /></p>}
+  // Same shape as Revenue's and Purchasing's main card: label, one big number, one short line, then up to three stats.
+  const [main, ...rest] = stats;
+  return <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3 min-w-0" aria-label={aria} aria-busy={busy}>
+    <div className="min-w-0">
+      <p className="text-[13px] font-medium text-muted-foreground truncate">{label}{main ? ` · ${main.label}` : ''}</p>
+      {main && <p className={`mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap ${main.tone === 'amber' ? 'text-[#B45309]' : ''}`}>{busy ? '…' : main.value}</p>}
+      {check && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] truncate"><Status text={check} tone={checkTone} /></p>}
     </div>
-    <div className={`mt-2 grid gap-3 px-1 ${COLS[Math.min(stats.length, 4)]}`}>{stats.map(s => <div key={s.label} className="min-w-0">
-      <p className="text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s.label}</p>
-      <p className={`mt-0.5 text-[20px] max-sm:text-[15px] font-semibold td-num whitespace-nowrap overflow-hidden text-ellipsis ${s.tone === 'amber' ? 'text-[#B45309]' : s.tone === 'green' ? 'text-[#1F6B5E]' : ''}`}>{busy ? '…' : s.value}</p>
-      {s.sub && <p className="mt-0.5 text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s.sub}</p>}
-    </div>)}</div>
+    {rest.length > 0 && <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>{rest.slice(0, 3).map(s => <div key={s.label} className="min-w-0">
+      <p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s.label}</p>
+      <p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${s.tone === 'amber' ? 'text-[#B45309]' : s.tone === 'green' ? 'text-[#1F6B5E]' : ''}`}>{busy ? '…' : s.value}</p>
+    </div>)}</div>}
   </section>;
 }
 
@@ -43,7 +45,7 @@ export function Section({ title, detail, aria, busy, children }: { title: string
   </section>;
 }
 
-export const Note = ({ children }: { children: ReactNode }) => <p className="px-1 text-[12px] text-muted-foreground">{children}</p>;
+export const Note = (_: { children: ReactNode }) => null;
 
 export const Ask = ({ children }: { children: ReactNode }) => <div className="rounded-[14px] bg-[#FDF3E8] px-4 py-3 text-[13px] text-[#8A420B]"><b className="font-semibold">Needs you:</b> {children}</div>;
 

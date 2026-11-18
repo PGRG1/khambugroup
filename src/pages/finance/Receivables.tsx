@@ -79,10 +79,10 @@ export default function Receivables() {
   const flag = (r: Row) => r.tone === 'amber' ? <span className="sales-flag" role="img" aria-label={r.status} title={r.status}>!</span> : null;
   const owedCell = (n: number | null): ReactNode => loading ? '…' : n === null ? <span className="text-muted-foreground">—</span> : formatTableCurrency(n);
   const top = <PageTop tabsAbove title="Receivables" period={period.control} actions={<Button size="sm" className="h-10" onClick={uploadPayouts}><Upload className="h-4 w-4" />Upload payouts</Button>} />;
-  const hero = (label: string, amount: number, parts: [string, number | null, boolean?][]) => <section className="card-glass rounded-xl p-4 min-w-0" aria-label={label} aria-busy={loading}>
-    <p className="px-1 text-[12px] text-muted-foreground whitespace-nowrap">{label} · as at {shortDay(asAt)}</p>
-    <p className="px-1 mt-0.5 text-[28px] max-sm:text-[24px] font-semibold td-num whitespace-nowrap">{loading ? '…' : formatTableCurrency(amount)}</p>
-    <div className="mt-3 grid grid-cols-3 gap-3 px-1">{parts.map(([l, v, hot]) => <div key={l} className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`mt-0.5 text-[15px] max-sm:text-[14px] font-semibold td-num whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v === null ? '—' : formatTableCurrency(v)}</p></div>)}</div>
+  const hero = (label: string, amount: number, parts: [string, number | null, boolean?][]) => <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 max-sm:px-4 max-sm:py-4 min-w-0" aria-label={label} aria-busy={loading}>
+    <p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">{label} · {shortDay(asAt)}</p>
+    <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : formatTableCurrency(amount)}</p>
+    <div className="mt-4 max-sm:mt-3 grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{parts.map(([l, v, hot]) => <div key={l} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v === null ? '—' : formatTableCurrency(v)}</p></div>)}</div>
   </section>;
 
   if (params.get('view') === 'payouts') return <Navigate to="/finance/cash?view=payouts" replace />;
@@ -137,7 +137,7 @@ export default function Receivables() {
           ['Owed to you', m.owed === null ? '—' : formatTableCurrency(m.owed), m.shared ? 'Shared · split not set' : `${formatTableInteger(open.length)} sale ${open.length === 1 ? 'day' : 'days'} not paid`, open.length > 0],
           ['Oldest not paid', oldest ? shortDay(oldest) : '—', oldest ? `${formatTableInteger(daysBetween(oldest, asAt))} days ago` : 'Nothing waiting', !!oldest && daysBetween(oldest, asAt) > 7],
           ['Paid last 30 days', formatTableCurrency(recent), m.last ? `last payout ${shortDay(m.last)}` : 'no payouts matched', false],
-        ].map(([l, v, s, hot]) => <div key={l as string} className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[20px] max-sm:text-[16px] font-semibold td-num whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v}</p><p className="text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s}</p></div>)}</div>
+        ].map(([l, v, s, hot]) => <div key={l as string} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[20px] max-sm:text-[16px] font-semibold td-num whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v}</p><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s}</p></div>)}</div>
       </section>
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="What makes it up">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>What makes it up</span><span className="text-[13px] text-muted-foreground font-normal">· oldest first · unpaid days and the last 30 days</span></h2>
@@ -164,7 +164,7 @@ export default function Receivables() {
   return <div className="min-w-0 w-full space-y-5 max-sm:space-y-3 pb-24"><FinanceViewTabs items={recTabs} value="who" />{top}
     {hero('Owed to you', total, GROUPS.map(g => [g, g === 'Delivery apps' ? null : groupTotal(g)]))}
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Who owes you" aria-busy={loading}>
-      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Who owes you</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(rows.length)}{needYou ? ` · ${formatTableInteger(needYou)} need you` : ' · all fine'}</span></h2>
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(rows.length)} {rows.length === 1 ? 'source' : 'sources'}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">{needYou ? `· ${formatTableInteger(needYou)} need you` : ''}</span></h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search" mobileSearchBelow onDownload={download} downloadLabel="Download receivables" />
       <div className="min-[768px]:hidden kit">{GROUPS.filter(g => shownRows.some(r => r.group === g)).map(g => <Fragment key={g}>
         <p className="mt-3 mb-1 px-2 flex justify-between gap-2 text-[13px] font-semibold text-[color:var(--kit-ink)] whitespace-nowrap"><span>{g}</span><span className="td-num">{g === 'Delivery apps' ? '—' : formatTableCurrency(groupTotal(g, shownRows))}</span></p>
@@ -184,7 +184,6 @@ export default function Receivables() {
             <td className={`sales-cell-left ${TONE[r.tone]}`}>{r.tone === 'ok' ? '✓ ' : ''}{r.status}</td>
             <td className="kit-num">{actionLink(r)}</td>
           </tr>)}</Fragment>)}</tbody></table></div>
-      <p className="px-1 text-[12px] text-muted-foreground">Tap a row to see what makes up the balance, oldest first. Card payout reports are uploaded in Cash › Card payouts.</p>
     </section>
   </div>;
 }

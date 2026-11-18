@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { ChartShell } from "@/components/revenue-overview/ChartShell";
+import { cn } from "@/lib/utils";
 import { useBankModule } from "@/hooks/useBankModule";
 import { usePettyCash } from "@/hooks/usePettyCash";
 import { usePayables } from "@/hooks/usePayables";
@@ -16,6 +18,10 @@ type Books = { entries: any[]; lines: any[]; accounts: any[] };
 type Payroll = Parameters<typeof financeProfit>[3];
 
 const card = "kit card-glass rounded-xl p-4 max-sm:p-3.5 min-w-0";
+/** Purchasing Overview's card, unchanged. */
+function OverviewChartShell({ children, className, ...props }: Parameters<typeof ChartShell>[0]) {
+  return <ChartShell {...props} className={cn("max-sm:p-3.5 max-sm:[&>div:first-child]:mb-2", "[&>div:first-child>div:first-child>div:first-child]:text-[15px] [&>div:first-child>div:first-child>div:first-child]:font-semibold [&>p]:text-[12.5px] [&>div:first-child]:flex-wrap [&>div:first-child>div:last-child]:max-w-full [&>div:first-child>div:last-child]:shrink [&>div:first-child>div:last-child]:min-w-0 max-sm:[&>div:first-child>div:last-child]:basis-full", className)}>{children}</ChartShell>;
+}
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const Head = ({ title, sub, right }: { title: string; sub?: string; right?: string }) => (
   <div className="flex items-baseline justify-between gap-3 mb-3 px-1">
@@ -31,9 +37,10 @@ const Line = ({ label, value, total }: { label: string; value: number; total?: b
 );
 
 /** Finance Overview cards: will cash be fine, who's late, is any cost creeping up, can I trust the books. */
-export function OverviewCards({ books, payroll, completeMonths, clearingIds, today, checks, closed, month }: {
+export function OverviewCards({ books, payroll, completeMonths, clearingIds, today, checks, closed, month, lines, profit }: {
   books: Books; payroll: Payroll; completeMonths: string[]; clearingIds: Set<string>; today: string;
   checks: { month: string; complete?: boolean }[]; closed: { month_start: string; reopened_at: string | null }[]; month: string;
+  lines?: { id: string; label: string; amount?: number; href: string }[]; profit?: { month: string; value: number } | null;
 }) {
   const bank = useBankModule(), pc = usePettyCash(), ap = usePayables(), other = useFinanceObligations(), ar = useReceivables(), scope = useVenueScope(), terms = useSupplierDisplayTerms();
   const soon = addDays(today, 14);
@@ -81,44 +88,38 @@ export function OverviewCards({ books, payroll, completeMonths, clearingIds, tod
   const statementTo = bank.imports.map(i => i.period_end).filter(Boolean).sort().pop();
   const firstOpen = recent.find(m => !isClosed(m) && m < today.slice(0, 7));
 
+  const landing = bankNow + boxes + comingIn - goingOut;
+  const needs = (lines ?? []).slice(0, 6);
+  const states = recent.map(m => {
+    const c = checks.find(x => x.month === m);
+    const state = isClosed(m) ? "Closed" : m === today.slice(0, 7) ? "Open" : c?.complete ? "Booked" : m > today.slice(0, 7) ? "—" : "Not closed";
+    return { m, state };
+  });
+  const row = "flex items-center justify-between gap-3 min-h-11 border-t border-border/60 first:border-t-0 text-[13px]";
+
   return <>
-    <section className={card} aria-label="Cash">
-      <Head title="Cash" sub="Today and the next 14 days" right={statementTo ? `bank to ${shortDay(statementTo)}` : "no statement yet"} />
-      <div className="grid gap-3 px-1" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-        <Stat label="Bank" value={shortMoney(bankNow)} sub={`${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}`} />
-        <Stat label="Cards in transit" value={shortMoney(Math.max(0, transit))} sub="paid out, not in bank" />
-        <Stat label="Cash boxes" value={shortMoney(boxes)} sub={`${floats.length} ${floats.length === 1 ? "box" : "boxes"}`} />
+    <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3" aria-label="Cash">
+      <div>
+        <p className="text-[13px] font-medium text-muted-foreground">Cash on {shortDay(soon)}</p>
+        <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums">{landing < 0 ? "−" : ""}{shortMoney(Math.abs(landing))}</p>
+        <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-muted-foreground tabular-nums">{shortMoney(bankNow + boxes)} now · {shortMoney(comingIn)} in · {shortMoney(goingOut)} out{statementTo ? "" : " · no bank statement yet"}</p>
       </div>
-      <div className="mt-3">
-        <Line label="Coming in · cards and customers" value={comingIn} />
-        <Line label="Going out · due in 14 days" value={-goingOut} />
-        <Line label={`Bank on ${shortDay(soon)}`} value={bankNow + comingIn - goingOut} total />
-      </div>
-    </section>
-
-    <section className={card} aria-label="Owed">
-      <Head title="Owed" />
-      <div className="grid grid-cols-2 gap-3 px-1">
-        <Link to="/finance/receivables?view=age" className="min-w-0"><Stat label="To you" value={shortMoney(owedToYou)} sub={late > .005 ? `${shortMoney(late)} over 30 days late` : "nothing late"} warn={late > .005} /></Link>
-        <Link to="/finance/payables?view=age" className="min-w-0"><Stat label="By you" value={shortMoney(youOwe)} sub={overdue > .005 ? `${shortMoney(overdue)} overdue` : "nothing overdue"} warn={overdue > .005} /></Link>
+      <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+        <Link to="/finance/receivables" className="min-w-0"><Stat label="Owed to you" value={shortMoney(owedToYou)} sub={late > .005 ? `${shortMoney(late)} late` : undefined} warn={late > .005} /></Link>
+        <Link to="/finance/payables" className="min-w-0"><Stat label="You owe" value={shortMoney(youOwe)} sub={overdue > .005 ? `${shortMoney(overdue)} overdue` : undefined} warn={overdue > .005} /></Link>
+        {profit ? <Link to="/finance/reports?view=pl" className="min-w-0"><Stat label={`Profit · ${formatMonthLabel(profit.month).split(" ")[0]}`} value={`${profit.value < 0 ? "−" : ""}${shortMoney(Math.abs(profit.value))}`} /></Link>
+          : <Stat label="Profit" value="—" sub="no closed month" />}
       </div>
     </section>
 
-    {rows.length > 0 && <section className={card} aria-label="Costs as % of sales">
-      <Head title="Costs as % of sales" sub={`Last ${rows.length} ${rows.length === 1 ? "month" : "months"} · amber when off your usual`} />
-      <div className="kit sales-table-scroll"><table className="sales-table w-full" aria-label="Costs as % of sales">
-        <thead><tr><th className="sales-cell-left"><span className="sr-only">Cost</span></th>{rows.map(r => <th key={r.m} className="sales-cell-right">{formatMonthLabel(r.m).split(" ")[0]}</th>)}</tr></thead>
-        <tbody>{series.map(s => <tr key={s.name} className="sales-record-row"><td className="sales-cell-left">{s.name}</td>{s.vals.map((v, i) => <td key={i} className={`sales-cell-right td-num ${i === s.vals.length - 1 && drifting(s.vals, s.up) ? "text-[#B45309] font-semibold" : ""}`}>{v == null ? "—" : v.toFixed(1)}</td>)}</tr>)}</tbody>
-      </table></div>
-    </section>}
-
-    <section className={card} aria-label="Books">
-      <Head title="Books" sub="What you can rely on" right={statementTo ? `matched to ${shortDay(statementTo)}` : undefined} />
-      <div className="grid grid-cols-4 gap-1.5">{recent.map(m => {
-        const c = checks.find(x => x.month === m), state = isClosed(m) ? "Closed" : m === today.slice(0, 7) ? "Open" : c?.complete ? "Booked" : m > today.slice(0, 7) ? "—" : "Not closed";
-        return <Link key={m} to={`/finance/close?month=${m}`} className="bg-muted/50 rounded-lg py-2.5 px-1 text-center min-w-0"><span className="block text-[13px] font-medium">{formatMonthLabel(m).split(" ")[0]}</span><span className={`block text-[11px] mt-1 whitespace-nowrap ${state === "Closed" ? "text-success" : state === "Not closed" ? "text-[#B45309]" : "text-muted-foreground"}`}>{state}</span></Link>;
-      })}</div>
-      {firstOpen && <p className="mt-2 px-1 text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{formatMonthLabel(firstOpen).split(" ")[0]} isn’t closed yet · <Link to={`/finance/close?month=${firstOpen}`} className="kit-link">Finish it</Link></p>}
-    </section>
+    <div className="grid gap-5 max-sm:gap-3 lg:grid-cols-2 items-stretch min-w-0 [&>*]:min-w-0">
+      <OverviewChartShell className="h-full min-w-0" title={(lines ?? []).length ? `${(lines ?? []).length} ${(lines ?? []).length === 1 ? "thing needs" : "things need"} you` : "Nothing needs you"}>
+        <div className="kit">{needs.map(l => <Link key={l.id} to={l.href} className={row}><span className="min-w-0 truncate">{l.label}</span><span className="shrink-0 td-num text-muted-foreground">{l.amount != null ? formatTableCurrency(l.amount) : "›"}</span></Link>)}</div>
+        {(lines ?? []).length > needs.length && <Link to="/finance/close?view=approvals" className="inline-flex h-9 items-center text-xs text-muted-foreground hover:text-foreground">See all {(lines ?? []).length}</Link>}
+      </OverviewChartShell>
+      <OverviewChartShell className="h-full min-w-0" title="Books">
+        <div className="kit">{states.map(({ m, state }) => <Link key={m} to={`/finance/close?month=${m}`} className={row}><span>{formatMonthLabel(m)}</span><span className={`shrink-0 ${state === "Closed" ? "text-[#15803D]" : state === "Not closed" ? "text-[#B45309]" : "text-muted-foreground"}`}>{state}</span></Link>)}</div>
+      </OverviewChartShell>
+    </div>
   </>;
 }

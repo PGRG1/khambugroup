@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { Fragment, useState, type KeyboardEvent } from 'react';
 import { owedInCurrency } from '@/utils/fxDocument';
 import { getBaseCurrency } from '@/utils/money';
@@ -78,14 +79,14 @@ export default function Payables() {
     const payees = new Set(all.map(i => i.payeeKey ?? i.payee)).size, needs = groupPayees(all).filter(g => g.items.some(i => late(i) > 0)).length;
     const download = () => downloadCSV(groups.flatMap(x => x.gs.map(({ g, s }) => ({ group: x.c, who: g.name, owed: g.amount, status: s.text }))), [{ key: 'group', label: 'Group' }, { key: 'who', label: 'Who' }, { key: 'owed', label: 'Owed' }, { key: 'status', label: 'Status' }], 'payables');
     return <>
-      <section className="card-glass rounded-xl p-4 min-w-0" aria-label="You owe" aria-busy={loading}>
-        <p className="px-1 text-[12px] text-muted-foreground whitespace-nowrap">You owe · as at {shortDay(asAt)}</p>
-        <p className="px-1 mt-0.5 text-[28px] max-sm:text-[24px] font-semibold td-num whitespace-nowrap">{loading ? '…' : formatTableCurrency(total)}</p>
-        {overdueTotal > 0.005 && <p className="px-1 mt-0.5 text-[13px] text-[#B45309] whitespace-nowrap">{formatTableCurrency(overdueTotal)} is overdue</p>}
-        <div className="mt-3 grid grid-cols-3 gap-3 px-1">{CATS.map(c => <div key={c} className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{c}</p><p className="mt-0.5 text-[15px] max-sm:text-[14px] font-semibold td-num whitespace-nowrap">{formatTableCurrency(catTotal(c))}</p></div>)}</div>
+      <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3 min-w-0" aria-label="You owe" aria-busy={loading}>
+        <div><p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">You owe · {shortDay(asAt)}</p>
+        <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : shortMoney(total)}</p>
+        {overdueTotal > 0.005 && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-[#B45309] tabular-nums">{shortMoney(overdueTotal)} overdue</p>}</div>
+        <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>{CATS.map(c => <div key={c} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{c}</p><p className="text-[16px] font-semibold td-num tabular-nums whitespace-nowrap">{shortMoney(catTotal(c))}</p></div>)}</div>
       </section>
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Who you owe" aria-busy={loading}>
-        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Who you owe</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(payees)}{needs ? ` · ${formatTableInteger(needs)} need you` : ' · nothing overdue'}</span></h2>
+        <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(payees)} {payees === 1 ? 'payee' : 'payees'}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableCurrency(total)}{needs ? ` · ${formatTableInteger(needs)} overdue` : ''}</span></h2>
         <Toolbar search={search} onSearch={setSearch} placeholder="Search" mobileSearchBelow onDownload={download} downloadLabel="Download payables" />
         <div className="min-[768px]:hidden kit">{groups.map(({ c, gs }) => <Fragment key={c}>
           <p className="mt-3 mb-1 px-2 flex justify-between gap-2 text-[13px] font-semibold text-[color:var(--kit-ink)] whitespace-nowrap"><span>{c}</span><span className="td-num">{formatTableCurrency(gs.reduce((n, x) => n + x.g.amount, 0))}</span></p>
@@ -187,11 +188,11 @@ export default function Payables() {
     const amt = (v: number, hot = false) => v > 0.005 ? <span className={hot ? 'font-semibold text-[#B45309]' : ''}>{formatTableCurrency(v)}</span> : <span className="text-muted-foreground">—</span>;
     const download = () => downloadCSV(groups.map(({ g, v }) => ({ who: g.name, a: v[0], b: v[1], c: v[2], d: v[3], total: g.amount })), [{ key: 'who', label: 'Who' }, { key: 'a', label: AGE[0] }, { key: 'b', label: AGE[1] }, { key: 'c', label: AGE[2] }, { key: 'd', label: AGE[3] }, { key: 'total', label: 'Total' }], `payables-ageing-${asAt}`);
     return <>
-      <section className="card-glass rounded-xl p-4 min-w-0" aria-label="You owe by age" aria-busy={loading}>
-        <p className="px-1 text-[12px] text-muted-foreground whitespace-nowrap">You owe · as at {shortDay(asAt)}</p>
-        <p className="px-1 mt-0.5 text-[28px] max-sm:text-[24px] font-semibold td-num whitespace-nowrap">{loading ? '…' : formatTableCurrency(sum)}</p>
-        {tot[3] > 0.005 && <p className="sm:hidden px-1 mt-1 text-[13px] text-[#B45309] whitespace-nowrap">{formatTableCurrency(tot[3])} is over 90 days late</p>}
-        <div className="max-sm:hidden mt-3 grid grid-cols-4 gap-3 px-1">{AGE.map((b, k) => <div key={b} className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`mt-0.5 text-[15px] font-semibold td-num whitespace-nowrap ${k === 3 && tot[3] > 0.005 ? 'text-[#B45309]' : ''}`}>{formatTableCurrency(tot[k])}</p></div>)}</div>
+      <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 max-sm:px-4 max-sm:py-4 min-w-0" aria-label="You owe by age" aria-busy={loading}>
+        <p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">You owe · {shortDay(asAt)}</p>
+        <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : formatTableCurrency(sum)}</p>
+        {tot[3] > 0.005 && <p className="sm:hidden mt-2 text-[13px] max-sm:text-[12px] text-[#B45309] whitespace-nowrap">{formatTableCurrency(tot[3])} is over 90 days late</p>}
+        <div className="max-sm:hidden mt-4 max-sm:mt-3 grid grid-cols-4 gap-3 border-t border-border/50 pt-3">{AGE.map((b, k) => <div key={b} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${k === 3 && tot[3] > 0.005 ? 'text-[#B45309]' : ''}`}>{formatTableCurrency(tot[k])}</p></div>)}</div>
       </section>
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="By who" aria-busy={loading}>
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>By who</span><span className="text-[13px] text-muted-foreground font-normal">· days past the due date</span></h2>

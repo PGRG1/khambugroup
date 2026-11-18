@@ -1,3 +1,4 @@
+import { shortMoney } from "@/utils/revenueOverview";
 import { Fragment, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { BankAccount, useBankModule } from "@/hooks/useBankModule";
@@ -89,13 +90,13 @@ export function CashAccountsView({ bank, pc, ledger, asAt, onEditCash, onUpload,
   const flag = (r: Row) => r.tone === "amber" ? <span className="sales-flag" role="img" aria-label={r.status} title={r.status}>!</span> : null;
   const cols = bvb ? 8 : 5;
   return <>
-    <section className="card-glass rounded-xl p-4 min-w-0" aria-label="Cash you have" aria-busy={loading}>
-      <p className="px-1 text-[12px] text-muted-foreground whitespace-nowrap">Cash you have · as at {shortDay(asAt)}</p>
-      <p className="px-1 mt-0.5 text-[28px] max-sm:text-[24px] font-semibold td-num whitespace-nowrap">{loading ? "…" : formatTableCurrency(total)}</p>
-      <div className="mt-3 grid grid-cols-3 gap-3 px-1">{GROUPS.map(g => <div key={g} className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap">{g}</p><p className="mt-0.5 text-[15px] max-sm:text-[14px] font-semibold td-num whitespace-nowrap">{formatTableCurrency(groupTotal(g))}</p></div>)}</div>
+    <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3 min-w-0" aria-label="Cash you have" aria-busy={loading}>
+      <div><p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">Cash you have · {shortDay(asAt)}</p>
+      <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? "…" : shortMoney(total)}</p></div>
+      <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{GROUPS.map(g => <div key={g} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{g}</p><p className="text-[16px] font-semibold td-num tabular-nums whitespace-nowrap">{shortMoney(groupTotal(g))}</p></div>)}</div>
     </section>
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Accounts" aria-busy={loading}>
-      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Accounts</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(everything.length)} {everything.length === 1 ? "place" : "places"}{needYou ? ` · ${formatTableInteger(needYou)} need you` : " · all fine"}</span></h2>
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(everything.length)} {everything.length === 1 ? "account" : "accounts"}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableCurrency(total)}{needYou ? ` · ${formatTableInteger(needYou)} need you` : ""}</span></h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow onDownload={download} downloadLabel="Download accounts"
         columns={<span className="max-[767px]:hidden contents"><button type="button" className="kit kit-btn kit-tool-btn" aria-pressed={bvb} onClick={() => setBvb(v => !v)}><span className="kit-tool-label">{bvb ? "Columns · simple" : "Columns · bank vs books"}</span></button></span>}
         filter={<FilterPanel activeCount={showTest ? 1 : 0} onReset={() => setShowTest(false)}><FilterGroup title="Show"><Label className="flex gap-2 items-center"><Checkbox checked={showTest} onCheckedChange={v => setShowTest(v === true)} />Test accounts</Label></FilterGroup></FilterPanel>} />
