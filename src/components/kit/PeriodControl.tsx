@@ -10,6 +10,9 @@ import { useBooksWindow } from '@/hooks/useBooksWindow';
 import { useAuth } from '@/hooks/useAuth';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { formatMonthLabel } from '@/utils/format';
+
+/** Phone: "November 2026" → "Nov 2026" so the date pill never has to shrink or cut its words. */
+const shortMonths = (s: string) => s.replace(/\b(January|February|March|April|June|July|August|September|October|November|December)\b/g, m => m.slice(0, 3));
 import { buttonLabel, monthEnd, monthSelection, periodMonths, selectionLabel, shortcutSelection, validSessionSelection, type PeriodMode, type PeriodSelection } from '@/utils/periodWindow';
 import { cn } from '@/lib/utils';
 
@@ -54,7 +57,7 @@ export function PeriodControl({ mode, value, onChange, booksStart, allowFuture, 
   // A white pill (Bani's button shape): calendar, the short period ("Nov so far", "3–14 Nov") and the arrow. The word "Period" is said to
   // screen readers and kept on the picker's title; "As at" stays on the button because it changes the meaning.
   const shown = buttonLabel(value, mode, today, fiscal);
-  const trigger = <Button variant="secondary" className="period-pill h-10 rounded-full gap-2 px-4 font-normal max-w-full" aria-label={`${title}: ${shown}`} aria-expanded={open}><CalendarDays className="h-4 w-4 shrink-0"/>{mode === 'asat' && <span className="text-muted-foreground">{title}</span>}<span className="truncate">{shown}</span><ChevronDown className="h-4 w-4 shrink-0"/></Button>;
+  const trigger = <Button variant="secondary" className="period-pill h-10 rounded-full gap-2 px-4 font-normal shrink-0" aria-label={`${title}: ${shown}`} aria-expanded={open}><CalendarDays className="h-4 w-4 shrink-0"/>{mode === 'asat' && <span className="text-muted-foreground whitespace-nowrap">{title}</span>}<span className="whitespace-nowrap">{mobile ? shortMonths(shown) : shown}</span><ChevronDown className="h-4 w-4 shrink-0"/></Button>;
   return mobile ? <Drawer open={open} onOpenChange={o => { setOpen(o); if (!o) setAnchor(null); }} shouldScaleBackground={false}><DrawerTrigger asChild>{trigger}</DrawerTrigger><DrawerContent className="bg-popover max-h-[90dvh]"><DrawerHeader><DrawerTitle>{title}</DrawerTitle></DrawerHeader>{body}</DrawerContent></Drawer> : <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" className={cn('p-0', custom ? 'w-auto' : 'w-72')}>{body}</PopoverContent></Popover>;
 }
 
