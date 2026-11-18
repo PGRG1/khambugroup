@@ -9,6 +9,7 @@ import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import { shortDay } from "@/utils/salesRecordChecks";
 import { downloadCSV } from "@/utils/csvDownload";
 import { sinceText } from "./CashAccountsView";
+import { Hero } from "@/components/finance/accounting/AccountingKit";
 
 /** Reports › Bank reconciliation: read-only, every bank account as at a day. Fixing happens in Cash. */
 export function BankReconciliationReport({ asAt }: { asAt: string }) {
@@ -26,7 +27,10 @@ export function BankReconciliationReport({ asAt }: { asAt: string }) {
   const download = () => downloadCSV(rows.map(r => ({ account: r.p.account.account_name, statement_to: r.p.statement?.period_end ?? "", bank: r.p.bankSays ?? "", books: r.p.booksSay ?? "", difference: r.foreign ? "" : r.p.difference ?? "", unmatched: r.p.toMatch, status: r.status })),
     [{ key: "account", label: "Account" }, { key: "statement_to", label: "Statement to" }, { key: "bank", label: "Bank says" }, { key: "books", label: "Books say" }, { key: "difference", label: "Difference" }, { key: "unmatched", label: "Unmatched lines" }, { key: "status", label: "Months" }], `bank-reconciliation-${asAt}`);
   const money = (r: typeof rows[number], n: number | null, missing = "—") => n === null ? <span className="text-muted-foreground">{missing}</span> : r.foreign ? formatMoney(n, r.p.account.currency) : formatTableCurrency(n);
-  return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Bank reconciliation">
+  const needs = rows.filter(r => r.flag).length, diff = sum(r => r.p.difference), toMatch = rows.reduce((n, r) => n + r.p.toMatch, 0);
+  return <><Hero aria="Bank reconciliation summary" busy={loading} label={`As at ${shortDay(asAt)} · every bank account`} check={needs ? `${formatTableInteger(needs)} need you` : "Every account agrees"} checkTone={needs ? "amber" : "ok"}
+    stats={[{ label: "Bank says", value: formatTableCurrency(sum(r => r.p.bankSays)), sub: "last statements" }, { label: "Books say", value: formatTableCurrency(sum(r => r.p.booksSay)), sub: "on those days" }, { label: "Difference", value: formatTableCurrency(Math.abs(diff)), sub: toMatch ? `${formatTableInteger(toMatch)} lines to match` : "nothing to match", tone: Math.abs(diff) > 0.005 ? "amber" : "green" }]} />
+  <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Bank reconciliation">
     <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Bank reconciliation</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· as at {shortDay(asAt)} · {formatTableInteger(rows.length)} bank {rows.length === 1 ? "account" : "accounts"}</span></h2>
     <Toolbar onDownload={download} downloadLabel="Download bank reconciliation" />
     <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Bank reconciliation table"><table className="sales-table" aria-label="Bank reconciliation">
@@ -44,5 +48,5 @@ export function BankReconciliationReport({ asAt }: { asAt: string }) {
       {!loading && rows.length > 0 && <tr><th colSpan={3} className="sales-cell-left font-semibold">Total</th><td className="kit-num font-semibold">{formatTableCurrency(sum(r => r.p.bankSays))}</td><td className="kit-num font-semibold">{formatTableCurrency(sum(r => r.p.booksSay))}</td><td className="kit-num font-semibold">{formatTableCurrency(sum(r => r.p.difference))}</td><td className="kit-num font-semibold">{formatTableInteger(rows.reduce((n, r) => n + r.p.toMatch, 0))}</td><td /></tr>}
       </tbody></table></div>
     <p className="px-1 text-[12px] text-muted-foreground">Read-only. Bank says is the last statement up to this day; books say is the same account on the statement's last day. Click an account to fix it in Cash.</p>
-  </section>;
+  </section></>;
 }

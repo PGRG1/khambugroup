@@ -1,49 +1,201 @@
-import {FinanceViewTabs} from '@/components/finance/FinanceViewTabs';
-import {BankReconciliationReport} from '@/components/finance/cash/BankReconciliationReport';
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
-import {Skeleton} from '@/components/ui/skeleton';
-import {useState} from 'react';
-import {useCentralSharing} from '@/hooks/useCentralSharing';
-import {centralShares} from '@/utils/centralSharing';
-import {useSearchParams} from 'react-router-dom';
-import {useFinanceBooks} from '@/hooks/useFinanceBooks';
-import {useFinanceOverviewData} from '@/hooks/useFinanceOverviewData';
-import {useFinancePeriod} from '@/components/kit/PeriodControl';
-import {useVenueScope} from '@/hooks/useVenueScope';
-import {PageTop} from '@/components/kit/PageTop';
-
-import {RestaurantPLStatement} from '@/components/finance/RestaurantPLStatement';
-import {restaurantPL,type PLRow,type PLPeriod} from '@/utils/restaurantPL';
-import {FinanceReportTable} from '@/components/finance/FinanceReportTable';
-import {Button} from '@/components/ui/button';
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
-import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
-import {Download,FileText} from 'lucide-react';
-import {financeProfit} from '@/utils/financeOverview';
-import {balanceSheetRows,indirectCashRows,type ReportRow} from '@/utils/financeReportViews';
-import {reportMonths} from '@/utils/financeClose';
-import {formatCurrency,formatMonthLabel,formatDate,formatPercent} from '@/utils/format';
-import {downloadCSV} from '@/utils/csvDownload';
-import {tenantToday} from '@/utils/salesRecordChecks';
+import { Fragment, useState, type ReactNode } from 'react';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { FinanceViewTabs } from '@/components/finance/FinanceViewTabs';
+import { BankReconciliationReport } from '@/components/finance/cash/BankReconciliationReport';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useCentralSharing } from '@/hooks/useCentralSharing';
+import { centralShares } from '@/utils/centralSharing';
+import { useFinanceBooks } from '@/hooks/useFinanceBooks';
+import { useFinanceOverviewData } from '@/hooks/useFinanceOverviewData';
+import { useFinancePeriod } from '@/components/kit/PeriodControl';
+import { useVenueScope } from '@/hooks/useVenueScope';
+import { PageTop } from '@/components/kit/PageTop';
+import { QuickFilter } from '@/components/kit/QuickFilter';
+import { DownloadMenu, type DownloadFormat } from '@/components/kit/DownloadMenu';
+import { restaurantPL, type PLRow, type PLPeriod } from '@/utils/restaurantPL';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeftRight } from 'lucide-react';
+import { balanceSheetRows, indirectCashRows, type ReportRow } from '@/utils/financeReportViews';
+import { reportMonths } from '@/utils/financeClose';
+import { formatCurrency, formatMonthLabel, formatPercent, formatTableCurrency } from '@/utils/format';
+import { downloadCSV } from '@/utils/csvDownload';
+import { tenantToday, shortDay } from '@/utils/salesRecordChecks';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ManagementReports from './ManagementReports';
-import {AgedPayables,AgedReceivables} from '@/components/finance/FinanceAging';
-const views=[['pl','Profit & loss'],['bs','Balance sheet'],['cash','Cash flow'],['venue','By venue'],['ap','Aged payables'],['ar','Aged receivables'],['bankrec','Bank reconciliation']];
-export default function Reports(){const today=tenantToday(),books=useFinanceBooks(Number(today.slice(0,4))),facts=useFinanceOverviewData(),scope=useVenueScope(),sharing=useCentralSharing(),[params,setParams]=useSearchParams(),view=params.get('view')??'pl',period=useFinancePeriod('period','last-month',{extraShortcuts:true,dataMonths:books.entries.map(e=>e.entry_date.slice(0,7))}),asAtPeriod=useFinancePeriod('asat'),asAt=asAtPeriod.toIso,[compare,setCompare]=useState('off'),[management,setManagement]=useState(false),[detailed,setDetailed]=useState(true);const needsFacts=['pl','venue'].includes(view);const loading=books.loading||!scope.ready||(needsFacts&&facts.isPending)||(view==='venue'&&sharing.isPending);const failed=Boolean(books.error||(needsFacts&&facts.isError)||(view==='venue'&&sharing.isError));const from=period.fromIso??params.get('from')??books.entries.map(e=>e.entry_date).sort()[0]??today.slice(0,4)+'-01-01',to=period.toIso??params.get('to')??today;const months=reportMonths(books.entries.map(e=>e.entry_date),from,to);const lines=books.lines.filter(l=>scope.includesName(l.venue));const payroll=facts.data?.payroll??[];const profit=(m:string)=>financeProfit(books.entries,lines,books.accounts,payroll,m);const metric=['Sales','Food & drink','Staff','Running costs','FX gains/losses · realised','FX gains/losses · unrealised','Profit before tax','% of sales'];const vals=(m:string)=>{const p=profit(m);return [p.sales,p.food,p.staff,p.running,p.fxRealised,p.fxUnrealised,p.profit,p.sales?p.profit/p.sales*100:0];};let columns:string[]=[],rows:ReportRow[]=[];
-if(view==='bs'){columns=['As at '+formatDate(asAt)];rows=balanceSheetRows(books.entries,lines,books.accounts,asAt);}else if(view==='cash'){columns=[period.label];rows=indirectCashRows(books.entries,lines,books.accounts,from,to);}else if(view==='venue'){const venues=[...scope.venues.map(v=>v.name),'Central','Needs venue'];const posted=new Map(books.entries.filter(e=>e.status==='posted'&&e.entry_date>=from&&e.entry_date<=to).map(e=>[e.id,e]));const account=new Map(books.accounts.map(a=>[a.id,a]));const sums=venues.map(v=>{let sales=0,food=0,staff=0,running=0;for(const l of books.lines){const a=l.account_id?account.get(l.account_id):undefined;if(!a||!posted.has(l.entry_id)||(l.venue??'Needs venue')!==v)continue;const n=Number(l.debit)-Number(l.credit);if(['revenue','other_income'].includes(a.account_type))sales-=n;else if(a.code.startsWith('5'))food+=n;else if(['opex','other_expense'].includes(a.account_type)){if(/salary|salaries|mpf|wages|payroll/i.test(a.name))staff+=n;else running+=n;}}return [sales,food,staff,running,sales-food-staff-running];});const centralIndex=venues.indexOf('Central'),operating=scope.venues.map(v=>({name:v.name,sales:sums[venues.indexOf(v.name)][0]}));const allocated=[1,2,3].map(i=>centralShares(sums[centralIndex][i],operating,sharing.data?.rule??'sales'));const centralShare=operating.map((_,i)=>allocated.reduce((n,a)=>n+a.shares[i],0));for(let i=0;i<operating.length;i++){for(let k=1;k<=3;k++)sums[i][k]+=allocated[k-1].shares[i];sums[i][4]=sums[i][0]-sums[i][1]-sums[i][2]-sums[i][3];}for(let k=1;k<=3;k++)sums[centralIndex][k]=allocated[k-1].unallocated;sums[centralIndex][4]=sums[centralIndex][0]-sums[centralIndex][1]-sums[centralIndex][2]-sums[centralIndex][3];const shown=venues.map((name,i)=>({name,i})).filter(v=>scope.selectedNames.includes(v.name)||!scope.restricted&&['Central','Needs venue'].includes(v.name));columns=[...shown.map(v=>v.name),'Total'];rows=['Sales','Food & drink','Staff','Running costs','Profit before tax'].map((label,i)=>({label,values:[...shown.map(v=>sums[v.i][i]),shown.reduce((n,v)=>n+sums[v.i][i],0)]}));rows.splice(4,0,{label:'Central share (included in costs)',values:[...shown.map(v=>centralShare[v.i]??0),shown.reduce((n,v)=>n+(centralShare[v.i]??0),0)]});}else{columns=[...months.map(formatMonthLabel),'Total'];rows=metric.map((label,i)=>{const values=months.map(m=>vals(m)[i]);const sales=months.reduce((n,m)=>n+profit(m).sales,0),p=months.reduce((n,m)=>n+profit(m).profit,0);return {label,percent:i===7,values:[...values,i===7?(sales?p/sales*100:0):i===2&&values.some(v=>v===null)?null:values.reduce<number>((n,v)=>n+(v??0),0)]};});}
-if(compare!=='off'&&['pl','bs','cash'].includes(view)){const shift=(d:string)=>{const date=new Date(d+'T00:00:00Z');if(compare==='year')date.setUTCFullYear(date.getUTCFullYear()-1);else date.setUTCMonth(date.getUTCMonth()-months.length);return date.toISOString().slice(0,10);};const prevFrom=shift(from),prevTo=shift(view==='bs'?asAt:to);const previous=view==='bs'?balanceSheetRows(books.entries,lines,books.accounts,prevTo):view==='cash'?indirectCashRows(books.entries,lines,books.accounts,prevFrom,prevTo):metric.map((label,i)=>{const ms=reportMonths([],prevFrom,prevTo),ps=ms.map(profit),sales=ps.reduce((n,p)=>n+p.sales,0);return {label,values:[i===7?(sales?ps.reduce((n,p)=>n+p.profit,0)/sales*100:0):ms.reduce((n,m)=>n+(vals(m)[i]??0),0)]};});columns.push(compare==='year'?'Same period last year':'Previous period');rows=rows.map(r=>({...r,values:[...r.values,previous.find(p=>p.label===r.label)?.values[0]??null]}));}
-let plRows:PLRow[]=[];
-if(view==='pl'){
- const periods:PLPeriod[]=months.map(m=>({label:formatMonthLabel(m),from:m+'-01'<from?from:m+'-01',to:new Date(Date.UTC(Number(m.slice(0,4)),Number(m.slice(5,7)),0)).toISOString().slice(0,10)>to?to:new Date(Date.UTC(Number(m.slice(0,4)),Number(m.slice(5,7)),0)).toISOString().slice(0,10)}));
- if(periods.length>1)periods.push({label:'Total',from,to});
- if(compare!=='off'){
-  const shift=(date:string)=>{const d=new Date(date+'T00:00:00Z');if(compare==='year')d.setUTCFullYear(d.getUTCFullYear()-1);else d.setUTCMonth(d.getUTCMonth()-months.length);return d.toISOString().slice(0,10);};
-  periods.push({label:compare==='year'?'Same period last year':'Previous period',from:shift(from),to:shift(to)});
- }
- columns=periods.map(p=>p.label);
- plRows=restaurantPL(books.entries,lines,books.accounts,payroll,periods);
- rows=plRows.filter(r=>detailed||r.kind!=='account');
+import { Hero, Section, Flag, PhoneRow, GroupHead, Note, Empty, keyOpen, type Stat } from '@/components/finance/accounting/AccountingKit';
+
+// Reports only read the posted books: Profit & loss, Balance sheet, Cash flow, By venue, and Bank reconciliation
+// (the one read-only view across bank accounts). Every line opens what is behind it; fixes happen where the work lives.
+// Aged payables and receivables live in Payables › Ageing and Receivables › Ageing; old links redirect there.
+const views = [['pl', 'Profit & loss'], ['bs', 'Balance sheet'], ['cash', 'Cash flow'], ['venue', 'By venue'], ['bankrec', 'Bank reconciliation']];
+const FRIENDLY: Record<string, string> = { Assets: 'What you own', Liabilities: 'What you owe', Equity: "Owner's equity", 'Total assets': 'Total you own', 'Total liabilities': 'Total you owe', Operating: 'From running the business', Investing: 'From buying equipment', Financing: 'From owners and loans' };
+const BOLD = /^(Total|Change in cash|Closing cash)/;
+const shiftIso = (iso: string, months: number, years = 0) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - years); d.setUTCMonth(d.getUTCMonth() - months); return d.toISOString().slice(0, 10); };
+const signed = (n: number) => `${n < 0 ? '−' : ''}${formatTableCurrency(Math.abs(n))}`;
+
+export default function Reports() {
+  const today = tenantToday(), books = useFinanceBooks(Number(today.slice(0, 4))), facts = useFinanceOverviewData(), scope = useVenueScope(), sharing = useCentralSharing(), navigate = useNavigate();
+  const [params] = useSearchParams(), view = params.get('view') ?? 'pl';
+  const period = useFinancePeriod('period', 'last-month', { extraShortcuts: true, dataMonths: books.entries.map(e => e.entry_date.slice(0, 7)) }), asAtPeriod = useFinancePeriod('asat'), asAt = asAtPeriod.toIso ?? today;
+  const [compare, setCompare] = useState<'off' | 'previous' | 'year'>('off'), [management, setManagement] = useState(false), [detailed, setDetailed] = useState<'detail' | 'summary'>('detail');
+  if (view === 'ap') return <Navigate to="/finance/payables?view=age" replace />;
+  if (view === 'ar') return <Navigate to="/finance/receivables?view=age" replace />;
+
+  const needsFacts = ['pl', 'venue'].includes(view);
+  const loading = books.loading || !scope.ready || (needsFacts && facts.isPending) || (view === 'venue' && sharing.isPending);
+  const failed = Boolean(books.error || (needsFacts && facts.isError) || (view === 'venue' && sharing.isError));
+  const from = period.fromIso ?? books.entries.map(e => e.entry_date).sort()[0] ?? `${today.slice(0, 4)}-01-01`, to = period.toIso ?? today;
+  const months = reportMonths(books.entries.map(e => e.entry_date), from, to);
+  const lines = books.lines.filter(l => scope.includesName(l.venue));
+  const payroll = facts.data?.payroll ?? [];
+  const back = (iso: string) => compare === 'year' ? shiftIso(iso, 0, 1) : shiftIso(iso, Math.max(months.length, 1));
+  const compareLabel = compare === 'year' ? 'Same period last year' : 'Previous period';
+  const closedMonth = (m: string) => books.closed.some((c: any) => c.month_start === `${m}-01` && !c.reopened_at);
+
+  const top = (actions: ReactNode, asat = false) => <PageTop tabsAbove title="Reports" period={asat ? asAtPeriod.control : period.control} actions={actions} />;
+  const compareMenu = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10"><ArrowLeftRight className="h-4 w-4" />{compare === 'off' ? 'Compare' : compare === 'year' ? 'vs last year' : 'vs previous'}</Button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setCompare('off')}>No comparison</DropdownMenuItem><DropdownMenuItem onSelect={() => setCompare('previous')}>vs previous period</DropdownMenuItem><DropdownMenuItem onSelect={() => setCompare('year')}>vs same period last year</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  const tabs = <FinanceViewTabs items={views.map(([key, label]) => ({ key, label }))} value={view} />;
+  const error = failed && <p role="alert" className="kit-explain">{books.error || 'Report sources could not be loaded.'} <Button variant="outline" size="sm" onClick={() => { void books.refetch(); void facts.refetch(); void sharing.refetch(); }}>Retry</Button></p>;
+  const shell = (children: ReactNode) => <div className="min-w-0 w-full space-y-5 max-sm:space-y-3 pb-24">{tabs}{children}</div>;
+  const exportFile = (title: string, columns: string[], rows: { label: string; values: (number | null)[]; percent?: boolean; section?: boolean }[], f: DownloadFormat) => {
+    const cell = (r: typeof rows[number], i: number) => r.values[i] == null ? '' : r.percent ? formatPercent(r.values[i]!) : formatCurrency(r.values[i]!);
+    if (f === 'pdf') { const doc = new jsPDF({ orientation: columns.length > 3 ? 'landscape' : 'portrait' }); doc.text(title, 14, 18); autoTable(doc, { startY: 25, head: [['Line', ...columns]], body: rows.map(r => [r.label, ...columns.map((_, i) => r.section ? '' : cell(r, i))]) }); doc.save(`${title.toLowerCase().replace(/[^a-z]+/g, '-')}.pdf`); return; }
+    downloadCSV(rows.filter(r => !r.section).flatMap(r => columns.map((c, i) => ({ line: r.label, column: c, amount: r.values[i] ?? '' }))), [{ key: 'line', label: 'Line' }, { key: 'column', label: 'Period' }, { key: 'amount', label: 'Amount' }], title.toLowerCase().replace(/[^a-z]+/g, '-'));
+  };
+
+  // ---------- Bank reconciliation ----------
+  if (view === 'bankrec') return shell(<>{top(null, true)}<BankReconciliationReport asAt={asAt} /></>);
+
+  // ---------- Profit & loss ----------
+  if (view === 'pl') {
+    const end = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const periods: PLPeriod[] = months.map(m => ({ label: formatMonthLabel(m), from: `${m}-01` < from ? from : `${m}-01`, to: end(m) > to ? to : end(m) }));
+    if (periods.length > 1) periods.push({ label: 'Total', from, to });
+    if (compare !== 'off') periods.push({ label: compareLabel, from: back(from), to: back(to) });
+    const rows: PLRow[] = loading || failed ? [] : restaurantPL(books.entries, lines, books.accounts, payroll, periods);
+    const columns = periods.map(p => p.label), cur = Math.max(0, periods.findIndex(p => p.label === 'Total'));
+    const prev = loading || failed ? [] : restaurantPL(books.entries, lines, books.accounts, payroll, [{ label: 'prev', from: shiftIso(from, Math.max(months.length, 1)), to: shiftIso(to, Math.max(months.length, 1)) }]);
+    const v = (rs: PLRow[], id: string, i: number) => rs.find(r => r.id === id)?.values[i] ?? 0;
+    const sales = v(rows, 'net-sales', cur), profit = v(rows, 'profit', cur), prime = v(rows, 'prime-ratio', cur), prevSales = v(prev, 'net-sales', 0), prevProfit = v(prev, 'profit', 0);
+    const prevName = months.length === 1 ? formatMonthLabel(shiftIso(`${months[0]}-01`, 1).slice(0, 7)) : 'the period before';
+    const moves = rows.filter(r => r.kind === 'account' && r.accountId).map(r => ({ r, d: (r.values[cur] ?? 0) - (prev.find(p => p.id === r.id)?.values[0] ?? 0) })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    const why = !rows.length || (!prevSales && !prevProfit) ? null : `Profit is ${profit >= prevProfit ? 'up' : 'down'} ${formatTableCurrency(Math.abs(profit - prevProfit))} on ${prevName}.${moves[0] && Math.abs(moves[0].d) > 0.5 ? ` Biggest move: ${moves[0].r.label} ${moves[0].d >= 0 ? 'up' : 'down'} ${formatTableCurrency(Math.abs(moves[0].d))}.` : ''}`;
+    const closed = months.length > 0 && months.every(closedMonth);
+    const salesOf = (i: number) => v(rows, 'net-sales', i);
+    const shown = rows.filter(r => detailed === 'detail' || r.kind !== 'account');
+    const pctOf = (r: PLRow, i: number) => r.percent ? null : salesOf(i) ? formatPercent((r.values[i] ?? 0) / salesOf(i) * 100) : '—';
+    const amount = (r: PLRow, i: number) => r.values[i] == null ? '—' : r.percent ? formatPercent(r.values[i]!) : signed(r.values[i] ?? 0);
+    const ledger = (r: PLRow) => r.accountId ? () => navigate(`/finance/books?view=ledger&account=${encodeURIComponent(r.accountId!)}`) : undefined;
+    const stats: Stat[] = [
+      { label: 'Revenue', value: formatTableCurrency(sales), sub: prevSales ? `${sales >= prevSales ? '+' : '−'}${formatPercent(Math.abs((sales - prevSales) / prevSales * 100))} on ${prevName}` : 'posted sales' },
+      { label: 'Prime cost', value: formatPercent(prime), sub: 'food, drinks and staff · aim under 60%', tone: prime > 60 ? 'amber' : undefined },
+      { label: 'Profit before tax', value: signed(profit), sub: sales ? `${formatPercent(profit / sales * 100)} margin` : '', tone: profit >= 0 ? 'green' : 'amber' },
+    ];
+    const plExport = shown.map(r => ({ label: r.label, values: r.values, percent: r.percent, section: r.kind === 'section' }));
+    return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit and loss', columns, plExport, f)} label="Download profit and loss" disabled={loading || failed} /></>)}{error}
+      <Hero aria="Profit summary" busy={loading} label={`${period.label} · ${scope.label} · posted books, accrual basis`} check={closed ? `${months.length === 1 ? formatMonthLabel(months[0]) : 'Every month'} is closed` : 'Not closed yet · figures can still change'} checkTone={closed ? 'ok' : 'mut'} stats={stats} />
+      {why && !loading && <p className="px-1 text-[13px] text-muted-foreground"><span className="font-medium text-[color:var(--kit-ink)]">Bani:</span> {why}</p>}
+      <Section title="Profit & loss" detail={compare === 'off' ? period.label : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
+        <QuickFilter label="Detail" value={detailed} onChange={setDetailed} options={[{ key: 'summary', label: 'Summary' }, { key: 'detail', label: 'Account detail' }]} />
+        <div className="min-[768px]:hidden kit">{shown.map(r => r.kind === 'section' ? <GroupHead key={r.id} name={r.label} /> : <ul key={r.id} className="border-t border-border/60"><PhoneRow title={r.kind === 'account' ? r.label : <b className="font-semibold">{r.label}</b>} amount={<>{r.kind === 'grand' ? <b className="font-semibold text-[#1F6B5E]">{amount(r, cur)}</b> : amount(r, cur)}{pctOf(r, cur) && <span className="ml-1 text-[12px] text-muted-foreground">{pctOf(r, cur)}</span>}</>} onOpen={ledger(r)} /></ul>)}</div>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Profit and loss table"><table className="sales-table" aria-label="Profit and loss">
+          <thead><tr><th scope="col" className="sales-cell-left">Line</th>{columns.map(c => <Fragment key={c}><th scope="col" className="sales-cell-right">{c}</th><th scope="col" className="sales-cell-right">%</th></Fragment>)}</tr></thead>
+          <tbody>{shown.map(r => r.kind === 'section' ? <tr key={r.id} className="sales-week-row"><th colSpan={columns.length * 2 + 1}><span>{r.label}</span></th></tr> :
+            <tr key={r.id} className={`sales-record-row ${r.kind === 'ratio' ? 'text-muted-foreground' : ''}`} {...(r.accountId ? keyOpen(ledger(r)!) : {})}>
+              <td className={`sales-cell-left ${r.kind === 'account' ? 'pl-8 text-[#4A5853]' : 'font-semibold'}`} title={r.label}>{r.label}</td>
+              {columns.map((c, i) => <Fragment key={c}><td className={`kit-num ${r.kind === 'total' || r.kind === 'grand' ? 'font-semibold' : ''} ${r.kind === 'grand' && i === cur ? 'text-[#1F6B5E]' : ''}`}>{amount(r, i)}</td><td className="kit-num text-muted-foreground">{pctOf(r, i) ?? ''}</td></Fragment>)}
+            </tr>)}</tbody></table></div>
+        {!loading && !failed && !rows.length && <Empty>No posted entries in this period.</Empty>}
+        <Note>Tap an account for its ledger. Summary hides the account lines. % is share of net revenue.</Note>
+        <button type="button" className="kit-link px-1 text-[12px]" onClick={() => setManagement(true)}>Management adjustments</button>
+      </Section>
+      <Dialog open={management} onOpenChange={setManagement}><DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>Management adjustments</DialogTitle></DialogHeader><ManagementReports /></DialogContent></Dialog>
+    </>);
+  }
+
+  // ---------- By venue ----------
+  if (view === 'venue') {
+    const venues = [...scope.venues.map(x => x.name), 'Central', 'Needs venue'];
+    const posted = new Map(books.entries.filter(e => e.status === 'posted' && e.entry_date >= from && e.entry_date <= to).map(e => [e.id, e]));
+    const account = new Map(books.accounts.map(a => [a.id, a]));
+    const sums = venues.map(name => {
+      let s = 0, food = 0, staff = 0, running = 0;
+      for (const l of books.lines) {
+        const a = l.account_id ? account.get(l.account_id) : undefined;
+        if (!a || !posted.has(l.entry_id) || (l.venue ?? 'Needs venue') !== name) continue;
+        const n = Number(l.debit) - Number(l.credit);
+        if (['revenue', 'other_income'].includes(a.account_type)) s -= n;
+        else if (a.code.startsWith('5')) food += n;
+        else if (['opex', 'other_expense'].includes(a.account_type)) { if (/salary|salaries|mpf|wages|payroll/i.test(a.name)) staff += n; else running += n; }
+      }
+      return [s, food, staff, running, s - food - staff - running];
+    });
+    const ci = venues.indexOf('Central'), operating = scope.venues.map(x => ({ name: x.name, sales: sums[venues.indexOf(x.name)][0] }));
+    const allocated = [1, 2, 3].map(i => centralShares(sums[ci][i], operating, sharing.data?.rule ?? 'sales'));
+    const share = operating.map((_, i) => allocated.reduce((n, a) => n + a.shares[i], 0));
+    for (let i = 0; i < operating.length; i++) { for (let k = 1; k <= 3; k++) sums[i][k] += allocated[k - 1].shares[i]; sums[i][4] = sums[i][0] - sums[i][1] - sums[i][2] - sums[i][3]; }
+    for (let k = 1; k <= 3; k++) sums[ci][k] = allocated[k - 1].unallocated;
+    sums[ci][4] = sums[ci][0] - sums[ci][1] - sums[ci][2] - sums[ci][3];
+    const list = venues.map((name, i) => ({ name, i, s: sums[i], share: share[i] ?? 0 })).filter(x => scope.selectedNames.includes(x.name) || (!scope.restricted && ['Central', 'Needs venue'].includes(x.name)))
+      .filter(x => x.name !== 'Needs venue' || Math.abs(x.s[1]) + Math.abs(x.s[2]) + Math.abs(x.s[3]) + Math.abs(x.s[0]) > 0.005);
+    const total = [0, 1, 2, 3, 4].map(k => list.reduce((n, x) => n + x.s[k], 0)), real = list.filter(x => !['Central', 'Needs venue'].includes(x.name) && x.s[0] > 0);
+    const best = [...real].sort((a, b) => b.s[4] / b.s[0] - a.s[4] / a.s[0])[0], needs = list.find(x => x.name === 'Needs venue');
+    const pct = (n: number, d: number) => d ? formatPercent(n / d * 100) : '—';
+    const isOp = (x: typeof list[number]) => !['Central', 'Needs venue'].includes(x.name);
+    const cols = ['Sales', 'Food & drink', 'Staff', 'Running costs', 'Profit before tax'];
+    const venueExport = list.map(x => ({ label: x.name, values: x.s })).concat([{ label: 'Total', values: total }]);
+    return shell(<>{top(<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit by venue', cols, venueExport, f)} label="Download by venue" disabled={loading || failed} />)}{error}
+      <Hero aria="By venue summary" busy={loading} label={`${period.label} · posted books`} check={`Central costs shared by ${sharing.data?.rule === 'equal' ? 'equal shares' : 'sales'}${sharing.data?.configured ? '' : ' (default)'}`} checkTone="mut"
+        stats={[{ label: 'Best margin', value: best?.name ?? '—', sub: best ? `${pct(best.s[4], best.s[0])} · ${formatTableCurrency(best.s[4])}` : 'no sales yet', tone: best ? 'green' : undefined }, { label: 'Total profit', value: signed(total[4]), sub: `${pct(total[4], total[0])} of sales` }, { label: 'Needs venue', value: formatTableCurrency(Math.abs((needs?.s[1] ?? 0) + (needs?.s[2] ?? 0) + (needs?.s[3] ?? 0))), sub: 'costs with no venue', tone: needs ? 'amber' : undefined }]} />
+      <Section title="By venue" detail={`${real.length} ${real.length === 1 ? 'venue' : 'venues'}`} busy={loading}>
+        <ul className="min-[768px]:hidden kit divide-y divide-border/60">{list.map(x => <PhoneRow key={x.name} flag={x.name === 'Needs venue' && 'Costs with no venue'} title={x.name} amount={signed(x.s[4])} sub={isOp(x) ? `Sales ${formatTableCurrency(x.s[0])} · margin ${pct(x.s[4], x.s[0])}` : x.name === 'Central' ? 'Costs not shared out' : 'Costs with no venue · give them one'} tone={x.name === 'Needs venue' ? 'amber' : 'mut'} />)}</ul>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="By venue table"><table className="sales-table" aria-label="Profit by venue">
+          <thead><tr><th scope="col" className="sales-flag-cell"><span className="sr-only">Needs you</span></th><th scope="col" className="sales-cell-left">Venue</th><th scope="col" className="sales-cell-right">Sales</th><th scope="col" className="sales-cell-right">Food cost %</th><th scope="col" className="sales-cell-right">Staff %</th><th scope="col" className="sales-cell-right">Running costs</th><th scope="col" className="sales-cell-right">Central share</th><th scope="col" className="sales-cell-right">Profit</th><th scope="col" className="sales-cell-right">Margin</th></tr></thead>
+          <tbody>{list.map(x => <tr key={x.name} className={`sales-record-row ${x.name === 'Needs venue' ? 'sales-attention-row' : ''}`}>
+            <td className="sales-flag-cell">{x.name === 'Needs venue' && <Flag text="Costs with no venue" />}</td>
+            <td className="sales-cell-left">{x.name === 'Central' ? 'Central (not shared out)' : x.name}</td>
+            <td className="kit-num">{isOp(x) ? formatTableCurrency(x.s[0]) : <span className="text-muted-foreground">—</span>}</td>
+            <td className="kit-num text-muted-foreground">{isOp(x) ? pct(x.s[1], x.s[0]) : '—'}</td>
+            <td className="kit-num text-muted-foreground">{isOp(x) ? pct(x.s[2], x.s[0]) : '—'}</td>
+            <td className="kit-num">{formatTableCurrency(x.s[3])}</td>
+            <td className="kit-num text-muted-foreground">{isOp(x) ? formatTableCurrency(x.share) : '—'}</td>
+            <td className="kit-num">{signed(x.s[4])}</td>
+            <td className={`kit-num ${x.name === 'Needs venue' ? 'text-[#B45309]' : 'text-muted-foreground'}`}>{isOp(x) ? pct(x.s[4], x.s[0]) : x.name === 'Needs venue' ? 'Give a venue' : '—'}</td>
+          </tr>)}
+            {!!list.length && <tr className="sales-week-row"><th colSpan={2}><span>Total</span></th><td className="kit-num font-semibold">{formatTableCurrency(total[0])}</td><td className="kit-num font-semibold">{pct(total[1], total[0])}</td><td className="kit-num font-semibold">{pct(total[2], total[0])}</td><td className="kit-num font-semibold">{formatTableCurrency(total[3])}</td><td /><td className="kit-num font-semibold">{signed(total[4])}</td><td className="kit-num font-semibold">{pct(total[4], total[0])}</td></tr>}
+          </tbody></table></div>
+        {!loading && !failed && !list.length && <Empty>No posted entries in this period.</Empty>}
+        <Note>Food cost and staff are shares of each venue's sales, after central costs are shared out. Needs venue lists costs posted without a venue; give them one in the journal.</Note>
+      </Section>
+    </>);
+  }
+
+  // ---------- Balance sheet and Cash flow ----------
+  const bs = view === 'bs';
+  const base: ReportRow[] = loading || failed ? [] : bs ? balanceSheetRows(books.entries, lines, books.accounts, asAt) : indirectCashRows(books.entries, lines, books.accounts, from, to);
+  const previous: ReportRow[] = compare === 'off' || loading || failed ? [] : bs ? balanceSheetRows(books.entries, lines, books.accounts, back(asAt)) : indirectCashRows(books.entries, lines, books.accounts, back(from), back(to));
+  const rows = base.map(r => ({ ...r, values: compare === 'off' ? r.values : [...r.values, r.section ? null : previous.find(p => p.label === r.label)?.values[0] ?? null] }));
+  const columns = [bs ? `As at ${shortDay(asAt)}` : period.label, ...(compare === 'off' ? [] : [bs ? `As at ${shortDay(back(asAt))}` : compareLabel])];
+  const val = (label: string) => base.find(r => r.label === label)?.values[0] ?? 0;
+  const assets = val('Total assets'), owe = val('Total liabilities'), equity = val('Total equity'), gap = assets - owe - equity;
+  const stats: Stat[] = bs
+    ? [{ label: 'You own', value: formatTableCurrency(assets), sub: 'cash, money owed to you, equipment' }, { label: 'You owe', value: formatTableCurrency(owe), sub: 'suppliers, staff, deposits' }, { label: "Owner's equity", value: signed(equity), sub: 'capital and profit kept' }]
+    : [{ label: 'Cash at start', value: formatTableCurrency(val('Opening cash')), sub: `before ${shortDay(from)}` }, { label: 'Change', value: signed(val('Change in cash')), sub: `profit was ${signed(val('Profit before tax'))}`, tone: val('Change in cash') < 0 ? 'amber' : undefined }, { label: 'Cash at end', value: formatTableCurrency(val('Closing cash')), sub: shortDay(to) }];
+  const name = (label: string) => FRIENDLY[label] ?? label;
+  const title = bs ? 'Balance sheet' : 'Cash flow';
+  return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile(title, columns, rows.map(r => ({ ...r, label: name(r.label) })), f)} label={`Download ${title.toLowerCase()}`} disabled={loading || failed} /></>, bs)}{error}
+    <Hero aria={`${title} summary`} busy={loading} label={bs ? `As at ${shortDay(asAt)} · ${scope.label}` : `${period.label} · ${scope.label} · from the books`} check={bs ? (Math.abs(gap) < 0.005 ? 'Own = owe + equity' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : 'Cash accounts only'} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
+    <Section title={title} detail={compare === 'off' ? undefined : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
+      <div className="min-[768px]:hidden kit">{rows.map((r, i) => r.section ? <GroupHead key={i} name={name(r.label)} /> : <ul key={i} className="border-t border-border/60"><PhoneRow title={BOLD.test(r.label) ? <b className="font-semibold">{name(r.label)}</b> : name(r.label)} amount={r.values[0] == null ? '—' : signed(r.values[0])} sub={compare === 'off' || r.values[1] == null ? undefined : `${columns[1]} ${signed(r.values[1])}`} /></ul>)}</div>
+      <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label={`${title} table`}><table className="sales-table" aria-label={title}>
+        <thead><tr><th scope="col" className="sales-cell-left">Line</th>{columns.map(c => <th key={c} scope="col" className="sales-cell-right">{c}</th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => r.section ? <tr key={i} className="sales-week-row"><th colSpan={columns.length + 1}><span>{name(r.label)}</span></th></tr> :
+          <tr key={i} className="sales-record-row"><td className={`sales-cell-left ${BOLD.test(r.label) ? 'font-semibold' : 'pl-8 text-[#4A5853]'}`} title={name(r.label)}>{name(r.label)}</td>{columns.map((c, n) => <td key={c} className={`kit-num ${BOLD.test(r.label) ? 'font-semibold' : ''} ${n > 0 ? 'text-muted-foreground' : ''}`}>{r.values[n] == null ? '—' : signed(r.values[n]!)}</td>)}</tr>)}</tbody></table></div>
+      {!loading && !failed && !rows.length && <Empty>No posted entries yet.</Empty>}
+      <Note>{bs ? <>Money owed to you and card payouts not yet received count as what you own. <Link className="kit-link" to="/finance/books?view=trial-balance">Trial balance</Link> shows every account.</> : 'Starts from profit, then adds or takes away money tied up in payouts, suppliers and wages, so the change matches your cash accounts.'}</Note>
+    </Section>
+  </>);
 }
-const exportRows=()=>rows.flatMap(r=>columns.map((column,i)=>({line:r.label,period:column,amount:r.values[i],percent_of_revenue:view==='pl'?(r.percent?r.values[i]:(plRows.find(p=>p.id==='net-sales')?.values[i]?100*(r.values[i]??0)/(plRows.find(p=>p.id==='net-sales')?.values[i]??1):null)):null})));const pdf=()=>{const doc=new jsPDF({orientation:columns.length>3?'landscape':'portrait'});doc.text(views.find(v=>v[0]===view)?.[1]??'Report',14,18);autoTable(doc,{startY:25,head:[['Line',...columns]],body:rows.map(r=>[r.label,...columns.map((_,i)=>r.values[i]==null?'—':r.percent?formatPercent(r.values[i]):formatCurrency(r.values[i])+(view==='pl'?'  ·  '+formatPercent(exportRows().find(x=>x.line===r.label&&x.period===columns[i])?.percent_of_revenue??null):''))])});doc.save('finance-report.pdf');};const assets=rows.find(r=>r.label==='Total assets')?.values[0]??0,liabilities=rows.find(r=>r.label==='Total liabilities')?.values[0]??0,equity=rows.find(r=>r.label==='Total equity')?.values[0]??0;
-return <div className="min-w-0 w-full space-y-5 max-sm:space-y-3 pb-24"><FinanceViewTabs items={views.map(([key,label])=>({key,label}))} value={view}/><PageTop tabsAbove title="Reports" period={view==='bs'||view==='ap'||view==='ar'||view==='bankrec'?asAtPeriod.control:period.control} actions={<>{!['ap','ar','venue','bankrec'].includes(view)&&<Select value={compare} onValueChange={setCompare}><SelectTrigger className="period-pill h-10 w-auto rounded-full gap-2 px-4" aria-label="Compare reports"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="off">No comparison</SelectItem><SelectItem value="previous">vs previous period</SelectItem><SelectItem value="year">vs last year</SelectItem></SelectContent></Select>}{!['ap','ar','bankrec'].includes(view)&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="period-pill h-10 w-10 rounded-full" aria-label="Download report" disabled={loading||failed}><Download className="h-4 w-4"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={()=>downloadCSV(exportRows(),[{key:'line',label:'Line'},{key:'period',label:'Period'},{key:'amount',label:'Amount'},...(view==='pl'?[{key:'percent_of_revenue',label:'% of revenue'}]:[])],'finance-report')}>Download CSV</DropdownMenuItem><DropdownMenuItem onSelect={pdf}>Download PDF</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</>}/>{failed&&<p role="alert" className="text-sm text-destructive">{books.error||'Report sources could not be loaded.'} <Button variant="outline" size="sm" onClick={()=>{void books.refetch();void facts.refetch();void sharing.refetch();}}>Retry</Button></p>}{view==='bankrec'?<BankReconciliationReport asAt={asAt??tenantToday()}/>:view==='ap'?<AgedPayables asAt={asAt}/>:view==='ar'?<AgedReceivables asAt={asAt}/>:view==='pl'?<RestaurantPLStatement rows={plRows} columns={columns} from={from} to={to} scope={scope.label} detailed={detailed} onDetailed={setDetailed} loading={loading&&!failed} unavailable={failed}/>:<FinanceReportTable rows={rows} columns={columns} loading={loading&&!failed} unavailable={failed}/>} {!loading&&!failed&&view==='bs'&&Math.abs(assets-liabilities-equity)>.005&&<p className="text-xs text-muted-foreground">Off balance by {formatCurrency(assets-liabilities-equity)}.</p>}{!loading&&!failed&&view==='venue'&&<p className="text-xs text-muted-foreground">Central costs shared by {sharing.data?.rule==='equal'?'equal shares':'sales'}{!sharing.data?.configured?' (default; no rule configured)':''}. Costs without a recorded venue remain in Needs venue; zero-sales shares stay in Central.</p>}{view==='pl'&&<Button variant="link" className="px-1 h-9 text-xs" onClick={()=>setManagement(true)}>Management adjustments · existing report</Button>}<Dialog open={management} onOpenChange={setManagement}><DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>Management adjustments</DialogTitle></DialogHeader><ManagementReports/></DialogContent></Dialog></div>;}
