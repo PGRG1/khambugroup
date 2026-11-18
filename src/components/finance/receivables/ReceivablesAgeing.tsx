@@ -66,7 +66,6 @@ export function ReceivablesAgeing({ asAt, contractName, onOpen }: { asAt: string
           {rows.length > 0 && <tr><th colSpan={2} className="sales-cell-left font-semibold">Total</th>{tot.map((v, i) => <td key={i} className="kit-num font-semibold">{amount(v, i === 3)}</td>)}<td className="kit-num font-semibold">{formatTableCurrency(all)}</td></tr>}
         </tbody></table></div>
       {!rows.length && !books.loading && <p className="p-8 text-center text-sm text-muted-foreground">Nothing owed to you.</p>}
-      <p className="px-1 text-[12px] text-muted-foreground">Days since the sale. Money that came in clears the oldest amounts first.</p>
     </section>
   </>;
 }

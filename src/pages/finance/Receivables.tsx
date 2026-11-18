@@ -102,7 +102,6 @@ export default function Receivables() {
           {contractItems.map(i => <li key={i.line_id} className="flex items-center justify-between gap-2 px-2 min-h-11 py-2 text-[14px]"><span className="truncate">{i.memo}</span><span className="flex items-center gap-3 shrink-0"><span className="td-num">{formatTableCurrency(Number(i.open_amount))}</span><button type="button" className="kit-link text-[13px]" onClick={() => setSelected(i)}>Record payment</button></span></li>)}
           {!contractRow?.items.length && !contractItems.length && <li className="p-6 text-center text-sm text-muted-foreground">Nothing open.</li>}
         </ul>
-        <p className="px-1 text-[12px] text-muted-foreground">Record a payment when they pay you. <Link to="/finance/books?view=ledger" className="kit-link">Open the ledger</Link></p>
       </section>
       <SettleReceivableDialog item={selected} open={!!selected} onOpenChange={o => !o && setSelected(null)} onSettled={ar.refresh} /></div>;
     const m = merchants.find(x => x.id === payer);
@@ -155,7 +154,6 @@ export default function Receivables() {
           </tr>)}</tbody></table></div>
         {!view2.length && !loading && <p className="p-8 text-center text-sm text-muted-foreground">Nothing owed and no sales in the last 30 days.</p>}
         {view2.length > PAGE && <div className="flex justify-between items-center gap-3 px-1 text-[13px] text-muted-foreground"><span className="td-num">{formatTableInteger((page - 1) * PAGE + 1)}–{formatTableInteger(Math.min(page * PAGE, view2.length))} of {formatTableInteger(view2.length)}</span><span className="flex gap-2"><button type="button" className="kit kit-btn kit-tool-btn" disabled={page === 1} onClick={() => setPage(n => n - 1)}>Previous</button><button type="button" className="kit kit-btn kit-tool-btn" disabled={page * PAGE >= view2.length} onClick={() => setPage(n => n + 1)}>Next</button></span></div>}
-        <p className="px-1 text-[12px] text-muted-foreground">Card sales from the books this year; money that came in clears the oldest days first. Upload payout reports in <Link to="/finance/cash?view=payouts" className="kit-link">Cash › Card payouts</Link> and Bani matches each one to the bank.</p>
       </section></div>;
   }
 

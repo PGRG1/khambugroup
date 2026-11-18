@@ -141,7 +141,6 @@ export function CashAccountPage({ accountId, bank, ledger, inPeriod, today, init
         </tbody></table></div>
       {!rows.length && <p className="p-8 text-center text-sm text-muted-foreground">{filter === "needs" ? "No questions from Bani." : filter === "waiting" ? "Nothing is waiting for a document." : "No lines in this period."}</p>}
       {rows.length > PAGE && <div className="flex justify-between items-center gap-3 px-1 text-[13px] text-muted-foreground"><span className="td-num">{formatTableInteger((page - 1) * PAGE + 1)}–{formatTableInteger(Math.min(page * PAGE, rows.length))} of {formatTableInteger(rows.length)}</span><span className="flex gap-2"><button type="button" className="kit kit-btn kit-tool-btn" disabled={page === 1} onClick={() => setPage(n => n - 1)}>Previous</button><button type="button" className="kit kit-btn kit-tool-btn" disabled={page * PAGE >= rows.length} onClick={() => setPage(n => n + 1)}>Next</button></span></div>}
-      <p className="px-1 text-[12px] text-muted-foreground">Same order as your bank statement. Bani matches lines on his own as statements, invoices, bills and payout reports come in; he only asks when he isn't sure.</p>
     </section>
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Months">
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Months</span><span className="text-[13px] text-muted-foreground font-normal">· {statements.length ? `${months.filter(m => !m.closed).length} open` : "no statements uploaded"}</span></h2>
@@ -163,7 +162,6 @@ export function CashAccountPage({ accountId, bank, ledger, inPeriod, today, init
           <td className="sales-cell-left">{m.closed ? <span className="text-muted-foreground">Closed {m.closed.locked_at ? shortDay(m.closed.locked_at.slice(0, 10)) : ""}</span> : m.left ? <button type="button" className="kit-link" onClick={() => { setFilter("needs"); setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Finish {formatTableInteger(m.left)} {m.left === 1 ? "line" : "lines"}</button> : <button type="button" className="kit-link" disabled={disabled} onClick={() => { setNote(""); setClosing(m.i); }}>Close month</button>}</td>
         </tr>)}</tbody></table></div>
       {!statements.length && <p className="p-6 text-center text-sm text-muted-foreground">Upload a statement to start closing months.</p>}
-      <p className="px-1 text-[12px] text-muted-foreground">A month closes when every line is matched. If the statement doesn't agree, closing asks for a note.</p>
     </section>
     <BankMatchDialog txn={txn} onClose={() => setTxn(null)} bank={bank} />
     <Dialog open={!!closing} onOpenChange={o => !o && setClosing(null)}><DialogContent><DialogHeader><DialogTitle>Close {closing ? periodLabel(closing) : "month"}</DialogTitle></DialogHeader>

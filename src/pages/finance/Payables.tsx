@@ -109,7 +109,6 @@ export default function Payables() {
             </tr>; })}</Fragment>)}</tbody></table></div>
         {!groups.length && !loading && <p className="p-8 text-center text-sm text-muted-foreground">{search ? 'Nothing matches your search.' : 'Nothing owed.'}</p>}
         {note}
-        <p className="px-1 text-[12px] text-muted-foreground">Tap a supplier for their account. Pay records a payment against their oldest invoices.</p>
       </section>
     </>;
   };
@@ -177,7 +176,6 @@ export default function Payables() {
           <td className="kit-num">{r.own && <ReceiptIndicator count={r.receipts} onClick={() => setPaymentId(r.id)} />}</td>
         </tr>)}</tbody></table></div>
       {!rows.length && !loading && <p className="p-8 text-center text-sm text-muted-foreground">No payments recorded.</p>}
-      <p className="px-1 text-[12px] text-muted-foreground">A payment shows "In the bank" once Bani finds it on a bank statement.</p>
     </section>;
   };
 

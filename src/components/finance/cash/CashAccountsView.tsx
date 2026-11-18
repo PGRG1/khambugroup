@@ -138,7 +138,6 @@ export function CashAccountsView({ bank, pc, ledger, asAt, onEditCash, onUpload,
           </tbody></table>
         {!rows.length && !loading && <p className="p-8 text-center text-sm text-muted-foreground">No accounts yet.</p>}
       </div>
-      <p className="px-1 text-[12px] text-muted-foreground">Balance is the bank's own figure from the last statement; tills and cash boxes show what the books say. Bank vs books is on each account and under Columns.</p>
     </section>
   </>;
 }

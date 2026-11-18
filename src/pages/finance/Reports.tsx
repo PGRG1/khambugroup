@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowLeftRight } from 'lucide-react';
 import { balanceSheetRows, indirectCashRows, type ReportRow } from '@/utils/financeReportViews';
 import { reportMonths } from '@/utils/financeClose';
-import { formatCurrency, formatMonthLabel, formatPercent, formatTableCurrency } from '@/utils/format';
+import { formatCurrency, formatMonthLabel, formatPercent, formatTableCurrency, formatTableInteger } from '@/utils/format';
 import { downloadCSV } from '@/utils/csvDownload';
 import { tenantToday, shortDay } from '@/utils/salesRecordChecks';
 import jsPDF from 'jspdf';
@@ -86,6 +86,16 @@ export default function Reports() {
     const closed = months.length > 0 && months.every(closedMonth);
     const salesOf = (i: number) => v(rows, 'net-sales', i);
     const shown = rows.filter(r => detailed === 'detail' || r.kind !== 'account');
+    // On screen: one line per heading with its amount, accounts under it when asked; no duplicate or ratio lines.
+    const COSTS = ['food', 'staff', 'running', 'fx-r', 'fx-u'];
+    let under = '';
+    const screen = rows.map(r => { if (r.kind === 'section') under = r.id; return { r, cost: COSTS.includes(r.kind === 'section' ? r.id : under) && (r.kind === 'section' || r.kind === 'account') }; })
+      .filter(({ r }) => !['net-sales', 'prime', 'prime-ratio', 'margin'].includes(r.id) && !r.percent)
+      .filter(({ r }) => !(r.id.startsWith('fx-') && r.values.every(n => Math.abs(n ?? 0) < .005)))
+      .filter(({ r }) => detailed === 'detail' || r.kind !== 'account');
+    const money = (n: number | null | undefined, cost: boolean) => n == null || Math.abs(n) < .005 ? '—' : `${(cost ? -n : n) < 0 ? '−' : ''}${formatTableInteger(Math.round(Math.abs(n)))}`;
+    const share = (r: PLRow, i: number) => r.id === 'sales' || !salesOf(i) || r.values[i] == null || Math.abs(r.values[i] ?? 0) < .005 ? '' : `${Math.round(Math.abs(r.values[i] ?? 0) / salesOf(i) * 100)}%`;
+    const strong = (r: PLRow) => r.kind === 'total' || r.kind === 'grand' || (detailed === 'detail' && r.kind === 'section');
     const pctOf = (r: PLRow, i: number) => r.percent ? null : salesOf(i) ? formatPercent((r.values[i] ?? 0) / salesOf(i) * 100) : '—';
     const amount = (r: PLRow, i: number) => r.values[i] == null ? '—' : r.percent ? formatPercent(r.values[i]!) : signed(r.values[i] ?? 0);
     const ledger = (r: PLRow) => r.accountId ? () => navigate(`/finance/books?view=ledger&account=${encodeURIComponent(r.accountId!)}`) : undefined;
@@ -97,19 +107,20 @@ export default function Reports() {
     return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit and loss', columns, plExport, f)} label="Download profit and loss" disabled={loading || failed} /></>)}{error}
       <Hero aria="Profit summary" busy={loading} label={period.label} check={closed ? `${months.length === 1 ? formatMonthLabel(months[0]) : 'Every month'} is closed` : 'Not closed yet'} checkTone={closed ? 'ok' : 'mut'} stats={stats} />
       {why && !loading && <p className="px-1 text-[13px] text-muted-foreground"><span className="font-medium text-[color:var(--kit-ink)]">Bani:</span> {why}</p>}
-      <Section title="Profit & loss" detail={compare === 'off' ? period.label : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
-        <QuickFilter label="Detail" value={detailed} onChange={setDetailed} options={[{ key: 'summary', label: 'Summary' }, { key: 'detail', label: 'Account detail' }]} />
-        <div className="min-[768px]:hidden kit">{shown.map(r => r.kind === 'section' ? <GroupHead key={r.id} name={r.label} /> : <ul key={r.id} className="border-t border-border/60"><PhoneRow title={r.kind === 'account' ? r.label : <b className="font-semibold">{r.label}</b>} amount={<>{r.kind === 'grand' ? <b className="font-semibold text-[#1F6B5E]">{amount(r, cur)}</b> : amount(r, cur)}{pctOf(r, cur) && <span className="ml-1 text-[12px] text-muted-foreground">{pctOf(r, cur)}</span>}</>} onOpen={ledger(r)} /></ul>)}</div>
-        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Profit and loss table"><table className="sales-table" aria-label="Profit and loss">
-          <thead><tr><th scope="col" className="sales-cell-left">Line</th>{columns.map(c => <Fragment key={c}><th scope="col" className="sales-cell-right">{c}</th><th scope="col" className="sales-cell-right">%</th></Fragment>)}</tr></thead>
-          <tbody>{shown.map(r => r.kind === 'section' ? <tr key={r.id} className="sales-week-row"><th colSpan={columns.length * 2 + 1}><span>{r.label}</span></th></tr> :
-            <tr key={r.id} className={`sales-record-row ${r.kind === 'ratio' ? 'text-muted-foreground' : ''}`} {...(r.accountId ? keyOpen(ledger(r)!) : {})}>
-              <td className={`sales-cell-left ${r.kind === 'account' ? 'pl-8 text-[#4A5853]' : 'font-semibold'}`} title={r.label}>{r.label}</td>
-              {columns.map((c, i) => <Fragment key={c}><td className={`kit-num ${r.kind === 'total' || r.kind === 'grand' ? 'font-semibold' : ''} ${r.kind === 'grand' && i === cur ? 'text-[#1F6B5E]' : ''}`}>{amount(r, i)}</td><td className="kit-num text-muted-foreground">{pctOf(r, i) ?? ''}</td></Fragment>)}
+      <Section title="Profit & loss" detail={compare === 'off' ? undefined : `vs ${compare === 'year' ? 'last year' : 'previous period'}`} busy={loading}>
+        <div className="flex items-center justify-between gap-2"><QuickFilter label="Detail" value={detailed} onChange={setDetailed} options={[{ key: 'summary', label: 'Summary' }, { key: 'detail', label: 'Accounts' }]} /><button type="button" className="kit-link px-1 text-[12px] text-muted-foreground" onClick={() => setManagement(true)}>Adjustments</button></div>
+        <div className="min-[768px]:hidden kit"><ul>{screen.map(({ r, cost }) => <li key={r.id} className={`flex items-baseline justify-between gap-3 min-h-11 py-2 border-t border-border/60 first:border-t-0 ${r.kind === 'account' ? 'pl-4 text-[13px] text-[#4A5853]' : 'text-[14px]'} ${strong(r) ? 'font-semibold' : ''} ${r.accountId ? 'cursor-pointer' : ''}`} {...(r.accountId ? keyOpen(ledger(r)!) : {})}>
+          <span className="min-w-0 truncate">{r.label}</span>
+          <span className="shrink-0 td-num"><span className={r.kind === 'grand' ? 'text-[#1F6B5E]' : ''}>{money(r.values[cur], cost)}</span><span className="inline-block w-10 text-right text-[12px] font-normal text-muted-foreground">{share(r, cur)}</span></span>
+        </li>)}</ul></div>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Profit and loss table"><table className="sales-table !table-fixed !w-full" aria-label="Profit and loss">
+          <colgroup><col />{columns.map(c => <Fragment key={c}><col className="w-[130px]" /><col className="w-[56px]" /></Fragment>)}</colgroup>
+          <thead><tr><th scope="col" className="sales-cell-left"><span className="sr-only">Line</span></th>{columns.map(c => <Fragment key={c}><th scope="col" className="sales-cell-right !text-right">{c}</th><th scope="col"><span className="sr-only">% of revenue</span></th></Fragment>)}</tr></thead>
+          <tbody>{screen.map(({ r, cost }) => <tr key={r.id} className={`${r.accountId ? 'sales-record-row' : ''} ${r.kind === 'grand' ? 'border-t border-border' : ''}`} {...(r.accountId ? keyOpen(ledger(r)!) : {})}>
+              <td className={`sales-cell-left ${r.kind === 'account' ? 'pl-8 text-[#4A5853]' : ''} ${strong(r) ? 'font-semibold' : ''}`} title={r.label}>{r.label}</td>
+              {columns.map((c, i) => <Fragment key={c}><td className={`kit-num !text-right ${strong(r) ? 'font-semibold' : ''} ${r.kind === 'grand' && i === cur ? 'text-[#1F6B5E]' : ''}`}>{money(r.values[i], cost)}</td><td className="kit-num !text-right text-muted-foreground !pl-1">{share(r, i)}</td></Fragment>)}
             </tr>)}</tbody></table></div>
         {!loading && !failed && !rows.length && <Empty>No posted entries in this period.</Empty>}
-        <Note>Tap an account for its ledger. Summary hides the account lines. % is share of net revenue.</Note>
-        <button type="button" className="kit-link px-1 text-[12px]" onClick={() => setManagement(true)}>Management adjustments</button>
       </Section>
       <Dialog open={management} onOpenChange={setManagement}><DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>Management adjustments</DialogTitle></DialogHeader><ManagementReports /></DialogContent></Dialog>
     </>);
@@ -186,7 +197,7 @@ export default function Reports() {
   const name = (label: string) => FRIENDLY[label] ?? label;
   const title = bs ? 'Balance sheet' : 'Cash flow';
   return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile(title, columns, rows.map(r => ({ ...r, label: name(r.label) })), f)} label={`Download ${title.toLowerCase()}`} disabled={loading || failed} /></>, bs)}{error}
-    <Hero aria={`${title} summary`} busy={loading} label={bs ? `As at ${shortDay(asAt)} · ${scope.label}` : `${period.label} · ${scope.label} · from the books`} check={bs ? (Math.abs(gap) < 0.005 ? 'Own = owe + equity' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : 'Cash accounts only'} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
+    <Hero aria={`${title} summary`} busy={loading} label={bs ? `As at ${shortDay(asAt)} · ${scope.label}` : `${period.label} · ${scope.label} · from the books`} check={bs ? (Math.abs(gap) < 0.005 ? 'Balances' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : 'Cash accounts only'} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
     <Section title={title} detail={compare === 'off' ? undefined : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
       <div className="min-[768px]:hidden kit">{rows.map((r, i) => r.section ? <GroupHead key={i} name={name(r.label)} /> : <ul key={i} className="border-t border-border/60"><PhoneRow title={BOLD.test(r.label) ? <b className="font-semibold">{name(r.label)}</b> : name(r.label)} amount={r.values[0] == null ? '—' : signed(r.values[0])} sub={compare === 'off' || r.values[1] == null ? undefined : `${columns[1]} ${signed(r.values[1])}`} /></ul>)}</div>
       <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label={`${title} table`}><table className="sales-table" aria-label={title}>
