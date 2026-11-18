@@ -5,9 +5,8 @@ import { TopBarToday } from "@/components/TopBarToday";
 import { AppSidebar } from "@/components/AppSidebar";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { UserMenu } from "@/components/UserMenu";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { PageStage } from "@/components/PageMotion";
-import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 import { RevenueNavigation } from "@/components/revenue/RevenueNavigation";
 import { isRevenueRoute } from "@/utils/revenueNavigation";
 import { FinanceNavigation } from "@/components/finance/FinanceNavigation";
@@ -64,9 +63,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <main className={`app-shell app-atmosphere flex-1 min-w-0 max-w-full flex flex-col ${pathname.startsWith("/assistant") ? "" : "app-bg-sage"}`}>
           <header className="tenant-topbar sticky top-0 z-30 h-[52px] shrink-0 flex items-center justify-between gap-2 border-b border-border px-2 sm:px-4 backdrop-blur">
-            <div className="flex min-w-0 items-center gap-1">
-              {/* Phone: the Bani mark (back to Bani team) in place of a menu button; sections are in the bar at the bottom. */}
-              <Link to="/" aria-label="Bani team" className="mobile-mark inline-flex h-10 w-8 shrink-0 items-center justify-center md:hidden"><BaniLoginMark className="h-[22px] w-[12px]" /></Link>
+            <div className="flex min-w-0 items-center gap-1 max-md:pl-1">
               <TopBarToday />
             </div>
             <div className="flex min-w-0 items-center gap-2">

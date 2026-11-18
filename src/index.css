@@ -929,8 +929,6 @@ html:not(.dark) .tenant-portal .tenant-topbar:has(.topbar-sky[data-tone="dark"])
 @media (max-width: 640px) { div:has(> .section-pill-sticky) { display: contents; } }
 
 /* Top bar on a phone: the Bani mark (back to Bani team) and the initials (account). */
-.mobile-mark { color: #1F3F3B; }
-.tenant-topbar:has(.topbar-sky[data-tone="dark"]) .mobile-mark { color: #FFFFFF; }
 .mobile-me { display: inline-flex; align-items: center; justify-content: center; height: 40px; width: 36px; border: 0; background: none; padding: 0; }
 .mobile-me .bani-me-initials { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6); }
 .mobile-account-list { display: flex; flex-direction: column; }
