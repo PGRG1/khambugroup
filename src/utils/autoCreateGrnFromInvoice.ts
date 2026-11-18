@@ -17,7 +17,7 @@ export interface AutoGrnResult {
 
 export async function autoCreateGrnFromInvoice(
   invoiceId: string,
-  opts: { tenantId: string; userId: string }
+  opts: { tenantId: string; userId: string; receivedDate?: string }
 ): Promise<AutoGrnResult> {
   const { tenantId, userId } = opts;
   try {
@@ -79,7 +79,8 @@ export async function autoCreateGrnFromInvoice(
 
     // 3. Create GRN header — received_date is the invoice date (a Hong Kong
     //    calendar date string), never the UTC "today".
-    const receivedDate = (invoice as any).invoice_date || new Date().toISOString().slice(0, 10);
+    // The receiver may confirm a different delivery day (Bani chat); only a plain calendar date is accepted.
+    const receivedDate = (opts.receivedDate && /^\d{4}-\d{2}-\d{2}$/.test(opts.receivedDate) ? opts.receivedDate : null) || (invoice as any).invoice_date || new Date().toISOString().slice(0, 10);
     const { data: grn, error: grnErr } = await supabase
       .from("goods_received_notes" as any)
       .insert({

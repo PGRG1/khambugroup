@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, starterPrompts } from "@/utils/floatingBaniUi";
+import { ChatInvoiceScan } from "@/components/assistant/ChatInvoiceScan";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -341,6 +342,15 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         return;
       }
     }
+    // One plain invoice: confirm and book it right here in the chat (same scanner checks and save).
+    if (action.mode === "scan" && handoffFiles.length === 1 && !action.status) {
+      const invoiceScan = { id: crypto.randomUUID(), mode: "scan" as const, files: handoffFiles, venue: action.venue, scope: identity };
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: "", invoiceScan }] : [...prev, { role: "assistant" as const, content: "", invoiceScan }];
+      });
+      return;
+    }
     requestScannerHandoff({ id: crypto.randomUUID(), mode: action.mode, files: handoffFiles, venue: action.venue, scope: identity, ...(action.mode === "scan" && action.status ? { status: action.status, reason: action.reason } : {}) });
     navigate("/procurement/invoices");
   };
@@ -600,6 +610,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>}
           {messages.map((message, index) => <div dir="auto" key={index} id={message.assignmentNoticeId ? `assignment-notice-${message.assignmentNoticeId}` : undefined} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>
             {message.outcome==='Forgotten'?<p className="text-xs text-muted-foreground">Forgotten</p>:message.content && <div className="floating-bani-prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFinancialTables]} components={{table:({children})=><FinancialTable>{children}</FinancialTable>,td:({children,style})=><VarianceCell style={style}>{children}</VarianceCell>,tr:({children})=><SummaryRow>{children}</SummaryRow>,pre:({children})=><>{children}</>,code:({className,children})=>{const lang=/language-(\w+)/.exec(className??"")?.[1];const src=String(children??"");return lang==="stats"?<StatChips source={src}/>:lang==="calc"?<CalcBreakdown source={src}/>:lang==="daypicker"?<DayPicker source={src} onSend={(t)=>void sendRef.current({ text: t, opts: { voice: false, voiceLanguage: "" } })}/>:lang?<pre><code>{src}</code></pre>:<code>{children}</code>;},a:({href,children})=>{const nav=href?internalNavigation(href):null;return nav?<Button variant="link" className="h-auto whitespace-normal p-0" onClick={()=>{const path=navigationPath(nav);if(path&&canAccessPage(SCREENS[nav.screen].page)){keepOpenNav.current=true;navigate(path);}}}>{children}</Button>:<span>{children}</span>;}}}>{message.content}</ReactMarkdown></div>}
+            {message.invoiceScan && (message.outcome
+              ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
+              : message.invoiceScan.files[0] instanceof File && message.invoiceScan.scope === identity
+                ? <ChatInvoiceScan handoff={message.invoiceScan} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} />
+                : <p className="text-xs text-muted-foreground">Attach the invoice again to book it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {

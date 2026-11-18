@@ -72,8 +72,8 @@ describe("scanner save path", () => {
   const src = read("src/hooks/useInvoiceData.ts");
 
   it("does not rematch scanner lines globally before the RPC", () => {
-    const fnStart = src.indexOf("const createScannerInvoiceWithAttachments");
-    const fnEnd = src.indexOf("const updateInvoice");
+    const fnStart = src.indexOf("export async function createScannerInvoiceRecord");
+    const fnEnd = src.indexOf("export function useInvoiceData");
     const body = src.slice(fnStart, fnEnd);
     expect(body).not.toContain("matchLineItemsToProductMaster");
     expect(body).toContain("create_scanner_invoice_with_attachments");

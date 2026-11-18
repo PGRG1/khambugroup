@@ -82,6 +82,7 @@ import { FloatingBani, type FloatingReview } from "@/components/assistant/Floati
 import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
 import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
+import { ChatScanCard, type ChatScanPhase } from "@/components/invoices/ChatScanCard";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -194,6 +195,8 @@ interface ReviewCorrection {
 }
 
 interface ScannedInvoice {
+  /** Delivery day confirmed by the receiver (chat); the GRN uses it, the invoice does not store it. */
+  received_date?: string;
   currency?: string;
   fx_rate?: string;
   _baniDraftId?: string;
@@ -263,7 +266,7 @@ interface InvoiceScannerProps {
     total: number;
     notes: null;
     product_master_id: string | null;
-  }[], files?: File[]) => Promise<any>;
+  }[], files?: File[], meta?: { receivedDate?: string }) => Promise<any>;
   
   onClose: () => void;
   userId: string;
@@ -272,6 +275,10 @@ interface InvoiceScannerProps {
   handoff?: ScannerHandoff | null;
   /** Reports whether an unsaved review exists so automatic navigation never destroys it. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** "chat": the compact confirm-and-book card inside Bani; same scan, checks and save. */
+  variant?: "full" | "chat";
+  /** Chat only: hand the files to the full Scan Invoice review. */
+  onOpenFull?: () => void;
 }
 
 const emptyLine: ScannedLineItem = {
@@ -323,7 +330,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
@@ -388,6 +395,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   baniLive.current = { binding: baniBinding, scope: baniScope, editable: baniEditable };
   // Handoff intake: attempted ids are never started again (no rerender/remount
   // retry loop); a failed scan stages the files for explicit "Scan All" retry.
+  const [handoffOutcome, setHandoffOutcome] = useState<null | "denied" | "failed">(null);
   const handoffAttempted = useRef(new Set<string>());
   const handoffVenueRef = useRef<string | null>(null);
   const handoffActiveRef = useRef(false);
@@ -890,7 +898,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     consumeScannerHandoff(handoff.id);
     if (decision.kind === "open-only") return;
     if (decision.kind === "denied") {
-      toast({ title: "Read-only access", description: "You can review invoices here, but scanning new files needs edit access to Procurement.", variant: "destructive" });
+      setHandoffOutcome("denied");
+      if (variant !== "chat") toast({ title: "Read-only access", description: "You can review invoices here, but scanning new files needs edit access to Procurement.", variant: "destructive" });
       return;
     }
     handoffVenueRef.current = handoff.venue;
@@ -905,7 +914,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         notes: [inv.notes, handoff.reason ? `Disputed: ${handoff.reason}` : ""].filter(Boolean).join("\n") || inv.notes,
       }));
       // Explicit retry only: stage the files so the user presses "Scan All".
-      if (!ok) setPendingFiles(handoff.files);
+      if (!ok) { setPendingFiles(handoff.files); setHandoffOutcome("failed"); }
     });
   }, [handoff, processMultipleFiles, reviewDirty, handoffIdentity, handoffCanEdit, baniRoleLoading, baniPermissionLoading]);
 
@@ -1703,7 +1712,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
           status: inv.invoice_status || undefined,
         },
         lines,
-        filesToSave.length > 0 ? filesToSave : undefined
+        filesToSave.length > 0 ? filesToSave : undefined,
+        inv.received_date ? { receivedDate: inv.received_date } : undefined,
       );
 
       setInvoices((prev) => {
@@ -1749,8 +1759,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     return reviewBlocking || hasTotalMismatchForSave(inv);
   }, [hasTotalMismatchForSave]);
 
-  const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
-    if (!current) return;
+  const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string; invoice?: ScannedInvoice } = {}) => {
+    // Chat books with its confirmed answers applied in the same tick (state is async).
+    const current = opts.invoice ?? invoices[currentIdx] ?? null;
+    if (!current) return false;
+    if (opts.invoice) setInvoices(prev => prev.map((inv, i) => i === currentIdx ? opts.invoice! : inv));
     if (!current.supplier_id) {
       setSupplierError(true);
       toast({ title: "Add a supplier before saving", description: "This invoice has no supplier set.", variant: "destructive" });
@@ -1770,7 +1783,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       toSave = { ...current, notes: mergedNotes };
       setInvoices(prev => prev.map((inv, i) => i === currentIdx ? toSave : inv));
     }
-    await doSaveCurrent(toSave, currentIdx);
+    return await doSaveCurrent(toSave, currentIdx);
   };
 
 
@@ -2137,6 +2150,52 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const existingAdd = product && !scoped.some(entry => entry.id === product.id) ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="existing" initialProductId={product.id} triggerLabel="Yes · add this supplier" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined;
     return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => { openFullLine(index); requestAnimationFrame(() => openProductSearch(index)); }} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
   };
+
+  if (variant === "chat") {
+    const supplierRow = current ? suppliers.find(sp => sp.id === current.supplier_id) as { payment_terms?: string | null } | undefined : undefined;
+    const termsMatch = supplierRow?.payment_terms?.match(/^(?:net\s*)?(\d+)\s*(?:days?)?$/i);
+    const phase: ChatScanPhase = handoffOutcome === "denied" ? "denied"
+      : handoffOutcome === "failed" ? "failed"
+      : scanning || !current || current.line_items.some(l => l.matcher_pending) ? "reading"
+      : invoices.length > 1 ? "many"
+      : current.saved ? "saved"
+      : current.is_duplicate ? "duplicate"
+      : !current.supplier_id || !current.invoice_number || !current.invoice_date || hasUnmatchedItems || hasBlockingIssues || hasUnmatchedForSave(current) ? "review"
+      : "ready";
+    const setQty = (i: number, value: number) => {
+      const line = current?.line_items[i];
+      if (!line) return;
+      const billed = parseFloat(line.quantity) || 0;
+      updateLineReceiving(i, "accepted_qty", String(value));
+      // A changed count is a delivery difference: short or extra, never guessed beyond that.
+      if (value !== billed) updateLineReceiving(i, "receiving_reason", value < billed ? "short_delivery" : "extra_quantity_received");
+    };
+    return <ChatScanCard
+      phase={phase}
+      supplier={currentSupplierName}
+      number={current?.invoice_number || ""}
+      date={current?.invoice_date || ""}
+      total={displayTotal}
+      currency={current?.currency || (supplierRow as { default_currency?: string } | undefined)?.default_currency || getBaseCurrency()}
+      lines={(current?.line_items || []).filter(l => l.description.trim() && l.counts_toward_total !== false).map((l) => {
+        const i = current!.line_items.indexOf(l);
+        const billed = parseFloat(l.quantity) || 0;
+        const accepted = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
+        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l) };
+      })}
+      termsDays={termsMatch ? Number(termsMatch[1]) : null}
+      printedDue={current?.due_date || null}
+      saving={saving}
+      onField={(field, value) => updateField(field, value)}
+      onQty={setQty}
+      onBook={answers => {
+        if (!current) return;
+        const status = disputeStats.hasDispute ? "disputed" : answers.paid ? "paid" : "outstanding";
+        void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
+      }}
+      onOpenFull={() => onOpenFull?.()}
+    />;
+  }
 
   return (
     <div

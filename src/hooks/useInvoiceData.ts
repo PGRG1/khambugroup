@@ -94,6 +94,36 @@ export interface Invoice {
   line_items?: InvoiceLineItem[];
 }
 
+/** Atomic scanner save (invoice + lines + attachment metadata + audit) for one tenant. */
+export async function createScannerInvoiceRecord(
+  tenantId: string | null,
+  invoice: Record<string, any>,
+  lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
+  attachments: Record<string, any>[],
+): Promise<string> {
+    if (!tenantId) throw new Error("No active client selected.");
+    if (!attachments || attachments.length === 0) {
+      throw new Error("A scanned invoice requires at least one durable source attachment.");
+    }
+    // No save-time rematch: the scanner persists exactly the product_master_id the
+    // reviewer accepted. A null link stays null rather than being silently attached
+    // to some other supplier's product by a global first-hit matcher.
+    const reviewedLines = lineItems.map((li) => ({ ...li }));
+    const currency = invoice.currency || getBaseCurrency();
+    const lookup = currency!==getBaseCurrency() && !invoice.fx_rate ? await lookupFxRate(tenantId,invoice.invoice_date,currency) : null;
+    const conversion = convertDocument({...invoice,currency,total_amount:Number(invoice.total_amount)},getBaseCurrency(),Number(invoice.fx_rate)||lookup?.rate||null);
+    const monetaryKeys = ['unit_price','total','tax_amount','discount','accepted_price','net_unit_cost','normalized_unit_cost','line_discount_amount','header_discount_share'];
+    const convertedLines = reviewedLines.map(line=>{const next:Record<string,unknown>={...line,...(conversion.factor!==1||conversion.doc.fx_rate?{original_unit_price:line.unit_price??null,original_total:(line as any).total??null}:{original_unit_price:null,original_total:null})};for(const key of monetaryKeys){if(next[key]!=null)next[key]=Number(next[key])*conversion.factor;}return next;});
+    const { data, error } = await (supabase as any).rpc("create_scanner_invoice_with_attachments", {
+      p_tenant_id: tenantId,
+      p_invoice: {...conversion.doc,discount:Number(invoice.discount??0)*conversion.factor,held_amount:Number(invoice.held_amount??0)*conversion.factor,fx_rate_source:invoice.fx_rate?'document':lookup?.source},
+      p_line_items: convertedLines,
+      p_attachments: attachments,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
+}
+
 export function useInvoiceData() {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -260,28 +290,9 @@ export function useInvoiceData() {
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
     attachments: Record<string, any>[],
   ): Promise<string> => {
-    if (!tenantId) throw new Error("No active client selected.");
-    if (!attachments || attachments.length === 0) {
-      throw new Error("A scanned invoice requires at least one durable source attachment.");
-    }
-    // No save-time rematch: the scanner persists exactly the product_master_id the
-    // reviewer accepted. A null link stays null rather than being silently attached
-    // to some other supplier's product by a global first-hit matcher.
-    const reviewedLines = lineItems.map((li) => ({ ...li }));
-    const currency = invoice.currency || getBaseCurrency();
-    const lookup = currency!==getBaseCurrency() && !invoice.fx_rate ? await lookupFxRate(tenantId,invoice.invoice_date,currency) : null;
-    const conversion = convertDocument({...invoice,currency,total_amount:Number(invoice.total_amount)},getBaseCurrency(),Number(invoice.fx_rate)||lookup?.rate||null);
-    const monetaryKeys = ['unit_price','total','tax_amount','discount','accepted_price','net_unit_cost','normalized_unit_cost','line_discount_amount','header_discount_share'];
-    const convertedLines = reviewedLines.map(line=>{const next:Record<string,unknown>={...line,...(conversion.factor!==1||conversion.doc.fx_rate?{original_unit_price:line.unit_price??null,original_total:(line as any).total??null}:{original_unit_price:null,original_total:null})};for(const key of monetaryKeys){if(next[key]!=null)next[key]=Number(next[key])*conversion.factor;}return next;});
-    const { data, error } = await (supabase as any).rpc("create_scanner_invoice_with_attachments", {
-      p_tenant_id: tenantId,
-      p_invoice: {...conversion.doc,discount:Number(invoice.discount??0)*conversion.factor,held_amount:Number(invoice.held_amount??0)*conversion.factor,fx_rate_source:invoice.fx_rate?'document':lookup?.source},
-      p_line_items: convertedLines,
-      p_attachments: attachments,
-    });
-    if (error) throw new Error(error.message);
+    const id = await createScannerInvoiceRecord(tenantId, invoice, lineItems, attachments);
     await fetchAll();
-    return data as string;
+    return id;
   }, [fetchAll, tenantId]);
 
 
