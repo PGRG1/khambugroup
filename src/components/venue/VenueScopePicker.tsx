@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, MapPin, X } from "lucide-react";
+import { Check, ChevronDown, MapPin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -36,8 +36,8 @@ function Choices({ big = false }: { big?: boolean }) {
   );
 }
 
-/** Top-bar pill: always white; on desktop ✕ resets to all venues (on a phone "All venues" is the first choice in the list,
- * so the ✕ is left out and the venue name gets the room). With one venue it just names it (nothing to pick). */
+/** Top-bar pill: always white; "All venues" is the first choice in the list, so the pill has no ✕ and the
+ * venue name gets the room. With one venue it just names it (nothing to pick). */
 export function VenueScopePicker() {
   const s = useVenueScope();
   const isMobile = useIsMobile();
@@ -49,14 +49,13 @@ export function VenueScopePicker() {
     </div>
   );
   const inactive = s.mode === "none";
-  const showClear = !s.isAll && !isMobile;
 
   const trigger = (
     <button
       type="button"
       onClick={isMobile ? () => setOpen(true) : undefined}
       aria-label={inactive ? `Venue: ${s.label} (does not apply on this page)` : `Venue: ${s.label}`}
-      className={cn("venue-pill-main inline-flex h-full min-w-0 items-center gap-1.5 pl-3 focus-visible:outline-none", showClear ? "pr-1" : "pr-3")}
+      className="venue-pill-main inline-flex h-full min-w-0 items-center gap-1.5 px-3 focus-visible:outline-none"
     >
       <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="truncate">{s.label}</span>
@@ -67,12 +66,6 @@ export function VenueScopePicker() {
   const pill = (inner: React.ReactNode) => (
     <div className={cn("venue-pill inline-flex h-9 min-w-0 max-w-[50vw] sm:max-w-[280px] items-center rounded-full text-[13px] font-medium focus-within:ring-2 focus-within:ring-ring", inactive && "opacity-50")}>
       {inner}
-      {showClear && (
-        <button type="button" onClick={(e) => { e.stopPropagation(); s.reset(); }} aria-label="Show all venues"
-          className="mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-[rgba(20,45,43,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 
