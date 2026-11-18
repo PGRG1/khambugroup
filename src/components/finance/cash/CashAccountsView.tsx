@@ -97,7 +97,7 @@ export function CashAccountsView({ bank, pc, ledger, asAt, onEditCash, onUpload,
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Accounts" aria-busy={loading}>
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Accounts</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(everything.length)} {everything.length === 1 ? "place" : "places"}{needYou ? ` · ${formatTableInteger(needYou)} need you` : " · all fine"}</span></h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow onDownload={download} downloadLabel="Download accounts"
-        columns={<button type="button" className="kit kit-btn kit-tool-btn max-[767px]:hidden" aria-pressed={bvb} onClick={() => setBvb(v => !v)}><span className="kit-tool-label">{bvb ? "Columns · simple" : "Columns · bank vs books"}</span></button>}
+        columns={<span className="max-[767px]:hidden contents"><button type="button" className="kit kit-btn kit-tool-btn" aria-pressed={bvb} onClick={() => setBvb(v => !v)}><span className="kit-tool-label">{bvb ? "Columns · simple" : "Columns · bank vs books"}</span></button></span>}
         filter={<FilterPanel activeCount={showTest ? 1 : 0} onReset={() => setShowTest(false)}><FilterGroup title="Show"><Label className="flex gap-2 items-center"><Checkbox checked={showTest} onCheckedChange={v => setShowTest(v === true)} />Test accounts</Label></FilterGroup></FilterPanel>} />
       {/* Phone: name and balance, then one coloured status line with its action. */}
       <div className="min-[768px]:hidden kit">

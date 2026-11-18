@@ -952,6 +952,12 @@ html:not(.dark) .tenant-portal .period-pill:hover { background: #F7F9F8; }
 html:not(.dark) .tenant-portal .page-top-actions button:not(.bg-primary):not([class*="bg-primary"]) { background: #FFFFFF; color: #121510; border: 1px solid rgba(31, 63, 59, 0.12); }
 html:not(.dark) .tenant-portal .page-top-actions button:not(.bg-primary):not([class*="bg-primary"]):hover { background: #F7F9F8; }
 .tenant-portal .page-top-actions button[class*="bg-primary"] { border: 1px solid transparent; }
+/* Phone: the date pill never gets squeezed. When the top row has more than one action, the white
+   ones become round icon buttons (their words stay for screen readers); the main green one keeps its words. */
+@media (max-width: 640px) {
+  .tenant-portal .page-top-actions-phone button:not([class*="bg-primary"]):not(:only-child) { width: 40px; min-width: 40px; padding: 0 !important; justify-content: center; font-size: 0; gap: 0; flex: none; }
+  .tenant-portal .page-top-actions-phone button[class*="bg-primary"] { min-width: 0; }
+}
 
 /* Purchase orders on a phone: the status row slides sideways, fading out before the round + button. */
 .po-status-row { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); }

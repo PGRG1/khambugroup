@@ -15,8 +15,8 @@ export function PageTop({ title, titleDetail, period, actions, actionsBesideTitl
     <div className="space-y-2">
       <h1 className="sr-only">{title}</h1>
       {(period || actions) && <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">{period}</div>
-        {actions && <div className="page-top-actions flex shrink-0 items-center gap-2">{actions}</div>}
+        <div className="shrink-0">{period}</div>
+        {actions && <div className="page-top-actions page-top-actions-phone flex min-w-0 items-center justify-end gap-2">{actions}</div>}
       </div>}
       {titleDetail}
       {status&&<p role="status" className="text-xs text-muted-foreground">{status}</p>}
