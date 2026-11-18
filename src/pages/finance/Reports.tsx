@@ -197,15 +197,24 @@ export default function Reports() {
   const name = (label: string) => FRIENDLY[label] ?? label;
   const title = bs ? 'Balance sheet' : 'Cash flow';
   return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile(title, columns, rows.map(r => ({ ...r, label: name(r.label) })), f)} label={`Download ${title.toLowerCase()}`} disabled={loading || failed} /></>, bs)}{error}
-    <Hero aria={`${title} summary`} busy={loading} label={bs ? `As at ${shortDay(asAt)} · ${scope.label}` : `${period.label} · ${scope.label} · from the books`} check={bs ? (Math.abs(gap) < 0.005 ? 'Balances' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : 'Cash accounts only'} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
-    <Section title={title} detail={compare === 'off' ? undefined : `comparing with ${compare === 'year' ? 'last year' : 'the previous period'}`} busy={loading}>
-      <div className="min-[768px]:hidden kit">{rows.map((r, i) => r.section ? <GroupHead key={i} name={name(r.label)} /> : <ul key={i} className="border-t border-border/60"><PhoneRow title={BOLD.test(r.label) ? <b className="font-semibold">{name(r.label)}</b> : name(r.label)} amount={r.values[0] == null ? '—' : signed(r.values[0])} sub={compare === 'off' || r.values[1] == null ? undefined : `${columns[1]} ${signed(r.values[1])}`} /></ul>)}</div>
-      <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label={`${title} table`}><table className="sales-table" aria-label={title}>
-        <thead><tr><th scope="col" className="sales-cell-left">Line</th>{columns.map(c => <th key={c} scope="col" className="sales-cell-right">{c}</th>)}</tr></thead>
-        <tbody>{rows.map((r, i) => r.section ? <tr key={i} className="sales-week-row"><th colSpan={columns.length + 1}><span>{name(r.label)}</span></th></tr> :
-          <tr key={i} className="sales-record-row"><td className={`sales-cell-left ${BOLD.test(r.label) ? 'font-semibold' : 'pl-8 text-[#4A5853]'}`} title={name(r.label)}>{name(r.label)}</td>{columns.map((c, n) => <td key={c} className={`kit-num ${BOLD.test(r.label) ? 'font-semibold' : ''} ${n > 0 ? 'text-muted-foreground' : ''}`}>{r.values[n] == null ? '—' : signed(r.values[n]!)}</td>)}</tr>)}</tbody></table></div>
+    <Hero aria={`${title} summary`} busy={loading} label={bs ? shortDay(asAt) : period.label} check={bs ? (Math.abs(gap) < 0.005 ? 'Balances' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : undefined} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
+    <Section title={title} detail={compare === 'off' ? undefined : `vs ${compare === 'year' ? 'last year' : 'previous period'}`} busy={loading}>
+      {(() => {
+        const whole = (n: number | null | undefined) => n == null || Math.abs(n) < .005 ? '—' : `${n < 0 ? '−' : ''}${formatTableInteger(Math.round(Math.abs(n)))}`;
+        const bold = (r: { label: string }) => BOLD.test(r.label);
+        return <>
+          <div className="min-[768px]:hidden kit"><ul>{rows.map((r, i) => r.section
+            ? <li key={i} className="pt-4 pb-1 text-[12px] font-medium text-muted-foreground">{name(r.label)}</li>
+            : <li key={i} className={`flex items-baseline justify-between gap-3 min-h-11 py-2 border-t border-border/60 ${bold(r) ? 'font-semibold text-[14px]' : 'pl-4 text-[13px] text-[#4A5853]'}`}><span className="min-w-0 truncate">{name(r.label)}</span><span className="shrink-0 td-num">{whole(r.values[0])}</span></li>)}</ul></div>
+          <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label={`${title} table`}><table className="sales-table !table-fixed !w-full" aria-label={title}>
+            <colgroup><col />{columns.map(c => <col key={c} className="w-[140px]" />)}</colgroup>
+            <thead><tr><th scope="col" className="sales-cell-left"><span className="sr-only">Line</span></th>{columns.map(c => <th key={c} scope="col" className="sales-cell-right !text-right">{c}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => r.section
+              ? <tr key={i}><td colSpan={columns.length + 1} className="sales-cell-left pt-5 text-[12px] font-medium text-muted-foreground">{name(r.label)}</td></tr>
+              : <tr key={i}><td className={`sales-cell-left ${bold(r) ? 'font-semibold' : 'pl-8 text-[#4A5853]'}`} title={name(r.label)}>{name(r.label)}</td>{columns.map((c, n) => <td key={c} className={`kit-num !text-right ${bold(r) ? 'font-semibold' : ''} ${n > 0 ? 'text-muted-foreground' : ''}`}>{whole(r.values[n])}</td>)}</tr>)}</tbody></table></div>
+        </>;
+      })()}
       {!loading && !failed && !rows.length && <Empty>No posted entries yet.</Empty>}
-      <Note>{bs ? <>Money owed to you and card payouts not yet received count as what you own. <Link className="kit-link" to="/finance/books?view=trial-balance">Trial balance</Link> shows every account.</> : 'Starts from profit, then adds or takes away money tied up in payouts, suppliers and wages, so the change matches your cash accounts.'}</Note>
     </Section>
   </>);
 }
