@@ -692,7 +692,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
             <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
             <div className="fb-att-nm"><b className={f.type.startsWith("image/") ? "img" : ext === "PDF" ? "pdf" : ""}>{ext || "FILE"}</b><span className="truncate">{f.name}</span></div>
-            <Button variant="ghost" type="button" className="fb-att-x" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3 w-3" /></Button>
+            <Button variant="ghost" type="button" data-slot="icon-only" className="fb-att-x" aria-label={`Remove ${f.name}`} onClick={() => removeFile(f.id)}><X className="h-3 w-3" /></Button>
           </div>; })}</div>}
           {voiceMode ? <div className="floating-bani-voice-row">
             <div className="floating-bani-voice-pill">
