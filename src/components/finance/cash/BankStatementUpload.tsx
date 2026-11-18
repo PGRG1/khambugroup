@@ -61,12 +61,14 @@ export function BankStatementUpload({ tenantId, accounts, onChanged, disabled, p
         lines += (await savePocket({ tenantId, bankAccountId: account.id, statement, pocket, storedPath: path, fileName: file.name, reconRules: rules })).lines;
         done.push(label);
       }
-      if (done.length) { set(id, { state: "saved", title: done.join(" · "), detail: `${formatTableInteger(lines)} ${lines === 1 ? "line" : "lines"} added · Bani matches them next${skipped.length ? ` · already had ${skipped.join(", ")}` : ""}` }); onChanged(); }
+      if (done.length) { set(id, { state: "saved", title: done.join(" · "), detail: `${formatTableInteger(lines)} ${lines === 1 ? "line" : "lines"} added · Bani is matching them now${skipped.length ? ` · already had ${skipped.join(", ")}` : ""}` }); onChanged(); startBani(); }
       else set(id, { state: "skipped", title: skipped.join(" · "), detail: "Already uploaded · nothing new" });
     } catch (e) {
       set(id, { state: "failed", detail: (e as { message?: string }).message || "Couldn't save this statement." });
     }
   }
+  // Start Bani on the new lines straight away; the background schedule keeps him going after this first batch.
+  const startBani = () => { if (tenantId) void supabase.functions.invoke("bani-accounting", { body: { tenant_id: tenantId, mode: "run" } }).catch(() => undefined); };
   const loadAll = (files: File[]) => { if (disabled || !tenantId) return; for (const f of files) void load(f); };
 
   // Files dropped anywhere on the page, and statements handed over from Bani chat, load the same way.
@@ -99,7 +101,7 @@ export function BankStatementUpload({ tenantId, accounts, onChanged, disabled, p
         {i.state === "failed" && <button type="button" className="kit-link text-[13px] shrink-0" onClick={() => setItems(list => list.filter(x => x.id !== i.id))}>Remove</button>}
       </li>)}</ul>
     </section>}
-    {review?.statement && <StatementUploadFlow key={review.id} open onClose={() => setReview(null)} onCommitted={() => { set(review.id, { state: "saved", detail: "Saved after your check · Bani matches the lines next" }); setReview(null); onChanged(); }}
+    {review?.statement && <StatementUploadFlow key={review.id} open onClose={() => setReview(null)} onCommitted={() => { set(review.id, { state: "saved", detail: "Saved after your check · Bani is matching the lines now" }); setReview(null); onChanged(); startBani(); }}
       accounts={accounts} reload={onChanged} tenantId={tenantId} initial={{ file: review.file, extracted: review.statement }} />}
   </>;
 }
