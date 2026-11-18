@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell } from 'lucide-react';
+import { Bell, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,9 +9,10 @@ import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { useVenueScope } from '@/hooks/useVenueScope';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/utils/fetchAllRows';
-import { formatDate } from '@/utils/format';
 import { assignedWorkForPerson, assignmentNoticeId, assignmentReceiptKey, readAssignmentReceipts, type AssignedWork } from '@/utils/assignmentNotices';
 import { useFloatingBaniStore } from './FloatingBaniContext';
+
+const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
 /** Existing accepted assignments only; receipts are device-local, never task updates. */
 export function AssignmentBell() {
@@ -79,21 +80,22 @@ export function AssignmentBell() {
       {/* Plain bell; a small amber dot (Bani's "needs attention" colour) when something is unread. The count stays in the aria-label and the list. */}
       {unread.length > 0 && <span aria-hidden="true" className="absolute right-[7px] top-[7px] h-2 w-2 rounded-full bg-[#D9822B] shadow-[0_0_0_2px_hsl(var(--background))]" />}
     </Button></PopoverTrigger>
-    <PopoverContent align="end" className="w-80 max-w-[calc(100vw-24px)] p-3" aria-label="Assigned work">
-      <h2 className="mb-2 text-sm font-medium">Assigned to you</h2>
-      {preview.isPreviewActive ? <p className="text-xs text-muted-foreground">Assignments are hidden in preview.</p> : query.isError ? <p role="status" className="text-xs text-muted-foreground">Assignments couldn’t be loaded.</p> : query.isPending ? <p role="status" className="text-xs text-muted-foreground">Loading assignments…</p> : !tasks.length ? <p className="text-xs text-muted-foreground">No assigned work.</p> : <div className="max-h-80 overflow-y-auto">
+    <PopoverContent align="end" sideOffset={8} collisionPadding={12} className="w-80 max-w-[calc(100vw-24px)] rounded-2xl border-border/60 bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(23,48,44,.22)]" aria-label="Assigned work">
+      <div className="flex items-baseline justify-between px-3 pb-2 pt-2.5"><h2 className="text-sm font-semibold">Assigned to you</h2>{unread.length > 0 && <span className="text-xs text-muted-foreground">{unread.length} new</span>}</div>
+      {preview.isPreviewActive ? <p className="px-3 pb-3 text-xs text-muted-foreground">Assignments are hidden in preview.</p> : query.isError ? <p role="status" className="px-3 pb-3 text-xs text-muted-foreground">Assignments couldn’t be loaded.</p> : query.isPending ? <p role="status" className="px-3 pb-3 text-xs text-muted-foreground">Loading assignments…</p> : !tasks.length ? <p className="px-3 pb-3 text-xs text-muted-foreground">No assigned work.</p> : <div className="max-h-80 overflow-y-auto">
         {tasks.map(task => {
           const id = assignmentNoticeId(task);
           const venue = scope.venues.find(v => v.id === task.venue_id)?.name;
-          return <Button key={id} variant="ghost" className="h-auto w-full items-start justify-start whitespace-normal px-2 py-3 text-left" onClick={() => {
+          return <Button key={id} variant="ghost" className="h-auto w-full items-center justify-start gap-2.5 whitespace-normal rounded-[10px] px-3 py-2.5 text-left [&+&]:rounded-t-none [&+&]:border-t [&+&]:border-border/50" onClick={() => {
             if (!store || preview.isPreviewActive) return;
             store.messages[1](prev => [...prev.filter(m => m.assignmentNoticeId !== id), { role: 'assistant', assignmentNoticeId: id, content: `**${task.title}**\n\n${task.sender ? `Assigned by ${task.sender}. ` : ''}${venue ? `${venue}. ` : ''}${task.recommendation}` }]);
             store.hidden[1](false); store.open[1](true); setViewing(id); setOpen(false);
           }}>
-            <span className="min-w-0 space-y-1"><span className={`block text-sm ${receipts.includes(id) ? 'font-normal' : 'font-semibold'}`}>{task.title}</span>
-              <span className="block text-xs text-muted-foreground">{task.sender ? `From ${task.sender} · ` : ''}{venue || 'Finance team'}</span>
-              {Number.isFinite(Date.parse(task.accepted_at)) && <span className="block text-[11px] text-muted-foreground">{formatDate(task.accepted_at)}</span>}
+            <span aria-hidden="true" className={`h-[7px] w-[7px] shrink-0 rounded-full ${receipts.includes(id) ? '' : 'bg-[#D9822B]'}`} />
+            <span className="min-w-0 flex-1"><span className={`block truncate text-sm leading-snug ${receipts.includes(id) ? 'font-medium' : 'font-semibold'}`}>{task.title}</span>
+              <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{[task.sender || 'Finance team', venue, Number.isFinite(Date.parse(task.accepted_at)) ? shortDate(task.accepted_at) : null].filter(Boolean).join(' · ')}</span>
             </span>
+            <ChevronRight aria-hidden="true" className="!h-4 !w-4 shrink-0 text-muted-foreground/60" />
           </Button>;
         })}
       </div>}
