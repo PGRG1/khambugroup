@@ -1,318 +1,82 @@
-import {baseSymbol} from '@/utils/money';
-import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
-import React, { useState, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Fragment, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
-import {useFinancePeriod} from '@/components/kit/PeriodControl';
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useFinancePeriod } from "@/components/kit/PeriodControl";
+import { PageTop } from "@/components/kit/PageTop";
+import { Toolbar } from "@/components/kit/Toolbar";
+import { DownloadMenu } from "@/components/kit/DownloadMenu";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { FileDown, FileText, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { ACCOUNT_TYPE_LABEL } from "@/hooks/useChartOfAccounts";
 import { generateTrialBalancePDF } from "@/utils/financePdfReports";
-import { cn } from "@/lib/utils";
-
-const fmt = formatDecimal;
-const fmtWhole = (n:number)=>formatDecimal(n,0);
-const fmtDate = (v:string|null|undefined)=>v?formatDate(v):'—';
+import { formatTableCurrency, formatTableInteger } from "@/utils/format";
+import { shortDay, tenantToday } from "@/utils/salesRecordChecks";
+import { Hero, Section, PhoneRow, GroupHead, Note, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
 
 const TYPE_ORDER = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
+const FRIENDLY: Record<string, string> = { asset: "What you own", liability: "What you owe", equity: "Owner's equity", revenue: "Income", cogs: "Cost of sales", opex: "Running costs", other_income: "Other income", other_expense: "Other costs" };
+const lastMonthEnd = (iso: string) => { const d = new Date(`${iso.slice(0, 7)}-01T00:00:00Z`); d.setUTCDate(0); return d.toISOString().slice(0, 10); };
 
-/** Given a period [from,to], compute a "prior period" of equal length ending the day before `from`.
- *  If no `from`, prior = same `to` shifted back exactly one year. */
-function priorPeriod(from: string | undefined, to: string): { from?: string; to: string } {
-  const toDate = new Date(to);
-  if (!from) {
-    const priorTo = new Date(toDate); priorTo.setFullYear(priorTo.getFullYear() - 1);
-    return { to: priorTo.toISOString().slice(0, 10) };
-  }
-  const fromDate = new Date(from);
-  const days = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000);
-  const priorTo = new Date(fromDate); priorTo.setDate(priorTo.getDate() - 1);
-  const priorFrom = new Date(priorTo); priorFrom.setDate(priorFrom.getDate() - days);
-  return { from: priorFrom.toISOString().slice(0, 10), to: priorTo.toISOString().slice(0, 10) };
-}
-
+// Trial balance: as at a date, every account's net balance in the debit or credit column, grouped by type.
+// The summary says whether debits equal credits; Compare adds last month end beside each account.
 export default function TrialBalance() {
-  const today = new Date();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const period = useFinancePeriod('asat');
-  const fromDate = '';
-  const toDate = period.toIso;
+  const period = useFinancePeriod("asat");
+  const toDate = period.toIso ?? tenantToday();
   const compareOn = params.get("compare") !== "off";
+  const [search, setSearch] = useState("");
+  const toggleCompare = () => { const next = new URLSearchParams(params); if (compareOn) next.set("compare", "off"); else next.delete("compare"); setParams(next, { replace: true }); };
 
-  const setParam = (k: string, v: string | null) => {
-    const next = new URLSearchParams(params);
-    if (v == null || v === "") next.delete(k); else next.set(k, v);
-    setParams(next, { replace: true });
+  const { rows, loading } = useTrialBalance({ fromDate: undefined, toDate });
+  const priorTo = lastMonthEnd(toDate);
+  const { rows: priorRows, loading: priorLoading } = useTrialBalance(compareOn ? { fromDate: undefined, toDate: priorTo } : { fromDate: undefined, toDate: undefined });
+  const net = (r: { total_debit: number | string; total_credit: number | string }) => Number(r.total_debit) - Number(r.total_credit);
+  const prior = useMemo(() => new Map(compareOn ? priorRows.map(r => [r.account_id, net(r)] as const) : []), [priorRows, compareOn]);
+
+  const active = rows.filter(r => Math.abs(net(r)) > 0.005 || Math.abs(prior.get(r.account_id) ?? 0) > 0.005);
+  const shown = active.filter(r => !search || `${r.code} ${r.name}`.toLowerCase().includes(search.toLowerCase()));
+  const groups = TYPE_ORDER.map(t => ({ t, list: shown.filter(r => r.account_type === t).sort((a, b) => a.code.localeCompare(b.code)) })).filter(g => g.list.length);
+  const debit = active.reduce((n, r) => n + Math.max(net(r), 0), 0), credit = active.reduce((n, r) => n + Math.max(-net(r), 0), 0);
+  const diff = debit - credit, balanced = Math.abs(diff) < 0.005;
+  const money = (n: number) => Math.abs(n) < 0.005 ? "—" : formatTableCurrency(n);
+  const side = (n: number) => Math.abs(n) < 0.005 ? "—" : `${formatTableCurrency(Math.abs(n))}${n < 0 ? " Cr" : ""}`;
+  const open = (accountId: string) => navigate(`/finance/books?view=ledger&account=${accountId}`);
+
+  const download = (f: "csv" | "pdf" | "excel") => {
+    if (f === "pdf") {
+      generateTrialBalancePDF({ fromDate: undefined, toDate, rows: rows as any, totalDebit: debit, totalCredit: credit,
+        groups: TYPE_ORDER.map(t => ({ type: t, label: ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL], rows: active.filter(r => r.account_type === t).map(r => ({ code: r.code, name: r.name, account_type: r.account_type, total_debit: Math.max(net(r), 0), total_credit: Math.max(-net(r), 0), balance: net(r) })) })).filter(g => g.rows.length) });
+      return;
+    }
+    downloadCSV(active.map(r => ({ code: r.code, name: r.name, type: ACCOUNT_TYPE_LABEL[r.account_type as keyof typeof ACCOUNT_TYPE_LABEL], debit: Math.max(net(r), 0).toFixed(2), credit: Math.max(-net(r), 0).toFixed(2), prior: (prior.get(r.account_id) ?? 0).toFixed(2) })),
+      [{ key: "code", label: "Code" }, { key: "name", label: "Account" }, { key: "type", label: "Type" }, { key: "debit", label: "Debit" }, { key: "credit", label: "Credit" }, ...(compareOn ? [{ key: "prior", label: `Last month end (${priorTo})` }] : [])], `trial_balance_${toDate}`);
   };
 
-  const { rows, loading } = useTrialBalance({ fromDate: fromDate || undefined, toDate: toDate || undefined });
-
-  const prior = useMemo(() => priorPeriod(fromDate || undefined, toDate), [fromDate, toDate]);
-  const { rows: priorRows, loading: priorLoading } = useTrialBalance(
-    compareOn ? { fromDate: prior.from, toDate: prior.to } : { fromDate: undefined, toDate: undefined }
-  );
-  const priorBalance = useMemo(() => {
-    const m = new Map<string, number>();
-    if (!compareOn) return m;
-    priorRows.forEach((r) => m.set(r.account_id, Number(r.balance) || 0));
-    return m;
-  }, [priorRows, compareOn]);
-
-  const grouped = useMemo(() => {
-    const m = new Map<string, typeof rows>();
-    TYPE_ORDER.forEach((t) => m.set(t, []));
-    rows.forEach((r) => {
-      if (Number(r.total_debit) === 0 && Number(r.total_credit) === 0 && !priorBalance.get(r.account_id)) return;
-      m.get(r.account_type)?.push(r);
-    });
-    return m;
-  }, [rows, priorBalance]);
-
-  const totals = useMemo(() => ({
-    debit: rows.reduce((s, r) => s + Number(r.total_debit), 0),
-    credit: rows.reduce((s, r) => s + Number(r.total_credit), 0),
-  }), [rows]);
-
-  const diff = totals.debit - totals.credit;
-  const isBalanced = Math.round(diff * 100) === 0;
-
-  const exportCsv = () => {
-    downloadCSV(
-      rows.filter((r) => Number(r.total_debit) || Number(r.total_credit)).map((r) => ({
-        code: r.code, name: r.name, type: r.account_type,
-        debit: Number(r.total_debit).toFixed(2),
-        credit: Number(r.total_credit).toFixed(2),
-        balance: Number(r.balance).toFixed(2),
-        prior: (priorBalance.get(r.account_id) || 0).toFixed(2),
-      })),
-      [
-        { key: "code", label: "Code" },
-        { key: "name", label: "Account" },
-        { key: "type", label: "Type" },
-        { key: "debit", label: "Debit" },
-        { key: "credit", label: "Credit" },
-        { key: "balance", label: "Balance" },
-        { key: "prior", label: "Prior period" },
-      ],
-      "trial_balance",
-    );
-  };
-
-  const exportPdf = () => {
-    const groups = TYPE_ORDER
-      .map((t) => ({
-        type: t,
-        label: ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL],
-        rows: (grouped.get(t) || []).map((r) => ({
-          code: r.code, name: r.name, account_type: r.account_type,
-          total_debit: Number(r.total_debit),
-          total_credit: Number(r.total_credit),
-          balance: Number(r.balance),
-        })),
-      }))
-      .filter((g) => g.rows.length > 0);
-    generateTrialBalancePDF({
-      fromDate: fromDate || undefined,
-      toDate,
-      rows: rows as any,
-      groups,
-      totalDebit: totals.debit,
-      totalCredit: totals.credit,
-    });
-  };
-
-  const scopeLabel = `${fromDate ? fmtDate(fromDate) : "Beginning"} → ${fmtDate(toDate)}`;
-  const priorLabel = `${prior.from ? fmtDate(prior.from) : "Beginning"} → ${fmtDate(prior.to)}`;
-
-  const ledgerLink = (accountId: string) =>
-    `/finance/books?view=ledger&account=${accountId}${fromDate ? `&from=${fromDate}` : ""}${toDate ? `&to=${toDate}` : ""}`;
-
-  return (
-    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Trial balance</h1>
-          <p className="text-sm text-muted-foreground mt-1">Total debits and credits per account. The bottom row must always balance.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {period.control}
-          <Button
-            size="sm"
-            variant={compareOn ? "default" : "outline"}
-            onClick={() => setParam("compare", compareOn ? "off" : null)}
-            title={compareOn ? `Comparing to ${priorLabel}` : "Enable prior-period comparison"}
-          >
-            Compare
-          </Button>
-          <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-          <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> PDF</Button>
-        </div>
-      </header>
-
-      <p className="text-xs text-muted-foreground -mt-2">
-        {scopeLabel}
-        {compareOn && <span className="ml-3 opacity-80">vs prior: {priorLabel}</span>}
-      </p>
-
-      <p className="text-sm text-muted-foreground">{rows.length} accounts · Debits {formatCurrency(totals.debit)} · Credits {formatCurrency(totals.credit)} · {isBalanced?'Balanced':`Difference ${formatCurrency(diff)}`}</p>
-
-      {/* Desktop table */}
-      <Card className="card-glass p-0 overflow-hidden hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-24">Code</TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead className="text-right w-36">Debit</TableHead>
-              <TableHead className="text-right w-36">Credit</TableHead>
-              <TableHead className="text-right w-36">Balance</TableHead>
-              {compareOn && <TableHead className="text-right w-36">Prior</TableHead>}
-              {compareOn && <TableHead className="text-right w-32">Δ</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && Array.from({ length: 8 }).map((_, i) => (
-              <TableRow key={`s-${i}`}><TableCell colSpan={compareOn ? 7 : 5}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-            ))}
-            {!loading && TYPE_ORDER.map((t) => {
-              const list = grouped.get(t) || [];
-              if (list.length === 0) return null;
-              return (
-                <React.Fragment key={t}>
-                  <TableRow className="bg-muted/40">
-                    <TableCell colSpan={compareOn ? 7 : 5} className="font-semibold text-[11px] uppercase tracking-wide text-muted-foreground py-2">
-                      {ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL]}
-                    </TableCell>
-                  </TableRow>
-                  {list.map((r) => {
-                    const bal = Number(r.balance);
-                    const priorBal = priorBalance.get(r.account_id) || 0;
-                    const delta = bal - priorBal;
-                    return (
-                      <TableRow key={r.account_id} className="group">
-                        <TableCell className="font-mono text-xs text-muted-foreground">{r.code}</TableCell>
-                        <TableCell className="text-sm">
-                          <Link
-                            to={ledgerLink(r.account_id)}
-                            className="inline-flex items-center gap-1.5 hover:text-primary hover:underline underline-offset-2"
-                          >
-                            {r.name}
-                            <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60" />
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-sm">{Number(r.total_debit) ? fmt(Number(r.total_debit)) : ""}</TableCell>
-                        <TableCell className="text-right tabular-nums text-sm">{Number(r.total_credit) ? fmt(Number(r.total_credit)) : ""}</TableCell>
-                        <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(bal)}</TableCell>
-                        {compareOn && (
-                          <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                            {priorLoading ? "…" : (priorBal ? fmt(priorBal) : "—")}
-                          </TableCell>
-                        )}
-                        {compareOn && (
-                          <TableCell className={cn(
-                            "text-right tabular-nums text-xs",
-                            delta > 0.005 ? "text-primary" : delta < -0.005 ? "text-destructive" : "text-muted-foreground"
-                          )}>
-                            {priorLoading ? "" : (Math.abs(delta) < 0.005 ? "—" : `${delta > 0 ? "+" : ""}${fmt(delta)}`)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </React.Fragment>
-              );
-            })}
-          </TableBody>
-          {!loading && rows.length > 0 && (
-            <tfoot>
-              <TableRow className="border-t-2 border-double border-foreground/40">
-                <TableCell colSpan={2} className="font-bold text-xs uppercase text-muted-foreground">Totals</TableCell>
-                <TableCell className="text-right tabular-nums font-bold">{fmt(totals.debit)}</TableCell>
-                <TableCell className="text-right tabular-nums font-bold">{fmt(totals.credit)}</TableCell>
-                <TableCell className={cn("text-right tabular-nums font-bold", isBalanced ? "text-primary" : "text-destructive")}>
-                  {isBalanced ? "✓ Balanced" : fmt(diff)}
-                </TableCell>
-                {compareOn && <TableCell />}
-                {compareOn && <TableCell />}
-              </TableRow>
-            </tfoot>
-          )}
-        </Table>
-      </Card>
-
-      {/* Mobile: grouped card list */}
-      <div className="md:hidden space-y-4">
-        {loading && Array.from({ length: 4 }).map((_, i) => (
-          <Card key={`ms-${i}`} className="card-glass p-4"><Skeleton className="h-16 w-full" /></Card>
-        ))}
-        {!loading && TYPE_ORDER.map((t) => {
-          const list = grouped.get(t) || [];
-          if (list.length === 0) return null;
-          return (
-            <div key={t}>
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold px-1 mb-2">
-                {ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL]}
-              </div>
-              <Card className="card-glass divide-y divide-border/40">
-                {list.map((r) => {
-                  const bal = Number(r.balance);
-                  const priorBal = priorBalance.get(r.account_id) || 0;
-                  const delta = bal - priorBal;
-                  return (
-                    <Link
-                      key={r.account_id}
-                      to={ledgerLink(r.account_id)}
-                      className="p-3 flex items-start justify-between gap-2 hover:bg-muted/30 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm">{r.name}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">{r.code}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="tabular-nums text-sm font-medium">{fmt(bal)}</div>
-                        {compareOn && Math.abs(delta) > 0.005 && (
-                          <div className={cn(
-                            "text-[10px] tabular-nums mt-0.5",
-                            delta > 0 ? "text-primary" : "text-destructive"
-                          )}>
-                            {delta > 0 ? "+" : ""}{fmt(delta)}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </Card>
-            </div>
-          );
-        })}
-        {!loading && rows.length > 0 && (
-          <Card className={cn("card-glass p-4 border-t-2 border-double", isBalanced ? "border-foreground/40" : "border-destructive")}>
-            <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground">
-              <span>Total debits</span><span className="tabular-nums font-semibold text-foreground">{fmt(totals.debit)}</span>
-            </div>
-            <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground mt-1">
-              <span>Total credits</span><span className="tabular-nums font-semibold text-foreground">{fmt(totals.credit)}</span>
-            </div>
-            <div className={cn("flex justify-between text-sm font-semibold mt-2 pt-2 border-t border-border/60", isBalanced ? "text-primary" : "text-destructive")}>
-              <span>{isBalanced ? "Balanced ✓" : "Out of balance by"}</span>
-              {!isBalanced && <span className="tabular-nums">{baseSymbol()} {fmt(Math.abs(diff))}</span>}
-            </div>
-          </Card>
-        )}
-      </div>
-
-      {!loading && rows.length > 0 && !isBalanced && (
-        <p className="text-xs text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Out of balance by {baseSymbol()} {fmt(Math.abs(diff))} — check for unposted or unbalanced entries in the Journal.</p>
-      )}
-      {!loading && rows.length > 0 && isBalanced && (
-        <p className="text-xs text-primary flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Books are balanced.</p>
-      )}
-    </div>
-  );
+  return <div className="min-w-0 space-y-5 max-sm:space-y-3">
+    <PageTop tabsAbove title="Trial balance" period={period.control} actions={<Button variant="outline" size="sm" className="h-10" aria-pressed={compareOn} onClick={toggleCompare}><ArrowLeftRight className="h-4 w-4" />{compareOn ? "Comparing" : "Compare"}</Button>} />
+    <Hero aria="Trial balance summary" busy={loading} label={`As at ${shortDay(toDate)} · ${formatTableInteger(active.length)} accounts`} check={balanced ? "Debits equal credits" : "Debits and credits differ"} checkTone={balanced ? "ok" : "amber"}
+      stats={[{ label: "Total debits", value: formatTableCurrency(debit) }, { label: "Total credits", value: formatTableCurrency(credit) }, { label: "Difference", value: formatTableCurrency(Math.abs(diff)), sub: balanced ? "nothing to fix" : "check the journal", tone: balanced ? "green" : "amber" }]} />
+    <Section title="Accounts" detail="grouped by type" busy={loading}>
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow downloadControl={<DownloadMenu formats={["csv", "pdf"]} onDownload={download} label="Download trial balance" />} />
+      <div className="min-[768px]:hidden kit">{groups.map(g => <Fragment key={g.t}><GroupHead name={FRIENDLY[g.t] ?? g.t} />
+        <ul className="divide-y divide-border/60 border-t border-border/60">{g.list.map(r => <PhoneRow key={r.account_id} title={r.name} amount={side(net(r))} sub={compareOn ? `${r.code} · last month end ${priorLoading ? "…" : side(prior.get(r.account_id) ?? 0)}` : r.code} onOpen={() => open(r.account_id)} />)}</ul></Fragment>)}</div>
+      <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Trial balance table"><table className="sales-table" aria-label="Trial balance">
+        <thead><tr><th scope="col" className="sales-cell-left">Code</th><th scope="col" className="sales-cell-left">Account</th><th scope="col" className="sales-cell-right">Debit</th><th scope="col" className="sales-cell-right">Credit</th>{compareOn && <th scope="col" className="sales-cell-right">Last month end</th>}</tr></thead>
+        <tbody>{groups.map(g => <Fragment key={g.t}>
+          <tr className="sales-week-row"><th colSpan={compareOn ? 5 : 4}><span>{FRIENDLY[g.t] ?? g.t}</span></th></tr>
+          {g.list.map(r => <tr key={r.account_id} className="sales-record-row" {...keyOpen(() => open(r.account_id))}>
+            <td className="sales-cell-left">{r.code}</td>
+            <td className="sales-cell-left" title={r.name}>{r.name}</td>
+            <td className="kit-num">{money(Math.max(net(r), 0))}</td>
+            <td className="kit-num">{money(Math.max(-net(r), 0))}</td>
+            {compareOn && <td className="kit-num text-muted-foreground">{priorLoading ? "…" : side(prior.get(r.account_id) ?? 0)}</td>}
+          </tr>)}</Fragment>)}
+          {!!groups.length && !search && <tr className="sales-week-row"><th colSpan={2}><span>Total</span></th><td className="kit-num font-semibold">{formatTableCurrency(debit)}</td><td className="kit-num font-semibold">{formatTableCurrency(credit)}</td>{compareOn && <td />}</tr>}
+        </tbody></table></div>
+      {!groups.length && <Empty>{loading ? "Loading accounts…" : search ? "Nothing matches your search." : "No posted entries yet."}</Empty>}
+      <Note>Each account's balance sits in its debit or credit column. {compareOn ? `Last month end is ${shortDay(priorTo)}. ` : ""}Tap an account for its ledger.</Note>
+    </Section>
+  </div>;
 }

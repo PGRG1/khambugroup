@@ -1,5 +1,13 @@
 import {AccountingTab} from '@/components/settings/AccountingTab';
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useTrialBalance } from "@/hooks/useTrialBalance";
+import { PageTop } from "@/components/kit/PageTop";
+import { Toolbar } from "@/components/kit/Toolbar";
+import { QuickFilter } from "@/components/kit/QuickFilter";
+import { downloadCSV } from "@/utils/csvDownload";
+import { formatTableCurrency, formatTableInteger } from "@/utils/format";
+import { Section, PhoneRow, GroupHead, Note, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
 import {
   useChartOfAccounts, ChartAccount, AccountType, NormalSide,
   ACCOUNT_TYPE_LABEL, ACCOUNT_TYPE_GROUP, CASH_FLOW_CATEGORY_LABEL,
@@ -10,8 +18,6 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,24 +28,23 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, RefreshCw, Loader2, Search } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Loader2 } from "lucide-react";
 import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
 import { ProcurementMappingMatrix } from "@/components/finance/ProcurementMappingMatrix";
 import { PayrollMappingMatrix } from "@/components/finance/PayrollMappingMatrix";
 import { ExpenseMappingMatrix } from "@/components/finance/ExpenseMappingMatrix";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
 import {AccountMerge} from '@/components/finance/AccountMerge';
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 type ActiveFilter = "active" | "inactive" | "all";
+const FRIENDLY: Record<string, string> = { asset: "What you own", liability: "What you owe", equity: "Owner's equity", revenue: "Income", cogs: "Cost of sales", opex: "Running costs", other_income: "Other income", other_expense: "Other costs" };
 
 export default function ChartOfAccountsPage() {
   const { items, loading, createAccount, updateAccount, deleteAccount, countJournalLines, fetchAll } = useChartOfAccounts();
   const { rebuildFromOperations } = useJournal();
   const { tenantId } = useActiveTenant();
-  const isMobile = useIsMobile();
   const [rebuilding, setRebuilding] = useState(false);
+  const [mapping, setMapping] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<ChartAccount | null>(null);
   const [draft, setDraft] = useState<Partial<ChartAccount>>({ account_type: "asset", normal_side: "debit" });
@@ -80,38 +85,6 @@ export default function ChartOfAccountsPage() {
       return true;
     });
   }, [items, search, typeFilter, activeFilter]);
-
-  // Group matching accounts, then render as tree (parents + children) preserving matches:
-  // if a child matches but parent doesn't, promote parent to visible; if parent matches, show it alone.
-  const groupedTree = useMemo(() => {
-    const matchIds = new Set(filtered.map((a) => a.id));
-    // Expand: include parents of matched children so hierarchy renders
-    const expanded = new Set(matchIds);
-    filtered.forEach((a) => { if (a.parent_id) expanded.add(a.parent_id); });
-    const visible = items.filter((a) => expanded.has(a.id));
-
-    const byType = new Map<AccountType, ChartAccount[]>();
-    TYPE_ORDER.forEach((t) => byType.set(t, []));
-    visible.forEach((a) => byType.get(a.account_type)?.push(a));
-
-    // Build a per-type tree: top-level (no parent in visible set) → children
-    const out: { type: AccountType; nodes: { account: ChartAccount; children: ChartAccount[] }[] }[] = [];
-    TYPE_ORDER.forEach((t) => {
-      const list = byType.get(t) ?? [];
-      if (list.length === 0) return;
-      const idsInGroup = new Set(list.map((a) => a.id));
-      const roots = list.filter((a) => !a.parent_id || !idsInGroup.has(a.parent_id));
-      const childrenOf = (parentId: string) =>
-        list.filter((a) => a.parent_id === parentId)
-          .sort((a, b) => (a.sort_order - b.sort_order) || a.code.localeCompare(b.code));
-      const sortedRoots = roots.sort((a, b) => (a.sort_order - b.sort_order) || a.code.localeCompare(b.code));
-      out.push({
-        type: t,
-        nodes: sortedRoots.map((r) => ({ account: r, children: childrenOf(r.id) })),
-      });
-    });
-    return { groups: out, visibleCount: visible.length };
-  }, [items, filtered]);
 
   const openNew = () => {
     setEditing(null);
@@ -180,177 +153,60 @@ export default function ChartOfAccountsPage() {
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [items, draft.account_type, editing]);
 
-  const scopeLine = (() => {
-    const parts: string[] = [`Showing ${groupedTree.visibleCount} of ${totalCount} accounts`];
-    if (activeFilter === "active") parts.push("Active only");
-    else if (activeFilter === "inactive") parts.push("Inactive only");
-    if (typeFilter === "other") parts.push("Other");
-    else if (typeFilter !== "all") parts.push(ACCOUNT_TYPE_LABEL[typeFilter]);
-    if (search.trim()) parts.push(`Search: "${search.trim()}"`);
-    return parts.join(" · ");
-  })();
-
-  const renderRow = (a: ChartAccount, depth: 0 | 1) => {
-    const cfLabel = a.cash_flow_category ? CASH_FLOW_CATEGORY_LABEL[a.cash_flow_category] : null;
-    return (
-      <li
-        key={a.id}
-        className={cn(
-          "px-4 py-3 flex items-start gap-3 min-h-[52px]",
-          depth === 1 && "pl-10 border-l border-border/40",
-        )}
-      >
-        <span className="font-mono text-xs tabular-nums w-20 shrink-0 text-muted-foreground pt-0.5">{a.code}</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm truncate">{a.name}</div>
-          {a.description && (
-            <div className="hidden sm:block text-xs text-muted-foreground truncate mt-0.5">{a.description}</div>
-          )}
-        </div>
-        <div className="hidden sm:flex items-center gap-1.5 flex-wrap justify-end pt-0.5">
-          {a.is_cash && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">Cash</span>}
-          {!a.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">Inactive</span>}
-          {cfLabel && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">CF: {cfLabel}</span>}
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">{a.normal_side}</span>
-        </div>
-        <button
-          className="p-2 text-muted-foreground hover:text-primary rounded-md hover:bg-muted min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
-          onClick={() => openEdit(a)} title="Edit">
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          className="p-2 text-muted-foreground hover:text-destructive rounded-md hover:bg-muted min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
-          onClick={() => beginDelete(a)} title="Delete">
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </li>
-    );
-  };
+  const tb = useTrialBalance({});
+  const balanceOf = useMemo(() => new Map(tb.rows.map(r => [r.account_id, Number(r.total_debit) - Number(r.total_credit)] as const)), [tb.rows]);
+  const side = (n?: number) => n == null || Math.abs(n) < 0.005 ? "—" : `${formatTableCurrency(Math.abs(n))}${n < 0 ? " Cr" : ""}`;
+  const groups = TYPE_ORDER.map(t => ({ t, list: filtered.filter(a => a.account_type === t).sort((a, b) => (a.sort_order - b.sort_order) || a.code.localeCompare(b.code)) })).filter(g => g.list.length);
+  const usedFor = (a: ChartAccount) => [a.is_cash ? "Cash account" : null, a.cash_flow_category ? `Cash flow · ${CASH_FLOW_CATEGORY_LABEL[a.cash_flow_category]}` : null, !a.is_active ? "Hidden" : null].filter(Boolean).join(" · ") || ACCOUNT_TYPE_LABEL[a.account_type];
+  const download = () => downloadCSV(filtered.map(a => ({ code: a.code, name: a.name, type: ACCOUNT_TYPE_LABEL[a.account_type], side: a.normal_side, active: a.is_active ? "Yes" : "No", balance: (balanceOf.get(a.id) ?? 0).toFixed(2) })), [{ key: "code", label: "Code" }, { key: "name", label: "Account" }, { key: "type", label: "Type" }, { key: "side", label: "Normal side" }, { key: "active", label: "Active" }, { key: "balance", label: "Balance (debit − credit)" }], "chart_of_accounts");
+  const AREAS: [string, string, string][] = [["sales", "Sales", "Food, drinks, service charge, discounts"], ["payments", "Payment methods", "Cash, cards, wallets, delivery apps"], ["procurement", "Purchasing", "Stock and supplies by category"], ["payroll", "Payroll", "Wages, MPF, allowances"], ["expenses", "Expenses", "Rent, utilities, repairs"], ["categories", "Bills and cash receipts", "Bill and receipt categories"]];
+  const area = AREAS.find(a => a[0] === mapping);
+  const typeChip = <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all" | "other")}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Account type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All types</SelectItem>{TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</SelectItem>)}</SelectContent></Select>;
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Chart of accounts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            The complete list of accounts used in your books. Edit codes, names, and how they appear on your statements.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <AccountMerge accounts={items} onSaved={()=>void fetchAll()}/>
+    <div className="min-w-0 space-y-5 max-sm:space-y-3">
+      <PageTop tabsAbove title="Chart of accounts" actions={<Button size="sm" className="h-10" onClick={openNew}><Plus className="h-4 w-4" />Add account</Button>} />
+      <AccountReviewNote accounts={items} onSaved={() => void fetchAll()} />
+      <Section title="Accounts" detail={`${formatTableInteger(totalActive)} in use${totalInactive ? ` · ${formatTableInteger(totalInactive)} hidden` : ""}`} busy={loading}>
+        <QuickFilter label="Accounts" value={activeFilter} onChange={setActiveFilter} options={[{ key: "active", label: "In use" }, { key: "inactive", label: "Hidden" }, { key: "all", label: "All" }]} />
+        <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow filter={typeChip} onDownload={download} downloadLabel="Download chart of accounts" />
+        <div className="min-[768px]:hidden kit">{groups.map(g => <Fragment key={g.t}><GroupHead name={`${FRIENDLY[g.t] ?? g.t} · ${g.list.length}`} />
+          <ul className="divide-y divide-border/60 border-t border-border/60">{g.list.map(a => <PhoneRow key={a.id} title={a.name} amount={side(balanceOf.get(a.id))} sub={`${a.code} · ${usedFor(a)}`} onOpen={() => openEdit(a)} />)}</ul></Fragment>)}</div>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Accounts table"><table className="sales-table" aria-label="Chart of accounts">
+          <thead><tr><th scope="col" className="sales-cell-left">Code</th><th scope="col" className="sales-cell-left">Account</th><th scope="col" className="sales-cell-left">Used for</th><th scope="col" className="sales-cell-right">Balance</th><th scope="col" className="sales-cell-right"><span className="sr-only">Ledger</span></th></tr></thead>
+          <tbody>{groups.map(g => <Fragment key={g.t}>
+            <tr className="sales-week-row"><th colSpan={5}><span>{FRIENDLY[g.t] ?? g.t} · {g.list.length}</span></th></tr>
+            {g.list.map(a => <tr key={a.id} className="sales-record-row" {...keyOpen(() => openEdit(a))}>
+              <td className="sales-cell-left">{a.code}</td>
+              <td className="sales-cell-left" title={a.description ? `${a.name} · ${a.description}` : a.name}>{a.name}</td>
+              <td className="sales-cell-left text-muted-foreground">{usedFor(a)}</td>
+              <td className="kit-num">{tb.loading ? "…" : side(balanceOf.get(a.id))}</td>
+              <td className="kit-num"><Link className="kit-link" to={`/finance/books?view=ledger&account=${a.id}`} onClick={e => e.stopPropagation()}>Ledger</Link></td>
+            </tr>)}</Fragment>)}</tbody></table></div>
+        {!groups.length && <Empty>{loading ? "Loading accounts…" : "No accounts found."}</Empty>}
+        <div className="flex flex-wrap items-center gap-2 px-1"><AccountMerge accounts={items} onSaved={() => void fetchAll()} />
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={rebuilding || !tenantId}>
-                {rebuilding ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                Rebuild Ledger
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Rebuild ledger from operations?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Regenerates all auto-derived journal entries for this tenant. Manually-edited entries are preserved.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={doRebuild}>Rebuild now</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </header>
-
-      <AccountReviewNote accounts={items} onSaved={()=>void fetchAll()}/>
-      <Tabs defaultValue="accounts">
-        <TabsList>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="mapping">Account Mappings</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="accounts" className="space-y-4 mt-4">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="relative flex-1 min-w-0 sm:max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search code, name, description…"
-                className="h-9 pl-8"
-              />
-            </div>
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all" | "other")}>
-              <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <div className="inline-flex rounded-md border border-border overflow-hidden h-9">
-              {(["active", "inactive", "all"] as ActiveFilter[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setActiveFilter(f)}
-                  className={cn(
-                    "px-3 text-xs capitalize min-w-[64px] transition-colors",
-                    activeFilter === f ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-            <div className="sm:ml-auto">
-              <Button size="sm" onClick={openNew} className="h-9 w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-1" /> Add Account
-              </Button>
-            </div>
-          </div>
-
-          {/* Counter strip + scope line */}
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {totalCount} accounts · {totalActive} active · {totalInactive} inactive
-            </p>
-            <p className="text-xs text-muted-foreground/80">{scopeLine}</p>
-          </div>
-
-          <section className="kit card-glass overflow-hidden"><div className="p-4"><h2 className="font-semibold">Chart of accounts</h2><p className="text-sm text-muted-foreground">{scopeLine}</p></div><table className="w-full table-fixed text-sm"><thead><tr><th className="p-4 w-[20%] text-left">Code</th><th className="text-left">Account</th><th className="w-[25%] text-left">Type</th><th className="w-12"/></tr></thead><tbody>{filtered.map(a=><tr key={a.id} className="border-t border-border/50"><td className="p-4 font-mono">{a.code}</td><td className="break-words py-4 pr-2">{a.name}<p className="text-xs text-muted-foreground">{a.description}</p></td><td className="text-xs text-muted-foreground">{ACCOUNT_TYPE_LABEL[a.account_type]} · {a.is_active?'Active':'Inactive'}</td><td><Button variant="ghost" size="icon" aria-label={`Edit ${a.code}`} onClick={()=>openEdit(a)}><Pencil className="h-4 w-4"/></Button></td></tr>)}</tbody></table>{!filtered.length&&<p className="p-8 text-center text-muted-foreground">{loading?'Loading accounts…':'No accounts found.'}</p>}</section>
-
-        </TabsContent>
-
-        <TabsContent value="mapping" className="mt-4">
-          <Tabs defaultValue="sales-revenue">
-            <TabsList>
-              <TabsTrigger value="sales-revenue">Sales Revenue</TabsTrigger>
-              <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-              <TabsTrigger value="procurement">Procurement</TabsTrigger>
-              <TabsTrigger value="payroll">Payroll</TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger value="categories">Bills &amp; cash receipts</TabsTrigger>
-            </TabsList>
-            <TabsContent value="sales-revenue" className="mt-4">
-              <RevenueMappingMatrix accounts={items} section="sales" />
-            </TabsContent>
-            <TabsContent value="payment-methods" className="mt-4">
-              <RevenueMappingMatrix accounts={items} section="payments" />
-            </TabsContent>
-            <TabsContent value="procurement" className="mt-4">
-              <ProcurementMappingMatrix accounts={items} />
-            </TabsContent>
-            <TabsContent value="payroll" className="mt-4">
-              <PayrollMappingMatrix accounts={items} />
-            </TabsContent>
-            <TabsContent value="expenses" className="mt-4">
-              <ExpenseMappingMatrix accounts={items} />
-            </TabsContent>
-            <TabsContent value="categories" className="mt-4">
-              <AccountingTab destination="mappings" />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-      </Tabs>
+            <AlertDialogTrigger asChild><Button variant="outline" size="sm" disabled={rebuilding || !tenantId}>{rebuilding ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}Rebuild ledger</Button></AlertDialogTrigger>
+            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Rebuild ledger from operations?</AlertDialogTitle><AlertDialogDescription>Regenerates all auto-derived journal entries for this tenant. Manually-edited entries are preserved.</AlertDialogDescription></AlertDialogHeader>
+              <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={doRebuild}>Rebuild now</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+          </AlertDialog></div>
+        <Note>Tap an account to edit it. Accounts with lines can be hidden, not deleted.</Note>
+      </Section>
+      <Section title="How things post" detail="where each kind of money goes in the books">
+        <ul className="min-[768px]:hidden kit divide-y divide-border/60">{AREAS.map(([k, name, covers]) => <PhoneRow key={k} title={name} sub={covers} onOpen={() => setMapping(k)} />)}</ul>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="How things post table"><table className="sales-table" aria-label="How things post">
+          <thead><tr><th scope="col" className="sales-cell-left">Area</th><th scope="col" className="sales-cell-left">Covers</th><th scope="col" className="sales-cell-right"><span className="sr-only">Open</span></th></tr></thead>
+          <tbody>{AREAS.map(([k, name, covers]) => <tr key={k} className="sales-record-row" {...keyOpen(() => setMapping(k))}><td className="sales-cell-left font-medium">{name}</td><td className="sales-cell-left text-muted-foreground">{covers}</td><td className="kit-num"><span className="kit-link">Open</span></td></tr>)}</tbody></table></div>
+        <Note>Tap an area to choose which account each item posts to.</Note>
+      </Section>
+      <Dialog open={!!area} onOpenChange={o => !o && setMapping(null)}><DialogContent className="w-[calc(100%-2rem)] max-w-5xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>How things post · {area?.[1]}</DialogTitle></DialogHeader>
+        {mapping === "sales" && <RevenueMappingMatrix accounts={items} section="sales" />}
+        {mapping === "payments" && <RevenueMappingMatrix accounts={items} section="payments" />}
+        {mapping === "procurement" && <ProcurementMappingMatrix accounts={items} />}
+        {mapping === "payroll" && <PayrollMappingMatrix accounts={items} />}
+        {mapping === "expenses" && <ExpenseMappingMatrix accounts={items} />}
+        {mapping === "categories" && <AccountingTab destination="mappings" />}
+      </DialogContent></Dialog>
 
       {/* Editor */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}><DialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto">
@@ -460,6 +316,8 @@ export default function ChartOfAccountsPage() {
           </div>
         </div>
         <DialogFooter>
+          {editing && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { const a = editing; setEditorOpen(false); void beginDelete(a); }}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>}
+          {editing && <Button variant="ghost" asChild><Link to={`/finance/books?view=ledger&account=${editing.id}`}>See ledger</Link></Button>}
           <Button variant="ghost" onClick={() => setEditorOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!draft.code || !draft.name}>{editing ? "Save changes" : "Add account"}</Button>
         </DialogFooter>

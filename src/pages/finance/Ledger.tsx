@@ -1,247 +1,116 @@
-import { formatDecimal, formatDate, formatCurrency } from "@/utils/format";
-import { useMemo, useState, useEffect } from "react";
-import { useSearchParams,Link } from "react-router-dom";
-import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useChartOfAccounts, ACCOUNT_TYPE_LABEL } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { fetchAllRows } from "@/utils/fetchAllRows";
-import {useFinancePeriod} from '@/components/kit/PeriodControl';
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useFinancePeriod } from "@/components/kit/PeriodControl";
+import { PageTop } from "@/components/kit/PageTop";
+import { Toolbar } from "@/components/kit/Toolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { FileDown, BookOpen } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
-import { cn } from "@/lib/utils";
-
-const fmt = formatDecimal;
-const fmtWhole = (n:number) => formatDecimal(n,0);
-const fmtDate = (v:string|null|undefined) => v ? formatDate(v) : '—';
+import { formatTableCurrency, formatTableInteger } from "@/utils/format";
+import { shortDay } from "@/utils/salesRecordChecks";
+import { sourceLabel } from "@/utils/booksReview";
+import { Section, PhoneRow, Note, Empty, Pager, keyOpen, type Stat } from "@/components/finance/accounting/AccountingKit";
 
 interface GLRow {
-  entry_id: string;
-  entry_date: string;
-  entry_memo: string;
-  source_type: string;
-  account_id: string;
-  account_code: string;
-  account_name: string;
-  normal_side: "debit" | "credit";
-  debit: number;
-  credit: number;
-  line_memo: string;
+  entry_id: string; entry_date: string; entry_memo: string; source_type: string; account_id: string;
+  debit: number; credit: number; line_memo: string;
 }
+const PAGE = 50;
 
+// Ledger: pick an account, see its opening, money in and out, closing, then every line with a running balance.
+// Only the picked account's lines are read (paged), never the whole general ledger.
 export default function Ledger() {
   const { items: accounts } = useChartOfAccounts();
   const { tenantId } = useActiveTenant();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const today = new Date();
   const accountId = params.get("account") || "";
-  const period = useFinancePeriod('period');
-  const fromDate = period.fromIso;
-  const toDate = period.toIso;
-  const setParam = (k: string, v: string | null) => {
-    const next = new URLSearchParams(params);
-    if (v == null || v === "") next.delete(k); else next.set(k, v);
-    setParams(next, { replace: true });
-  };
-  const setAccountId = (v: string) => setParam("account", v || null);
-  const setFromDate = (v: string) => setParam("from", v);
-  const setToDate = (v: string) => setParam("to", v);
-  const [rows, setRows] = useState<GLRow[]>([]);
+  const period = useFinancePeriod("period");
+  const fromDate = period.fromIso, toDate = period.toIso;
+  const [all, setAll] = useState<GLRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [opening,setOpening]=useState(0);
-
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const setAccountId = (v: string) => { const next = new URLSearchParams(params); if (v) next.set("account", v); else next.delete("account"); setParams(next, { replace: true }); setPage(1); };
 
   useEffect(() => {
-    if (!accountId || !tenantId) { setRows([]); setOpening(0); return; }
-    setLoading(true);
+    if (!accountId || !tenantId) { setAll([]); return; }
     let cancelled = false;
+    setLoading(true);
     (async () => {
-      // fetchAllRows bypasses PostgREST's 1000-row cap by paging with range()
-      const all = await fetchAllRows(
-        "v_general_ledger",
-        "*",
-        { col: "entry_date", asc: true },
-        tenantId,
-      );
-      if (cancelled) return;
-      const filtered = (all as GLRow[]).filter((r: any) =>
-        r.account_id === accountId &&
-        (!fromDate || r.entry_date >= fromDate) &&
-        (!toDate || r.entry_date <= toDate)
-      );
-      setOpening((all as GLRow[]).filter(r=>r.account_id===accountId&&!!fromDate&&r.entry_date<fromDate).reduce((n,r)=>n+(r.normal_side==='credit'?Number(r.credit)-Number(r.debit):Number(r.debit)-Number(r.credit)),0));
-      setRows(filtered);
-      setLoading(false);
+      const out: GLRow[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await (supabase.from("v_general_ledger" as any) as any).select("entry_id,entry_date,entry_memo,source_type,account_id,debit,credit,line_memo")
+          .eq("tenant_id", tenantId).eq("account_id", accountId).order("entry_date", { ascending: true }).order("entry_id", { ascending: true }).range(from, from + 999);
+        if (error || !data?.length) break;
+        out.push(...data);
+        if (data.length < 1000) break;
+      }
+      if (!cancelled) { setAll(out); setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [accountId, fromDate, toDate, tenantId]);
+  }, [accountId, tenantId]);
 
-  const account = accounts.find((a) => a.id === accountId);
-
-  const withRunning = useMemo(() => {
+  const account = accounts.find(a => a.id === accountId);
+  const sign = (r: GLRow) => account?.normal_side === "credit" ? Number(r.credit) - Number(r.debit) : Number(r.debit) - Number(r.credit);
+  const opening = useMemo(() => fromDate ? all.filter(r => r.entry_date < fromDate).reduce((n, r) => n + sign(r), 0) : 0, [all, fromDate, account]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => {
     let bal = opening;
-    return rows.map((r) => {
-      const delta = account?.normal_side === "credit" ? Number(r.credit) - Number(r.debit) : Number(r.debit) - Number(r.credit);
-      bal += delta;
-      return { ...r, running: bal };
-    });
-  }, [rows, account,opening]);
+    return all.filter(r => (!fromDate || r.entry_date >= fromDate) && (!toDate || r.entry_date <= toDate)).map(r => { bal += sign(r); return { ...r, running: bal }; });
+  }, [all, fromDate, toDate, opening]); // eslint-disable-line react-hooks/exhaustive-deps
+  const closing = lines.at(-1)?.running ?? opening;
+  const moneyIn = lines.reduce((n, r) => n + Number(r.debit), 0), moneyOut = lines.reduce((n, r) => n + Number(r.credit), 0);
+  const shown = lines.filter(r => !search || `${r.entry_memo} ${r.line_memo ?? ""}`.toLowerCase().includes(search.toLowerCase())).reverse();
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE)), current = Math.min(page, pages), visible = shown.slice((current - 1) * PAGE, current * PAGE);
+  const open = (r: GLRow) => navigate(`/finance/books?view=journal&entry=${r.entry_id}`);
+  const what = (r: GLRow) => r.line_memo && r.line_memo !== r.entry_memo ? `${r.entry_memo} · ${r.line_memo}` : r.entry_memo;
+  const balance = (n: number) => `${formatTableCurrency(Math.abs(n))}${n < -0.005 ? " Cr" : ""}`;
 
-  const totals = useMemo(() => ({
-    debit: rows.reduce((s, r) => s + Number(r.debit), 0),
-    credit: rows.reduce((s, r) => s + Number(r.credit), 0),
-  }), [rows]);
+  const download = () => account && downloadCSV(lines.map(r => ({ date: r.entry_date, from: sourceLabel(r.source_type), what: what(r), debit: Number(r.debit).toFixed(2), credit: Number(r.credit).toFixed(2), balance: r.running.toFixed(2) })),
+    [{ key: "date", label: "Date" }, { key: "from", label: "From" }, { key: "what", label: "What" }, { key: "debit", label: "In (debit)" }, { key: "credit", label: "Out (credit)" }, { key: "balance", label: "Balance" }], `ledger_${account.code}`);
 
-  const closing = withRunning[withRunning.length - 1]?.running ?? opening;
+  const stats: Stat[] = [
+    { label: "Opening", value: balance(opening), sub: fromDate ? shortDay(fromDate) : "from the start" },
+    { label: "In (debit)", value: formatTableCurrency(moneyIn), sub: `${formatTableInteger(lines.filter(r => Number(r.debit)).length)} lines` },
+    { label: "Out (credit)", value: formatTableCurrency(moneyOut), sub: `${formatTableInteger(lines.filter(r => Number(r.credit)).length)} lines` },
+    { label: "Closing", value: balance(closing), sub: toDate ? shortDay(toDate) : "today" },
+  ];
 
-  const exportCsv = () => {
-    if (!account) return;
-    downloadCSV(
-      withRunning.map((r) => ({
-        date: r.entry_date,
-        source: r.source_type,
-        memo: r.entry_memo + (r.line_memo ? ` — ${r.line_memo}` : ""),
-        debit: Number(r.debit).toFixed(2),
-        credit: Number(r.credit).toFixed(2),
-        balance: r.running.toFixed(2),
-      })),
-      [
-        { key: "date", label: "Date" },
-        { key: "source", label: "Source" },
-        { key: "memo", label: "Memo" },
-        { key: "debit", label: "Debit" },
-        { key: "credit", label: "Credit" },
-        { key: "balance", label: "Balance" },
-      ],
-      `ledger_${account.code}`,
-    );
-  };
-
-  const scopeLabel = `${fromDate ? fmtDate(fromDate) : "Beginning"} → ${toDate ? fmtDate(toDate) : "Today"}`;
-
-  return (
-    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="space-y-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Ledger</h1>
-          <p className="text-sm text-muted-foreground mt-1">Posted entries · running balance</p>
-        </div>
-
-        {/* Primary control: account selector */}
-        <Card className="card-glass p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div className="flex-1 min-w-0">
-              <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Account</label>
-              <Select value={accountId} onValueChange={setAccountId}>
-                <SelectTrigger className="h-10 mt-1 md:w-[420px]"><SelectValue placeholder="Select account…" /></SelectTrigger>
-                <SelectContent>
-                  {accounts.filter((a) => a.is_active).map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      <span className="font-mono text-xs mr-2">{a.code}</span>{a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {period.control}
-              <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-            </div>
-          </div>
-          {account && <p className="text-xs text-muted-foreground mt-3">{scopeLabel} · Normal side <span className="uppercase">{account.normal_side}</span></p>}
-        </Card>
-
-        {account && <p className="text-sm text-muted-foreground">{rows.length} lines · Debits {formatCurrency(totals.debit)} · Credits {formatCurrency(totals.credit)} · Closing {formatCurrency(closing)}</p>}
-
-      </header>
-
-      {!accountId ? (
-        <Card className="card-glass p-12 text-center">
-          <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm font-medium">Choose an account to view its ledger</p>
-          <p className="text-xs text-muted-foreground mt-1">Select any active account above to see every posted debit and credit with a running balance.</p>
-        </Card>
-      ) : (
-        <>
-          {/* Desktop table */}
-          <Card className="card-glass p-0 overflow-hidden hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-28">Date</TableHead>
-                  <TableHead className="w-28">Source</TableHead>
-                  <TableHead>Memo</TableHead>
-                  <TableHead className="text-right w-32">Debit</TableHead>
-                  <TableHead className="text-right w-32">Credit</TableHead>
-                  <TableHead className="text-right w-36">Balance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading && Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={`s-${i}`}><TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-                ))}
-                {!loading && withRunning.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No transactions in this range.</TableCell></TableRow>
-                )}
-                {!loading && withRunning.map((r, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(r.entry_date)}</TableCell>
-                    <TableCell><span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">{r.source_type}</span></TableCell>
-                    <TableCell className="text-sm"><Link className="text-primary underline" to={`/finance/books?view=journal&entry=${r.entry_id}`}>{r.entry_memo}</Link>{r.line_memo ? <span className="text-muted-foreground"> — {r.line_memo}</span> : null}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">{Number(r.debit) ? fmt(Number(r.debit)) : ""}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">{Number(r.credit) ? fmt(Number(r.credit)) : ""}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(r.running)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              {rows.length > 0 && !loading && (
-                <tfoot>
-                  <TableRow className="border-t-2 border-double border-foreground/40">
-                    <TableCell colSpan={3} className="font-semibold text-xs uppercase text-muted-foreground">Totals</TableCell>
-                    <TableCell className="text-right tabular-nums font-semibold">{fmt(totals.debit)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-semibold">{fmt(totals.credit)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-bold">{fmt(closing)}</TableCell>
-                  </TableRow>
-                </tfoot>
-              )}
-            </Table>
-          </Card>
-
-          {/* Mobile card list */}
-          <div className="md:hidden space-y-3">
-            {loading && Array.from({ length: 5 }).map((_, i) => (
-              <Card key={`ms-${i}`} className="card-glass p-4"><Skeleton className="h-12 w-full" /></Card>
-            ))}
-            {!loading && withRunning.length === 0 && (
-              <Card className="card-glass p-6 text-center text-sm text-muted-foreground">No transactions in this range.</Card>
-            )}
-            {!loading && withRunning.map((r, i) => (
-              <Card key={i} className="card-glass p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{r.source_type}</span>
-                      <span className="text-muted-foreground">{fmtDate(r.entry_date)}</span>
-                    </div>
-                    <div className="text-sm mt-1">{r.entry_memo}</div>
-                    {r.line_memo && <div className="text-xs text-muted-foreground">{r.line_memo}</div>}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className={cn("text-sm tabular-nums", Number(r.debit) ? "" : "text-muted-foreground")}>
-                      {Number(r.debit) ? `Dr ${fmt(Number(r.debit))}` : `Cr ${fmt(Number(r.credit))}`}
-                    </div>
-                    <div className="text-xs tabular-nums font-semibold mt-1">{fmt(r.running)}</div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
+  return <div className="min-w-0 space-y-5 max-sm:space-y-3">
+    <PageTop tabsAbove title="Ledger" period={period.control} />
+    <section className="card-glass rounded-xl p-4 min-w-0 space-y-3" aria-label="Account" aria-busy={loading}>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <Select value={accountId} onValueChange={setAccountId}>
+          <SelectTrigger className="h-10 w-full sm:w-[420px] rounded-full bg-white" aria-label="Account"><SelectValue placeholder="Pick an account" /></SelectTrigger>
+          <SelectContent>{accounts.filter(a => a.is_active).map(a => <SelectItem key={a.id} value={a.id}>{a.code} · {a.name}</SelectItem>)}</SelectContent>
+        </Select>
+        {account && <span className="text-[12px] text-muted-foreground whitespace-nowrap">{ACCOUNT_TYPE_LABEL[account.account_type]} · normal side {account.normal_side}</span>}
+      </div>
+      {account && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1">{stats.map(s => <div key={s.label} className="min-w-0">
+        <p className="text-[12px] text-muted-foreground whitespace-nowrap">{s.label}</p>
+        <p className="mt-0.5 text-[20px] max-sm:text-[15px] font-semibold td-num whitespace-nowrap overflow-hidden text-ellipsis">{loading ? "…" : s.value}</p>
+        <p className="mt-0.5 text-[12px] text-muted-foreground whitespace-nowrap">{s.sub}</p>
+      </div>)}</div>}
+    </section>
+    {!account ? <section className="card-glass rounded-xl p-4"><Empty>Pick an account to see every line in it, with a running balance.</Empty></section> :
+      <Section title="Lines" detail={`${period.label} · ${formatTableInteger(lines.length)}`} busy={loading}>
+        <Toolbar search={search} onSearch={v => { setSearch(v); setPage(1); }} placeholder="Search lines" mobileSearchBelow onDownload={download} downloadLabel="Download ledger" />
+        <ul className="min-[768px]:hidden kit divide-y divide-border/60" aria-label="Lines">{visible.map((r, i) => <PhoneRow key={`${r.entry_id}-${i}`} title={what(r)} amount={Number(r.debit) ? formatTableCurrency(Number(r.debit)) : `−${formatTableCurrency(Number(r.credit))}`} sub={`${shortDay(r.entry_date)} · ${sourceLabel(r.source_type)} · balance ${balance(r.running)}`} onOpen={() => open(r)} />)}</ul>
+        <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Lines table"><table className="sales-table" aria-label="Ledger lines">
+          <thead><tr><th scope="col" className="sales-cell-left">Date</th><th scope="col" className="sales-cell-left">What</th><th scope="col" className="sales-cell-left">From</th><th scope="col" className="sales-cell-right">In (debit)</th><th scope="col" className="sales-cell-right">Out (credit)</th><th scope="col" className="sales-cell-right">Balance</th></tr></thead>
+          <tbody>{visible.map((r, i) => <tr key={`${r.entry_id}-${i}`} className="sales-record-row" {...keyOpen(() => open(r))}>
+            <td className="sales-cell-left">{shortDay(r.entry_date)}</td>
+            <td className="sales-cell-left" title={what(r)}>{what(r)}</td>
+            <td className="sales-cell-left"><span className="kit-link">{sourceLabel(r.source_type)}</span></td>
+            <td className="kit-num">{Number(r.debit) ? formatTableCurrency(Number(r.debit)) : <span className="text-muted-foreground">—</span>}</td>
+            <td className="kit-num">{Number(r.credit) ? formatTableCurrency(Number(r.credit)) : <span className="text-muted-foreground">—</span>}</td>
+            <td className="kit-num">{balance(r.running)}</td>
+          </tr>)}</tbody></table></div>
+        {!visible.length && <Empty>{loading ? "Loading lines…" : "No lines in this period."}</Empty>}
+        <Pager page={current} pages={pages} onPage={setPage} />
+        <Note>Newest first. Tap a line to open the entry it came from.</Note>
+      </Section>}
+  </div>;
 }
