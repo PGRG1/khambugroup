@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { POSITIONS, ALL_PAGES, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
 import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
@@ -15,6 +13,9 @@ import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { tenantMemberUsers } from "@/utils/settingsFacts";
+import { Toolbar } from "@/components/kit/Toolbar";
+import { QuickFilter } from "@/components/kit/QuickFilter";
+import { Status, PhoneRow, Note, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
 import { formatTableInteger } from "@/utils/format";
 
 const UserAccessControl = () => {
@@ -146,111 +147,33 @@ const UserAccessControl = () => {
   };
 
   return (
-    <div className="w-full mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span>People</span>
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">{formatTableInteger(users.length)} members · Current company</p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Invite
-        </Button>
+    <div className="w-full min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <p className="text-[13px] text-muted-foreground whitespace-nowrap">{formatTableInteger(users.filter(u => u.status === "active").length)} active · {formatTableInteger(users.length)} people</p>
+        <Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button>
       </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by email or name..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={positionFilter} onValueChange={setPositionFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Position" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Positions</SelectItem>
-            {POSITIONS.map(p => (
-              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="disabled">Disabled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Users Table */}
-      <div className="card-glass rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading users...</div>
-        ) : (
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[38%] sm:w-[26%]">Person · venues</TableHead>
-                <TableHead className="hidden sm:table-cell w-[12%]">Role</TableHead>
-                <TableHead className="hidden sm:table-cell">Pages they can open</TableHead>
-                <TableHead className="w-[24%] sm:w-[12%]">Status</TableHead>
-                <TableHead className="w-[38%] sm:w-[12%]"><span className="sr-only">Edit</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((user, idx) => (
-                <TableRow key={user.user_id} className="settings-row" onClick={() => setEditingUser(user)}>
-                  <TableCell className="break-words align-top"><span className="font-medium">{user.display_name||user.email}</span><p className="text-xs text-muted-foreground">{user.email}</p><p className="text-xs text-muted-foreground">{user.venue_ids?.length?user.venue_ids.map(id=>venueNameMap[id]).filter(Boolean).join(', '):'All venues'}</p><p className="sm:hidden text-xs mt-1">{user.position} · {user.pages.filter(p=>p.can_access).map(p=>ALL_PAGES.find(a=>a.key===p.page_key)?.label??p.page_key).join(', ')||'No pages'}</p></TableCell>
-                  <TableCell className="hidden sm:table-cell capitalize align-top">{user.position}</TableCell>
-                  <TableCell className="hidden sm:table-cell align-top">
-                    <div className="flex flex-wrap gap-1">
-                      {user.pages.filter(p => p.can_access).map(p => (
-                        <Badge key={p.page_key} variant="secondary" className="text-[10px]">
-                          {ALL_PAGES.find(ap => ap.key === p.page_key)?.label || p.page_key}
-                        </Badge>
-                      ))}
-                      {user.pages.filter(p => p.can_access).length === 0 && (
-                        <span className="text-xs text-muted-foreground">None</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.status === "active" ? "default" : "destructive"} className="capitalize">
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-wrap justify-end gap-1">
-                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setEditingUser(user); }}>
-                        Edit
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No users found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      <QuickFilter label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "disabled", label: "Disabled", count: users.filter(u => u.status !== "active").length }]} />
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{POSITIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent></Select>} />
+      {(() => {
+        const venuesOf = (u: typeof users[number]) => u.venue_ids?.length ? u.venue_ids.map(id => venueNameMap[id]).filter(Boolean).join(", ") : "All venues";
+        const pagesOf = (u: typeof users[number]) => u.pages.filter(p => p.can_access).map(p => ALL_PAGES.find(a => a.key === p.page_key)?.label ?? p.page_key);
+        const roleOf = (u: typeof users[number]) => POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
+        return <>
+          <ul className="min-[768px]:hidden kit divide-y divide-border/60">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={`${venuesOf(u)} · ${u.status === "active" ? `${formatTableInteger(pagesOf(u).length)} pages` : "Disabled"}`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => setEditingUser(u)} />)}</ul>
+          <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
+            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Can open</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
+            <tbody>{filtered.map(u => { const pages = pagesOf(u); return <tr key={u.user_id} className="sales-record-row" {...keyOpen(() => setEditingUser(u))}>
+              <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
+              <td className="sales-cell-left">{roleOf(u)}</td>
+              <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
+              <td className="sales-cell-left text-muted-foreground" title={pages.join(", ")}>{pages.length ? `${formatTableInteger(pages.length)} pages` : "None"}</td>
+              <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
+              <td className="kit-num"><span className="kit-link">Edit</span></td>
+            </tr>; })}</tbody></table></div>
+          {!filtered.length && <Empty>{loading ? "Loading people…" : "No one matches."}</Empty>}
+          <Note>A role sets what someone can see and change. Tap a person to change their role, venues or pages.</Note>
+        </>;
+      })()}
 
       {/* Editor Panel */}
       {editingUser && (

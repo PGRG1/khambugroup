@@ -1,3 +1,4 @@
+import { resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref } from "@/utils/settingsNavigation";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { PushNotificationsRow } from "@/components/UserMenu";
 import {
@@ -458,14 +459,11 @@ export function AppSidebar() {
   ];
   const peopleActivePath = peopleNavigationPath(pathname);
   const settingsAdmin = isAdmin && !isPreviewActive;
-  const sTab = sp.get("tab") ?? (settingsAdmin ? "business" : "master-data"), sView = sp.get("view");
+  const settingsHere = pathname === "/settings" ? resolveSettingsDestination(sp) : "denied";
+  const settingsGroupOf = settingsDestinations.find((d) => d.id === settingsHere)?.group;
   const settingsChildren = [
-    { title: "Business", to: "/settings?tab=business", active: sTab === "business", admin: true },
-    { title: "Users", to: "/settings?tab=users", active: sTab === "users" && sView !== "activity", admin: true },
-    { title: "Activity", to: "/settings?tab=users&view=activity", active: sTab === "users" && sView === "activity", admin: true },
-    { title: "Money setup", to: "/settings?tab=accounting", active: sTab === "accounting", admin: true },
-    { title: "Master data", to: "/settings?tab=master-data", active: sTab === "master-data", admin: false },
-    { title: "Bani", to: "/settings?tab=bani", active: sTab === "bani", admin: true },
+    { title: "All settings", to: "/settings", active: settingsHere === "overview", admin: false },
+    ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Lists" }; }),
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
 

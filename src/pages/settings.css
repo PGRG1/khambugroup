@@ -36,7 +36,9 @@
 .settings-note-amber, .settings-amber { color:hsl(var(--warning)); }
 .settings-note-green { color:hsl(var(--foreground)); }
 .settings-card { background:hsl(var(--card)); border:1px solid hsl(var(--border)); border-radius:8px; }
-.settings-detail .card-glass { background:transparent; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; }
+.settings-detail .card-glass, .settings-panel .card-glass { background:transparent; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; }
+.settings-panel .settings-detail-row:first-child { padding-top:0; }
+.settings-panel .settings-detail-row:last-child { border-bottom:0; padding-bottom:0; }
 .settings-mobile-navigation { display:none; }
 body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover)); color:hsl(var(--popover-foreground)); max-height:86dvh; overflow-y:auto; border-radius:8px; }
 @media(max-width:1100px) { .settings-workspace { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } .settings-overview { grid-template-columns:1fr; } }
