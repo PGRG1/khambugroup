@@ -41,7 +41,10 @@ export function MobileTabBar({ home, items }: { home: TabItem; items: TabItem[] 
   const Tab = ({ it, pinned }: { it: TabItem; pinned?: boolean }) => (
     <Link to={it.to} aria-current={it.active ? "page" : undefined}
       className={cn("glass-tab", pinned && "is-pinned", it.active && "is-active")}>
-      <it.icon className="glass-tab-icon" strokeWidth={it.active ? 2.2 : 1.8} aria-hidden="true" />
+      {pinned
+        // The orb draws its own fixed size; a same-size box keeps its label on the same line as the others.
+        ? <span className="glass-tab-icon grid place-items-center" aria-hidden="true"><it.icon className="!m-0" /></span>
+        : <it.icon className="glass-tab-icon" strokeWidth={it.active ? 2.2 : 1.8} aria-hidden="true" />}
       <span className="glass-tab-label">{it.title}</span>
     </Link>
   );
