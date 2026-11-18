@@ -579,7 +579,7 @@ html:not(.dark) .tenant-portal .app-atmosphere :is(.card-glass, .glass-surface, 
   color: hsl(var(--muted-foreground));
   letter-spacing: 0;
 }
-html:not(.dark) .tenant-portal .app-shell :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [role="combobox"]) {
+html:not(.dark) .tenant-portal .app-shell :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea:not(.floating-bani-input), [role="combobox"]) {
   background: hsl(var(--tenant-white) / 0.9);
   border-color: var(--tenant-hairline);
 }
