@@ -1,6 +1,5 @@
 import { resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref } from "@/utils/settingsNavigation";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
-import { useTeamOpenCounts } from "@/hooks/useTeamOpenCounts";
 import { PushNotificationsRow } from "@/components/UserMenu";
 import {
   LogOut, Users, UserRound, Search,
@@ -444,8 +443,6 @@ export function AppSidebar() {
           ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
         ];
 
-  const teamCounts = useTeamOpenCounts().counts;
-  const sectionCount = (title: string) => title === "Revenue" ? teamCounts.revenue : title === "Purchasing" ? teamCounts.purchasing : title === "People" ? teamCounts.people : title === "Finance" ? teamCounts.finance : 0;
   const [, setBaniOpen] = useFloatingBaniOpen();
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
   const [mobileAccount, setMobileAccount] = useState(false);
@@ -514,7 +511,7 @@ export function AppSidebar() {
         {railItems.filter((it) => it.to === "/").map((it) => <MenuRow key={it.to} it={it} collapsed={collapsed} onClick={() => setBaniOpen(false)} />)}
         <div className="bani-menu-line" />
         <nav aria-label="Sections" className="bani-menu-list">
-          {railItems.filter((it) => it.to !== "/").map((it) => <MenuRow key={it.title} it={it} collapsed={collapsed} count={sectionCount(it.title)} />)}
+          {railItems.filter((it) => it.to !== "/").map((it) => <MenuRow key={it.title} it={it} collapsed={collapsed} />)}
         </nav>
         <div className="bani-menu-foot">
           {collapsed && <MenuTip label="Expand sidebar"><button type="button" onClick={() => setOpen(true)} aria-label="Expand sidebar" className="bani-row is-icon"><ChevronsRight className="bani-row-icon h-4 w-4" /></button></MenuTip>}
