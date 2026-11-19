@@ -43,3 +43,47 @@
 body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover)); color:hsl(var(--popover-foreground)); max-height:86dvh; overflow-y:auto; border-radius:8px; }
 @media(max-width:1100px) { .settings-workspace { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } .settings-overview { grid-template-columns:1fr; } }
 @media(max-width:767px) { .settings-workspace { display:block; min-height:0; } .settings-navigation { display:none; } .settings-mobile-navigation { display:block; padding:16px 16px 0; } .settings-detail { padding:24px 16px; } .settings-detail-heading { margin-bottom:24px; } .settings-overview { gap:26px; } .settings-detail-row { flex-wrap:wrap; } .settings-detail-row > :first-child { flex:1; } .settings-venue-facts { gap:12px 20px; } }
+
+/* ---- Plain Settings shell (Rillet-style) ---- */
+.settings-shell { --settings-line:#E6EAE8; display:grid; grid-template-columns:248px minmax(0,1fr); min-height:calc(100dvh - 140px); background:#fff; border:1px solid var(--settings-line); border-radius:14px; overflow:hidden; color:#16201D; margin-bottom:24px; }
+.settings-shell, .settings-shell * { font-family:"IBM Plex Sans",system-ui,sans-serif !important; letter-spacing:0; }
+.settings-menu { padding:20px 14px 28px; background:#FAFBFA; border-right:1px solid var(--settings-line); }
+.settings-menu-title { margin:0 10px 4px; font-size:16px; font-weight:600; }
+.settings-menu-group { margin:18px 10px 4px; font-size:11px; font-weight:600; letter-spacing:.04em !important; text-transform:uppercase; color:#8A948F; }
+.settings-menu-item { display:flex; align-items:center; gap:8px; height:32px; padding:0 10px; border-radius:8px; font-size:14px; color:#3A4642; }
+.settings-menu-item:hover { background:#F1F4F2; }
+.settings-menu-item.is-on { background:#EBF0EE; color:#16201D; font-weight:500; }
+.settings-menu-chev { display:none; color:#B3BCB8; }
+.settings-dot { width:6px; height:6px; flex:none; border-radius:3px; background:#E07B1A; }
+.settings-main { padding:36px 56px 48px; max-width:920px; }
+.settings-back { display:none; align-items:center; gap:2px; font-size:14px; color:#1F6B5E; margin-bottom:10px; }
+.settings-head { margin-bottom:20px; }
+.settings-head-group { font-size:12px; color:#6B7772; }
+.settings-head-title { margin-top:2px; font-size:22px; font-weight:600; }
+.settings-head-line { margin-top:4px; font-size:14px; color:#6B7772; }
+/* Old blocks inside a page: no cards, just hairlines. */
+.settings-body .card-glass, .settings-body .glass-surface { background:transparent !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; backdrop-filter:none !important; padding-left:0 !important; padding-right:0 !important; }
+.settings-body .settings-detail-row { border-color:var(--settings-line); }
+.settings-field { display:grid; grid-template-columns:220px minmax(0,1fr); gap:24px; padding:18px 0; border-top:1px solid var(--settings-line); }
+.settings-field.is-missing input { border-color:#E9B47E; }
+.settings-save { display:flex; justify-content:flex-end; gap:8px; padding-top:18px; border-top:1px solid var(--settings-line); }
+.settings-choice { padding:18px 0; border-top:1px solid var(--settings-line); }
+.settings-choice:first-child { border-top:0; padding-top:0; }
+@media(max-width:1023px){ .settings-shell { grid-template-columns:220px minmax(0,1fr); } .settings-main { padding:28px 28px 40px; } .settings-field { grid-template-columns:180px minmax(0,1fr); } }
+@media(max-width:767px){
+ .settings-shell { display:block; min-height:0; border-radius:18px; }
+ .settings-shell.has-page .settings-menu { display:none; }
+ .settings-shell.has-menu .settings-main { display:none; }
+ .settings-menu { background:#fff; border:0; padding:18px 16px 24px; }
+ .settings-menu-title { margin:4px 0 0; font-size:24px; }
+ .settings-menu-group { margin:20px 0 4px; }
+ .settings-menu-item { height:48px; padding:0; border-radius:0; border-top:1px solid var(--settings-line); font-size:15px; color:#16201D; }
+ .settings-menu-item.is-on { background:none; font-weight:400; }
+ .settings-menu-chev { display:block; }
+ .settings-main { padding:18px 16px 28px; }
+ .settings-back { display:inline-flex; }
+ .settings-head-group { display:none; }
+ .settings-head-title { font-size:24px; }
+ .settings-field { grid-template-columns:1fr; gap:6px; padding:14px 0; }
+ .settings-save { padding-top:16px; }
+}
