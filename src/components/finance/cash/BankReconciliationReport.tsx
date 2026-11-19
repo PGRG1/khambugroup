@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { useNavigate } from "react-router-dom";
 import { useBankModule } from "@/hooks/useBankModule";
 import { useCashLedger } from "@/hooks/useCashLedger";
@@ -28,8 +29,8 @@ export function BankReconciliationReport({ asAt }: { asAt: string }) {
     [{ key: "account", label: "Account" }, { key: "statement_to", label: "Statement to" }, { key: "bank", label: "Bank says" }, { key: "books", label: "Books say" }, { key: "difference", label: "Difference" }, { key: "unmatched", label: "Unmatched lines" }, { key: "status", label: "Months" }], `bank-reconciliation-${asAt}`);
   const money = (r: typeof rows[number], n: number | null, missing = "—") => n === null ? <span className="text-muted-foreground">{missing}</span> : r.foreign ? formatMoney(n, r.p.account.currency) : formatTableCurrency(n);
   const needs = rows.filter(r => r.flag).length, diff = sum(r => r.p.difference), toMatch = rows.reduce((n, r) => n + r.p.toMatch, 0);
-  return <><Hero aria="Bank reconciliation summary" busy={loading} label={`As at ${shortDay(asAt)} · every bank account`} check={needs ? `${formatTableInteger(needs)} need you` : "Every account agrees"} checkTone={needs ? "amber" : "ok"}
-    stats={[{ label: "Bank says", value: formatTableCurrency(sum(r => r.p.bankSays)), sub: "last statements" }, { label: "Books say", value: formatTableCurrency(sum(r => r.p.booksSay)), sub: "on those days" }, { label: "Difference", value: formatTableCurrency(Math.abs(diff)), sub: toMatch ? `${formatTableInteger(toMatch)} lines to match` : "nothing to match", tone: Math.abs(diff) > 0.005 ? "amber" : "green" }]} />
+  return <><Hero aria="Bank reconciliation summary" busy={loading} label={shortDay(asAt)} check={needs ? `${formatTableInteger(needs)} need you` : "All agree"} checkTone={needs ? "amber" : "ok"}
+    stats={[{ label: "Difference", value: shortMoney(Math.abs(diff)), tone: Math.abs(diff) > 0.005 ? "amber" : undefined }, { label: "Bank says", value: shortMoney(sum(r => r.p.bankSays)) }, { label: "Books say", value: shortMoney(sum(r => r.p.booksSay)) }, { label: "To match", value: formatTableInteger(toMatch), tone: toMatch ? "amber" : undefined }]} />
   <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Bank reconciliation">
     <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Bank reconciliation</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· as at {shortDay(asAt)} · {formatTableInteger(rows.length)} bank {rows.length === 1 ? "account" : "accounts"}</span></h2>
     <Toolbar onDownload={download} downloadLabel="Download bank reconciliation" />

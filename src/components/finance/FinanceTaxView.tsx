@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { useFinanceSchedules } from '@/hooks/useFinanceSchedules';
 import { useTaxNotices } from '@/hooks/useTaxNotices';
 import { PageTop } from '@/components/kit/PageTop';
@@ -19,11 +20,12 @@ export function FinanceTaxView() {
   const drafts = q.rows('finance_entry_drafts').filter(d => d.kind === 'tax').sort((a, b) => String(b.entry_date).localeCompare(String(a.entry_date)));
   return <div className="space-y-5 max-sm:space-y-3 min-w-0">
     <PageTop tabsAbove title="Tax" actions={<ScheduleSetup tax label="Tax setup" />} />
-    <Hero aria="Tax summary" busy={q.isPending || notices.isPending} label={`Profits tax · year ends ${s.year_end_day} ${MONTHS[(s.year_end_month ?? 3) - 1] ?? ''} · ${s.business_type === 'company' ? 'company' : 'unincorporated'}`} check={s.tax_enabled ? 'Monthly drafts on' : 'Monthly drafts off'} checkTone={s.tax_enabled ? 'ok' : 'mut'}
+    <Hero aria="Tax summary" busy={q.isPending || notices.isPending} label={next ? shortDay(next.due_date) : 'nothing recorded'} check={soon ? 'Due soon' : s.tax_enabled ? 'Drafts on' : 'Drafts off'} checkTone={soon ? 'amber' : s.tax_enabled ? 'ok' : 'mut'}
       stats={[
-        { label: 'Next due', value: next ? formatTableCurrency(Number(next.amount)) : '—', sub: next ? `${shortDay(next.due_date)} · ${next.reference}` : 'nothing recorded', tone: soon ? 'amber' : undefined },
-        { label: 'Rates', value: s.business_type === 'company' ? '8.25% · 16.5%' : '7.5% · 15%', sub: rates },
-        { label: 'Filed by', value: s.filed_by || 'Not recorded', sub: 'No VAT or GST in Hong Kong' },
+        { label: 'Next tax due', value: next ? shortMoney(Number(next.amount)) : '—', tone: soon ? 'amber' : undefined },
+        { label: 'Year end', value: `${s.year_end_day} ${MONTHS[(s.year_end_month ?? 3) - 1] ?? ''}` },
+        { label: 'Rates', value: s.business_type === 'company' ? '8.25 · 16.5%' : '7.5 · 15%' },
+        { label: 'Filed by', value: s.filed_by || '—' },
       ]} />
     <TaxNoticeReview />
     <Section title="Tax drafts" detail={formatTableInteger(drafts.length)} busy={q.isPending}>

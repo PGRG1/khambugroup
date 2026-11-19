@@ -1,3 +1,5 @@
+import { shortMoney } from '@/utils/revenueOverview';
+import { Hero } from '@/components/finance/accounting/AccountingKit';
 import { Fragment, useEffect, useState } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Link } from "react-router-dom";
@@ -93,19 +95,14 @@ export function CashAccountPage({ accountId, bank, ledger, inPeriod, today, init
   const closingStatement = last ? bank.imports.find(i => i.bank_account_id === account.id && i.period_end === last.txn_date) : undefined;
   const cell = (t: BankTxn) => { const k = kindOf(t); return k === "matched" ? <span className="text-[#1F6B5E]">✓ {hint(t)}</span> : k === "ask" ? <span className="text-[#B45309]">Bani has a question</span> : k === "waiting" ? <span className="text-muted-foreground">◷ {reasonOf(t)}</span> : <span className="text-muted-foreground">Bani is checking…</span>; };
   const ask = (t: BankTxn) => <span className="flex flex-wrap items-center gap-2 text-[13px]"><span><b className="font-semibold text-[color:var(--kit-ink)]">Bani asks:</b> {reasonOf(t)}. Which is it?</span>{!disabled && <button type="button" className="kit kit-btn kit-tool-btn h-8" onClick={e => { e.stopPropagation(); open(t); }}>Match it</button>}</span>;
-  const stat = (label: string, value: string, sub: string, hot = false) => <div className="min-w-0"><p className="text-[12px] text-muted-foreground whitespace-nowrap">{label}</p><p className={`text-[20px] max-sm:text-[17px] font-semibold td-num whitespace-nowrap ${hot ? "text-[#B45309]" : ""}`}>{value}</p><p className="text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{sub}</p></div>;
   const gl = bank.coa.find(c => c.id === account.linked_gl_account_id);
   return <div className="space-y-5 max-sm:space-y-3 min-w-0">
     <Link to="/finance/cash" className="kit kit-link inline-block px-1 text-[13px]">← Accounts</Link>
-    <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Account" aria-busy={ledger.loading}>
-      <h2 className="px-1 text-[18px] font-display font-semibold flex flex-wrap items-baseline gap-x-1.5"><span className="truncate">{account.account_name}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {[account.currency || base, gl ? `${gl.code} ${gl.name}` : "not linked to the books"].join(" · ")}</span>{onEdit && !disabled && <button type="button" className="kit kit-link text-[13px] font-normal" onClick={onEdit}>Edit</button>}</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
-        {stat("Bank says", p.bankSays === null ? "—" : money(p.bankSays), p.statement ? `Statement to ${shortDay(p.statement.period_end)}${p.behind ? ` · ${sinceText(p.statement.period_end, today)} behind` : ""}` : "No statement yet", p.behind)}
-        {stat("Books say", p.booksSay === null ? "Not linked" : formatTableCurrency(p.booksSay), p.statement ? "Same day" : "Today")}
-        {stat("Difference", p.difference ? formatTableCurrency(p.difference) : "—", foreign ? "Different currencies" : p.difference ? (unmatched ? `${formatTableInteger(unmatched)} lines not matched` : "Lines all matched") : p.bankSays === null ? "Upload a statement" : "Agrees", !!p.difference)}
-        {stat("Lines to match", formatTableInteger(unmatched), `of ${formatTableInteger(mine.length)} lines`, unmatched > 0)}
-      </div>
-    </section>
+    <div className="px-1"><h2 className="text-[18px] font-display font-semibold flex flex-wrap items-baseline gap-x-1.5"><span className="truncate">{account.account_name}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {[account.currency || base, gl ? `${gl.code} ${gl.name}` : "not linked to the books"].join(" · ")}</span>{onEdit && !disabled && <button type="button" className="kit kit-link text-[13px] font-normal" onClick={onEdit}>Edit</button>}</h2></div>
+    <Hero aria="Account" busy={ledger.loading} label={p.statement ? shortDay(p.statement.period_end) : 'no statement'}
+      check={p.bankSays === null ? 'Upload a statement' : p.behind ? `${sinceText(p.statement!.period_end, today)} behind` : foreign ? 'Other currency' : p.difference ? `Off by ${shortMoney(Math.abs(p.difference))}` : 'Agrees'}
+      checkTone={p.bankSays === null || p.behind || (!foreign && p.difference) ? 'amber' : foreign ? 'mut' : 'ok'}
+      stats={[{ label: 'Bank says', value: p.bankSays === null ? '—' : shortMoney(p.bankSays) }, { label: 'Books say', value: p.booksSay === null ? 'Not linked' : shortMoney(p.booksSay) }, { label: 'Difference', value: p.difference ? shortMoney(p.difference) : '—', tone: p.difference ? 'amber' : undefined }, { label: 'To match', value: formatTableInteger(unmatched), tone: unmatched ? 'amber' : undefined }]} />
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Statement">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
         <h2 className="text-base font-display font-semibold flex flex-wrap gap-x-1.5"><span>Statement</span><span className="text-[13px] text-muted-foreground font-normal">· {filter === "needs" ? `${formatTableInteger(rows.length)} questions, any date` : filter === "waiting" ? `${formatTableInteger(rows.length)} waiting, any date` : `${formatTableInteger(rows.length)} lines in this period`}</span></h2>

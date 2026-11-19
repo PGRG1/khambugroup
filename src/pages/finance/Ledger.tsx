@@ -11,7 +11,8 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { formatTableCurrency, formatTableInteger } from "@/utils/format";
 import { shortDay } from "@/utils/salesRecordChecks";
 import { sourceLabel } from "@/utils/booksReview";
-import { Section, PhoneRow, Note, Empty, Pager, keyOpen, type Stat } from "@/components/finance/accounting/AccountingKit";
+import { shortMoney } from "@/utils/revenueOverview";
+import { Hero, Section, PhoneRow, Note, Empty, Pager, keyOpen } from "@/components/finance/accounting/AccountingKit";
 
 interface GLRow {
   entry_id: string; entry_date: string; entry_memo: string; source_type: string; account_id: string;
@@ -71,16 +72,10 @@ export default function Ledger() {
   const download = () => account && downloadCSV(lines.map(r => ({ date: r.entry_date, from: sourceLabel(r.source_type), what: what(r), debit: Number(r.debit).toFixed(2), credit: Number(r.credit).toFixed(2), balance: r.running.toFixed(2) })),
     [{ key: "date", label: "Date" }, { key: "from", label: "From" }, { key: "what", label: "What" }, { key: "debit", label: "In (debit)" }, { key: "credit", label: "Out (credit)" }, { key: "balance", label: "Balance" }], `ledger_${account.code}`);
 
-  const stats: Stat[] = [
-    { label: "Opening", value: balance(opening), sub: fromDate ? shortDay(fromDate) : "from the start" },
-    { label: "In (debit)", value: formatTableCurrency(moneyIn), sub: `${formatTableInteger(lines.filter(r => Number(r.debit)).length)} lines` },
-    { label: "Out (credit)", value: formatTableCurrency(moneyOut), sub: `${formatTableInteger(lines.filter(r => Number(r.credit)).length)} lines` },
-    { label: "Closing", value: balance(closing), sub: toDate ? shortDay(toDate) : "today" },
-  ];
 
   return <div className="min-w-0 space-y-5 max-sm:space-y-3">
     <PageTop tabsAbove title="Ledger" period={period.control} />
-    <section className="card-glass rounded-xl p-4 min-w-0 space-y-3" aria-label="Account" aria-busy={loading}>
+    <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <Select value={accountId} onValueChange={setAccountId}>
           <SelectTrigger className="h-10 w-full sm:w-[420px] rounded-full bg-white" aria-label="Account"><SelectValue placeholder="Pick an account" /></SelectTrigger>
@@ -88,12 +83,9 @@ export default function Ledger() {
         </Select>
         {account && <span className="text-[12px] text-muted-foreground whitespace-nowrap">{ACCOUNT_TYPE_LABEL[account.account_type]} · normal side {account.normal_side}</span>}
       </div>
-      {account && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1">{stats.map(s => <div key={s.label} className="min-w-0">
-        <p className="text-[12px] text-muted-foreground whitespace-nowrap">{s.label}</p>
-        <p className="mt-0.5 text-[20px] max-sm:text-[15px] font-semibold td-num whitespace-nowrap overflow-hidden text-ellipsis">{loading ? "…" : s.value}</p>
-        <p className="mt-0.5 text-[12px] text-muted-foreground whitespace-nowrap">{s.sub}</p>
-      </div>)}</div>}
-    </section>
+
+    </div>
+    {account && <Hero aria="Account balance" busy={loading} label={toDate ? shortDay(toDate) : "today"} stats={[{ label: "Closing", value: shortMoney(closing) }, { label: "Opening", value: shortMoney(opening) }, { label: "In (debit)", value: shortMoney(moneyIn) }, { label: "Out (credit)", value: shortMoney(moneyOut) }]} />}
     {!account ? <section className="card-glass rounded-xl p-4"><Empty>Pick an account to see every line in it, with a running balance.</Empty></section> :
       <Section title="Lines" detail={`${period.label} · ${formatTableInteger(lines.length)}`} busy={loading}>
         <Toolbar search={search} onSearch={v => { setSearch(v); setPage(1); }} placeholder="Search lines" mobileSearchBelow onDownload={download} downloadLabel="Download ledger" />

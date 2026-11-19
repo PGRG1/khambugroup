@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFinancialDocuments } from '@/hooks/useFinancialDocuments';
@@ -45,8 +46,8 @@ export default function DocumentCentre() {
   return <div className="min-w-0 space-y-5 max-sm:space-y-3">
     <PageTop tabsAbove title="Documents" period={period.control} actions={upload} />
     <input ref={file} type="file" className="hidden" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => { const files = Array.from(e.target.files ?? []); if (files.some(f => f.size > 10 * 1024 * 1024)) { toast.error('Use files under 10 MB'); return; } attach(files); e.target.value = ''; }} />
-    <Hero aria="Documents summary" busy={data.loading} label={`${period.label} · ${formatTableInteger(inScope.length)} documents`} check={data.errors.length ? 'Some sources could not load' : 'Each one opens its record'} checkTone={data.errors.length ? 'amber' : 'ok'}
-      stats={(types.length ? types.slice(0, 3) : [{ t: 'Documents', n: 0 }]).map(x => ({ label: x.t, value: formatTableInteger(x.n) }))} />
+    <Hero aria="Documents summary" busy={data.loading} label={period.label} check={data.errors.length ? 'Some missing' : undefined} checkTone="amber"
+      stats={[{ label: 'Documents', value: formatTableInteger(inScope.length) }, ...types.slice(0, 3).map(x => ({ label: x.t, value: formatTableInteger(x.n) }))]} />
     <Section title="Documents" detail={formatTableInteger(filtered.length)} busy={data.loading}>
       {data.errors.length > 0 && <p className="kit-explain">Some documents could not be loaded: {data.errors.join(', ')}.</p>}
       {types.length > 1 && <div className="overflow-x-auto"><QuickFilter label="Kind" value={type} onChange={k => { setType(k); setPage(1); }} options={[{ key: 'all', label: 'All' }, ...types.map(x => ({ key: x.t, label: x.t }))]} /></div>}

@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { useState } from "react";
 import { useFinanceBooks } from "@/hooks/useFinanceBooks";
 import { useVenueScope } from "@/hooks/useVenueScope";
@@ -43,10 +44,8 @@ export function ReceivablesAgeing({ asAt, contractName, onOpen }: { asAt: string
   return <>
     <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 max-sm:px-4 max-sm:py-4 min-w-0" aria-label="Owed to you by age" aria-busy={books.loading}>
       <p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">Owed to you · {shortDay(asAt)}</p>
-      <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{books.loading ? "…" : formatTableCurrency(all)}</p>
-      {/* Phone: one line for the oldest money; computer: the four buckets. */}
-      {tot[3] > 0.005 && <p className="sm:hidden mt-2 text-[13px] max-sm:text-[12px] text-[#B45309] whitespace-nowrap">{formatTableCurrency(tot[3])} is over 90 days old</p>}
-      <div className="max-sm:hidden mt-4 max-sm:mt-3 grid grid-cols-4 gap-3 border-t border-border/50 pt-3">{BUCKETS.map((b, i) => <div key={b} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${i === 3 && tot[3] > 0.005 ? "text-[#B45309]" : ""}`}>{formatTableCurrency(tot[i])}</p></div>)}</div>
+      <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{books.loading ? "…" : shortMoney(all)}</p>
+      <div className="mt-4 max-sm:mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/50 pt-3">{BUCKETS.map((b, i) => <div key={b} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${i === 3 && tot[3] > 0.005 ? "text-[#B45309]" : ""}`}>{shortMoney(tot[i])}</p></div>)}</div>
     </section>
     <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="By who" aria-busy={books.loading}>
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>By who</span><span className="text-[13px] text-muted-foreground font-normal">· days since the sale</span></h2>

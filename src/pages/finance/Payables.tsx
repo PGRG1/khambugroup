@@ -188,9 +188,8 @@ export default function Payables() {
     return <>
       <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 max-sm:px-4 max-sm:py-4 min-w-0" aria-label="You owe by age" aria-busy={loading}>
         <p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">You owe · {shortDay(asAt)}</p>
-        <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : formatTableCurrency(sum)}</p>
-        {tot[3] > 0.005 && <p className="sm:hidden mt-2 text-[13px] max-sm:text-[12px] text-[#B45309] whitespace-nowrap">{formatTableCurrency(tot[3])} is over 90 days late</p>}
-        <div className="max-sm:hidden mt-4 max-sm:mt-3 grid grid-cols-4 gap-3 border-t border-border/50 pt-3">{AGE.map((b, k) => <div key={b} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${k === 3 && tot[3] > 0.005 ? 'text-[#B45309]' : ''}`}>{formatTableCurrency(tot[k])}</p></div>)}</div>
+        <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : shortMoney(sum)}</p>
+        <div className="mt-4 max-sm:mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/50 pt-3">{AGE.map((b, k) => <div key={b} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{b}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${k === 3 && tot[3] > 0.005 ? 'text-[#B45309]' : ''}`}>{shortMoney(tot[k])}</p></div>)}</div>
       </section>
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="By who" aria-busy={loading}>
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>By who</span><span className="text-[13px] text-muted-foreground font-normal">· days past the due date</span></h2>

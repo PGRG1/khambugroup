@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import { Fragment, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
@@ -56,8 +57,8 @@ export default function TrialBalance() {
 
   return <div className="min-w-0 space-y-5 max-sm:space-y-3">
     <PageTop tabsAbove title="Trial balance" period={period.control} actions={<Button variant="outline" size="sm" className="h-10" aria-pressed={compareOn} onClick={toggleCompare}><ArrowLeftRight className="h-4 w-4" />{compareOn ? "Comparing" : "Compare"}</Button>} />
-    <Hero aria="Trial balance summary" busy={loading} label={`As at ${shortDay(toDate)} · ${formatTableInteger(active.length)} accounts`} check={balanced ? "Debits equal credits" : "Debits and credits differ"} checkTone={balanced ? "ok" : "amber"}
-      stats={[{ label: "Total debits", value: formatTableCurrency(debit) }, { label: "Total credits", value: formatTableCurrency(credit) }, { label: "Difference", value: formatTableCurrency(Math.abs(diff)), sub: balanced ? "nothing to fix" : "check the journal", tone: balanced ? "green" : "amber" }]} />
+    <Hero aria="Trial balance summary" busy={loading} label={shortDay(toDate)} check={balanced ? "Balances" : `Off by ${shortMoney(Math.abs(diff))}`} checkTone={balanced ? "ok" : "amber"}
+      stats={[{ label: "Trial balance", value: shortMoney(debit) }, { label: "Debits", value: shortMoney(debit) }, { label: "Credits", value: shortMoney(credit) }, { label: "Accounts", value: formatTableInteger(active.length) }]} />
     <Section title="Accounts" detail="grouped by type" busy={loading}>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow downloadControl={<DownloadMenu formats={["csv", "pdf"]} onDownload={download} label="Download trial balance" />} />
       <div className="min-[768px]:hidden kit">{groups.map(g => <Fragment key={g.t}><GroupHead name={FRIENDLY[g.t] ?? g.t} />

@@ -1,3 +1,4 @@
+import { shortMoney } from '@/utils/revenueOverview';
 import {BaseCurrencySetting} from '@/components/settings/BaseCurrencySetting';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,9 +37,9 @@ export function CurrenciesView() {
   const btn = (r: Row) => !preview.isPreviewActive && <button type="button" className="kit-link" onClick={e => { e.stopPropagation(); setRate(r); }}>Set rate</button>;
   return <div className="space-y-5 max-sm:space-y-3 min-w-0">
     <PageTop tabsAbove title="Currency" />
-    <Hero aria="Currency summary" busy={q.isPending} label={`Home currency ${base} · ${currencySymbol(base)}`} check={missing.length ? `${formatTableInteger(missing.length)} rates missing` : 'Rates up to date'} checkTone={missing.length ? 'amber' : 'ok'}
-      stats={[{ label: 'Currencies in use', value: formatTableInteger(list.length + 1), sub: `${base} plus ${formatTableInteger(list.length)} foreign` }, { label: 'Rates missing', value: formatTableInteger(missing.length), sub: nearest.length ? `${formatTableInteger(nearest.length)} using the nearest day` : 'for today', tone: missing.length ? 'amber' : undefined }, { label: 'Rate source', value: 'Daily', sub: 'reference rates, your own win' }]} />
-    {!!missing.length && <Ask>No rate today for {missing.map(r => r.currency).join(', ')}. Set one, or Bani keeps using the last known rate.</Ask>}
+    <Hero aria="Currency summary" busy={q.isPending} label={`home ${base}`} check={missing.length ? `${formatTableInteger(missing.length)} missing` : 'Up to date'} checkTone={missing.length ? 'amber' : 'ok'}
+      stats={[{ label: 'Currencies', value: formatTableInteger(list.length + 1) }, { label: 'Foreign', value: formatTableInteger(list.length) }, { label: 'Rates missing', value: formatTableInteger(missing.length), tone: missing.length ? 'amber' : undefined }, { label: 'Nearest day', value: formatTableInteger(nearest.length) }]} />
+    {!!missing.length && <Ask>no rate today for {missing.map(r => r.currency).join(', ')}.</Ask>}
     <Section title="Currencies" detail={formatTableInteger(list.length + 1)} busy={q.isPending}>
       <ul className="min-[768px]:hidden kit divide-y divide-border/60">
         <PhoneRow title={`${base} · ${currencySymbol(base)}`} sub="Home currency · everything is booked in it" />

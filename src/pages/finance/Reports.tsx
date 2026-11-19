@@ -20,6 +20,7 @@ import { balanceSheetRows, indirectCashRows, type ReportRow } from '@/utils/fina
 import { reportMonths } from '@/utils/financeClose';
 import { formatCurrency, formatMonthLabel, formatPercent, formatTableCurrency, formatTableInteger } from '@/utils/format';
 import { downloadCSV } from '@/utils/csvDownload';
+import { shortMoney } from '@/utils/revenueOverview';
 import { tenantToday, shortDay } from '@/utils/salesRecordChecks';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,6 +32,7 @@ import { Hero, Section, Flag, PhoneRow, GroupHead, Note, Empty, keyOpen, type St
 // Aged payables and receivables live in Payables › Ageing and Receivables › Ageing; old links redirect there.
 const views = [['pl', 'Profit & loss'], ['bs', 'Balance sheet'], ['cash', 'Cash flow'], ['venue', 'By venue'], ['bankrec', 'Bank reconciliation']];
 const FRIENDLY: Record<string, string> = { Assets: 'What you own', Liabilities: 'What you owe', Equity: "Owner's equity", 'Total assets': 'Total you own', 'Total liabilities': 'Total you owe', Operating: 'From running the business', Investing: 'From buying equipment', Financing: 'From owners and loans' };
+const sm = (n: number) => shortMoney(n);
 const BOLD = /^(Total|Change in cash|Closing cash)/;
 const shiftIso = (iso: string, months: number, years = 0) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - years); d.setUTCMonth(d.getUTCMonth() - months); return d.toISOString().slice(0, 10); };
 const signed = (n: number) => `${n < 0 ? '−' : ''}${formatTableCurrency(Math.abs(n))}`;
@@ -99,13 +101,16 @@ export default function Reports() {
     const pctOf = (r: PLRow, i: number) => r.percent ? null : salesOf(i) ? formatPercent((r.values[i] ?? 0) / salesOf(i) * 100) : '—';
     const amount = (r: PLRow, i: number) => r.values[i] == null ? '—' : r.percent ? formatPercent(r.values[i]!) : signed(r.values[i] ?? 0);
     const ledger = (r: PLRow) => r.accountId ? () => navigate(`/finance/books?view=ledger&account=${encodeURIComponent(r.accountId!)}`) : undefined;
+    const ch = prevProfit ? (profit - prevProfit) / Math.abs(prevProfit) * 100 : null;
     const stats: Stat[] = [
-      { label: 'Profit before tax', value: signed(profit), sub: sales ? `${formatPercent(profit / sales * 100)} margin` : '', tone: profit >= 0 ? 'green' : 'amber' },
-      { label: 'Revenue', value: formatTableCurrency(sales), sub: prevSales ? `${sales >= prevSales ? '+' : '−'}${formatPercent(Math.abs((sales - prevSales) / prevSales * 100))} on ${prevName}` : 'posted sales' },
-      { label: 'Prime cost', value: formatPercent(prime), sub: 'food, drinks and staff · aim under 60%', tone: prime > 60 ? 'amber' : undefined },    ];
+      { label: 'Profit', value: sm(profit), tone: profit < 0 ? 'amber' : undefined },
+      { label: 'Revenue', value: sm(sales), sub: prevSales ? `was ${sm(prevSales)}` : undefined },
+      { label: 'Prime cost', value: formatPercent(prime), tone: prime > 60 ? 'amber' : undefined },
+      { label: 'Margin', value: sales ? formatPercent(profit / sales * 100) : '—', sub: prevSales ? `was ${formatPercent(prevProfit / prevSales * 100)}` : undefined },
+    ];
     const plExport = shown.map(r => ({ label: r.label, values: r.values, percent: r.percent, section: r.kind === 'section' }));
     return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit and loss', columns, plExport, f)} label="Download profit and loss" disabled={loading || failed} /></>)}{error}
-      <Hero aria="Profit summary" busy={loading} label={period.label} check={closed ? `${months.length === 1 ? formatMonthLabel(months[0]) : 'Every month'} is closed` : 'Not closed yet'} checkTone={closed ? 'ok' : 'mut'} stats={stats} />
+      <Hero aria="Profit summary" busy={loading} label={period.label} check={ch != null && Math.abs(ch) >= 0.5 ? `${ch > 0 ? '+' : '−'}${Math.round(Math.abs(ch))}% vs ${prevName}` : closed ? 'Closed' : 'Not closed'} checkTone={ch != null && Math.abs(ch) >= 0.5 ? (ch > 0 ? 'mut' : 'amber') : closed ? 'ok' : 'mut'} stats={stats} />
       {why && !loading && <p className="px-1 text-[13px] text-muted-foreground"><span className="font-medium text-[color:var(--kit-ink)]">Bani:</span> {why}</p>}
       <Section title="Profit & loss" detail={compare === 'off' ? undefined : `vs ${compare === 'year' ? 'last year' : 'previous period'}`} busy={loading}>
         <div className="flex items-center justify-between gap-2"><QuickFilter label="Detail" value={detailed} onChange={setDetailed} options={[{ key: 'summary', label: 'Summary' }, { key: 'detail', label: 'Accounts' }]} /><button type="button" className="kit-link px-1 text-[12px] text-muted-foreground" onClick={() => setManagement(true)}>Adjustments</button></div>
@@ -158,8 +163,8 @@ export default function Reports() {
     const cols = ['Sales', 'Food & drink', 'Staff', 'Running costs', 'Profit before tax'];
     const venueExport = list.map(x => ({ label: x.name, values: x.s })).concat([{ label: 'Total', values: total }]);
     return shell(<>{top(<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile('Profit by venue', cols, venueExport, f)} label="Download by venue" disabled={loading || failed} />)}{error}
-      <Hero aria="By venue summary" busy={loading} label={`${period.label} · posted books`} check={`Central costs shared by ${sharing.data?.rule === 'equal' ? 'equal shares' : 'sales'}${sharing.data?.configured ? '' : ' (default)'}`} checkTone="mut"
-        stats={[{ label: 'Best margin', value: best?.name ?? '—', sub: best ? `${pct(best.s[4], best.s[0])} · ${formatTableCurrency(best.s[4])}` : 'no sales yet', tone: best ? 'green' : undefined }, { label: 'Total profit', value: signed(total[4]), sub: `${pct(total[4], total[0])} of sales` }, { label: 'Needs venue', value: formatTableCurrency(Math.abs((needs?.s[1] ?? 0) + (needs?.s[2] ?? 0) + (needs?.s[3] ?? 0))), sub: 'costs with no venue', tone: needs ? 'amber' : undefined }]} />
+      <Hero aria="By venue summary" busy={loading} label={period.label} check={needs ? 'Costs need a venue' : undefined} checkTone="amber"
+        stats={[{ label: 'Profit', value: sm(total[4]) }, { label: 'Best margin', value: best ? `${best.name} ${pct(best.s[4], best.s[0])}` : '—' }, { label: 'Margin', value: pct(total[4], total[0]) }, { label: 'No venue', value: sm(Math.abs((needs?.s[1] ?? 0) + (needs?.s[2] ?? 0) + (needs?.s[3] ?? 0))), tone: needs ? 'amber' : undefined }]} />
       <Section title="By venue" detail={`${real.length} ${real.length === 1 ? 'venue' : 'venues'}`} busy={loading}>
         <ul className="min-[768px]:hidden kit divide-y divide-border/60">{list.map(x => <PhoneRow key={x.name} flag={x.name === 'Needs venue' && 'Costs with no venue'} title={x.name} amount={signed(x.s[4])} sub={isOp(x) ? `Sales ${formatTableCurrency(x.s[0])} · margin ${pct(x.s[4], x.s[0])}` : x.name === 'Central' ? 'Costs not shared out' : 'Costs with no venue · give them one'} tone={x.name === 'Needs venue' ? 'amber' : 'mut'} />)}</ul>
         <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="By venue table"><table className="sales-table" aria-label="Profit by venue">
@@ -192,12 +197,12 @@ export default function Reports() {
   const val = (label: string) => base.find(r => r.label === label)?.values[0] ?? 0;
   const assets = val('Total assets'), owe = val('Total liabilities'), equity = val('Total equity'), gap = assets - owe - equity;
   const stats: Stat[] = bs
-    ? [{ label: 'You own', value: formatTableCurrency(assets), sub: 'cash, money owed to you, equipment' }, { label: 'You owe', value: formatTableCurrency(owe), sub: 'suppliers, staff, deposits' }, { label: "Owner's equity", value: signed(equity), sub: 'capital and profit kept' }]
-    : [{ label: 'Cash at start', value: formatTableCurrency(val('Opening cash')), sub: `before ${shortDay(from)}` }, { label: 'Change', value: signed(val('Change in cash')), sub: `profit was ${signed(val('Profit before tax'))}`, tone: val('Change in cash') < 0 ? 'amber' : undefined }, { label: 'Cash at end', value: formatTableCurrency(val('Closing cash')), sub: shortDay(to) }];
+    ? [{ label: 'You own', value: sm(assets) }, { label: 'You owe', value: sm(owe) }, { label: "Owner's equity", value: sm(equity) }]
+    : [{ label: 'Change in cash', value: sm(val('Change in cash')), tone: val('Change in cash') < 0 ? 'amber' : undefined }, { label: 'At start', value: sm(val('Opening cash')) }, { label: 'At end', value: sm(val('Closing cash')) }, { label: 'Profit', value: sm(val('Profit before tax')) }];
   const name = (label: string) => FRIENDLY[label] ?? label;
   const title = bs ? 'Balance sheet' : 'Cash flow';
   return shell(<>{top(<>{compareMenu}<DownloadMenu formats={['csv', 'pdf']} onDownload={f => exportFile(title, columns, rows.map(r => ({ ...r, label: name(r.label) })), f)} label={`Download ${title.toLowerCase()}`} disabled={loading || failed} /></>, bs)}{error}
-    <Hero aria={`${title} summary`} busy={loading} label={bs ? shortDay(asAt) : period.label} check={bs ? (Math.abs(gap) < 0.005 ? 'Balances' : `Off by ${formatTableCurrency(Math.abs(gap))}`) : undefined} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
+    <Hero aria={`${title} summary`} busy={loading} label={bs ? shortDay(asAt) : period.label} check={bs ? (Math.abs(gap) < 0.005 ? 'Balances' : `Off by ${sm(Math.abs(gap))}`) : undefined} checkTone={bs && Math.abs(gap) >= 0.005 ? 'amber' : bs ? 'ok' : 'mut'} stats={stats} />
     <Section title={title} detail={compare === 'off' ? undefined : `vs ${compare === 'year' ? 'last year' : 'previous period'}`} busy={loading}>
       {(() => {
         const whole = (n: number | null | undefined) => n == null || Math.abs(n) < .005 ? '—' : `${n < 0 ? '−' : ''}${formatTableInteger(Math.round(Math.abs(n)))}`;

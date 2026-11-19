@@ -22,18 +22,24 @@ export const keyOpen = (fn: () => void) => ({
 export type Stat = { label: string; value: ReactNode; sub?: ReactNode; tone?: 'amber' | 'green' };
 const COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4' };
 
+const CHIP: Record<Tone, string> = { amber: 'bg-[rgba(224,123,26,.15)] text-[#B45309]', ok: 'bg-[rgba(22,163,74,.12)] text-[#15803D]', mut: 'bg-muted text-muted-foreground' };
+
+/** Same shape as Purchasing's main card: "What · when", one big short number with a small chip beside it,
+ *  then up to three small numbers. Callers pass short values (shortMoney) and a chip of two or three words. */
 export function Hero({ label, check, checkTone = 'ok', stats, busy, aria }: { label: ReactNode; check?: ReactNode; checkTone?: Tone; stats: Stat[]; busy?: boolean; aria: string }) {
-  // Same shape as Revenue's and Purchasing's main card: label, one big number, one short line, then up to three stats.
   const [main, ...rest] = stats;
   return <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 space-y-4 max-sm:px-4 max-sm:py-4 max-sm:space-y-3 min-w-0" aria-label={aria} aria-busy={busy}>
     <div className="min-w-0">
-      <p className="text-[13px] font-medium text-muted-foreground truncate">{label}{main ? ` · ${main.label}` : ''}</p>
-      {main && <p className={`mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap ${main.tone === 'amber' ? 'text-[#B45309]' : ''}`}>{busy ? '…' : main.value}</p>}
-      {check && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] truncate"><Status text={check} tone={checkTone} /></p>}
+      <p className="text-[13px] font-medium text-muted-foreground truncate">{main ? <>{main.label} · {label}</> : label}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {main && <span className={`text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap ${main.tone === 'amber' ? 'text-[#B45309]' : ''}`}>{busy ? '…' : main.value}</span>}
+        {check && !busy && <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium whitespace-nowrap ${CHIP[checkTone]}`}>{checkTone === 'ok' ? '✓ ' : ''}{check}</span>}
+      </div>
     </div>
-    {rest.length > 0 && <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>{rest.slice(0, 3).map(s => <div key={s.label} className="min-w-0">
+    {rest.length > 0 && <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: `repeat(${Math.min(rest.length, 3)}, minmax(0, 1fr))` }}>{rest.slice(0, 3).map(s => <div key={s.label} className="min-w-0">
       <p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s.label}</p>
       <p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${s.tone === 'amber' ? 'text-[#B45309]' : s.tone === 'green' ? 'text-[#1F6B5E]' : ''}`}>{busy ? '…' : s.value}</p>
+      {s.sub && <p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s.sub}</p>}
     </div>)}</div>}
   </section>;
 }

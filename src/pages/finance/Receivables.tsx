@@ -1,3 +1,5 @@
+import { Hero } from '@/components/finance/accounting/AccountingKit';
+import { shortMoney } from '@/utils/revenueOverview';
 import { Fragment, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Navigate, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FinanceSchedulesView } from '@/components/finance/FinanceSchedulesView';
@@ -81,8 +83,8 @@ export default function Receivables() {
   const top = <PageTop tabsAbove title="Receivables" period={period.control} actions={<Button size="sm" className="h-10" onClick={uploadPayouts}><Upload className="h-4 w-4" />Upload payouts</Button>} />;
   const hero = (label: string, amount: number, parts: [string, number | null, boolean?][]) => <section className="glass-surface rounded-xl border border-border/60 px-5 py-5 max-sm:px-4 max-sm:py-4 min-w-0" aria-label={label} aria-busy={loading}>
     <p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">{label} · {shortDay(asAt)}</p>
-    <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : formatTableCurrency(amount)}</p>
-    <div className="mt-4 max-sm:mt-3 grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{parts.map(([l, v, hot]) => <div key={l} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v === null ? '—' : formatTableCurrency(v)}</p></div>)}</div>
+    <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : shortMoney(amount)}</p>
+    <div className="mt-4 max-sm:mt-3 grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{parts.map(([l, v, hot]) => <div key={l} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[16px] font-semibold td-num tabular-nums whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v === null ? '—' : shortMoney(v)}</p></div>)}</div>
   </section>;
 
   if (params.get('view') === 'payouts') return <Navigate to="/finance/cash?view=payouts" replace />;
@@ -130,14 +132,9 @@ export default function Receivables() {
     const pageRows = view2.slice((page - 1) * PAGE, page * PAGE);
     const statusCell = (d: typeof list[number]) => <span className={TONE[d.tone]}>{d.tone === 'ok' ? '✓ ' : ''}{d.status}</span>;
     return <div className="min-w-0 w-full space-y-5 max-sm:space-y-3 pb-24"><FinanceViewTabs items={recTabs} value="who" />{top}{back}
-      <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label={m.name} aria-busy={loading}>
-        <h2 className="px-1 text-[18px] font-display font-semibold truncate">{m.name}</h2>
-        <div className="grid grid-cols-3 gap-4 px-1">{[
-          ['Owed to you', m.owed === null ? '—' : formatTableCurrency(m.owed), m.shared ? 'Shared · split not set' : `${formatTableInteger(open.length)} sale ${open.length === 1 ? 'day' : 'days'} not paid`, open.length > 0],
-          ['Oldest not paid', oldest ? shortDay(oldest) : '—', oldest ? `${formatTableInteger(daysBetween(oldest, asAt))} days ago` : 'Nothing waiting', !!oldest && daysBetween(oldest, asAt) > 7],
-          ['Paid last 30 days', formatTableCurrency(recent), m.last ? `last payout ${shortDay(m.last)}` : 'no payouts matched', false],
-        ].map(([l, v, s, hot]) => <div key={l as string} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap">{l}</p><p className={`text-[20px] max-sm:text-[16px] font-semibold td-num whitespace-nowrap ${hot ? 'text-[#B45309]' : ''}`}>{v}</p><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{s}</p></div>)}</div>
-      </section>
+      <h2 className="px-1 text-[18px] font-display font-semibold truncate">{m.name}</h2>
+      <Hero aria={m.name} busy={loading} label={shortDay(asAt)} check={m.shared ? 'Split not set' : open.length ? `${formatTableInteger(open.length)} days not paid` : 'Up to date'} checkTone={m.shared || open.length ? 'amber' : 'ok'}
+        stats={[{ label: 'Owed to you', value: m.owed === null ? '—' : shortMoney(m.owed) }, { label: 'Oldest not paid', value: oldest ? shortDay(oldest) : '—', tone: !!oldest && daysBetween(oldest, asAt) > 7 ? 'amber' : undefined }, { label: 'Paid, 30 days', value: shortMoney(recent) }, { label: 'Last payout', value: m.last ? shortDay(m.last) : '—' }]} />
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="What makes it up">
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>What makes it up</span><span className="text-[13px] text-muted-foreground font-normal">· oldest first · unpaid days and the last 30 days</span></h2>
         <ul className="min-[768px]:hidden kit divide-y divide-border/60">{pageRows.map(d => <li key={d.date} className={`px-2 py-2.5 ${d.tone === 'amber' ? 'bg-[#FDF3F2]' : ''}`}><span className="flex justify-between gap-2 text-[14px]"><span>{shortDay(d.date)}</span><span className="td-num">{formatTableCurrency(d.net ?? d.left)}</span></span><span className="mt-0.5 block truncate text-[12px]">{statusCell(d)}</span></li>)}</ul>
