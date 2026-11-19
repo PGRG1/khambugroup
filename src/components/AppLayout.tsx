@@ -74,10 +74,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           <div className="flex-1 min-w-0 w-full max-w-[1800px] mx-auto px-3 py-4 sm:px-5 sm:py-5 md:px-6 lg:p-8 2xl:px-12">
-            {/* Section pages as tabs at the top of the page, on every screen; the left menu lists sections only. */}
-            {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
-            {pathname.startsWith("/hr") && <PeopleNavigation />}
-            {pathname.startsWith("/expenses") && <ExpensesNavigation />}
+            <div className="md:hidden">
+              {isRevenueRoute(pathname) && !pathname.startsWith("/revenue/setup") && <RevenueNavigation />}
+              {pathname.startsWith("/hr") && <PeopleNavigation />}
+              {pathname.startsWith("/expenses") && <ExpensesNavigation />}
+              </div>
             {pathname.startsWith("/procurement/") && <PurchasingNavigation />}
             {pathname.startsWith("/finance") && <FinanceNavigation />}
             <div key={`${tenantId}:${previewUserId}:${baseCurrency}`} className="min-w-0">
