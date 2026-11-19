@@ -3,7 +3,7 @@ import { SectionPillRow } from '@/components/kit/SectionPillRow';
 import { visibleExpenseTabs } from '@/utils/expenses';
 import { useExpenseClaimsExist } from '@/hooks/useExpenseClaimsExist';
 
-/** Phone-only page pills; on desktop the sidebar is the only Expenses navigation. */
+/** Expenses section tabs, on every screen. */
 export function ExpensesNavigation() {
   const { pathname } = useLocation();
   const tabs = visibleExpenseTabs(useExpenseClaimsExist());

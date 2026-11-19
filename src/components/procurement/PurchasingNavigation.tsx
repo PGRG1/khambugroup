@@ -29,10 +29,10 @@ export function PurchasingNavigation() {
   const tabs = purchasingTabsForPath(pathname)?.filter(canOpen);
   const parentPath = purchasingParentPath(pathname);
   return <>
-    {!isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
+    {!isStockMenuRoute(pathname) && pages.length > 0 && <div>
       <SectionPillRow label="Purchasing" items={pages.filter(page => !page.adminOnly).map(page => ({ label: page.title, path: page.url }))} activePath={pages.find(page => matchesPurchasingPath(parentPath, page.url))?.url ?? parentPath} />
     </div>}
-    {isStockMenuRoute(pathname) && pages.length > 0 && <div className="min-[641px]:hidden">
+    {isStockMenuRoute(pathname) && pages.length > 0 && <div>
       <SectionPillRow label="Stock & menu" items={pages.map(page => ({ label: page.title, path: page.url }))} activePath={parentPath} />
     </div>}
     {!!tabs?.length && invoiceFamily && tabHost && createPortal(<nav ref={invoiceTabsRef} aria-label="Purchasing pages" className="max-w-full overflow-x-auto">

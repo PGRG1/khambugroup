@@ -3,7 +3,7 @@ import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { retainCurrentQuery, revenueSection } from "@/utils/revenueNavigation";
 import { SectionPillRow } from "@/components/kit/SectionPillRow";
 
-/** Phone tab row for the Revenue section (desktop uses sidebar children). */
+/** Revenue section tabs, on every screen. */
 export function RevenueNavigation() {
   const { pathname, search } = useLocation();
   const access = useRevenueNavigationAccess();

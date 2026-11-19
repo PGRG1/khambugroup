@@ -960,3 +960,27 @@ html:not(.dark) .tenant-portal .page-top-actions button:not(.bg-primary):not([cl
 /* Purchase orders on a phone: the status row slides sideways, fading out before the round + button. */
 .po-status-row { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); }
 .po-status-row::-webkit-scrollbar { display: none; }
+
+/* Left menu (computer and tablet): one menu, the same rows expanded and collapsed. Every row is 36px with an 18px icon
+   and 14px name; the current section is bold on pale green. Collapsed hides names only, so every icon keeps its height. */
+.bani-menu { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow-y: auto; padding-bottom: 10px; }
+.bani-menu-head { display: flex; align-items: center; gap: 8px; height: 52px; flex: none; padding: 0 10px 0 18px; border-bottom: 1px solid rgba(31,63,59,0.12); }
+.bani-menu.is-collapsed .bani-menu-head { justify-content: center; padding: 0; }
+.bani-menu-line { height: 1px; flex: none; margin: 8px 16px; background: rgba(31,63,59,0.10); }
+.bani-menu.is-collapsed .bani-menu-line { margin: 8px 10px; }
+.bani-menu-list { display: flex; flex-direction: column; gap: 2px; }
+.bani-menu-foot { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.bani-menu:not(.is-collapsed) .bani-menu-foot { border-top: 1px solid rgba(31,63,59,0.12); padding: 8px 8px 0; }
+.bani-menu.is-collapsed .bani-menu-foot { align-items: center; }
+.bani-row { display: flex; align-items: center; gap: 10px; height: 36px; margin: 0 8px; padding: 0 10px; border-radius: 8px; font-size: 14px; line-height: 1; color: #3D4842; text-decoration: none; }
+.bani-row-icon { width: 18px; height: 18px; flex: none; }
+.bani-row.is-icon { width: 36px; margin: 0 auto; padding: 0; justify-content: center; }
+html:not(.dark) .tenant-portal .bani-side .bani-row.is-active { background: #E7EFEB !important; color: #1F3F3B !important; font-weight: 600; }
+.bani-client { display: flex; align-items: center; gap: 10px; height: 44px; margin: 10px 8px 4px; padding: 0 10px; border-radius: 10px; background: #F1F4F2; color: #1F3F3B; font-size: 14px; font-weight: 600; }
+.bani-client.is-icon { width: 36px; margin: 10px auto 4px; padding: 0; justify-content: center; }
+.bani-client-mark { width: 26px; height: 26px; flex: none; border-radius: 6px; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.bani-client.is-icon .bani-client-mark { background: transparent; box-shadow: none; font-size: 12px; }
+.bani-menu .bani-goto { border: 1px solid rgba(31,63,59,.12); background: #fff; color: #55605A; }
+.bani-menu .bani-goto kbd { margin-left: auto; }
+.bani-menu .bani-me { width: 100%; }
+.bani-menu.is-collapsed .bani-me { width: 38px; }

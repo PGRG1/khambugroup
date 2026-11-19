@@ -1,5 +1,6 @@
 import { resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref } from "@/utils/settingsNavigation";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { useTeamOpenCounts } from "@/hooks/useTeamOpenCounts";
 import { PushNotificationsRow } from "@/components/UserMenu";
 import {
   LogOut, Users, UserRound, Search,
@@ -18,7 +19,7 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { supabase } from "@/integrations/supabase/client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState , useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -26,19 +27,16 @@ import { useNavigate } from "react-router-dom";
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
-  SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
@@ -71,114 +69,43 @@ function HomeOrb({ className }: { className?: string }) {
 }
 const roleWords = (r?: string) => (!r ? "" : ["tenant_admin", "platform_admin", "super_admin", "owner", "admin"].includes(r) ? "Owner" : r === "manager" ? "Manager" : "Team");
 
-/** Child link that is active by an explicit flag (for section sub-pages). */
-function FlagChildLink({ title, to, active }: { title: string; to: string; active: boolean }) {
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-        <Link to={to} aria-current={active ? "page" : undefined}
-          className={cn("bani-sub relative flex items-center pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", active && "glass-active !text-sidebar-primary font-medium")}>
-          <span className="truncate">{title}</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-}
-
 type RailChild = { title: string; to: string; active?: boolean };
 type RailItem = { title: string; to: string; icon: any; active: boolean; dot?: boolean; children?: RailChild[] };
 
-/** Collapsed menu: icon with its name underneath; sections with several pages open them beside the menu. */
-const RAIL_ICON_CLS = "bani-rail-item inline-flex h-[38px] w-[38px] items-center justify-center rounded-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring";
-
-function RailIcon({ it }: { it: RailItem }) {
-  return <span className="relative inline-flex"><it.icon className="h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{it.dot && <span className="bani-dot" aria-hidden="true" />}</span>;
+/** One menu row, the same in both states: icon, name, count. Collapsed hides the name and shows the count as a dot,
+ *  with the name (and count) on hover. */
+function MenuTip({ label, show = true, children }: { label: string; show?: boolean; children: React.ReactNode }) {
+  if (!show) return <>{children}</>;
+  return <Tooltip><TooltipTrigger asChild>{children}</TooltipTrigger><TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{label}</TooltipContent></TooltipPortal></Tooltip>;
 }
-
-/** Collapsed menu section with several pages: name on hover, pages open beside the menu on click. */
-function RailSection({ it }: { it: RailItem }) {
-  const [open, setOpen] = useState(false);
-  const [tip, setTip] = useState(false);
-  // Only one pop-up at a time: the name tooltip is suppressed while the pages pop-out is open,
-  // and stays off after it closes until the pointer leaves the icon.
-  const [tipBlocked, setTipBlocked] = useState(false);
-  const onPopover = (o: boolean) => { setOpen(o); setTip(false); if (o) setTipBlocked(true); };
-  return (
-    <Popover open={open} onOpenChange={onPopover}>
-      <Tooltip open={tip && !open && !tipBlocked} onOpenChange={(t) => setTip(t)}>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button type="button" aria-label={it.title} aria-current={it.active ? "page" : undefined} className={cn(RAIL_ICON_CLS, it.active && "is-active")}
-              onPointerLeave={() => { if (!open) setTipBlocked(false); }}>
-              <RailIcon it={it} />
-            </button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
-      </Tooltip>
-      <PopoverContent side="right" align="start" sideOffset={8} className="bani-rail-pop z-[70] w-auto min-w-[150px] p-1"
-        onCloseAutoFocus={(e) => e.preventDefault()} onPointerLeave={() => setTipBlocked(false)}>
-        <div className="bani-rail-pop-title px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-[#1F3F3B]">{it.title}</div>
-        <nav aria-label={it.title} className="flex flex-col gap-px">
-          {it.children!.map((c) => (
-            <Link key={c.to} to={c.to} onClick={() => setOpen(false)} aria-current={c.active ? "page" : undefined}
-              className={cn("bani-rail-pop-link flex h-[30px] items-center rounded-[7px] px-2.5 text-[13px] whitespace-nowrap", c.active && "is-active")}>
-              {c.title}
-            </Link>
-          ))}
-        </nav>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function CollapsedRail({ items, onExpand, footer }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode }) {
-  const [, setBaniOpen] = useFloatingBaniOpen();
-  return (
-    <SidebarContent className="bani-rail items-center gap-1 pb-2">
-      <div className="bani-rail-head flex h-[52px] w-full shrink-0 items-center justify-center mb-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button type="button" onClick={onExpand} aria-label="Expand sidebar" className="bani-rail-expand bani-rail-logo inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-              <BaniLoginMark className="bani-rail-mark h-[26px] w-[16px]" /><ChevronsRight className="bani-rail-chev h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Expand sidebar</TooltipContent></TooltipPortal>
-        </Tooltip>
-      </div>
-      {items.map((it) => (it.children && it.children.length > 1 ? (
-        <RailSection key={it.title} it={it} />
-      ) : (
-        <Tooltip key={it.title}>
-          <TooltipTrigger asChild>
-            <Link to={it.to} aria-label={it.title} aria-current={it.active ? "page" : undefined} onClick={it.to === "/" ? () => setBaniOpen(false) : undefined}
-              className={cn(RAIL_ICON_CLS, it.active && "is-active")}>
-              <RailIcon it={it} />
-            </Link>
-          </TooltipTrigger>
-          <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{it.title}</TooltipContent></TooltipPortal>
-        </Tooltip>
-      )))}
-      {footer && <div className="mt-auto pt-2">{footer}</div>}
-    </SidebarContent>
-  );
+function MenuRow({ it, count = 0, collapsed, onClick }: { it: RailItem; count?: number; collapsed: boolean; onClick?: () => void }) {
+  const Icon = it.icon;
+  return <MenuTip show={collapsed} label={count ? `${it.title} · ${count} need${count === 1 ? "s" : ""} you` : it.title}>
+    <Link to={it.to} onClick={onClick} aria-label={collapsed ? it.title : undefined} aria-current={it.active ? "page" : undefined} className={cn("bani-row", collapsed && "is-icon", it.active && "is-active")}>
+      <span className="relative inline-flex"><Icon className="bani-row-icon h-[18px] w-[18px]" strokeWidth={it.active ? 2.2 : 1.8} />{collapsed && count > 0 && <span className="bani-dot" aria-hidden="true" />}</span>
+      {!collapsed && <span className="min-w-0 flex-1 truncate">{it.title}</span>}
+      {!collapsed && count > 0 && <span className="bani-count">{count}</span>}
+    </Link>
+  </MenuTip>;
 }
 
 /** Navigation-only page finder (⌘K). Never sends anything to Bani. */
-function GoToPage({ pages, open: openProp, onOpenChange, button = true }: { pages: { title: string; to: string }[]; open?: boolean; onOpenChange?: (o: boolean) => void; button?: boolean }) {
+function GoToPage({ pages, open: openProp, onOpenChange, button = true, icon = false }: { pages: { title: string; to: string }[]; open?: boolean; onOpenChange?: (o: boolean) => void; button?: boolean; icon?: boolean }) {
   const [openSelf, setOpenSelf] = useState(false);
   const open = openProp ?? openSelf;
   const setOpen = (o: boolean | ((p: boolean) => boolean)) => { const v = typeof o === "function" ? o(open) : o; setOpenSelf(v); onOpenChange?.(v); };
   const navigate = useNavigate();
+  const toggle = useRef(() => {});
+  toggle.current = () => setOpen(!open);
   useEffect(() => {
     if (!button) return;
-    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpenSelf((o) => !o); } };
+    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); toggle.current(); } };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
   }, [button]);
   return <>
-    {button && <button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-goto mx-3 flex items-center gap-2 rounded-md px-2.5 h-9 text-[13px]">
-      <Search className="h-4 w-4 shrink-0" /><span className="flex-1 text-left">Go to a page</span><kbd className="text-[11px]">⌘K</kbd>
-    </button>}
+    {button && (icon
+      ? <MenuTip label="Go to a page · ⌘K"><button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-row is-icon"><Search className="bani-row-icon" /></button></MenuTip>
+      : <button type="button" onClick={() => setOpen(true)} aria-label="Go to a page" className="bani-goto bani-row"><Search className="bani-row-icon" /><span className="flex-1 text-left">Go to a page</span><kbd className="text-[11px]">⌘K</kbd></button>)}
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput placeholder="Go to a page" aria-label="Go to a page" />
       <CommandList>
@@ -317,26 +244,6 @@ function ChildLink({ item }: { item: Item }) {
   );
 }
 
-function TopLink({ item }: { item: Item & { icon: any } }) {
-  const [, setBaniOpen] = useFloatingBaniOpen();
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-        <NavLink
-          to={item.url}
-          end={item.end ?? item.url === "/"}
-          onClick={item.url === "/" ? () => setBaniOpen(false) : undefined}
-          className="relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
-          activeClassName="glass-active !text-sidebar-primary font-medium"
-        >
-          <item.icon className="h-4 w-4 shrink-0" />
-          <span className="truncate">{item.title}</span>
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-}
-
 function SubSection({ label, items }: { label: string; items: Item[] }) {
   return (
     <div>
@@ -465,7 +372,6 @@ export function AppSidebar() {
     { title: "All settings", to: "/settings", active: settingsHere === "overview", admin: false },
     ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Lists" }; }),
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
-  const showSubPages = !isMobile;
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
@@ -529,7 +435,7 @@ export function AppSidebar() {
           ...(revenueDestination ? [{ title: "Revenue", to: revenueDestination, icon: TrendingUp, active: revenueActive, children: revenueChildren.map((c) => ({ title: c.title, to: c.to, active: revenueActive && revSection === c.key })) }] : []),
           ...(showProcurement ? [
             { title: "Purchasing", to: "/procurement/dashboard", icon: ShoppingCart, active: purchasingActive, children: purchasingChildren.map((c) => ({ title: c.title, to: c.url, active: purchasingActive && purchasingChildActive(c.url) })) },
-            { title: "Stock", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
+            { title: "Stock & menu", to: "/procurement/stock-overview", icon: Package, active: stockMenuActive, children: stockMenuChildren.map((c) => ({ title: c.title, to: c.url, active: stockMenuActive && purchasingChildActive(c.url) })) },
           ] : []),
           ...(showHR ? [{ title: "People", to: "/hr", icon: Users, active: pathname === "/hr" || pathname.startsWith("/hr/"), children: peopleChildren.map((c) => ({ title: c.title, to: c.to, active: peopleActivePath === c.to })) }] : []),
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
@@ -538,13 +444,16 @@ export function AppSidebar() {
           ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
         ];
 
+  const teamCounts = useTeamOpenCounts().counts;
+  const sectionCount = (title: string) => title === "Revenue" ? teamCounts.revenue : title === "Purchasing" ? teamCounts.purchasing : title === "People" ? teamCounts.people : title === "Finance" ? teamCounts.finance : 0;
+  const [, setBaniOpen] = useFloatingBaniOpen();
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
   const [mobileAccount, setMobileAccount] = useState(false);
   const [goOpen, setGoOpen] = useState(false);
   const [accountSlot, setAccountSlot] = useState<HTMLElement | null>(null);
   useEffect(() => { setAccountSlot(isMobile ? document.getElementById("mobile-account-slot") : null); }, [isMobile]);
   const homeItem = railItems.find((it) => it.to === "/");
-  const tabItems = railItems.filter((it) => it.to !== "/").map((it) => ({ title: it.title === "Stock" ? "Stock & menu" : it.title, to: it.to, icon: it.icon, active: it.active }));
+  const tabItems = railItems.filter((it) => it.to !== "/").map((it) => ({ title: it.title, to: it.to, icon: it.icon, active: it.active }));
   const initials = initialsOf(myName || user?.email || "") || "?";
   const mobile = isMobile && (
     <>
@@ -578,140 +487,40 @@ export function AppSidebar() {
   return (<>
     {mobile}
     <Sidebar variant="sidebar" collapsible="icon" className="bani-side">
-      {collapsed ? (
-        <div className={cn(isPreviewActive && "mt-10")} />
-      ) : (
-      <div className={cn("pb-3 space-y-2.5", isPreviewActive && "mt-10")}>
-        <div className="bani-sidebar-head flex h-[52px] items-center gap-2 px-4">
-          <BaniLoginMark className="bani-brand-mark h-[30px] w-[18px] shrink-0" />
-          <span className="bani-brand-word font-light tracking-tight leading-none">Bani</span>
-          {!isMobile && (
-            <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar"
-              className="bani-collapse-btn ml-auto inline-flex h-9 w-9 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-              <ChevronsLeft className="h-4 w-4" />
-            </button>
-          )}
+      <div className={cn("bani-menu", collapsed && "is-collapsed", isPreviewActive && "mt-10")}>
+        <div className="bani-menu-head">
+          <BaniLoginMark className="bani-brand-mark h-[26px] w-[16px] shrink-0" />
+          {!collapsed && <span className="bani-brand-word font-light tracking-tight leading-none">Bani</span>}
+          {!collapsed && !isMobile && <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar" className="bani-collapse-btn ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md"><ChevronsLeft className="h-4 w-4" /></button>}
         </div>
-        {clientName && (
-          <div className="bani-client-box mx-3 flex items-center gap-2.5 px-2.5 py-2">
-            <div className="h-7 w-7 rounded-md bg-white text-[11px] font-semibold flex items-center justify-center shrink-0 shadow-sm">
-              {initialsOf(clientName)}
-            </div>
-            <div className="min-w-0 text-[13px] font-semibold truncate">{clientName}</div>
-          </div>
-        )}
-        {isPlatformAdmin && isInsideClient && (
-          <div className="border-t border-sidebar-border/60 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={exitToPlatform}
-              className="h-7 w-full justify-start px-1.5 text-[11px] text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Exit to Platform
-            </Button>
-          </div>
-        )}
-        <GoToPage pages={goPages} />
+        {clientName && (() => {
+          const switchable = isPlatformAdmin && isInsideClient;
+          const box = <button type="button" className={cn("bani-client", collapsed && "is-icon")} aria-label={collapsed ? clientName : undefined}>
+            <span className="bani-client-mark">{initialsOf(clientName)}</span>
+            {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{clientName}</span>}
+            {!collapsed && <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+          </button>;
+          return <DropdownMenu>
+            <MenuTip show={collapsed} label={clientName}><DropdownMenuTrigger asChild>{box}</DropdownMenuTrigger></MenuTip>
+            <DropdownMenuContent side={collapsed ? "right" : "bottom"} align="start" className="w-56">
+              <div className="px-2 py-1.5 text-[12px] font-semibold">{clientName}</div>
+              <TenantSwitcher />
+              {switchable && <DropdownMenuItem className="gap-2.5" onSelect={exitToPlatform}><ArrowLeft className="h-4 w-4" />Exit to Platform</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>;
+        })()}
+        <GoToPage pages={goPages} open={goOpen} onOpenChange={setGoOpen} icon={collapsed} />
+        <div className="bani-menu-line" />
+        {railItems.filter((it) => it.to === "/").map((it) => <MenuRow key={it.to} it={it} collapsed={collapsed} onClick={() => setBaniOpen(false)} />)}
+        <div className="bani-menu-line" />
+        <nav aria-label="Sections" className="bani-menu-list">
+          {railItems.filter((it) => it.to !== "/").map((it) => <MenuRow key={it.title} it={it} collapsed={collapsed} count={sectionCount(it.title)} />)}
+        </nav>
+        <div className="bani-menu-foot">
+          {collapsed && <MenuTip label="Expand sidebar"><button type="button" onClick={() => setOpen(true)} aria-label="Expand sidebar" className="bani-row is-icon"><ChevronsRight className="bani-row-icon h-4 w-4" /></button></MenuTip>}
+          {me}
+        </div>
       </div>
-      )}
-
-      {collapsed ? (
-        <CollapsedRail onExpand={() => setOpen(true)} footer={me} items={railItems} />
-      ) : (
-      <SidebarContent className="py-2 gap-3">
-        {/* Top-level items, no group label */}
-        <SidebarGroup className="py-0 px-2">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {visibleItems.map((it) => <TopLink key={it.url} item={it} />)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <div className="mx-3 h-px bg-sidebar-border/60" />
-
-        {revenueDestination && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to={revenueDestination === pathname ? pathname + search : revenueDestination} aria-current={revenueActive ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", revenueActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <TrendingUp className="h-4 w-4 shrink-0" /><span>Revenue</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && revenueActive && revenueChildren.map((c) => <FlagChildLink key={c.key} title={c.title} to={c.to} active={revSection === c.key} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
-
-        {showProcurement && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to="/procurement/dashboard" aria-current={purchasingActive ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", purchasingActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <ShoppingCart className="h-4 w-4 shrink-0" /><span>Purchasing</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && purchasingActive && purchasingChildren.map((item) => <FlagChildLink key={item.url} title={item.title} to={item.url} active={purchasingChildActive(item.url)} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
-
-        {showProcurement && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to="/procurement/stock-overview" aria-current={stockMenuActive ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", stockMenuActive && "glass-active !text-sidebar-primary font-medium")}>
-                    <Package className="h-4 w-4 shrink-0" /><span>Stock & menu</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && stockMenuActive && stockMenuChildren.map((item) => <React.Fragment key={item.url}>
-                <FlagChildLink title={item.title} to={item.url} active={purchasingChildActive(item.url)} />
-              </React.Fragment>)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
-
-        {showHR && (
-          <SidebarGroup className="py-0 px-2">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-                  <Link to={pathname === "/hr" ? pathname + search : "/hr"} aria-current={pathname === "/hr" || pathname.startsWith("/hr/") ? "page" : undefined}
-                    className={cn("relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", (pathname === "/hr" || pathname.startsWith("/hr/")) && "glass-active !text-sidebar-primary font-medium")}>
-                    <Users className="h-4 w-4 shrink-0" /><span>People</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {showSubPages && (pathname === "/hr" || pathname.startsWith("/hr/")) && peopleChildren.map((c) => <FlagChildLink key={c.to} title={c.title} to={c.to} active={peopleActivePath === c.to} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
-
-        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Expenses",url:"/expenses",icon:ReceiptText}} />{showSubPages && pathname.startsWith("/expenses") && expenseNav.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
-
-
-
-        {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
-
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} /></SidebarMenu></SidebarGroup>}
-
-
-      </SidebarContent>
-      )}
-
-      {!collapsed && <SidebarFooter className="border-t border-sidebar-border p-2">{me}</SidebarFooter>}
     </Sidebar>
     {/* Outside the menu so it also opens on a phone, where the side menu is never shown. */}
     <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} name={myName} email={user?.email ?? ""} onSignOut={() => { setAccountOpen(false); void signOut(); }} />

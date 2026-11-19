@@ -6,7 +6,7 @@ export function FinanceNavigation() {
   const { pathname } = useLocation();
   if (!financeTabs.some((t) => t.path === pathname)) return null;
   return (
-    <div className="md:hidden">
+    <div>
       <SectionPillRow
         label="Finance"
         items={financeTabs}
