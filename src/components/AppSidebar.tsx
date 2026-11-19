@@ -486,7 +486,9 @@ export function AppSidebar() {
     <Sidebar variant="sidebar" collapsible="icon" className="bani-side">
       <div className={cn("bani-menu", collapsed && "is-collapsed", isPreviewActive && "mt-10")}>
         <div className="bani-menu-head">
-          <BaniLoginMark className="bani-brand-mark h-[26px] w-[16px] shrink-0" />
+          {collapsed
+            ? <MenuTip label="Expand sidebar"><button type="button" onClick={() => setOpen(true)} aria-label="Expand sidebar" className="bani-rail-expand bani-rail-logo inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"><BaniLoginMark className="bani-rail-mark h-[26px] w-[16px]" /><ChevronsRight className="bani-rail-chev h-4 w-4" /></button></MenuTip>
+            : <BaniLoginMark className="bani-brand-mark h-[26px] w-[16px] shrink-0" />}
           {!collapsed && <span className="bani-brand-word font-light tracking-tight leading-none">Bani</span>}
           {!collapsed && !isMobile && <button type="button" onClick={() => setOpen(false)} aria-label="Collapse sidebar" className="bani-collapse-btn ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md"><ChevronsLeft className="h-4 w-4" /></button>}
         </div>
@@ -514,7 +516,6 @@ export function AppSidebar() {
           {railItems.filter((it) => it.to !== "/").map((it) => <MenuRow key={it.title} it={it} collapsed={collapsed} />)}
         </nav>
         <div className="bani-menu-foot">
-          {collapsed && <MenuTip label="Expand sidebar"><button type="button" onClick={() => setOpen(true)} aria-label="Expand sidebar" className="bani-row is-icon"><ChevronsRight className="bani-row-icon h-4 w-4" /></button></MenuTip>}
           {me}
         </div>
       </div>
