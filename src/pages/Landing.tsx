@@ -346,7 +346,7 @@ export default function Landing() {
       { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
         sub: !days ? "No sales recorded yet" : `${short(sales / days)} a day${goal?.needPerDay != null && gs && !gs.good ? ` · need ${short(goal.needPerDay)}` : ""}`,
         status: [goal ? `Projected ${short(goal.projected)}` : !target ? "No target set" : `Target ${short(target)}`,
-          gs && !goal?.ended ? (gs.good ? "on track" : gs.text.toLowerCase()) : null,
+          gs && !goal?.ended ? (gs.good ? "on track" : `${short(goal!.target! - goal!.projected)} short`) : null,
           missingDays ? `${missingDays} ${missingDays === 1 ? "day" : "days"} missed` : null].filter(Boolean).join(" · "),
         tone: missingDays || (gs && !gs.good) ? "amb" : days ? "ok" : "quiet" },
       { label: "Stock used", value: money(stockUsed ?? 0, stockUsed != null), to: "/procurement/menu-costing", sub: stockUsed != null && booksSales ? `${pctTxt((stockUsed / booksSales) * 100)} of sales · ${p.food ? "booked" : "theoretical"}` : "No recipes or stock booked yet",
@@ -354,7 +354,7 @@ export default function Landing() {
       { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : staff.basis === "rota" ? "from the rota" : "accrued so far"}` : "No payroll history yet",
         ...(usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staff.amount != null && booksSales && (staff.amount / booksSales) * 100 <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: isCurrent ? "Profit so far" : "Profit", value: money(profit ?? 0, profit != null), to: "/finance/reports?view=pl", sub: profit != null && booksSales ? `${pctTxt((profit / booksSales) * 100)} of sales · accrual basis` : "Needs sales and recipes",
-        ...(missingDays > 0 ? { status: `Sales missing for ${missingDays} of ${daysGone} days`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} of sales`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+        ...(missingDays > 0 ? { status: `${missingDays} ${missingDays === 1 ? "day" : "days"} of sales missing`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} of sales`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
         ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
@@ -422,7 +422,7 @@ export default function Landing() {
         line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
-    return { salesN: days > 0 ? sales : null, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
+    return { salesN: days > 0 ? sales : null, guests, tradeDays: days, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data, closures.lookup, scopeVenueIds, proj.rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -502,9 +502,9 @@ export default function Landing() {
       {!showSnap ? <SnapSkeleton /> :
       <div className={`l2-snap l2-reveal ${snapCls}`} style={{ ["--d" as any]: `${snapAt}ms` }}>
         <section className="l2-col">
-          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
+          <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
-          <div className="l2-ch l2-grow"><div className="pt">Sales each day <span>· {monthName(month)}</span></div>
+          <div className="l2-ch l2-grow">
             {k.monthDays.some((d) => d.v > 0) ? <div className="l2-daysbox relative"><div className="l2-bars l2-days">{k.monthDays.map((d, i) => {
               // Each day: the bar is what was sold, the tick the day's projection; future days show the projection only.
               const pct = (n: number) => `${(n / maxD) * 100}%`;
@@ -534,26 +534,25 @@ export default function Landing() {
               </div>;
             })()}</div>
               : <p className="l2-empty">No sales this month yet.</p>}</div>
+          {k.salesN != null && <div className="l2-foot"><span>Customers <b>{k.guests ? k.guests.toLocaleString("en-HK") : "—"}</b></span><span>Avg spend <b>{k.guests ? short(k.salesN / k.guests) : "—"}</b></span><span>Avg a day <b>{k.tradeDays ? short(k.salesN / k.tradeDays) : "—"}</b></span></div>}
         </section>
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">{isCurrent ? "Purchases so far" : "Purchases"}</div>
             <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={snapAt + 230} /> : "—"}</div>
-            <div className="d">{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : k.lastInv ? "" : "No supplier invoices yet"}</div>
-            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.lastInv ? `Last invoice ${new Date(`${k.lastInv.invoice_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No invoices this month yet"}</div></Link>
-          {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.spent)} of {short(k.budget)} budget</span></div>
+            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : "No invoices yet"}</div></Link>
+          {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.budget)} budget</span></div>
             : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
-          <div className="l2-ch"><div className="pt">Top suppliers <span>· {monthName(month)}</span></div>
+          <div className="l2-ch"><div className="pt">Top suppliers</div>
             {k.topSup.length ? <div className="l2-pl">{k.topSup.map((x) => <div key={x.name}><span className="truncate">{x.name}</span><b>{short(x.v)}</b></div>)}</div>
               : <p className="l2-empty">No invoices this month yet.</p>}</div>
         </section>
         <section className="l2-col">
           <Link to="/finance/reports?view=pl" className="l2-top"><div className="k">P&amp;L</div>
-            <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 310} /> : "—"}<span className="vl"> {isCurrent ? "so far" : "profit"}</span></div>
-            <div className="d">Accrual basis</div>
+            <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 310} /> : "—"}</div>
             <div className={`s ${k.profitTile.tone}`}><i />{k.profitTile.status}</div></Link>
           <div className="l2-ch l2-pl">
             {k.plLines.map((l) => <div key={l.name}><span>{l.name}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
-            <div className="tot"><span>{isCurrent ? "Profit so far" : "Profit"}</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 700} duration={600} /> : "—"}</b></div>
+            <div className="tot"><span>Profit</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 700} duration={600} /> : "—"}</b></div>
           </div>
           <Link to="/finance/cash" className="l2-cash"><span>Cash {k.cash ?? "not linked"}</span>{overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : <span>No bills overdue</span>}</Link>
         </section>
