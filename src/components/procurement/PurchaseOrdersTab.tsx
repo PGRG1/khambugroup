@@ -21,6 +21,7 @@ import { useVenues } from "@/hooks/useVenues";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePurchasingMode } from "@/hooks/usePurchasingMode";
 import { format, parseISO } from "date-fns";
+import { PageTop } from "@/components/kit/PageTop";
 
 const STATUS_LABEL: Record<Status, string> = { draft: "Draft", approved: "Approved", sent: "Sent", partial: "Partly received", received: "Received", cancelled: "Cancelled" };
 const STATUS_TONE: Record<Status, string> = { draft: "text-muted-foreground", approved: "text-warning", sent: "text-warning", partial: "text-warning", received: "text-success", cancelled: "text-muted-foreground" };
@@ -309,27 +310,19 @@ export default function PurchaseOrdersTab() {
   }, [selectedItems]);
 
   const shortDate = (d: string | null) => (d ? format(parseISO(d), "d MMM") : "—");
-  const newPoButton = canManage ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> New PO</Button> : null;
+  const newPoButton = canManage ? <Button size="sm" className="h-10" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /><span>New PO</span></Button> : undefined;
   const supName = suppliers.find((s) => s.id === supplierId)?.name;
   const statusText = (st: Status) => <span className={cn("text-xs font-medium", STATUS_TONE[st])}>{STATUS_LABEL[st]}</span>;
 
   return (
-    <div className="space-y-4">
-      {/* Phone: the section tab already names the page, and New PO sits at the end of the status row. */}
-      {!isMobile && (
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Purchase Orders</h1>
-          {newPoButton}
-        </div>
-      )}
+    <div className="space-y-5 max-sm:space-y-3 min-w-0 max-[640px]:pb-24">
+      {/* Same page top as Overview, Trends and Invoices: title (phone: the tab names it) and New PO on the right. */}
+      <PageTop tabsAbove title="Purchase orders" actions={newPoButton} />
 
       {loading ? (
         <div className="card-glass rounded-xl border border-border/60 h-40 animate-pulse" aria-label="Loading purchase orders" />
       ) : pos.length === 0 ? (
-        <div className="card-glass rounded-xl border border-border/60 p-8 text-center space-y-3">
-          <p className="font-display text-base font-semibold text-foreground">No purchase orders yet</p>
-          {newPoButton}
-        </div>
+        <section className="card-glass rounded-xl p-3 sm:p-4"><p className="p-10 text-center text-sm text-muted-foreground">No purchase orders yet</p></section>
       ) : (<>
         {/* Status: the current one is a white pill, the rest grey (dark green is kept for the main navigation).
             Phone: the row slides sideways and a round + for a new PO sits at its end. */}
@@ -343,12 +336,6 @@ export default function PurchaseOrdersTab() {
               </button>
             ))}
           </div>
-          {isMobile && canManage && (
-            <button type="button" onClick={() => setCreateOpen(true)} aria-label="New PO" title="New PO"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-              <Plus className="h-5 w-5" />
-            </button>
-          )}
         </div>
 
         <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
