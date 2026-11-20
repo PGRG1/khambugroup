@@ -18,6 +18,7 @@ import { useVenueClosures } from "@/hooks/useVenueClosures";
 import { useScopedProjections } from "@/hooks/useScopedProjections";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { monthGoal, goalStatus } from "@/utils/revenueOverview";
+import { categoryRanking, type OverviewProduct } from "@/utils/purchasingOverview";
 import { parallelPages } from "@/utils/parallelPages";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
@@ -261,7 +262,7 @@ export default function Landing() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const db = supabase as any;
-      let iq = db.from("invoices").select("id,invoice_date,total_amount,voided_at,supplier_id,venue_id").eq("tenant_id", tenantId).gte("invoice_date", `${addMonths(month < thisMonth ? month : thisMonth, -3)}-01`).limit(5000);
+      let iq = db.from("invoices").select("id,invoice_date,total_amount,discount,voided_at,supplier_id,venue_id").eq("tenant_id", tenantId).gte("invoice_date", `${addMonths(month < thisMonth ? month : thisMonth, -3)}-01`).limit(5000);
       if (scopeIds?.length) iq = iq.in("venue_id", scopeIds);
       let bq = db.from("purchasing_budgets").select("amount,venue_id").eq("tenant_id", tenantId).eq("month", `${month}-01`);
       if (scopeIds?.length) bq = bq.in("venue_id", scopeIds);
@@ -274,7 +275,14 @@ export default function Landing() {
         const { data } = await db.from("invoice_line_items").select("invoice_id,description,product_master_id,quantity,total").eq("tenant_id", tenantId).in("invoice_id", recentIds.slice(i, i + 100));
         lines.push(...(data ?? []));
       }
-      return { invoices, lines, suppliers: new Map<string, string>(((sup.data ?? []) as any[]).map((x) => [x.id, x.name])),
+      // Level 1 category of each item bought (Food, Beverage, ...), tenant's own product list only.
+      const pmIds = [...new Set(lines.map((l) => l.product_master_id).filter(Boolean))] as string[];
+      const products = new Map<string, OverviewProduct>();
+      for (let i = 0; i < pmIds.length; i += 200) {
+        const { data } = await db.from("product_master").select("id,internal_product_name,financial_treatment,level1_category,unit").eq("tenant_id", tenantId).in("id", pmIds.slice(i, i + 200));
+        for (const p of (data ?? []) as OverviewProduct[]) products.set(p.id, p);
+      }
+      return { invoices, lines, products, suppliers: new Map<string, string>(((sup.data ?? []) as any[]).map((x) => [x.id, x.name])),
         budget: ((bud.data ?? []) as any[]).reduce((a, b) => a + (Number(b.amount) || 0), 0) };
     },
   });
@@ -354,7 +362,7 @@ export default function Landing() {
       { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : staff.basis === "rota" ? "from the rota" : "accrued so far"}` : "No payroll history yet",
         ...(usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staff.amount != null && booksSales && (staff.amount / booksSales) * 100 <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: isCurrent ? "Profit so far" : "Profit", value: money(profit ?? 0, profit != null), to: "/finance/reports?view=pl", sub: profit != null && booksSales ? `${pctTxt((profit / booksSales) * 100)} of sales · accrual basis` : "Needs sales and recipes",
-        ...(missingDays > 0 ? { status: `${missingDays} ${missingDays === 1 ? "day" : "days"} of sales missing`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} of sales`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+        ...(missingDays > 0 ? { status: `${missingDays} ${missingDays === 1 ? "day" : "days"} of sales missing`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} of revenue`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
         ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
@@ -380,6 +388,13 @@ export default function Landing() {
     const monthDays = Array.from({ length: dim }, (_, i) => { const d = `${month}-${String(i + 1).padStart(2, "0")}`; return { n: i + 1, v: rows.filter((r) => r.date === d).reduce((a, r) => a + rev(r), 0), future: isCurrent && i + 1 > daysGone }; });
     const bySup = new Map<string, number>();
     inv.filter((i) => String(i.invoice_date).slice(0, 7) === month && i.supplier_id).forEach((i) => bySup.set(i.supplier_id, (bySup.get(i.supplier_id) ?? 0) + (Number(i.total_amount) || 0)));
+    // Spend by level 1 category this month (the Purchasing page's own ranking), each as a share of revenue.
+    const monthInv = inv.filter((i) => String(i.invoice_date).slice(0, 7) === month);
+    const monthIds = new Set(monthInv.map((i) => i.id));
+    const cats = categoryRanking(
+      (buyQ.data?.lines ?? []).filter((l: any) => monthIds.has(l.invoice_id)).map((l: any) => ({ ...l, total: Number(l.total) || 0, unit_price: 0, unit: null, quantity: Number(l.quantity) || 0 })),
+      monthInv.map((i) => ({ ...i, total_amount: Number(i.total_amount) || 0 })) as any, buyQ.data?.products ?? new Map())
+      .filter((c) => c.value > 0).slice(0, 5).map((c) => ({ name: c.name, v: c.value, pct: booksSales ? (c.value / booksSales) * 100 : null }));
     const topSup = [...bySup].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, v]) => ({ name: buyQ.data?.suppliers.get(id) ?? "Supplier", v }));
     const budget = buyQ.data?.budget ?? 0;
     const budgetPace = budget && isCurrent ? (budget * Math.min(daysGone, dim)) / dim : budget;
@@ -422,7 +437,7 @@ export default function Landing() {
         line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
-    return { salesN: days > 0 ? sales : null, guests, tradeDays: days, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
+    return { salesN: days > 0 ? sales : null, cats, guests, tradeDays: days, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data, closures.lookup, scopeVenueIds, proj.rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -537,13 +552,13 @@ export default function Landing() {
           {k.salesN != null && <div className="l2-foot"><span>Customers <b>{k.guests ? k.guests.toLocaleString("en-HK") : "—"}</b></span><span>Avg spend <b>{k.guests ? short(k.salesN / k.guests) : "—"}</b></span><span>Avg a day <b>{k.tradeDays ? short(k.salesN / k.tradeDays) : "—"}</b></span></div>}
         </section>
         <section className="l2-col">
-          <Link to="/procurement/dashboard" className="l2-top"><div className="k">{isCurrent ? "Purchases so far" : "Purchases"}</div>
+          <Link to="/procurement/dashboard" className="l2-top"><div className="k">Purchases</div>
             <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={snapAt + 230} /> : "—"}</div>
-            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of sales` : "No invoices yet"}</div></Link>
+            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of revenue` : "No invoices yet"}</div></Link>
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.budget)} budget</span></div>
             : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
-          <div className="l2-ch"><div className="pt">Top suppliers</div>
-            {k.topSup.length ? <div className="l2-pl">{k.topSup.map((x) => <div key={x.name}><span className="truncate">{x.name}</span><b>{short(x.v)}</b></div>)}</div>
+          <div className="l2-ch l2-pl l2-cats">
+            {k.cats.length ? k.cats.map((c) => <div key={c.name}><span className="truncate">{c.name}</span><b>{short(c.v)}<em>{c.pct != null ? pctTxt(c.pct) : ""}</em></b></div>)
               : <p className="l2-empty">No invoices this month yet.</p>}</div>
         </section>
         <section className="l2-col">
