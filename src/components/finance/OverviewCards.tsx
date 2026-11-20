@@ -8,7 +8,7 @@ import { useFinanceObligations } from "@/hooks/useFinanceObligations";
 import { useReceivables } from "@/hooks/useReceivables";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { useSupplierDisplayTerms } from "@/components/finance/FinanceAging";
-import { dueFromTerms } from "@/utils/financeReportViews";
+import { owedSummary } from "@/utils/owedSummary";
 import { financeProfit } from "@/utils/financeOverview";
 import { formatMonthLabel, formatTableCurrency } from "@/utils/format";
 import { shortMoney } from "@/utils/revenueOverview";
@@ -54,14 +54,13 @@ export function OverviewCards({ books, payroll, completeMonths, clearingIds, tod
   const boxes = floats.reduce((n, f) => n + (pc.balanceByFloat[f.id] ?? 0), 0);
 
   // Owed
-  const supplierItems = ap.invoices.filter(i => i.outstanding_amount > .005 && i.payment_status !== "voided" && scope.includesName(i.venue))
-    .map(i => ({ amount: i.outstanding_amount, due: dueFromTerms(i.invoice_date, i.due_date, terms.data?.find(s => s.id === i.supplier_id)?.payment_terms) }));
-  const owedItems = [...supplierItems, ...other.items.map(i => ({ amount: i.amount, due: i.due }))];
-  const youOwe = owedItems.reduce((n, i) => n + i.amount, 0);
-  const overdue = owedItems.filter(i => i.due && i.due < today).reduce((n, i) => n + i.amount, 0);
+  const owed = owedSummary({ apInvoices: ap.invoices, obligations: other.items, arItems: ar.openItems, inScope: (v) => scope.includesName(v ?? null),
+    termsFor: (id) => terms.data?.find(s => s.id === id)?.payment_terms, today });
+  const { owedItems, customers } = owed;
+  const youOwe = owed.payable;
+  const overdue = owed.overdue;
   const goingOut = owedItems.filter(i => !i.due || i.due <= soon).reduce((n, i) => n + i.amount, 0);
-  const customers = ar.openItems.filter(i => !i.venue || scope.includesName(i.venue));
-  const owedToYou = customers.reduce((n, i) => n + Number(i.open_amount), 0) + Math.max(0, transit);
+  const owedToYou = owed.receivable + Math.max(0, transit);
   const late = customers.filter(i => i.age_days > 30).reduce((n, i) => n + Number(i.open_amount), 0);
   const comingIn = Math.max(0, transit) + customers.reduce((n, i) => n + Number(i.open_amount), 0);
 

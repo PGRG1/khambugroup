@@ -19,6 +19,11 @@ import { useScopedProjections } from "@/hooks/useScopedProjections";
 import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
 import { monthGoal, goalStatus } from "@/utils/revenueOverview";
 import { categoryRanking, type OverviewProduct } from "@/utils/purchasingOverview";
+import { usePayables } from "@/hooks/usePayables";
+import { useFinanceObligations } from "@/hooks/useFinanceObligations";
+import { useReceivables } from "@/hooks/useReceivables";
+import { useSupplierDisplayTerms } from "@/components/finance/FinanceAging";
+import { owedSummary } from "@/utils/owedSummary";
 import { parallelPages } from "@/utils/parallelPages";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
@@ -78,12 +83,14 @@ const Sk = ({ w }: { w: string }) => <span className="l2-sk" style={{ width: w }
 
 /** The month snapshot's exact shape with placeholders in place of figures. */
 function SnapSkeleton() {
-  const top = () => <div className="l2-top"><div className="k"><Sk w="38%" /></div><div className="v"><Sk w="55%" /></div><div className="d"><Sk w="70%" /></div><div className="s"><Sk w="50%" /></div></div>;
+  const top = () => <div className="l2-top"><div className="k"><Sk w="38%" /></div><div className="v"><Sk w="55%" /></div><div className="s"><Sk w="50%" /></div></div>;
+  const foot = () => <div className="l2-foot">{[0, 1, 2].map((i) => <span key={i}><Sk w="70%" /><b><Sk w="80%" /></b></span>)}</div>;
+  const rows = () => <div className="l2-ch l2-cats">{[0, 1, 2, 3].map((i) => <div key={i} className="cat"><div className="ct"><Sk w="40%" /></div><span className="cb" /></div>)}</div>;
   return (
     <div className="l2-snap is-loading" role="status" aria-busy="true" aria-label="Loading this month">
-      <section className="l2-col">{top()}<div className="l2-ch"><div className="pt"><Sk w="62%" /></div><div className="l2-bars" /></div></section>
-      <section className="l2-col">{top()}<div className="l2-bud"><Sk w="60%" /></div><div className="l2-ch"><div className="pt"><Sk w="50%" /></div><div className="l2-bars" /></div></section>
-      <section className="l2-col">{top()}<div className="l2-ch l2-pl">{[0, 1, 2, 3].map((i) => <div key={i}><Sk w="40%" /><b><Sk w="4em" /></b></div>)}<div className="tot"><Sk w="45%" /><b><Sk w="4em" /></b></div></div><div className="l2-cash"><Sk w="35%" /><Sk w="30%" /></div></section>
+      <section className="l2-col">{top()}<div className="l2-ch l2-grow"><div className="l2-bars" /></div>{foot()}</section>
+      <section className="l2-col">{top()}{rows()}{foot()}</section>
+      <section className="l2-col">{top()}{rows()}{foot()}</section>
     </div>
   );
 }
@@ -135,6 +142,12 @@ export default function Landing() {
   const scopeIds = vs.filterIds;
   const scopeVenueIds = useMemo(() => (scopeIds?.length ? scopeIds : vs.venues.map((v) => v.id)), [scopeIds, vs.venues]);
   const closures = useVenueClosures(scopeVenueIds);
+  // Owed and owing, computed exactly as on the Finance Overview (all tenant-scoped hooks).
+  const ap = usePayables(), obligations = useFinanceObligations(), ar = useReceivables(), terms = useSupplierDisplayTerms();
+  const owed = useMemo(() => ap.loading || obligations.loading || ar.loading ? null : owedSummary({
+    apInvoices: ap.invoices, obligations: obligations.items, arItems: ar.openItems, inScope: (v) => vs.includesName(v ?? null),
+    termsFor: (id) => terms.data?.find((t: any) => t.id === id)?.payment_terms, today: iso(new Date()) }),
+    [ap.loading, ap.invoices, obligations.loading, obligations.items, ar.loading, ar.openItems, terms.data, vs]);
   // A one-venue business picking its only venue sees the whole-business review.
   const onlyVenue = vs.venues.length === 1 && !vs.restricted;
   const venueId = scopeIds && scopeIds.length === 1 && !onlyVenue ? scopeIds[0] : null;
@@ -362,7 +375,7 @@ export default function Landing() {
       { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : staff.basis === "rota" ? "from the rota" : "accrued so far"}` : "No payroll history yet",
         ...(usualStaff ? { status: `Usual ${pctTxt(usualStaff)}`, tone: staff.amount != null && booksSales && (staff.amount / booksSales) * 100 <= usualStaff + 1 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: isCurrent ? "Profit so far" : "Profit", value: money(profit ?? 0, profit != null), to: "/finance/reports?view=pl", sub: profit != null && booksSales ? `${pctTxt((profit / booksSales) * 100)} of sales · accrual basis` : "Needs sales and recipes",
-        ...(missingDays > 0 ? { status: `${missingDays} ${missingDays === 1 ? "day" : "days"} of sales missing`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} of revenue`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
+        ...(missingDays > 0 ? { status: `${missingDays} ${missingDays === 1 ? "day" : "days"} of sales missing`, tone: "amb" } as const : profit != null && booksSales ? { status: `${pctTxt((profit / booksSales) * 100)} net margin${stockUsed != null ? ` · ${pctTxt(((booksSales - stockUsed) / booksSales) * 100)} gross` : ""}`, tone: profit >= 0 ? "ok" : "amb" } as const : { status: "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Cash", value: bankIds.size ? short(cash) : "—", to: "/finance/cash",
         sub: overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : "No bills overdue",
         ...(usualCosts && bankIds.size ? { status: `About ${Math.max(0, cash / usualCosts).toFixed(1)} months of costs`, tone: "ok" } as const : { status: "Bank not linked", tone: "quiet" } as const) },
@@ -394,7 +407,8 @@ export default function Landing() {
     const cats = categoryRanking(
       (buyQ.data?.lines ?? []).filter((l: any) => monthIds.has(l.invoice_id)).map((l: any) => ({ ...l, total: Number(l.total) || 0, unit_price: 0, unit: null, quantity: Number(l.quantity) || 0 })),
       monthInv.map((i) => ({ ...i, total_amount: Number(i.total_amount) || 0 })) as any, buyQ.data?.products ?? new Map())
-      .filter((c) => c.value > 0).slice(0, 5).map((c) => ({ name: c.name, v: c.value, pct: booksSales ? (c.value / booksSales) * 100 : null }));
+      .filter((c) => c.value > 0).map((c) => ({ name: c.name, v: c.value, pct: booksSales ? (c.value / booksSales) * 100 : null }));
+    const catTotal = cats.reduce((a, c) => a + c.v, 0);
     const topSup = [...bySup].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, v]) => ({ name: buyQ.data?.suppliers.get(id) ?? "Supplier", v }));
     const budget = buyQ.data?.budget ?? 0;
     const budgetPace = budget && isCurrent ? (budget * Math.min(daysGone, dim)) / dim : budget;
@@ -437,7 +451,7 @@ export default function Landing() {
         line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
-    return { salesN: days > 0 ? sales : null, cats, guests, tradeDays: days, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
+    return { salesN: days > 0 ? sales : null, cats, catTotal, guests, tradeDays: days, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
   }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data, closures.lookup, scopeVenueIds, proj.rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -549,30 +563,44 @@ export default function Landing() {
               </div>;
             })()}</div>
               : <p className="l2-empty">No sales this month yet.</p>}</div>
-          {k.salesN != null && <div className="l2-foot"><span>Customers <b>{k.guests ? k.guests.toLocaleString("en-HK") : "—"}</b></span><span>Avg spend <b>{k.guests ? short(k.salesN / k.guests) : "—"}</b></span><span>Avg a day <b>{k.tradeDays ? short(k.salesN / k.tradeDays) : "—"}</b></span></div>}
+          <div className="l2-foot"><span>Customers <b>{k.guests ? k.guests.toLocaleString("en-HK") : "—"}</b></span><span>Avg spend <b>{k.guests && k.salesN ? short(k.salesN / k.guests) : "—"}</b></span><span>Avg a day <b>{k.tradeDays && k.salesN ? short(k.salesN / k.tradeDays) : "—"}</b></span></div>
         </section>
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">Purchases</div>
             <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={snapAt + 230} /> : "—"}</div>
             <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of revenue` : "No invoices yet"}</div></Link>
-          {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.budget)} budget</span></div>
-            : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
-          <div className="l2-ch l2-grow l2-cats">
-            {k.cats.length ? k.cats.map((c) => <div key={c.name} className="cat">
+          {/* Always four rows (the biggest categories) and one line for "See all", so the card never changes shape. */}
+          <div className="l2-ch l2-cats">
+            {[0, 1, 2, 3].map((i) => { const c = k.cats[i]; return c ? <div key={c.name} className="cat">
               <div className="ct"><span className="truncate">{c.name}</span><b>{short(c.v)}<em>{c.pct != null ? pctTxt(c.pct) : ""}</em></b></div>
-              <span className="cb"><i style={{ width: `${(c.v / k.cats[0].v) * 100}%` }} /></span>
-            </div>)
-              : <p className="l2-empty">No invoices this month yet.</p>}</div>
+              <span className="cb"><i style={{ width: `${k.catTotal ? (c.v / k.catTotal) * 100 : 0}%` }} /></span>
+            </div> : <div key={`empty${i}`} className="cat empty" aria-hidden="true"><div className="ct">&nbsp;</div><span className="cb" /></div>; })}
+            <div className="more">{k.cats.length > 4 && <Link to="/procurement/dashboard">See all {k.cats.length} →</Link>}</div>
+          </div>
+          <div className="l2-foot">
+            <span>Budget {k.budget ? <b>{short(k.budget)}</b> : <button type="button" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}>Set one</button>}</span>
+            <span>Left <b className={k.budget && k.spent > k.budget ? "bad" : ""}>{k.budget ? `${k.spent > k.budget ? "−" : ""}${short(Math.abs(k.budget - k.spent))}` : "—"}</b></span>
+            <span>Used <b>{k.budget ? pctTxt((k.spent / k.budget) * 100) : "—"}</b></span>
+          </div>
         </section>
         <section className="l2-col">
           <Link to="/finance/reports?view=pl" className="l2-top"><div className="k">P&amp;L</div>
             <div className="v">{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 310} /> : "—"}</div>
             <div className={`s ${k.profitTile.tone}`}><i />{k.profitTile.status}</div></Link>
-          <div className="l2-ch l2-pl">
-            {k.plLines.map((l) => <div key={l.name}><span>{l.name}</span><b>{l.v == null ? "—" : `${l.sign < 0 ? "−" : ""}${short(l.v)}`}</b></div>)}
-            <div className="tot"><span>Profit</span><b>{k.profit != null ? <Num value={k.profit} format={money} play={playSnap} delay={snapAt + 700} duration={600} /> : "—"}</b></div>
-          </div>
-          <Link to="/finance/cash" className="l2-cash"><span>Cash {k.cash ?? "not linked"}</span>{overdue > 0 ? <span className="l2-amb">{short(overdue)} bills overdue</span> : <span>No bills overdue</span>}</Link>
+          {/* Where each dollar of revenue went: one bar, then its four parts. */}
+          {(() => {
+            const parts = [{ n: "Cost of sales", v: k.plLines[1].v, c: "cos" }, { n: "Staff", v: k.plLines[2].v, c: "stf" }, { n: "Running costs", v: k.plLines[3].v, c: "run" }, { n: "Profit", v: k.profit, c: "pro" }];
+            const base = k.booksSales || 0;
+            return <div className="l2-ch l2-split">
+              <div className="sbar" aria-hidden="true">{parts.map((p) => p.v != null && p.v > 0 && base ? <span key={p.n} className={p.c} style={{ width: `${(p.v / base) * 100}%` }} /> : null)}</div>
+              {parts.map((p) => <div key={p.n} className="srow"><i className={p.c} /><span>{p.n}</span><b className={p.c === "pro" ? "strong" : ""}>{p.v == null ? "—" : `${p.v < 0 ? "−" : ""}${short(Math.abs(p.v))}`}</b><em>{p.v != null && base ? pctTxt((p.v / base) * 100) : ""}</em></div>)}
+            </div>;
+          })()}
+          <Link to="/finance" className="l2-foot">
+            <span>Receivable <b>{owed ? short(owed.receivable) : "—"}</b></span>
+            <span>Payable <b>{owed ? short(owed.payable) : "—"}</b></span>
+            <span>Overdue <b className={owed && owed.overdue > 0 ? "bad" : ""}>{owed ? short(owed.overdue) : "—"}</b></span>
+          </Link>
         </section>
       </div>}
 

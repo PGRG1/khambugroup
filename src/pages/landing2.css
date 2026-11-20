@@ -207,13 +207,41 @@
 .l2 .l2-grow .l2-bars.l2-days{flex:1;height:auto;min-height:clamp(100px,12vh,140px)}
 .l2-cash{flex-wrap:wrap;row-gap:2px}.l2-cash>span{white-space:nowrap}
 .l2-bud{flex-wrap:wrap;row-gap:6px}.l2-bud .cbar{flex:1 1 60px;min-width:60px}.l2-bud>span:last-child{white-space:nowrap}
-.l2-foot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.l2-foot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:auto;padding-top:14px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.l2-ch+.l2-foot,.l2-cats+.l2-foot,.l2-split+.l2-foot{margin-top:auto}
+.l2-col>.l2-ch:has(+.l2-foot){margin-bottom:16px}
 .l2-foot span{display:flex;flex-direction:column;font-size:11px;color:var(--mut);white-space:nowrap;min-width:0}
-.l2-foot b{font-size:13px;font-weight:600;color:var(--ink);margin-top:1px;font-variant-numeric:tabular-nums}
-.l2-cats{justify-content:space-between;gap:12px}
+.l2-foot b{font-size:13px;font-weight:600;color:var(--ink);margin-top:2px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.l2-foot b.bad{color:#B42318}
+.l2-foot button{align-self:flex-start;margin-top:2px;padding:0;border:0;background:none;font-size:13px;font-weight:600;color:var(--pos);cursor:pointer}
+/* P&L: one bar of where revenue went, then its four parts. */
+.l2-split .sbar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:var(--track,#EEF2F0)}
+.l2-split .sbar span{display:block;height:100%}
+.l2-split .cos{background:#9AA6A3}.l2-split .stf{background:#C3CBC8}.l2-split .run{background:#DDE3E0}.l2-split .pro{background:var(--pos)}
+.l2-split .srow{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:13px;color:#3D4A44;white-space:nowrap}
+.l2-split .srow:first-of-type{margin-top:16px}
+.l2-split .srow i{width:8px;height:8px;border-radius:2px;flex:none}
+.l2-split .srow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.l2-split .srow b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}.l2-split .srow b.strong{font-weight:600}
+.l2-split .srow em{font-style:normal;min-width:3em;text-align:right;font-size:12px;color:var(--mut)}
+.l2-cats{display:flex;flex-direction:column;gap:14px}
 .l2-cats .cat{min-width:0}
+.l2-cats .cat.empty .cb{opacity:.55}
 .l2-cats .ct{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;color:#3D4A44}
 .l2-cats .ct b{font-weight:500;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .l2-cats em{font-style:normal;font-size:12px;color:var(--mut);margin-left:8px;font-weight:400}
 .l2-cats .cb{display:block;height:8px;border-radius:4px;background:var(--track,#EEF2F0);margin-top:6px;overflow:hidden}
 .l2-cats .cb i{display:block;height:100%;border-radius:4px;background:var(--pos)}
+.l2-cats .more{height:16px;margin-top:-4px;text-align:right;font-size:12px}.l2-cats .more a{color:var(--mut);text-decoration:none}.l2-cats .more a:hover{color:var(--ink);text-decoration:underline}
+/* Four fixed rows share the column's height evenly, the same rhythm as Purchases' four bars. */
+.l2-ch.l2-split{flex:1;display:flex;flex-direction:column;justify-content:space-between;min-height:0}
+.l2-split .srow,.l2-split .srow:first-of-type{margin-top:0}
+.l2-split .sbar{margin-bottom:6px}
+.l2-ch.l2-cats{flex:1;justify-content:space-between;min-height:0}
+/* Narrow columns (tablet): each footer figure on its own line, label left and value right, so nothing is cut off. */
+.l2-snap .l2-col{container-type:inline-size}
+@container (max-width: 250px){
+  .l2-foot{grid-template-columns:minmax(0,1fr);gap:5px}
+  .l2-foot span{flex-direction:row;justify-content:space-between;align-items:baseline;gap:8px}
+  .l2-foot b{margin-top:0}
+}
