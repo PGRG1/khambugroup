@@ -188,7 +188,7 @@
 
 .l2-pillset{display:flex;flex:none;gap:10px}
 
-/* Sales each day (this month): thin bars, a few day numbers, future days as a faint stub. */
+/* Sales each day (this month): green at or above the day's projection, red below or not sent; days to come show the projection faintly. */
 .l2 .l2-bars.l2-days{gap:2px;padding:0 4px}
 .l2-bars.l2-days>div{grid-template-rows:minmax(0,1fr) 22px;grid-template-columns:minmax(0,1fr)}
 .l2-bars.l2-days .pd{overflow:visible}
@@ -196,3 +196,9 @@
 .l2-bars.l2-days i{width:100%;max-width:none;border-radius:2px 2px 0 0}
 .l2-bars.l2-days i.fut{background:var(--line)}
 .l2-bars.l2-days .pd{font-size:10.5px}
+.l2-bars.l2-days .l2-pm-bar{position:relative}
+.l2-bars.l2-days i.proj{background:var(--pos);opacity:.18}
+.l2-bars.l2-days i.over{background:var(--pos)}
+.l2-bars.l2-days i.under,.l2-bars.l2-days i.miss{background:#D64545}
+.l2-bars.l2-days>div{outline:none}
+.l2-bars.l2-days>div:hover i,.l2-bars.l2-days>div:focus-visible i{filter:brightness(.9)}

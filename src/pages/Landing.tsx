@@ -14,6 +14,10 @@ import { HomeComposerPlaceholder } from "@/components/assistant/HomeComposerPlac
 import { Num, useHomePlay, useQuickPlay } from "@/components/home/HomeMotion";
 import { readCachedName, writeCachedName, firstName } from "@/utils/displayNameCache";
 import { useHomeFinance } from "@/hooks/useHomeFinance";
+import { useVenueClosures } from "@/hooks/useVenueClosures";
+import { useScopedProjections } from "@/hooks/useScopedProjections";
+import { useRevenueNavigationAccess } from "@/hooks/useRevenueNavigationAccess";
+import { monthGoal, goalStatus } from "@/utils/revenueOverview";
 import { parallelPages } from "@/utils/parallelPages";
 import { useWorkLog, WorkLogDialog } from "@/components/home/WorkLog";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
@@ -95,6 +99,7 @@ function WorkSkeleton() {
 type Tile = { label: string; value: string; sub: React.ReactNode; status: string; tone: "ok" | "amb" | "quiet"; to: string };
 
 export default function Landing() {
+  const [hovDay, setHovDay] = useState<number | null>(null);
   const { user } = useAuth();
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const vs = useVenueScope();
@@ -127,6 +132,8 @@ export default function Landing() {
   const month = thisMonth;
   const isCurrent = month === thisMonth;
   const scopeIds = vs.filterIds;
+  const scopeVenueIds = useMemo(() => (scopeIds?.length ? scopeIds : vs.venues.map((v) => v.id)), [scopeIds, vs.venues]);
+  const closures = useVenueClosures(scopeVenueIds);
   // A one-venue business picking its only venue sees the whole-business review.
   const onlyVenue = vs.venues.length === 1 && !vs.restricted;
   const venueId = scopeIds && scopeIds.length === 1 && !onlyVenue ? scopeIds[0] : null;
@@ -194,6 +201,9 @@ export default function Landing() {
     },
   });
   const { targets, loading: targetsLoading } = useRevenueTargets();
+  // The month's projection, the same rows the Revenue page uses (manager figure, else same-weekday forecast).
+  const revAccess = useRevenueNavigationAccess();
+  const proj = useScopedProjections(scopeVenueIds, Number(month.slice(0, 4)), Number(month.slice(5, 7)), month === thisMonth && revAccess.forecast);
   const bankGl = useQuery({
     queryKey: ["landing2", "bank-gl", tenantId],
     enabled: !!tenantId,
@@ -285,7 +295,7 @@ export default function Landing() {
   });
   // One reveal per block: nothing in the snapshot shows until every figure it uses has settled,
   // so no tile changes from a placeholder value ("…", "No target set") to a real one in front of the person.
-  const loading = tenantLoading || !vs.ready || salesQ.isPending || books.loading || facts.isPending || targetsLoading
+  const loading = tenantLoading || !vs.ready || closures.loading || proj.loading || salesQ.isPending || books.loading || facts.isPending || targetsLoading
     || buyQ.isPending || menuPct.isPending || wasteQ.isPending || rotaQ.isPending || bankGl.isPending || lastClosed.isPending;
   const workLoading = loading || (reviewQ.isPending && !mixed) || intakes.q.isPending;
 
@@ -299,8 +309,21 @@ export default function Landing() {
     const dim = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
     const daysGone = isCurrent ? Math.max(0, now.getDate() - 1) : dim;
     const pace = isCurrent && daysGone > 0 ? (sales / daysGone) * dim : sales;
+    // Missed: a past day this month where a selling venue in scope was open (no closure) but sent no sales.
+    const selling = [...new Set(rows.map((r) => r.venue_id).filter((v): v is string => !!v && scopeVenueIds.includes(v)))];
+    const seen = new Set(cur.map((r) => `${r.venue_id}|${r.date}`));
+    const missedSet = new Set<string>();
+    for (let n = 1; isCurrent && n <= daysGone; n++) {
+      const d = `${month}-${String(n).padStart(2, "0")}`;
+      if (selling.some((v) => !seen.has(`${v}|${d}`) && !closures.lookup(v, d))) missedSet.add(d);
+    }
+    const missingDays = missedSet.size;
     const t = targets.find((x) => `${x.year}-${pad(x.month)}` === month);
     const target = t?.targetAmount ?? null;
+    // Month end: the Revenue page's projection and target wording (monthGoal / goalStatus).
+    const goal = isCurrent ? monthGoal(proj.rows, iso(now), target) : null;
+    const gs = goal ? goalStatus(goal) : null;
+    const forecastOn = new Map(proj.rows.map((r) => [r.date, r.effectiveForecast]));
     const p = pl(month);
     const prev = [1, 2, 3].map((i) => pl(addMonths(month, -i))).filter((x) => x.sales > 0);
     const avg = (f: (x: typeof p) => number) => (prev.length ? prev.reduce((a, x) => a + f(x), 0) / prev.length : null);
@@ -316,15 +339,16 @@ export default function Landing() {
     const staff = rota != null ? { amount: rota, basis: "rota" as const } : accruedStaff(month, p.staff || null, payroll, daysGone, dim, usualStaff, booksSales);
     const runningSoFar = isCurrent ? (p.running * Math.min(daysGone, dim)) / dim : p.running;
     const profit = accruedProfit(booksSales, stockUsed, staff.amount, runningSoFar);
-    const missingDays = isCurrent ? Math.max(0, daysGone - days) : 0;
     const bankIds = new Set(bankGl.data ?? []);
     const cash = homeFin.data?.cash ?? 0;
     const money = (n: number, has: boolean) => (has ? short(n) : "—");
     const tiles: Tile[] = [
       { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
-        sub: !days ? "No sales recorded yet" : guests > 0 ? `${guests.toLocaleString("en-HK")} guests · HK$${Math.round(sales / guests)} each` : `${days} trading days`,
-        ...(target ? { status: `${pace >= target ? "On track" : "Behind"} · target ${short(target)}`, tone: pace >= target ? "ok" : "amb" } as const
-          : { status: isCurrent && days ? `Heading for ${short(pace)} · no target` : "No target set", tone: "quiet" } as const) },
+        sub: !days ? "No sales recorded yet" : `${short(sales / days)} a day${goal?.needPerDay != null && gs && !gs.good ? ` · need ${short(goal.needPerDay)}` : ""}`,
+        status: [goal ? `Projected ${short(goal.projected)}` : !target ? "No target set" : `Target ${short(target)}`,
+          gs && !goal?.ended ? (gs.good ? "on track" : gs.text.toLowerCase()) : null,
+          missingDays ? `${missingDays} ${missingDays === 1 ? "day" : "days"} missed` : null].filter(Boolean).join(" · "),
+        tone: missingDays || (gs && !gs.good) ? "amb" : days ? "ok" : "quiet" },
       { label: "Stock used", value: money(stockUsed ?? 0, stockUsed != null), to: "/procurement/menu-costing", sub: stockUsed != null && booksSales ? `${pctTxt((stockUsed / booksSales) * 100)} of sales · ${p.food ? "booked" : "theoretical"}` : "No recipes or stock booked yet",
         ...(theory != null ? { status: p.food ? `Theoretical ${short(theory)}${Math.abs(p.food - theory) > theory * 0.1 ? ` · gap ${short(p.food - theory)}` : ""}` : `Booked ${short(p.food)} · from menu + waste`, tone: p.food && Math.abs(p.food - theory) > theory * 0.1 ? "amb" : "ok" } as const : { status: p.food ? `Booked ${short(p.food)}` : "Nothing to compare yet", tone: "quiet" } as const) },
       { label: "Staff cost", value: money(staff.amount ?? 0, staff.amount != null), to: "/hr/payroll", sub: staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales · ${staff.basis === "booked" ? "booked" : staff.basis === "rota" ? "from the rota" : "accrued so far"}` : "No payroll history yet",
@@ -398,9 +422,9 @@ export default function Landing() {
         line: staff.basis === "rota" && missingDays > 0 ? `${short(staff.amount)} on the rota so far` : staff.amount != null && booksSales ? `${pctTxt((staff.amount / booksSales) * 100)} of sales${usualStaff ? `, usual ${pctTxt(usualStaff)}` : ""}` : "No payroll yet",
         next: usualStaff && staff.amount != null && booksSales && (staff.amount / booksSales) * 100 > usualStaff + 1 ? "Next: check next week's rota against bookings" : "On track" },
     ];
-    return { salesN: days > 0 ? sales : null, tiles, week, monthDays, topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
+    return { salesN: days > 0 ? sales : null, tiles, week, monthDays: monthDays.map((d) => { const date = `${month}-${String(d.n).padStart(2, "0")}`; return { ...d, missed: missedSet.has(date), fc: forecastOn.get(date) ?? null }; }), topSup, low, trend, hasTarget: !!target, booksSales, profit, plLines, spent, spentPct, usualFood, budget, purch, lastInv, perf, missingDays, daysGone, dim,
       cash: bankIds.size ? short(cash) : null, salesTile: tiles[0], profitTile: tiles[3] };
-  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [salesQ.data, books.entries, books.lines, books.accounts, payroll, targets, bankGl.data, overdue, month, menuPct.data, wasteQ.data, buyQ.data, rotaQ.data, closures.lookup, scopeVenueIds, proj.rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Month-end checklist for last month, until it is closed.
   const closed = books.closed.some((c: any) => c.month_start === `${closeMonth}-01` && !c.reopened_at);
@@ -445,7 +469,7 @@ export default function Landing() {
   if (talking) return <div ref={ref} className={`ld talking ${size}`} aria-label="Conversation with Bani" />;
 
   const maxW = Math.max(1, ...k.week.map((w) => w.v));
-  const maxD = Math.max(1, ...k.monthDays.map((d) => d.v));
+  const maxD = Math.max(1, ...k.monthDays.map((d) => Math.max(d.v, d.fc ?? 0)));
 
   return (
     <div ref={ref} className={`ld l2 ${size} ${go ? "l2-go" : "l2-hold"}`}>
@@ -481,7 +505,34 @@ export default function Landing() {
           <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
           <div className="l2-ch"><div className="pt">Sales each day <span>· {monthName(month)}</span></div>
-            {k.monthDays.some((d) => d.v > 0) ? <div className="l2-bars l2-days">{k.monthDays.map((d, i) => <div key={d.n} style={{ ["--b" as any]: i }} title={d.v ? `${d.n} ${monthName(month).slice(0, 3)} · ${short(d.v)}` : undefined}><span className="l2-pm-bar"><i className={d.future ? "fut" : ""} style={{ height: d.v > 0 ? `max(4px, ${(d.v / maxD) * 100}%)` : d.future ? "3px" : "0px" }} /></span><span className="pd">{d.n === 1 || (d.n % 7 === 1 && d.n < k.dim - 3) || d.n === k.dim ? d.n : ""}</span></div>)}</div>
+            {k.monthDays.some((d) => d.v > 0) ? <div className="relative"><div className="l2-bars l2-days">{k.monthDays.map((d, i) => {
+              // Each day: the bar is what was sold, the tick the day's projection; future days show the projection only.
+              const pct = (n: number) => `${(n / maxD) * 100}%`;
+              const below = d.v > 0 && d.fc != null && d.v < d.fc;
+              const label = `${d.n} ${monthName(month).slice(0, 3)}`;
+              const say = d.future ? `${label}, projected ${d.fc != null ? short(d.fc) : "none"}` : d.missed ? `${label}, no sales sent` : `${label}, sold ${short(d.v)}${d.fc != null ? `, projected ${short(d.fc)}` : ""}`;
+              return <div key={d.n} style={{ ["--b" as any]: i }} aria-label={say} tabIndex={0}
+                onMouseEnter={() => setHovDay(i)} onMouseLeave={() => setHovDay(null)} onFocus={() => setHovDay(i)} onBlur={() => setHovDay(null)}><span className="l2-pm-bar">
+                {d.future ? (d.fc != null && <i className="proj" style={{ height: pct(d.fc) }} />)
+                  : <i className={d.missed ? "miss" : below ? "under" : d.fc != null ? "over" : ""} style={{ height: d.v > 0 ? `max(4px, ${pct(d.v)})` : d.missed ? "3px" : "0px" }} />}
+              </span><span className="pd">{d.n === 1 || (d.n % 7 === 1 && d.n < k.dim - 3) || d.n === k.dim ? d.n : ""}</span></div>;
+            })}</div>{hovDay != null && k.monthDays[hovDay] && (() => {
+              // Same look as the Revenue page's chart tooltip.
+              const d = k.monthDays[hovDay], diff = d.fc != null && !d.future && d.v > 0 ? d.v - d.fc : null;
+              const edge = hovDay < 8 ? "left-0" : hovDay > k.monthDays.length - 9 ? "right-0" : "-translate-x-1/2";
+              const top = Math.max(d.v, d.fc ?? 0) / maxD;
+              const when = new Date(`${month}-${String(d.n).padStart(2, "0")}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+              const pctDiff = diff != null && d.fc ? (diff / d.fc) * 100 : null;
+              return <div role="tooltip" className={`pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-xs shadow-lg tabular-nums space-y-0.5 ${edge}`}
+                style={{ bottom: `calc(28px + (100% - 22px) * ${top.toFixed(3)})`, ...(edge === "-translate-x-1/2" ? { left: `${((hovDay + 0.5) / k.monthDays.length) * 100}%` } : {}) }}>
+                {/* Same tooltip as Revenue and Purchasing's charts. */}
+                <div className="mb-1 font-medium">{when}</div>
+                {d.missed && !d.future ? <div className="text-muted-foreground">No sales sent</div> : <>
+                  {!d.future && <div>Sales <b>{short(d.v)}</b></div>}
+                  {d.fc != null && <div className="text-muted-foreground">Projected {short(d.fc)}{pctDiff != null && <span className={`ml-1.5 font-medium ${pctDiff < 0 ? "text-[#B42318]" : "text-[#15803D]"}`}>{pctDiff < 0 ? "−" : "+"}{Math.abs(pctDiff).toFixed(0)}%</span>}</div>}
+                </>}
+              </div>;
+            })()}</div>
               : <p className="l2-empty">No sales this month yet.</p>}</div>
         </section>
         <section className="l2-col">
