@@ -25,6 +25,7 @@ import { compressImageFile } from "@/utils/imageCompression";
 import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, starterPrompts } from "@/utils/floatingBaniUi";
 import { ChatInvoiceScan } from "@/components/assistant/ChatInvoiceScan";
+import { ChatSalesScan } from "@/components/assistant/ChatSalesScan";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -364,8 +365,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const named = action.files.map(n => pool.find(f => f.name === n)).filter((f): f is BaniAttachment => Boolean(f));
     const pick = named.length === 1 ? named[0] : !action.files.length && pool.length === 1 ? pool[0] : null;
     if (!pick) { say(`Scan Receipt takes one receipt at a time. Which one first: ${pool.map(f => f.name).join(", ")}?`); return; }
-    requestSalesHandoff({ id: crypto.randomUUID(), file: pick.file, scope: identity });
-    navigate("/sales-data?view=daily");
+    // Confirm and record it right here in the chat (same read and server intake as Scan Receipt).
+    const salesScan = { id: crypto.randomUUID(), file: pick.file, scope: identity };
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: "", salesScan }] : [...prev, { role: "assistant" as const, content: "", salesScan }];
+    });
   };
 
   // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
@@ -615,6 +620,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               : message.invoiceScan.files[0] instanceof File && message.invoiceScan.scope === identity
                 ? <ChatInvoiceScan handoff={message.invoiceScan} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} />
                 : <p className="text-xs text-muted-foreground">Attach the invoice again to book it.</p>)}
+            {message.salesScan && (message.outcome
+              ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
+              : message.salesScan.file instanceof File && message.salesScan.scope === identity
+                ? <ChatSalesScan handoff={message.salesScan} onRecorded={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.salesScan!; requestSalesHandoff({ ...h, id: crypto.randomUUID() }); navigate("/sales-data?view=daily"); }} />
+                : <p className="text-xs text-muted-foreground">Attach the receipt again to record it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {

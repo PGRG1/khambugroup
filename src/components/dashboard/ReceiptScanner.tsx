@@ -14,6 +14,7 @@ import { formatCurrency } from "@/utils/format";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
+import { emptySalesRecord, fileToBase64, guessMimeType, salesRecordFromScan } from "@/utils/salesReceiptRead";
 import { classifySalesFile } from "@/utils/salesFileIntake";
 import { matchVenueName, shouldAutoProcessInitialFile } from "@/utils/venueMatch";
 import { diagnoseSalesScan, hkd } from "@/utils/salesScanLearning";
@@ -68,11 +69,7 @@ import { DayNoteField } from "@/components/sales/NoteComposer";
 import { notePrompt } from "@/utils/salesRecordChecks";
 import type { DayNote } from "@/components/dashboard/ManualInput";
 
-const emptyRecord: SalesRecord = {
-  date: "", day: "", venue: "", reportNumber: "",
-  orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0, totalSales: 0,
-  visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, deliveroo: 0, foodpanda: 0, keeta: 0, cardTips: 0,
-};
+const emptyRecord: SalesRecord = emptySalesRecord;
 
 const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptScannerProps) => {
   const [noteBody, setNoteBody] = useState("");
@@ -114,28 +111,6 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
     const t = window.setTimeout(() => onCloseRef.current?.(), 1800);
     return () => window.clearTimeout(t);
   }, [savedRecord]);
-
-  /** Reads any file (image or PDF) into raw base64 without relying on data-URL prefixes. */
-  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      resolve(result.slice(result.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
-    reader.onabort = () => reject(new Error("File reading was cancelled"));
-    reader.readAsDataURL(file);
-  });
-
-  const guessMimeType = (file: File): string => {
-    if (file.type) return file.type;
-    const ext = file.name.toLowerCase().split(".").pop() || "";
-    if (ext === "pdf") return "application/pdf";
-    if (ext === "png") return "image/png";
-    if (ext === "webp") return "image/webp";
-    if (ext === "heic" || ext === "heif") return "image/heic";
-    return "image/jpeg";
-  };
 
   const processFile = useCallback(async (file: File) => {
     setScanning(true);
@@ -202,55 +177,10 @@ const ReceiptScanner = ({ onSave, onClose, initialFile, history = [] }: ReceiptS
         return;
       }
 
-      // Normalize the extracted data
       const raw = data.data;
       evidenceScanRef.current = typeof data.scanEvidenceId === "string" ? data.scanEvidenceId : null;
-      const dateStr = raw.date || "";
-      let dayStr = "";
-      if (dateStr) {
-        try {
-          dayStr = format(parseISO(dateStr), "EEE");
-        } catch {
-          dayStr = "";
-        }
-      }
-      // Match scanned venue against master (case-insensitive). Never silently reassign.
-      const rawVenue = String(raw.venue ?? "").trim();
-      setScannedVenueRaw(rawVenue);
-      const matched = matchVenueName(rawVenue, activeVenueNames);
-
-      const record: SalesRecord = {
-        date: dateStr,
-        rawPrintedDate: raw.rawPrintedDate, printedWeekday: raw.printedWeekday, fieldConfidence: raw.fieldConfidence, dateEvidence: raw.dateEvidence,
-        day: dayStr,
-        venue: matched, // blank forces the user to pick if no match
-        reportNumber: raw.reportNumber || "",
-        orders: Number(raw.orders) || 0,
-        guests: Number(raw.guests) || 0,
-        subtotal: Number(raw.subtotal) || 0,
-        serviceCharge: Number(raw.serviceCharge) || 0,
-        discount: -(Math.abs(Number(raw.discount) || 0)),
-        totalSales: Number(raw.totalSales) || 0,
-        vouchersSold: Number(raw.vouchersSold) || 0,
-        depositsTaken: Number(raw.depositsTaken) || 0,
-        vouchersUsed: Number(raw.vouchersUsed) || 0,
-        depositsUsed: Number(raw.depositsUsed) || 0,
-        visa: Number(raw.visa) || 0,
-        mastercard: Number(raw.mastercard) || 0,
-        amex: Number(raw.amex) || 0,
-        unionPay: Number(raw.unionPay) || 0,
-        jcb: Number(raw.jcb) || 0,
-        alipay: Number(raw.alipay) || 0,
-        wechat: Number(raw.wechat) || 0,
-        payme: Number(raw.payme) || 0,
-        cash: Number(raw.cash) || 0,
-        deliveroo: Number(raw.deliveroo) || 0,
-        foodpanda: Number(raw.foodpanda) || 0,
-        keeta: Number(raw.keeta) || 0,
-        cardTips: -(Math.abs(Number(raw.cardTips) || 0)),
-        // Clients read line by line: their own lines, with the day's usual figures worked out from them.
-        ...(raw.mode === "lines" && Array.isArray(raw.lines) ? { lines: raw.lines as SalesLine[] } : {}),
-      };
+      setScannedVenueRaw(String(raw.venue ?? "").trim());
+      const record = salesRecordFromScan(raw, activeVenueNames);
 
       scannedRef.current = record;
       setShowDetails(false);
