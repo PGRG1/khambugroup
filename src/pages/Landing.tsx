@@ -504,8 +504,8 @@ export default function Landing() {
         <section className="l2-col">
           <Link to={k.salesTile.to} className="l2-top"><div className="k">{k.salesTile.label}</div><div className="v">{k.salesN != null ? <Num value={k.salesN} format={money} play={playSnap} delay={snapAt + 150} /> : k.salesTile.value}</div><div className="d">{k.salesTile.sub}</div>
             <div className={`s ${k.salesTile.tone}`}><i />{k.salesTile.status}</div></Link>
-          <div className="l2-ch"><div className="pt">Sales each day <span>· {monthName(month)}</span></div>
-            {k.monthDays.some((d) => d.v > 0) ? <div className="relative"><div className="l2-bars l2-days">{k.monthDays.map((d, i) => {
+          <div className="l2-ch l2-grow"><div className="pt">Sales each day <span>· {monthName(month)}</span></div>
+            {k.monthDays.some((d) => d.v > 0) ? <div className="l2-daysbox relative"><div className="l2-bars l2-days">{k.monthDays.map((d, i) => {
               // Each day: the bar is what was sold, the tick the day's projection; future days show the projection only.
               const pct = (n: number) => `${(n / maxD) * 100}%`;
               const below = d.v > 0 && d.fc != null && d.v < d.fc;

@@ -201,3 +201,9 @@
 .l2-bars.l2-days i.under,.l2-bars.l2-days i.miss{background:#D64545}
 .l2-bars.l2-days>div{outline:none}
 .l2-bars.l2-days>div:hover i,.l2-bars.l2-days>div:focus-visible i{filter:brightness(.9)}
+/* The daily chart takes whatever height its column has left, so Sales ends level with the others. */
+.l2-ch.l2-grow{flex:1;display:flex;flex-direction:column;min-height:0}
+.l2-grow .l2-daysbox{flex:1;display:flex;flex-direction:column;margin-top:10px}
+.l2 .l2-grow .l2-bars.l2-days{flex:1;height:auto;min-height:clamp(100px,12vh,140px)}
+.l2-cash{flex-wrap:wrap;row-gap:2px}.l2-cash>span{white-space:nowrap}
+.l2-bud{flex-wrap:wrap;row-gap:6px}.l2-bud .cbar{flex:1 1 60px;min-width:60px}.l2-bud>span:last-child{white-space:nowrap}
