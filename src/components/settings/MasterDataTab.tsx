@@ -19,7 +19,7 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
 }
 const MD_TABS=[['suppliers','Suppliers & vendors'],['products','Products'],['categories','Categories']] as const;
 export function MasterDataTab({destination}:{destination?:'suppliers'|'products'|'categories'}){const [params,setParams]=useSearchParams();const tab=destination??MD_TABS.find(t=>t[0]===params.get('md'))?.[0]??'suppliers';
- return <div className="space-y-4 min-w-0"> <section className="kit min-w-0">{tab==='suppliers'?<SuppliersList/>:tab==='products'?<div className="min-w-0"><ProductMasterTab popup/></div>:<CategoriesList/>}</section></div>;}
+ return <div className="contents"> <section className="kit settings-card min-w-0">{tab==='suppliers'?<SuppliersList/>:tab==='products'?<div className="min-w-0"><ProductMasterTab popup/></div>:<CategoriesList/>}</section></div>;}
 
 function CategoriesList(){const {products,loading}=useProductMaster();const [group,setGroup]=useState<string|null>(null),[review,setReview]=useState<string|null>(null);
  const {groups,dupes}=useMemo(()=>{const g=new Map<string,Map<string,number>>();const names=new Map<string,Set<string>>();for(const p of products){const top=p.level1_category?.trim()||'Not set';const m=g.get(top)??new Map<string,number>();g.set(top,m);for(const c of [p.level2_category,p.level3_category]){const n=c?.trim();if(!n)continue;const path=`${top} › ${p.level2_category?.trim()??''}${c===p.level3_category?` › ${n}`:''}`;if(c===p.level2_category)m.set(n,(m.get(n)??0)+1);const k=n.toLowerCase();const set=names.get(k)??new Set<string>();set.add(path);names.set(k,set);}}

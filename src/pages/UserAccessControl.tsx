@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { POSITIONS, ALL_PAGES, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
+import { POSITIONS, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
 import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
 import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -15,8 +15,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { tenantMemberUsers } from "@/utils/settingsFacts";
 import { Toolbar } from "@/components/kit/Toolbar";
 import { QuickFilter } from "@/components/kit/QuickFilter";
-import { Status, PhoneRow, Note, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
-import { formatTableInteger } from "@/utils/format";
+import { Status, PhoneRow, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
+import { PageAction, SettingsCard } from '@/components/settings/SettingsForm';
 
 const UserAccessControl = () => {
   const { isAdmin } = useAuth();
@@ -147,32 +147,26 @@ const UserAccessControl = () => {
   };
 
   return (
-    <div className="w-full min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-[13px] text-muted-foreground whitespace-nowrap">{formatTableInteger(users.filter(u => u.status === "active").length)} active · {formatTableInteger(users.length)} people</p>
-        <Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button>
-      </div>
+    <div className="contents">
+      <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
       <QuickFilter label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "disabled", label: "Disabled", count: users.filter(u => u.status !== "active").length }]} />
       <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{POSITIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent></Select>} />
       {(() => {
         const venuesOf = (u: typeof users[number]) => u.venue_ids?.length ? u.venue_ids.map(id => venueNameMap[id]).filter(Boolean).join(", ") : "All venues";
-        const pagesOf = (u: typeof users[number]) => u.pages.filter(p => p.can_access).map(p => ALL_PAGES.find(a => a.key === p.page_key)?.label ?? p.page_key);
         const roleOf = (u: typeof users[number]) => POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
-        return <>
-          <ul className="min-[768px]:hidden kit divide-y divide-border/60">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={`${venuesOf(u)} · ${u.status === "active" ? `${formatTableInteger(pagesOf(u).length)} pages` : "Disabled"}`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => setEditingUser(u)} />)}</ul>
+        return <SettingsCard>
+          <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => setEditingUser(u)} />)}</ul>
           <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
-            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Can open</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
-            <tbody>{filtered.map(u => { const pages = pagesOf(u); return <tr key={u.user_id} className="sales-record-row" {...keyOpen(() => setEditingUser(u))}>
+            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
+            <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...keyOpen(() => setEditingUser(u))}>
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
               <td className="sales-cell-left">{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
-              <td className="sales-cell-left text-muted-foreground" title={pages.join(", ")}>{pages.length ? `${formatTableInteger(pages.length)} pages` : "None"}</td>
               <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
               <td className="kit-num"><span className="kit-link">Edit</span></td>
-            </tr>; })}</tbody></table></div>
+            </tr>)}</tbody></table></div>
           {!filtered.length && <Empty>{loading ? "Loading people…" : "No one matches."}</Empty>}
-          <Note>A role sets what someone can see and change. Tap a person to change their role, venues or pages.</Note>
-        </>;
+        </SettingsCard>;
       })()}
 
       {/* Editor Panel */}

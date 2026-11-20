@@ -11,21 +11,21 @@ import {UsersTab} from '@/components/settings/UsersTab';
 import {AccountingTab} from '@/components/settings/AccountingTab';
 import {BaniTab} from '@/components/settings/BaniTab';
 import {MasterDataTab} from '@/components/settings/MasterDataTab';
-import {movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
+import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
 import './settings.css';
 
-// Settings, Rillet-style: a plain text menu (group headings, an orange dot where something is missing)
-// and one plain page per setting. Computer and tablet show both side by side; phone shows the menu,
-// then the page with ‹ Settings. No cards, chips or summary numbers.
+// Settings, read first: on the green page, a settings list in a glass card on the left and the open page beside it
+// (computer and tablet); on phone the list, then the page with ‹ Settings. Pages are stacks of glass cards that show
+// what is saved, one Edit per card; single choices save on tap. No lines inside cards.
 export default function Settings(){
  const [params]=useSearchParams();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();
  const permissions=useUserPermissions(isPreviewActive?previewUserId??undefined:user?.id);const admin=isAdmin&&!isPreviewActive;
  const {tenantId}=useActiveTenant();
  useEffect(()=>{document.body.dataset.settings='1';return()=>{delete document.body.dataset.settings;};},[]);
  const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'));
- const current=resolveSettingsDestination(params);const picked=destinations.find(d=>d.id===current);
+ const resolved=resolveSettingsDestination(params);const current=resolved!=='overview'&&resolved!=='denied'?mergedInto[resolved]??resolved:resolved;const picked=destinations.find(d=>d.id===current);
  const facts=useSettingsSummary(admin);
  const moved=current!=='overview'&&current!=='denied'?movedToAccounting[current]:undefined;
  if(moved&&admin)return <Navigate to={moved} replace/>;
@@ -36,7 +36,6 @@ export default function Settings(){
  const groups=settingsGroups.filter(g=>destinations.some(d=>d.group===g));
 
  const menu=<nav aria-label="Settings" className="settings-menu">
-  <p className="settings-menu-title">Settings</p>
   {groups.map(g=><div key={g}>
    <p className="settings-menu-group">{g}</p>
    <ul>{destinations.filter(d=>d.group===g).map(d=>{const on=d.id===active.id;return <li key={d.id}>
@@ -49,19 +48,21 @@ export default function Settings(){
  </nav>;
 
  const ownHeading=active.id==='venues'&&params.has('venue');
- const content=active.group==='Organization'||['purchasing','stock','team'].includes(active.id)?<BusinessTab destination={active.id}/>
-  :active.id==='activity'?<AuditLog/>:active.group==='Team'?<UsersTab approvalOnly={active.id==='approvals'}/>
+ const content=active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
+  :active.id==='approvals'?<><UsersTab approvalOnly/><BusinessTab destination="team"/></>
+  :active.id==='books'?<><AccountingTab destination="books"/><AccountingTab destination="opening"/></>
+  :active.group==='Organization'?<BusinessTab destination={active.id}/>
+  :active.id==='activity'?<AuditLog/>:active.group==='Team'?<UsersTab/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>
   :active.group==='Lists'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'}/>:<BaniTab/>;
  const page=<main className="settings-main min-w-0">
   {!ownHeading&&<header className="settings-head">
    <Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>
    <p className="settings-head-group">{active.group}</p>
-   <h1 className="settings-head-title">{active.label}</h1>
-   <p className="settings-head-line">{active.description}</p>
+   <h2 className="settings-head-title">{active.label}</h2>
   </header>}
   <div key={`${tenantId}:${active.id}`} className="settings-body min-w-0">{content}</div>
  </main>;
 
- return <div className={`settings-shell ${picked?'has-page':'has-menu'}`}>{menu}{page}</div>;
+ return <div className={`settings-page ${picked?'has-page':'has-menu'}`}><h1 className="settings-page-title">Settings</h1><div className="settings-shell">{menu}{page}</div></div>;
 }

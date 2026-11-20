@@ -4,8 +4,7 @@ import { useBooksWindow } from '@/hooks/useBooksWindow';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { Field, Row, SaveBar, SettingsCard } from './SettingsForm';
 import { toast } from 'sonner';
 export function BooksStartSetting() {
   const books = useBooksWindow(), preview = usePreviewMode(), cache = useQueryClient();
@@ -19,5 +18,13 @@ export function BooksStartSetting() {
     if (error) toast.error(error.message);
     else { await cache.invalidateQueries({ queryKey: ['books-window'] }); toast.success('Books start date saved'); }
   }
-  return <div className="p-4 sm:p-5 flex flex-wrap items-end gap-3"><div><Label htmlFor="books-start-date">Books start date</Label><Input id="books-start-date" type="date" max={books.today} value={value} onChange={e => setValue(e.target.value)} className="mt-1 w-44"/></div><Button variant="outline" disabled={busy || books.isPending || preview.isPreviewActive || !value || value > books.today || value === books.start} onClick={() => void save()}>Save</Button>{books.isError && <p role="alert" className="text-sm text-destructive">Books start date could not be loaded.</p>}</div>;
+  const [editing, setEditing] = useState(false);
+  const shown = books.start ? new Date(`${books.start}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
+  return <SettingsCard title="Books start" editing={editing} onEdit={editing || preview.isPreviewActive ? undefined : () => { setValue(books.start); setEditing(true); }}>
+    {editing ? <>
+      <Field label="Books start date" htmlFor="books-start-date" missing={!value}><Input id="books-start-date" type="date" max={books.today} value={value} onChange={e => setValue(e.target.value)} className="w-44" /></Field>
+      <SaveBar dirty={!!value && value <= books.today && value !== books.start} saving={busy || books.isPending} onSave={() => void save().then(() => setEditing(false))} onCancel={() => setEditing(false)} />
+    </> : <Row label="Books start date" value={shown} missing="Pick the first day of your books" />}
+    {books.isError && <p role="alert" className="text-sm text-destructive">Books start date could not be loaded.</p>}
+  </SettingsCard>;
 }

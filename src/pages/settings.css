@@ -44,46 +44,59 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
 @media(max-width:1100px) { .settings-workspace { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } .settings-overview { grid-template-columns:1fr; } }
 @media(max-width:767px) { .settings-workspace { display:block; min-height:0; } .settings-navigation { display:none; } .settings-mobile-navigation { display:block; padding:16px 16px 0; } .settings-detail { padding:24px 16px; } .settings-detail-heading { margin-bottom:24px; } .settings-overview { gap:26px; } .settings-detail-row { flex-wrap:wrap; } .settings-detail-row > :first-child { flex:1; } .settings-venue-facts { gap:12px 20px; } }
 
-/* ---- Plain Settings shell (Rillet-style) ---- */
-.settings-shell { --settings-line:#E6EAE8; display:grid; grid-template-columns:248px minmax(0,1fr); min-height:calc(100dvh - 140px); background:#fff; border:1px solid var(--settings-line); border-radius:14px; overflow:hidden; color:#16201D; margin-bottom:24px; }
-.settings-shell, .settings-shell * { font-family:"IBM Plex Sans",system-ui,sans-serif !important; letter-spacing:0; }
-.settings-menu { padding:20px 14px 28px; background:#FAFBFA; border-right:1px solid var(--settings-line); }
-.settings-menu-title { margin:0 10px 4px; font-size:16px; font-weight:600; }
-.settings-menu-group { margin:18px 10px 4px; font-size:11px; font-weight:600; letter-spacing:.04em !important; text-transform:uppercase; color:#8A948F; }
-.settings-menu-item { display:flex; align-items:center; gap:8px; height:32px; padding:0 10px; border-radius:8px; font-size:14px; color:#3A4642; }
-.settings-menu-item:hover { background:#F1F4F2; }
-.settings-menu-item.is-on { background:#EBF0EE; color:#16201D; font-weight:500; }
-.settings-menu-chev { display:none; color:#B3BCB8; }
+/* ---- Settings: read-first glass cards on the green page ---- */
+.settings-page { --settings-ink:#16201D; --settings-mut:#6B7772; color:var(--settings-ink); padding-bottom:32px; }
+.settings-page-title { margin:4px 2px 16px; font-size:24px; font-weight:600; }
+.settings-shell { display:grid; grid-template-columns:232px minmax(0,1fr); gap:24px; align-items:start; }
+.settings-menu { padding:6px 0 12px; border-radius:14px; background:rgba(255,255,255,.66); border:1px solid rgba(31,63,59,.10); box-shadow:0 1px 2px rgba(18,21,16,.04); position:sticky; top:72px; }
+.settings-menu-group { margin:14px 12px 4px; font-size:12px; font-weight:600; color:#1F3F3B; }
+.settings-menu-item { display:flex; align-items:center; gap:8px; height:34px; margin:0 6px; padding:0 10px; border-radius:8px; font-size:14px; color:#3D4842; }
+.settings-menu-item:hover { background:rgba(255,255,255,.7); }
+.settings-menu-item.is-on { background:#fff; color:var(--settings-ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.settings-menu-chev { display:none; color:#9AA4A0; }
 .settings-dot { width:6px; height:6px; flex:none; border-radius:3px; background:#E07B1A; }
-.settings-main { padding:36px 56px 48px; max-width:920px; }
-.settings-back { display:none; align-items:center; gap:2px; font-size:14px; color:#1F6B5E; margin-bottom:10px; }
-.settings-head { margin-bottom:20px; }
-.settings-head-group { font-size:12px; color:#6B7772; }
+.settings-main { position:relative; min-width:0; max-width:920px; }
+.settings-back { display:none; align-items:center; gap:2px; font-size:14px; color:#1F6B5E; margin-bottom:6px; }
+.settings-head { margin-bottom:14px; min-height:52px; padding-right:180px; }
+.settings-head-group { font-size:12px; color:var(--settings-mut); }
 .settings-head-title { margin-top:2px; font-size:22px; font-weight:600; }
-.settings-head-line { margin-top:4px; font-size:14px; color:#6B7772; }
-/* Old blocks inside a page: no cards, just hairlines. */
-.settings-body .card-glass, .settings-body .glass-surface { background:transparent !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; backdrop-filter:none !important; padding-left:0 !important; padding-right:0 !important; }
-.settings-body .settings-detail-row { border-color:var(--settings-line); }
-.settings-field { display:grid; grid-template-columns:220px minmax(0,1fr); gap:24px; padding:18px 0; border-top:1px solid var(--settings-line); }
+.settings-action { position:absolute; top:6px; right:0; display:flex; gap:8px; }
+.settings-body { display:flex; flex-direction:column; gap:14px; min-width:0; }
+.settings-card, .settings-body .card-glass { padding:16px 20px; border-radius:14px; background:rgba(255,255,255,.66); border:1px solid rgba(31,63,59,.10); box-shadow:0 1px 2px rgba(18,21,16,.04); min-width:0; }
+.settings-card.is-editing { box-shadow:0 0 0 2px rgba(31,107,94,.25); }
+.settings-body .card-glass .card-glass, .settings-card .card-glass { padding:0; background:none; border:0; box-shadow:none; }
+.settings-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; }
+.settings-card-title { font-size:15px; font-weight:600; }
+.settings-edit { display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:500; color:#1F6B5E; }
+.settings-row { display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px; padding:6px 0; font-size:14px; }
+.settings-row-label { color:var(--settings-mut); font-size:14px; }
+.settings-row-value.is-missing { color:#B45309; }
+.settings-field { display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px; align-items:center; padding:6px 0; }
 .settings-field.is-missing input { border-color:#E9B47E; }
-.settings-save { display:flex; justify-content:flex-end; gap:8px; padding-top:18px; border-top:1px solid var(--settings-line); }
-.settings-choice { padding:18px 0; border-top:1px solid var(--settings-line); }
-.settings-choice:first-child { border-top:0; padding-top:0; }
-@media(max-width:1023px){ .settings-shell { grid-template-columns:220px minmax(0,1fr); } .settings-main { padding:28px 28px 40px; } .settings-field { grid-template-columns:180px minmax(0,1fr); } }
+.settings-save { display:flex; justify-content:flex-end; gap:8px; padding-top:10px; }
+.settings-list-row { display:flex; width:100%; align-items:center; gap:12px; padding:9px 6px; border-radius:10px; text-align:left; }
+.settings-list-row:hover { background:rgba(255,255,255,.6); }
+/* No lines inside Settings: rows are separated by space, not borders. */
+.settings-body .sales-table th, .settings-body .sales-table td, .settings-body .settings-detail-row, .settings-body .divide-y > * { border-color:transparent !important; }
+.settings-body .sales-table { background:transparent; }
+.settings-body table thead, .settings-body table tr, .settings-body table th, .settings-body table td, .settings-body .settings-note-amber, .settings-body .settings-note-green { border-color:transparent !important; }
+.settings-body .settings-table td, .settings-body .settings-table th { padding:10px 12px 10px 0; }
+.settings-body > .contents { display:contents; }
+@media(max-width:1023px){ .settings-shell { grid-template-columns:200px minmax(0,1fr); gap:16px; } .settings-row, .settings-field { grid-template-columns:160px minmax(0,1fr); } }
 @media(max-width:767px){
- .settings-shell { display:block; min-height:0; border-radius:18px; }
- .settings-shell.has-page .settings-menu { display:none; }
- .settings-shell.has-menu .settings-main { display:none; }
- .settings-menu { background:#fff; border:0; padding:18px 16px 24px; }
- .settings-menu-title { margin:4px 0 0; font-size:24px; }
- .settings-menu-group { margin:20px 0 4px; }
- .settings-menu-item { height:48px; padding:0; border-radius:0; border-top:1px solid var(--settings-line); font-size:15px; color:#16201D; }
- .settings-menu-item.is-on { background:none; font-weight:400; }
+ .settings-shell { display:block; }
+ .settings-page.has-page .settings-menu, .settings-page.has-page .settings-page-title { display:none; }
+ .settings-page.has-menu .settings-main { display:none; }
+ .settings-menu { position:static; padding:6px 0 8px; }
+ .settings-menu-item { height:44px; font-size:15px; color:var(--settings-ink); }
+ .settings-menu-item.is-on { background:none; box-shadow:none; font-weight:400; }
  .settings-menu-chev { display:block; }
- .settings-main { padding:18px 16px 28px; }
  .settings-back { display:inline-flex; }
+ .settings-head { padding-right:0; min-height:0; }
  .settings-head-group { display:none; }
  .settings-head-title { font-size:24px; }
- .settings-field { grid-template-columns:1fr; gap:6px; padding:14px 0; }
- .settings-save { padding-top:16px; }
+ .settings-action { top:30px; }
+ .settings-card, .settings-body .card-glass { padding:14px 16px; }
+ .settings-row, .settings-field { grid-template-columns:1fr; gap:2px; }
+ .settings-row-value { font-size:15px; }
 }

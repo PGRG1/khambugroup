@@ -3,13 +3,13 @@ export const settingsDestinations = [
   {id:'venues',group:'Organization',label:'Venues',description:'Seats, service periods, closures and stock areas',query:'tab=business&section=venues'},
   {id:'sources',group:'Organization',label:'Sales sources',description:'Where your sales come from',query:'tab=business&section=sources'},
   {id:'users',group:'Team',label:'People',description:'Who can sign in and what they can open',query:'tab=users'},
-  {id:'approvals',group:'Team',label:'Approvals',description:'Who approves changes your team makes',query:'tab=users&view=approvals'},
+  {id:'approvals',group:'Team',label:'How your team works',description:'Approvals and working setup',query:'tab=users&view=approvals'},
   {id:'team',group:'Team',label:'Team working',description:'Company defaults and role-specific working arrangements',query:'tab=business&section=team'},
   {id:'activity',group:'Team',label:'Activity log',description:'Who changed what, and when',query:'tab=users&view=activity'},
-  {id:'purchasing',group:'Operations',label:'Purchasing',description:'How you buy and share central costs',query:'tab=business&section=purchasing'},
+  {id:'purchasing',group:'Operations',label:'Purchasing & stock',description:'How you buy, share central costs and count stock',query:'tab=business&section=purchasing'},
   {id:'stock',group:'Operations',label:'Stock counts',description:'Blind counts or show the last approved count',query:'tab=business&section=stock'},
   {id:'base',group:'Finance',label:'Base currency',description:'Reporting currency and its current lock',query:'tab=accounting&view=base'},
-  {id:'books',group:'Accounting',label:'Books start',description:'The first day covered by your books',query:'tab=accounting&view=books'},
+  {id:'books',group:'Accounting',label:'Books setup',description:'When your books start and what was owed then',query:'tab=accounting&view=books'},
   {id:'schedule',group:'Finance',label:'Schedule setup',description:'Assets, stock and deferred revenue',query:'tab=accounting&view=schedule'},
   {id:'tax',group:'Finance',label:'Tax setup',description:'Year end, tax preparation and assessment dates',query:'tab=accounting&view=tax'},
   {id:'accounts',group:'Finance',label:'Chart of accounts',description:'Account names and codes in Books',query:'tab=accounting&view=accounts'},
@@ -31,7 +31,9 @@ export const movedToAccounting: Partial<Record<SettingsDestination,string>> = {
   mappings:'/finance/books?view=chart-of-accounts',
 };
 export function settingsHref(id:SettingsDestination){return `/settings?${settingsDestinations.find(d=>d.id===id)?.query??''}`;}
-export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&(admin||(invoiceAccess&&d.group==='Lists')));}
+/** Small settings shown inside a bigger page; their old links open that page. */
+export const mergedInto: Partial<Record<SettingsDestination,SettingsDestination>> = {stock:'purchasing',team:'approvals',opening:'books'};
+export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(admin||(invoiceAccess&&d.group==='Lists')));}
 export function resolveSettingsDestination(params:URLSearchParams):SettingsDestination|'overview'|'denied'{
  const tab=params.get('tab');const section=params.get('section');const view=params.get('view');
  if(!tab)return 'overview';
