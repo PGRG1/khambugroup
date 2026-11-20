@@ -187,3 +187,12 @@
 @media (prefers-reduced-motion:reduce){.l2-play *,.l2-play{animation:none!important}.l2 :is(.l2-top,.l2-pills button,.l2-wb .wi,.l2-wb .wh,.l2-bud,.l2-cash,.l2-team-btn):active{transform:none}}
 
 .l2-pillset{display:flex;flex:none;gap:10px}
+
+/* Sales each day (this month): thin bars, a few day numbers, future days as a faint stub. */
+.l2 .l2-bars.l2-days{gap:2px;padding:0 4px}
+.l2-bars.l2-days>div{grid-template-rows:minmax(0,1fr) 22px;grid-template-columns:minmax(0,1fr)}
+.l2-bars.l2-days .pd{overflow:visible}
+.l2-bars.l2-days::after{bottom:22px}
+.l2-bars.l2-days i{width:100%;max-width:none;border-radius:2px 2px 0 0}
+.l2-bars.l2-days i.fut{background:var(--line)}
+.l2-bars.l2-days .pd{font-size:10.5px}
