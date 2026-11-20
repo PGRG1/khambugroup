@@ -557,8 +557,11 @@ export default function Landing() {
             <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of revenue` : "No invoices yet"}</div></Link>
           {k.budget ? <div className="l2-bud"><span className="cbar"><i style={{ width: `${Math.min(100, (k.spent / k.budget) * 100)}%` }} className={k.spent > k.budget ? "over" : ""} /></span><span>{short(k.budget)} budget</span></div>
             : <button type="button" className="l2-bud" onClick={() => ask(`Set ${monthName(month)}'s purchasing budget`)}><span>No budget set</span><b>Set one with Bani</b></button>}
-          <div className="l2-ch l2-pl l2-cats">
-            {k.cats.length ? k.cats.map((c) => <div key={c.name}><span className="truncate">{c.name}</span><b>{short(c.v)}<em>{c.pct != null ? pctTxt(c.pct) : ""}</em></b></div>)
+          <div className="l2-ch l2-grow l2-cats">
+            {k.cats.length ? k.cats.map((c) => <div key={c.name} className="cat">
+              <div className="ct"><span className="truncate">{c.name}</span><b>{short(c.v)}<em>{c.pct != null ? pctTxt(c.pct) : ""}</em></b></div>
+              <span className="cb"><i style={{ width: `${(c.v / k.cats[0].v) * 100}%` }} /></span>
+            </div>)
               : <p className="l2-empty">No invoices this month yet.</p>}</div>
         </section>
         <section className="l2-col">
