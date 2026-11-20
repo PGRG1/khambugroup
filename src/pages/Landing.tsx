@@ -343,7 +343,7 @@ export default function Landing() {
     const cash = homeFin.data?.cash ?? 0;
     const money = (n: number, has: boolean) => (has ? short(n) : "—");
     const tiles: Tile[] = [
-      { label: isCurrent ? "Sales so far" : "Sales", value: money(sales, days > 0), to: "/revenue",
+      { label: "Revenue", value: money(sales, days > 0), to: "/revenue",
         sub: !days ? "No sales recorded yet" : `${short(sales / days)} a day${goal?.needPerDay != null && gs && !gs.good ? ` · need ${short(goal.needPerDay)}` : ""}`,
         status: [goal ? `Projected ${short(goal.projected)}` : !target ? "No target set" : `Target ${short(target)}`,
           gs && !goal?.ended ? (gs.good ? "on track" : `${short(goal!.target! - goal!.projected)} short`) : null,
