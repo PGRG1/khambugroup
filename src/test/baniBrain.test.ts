@@ -56,7 +56,7 @@ describe("Bani model layer: primary, then backup", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const sent = JSON.parse(String(init.body));
     expect(url).toMatch(/\/responses$/);
-    expect(sent).toMatchObject({ model: BANI_MODEL, reasoning: { effort: "low" }, store: false, tool_choice: "auto" });
+    expect(sent).toMatchObject({ model: BANI_MODEL, reasoning: { effort: "medium" }, store: false, tool_choice: "auto" });
     expect(sent.tools[0].name).toBe("get_open_items");
   });
   it("falls back to the previous setup when the primary keeps failing", async () => {

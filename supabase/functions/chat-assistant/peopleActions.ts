@@ -47,13 +47,17 @@ export async function peopleContext(client: Client, tenant: string, user: string
   const ids = new Set(people.map(p => p.id));
   return { people: people.map(p => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, venue_id: p.venue_id, job_title: p.job_title })), venues: allowed.map(v => ({ id: v.id, name: v.name })), shifts, balances: (await all(client, "hr_leave_balances", tenant)).filter(b => ids.has(b.employee_id)), leave_types: await all(client, "hr_leave_types", tenant), pending_changes: (await all(client, "hr_people_changes", tenant, q => q.eq("status", "pending"))).filter(c => !c.employee_id || ids.has(c.employee_id)) };
 }
-export async function draftPeopleAction(raw: unknown, client: Client, admin: Client, tenant: string, user: string, userText: string, scopeText = userText) {
+export async function draftPeopleAction(raw: unknown, client: Client, admin: Client, tenant: string, user: string, userText: string, scopeText = userText, proposalText = "") {
+  // A rota the user agreed to may name people and the week only in Bani's shown proposal (the
+  // message they replied to). People must still be real, permission-scoped staff, dates inside the
+  // week, and every shift is listed on the Confirm card before anything saves.
+  const rotaScope = `${scopeText}\n${proposalText}`;
   const a = Args.parse(raw);
   // Instruction is the real user's text, never model-authored wording/numbers.
   const instruction = userText;
   const ctx = await peopleContext(client, tenant, user, {});
   const person = () => { establishedScope(scopeText, a.person ?? "", "person"); return exactPerson(a.person ?? "", ctx.people); };
-  const venue = () => { if (ctx.venues.length === 1 && (!a.venue || a.venue.toLowerCase() === ctx.venues[0].name.toLowerCase())) return ctx.venues[0]; establishedScope(scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
+  const venue = () => { if (ctx.venues.length === 1 && (!a.venue || a.venue.toLowerCase() === ctx.venues[0].name.toLowerCase())) return ctx.venues[0]; establishedScope(a.operation === "rota_edit" ? rotaScope : scopeText, a.venue ?? "", "venue"); const matches = ctx.venues.filter(v => v.name.toLowerCase() === String(a.venue ?? "").toLowerCase()); if (matches.length !== 1) throw new Error("Which venue do you mean?"); return matches[0]; };
   const p: any = { operation: a.operation, instruction };
   let title = "People", detail = "", link = "/hr/employees";
   if(a.operation==='team_working'){
@@ -73,7 +77,7 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
  p.name=a.name;p.titles=a.titles;p.before=(await all(client,'hr_role_groups',tenant,q=>q.eq('name',a.name))).sort((a,b)=>a.id.localeCompare(b.id));title=`Role group · ${a.name}`;detail=a.titles.join(' · ');
  }else if (a.operation.startsWith("rota_")) {
     const v = venue(), w = monday(a.week_start ?? ""); const end = addDays(w, 6);
-    establishedPeriod(scopeText, w, "week start");
+    establishedPeriod(a.operation === "rota_edit" ? rotaScope : scopeText, w, "week start");
     p.venue_id = v.id; p.week_start = w; link = `/hr/schedule?week=${w}&venue=${v.id}`;
     const own = (await all(client, "hr_shifts", tenant, q => q.gte("shift_date", w).lte("shift_date", end))).filter(s => s.venue_id === v.id || !s.venue_id && ctx.people.some(e => e.id === s.employee_id && e.venue_id === v.id));
     p.before = own; p.week_before = await all(client, "hr_rota_weeks", tenant, q => q.eq("venue_id", v.id).eq("week_start", w));
@@ -91,8 +95,8 @@ export async function draftPeopleAction(raw: unknown, client: Client, admin: Cli
     } else {
       if (!a.shifts?.length) throw new Error("Please specify the people, days and shift times, or say copy last week.");
       p.changes = a.shifts.map(s => {
-        establishedScope(scopeText, s.person, "person");
-        if (s.replacement) establishedScope(scopeText, s.replacement, "cover person");
+        establishedScope(rotaScope, s.person, "person");
+        if (s.replacement) establishedScope(rotaScope, s.replacement, "cover person");
         const e = exactPerson(s.person, ctx.people); const date = checkedDate(s.date);
         
         if (date < w || date > end) throw new Error("A shift falls outside that week. Which week should change?");

@@ -8,7 +8,8 @@
 
 export const BANI_MODEL = "openai/gpt-6-astra";
 export const BANI_BACKUP_MODEL = "openai/gpt-5.6-terra";
-export const BANI_REASONING = "low";
+// Medium: Bani plans before answering (look up, check, then reply) at a modest cost per turn.
+export const BANI_REASONING = "medium";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 type ChatTool = { type: string; function: { name: string; description?: string; parameters?: unknown } };

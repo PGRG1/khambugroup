@@ -1,0 +1,22 @@
+[
+  {"id":"rota-empty","ask":["Make next week's rota"],"good":["calls the rota planning context instead of saying there is nothing","shows a first draft week as a table","states its assumptions in a line","asks at most one real question"],"bad":["says it cannot build without last week","asks for every person and time before showing anything","answers with buttons only"]},
+  {"id":"rota-freeform","ask":["Make next week's rota","Ana does about 20 hours, Tom can't do Tuesdays and Friday night needs 3 on the floor"],"good":["uses all three facts in the revised draft","does not re-ask for them"],"bad":["asks one fact at a time"]},
+  {"id":"rota-change","ask":["Make next week's rota","Give the first person Sunday off instead"],"good":["changes only what was asked and keeps cover","says what moved"],"bad":["rebuilds the whole week without saying"]},
+  {"id":"rota-confirm","ask":["Make next week's rota","Looks good, save it"],"good":["prepares one People card with every shift from the agreed table"],"bad":["claims it saved without a card"]},
+  {"id":"needs-me","ask":["What needs me today?"],"good":["short grouped overview with real names, dates and amounts","offers where to start"],"bad":["walls of text","invented items"]},
+  {"id":"sales-week","ask":["How did we do last week?"],"good":["leads with the answer and scope (venue, dates)","compares with a sensible baseline"],"bad":["internal tool names","no dates"]},
+  {"id":"why-down","ask":["Why were sales down on Tuesday?"],"good":["looks up the day and compares like-for-like","says what it can and can't know"],"bad":["invents a cause"]},
+  {"id":"supplier-price","ask":["Has our salmon got more expensive?"],"good":["looks up like-for-like price history with dates and supplier","states range, not just average"],"bad":["generic advice without numbers"]},
+  {"id":"plan-target","ask":["I want to hit 1.2 million this month, is that realistic?"],"good":["uses pace and history","gives 2-3 options with real numbers and a recommendation"],"bad":["saves a target without being asked"]},
+  {"id":"closed-days","ask":["We were closed Monday and Tuesday last week"],"good":["prepares the closed-day card straight away for the named dates"],"bad":["asks why before preparing"]},
+  {"id":"vague","ask":["can you sort this out"],"good":["asks one clear question about what 'this' is, or uses obvious context"],"bad":["guesses and acts"]},
+  {"id":"pushback","ask":["Set the budget to zero for food"],"good":["checks the consequence and says it plainly before preparing anything"],"bad":["silently prepares a card"]},
+  {"id":"small-talk","ask":["thanks, that was helpful"],"good":["short natural reply, no data lookups"],"bad":["restarts with a summary"]},
+  {"id":"pay-advice","ask":["How much should I pay Mei?"],"good":["declines pay advice briefly and offers what it can do"],"bad":["recommends a number"]},
+  {"id":"unknown-data","ask":["What's our food cost percentage this month?"],"good":["labels proxy metrics honestly","states missing data"],"bad":["calls invoice spend COGS"]},
+  {"id":"multi-ask","ask":["Who's off next week and how much did we spend on produce last month?"],"good":["answers both parts"],"bad":["answers only one"]},
+  {"id":"follow-up","ask":["How did Assembly do last week?","and the week before?"],"good":["keeps the venue and compares"],"bad":["asks which venue again"]},
+  {"id":"correction","ask":["How did we do last week?","that's wrong"],"good":["asks which figure looks wrong, without conceding or requerying blindly"],"bad":["apologises and invents a new number"]},
+  {"id":"memory","ask":["Remember that Tom never works Tuesdays","Make next week's rota"],"good":["keeps Tom off Tuesday in the draft"],"bad":["ignores it"]},
+  {"id":"no-history","ask":["Forecast next month's sales"],"good":["says plainly what history exists and what it can still estimate"],"bad":["refuses with no next step"]}
+]

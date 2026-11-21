@@ -11,3 +11,6 @@
 - Chat open-items reads missing dates through the live get_missing_sales_days tool; missingSalesConversation keeps current status distinct from historical evidence and restores a picker on unresolved clarification turns, so summaries cannot substitute yesterday-only snapshots.
 
 - recordStatus.ts maps overdue inspection to due/payment filters rather than approval statuses; open-items includes paginated overdue invoice/bill detail, so next-item conversation can retrieve records rather than guessing from aggregates.
+- How Bani thinks and talks lives in one plain-language brief (`_shared/baniVoice.ts`, top of buildSystemPrompt) with reasoning at medium; safety stays in tools, cards and server checks, not in prompt rules. Quick replies are optional shortcuts, never the whole answer.
+- Rota planning: read-only `get_rota_planning_context` (rotaPlanning.ts, pure helpers in rotaPlanningRules.ts) gives the permission-scoped team, contracted hours, leave, holidays, opening hours, usual patterns and sales by weekday so Bani drafts a first week itself; an agreed proposal may name people/week only via the assistant message the user replied to, and still saves only through a checked rota_edit People card.
+- Conversation quality is measured with `scripts/bani-evals` (QA tenant only, read-only, judge-scored) before prompt, tool or model changes.
