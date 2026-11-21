@@ -17291,6 +17291,14 @@ export type Database = {
         Args: { b: string; line_venue: string; t: string }
         Returns: string
       }
+      settlement_line_allocations: {
+        Args: { b: string; t: string }
+        Returns: {
+          amount: number
+          clearing_venue: string
+          payment_method: string
+        }[]
+      }
       smart_alert_action: {
         Args: { decision: string; ident: string; options?: Json; t: string }
         Returns: undefined

@@ -1261,6 +1261,27 @@
       "when": 1795259603790,
       "tag": "0179_revenue_projection_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1795260732926,
+      "tag": "0180_card_payout_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1795260758789,
+      "tag": "0181_shared_merchant_clearing_by_sales",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1795260777092,
+      "tag": "0182_bani_supplier_payment_oldest_first",
+      "breakpoints": true
     }
   ]
 }
