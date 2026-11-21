@@ -24,11 +24,11 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   useEffect(() => {
     const made = createdName.current && org.organizations.find(o => o.name === createdName.current);
     if (made) { createdName.current = null; setId(made.id); setEditing(null); return; }
-    if (!picked.current && org.organizations.length) { picked.current = true; setId(org.organizations[0].id); }
+    if (!picked.current && org.organizations.length) { picked.current = true; setId(org.organizations[0].id); setEditing(null); }
   }, [org.organizations]);
   const isNew = id === 'new';
   const saved: Draft = (org.organizations.find(o => o.id === id) as Draft | undefined) ?? (isNew && org.organizations.length ? {} : { name: fallbackName });
-  useEffect(() => { if (isNew) { setDraft({ ...saved }); setEditing('Company'); } }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!org.loading && isNew && !org.organizations.length) { setDraft({ ...saved }); setEditing('Company'); } }, [id, org.loading, org.organizations.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = (title: string) => { setDraft({ ...saved }); setEditing(title); };
   const save = async (keys: Key[]) => {
     const body = Object.fromEntries(keys.map(k => [k, (draft[k] ?? '').toString().trim() || null])) as Partial<Organization>;
@@ -46,7 +46,7 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   if (org.loading) return <p role="status" className="text-[13px] text-muted-foreground">Loading…</p>;
   return <>
     {(org.organizations.length > 1 || isNew && org.organizations.length > 0) && <SettingsCard title="Which company">
-      <Select value={id} onValueChange={v => { setId(v); setEditing(null); }}><SelectTrigger aria-label="Company" className="max-w-[420px] rounded-full bg-white"><SelectValue /></SelectTrigger>
+      <Select value={id} onValueChange={v => { setId(v); if (v === 'new') { setDraft({}); setEditing('Company'); } else setEditing(null); }}><SelectTrigger aria-label="Company" className="max-w-[420px] rounded-full bg-white"><SelectValue /></SelectTrigger>
         <SelectContent>{org.organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}<SelectItem value="new">Add another company</SelectItem></SelectContent></Select>
     </SettingsCard>}
     {CARDS.map(c => {
