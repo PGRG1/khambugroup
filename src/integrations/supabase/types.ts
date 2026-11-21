@@ -12431,9 +12431,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          label: string | null
+          line_key: string | null
+          line_kind: string
           projected_guests: number | null
           projected_sales: number
           projected_spend: number | null
+          service_period_id: string | null
           source: string
           target_date: string
           tenant_id: string
@@ -12444,9 +12448,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          label?: string | null
+          line_key?: string | null
+          line_kind?: string
           projected_guests?: number | null
           projected_sales?: number
           projected_spend?: number | null
+          service_period_id?: string | null
           source?: string
           target_date: string
           tenant_id: string
@@ -12457,9 +12465,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          label?: string | null
+          line_key?: string | null
+          line_kind?: string
           projected_guests?: number | null
           projected_sales?: number
           projected_spend?: number | null
+          service_period_id?: string | null
           source?: string
           target_date?: string
           tenant_id?: string
@@ -12467,6 +12479,13 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "revenue_daily_projections_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "venue_service_periods"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "revenue_daily_projections_venue_id_fkey"
             columns: ["venue_id"]
