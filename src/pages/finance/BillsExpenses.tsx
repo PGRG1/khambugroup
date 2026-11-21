@@ -1,6 +1,7 @@
 import {baseSymbol} from '@/utils/money';
 import {takeStatementBill} from "@/utils/statementBillHandoff";
-import {matchExpenseSupplier,type MeterAccount} from '@/utils/expenseSupplierAccounts';
+import {type MeterAccount} from '@/utils/expenseSupplierAccounts';
+import {billDraftFromScan} from "@/utils/billFromScan";
 import {BillReadDetails} from "@/components/expenses/BillReadDetails";
 import {SupplierNameLink} from "@/components/vendors/SupplierProfileDialog";
 import { useEffect, useMemo, useState } from "react";
@@ -25,7 +26,7 @@ import { useBaniWorkPublisher } from "@/components/assistant/FloatingBaniContext
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { downloadCSV } from "@/utils/csvDownload";
 import { formatCurrency, formatDate, formatTableCurrency, formatTableInteger } from "@/utils/format";
-import { isWaitingBill, expenseStatus, proposedCategoryAccount, similarVendors } from "@/utils/expenses";
+import { isWaitingBill, expenseStatus, similarVendors } from "@/utils/expenses";
 import { usesContractBillApproval } from '@/utils/expenseMonthlyApproval';
 import { useVendorStatements } from "@/hooks/useVendorStatements";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -394,57 +395,11 @@ export default function BillsExpenses() {
   };
 
   const handleScanned = (s: ScannedBill) => {
-    const match=matchExpenseSupplier(s,allMeters,suppliers,aliases);
-    const matched='supplier_id' in match?suppliers.find(sp=>sp.id===match.supplier_id):undefined;
-    const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
-    const bf = Number(s.brought_forward || 0);
-    const stTotal =
-      s.statement_total === null || s.statement_total === undefined ? null : Number(s.statement_total);
-    const meta: Record<string, any> = {};
-    if (s.account_number) meta.account_number = s.account_number;
-    if (s.consumption) meta.consumption = s.consumption;
-    if(s.statement_check)meta.statement_check=s.statement_check;
-    if(s.service_address)meta.service_address=s.service_address;
-    if(match.kind==='question')meta.bani_question=`${s.vendor_name}: create this new supplier?`;
-    if(match.kind==='company'&&s.account_number)meta.bani_question=`${s.vendor_name} · a/c ${s.account_number}: which venues does it cover?`;
+    // One mapping for this page and the Bani chat (src/utils/billFromScan.ts).
+    const draft=billDraftFromScan(s,{suppliers,meters:allMeters,aliases,venues,categories,accounts});
     setEditing(null);
-    setHeader({
-      supplier_id: matched?.id || null,
-      supplier_account_id:match.kind==='account'?match.account_id:null,
-      vendor_name: s.vendor_name || null,
-      bill_number: s.bill_number || null,
-      bill_date: s.bill_date || new Date().toISOString().slice(0, 10),
-      due_date: s.due_date || null,
-      service_period_start: s.service_period_start || null,
-      service_period_end: s.service_period_end || null,
-      venue: ven?.name || s.venue || null,
-      venue_id: ven?.id || null,
-      currency: s.currency || "HKD",
-      subtotal: s.subtotal || 0,
-      tax_amount: s.tax_amount || 0,
-      total_amount: s.total_amount || (s.subtotal + s.tax_amount),
-      notes: s.notes || null,
-      attachment_url: s.attachment_url || null,
-      attachment_path: s.attachment_path || null,
-      approval_status: "draft",
-      brought_forward: bf,
-      statement_total: stTotal,
-      meta,
-    });
-    setAllocations(
-      (s.allocations.length ? s.allocations : [{ expense_category: "Other Operating Expenses", amount: s.subtotal || s.total_amount, notes: "" }]).map((a, i) => ({
-        line_no: i + 1,
-        expense_category: a.expense_category,
-        supplier_account_id:allMeters.find(m=>m.supplier_id===matched?.id&&normAcct(m.account_number)===normAcct(('account_number' in a?String(a.account_number):'')||s.account_number))?.id??null,
-        account_id: categories.find(c=>c.name.toLowerCase()===a.expense_category.toLowerCase())?.default_account_id || proposedCategoryAccount(a.expense_category,accounts) || null,
-        venue: ven?.name || s.venue || null,
-        department: null,
-        amount: a.amount,
-        tax_treatment: "none",
-        tax_amount: 0,
-        notes: a.notes || null,
-      }))
-    );
+    setHeader(draft.header as any);
+    setAllocations(draft.allocations);
     setAudit([]);
     setPayments([]);
     setScanOpen(false);

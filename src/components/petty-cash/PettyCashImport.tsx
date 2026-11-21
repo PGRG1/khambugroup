@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { supabase } from "@/integrations/supabase/client";
+import { insertPendingCashSlip } from "@/utils/cashSlip";
 import { toast } from "sonner";
 import type { usePettyCash } from "@/hooks/usePettyCash";
 import { fmtHK, StatusPill } from "@/components/expenses/shared";
@@ -212,23 +213,9 @@ export default function PettyCashImport({
     if (err) { updateRow(idx, { status: "error", error: err }); return; }
     updateRow(idx, { status: "saving", error: undefined });
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id ?? null;
       const attachment = uploaded[row.source_file_idx] ?? { url: null, path: null };
-
-      const { error } = await supabase.from("petty_cash_receipts").insert({
-        tenant_id: pc.tenantId,
-        float_id: row.float_id,
-        receipt_date: row.receipt_date,
-        amount: row.amount,
-        description: row.description.trim(),
-        classification_id: row.classification_id,
-        receipt_url: attachment.url,
-        receipt_path: attachment.path,
-        status: "pending",
-        created_by: uid,
-      } as any);
-      if (error) throw error;
+      // Same insert as the Bani chat (src/utils/cashSlip.ts): pending until a manager approves.
+      await insertPendingCashSlip(pc.tenantId, { float_id: row.float_id, receipt_date: row.receipt_date, amount: row.amount, description: row.description, classification_id: row.classification_id }, attachment);
       updateRow(idx, { status: "saved" });
     } catch (e: any) {
       updateRow(idx, { status: "error", error: e?.message || "Save failed" });

@@ -26,6 +26,7 @@ import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, starterPrompts } from "@/utils/floatingBaniUi";
 import { ChatInvoiceScan } from "@/components/assistant/ChatInvoiceScan";
 import { ChatSalesScan } from "@/components/assistant/ChatSalesScan";
+import { ChatExpenseScan } from "@/components/assistant/ChatExpenseScan";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -373,6 +374,21 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     });
   };
 
+  // Expense bills and cash-box slips are checked and filed right here in the chat (never posted).
+  const runExpenseAction = (action: { kind: "bill" | "cash"; files: string[] }, turnFiles: BaniAttachment[]) => {
+    const say = (content: string) => setMessages(prev => [...prev, { role: "assistant" as const, content }]);
+    const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
+    if (!pool.length) { say("I couldn't find the file — please attach it again."); return; }
+    const named = action.files.map(n => pool.find(f => f.name === n)).filter((f): f is BaniAttachment => Boolean(f));
+    const pick = named.length === 1 ? named[0] : !action.files.length && pool.length === 1 ? pool[0] : null;
+    if (!pick) { say(`I file one expense at a time. Which one first: ${pool.map(f => f.name).join(", ")}?`); return; }
+    const expenseScan = { id: crypto.randomUUID(), file: pick.file, scope: identity, kind: action.kind };
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: "", expenseScan }] : [...prev, { role: "assistant" as const, content: "", expenseScan }];
+    });
+  };
+
   // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
   const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel" | "below_usual" | "undo", confirmation?: string) => {
     if (!session || !tenantId || isPreviewActive) return;
@@ -480,6 +496,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const decoder = new TextDecoder(); let buffer = "", content = ""; let proposal: DraftProposal | undefined;
       let action: { mode: "open" | "scan"; venue: string | null; files: string[]; status?: "disputed"; reason?: string } | null = null;
       let salesAction: { files: string[] } | null = null;
+      let expenseAction: { kind: "bill" | "cash"; files: string[] } | null = null;
       let actionCard: BaniActionCard | null = null;
       const actionCards: BaniActionCard[] = [];
       let navigation: unknown = null;
@@ -504,6 +521,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if(event.action?.type === "navigate") navigation = event.action.navigation;
           if (event.action?.type === "action_card" && typeof event.action.action_id === "string") { actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null, challenge: typeof event.action.challenge === "string" ? event.action.challenge : undefined, amount: typeof event.action.amount === "number" ? event.action.amount : undefined, currency: typeof event.action.currency === "string" ? event.action.currency : undefined }; actionCards.push(actionCard); }
           if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
+          if (event.action?.type === "open_expense_scanner" && (event.action.kind === "bill" || event.action.kind === "cash")) expenseAction = { kind: event.action.kind, files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [], ...(event.action.status === "disputed" ? { status: "disputed" as const, reason: typeof event.action.reason === "string" ? event.action.reason : "" } : {}) };
         }
@@ -517,6 +535,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         if(path) {const screen=(navigation as {screen:keyof typeof SCREENS}).screen;if(!isPreviewActive&&canAccessPage(SCREENS[screen].page)){keepOpenNav.current=true;navigate(path);}else setError("That screen is not available in this view.");}
         if (action) runScannerAction(action, attached);
         else if (salesAction) runSalesAction(salesAction, attached);
+        else if (expenseAction) runExpenseAction(expenseAction, attached);
       }
     } catch (e) {
       if (turn?.opts.voice) { if (!controller.signal.aborted && !turn.hidden) setMessages(prev => prev.slice(0, -1)); throw e; }
@@ -625,6 +644,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               : message.salesScan.file instanceof File && message.salesScan.scope === identity
                 ? <ChatSalesScan handoff={message.salesScan} onRecorded={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.salesScan!; requestSalesHandoff({ ...h, id: crypto.randomUUID() }); navigate("/sales-data?view=daily"); }} />
                 : <p className="text-xs text-muted-foreground">Attach the receipt again to record it.</p>)}
+            {message.expenseScan && (message.outcome
+              ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
+              : message.expenseScan.file instanceof File && message.expenseScan.scope === identity
+                ? <ChatExpenseScan handoff={message.expenseScan} onDone={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} />
+                : <p className="text-xs text-muted-foreground">Attach the file again to file it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {

@@ -2,25 +2,14 @@ import { useCallback, useRef, useState } from "react";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { Upload, X, ScanLine, Camera, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { ScannedBill } from "./BillScanner";
+import { readBillFiles } from "@/utils/billFromScan";
 
 export type { ScannedBill } from "./BillScanner";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve((result.split(",")[1]) || "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 interface Props {
   onParsed: (data: ScannedBill) => void;
@@ -69,49 +58,13 @@ export default function BillDropZone({ onParsed }: Props) {
     if (list.length === 0) return;
     setScanning(true);
     try {
-      const payload = await Promise.all(
-        list.map(async (f) => ({
-          base64: await fileToBase64(f),
-          mimeType: /\.eml$/i.test(f.name) ? "message/rfc822" : f.type || "application/octet-stream",
-        }))
-      );
-
-      const auth = (await supabase.auth.getUser()).data.user?.id;
-      let attachment_url: string | undefined;
-      let attachment_path: string | undefined;
-      try {
-        const first = list[0];
-        const ext = first.name.split(".").pop() || "bin";
-        const path = `${auth || "anon"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const up = await supabase.storage.from("bill-attachments").upload(path, first, {
-          contentType: first.type,
-          upsert: false,
-        });
-        if (!up.error) {
-          attachment_path = up.data.path;
-          const signed = await supabase.storage
-            .from("bill-attachments")
-            .createSignedUrl(up.data.path, 60 * 60 * 24 * 7);
-          attachment_url = signed.data?.signedUrl;
-        }
-      } catch (e) {
-        console.warn("Attachment upload failed (non-fatal):", e);
-      }
-
-      const { data, error } = await supabase.functions.invoke("parse-bill", {
-        body: { files: payload },
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Scan failed");
-
-      const parsed = data.data as ScannedBill;
+      // Same read as the Bani chat (src/utils/billFromScan.ts).
+      const parsed = await readBillFiles(list);
       if (parsed.suggested_document_type === "procurement_invoice") {
         toast.warning(
           "This looks like a stock/inventory invoice — consider using the Procurement scanner instead."
         );
       }
-      parsed.attachment_url = attachment_url;
-      parsed.attachment_path = attachment_path;
 
       toast.success("Bill scanned. Review the details before saving.");
       onParsed(parsed);

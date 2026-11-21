@@ -1,0 +1,95 @@
+import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { ChatBillCard, ChatCashSlipCard } from "@/components/expenses/ChatExpenseCards";
+import { billDraftFromScan, billNeedsFullScreen, type BillLookups } from "@/utils/billFromScan";
+import { cashSlipProblem } from "@/utils/cashSlip";
+
+const lookups: BillLookups = {
+  suppliers: [{ id: "s1", name: "CLP Power" }],
+  meters: [{ id: "m1", supplier_id: "s1", account_number: "0213-55", covers: [] } as any],
+  aliases: [],
+  venues: [{ id: "v1", name: "Assembly" }],
+  categories: [{ id: "c1", name: "Electricity", default_account_id: "a1" }],
+  accounts: [{ id: "a1", code: "6100", name: "Utilities" }, { id: "a2", code: "6900", name: "Other" }],
+};
+const scan = (o: Record<string, unknown> = {}) => ({
+  vendor_name: "CLP Power", bill_number: "8812", bill_date: "2026-11-12", due_date: "2026-12-03", service_period_start: "2026-10-12", service_period_end: "2026-11-11",
+  venue: "Assembly", currency: "HKD", subtotal: 4860, tax_amount: 0, total_amount: 4860, notes: "", suggested_document_type: "expense_bill", account_number: "0213 55",
+  allocations: [{ expense_category: "Electricity", amount: 4620, notes: "" }, { expense_category: "Fuel cost adjustment", amount: 240, notes: "" }], ...o,
+}) as any;
+
+describe("Bani chat expenses", () => {
+  it("maps a scanned bill exactly like Expenses › Bills (supplier, meter, venue, accounts)", () => {
+    const d = billDraftFromScan(scan(), lookups);
+    expect(d.matched).toBe(true);
+    expect(d.header).toMatchObject({ supplier_id: "s1", supplier_account_id: "m1", venue_id: "v1", approval_status: "draft" });
+    expect(d.allocations.map(a => a.account_id)).toEqual(["a1", null]);
+    expect(billNeedsFullScreen(scan(), d, false)).toBe("");
+  });
+
+  it("sends unclear bills to the full screen", () => {
+    const unknown = scan({ vendor_name: "New Co", account_number: "" });
+    expect(billNeedsFullScreen(unknown, billDraftFromScan(unknown, lookups), false)).toMatch(/supplier/);
+    expect(billNeedsFullScreen(scan(), billDraftFromScan(scan(), lookups), true)).toMatch(/contract/);
+    const bf = scan({ brought_forward: 300 });
+    expect(billNeedsFullScreen(bf, billDraftFromScan(bf, lookups), false)).toMatch(/balance/);
+    const off = scan({ subtotal: 5000, total_amount: 5000 });
+    expect(billNeedsFullScreen(off, billDraftFromScan(off, lookups), false)).toMatch(/add up/);
+  });
+
+  const bill = { phase: "ready" as const, vendor: "CLP Power", number: "8812", date: "2026-11-12", due: "2026-12-03", total: 4860, currency: "HKD", venue: "Assembly", meter: "0213-55",
+    periodStart: "2026-10-12", periodEnd: "2026-11-11", accounts: lookups.accounts.map(a => ({ ...a, name: a.name ?? "" })), regular: null, saving: false, onAccount: vi.fn(), onOpenFull: vi.fn() };
+
+  it("needs an account on every line before Send for approval, then a confirm", () => {
+    const onSave = vi.fn();
+    const { rerender } = render(<ChatBillCard {...bill} lines={[{ line: 1, category: "Electricity", amount: 4620, accountId: "a1" }, { line: 2, category: "Fuel", amount: 240, accountId: null }]} onSave={onSave} />);
+    expect((screen.getByText("Send for approval") as HTMLButtonElement).disabled).toBe(true);
+    rerender(<ChatBillCard {...bill} lines={[{ line: 1, category: "Electricity", amount: 4620, accountId: "a1" }, { line: 2, category: "Fuel", amount: 240, accountId: "a2" }]} onSave={onSave} />);
+    fireEvent.click(screen.getByText("Send for approval"));
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Send"));
+    expect(onSave).toHaveBeenCalledWith("pending_review");
+  });
+
+  it("Hold saves a draft", () => {
+    const onSave = vi.fn();
+    render(<ChatBillCard {...bill} lines={[{ line: 1, category: "Fuel", amount: 240, accountId: null }]} onSave={onSave} />);
+    fireEvent.click(screen.getByText("Hold"));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Hold"));
+    expect(onSave).toHaveBeenCalledWith("draft");
+  });
+
+  it("flags a regular cost that is far from usual", () => {
+    render(<ChatBillCard {...bill} lines={[]} regular={{ name: "Electricity", expected: 4200, estimate: true }} onSave={vi.fn()} />);
+    expect(screen.getByText(/Est\. 4,200\.00 · \+16%/)).toBeTruthy();
+  });
+
+  it("adds a cash-box slip only with a box and category, after a confirm", () => {
+    const onAdd = vi.fn();
+    const slip = { phase: "ready" as const, description: "Wellcome", date: "2026-11-18", amount: 186.5, currency: "HKD", classifications: [{ id: "k1", name: "Cleaning" }],
+      floats: [{ id: "f1", name: "Assembly", venue: "Assembly" }, { id: "f2", name: "Caliente", venue: "Caliente" }], saving: false, onClassification: vi.fn(), onFloat: vi.fn(), onOpenFull: vi.fn() };
+    const { rerender } = render(<ChatCashSlipCard {...slip} classificationId="k1" floatId="" onAdd={onAdd} />);
+    expect((screen.getByText("Add") as HTMLButtonElement).disabled).toBe(true);
+    rerender(<ChatCashSlipCard {...slip} classificationId="k1" floatId="f1" onAdd={onAdd} />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Add"));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(cashSlipProblem({ float_id: "f1", receipt_date: "2026-11-18", amount: 0, description: "x", classification_id: "k1" })).toMatch(/Amount/);
+  });
+
+  it("shares one path with the full screens and never posts from chat", () => {
+    const host = readFileSync("src/components/assistant/ChatExpenseScan.tsx", "utf8");
+    expect(host).toContain("saveBill(");
+    expect(host).not.toMatch(/postBill|setStatus\(|"approved"/);
+    expect(host).toContain("insertPendingCashSlip(");
+    expect(host).toContain("isAdmin && !isPreviewActive");
+    expect(readFileSync("src/pages/finance/BillsExpenses.tsx", "utf8")).toContain("billDraftFromScan(");
+    expect(readFileSync("src/components/finance/bills/BillDropZone.tsx", "utf8")).toContain("readBillFiles(");
+    expect(readFileSync("src/components/petty-cash/PettyCashImport.tsx", "utf8")).toContain("insertPendingCashSlip(");
+    expect(readFileSync("src/utils/cashSlip.ts", "utf8")).toContain('status: "pending"');
+    const server = readFileSync("supabase/functions/chat-assistant/floatingFiles.ts", "utf8");
+    expect(server).toContain('name: "open_expense_scanner"');
+    expect(server).not.toContain("expense slips cannot be filed from here yet");
+  });
+});
