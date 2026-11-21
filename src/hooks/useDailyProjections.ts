@@ -69,7 +69,7 @@ export function useDailyProjections(venueId: string | null, year: number, month:
     }
     const p = new Map<string, number>();
     for (const r of projRes.data ?? []) {
-      p.set(String((r as any).target_date).slice(0, 10), Number((r as any).projected_sales ?? 0));
+      { const k = String((r as any).target_date).slice(0, 10); p.set(k, (p.get(k) ?? 0) + Number((r as any).projected_sales ?? 0)); }
     }
     setProjections(p);
     const hist = aggregateActualsByDate(salesRows);
@@ -91,7 +91,8 @@ export function useDailyProjections(venueId: string | null, year: number, month:
           .delete()
           .eq("tenant_id", tenantId)
           .eq("venue_id", venueId)
-          .eq("target_date", date);
+          .eq("target_date", date)
+          .eq("line_key", "day:");
         if (delErr) return false;
         setProjections((prev) => {
           const next = new Map(prev);
@@ -107,10 +108,11 @@ export function useDailyProjections(venueId: string | null, year: number, month:
             tenant_id: tenantId,
             venue_id: venueId,
             target_date: date,
+            line_kind: "day",
             projected_sales: value,
             created_by: user?.id ?? null,
           },
-          { onConflict: "tenant_id,venue_id,target_date" },
+          { onConflict: "tenant_id,venue_id,target_date,line_key" },
         );
       if (upErr) return false;
       setProjections((prev) => new Map(prev).set(date, value));

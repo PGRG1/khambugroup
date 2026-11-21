@@ -1,3 +1,4 @@
+import {sumProjectionRows} from '@/utils/targetLines';
 import {useMemo,useState} from 'react';
 import {Navigate} from 'react-router-dom';
 import {usePagePeriod} from '@/hooks/usePagePeriod';
@@ -39,7 +40,7 @@ export default function PeopleOverview(){
   if(!data.tenantId)return {targets:[],roles:{}};
   const [targets,rows]=await Promise.all([fetchAllRows('revenue_daily_projections','venue_id,target_date,projected_sales',undefined,data.tenantId),fetchAllRows('hr_role_groups','*',undefined,data.tenantId)]);
   const roles:Record<string,string>=Object.fromEntries(rows.flatMap(r=>(r.titles??[]).map((title:string)=>[title.toLowerCase().replace(/[^a-z]+/g,' ').trim(),r.name])));
-  return {targets,roles};
+  return {targets:sumProjectionRows(targets as any[]),roles};
  }});
  const targets=lookups.data?.targets??[],roles=lookups.data?.roles??{};
  const monthOptions=[...new Set([...data.payroll.map(monthKey),...data.shifts.map(s=>String(s.shift_date).slice(0,7))])].sort().reverse();

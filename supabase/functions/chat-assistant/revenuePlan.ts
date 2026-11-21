@@ -49,3 +49,20 @@ export function buildRevenuePlan(year: number, month: number, amount: number, ve
   const weekday = [1, 2, 3, 4, 5, 6, 0].map(i => ({ day: DOW[i], per_day: dowDays[i] ? Math.round(byDow[i] / dowDays[i]) : 0 }));
   return { plan, trading_days: perDate.size, weekday, avg_spend: spend ? Math.round(spend) : null, guests: spend ? Math.round(amount / spend) : null, history_spend: g > 0 ? Math.round(r / g) : null };
 }
+
+type SavedRow = { venue_id: string; target_date: string; projected_sales: number; line_kind?: string | null };
+/** Saved rows hold one line each (a whole day, a period, delivery or an event): one total per venue-day. */
+export function sumLines(rows: SavedRow[]): SavedRow[] {
+  const m = new Map<string, SavedRow>();
+  for (const r of rows) {
+    const k = `${r.venue_id}|${r.target_date}`, p = m.get(k);
+    m.set(k, p ? { ...p, projected_sales: (Number(p.projected_sales) || 0) + (Number(r.projected_sales) || 0) } : { ...r, projected_sales: Number(r.projected_sales) || 0 });
+  }
+  return [...m.values()];
+}
+/** Venue-days planned line by line (not as one whole-day figure), with their total. */
+export function lineDays(rows: SavedRow[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of rows) if ((r.line_kind ?? 'day') !== 'day') { const k = `${r.venue_id}|${r.target_date}`; m.set(k, (m.get(k) ?? 0) + (Number(r.projected_sales) || 0)); }
+  return m;
+}

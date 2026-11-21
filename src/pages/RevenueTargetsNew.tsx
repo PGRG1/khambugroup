@@ -18,6 +18,8 @@ import {
   monthDates,
 } from "@/utils/dailyProjections";
 import { toast } from "@/hooks/use-toast";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
+import { dailyHistory, lineKey, venueDayLines, type HistRow, type SavedLine, type TargetLine } from "@/utils/targetLines";
 
 /** Targets: one monthly target figure, the projected month (actual + remaining days), pace and the daily projection table. */
 export default function RevenueTargetsNew() {
@@ -58,7 +60,7 @@ export default function RevenueTargetsNew() {
 
   // ---- Saved projections for every venue in view, with who set them ----
   const [projTick, setProjTick] = useState(0);
-  const [proj, setProj] = useState<Map<string, { v: number; g: number | null; s: number | null; bani: boolean; by: string; at: string }>>(new Map());
+  const [proj, setProj] = useState<SavedLine[]>([]);
   const scopeKey = scopeVenues.map((v) => v.id).sort().join(",");
   // Loading is "the rows in hand are not for what is in view", so no render ever shows a
   // new month or venue with the old (or no) projections. Saves reload without counting as loading.
@@ -67,10 +69,10 @@ export default function RevenueTargetsNew() {
   const projLoading = projHave !== projWant;
   useEffect(() => {
     const ids = scopeKey ? scopeKey.split(",") : [];
-    if (!tenantId || !ids.length) { setProj(new Map()); setProjHave(projWant); return; }
+    if (!tenantId || !ids.length) { setProj([]); setProjHave(projWant); return; }
     let live = true;
     (async () => {
-      const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, projected_sales, projected_guests, projected_spend, source, created_by, updated_at")
+      const { data } = await supabase.from("revenue_daily_projections").select("venue_id, target_date, line_kind, service_period_id, label, projected_sales, projected_guests, projected_spend, source, created_by, updated_at")
         .eq("tenant_id", tenantId).in("venue_id", ids).gte("target_date", dates[0]).lte("target_date", dates[dates.length - 1]);
       const who = [...new Set((data ?? []).map((r) => r.created_by).filter(Boolean))] as string[];
       const names = new Map<string, string>();
@@ -79,54 +81,43 @@ export default function RevenueTargetsNew() {
         for (const p of ps ?? []) if (p.display_name) names.set(p.user_id, p.display_name);
       }
       if (live) {
-        setProj(new Map((data ?? []).map((r) => [`${r.venue_id}|${r.target_date}`, { v: Number(r.projected_sales), g: r.projected_guests == null ? null : Number(r.projected_guests), s: r.projected_spend == null ? null : Number(r.projected_spend), bani: r.source === "bani", by: (r.created_by && names.get(r.created_by)) || "a manager", at: r.updated_at }])));
+        setProj((data ?? []).map((r) => ({ venueId: r.venue_id, date: r.target_date, kind: (r.line_kind ?? "day") as SavedLine["kind"], periodId: r.service_period_id ?? null, label: r.label ?? null,
+          sales: Number(r.projected_sales), guests: r.projected_guests == null ? null : Number(r.projected_guests), spend: r.projected_spend == null ? null : Number(r.projected_spend),
+          bani: r.source === "bani", by: (r.created_by && names.get(r.created_by)) || undefined, at: r.updated_at })));
         setProjHave(projWant);
       }
     })();
     return () => { live = false; };
   }, [tenantId, scopeKey, dates, projTick, projWant]);
-  const loading = projLoading || targetLoading || !vs.ready || !period.settled || plan.isLoading; // the saved month first, so only that month loads
+  const periodsQ = useVenueServicePeriods(useMemo(() => scopeVenues.map((v) => v.id), [scopeVenues]));
+  const loading = projLoading || targetLoading || !vs.ready || !period.settled || plan.isLoading || periodsQ.loading; // the saved month first, so only that month loads
 
 
-  // ---- Each venue's day: guests x spend forecast, saved target, sold ----
-  // Guests: average of the last 8 same weekdays with sales. Spend per guest: those days' sales / guests.
+  // ---- Each venue's day, line by line (its periods, delivery, events): saved where set, otherwise auto ----
   const { data: allSales, loading: salesLoading } = useSalesData();
   const ready = !loading && !salesLoading; // forecasts need the sales history: enter only when both are in
   const histByVenue = useMemo(() => {
-    const m = new Map<string, Map<string, { sales: number; guests: number }>>();
+    const rows = new Map<string, HistRow[]>();
     const names = new Set(scopeVenues.map((v) => v.name));
     for (const r of allSales) {
       if (!names.has(r.venue)) continue;
-      const vm = m.get(r.venue) ?? new Map(); m.set(r.venue, vm);
-      const d = vm.get(r.date) ?? { sales: 0, guests: 0 };
-      d.sales += r.totalSales || 0; d.guests += r.guests || 0; vm.set(r.date, d);
+      const a = rows.get(r.venue) ?? []; rows.set(r.venue, a);
+      a.push({ date: r.date, periodId: r.servicePeriodId ?? null, sales: r.totalSales || 0, guests: r.guests || 0, delivery: (r.deliveroo || 0) + (r.foodpanda || 0) + (r.keeta || 0) });
     }
-    return m;
+    return new Map([...rows].map(([v, a]) => [v, dailyHistory(a)]));
   }, [allSales, scopeVenues]);
 
-  type Line = { venueId: string; venue: string; date: string; guests: number | null; spend: number | null; target: number | null; sold: number | null; source: "Manager" | "Bani plan" | "Auto" | ""; by?: string; at?: string };
+  type Line = TargetLine & { venue: string; key: string };
   const days = useMemo(() => dates.map((date) => {
-    const dow = new Date(`${date}T00:00:00`).getDay();
-    const lines: Line[] = scopeVenues.map((v) => {
-      const h = histByVenue.get(v.name) ?? new Map();
-      const prior = [...h.keys()].filter((d) => d < date && (h.get(d)?.guests ?? 0) > 0 && new Date(`${d}T00:00:00`).getDay() === dow).sort().slice(-8);
-      let ag: number | null = null, as: number | null = null;
-      if (prior.length >= 4) {
-        const g = prior.reduce((a, d) => a + h.get(d)!.guests, 0), sl = prior.reduce((a, d) => a + h.get(d)!.sales, 0);
-        ag = Math.round(g / prior.length); as = Math.round(sl / g);
-      }
-      const saved = proj.get(`${v.id}|${date}`);
-      const target = saved ? saved.v : ag != null && as != null ? ag * as : null;
-      // A saved day keeps the guests and spend it was set with; older rows only have the total.
-      const guests = saved?.g ?? ag;
-      const spend = saved?.s ?? (saved && guests ? Math.round(saved.v / guests) : as);
-      const sold = h.get(date)?.sales ?? null;
-      return { venueId: v.id, venue: v.name, date, guests, spend, target, sold: sold || sold === 0 && h.has(date) ? sold : null, source: saved ? (saved.bani ? "Bani plan" : "Manager") : target != null ? "Auto" : "", by: saved?.by, at: saved?.at };
-    });
-    const sum = (k: "guests" | "target" | "sold") => { const xs = lines.map((l) => l[k]).filter((x): x is number => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; };
+    const lines: Line[] = scopeVenues.flatMap((v) => venueDayLines({ venueId: v.id, date, periods: periodsQ.rows, saved: proj, hist: histByVenue.get(v.name) ?? new Map() })
+      .map((l) => ({ ...l, venue: v.name, key: `${v.id}|${date}|${lineKey(l.kind, l.periodId, l.label)}` })));
+    // A day's actual is everything sold that day, even when sales are not split by line.
+    const soldV = scopeVenues.map((v) => histByVenue.get(v.name)?.get(date)?.sales).filter((x): x is number => x != null);
+    const sum = (k: "guests" | "target") => { const xs = lines.map((l) => l[k]).filter((x): x is number => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; };
     const guests = sum("guests"), target = sum("target");
-    return { date, lines, guests, target, sold: sum("sold"), spend: guests && target ? Math.round(target / guests) : null };
-  }), [dates, scopeVenues, histByVenue, proj]);
+    const dineIn = lines.filter((l) => l.guests != null).reduce((a, l) => a + (l.target ?? 0), 0);
+    return { date, lines, guests, target, sold: soldV.length ? soldV.reduce((a, b) => a + b, 0) : null, spend: guests ? Math.round(dineIn / guests) : null };
+  }), [dates, scopeVenues, histByVenue, proj, periodsQ.rows]);
 
   // Projected month = actual where a day has sales, the projection where it does not yet.
   const tSold = days.reduce((a, d) => a + (d.sold ?? 0), 0);
@@ -158,15 +149,28 @@ export default function RevenueTargetsNew() {
     return Array.from({ length: Math.ceil(peak / step) + 1 }, (_, i) => i * step);
   })();
 
-  // Save one venue's day; null puts it back to auto.
-  const saveLine = async (venueId: string, date: string, value: number | null, guests: number | null = null, spend: number | null = null) => {
-    const key = `${venueId}|${date}`;
-    const res = value === null
-      ? await supabase.from("revenue_daily_projections").delete().eq("tenant_id", tenantId!).eq("venue_id", venueId).eq("target_date", date)
-      : await supabase.from("revenue_daily_projections").upsert({ tenant_id: tenantId!, venue_id: venueId, target_date: date, projected_sales: value, projected_guests: guests, projected_spend: spend, source: "manager", created_by: user?.id ?? null }, { onConflict: "tenant_id,venue_id,target_date" });
-    setRowError((p) => { const n = { ...p }; if (!res.error) delete n[key]; else n[key] = "Not saved"; return n; });
+  // Save one line of a venue's day. The venue's other lines on that day are saved with it at what they show
+  // (an auto figure is kept as Bani's), so every screen that adds up saved lines sees the whole day.
+  // null puts the venue's day back to auto. Tenant, venue and period are checked again by the database.
+  const saveLine = async (l: Line, value: number | null, guests: number | null = null, spend: number | null = null) => {
+    const base = supabase.from("revenue_daily_projections");
+    const row = (x: Line, v: number, g: number | null, sp: number | null, mine: boolean) => ({ tenant_id: tenantId!, venue_id: x.venueId, target_date: x.date, line_kind: x.kind, service_period_id: x.periodId, label: x.label,
+      projected_sales: v, projected_guests: x.kind === "delivery" ? null : g, projected_spend: x.kind === "delivery" ? null : sp, source: mine ? "manager" : "bani", created_by: user?.id ?? null });
+    let error: unknown = null;
+    if (value === null) {
+      ({ error } = await base.delete().eq("tenant_id", tenantId!).eq("venue_id", l.venueId).eq("target_date", l.date).neq("line_kind", "event"));
+    } else {
+      const sameDay = days.find((d) => d.date === l.date)?.lines.filter((x) => x.venueId === l.venueId && x.kind !== "event") ?? [];
+      const rows = sameDay.filter((x) => x.key === l.key || (x.source === "Auto" && x.target != null))
+        .map((x) => x.key === l.key ? row(x, value, guests, spend, true) : row(x, x.target!, x.guests, x.spend, false));
+      if (l.kind === "event" && !rows.length) rows.push(row(l, value, guests, spend, true));
+      ({ error } = await base.upsert(rows, { onConflict: "tenant_id,venue_id,target_date,line_key" }));
+      // Planned by period now: an older whole-day figure for that day would count twice.
+      if (!error && l.kind === "period") ({ error } = await base.delete().eq("tenant_id", tenantId!).eq("venue_id", l.venueId).eq("target_date", l.date).eq("line_kind", "day"));
+    }
+    setRowError((p) => { const n = { ...p }; if (!error) delete n[l.key]; else n[l.key] = "Not saved"; return n; });
     setProjTick((t) => t + 1);
-    return !res.error;
+    return !error;
   };
 
   const [edit, setEdit] = useState<{ key: string; field: "guests" | "spend" | "target"; value: string } | null>(null);
@@ -175,7 +179,7 @@ export default function RevenueTargetsNew() {
   const cancelRef = useRef(false);
   // What a line's target will be while it is being typed, so the day total follows along.
   const previewOf = (l: Line): number | null => {
-    if (!edit || edit.key !== `${l.venueId}|${l.date}`) return null;
+    if (!edit || edit.key !== l.key) return null;
     const v = num(edit.value); if (v == null) return null;
     return edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
   };
@@ -183,8 +187,8 @@ export default function RevenueTargetsNew() {
   const confirmEdit = async () => {
     if (cancelRef.current) { cancelRef.current = false; return; }
     if (!edit) return;
-    const [venueId, date] = edit.key.split("|");
-    const l = days.find((d) => d.date === date)?.lines.find((x) => x.venueId === venueId); const v = num(edit.value);
+    const date = edit.key.split("|")[1];
+    const l = days.find((d) => d.date === date)?.lines.find((x) => x.key === edit.key); const v = num(edit.value);
     setEdit(null);
     if (!l || v == null) return;
     const total = edit.field === "target" ? v : edit.field === "guests" ? (l.spend ? v * l.spend : null) : (l.guests ? v * l.guests : null);
@@ -192,8 +196,8 @@ export default function RevenueTargetsNew() {
     // Keep what was typed: guests and spend stay a pair that makes the total.
     const g = edit.field === "guests" ? Math.round(v) : l.guests;
     const sp = edit.field === "spend" ? v : edit.field === "guests" ? l.spend : g ? Math.round(v / g) : null;
-    if (await saveLine(venueId, date, Math.round(total), g, sp))
-      toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} projected ${Math.round(total).toLocaleString("en-US")}` });
+    if (await saveLine(l, Math.round(total), g, sp))
+      toast({ title: `${scopeVenues.length > 1 ? `${l.venue} · ` : ""}${l.name} · ${new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} projected ${Math.round(total).toLocaleString("en-US")}` });
   };
   const cell = "h-11 px-2 text-right whitespace-nowrap border-b border-[var(--kit-line)]";
 
@@ -295,10 +299,11 @@ export default function RevenueTargetsNew() {
 
               // One venue's line; editable on today and future days.
               const lineRow = (l: Line, sub: boolean) => {
-                const key = `${l.venueId}|${l.date}`;
-                const can = l.date >= todayIso && l.sold == null; // remaining days only: today onward, no sales yet
+                const key = l.key;
+                const can = l.date >= todayIso && day.sold == null; // remaining days only: today onward, no sales yet
                 const open = openRow === key, editingThis = edit?.key === key;
                 const numCell = (field: "guests" | "spend" | "target", value: number | null, bold = false) => {
+                  if (l.kind === "delivery" && field !== "target") return null; // delivery is money only
                   if (edit && edit.key === key && edit.field === field) return (
                     <input autoFocus inputMode="numeric" enterKeyHint="done" aria-label={`${field} ${l.venue} ${l.date}`} value={edit.value}
                       onClick={(ev) => ev.stopPropagation()} onFocus={(ev) => ev.target.select()}
@@ -319,7 +324,7 @@ export default function RevenueTargetsNew() {
                 };
                 return [
                   <tr key={key} className="bg-white cursor-pointer" onClick={() => setOpenRow(open ? null : key)}>
-                    <td className={`sticky left-0 z-[1] h-11 whitespace-nowrap border-b border-[var(--kit-line)] text-left ${sub ? "pl-6 pr-3 text-[12px] text-muted-foreground" : `px-3 max-sm:px-2 ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`}`} style={{ background: "#fff" }}>{sub ? l.venue : label}</td>
+                    <td className={`sticky left-0 z-[1] h-11 whitespace-nowrap border-b border-[var(--kit-line)] text-left ${sub ? "pl-6 pr-3 text-[12px] text-muted-foreground" : `px-3 max-sm:px-2 ${isToday ? "font-semibold" : ""} ${past ? "text-muted-foreground" : ""}`}`} style={{ background: "#fff" }}>{sub ? <>{scopeVenues.length > 1 ? `${l.venue} · ` : ""}{l.name}{l.label && l.kind !== "event" ? ` · ${l.label}` : ""}</> : label}</td>
                     <td className={cell}>{numCell("guests", l.guests)}</td>
                     <td className={cell}>{numCell("spend", l.spend)}</td>
                     <td className={cell}>{numCell("target", l.target, true)}{rowError[key] && <p className="text-[10px] text-destructive">{rowError[key]}</p>}</td>
@@ -332,8 +337,9 @@ export default function RevenueTargetsNew() {
                         <div className="sticky left-0 px-3 py-2 text-[12px] text-muted-foreground" style={{ width: "min(100%, calc(100vw - 64px))" }}>
                           {l.source === "Manager" || l.source === "Bani plan"
                             ? <span>{l.source === "Bani plan" ? "Bani plan, approved by" : "Set by"} <b className="font-medium text-foreground">{l.by ?? "a manager"}</b>{l.at ? ` · ${new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
-                                {can && <> · <button type="button" className="underline" onClick={(ev) => { ev.stopPropagation(); saveLine(l.venueId, l.date, null); setOpenRow(null); }}>Back to auto</button></>}</span>
-                            : l.source === "Auto" ? <span>Bani: {l.guests ?? "—"} guests × {baseSymbol()}{l.spend ?? "—"}, from recent {d.toLocaleDateString("en-GB", { weekday: "long" })}s</span> : null}
+                                {can && l.kind !== "event" && <> · <button type="button" className="underline" onClick={(ev) => { ev.stopPropagation(); saveLine(l, null); setOpenRow(null); }}>Day back to auto</button></>}</span>
+                            : l.source === "Auto" ? <span>Bani: {l.kind === "delivery" ? "average delivery" : <>{l.guests ?? "—"} guests × {baseSymbol()}{l.spend ?? "—"}</>}, from recent {d.toLocaleDateString("en-GB", { weekday: "long" })}s</span>
+                            : <span>No {l.name} sales recorded yet. Set guests and spend.</span>}
                         </div>
                       </td>
                     </tr>

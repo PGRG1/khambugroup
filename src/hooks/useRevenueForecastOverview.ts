@@ -74,9 +74,8 @@ export function useRevenueForecastOverview(args: {
       for (const r of data ?? []) {
         const vid = String((r as any).venue_id);
         if (!out.has(vid)) out.set(vid, new Map());
-        out
-          .get(vid)!
-          .set(String((r as any).target_date).slice(0, 10), Number((r as any).projected_sales ?? 0));
+        const m = out.get(vid)!, k = String((r as any).target_date).slice(0, 10);
+        m.set(k, (m.get(k) ?? 0) + Number((r as any).projected_sales ?? 0)); // one row per line: add them up
       }
       setProjectionsByVenue(out);
       setLoading(false);

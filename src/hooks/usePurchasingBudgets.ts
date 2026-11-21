@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { sumProjectionRows } from "@/utils/targetLines";
 import { purchasingSalesForecast, type BudgetRow, type BudgetChangeRow, type BudgetForecastSale, type BudgetForecastOverride } from "@/utils/purchasingOverview";
 
 export interface PurchasingBudgets {
@@ -83,7 +84,7 @@ export function usePurchasingSalesForecast(month: string, venueIds: string[], en
         projections.push(...data);
         if (data.length < 1000) break;
       }
-      return purchasingSalesForecast(month, ids, sales, projections);
+      return purchasingSalesForecast(month, ids, sales, sumProjectionRows(projections));
     },
   });
 }

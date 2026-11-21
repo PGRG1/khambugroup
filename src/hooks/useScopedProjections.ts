@@ -59,7 +59,7 @@ export function useScopedProjections(venueIds: string[], year: number, month: nu
       const actuals = new Map<string, number>();
       for (const [d, v] of history) if (d >= monthStart && d <= monthEnd) actuals.set(d, v);
       const projections = new Map<string, number>();
-      for (const p of proj ?? []) if ((p as any).venue_id === id) projections.set(String((p as any).target_date).slice(0, 10), Number((p as any).projected_sales ?? 0));
+      for (const p of proj ?? []) if ((p as any).venue_id === id) { const k = String((p as any).target_date).slice(0, 10); projections.set(k, (projections.get(k) ?? 0) + Number((p as any).projected_sales ?? 0)); }
       return buildProjectionRows(year, month, projections, actuals, history);
     });
     setRows(combineProjectionRows(perVenue));
