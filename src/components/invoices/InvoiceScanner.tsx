@@ -83,6 +83,7 @@ import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/
 import { canApplyProposal, validateProposal, correctDraftLine, revisionFingerprint, type DraftProposal } from "@/utils/floatingDraft";
 import { consumeScannerHandoff, decideHandoff, type ScannerHandoff } from "@/utils/scannerHandoff";
 import { ChatScanCard, type ChatScanPhase } from "@/components/invoices/ChatScanCard";
+import { RECEIVING_REASONS } from "@/utils/receivingReasons";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -293,22 +294,7 @@ const emptyLine: ScannedLineItem = {
   is_free_unit_line: false, deal_id: null, product_master_id: null,
 };
 
-const RECEIVING_REASONS: { value: string; label: string }[] = [
-  { value: "short_delivery", label: "Short delivery" },
-  { value: "partial_delivery", label: "Partial delivery" },
-  { value: "not_received", label: "Not received" },
-  { value: "damaged", label: "Damaged" },
-  { value: "broken", label: "Broken" },
-  { value: "poor_quality", label: "Poor quality" },
-  { value: "rejected", label: "Rejected" },
-  { value: "extra_quantity_received", label: "Extra quantity received" },
-  { value: "free_promotional_quantity", label: "Free promotional quantity" },
-  { value: "supplier_over_delivery", label: "Supplier over-delivery" },
-  { value: "substitution_accepted", label: "Substitution accepted" },
-  { value: "wrong_item_received", label: "Wrong item received" },
-  { value: "new_item_received", label: "New item received" },
-  { value: "other", label: "Other" },
-];
+
 
 const NEGATIVE_AMBER_REASONS = new Set(["short_delivery", "partial_delivery", "not_received"]);
 const NEGATIVE_RED_REASONS = new Set(["damaged", "broken", "poor_quality", "rejected", "wrong_item_received"]);
@@ -2181,16 +2167,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const i = current!.line_items.indexOf(l);
         const billed = parseFloat(l.quantity) || 0;
         const accepted = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
-        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l) };
+        const price = parseFloat(l.unit_price) || 0;
+        const was = l.price_changed && !l.is_free_unit_line && l.pm_unit_price != null ? Number(l.pm_unit_price) : null;
+        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
       })}
       termsDays={termsMatch ? Number(termsMatch[1]) : null}
       printedDue={current?.due_date || null}
       saving={saving}
       onField={(field, value) => updateField(field, value)}
       onQty={setQty}
+      onReason={(i, reason, note) => {
+        // Same whitelist as Scan Invoice; "other" keeps its note.
+        if (!RECEIVING_REASONS.some(r => r.value === reason)) return;
+        updateLineReceiving(i, "receiving_reason", reason);
+        if (note !== undefined) updateLineReceiving(i, "receiving_note", note);
+      }}
       onBook={answers => {
         if (!current) return;
-        const status = disputeStats.hasDispute ? "disputed" : answers.paid ? "paid" : "outstanding";
+        // Hold = not approved: a draft, never in payables. Otherwise any count difference disputes and holds money back.
+        const status = answers.hold ? "under_review" : disputeStats.hasDispute ? "disputed" : answers.paid ? "paid" : "outstanding";
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
       onOpenFull={() => onOpenFull?.()}
