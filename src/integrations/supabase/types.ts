@@ -17340,6 +17340,7 @@ export type Database = {
         Returns: undefined
       }
       stock_count_can_approve: { Args: { p_tenant: string }; Returns: boolean }
+      storage_folder_writable: { Args: { _name: string }; Returns: boolean }
       storage_object_readable: {
         Args: { _bucket: string; _name: string; _owner: string }
         Returns: boolean
