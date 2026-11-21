@@ -1282,6 +1282,13 @@
       "when": 1795260777092,
       "tag": "0182_bani_supplier_payment_oldest_first",
       "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1795263660154,
+      "tag": "0183_restrict_definer_row_functions",
+      "breakpoints": true
     }
   ]
 }
