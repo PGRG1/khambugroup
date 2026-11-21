@@ -6,7 +6,7 @@
 //   3. If several near-matches → ask Lovable AI to pick the best one with reasoning.
 //   4. Return suggestions; the client decides which to apply.
 
-import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const corsHeaders = {
