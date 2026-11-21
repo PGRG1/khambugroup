@@ -1,22 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { BankAccount } from "@/hooks/useBankModule";
 import { StatementUploadFlow, type ExtractedStatement } from "@/components/bank/recon/StatementUploadFlow";
 import { BaniProcessingMark } from "@/components/brand/BaniProcessingMark";
 import { consumeBaniStatements } from "@/utils/baniStatementHandoff";
-import { loadReconMappingRules } from "@/utils/reconciliationMappingRules";
 import { getBaseCurrency } from "@/utils/money";
-import { formatMonthLabel, formatTableInteger } from "@/utils/format";
-import { shortDay } from "@/utils/salesRecordChecks";
-import { fileBase64, fileHash, mapPockets, overlappingStatement, pocketAddsUp, pocketPeriod, savePocket, savedPocketMappings, storeStatementFile, type StatementData } from "@/utils/bankStatementImport";
+import { formatTableInteger } from "@/utils/format";
+import { loadStatementFile, startBaniMatching } from "@/utils/bankStatementImport";
 
 type Item = { id: string; file: File; state: "reading" | "saved" | "skipped" | "needs" | "failed"; title: string; detail?: string; statement?: ExtractedStatement };
 
-const periodText = (start: string, end: string) => {
-  const last = new Date(Date.UTC(Number(end.slice(0, 4)), Number(end.slice(5, 7)), 0)).toISOString().slice(0, 10);
-  return start.slice(0, 7) === end.slice(0, 7) && start.endsWith("-01") && end === last ? formatMonthLabel(end.slice(0, 7)) : `${shortDay(start)} – ${shortDay(end)}`;
-};
 
 /**
  * Cash › Upload: bank statements only. Pick or drop the files and Bani loads them; matching happens later
@@ -37,38 +30,19 @@ export function BankStatementUpload({ tenantId, accounts, onChanged, disabled, p
     const id = crypto.randomUUID();
     setItems(list => [...list, { id, file, state: "reading", title: file.name }]);
     try {
-      if (file.size > 15 * 1024 * 1024) throw new Error("This file is over 15 MB.");
-      const [hash, b64] = await Promise.all([fileHash(file), fileBase64(file)]);
-      const { data, error } = await supabase.functions.invoke("parse-bank-statement", { body: { file_base64: b64, file_name: file.name, mime_type: file.type || "application/pdf" } });
-      if (error || !data?.ok || !data.data?.accounts?.length) { set(id, { state: "failed", detail: "Couldn't read this as a bank statement. Card payout reports go in Card payouts, bills in Expenses." }); return; }
-      const statement = data.data as StatementData;
-      const saved = await savedPocketMappings(tenantId, statement);
-      const owners = mapPockets(statement, accounts, getBaseCurrency(), saved);
+      // One path for Cash › Upload and Bani chat (src/utils/bankStatementImport.ts).
+      const r = await loadStatementFile(tenantId, file, accounts, getBaseCurrency());
+      if (r.state === "failed") { set(id, { state: "failed", detail: r.detail }); return; }
       // Stop and ask only when Bani isn't sure about every account on the statement.
-      const unknown = statement.accounts.find((_, i) => !owners[i]);
-      if (unknown) { set(id, { state: "needs", statement: statement as ExtractedStatement, title: `${statement.bank_name} ····${unknown.account_number_last4 ?? ""}`, detail: "Which of your accounts is this?" }); return; }
-      const off = statement.accounts.find(p => !pocketAddsUp(p) || !/^[A-Z]{3}$/.test(p.currency || ""));
-      if (off) { set(id, { state: "needs", statement: statement as ExtractedStatement, title: `${statement.bank_name} ····${off.account_number_last4 ?? ""}`, detail: "The lines don't add up to the closing balance, so I may have misread it." }); return; }
-      const path = await storeStatementFile(tenantId, file, hash);
-      const rules = await loadReconMappingRules();
-      const done: string[] = [], skipped: string[] = [];
-      let lines = 0;
-      for (let i = 0; i < statement.accounts.length; i++) {
-        const pocket = statement.accounts[i], account = accounts.find(a => a.id === owners[i])!;
-        const { start, end } = pocketPeriod(pocket, statement.statement_date);
-        const label = `${account.account_name} · ${periodText(start, end)}`;
-        if (await overlappingStatement(tenantId, account.id, start, end)) { skipped.push(label); continue; }
-        lines += (await savePocket({ tenantId, bankAccountId: account.id, statement, pocket, storedPath: path, fileName: file.name, reconRules: rules })).lines;
-        done.push(label);
-      }
-      if (done.length) { set(id, { state: "saved", title: done.join(" · "), detail: `${formatTableInteger(lines)} ${lines === 1 ? "line" : "lines"} added · Bani is matching them now${skipped.length ? ` · already had ${skipped.join(", ")}` : ""}` }); onChanged(); startBani(); }
-      else set(id, { state: "skipped", title: skipped.join(" · "), detail: "Already uploaded · nothing new" });
+      if (r.state === "needs") { set(id, { state: "needs", statement: r.statement as ExtractedStatement, title: r.title, detail: r.why === "account" ? "Which of your accounts is this?" : "The lines don't add up to the closing balance, so I may have misread it." }); return; }
+      if (r.state === "saved") { set(id, { state: "saved", title: r.title, detail: `${formatTableInteger(r.lines)} ${r.lines === 1 ? "line" : "lines"} added · Bani is matching them now${r.skipped.length ? ` · already had ${r.skipped.join(", ")}` : ""}` }); onChanged(); startBani(); }
+      else set(id, { state: "skipped", title: r.title, detail: "Already uploaded · nothing new" });
     } catch (e) {
       set(id, { state: "failed", detail: (e as { message?: string }).message || "Couldn't save this statement." });
     }
   }
   // Start Bani on the new lines straight away; the background schedule keeps him going after this first batch.
-  const startBani = () => { if (tenantId) void supabase.functions.invoke("bani-accounting", { body: { tenant_id: tenantId, mode: "run" } }).catch(() => undefined); };
+  const startBani = () => { if (tenantId) startBaniMatching(tenantId); };
   const loadAll = (files: File[]) => { if (disabled || !tenantId) return; for (const f of files) void load(f); };
 
   // Files dropped anywhere on the page, and statements handed over from Bani chat, load the same way.

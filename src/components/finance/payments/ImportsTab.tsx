@@ -5,6 +5,7 @@ import { Upload, Download, Trash2, FileText, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ParseSettlementModal } from "./ParseSettlementModal";
+import { uploadPayoutFile } from "@/utils/payoutImport";
 const formatDate = (s: string) => {
   if (!s) return "—";
   const d = new Date(s);
@@ -42,36 +43,8 @@ export function ImportsTab({
     }
     setBusy(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const path = `${processor.type}/${stamp}_${file.name}`;
-      const up = await supabase.storage.from("payment-statements").upload(path, file, { upsert: false });
-      if (up.error) throw up.error;
-
-      // Try to infer period from filename "MM-YYYY"
-      const m = file.name.match(/(\d{2})[-_](\d{4})/);
-      let periodStart = new Date().toISOString().slice(0, 10);
-      let periodEnd = periodStart;
-      if (m) {
-        const mm = parseInt(m[1], 10), yy = parseInt(m[2], 10);
-        const start = new Date(yy, mm - 1, 1);
-        const end = new Date(yy, mm, 0);
-        periodStart = start.toISOString().slice(0, 10);
-        periodEnd = end.toISOString().slice(0, 10);
-      }
-
-      const { error } = await supabase.from("payment_settlement_imports" as any).insert({
-        tenant_id: tenantId,
-        processor_id: processor.id,
-        period_start: periodStart,
-        period_end: periodEnd,
-        currency: "HKD",
-        file_url: path,
-        file_name: file.name,
-        uploaded_by: user?.id ?? null,
-        status: "uploaded",
-      });
-      if (error) throw error;
+      // Same upload as Bani chat (src/utils/payoutImport.ts).
+      await uploadPayoutFile(tenantId, processor, file);
       toast.success("Statement uploaded");
       onChanged();
     } catch (e: any) {

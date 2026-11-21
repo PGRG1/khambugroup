@@ -27,6 +27,7 @@ import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, star
 import { ChatInvoiceScan } from "@/components/assistant/ChatInvoiceScan";
 import { ChatSalesScan } from "@/components/assistant/ChatSalesScan";
 import { ChatExpenseScan } from "@/components/assistant/ChatExpenseScan";
+import { ChatCashUpload } from "@/components/assistant/ChatCashUpload";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -389,6 +390,20 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     });
   };
 
+  // Bank statements and card payout reports load in the background with Cash's own loaders (nothing posts).
+  const runCashAction = (action: { kind: "statement" | "payout"; files: string[] }, turnFiles: BaniAttachment[]) => {
+    const say = (content: string) => setMessages(prev => [...prev, { role: "assistant" as const, content }]);
+    const pool = turnFiles.length ? turnFiles : lastFilesRef.current;
+    const picked = (action.files.length ? action.files.map(n => pool.find(f => f.name === n)).filter((f): f is BaniAttachment => Boolean(f)) : pool).map(f => f.file);
+    if (!picked.length) { say("I couldn't find the file — please attach it again."); return; }
+    if (action.kind === "payout" && picked.length !== 1) { say(`I load one payout report at a time. Which one first: ${picked.map(f => f.name).join(", ")}?`); return; }
+    const cashUpload = { id: crypto.randomUUID(), files: picked, scope: identity, kind: action.kind };
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: "", cashUpload }] : [...prev, { role: "assistant" as const, content: "", cashUpload }];
+    });
+  };
+
   // Confirm/cancel an action card Bani proposed. The server re-validates and executes.
   const confirmCard = async (index: number, card: BaniActionCard, decision: "confirm" | "cancel" | "below_usual" | "undo", confirmation?: string) => {
     if (!session || !tenantId || isPreviewActive) return;
@@ -497,6 +512,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       let action: { mode: "open" | "scan"; venue: string | null; files: string[]; status?: "disputed"; reason?: string } | null = null;
       let salesAction: { files: string[] } | null = null;
       let expenseAction: { kind: "bill" | "cash"; files: string[] } | null = null;
+      let cashAction: { kind: "statement" | "payout"; files: string[] } | null = null;
       let actionCard: BaniActionCard | null = null;
       const actionCards: BaniActionCard[] = [];
       let navigation: unknown = null;
@@ -521,6 +537,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if(event.action?.type === "navigate") navigation = event.action.navigation;
           if (event.action?.type === "action_card" && typeof event.action.action_id === "string") { actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null, challenge: typeof event.action.challenge === "string" ? event.action.challenge : undefined, amount: typeof event.action.amount === "number" ? event.action.amount : undefined, currency: typeof event.action.currency === "string" ? event.action.currency : undefined }; actionCards.push(actionCard); }
           if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
+          if (event.action?.type === "open_cash_upload" && (event.action.kind === "statement" || event.action.kind === "payout")) cashAction = { kind: event.action.kind, files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_expense_scanner" && (event.action.kind === "bill" || event.action.kind === "cash")) expenseAction = { kind: event.action.kind, files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_sales_scanner") salesAction = { files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
           if (event.action?.type === "open_invoice_scanner") action = { mode: event.action.mode === "scan" ? "scan" : "open", venue: typeof event.action.venue === "string" ? event.action.venue : null, files: Array.isArray(event.action.files) ? event.action.files : [], ...(event.action.status === "disputed" ? { status: "disputed" as const, reason: typeof event.action.reason === "string" ? event.action.reason : "" } : {}) };
@@ -536,6 +553,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
         if (action) runScannerAction(action, attached);
         else if (salesAction) runSalesAction(salesAction, attached);
         else if (expenseAction) runExpenseAction(expenseAction, attached);
+        else if (cashAction) runCashAction(cashAction, attached);
       }
     } catch (e) {
       if (turn?.opts.voice) { if (!controller.signal.aborted && !turn.hidden) setMessages(prev => prev.slice(0, -1)); throw e; }
@@ -644,6 +662,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               : message.salesScan.file instanceof File && message.salesScan.scope === identity
                 ? <ChatSalesScan handoff={message.salesScan} onRecorded={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.salesScan!; requestSalesHandoff({ ...h, id: crypto.randomUUID() }); navigate("/sales-data?view=daily"); }} />
                 : <p className="text-xs text-muted-foreground">Attach the receipt again to record it.</p>)}
+            {message.cashUpload && (message.cashUpload.files.every(f => f instanceof File) && message.cashUpload.scope === identity
+              ? <ChatCashUpload handoff={message.cashUpload} />
+              : <p className="text-xs text-muted-foreground">Attach the file again to load it.</p>)}
             {message.expenseScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
               : message.expenseScan.file instanceof File && message.expenseScan.scope === identity

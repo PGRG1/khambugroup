@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { classifyTxn } from "@/utils/bankTxnRules";
-import { matchReconRule } from "@/utils/reconciliationMappingRules";
+import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
+import { formatMonthLabel } from "@/utils/format";
+import { shortDay } from "@/utils/salesRecordChecks";
 import { matchPocket, type PocketAccount } from "@/utils/statementPockets";
 
 /**
@@ -108,4 +110,55 @@ export async function fileBase64(file: File) {
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(binary);
+}
+
+export const periodText = (start: string, end: string) => {
+  const last = new Date(Date.UTC(Number(end.slice(0, 4)), Number(end.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  return start.slice(0, 7) === end.slice(0, 7) && start.endsWith("-01") && end === last ? formatMonthLabel(end.slice(0, 7)) : `${shortDay(start)} – ${shortDay(end)}`;
+};
+
+export type StatementLoad =
+  | { state: "saved"; title: string; lines: number; skipped: string[] }
+  | { state: "skipped"; title: string }
+  | { state: "needs"; why: "account" | "balance"; title: string; statement: StatementData; pocket: number }
+  | { state: "failed"; detail: string };
+
+/**
+ * Read and load one statement file: the one path for Cash › Upload and Bani chat. Saves only when every
+ * pocket maps to exactly one known account (or one the person just picked, passed in `picked`) and adds up;
+ * a period already saved is skipped. Never touches the books; the caller starts Bani's matching.
+ */
+export async function loadStatementFile(tenantId: string, file: File, accounts: (PocketAccount & { id: string; account_name: string })[], base: string, picked: Record<number, string> = {}, read?: StatementData): Promise<StatementLoad> {
+  if (file.size > 15 * 1024 * 1024) return { state: "failed", detail: "This file is over 15 MB." };
+  const [hash, b64] = await Promise.all([fileHash(file), read ? Promise.resolve("") : fileBase64(file)]);
+  let statement = read;
+  if (!statement) {
+    const { data, error } = await supabase.functions.invoke("parse-bank-statement", { body: { file_base64: b64, file_name: file.name, mime_type: file.type || "application/pdf" } });
+    if (error || !data?.ok || !data.data?.accounts?.length) return { state: "failed", detail: "Couldn't read this as a bank statement. Card payout reports go in Card payouts, bills in Expenses." };
+    statement = data.data as StatementData;
+  }
+  const saved = await savedPocketMappings(tenantId, statement);
+  const owners = mapPockets(statement, accounts, base, saved).map((o, i) => o ?? (accounts.some(a => a.id === picked[i]) ? picked[i] : null));
+  const unknown = statement.accounts.findIndex((_, i) => !owners[i]);
+  if (unknown >= 0) return { state: "needs", why: "account", statement, pocket: unknown, title: `${statement.bank_name} ····${statement.accounts[unknown].account_number_last4 ?? ""}` };
+  const off = statement.accounts.findIndex(p => !pocketAddsUp(p) || !/^[A-Z]{3}$/.test(p.currency || ""));
+  if (off >= 0) return { state: "needs", why: "balance", statement, pocket: off, title: `${statement.bank_name} ····${statement.accounts[off].account_number_last4 ?? ""}` };
+  const path = await storeStatementFile(tenantId, file, hash);
+  const rules = await loadReconMappingRules();
+  const done: string[] = [], skipped: string[] = [];
+  let lines = 0;
+  for (let i = 0; i < statement.accounts.length; i++) {
+    const pocket = statement.accounts[i], account = accounts.find(a => a.id === owners[i])!;
+    const { start, end } = pocketPeriod(pocket, statement.statement_date);
+    const label = `${account.account_name} · ${periodText(start, end)}`;
+    if (await overlappingStatement(tenantId, account.id, start, end)) { skipped.push(label); continue; }
+    lines += (await savePocket({ tenantId, bankAccountId: account.id, statement, pocket, storedPath: path, fileName: file.name, reconRules: rules })).lines;
+    done.push(label);
+  }
+  return done.length ? { state: "saved", title: done.join(" · "), lines, skipped } : { state: "skipped", title: skipped.join(" · ") };
+}
+
+/** Start Bani's matching on new lines straight away; the background schedule keeps him going after this. */
+export function startBaniMatching(tenantId: string) {
+  void supabase.functions.invoke("bani-accounting", { body: { tenant_id: tenantId, mode: "run" } }).catch(() => undefined);
 }
