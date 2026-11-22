@@ -1303,6 +1303,13 @@
       "when": 1795326282347,
       "tag": "0185_users_managed_by_bani",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1795327951013,
+      "tag": "0186_secdef_tenant_checks",
+      "breakpoints": true
     }
   ]
 }
