@@ -13,9 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import {
-  ONBOARDING_PHASES, StepState, computeOverallProgress, currentPhase, displayClientStatus,
-} from "@/lib/onboardingSteps";
+import { clientStatus, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
 
 type ClientRow = { id: string; name: string; slug: string; status: string; created_at: string };
 
@@ -44,20 +42,16 @@ type Counts = { venues: number; users: number };
 
 type Setup = { done: number; total: number; pct: number; phaseLabel: string };
 
-/** Real onboarding progress from the Onboarding cockpit (skipped steps count as done, same as the cockpit). */
-function setupFor(steps: Record<string, StepState> | null | undefined): Setup {
-  const o = computeOverallProgress(steps);
-  const done = o.done + o.skipped;
-  if (done >= o.total) return { done, total: o.total, pct: 100, phaseLabel: "Complete" };
-  const phaseNum = currentPhase(steps);
-  const phase = ONBOARDING_PHASES.find((p) => p.phase === phaseNum);
-  return { done, total: o.total, pct: o.pct, phaseLabel: `Phase ${phaseNum} · ${phase?.title ?? ""}` };
+/** Setup read from the client's own data (company, venues, accounts, banks, suppliers, team, first sales and invoice). */
+function setupFor(state: SetupState | undefined): Setup {
+  const o = setupSummary(state);
+  return { done: o.done, total: o.total, pct: o.pct, phaseLabel: o.label };
 }
 
 function SetupBar({ setup }: { setup: Setup }) {
   return (
     <div className="flex flex-col gap-2 min-w-0">
-      <div className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
+      <div className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} setup steps done`}>
         {Array.from({ length: setup.total }, (_, i) => (
           <span
             key={i}
@@ -75,7 +69,7 @@ function SetupBar({ setup }: { setup: Setup }) {
 
 function SetupBlocks({ setup }: { setup: Setup }) {
   return (
-    <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} onboarding steps done`}>
+    <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} setup steps done`}>
       {Array.from({ length: setup.total }, (_, i) => (
         <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary cl-seg" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`} style={{ ["--s" as any]: i }} />
       ))}
@@ -111,7 +105,7 @@ export default function Clients() {
   const { enterClient } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
-  const [onboarding, setOnboarding] = useState<Record<string, Record<string, StepState>>>({});
+  const [onboarding, setOnboarding] = useState<Record<string, SetupState>>({});
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -125,10 +119,10 @@ export default function Clients() {
     const tenants = (data ?? []) as ClientRow[];
     if (tenants.length) {
       const ids = tenants.map((d) => d.id);
-      const [{ data: vs }, { data: us }, { data: ob }] = await Promise.all([
+      const [{ data: vs }, { data: us }, setups] = await Promise.all([
         supabase.from("venues").select("tenant_id").in("tenant_id", ids),
         supabase.from("tenant_members").select("tenant_id, user_id").in("tenant_id", ids),
-        supabase.from("tenant_onboarding").select("tenant_id, steps").in("tenant_id", ids),
+        Promise.all(ids.map((id) => loadClientSetup(id))), // read from each client's data, not ticked by hand
       ]);
       const next: Record<string, Counts> = {};
       for (const id of ids) next[id] = { venues: 0, users: 0 };
@@ -141,9 +135,7 @@ export default function Clients() {
       });
       for (const id of ids) next[id].users = userSets[id]?.size ?? 0;
       setCounts(next);
-      const steps: Record<string, Record<string, StepState>> = {};
-      (ob ?? []).forEach((o: any) => { steps[o.tenant_id] = (o.steps ?? {}) as Record<string, StepState>; });
-      setOnboarding(steps);
+      setOnboarding(Object.fromEntries(ids.map((id, i) => [id, setups[i]])));
       setRows(tenants);
     } else {
       setCounts({});
@@ -158,7 +150,7 @@ export default function Clients() {
     return (rows ?? [])
       .map((r) => ({
         ...r,
-        shownStatus: displayClientStatus(r.status, onboarding[r.id]),
+        shownStatus: clientStatus(r.status, onboarding[r.id]),
         setup: setupFor(onboarding[r.id]),
         c: counts[r.id] ?? { venues: 0, users: 0 },
       }))

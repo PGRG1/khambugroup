@@ -33,7 +33,6 @@ const PLReport = lazyPage(() => import("./pages/PLReport"));
 const AiRules = lazyPage(() => import("./pages/admin/AiRules"));
 const Clients = lazyPage(() => import("./pages/admin/Clients"));
 const ClientDetail = lazyPage(() => import("./pages/admin/ClientDetail"));
-const ClientOnboarding = lazyPage(() => import("./pages/admin/ClientOnboarding"));
 const BusinessStructure = lazyPage(() => import("./pages/admin/BusinessStructure"));
 const MasterData = lazyPage(() => import("./pages/admin/MasterData"));
 const Preferences = lazyPage(() => import("./pages/admin/Preferences"));
@@ -242,7 +241,7 @@ function App() {
                 <Route path="/platform" element={<Navigate to="/platform/clients" replace />} />
                 <Route path="/platform/clients" element={<PlatformRoute><Clients /></PlatformRoute>} />
                 <Route path="/platform/clients/:tenantId" element={<PlatformRoute><ClientDetail /></PlatformRoute>} />
-                <Route path="/platform/clients/:tenantId/onboarding" element={<PlatformRoute><ClientOnboarding /></PlatformRoute>} />
+                <Route path="/platform/clients/:tenantId/onboarding" element={<RedirectClientDetail />} />
                 <Route path="*" element={<NotFound />} />
                 <Route element={<TenantShell />}>
 <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />

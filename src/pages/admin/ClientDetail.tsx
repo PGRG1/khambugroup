@@ -1,170 +1,173 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, LogIn } from "lucide-react";
+import { ArrowLeft, LogIn, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
-import { useTenantOnboarding } from "@/hooks/useTenantOnboarding";
 import { useTenantSession } from "@/hooks/useTenantSession";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { SETUP_STEPS, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
 
-type Tenant = {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-  country?: string | null;
-  base_currency?: string | null;
-  timezone?: string | null;
-  cost_reporting_mode?: "single_venue" | "multi_venue" | null;
-  created_at: string;
-};
+// Control plane: a client's business setup, done by Bani — the company and its venues. Everything else
+// (accounts, tax, suppliers, team…) is set up inside the client's own Settings, by their team or by
+// Bani support after "Enter client"; here it is only shown as read-only setup status.
 
-const COST_MODES: { value: "single_venue" | "multi_venue"; label: string; desc: string }[] = [
-  { value: "single_venue", label: "Single venue", desc: "One venue for the whole client." },
-  { value: "multi_venue", label: "Multi-venue", desc: "Costs split and reported per venue." },
+type Tenant = { id: string; name: string; slug: string; status: string; country?: string | null; base_currency?: string | null; timezone?: string | null; users_managed_by?: "bani" | "client" };
+type Org = { id: string; name: string | null; legal_name: string | null; registration_number: string | null; incorporation_date: string | null; registered_address: string | null; auditor: string | null };
+type Venue = { id: string; name: string; is_active: boolean; organization_id: string | null };
+type OrgKey = Exclude<keyof Org, "id">;
+
+const ORG_FIELDS: { key: OrgKey; label: string; type?: string }[] = [
+  { key: "name", label: "Company name" }, { key: "legal_name", label: "Legal name" }, { key: "registration_number", label: "BR number" },
+  { key: "incorporation_date", label: "Incorporated", type: "date" }, { key: "registered_address", label: "Registered address" }, { key: "auditor", label: "Auditor" },
 ];
+const HAIR = "border-t border-[#ECEFED]";
+const Card = ({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) => (
+  <section className="card-glass rounded-xl overflow-hidden">
+    <div className="flex items-center justify-between px-4 sm:px-5 py-3.5"><h2 className="text-sm font-semibold">{title}</h2>{action}</div>
+    {children}
+  </section>
+);
 
 export default function ClientDetail() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const { enterClient } = useTenantSession();
-  const { overall, row: onboarding } = useTenantOnboarding(tenantId);
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [orgName, setOrgName] = useState<string>("");
-  const [counts, setCounts] = useState({ venues: 0, users: 0, banks: 0, invoices: 0 });
-  const [savingMode, setSavingMode] = useState(false);
+  const [org, setOrg] = useState<Org | null>(null);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [setup, setSetup] = useState<SetupState | undefined>();
+  const [editOrg, setEditOrg] = useState<Partial<Org> | null>(null);
+  const [newVenue, setNewVenue] = useState("");
+  const [rename, setRename] = useState<{ id: string; name: string } | null>(null);
+  const [toggle, setToggle] = useState<Venue | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [users, setUsers] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!tenantId) return;
-    const [{ data: t }, { data: vs }, { data: bs }, { count: invoiceCount }, { data: ms }, { data: os }] = await Promise.all([
-      supabase.from("tenants").select("*").eq("id", tenantId).maybeSingle(),
-      supabase.from("venues").select("id").eq("tenant_id", tenantId),
-      supabase.from("bank_accounts").select("id").eq("tenant_id", tenantId),
-      supabase.from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
-      supabase.from("tenant_members").select("user_id").eq("tenant_id", tenantId),
-      supabase.from("organizations").select("legal_name, name").eq("tenant_id", tenantId).limit(1),
+    const [{ data: t }, { data: os }, { data: vs }, s, { count: us }] = await Promise.all([
+      supabase.from("tenants").select("id, name, slug, status, country, base_currency, timezone, users_managed_by" as "*").eq("id", tenantId).maybeSingle(),
+      supabase.from("organizations").select("id, name, legal_name, registration_number, incorporation_date, registered_address, auditor").eq("tenant_id", tenantId).order("created_at").limit(1),
+      supabase.from("venues").select("id, name, is_active, organization_id").eq("tenant_id", tenantId).order("name"),
+      loadClientSetup(tenantId),
+      supabase.from("tenant_members").select("user_id", { count: "exact", head: true }).eq("tenant_id", tenantId).not("role", "in", "(platform_admin,super_admin)"),
     ]);
-    setTenant((t as Tenant) ?? null);
-    setCounts({
-      venues: (vs ?? []).length,
-      users: new Set((ms ?? []).map((x: any) => x.user_id)).size,
-      banks: (bs ?? []).length,
-      invoices: invoiceCount ?? 0,
-    });
-    setOrgName(os?.[0]?.legal_name ?? os?.[0]?.name ?? "");
+    setUsers(us ?? 0);
+    setTenant((t as Tenant) ?? null); setOrg(((os ?? [])[0] as Org) ?? null); setVenues((vs ?? []) as Venue[]); setSetup(s);
   }, [tenantId]);
-
-  useEffect(() => { if (isPlatformAdmin && tenantId) refresh(); }, [isPlatformAdmin, tenantId, refresh]);
+  useEffect(() => { if (isPlatformAdmin && tenantId) void refresh(); }, [isPlatformAdmin, tenantId, refresh]);
 
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
   if (!tenantId) return <Navigate to="/platform/clients" replace />;
 
-  const handleCostModeChange = async (value: "single_venue" | "multi_venue") => {
-    if (!tenant) return;
-    setSavingMode(true);
-    const { error } = await supabase.from("tenants").update({ cost_reporting_mode: value }).eq("id", tenantId);
-    setSavingMode(false);
-    if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    setTenant({ ...tenant, cost_reporting_mode: value });
-    toast({ title: "Cost reporting mode updated" });
+  const done = (ok: boolean, msg: string, err?: { message: string } | null) => {
+    if (err) toast({ title: "Not saved", description: err.message, variant: "destructive" }); else if (ok) toast({ title: msg });
+    return !err;
+  };
+  const saveOrg = async () => {
+    if (!editOrg) return;
+    const body = Object.fromEntries(ORG_FIELDS.map((f) => [f.key, String(editOrg[f.key] ?? "").trim() || null])) as Partial<Org>;
+    if (!body.name) return toast({ title: "Add the company name", variant: "destructive" });
+    setBusy(true);
+    const { error } = org
+      ? await supabase.from("organizations").update(body).eq("id", org.id).eq("tenant_id", tenantId)
+      : await supabase.from("organizations").insert({ ...body, name: body.name!, tenant_id: tenantId });
+    setBusy(false);
+    if (done(true, "Company saved", error)) { setEditOrg(null); void refresh(); }
+  };
+  const addVenue = async () => {
+    const name = newVenue.trim(); if (!name) return;
+    if (venues.some((v) => v.name.toLowerCase() === name.toLowerCase())) return toast({ title: `${name} already exists`, variant: "destructive" });
+    setBusy(true);
+    const { error } = await supabase.from("venues").insert({ tenant_id: tenantId, name, organization_id: org?.id ?? null, is_active: true });
+    setBusy(false);
+    if (done(true, `${name} added`, error)) { setNewVenue(""); void refresh(); }
+  };
+  const saveRename = async () => {
+    if (!rename) return; const name = rename.name.trim(); if (!name) return;
+    if (venues.some((v) => v.id !== rename.id && v.name.toLowerCase() === name.toLowerCase())) return toast({ title: `${name} already exists`, variant: "destructive" });
+    setBusy(true);
+    const { error } = await supabase.from("venues").update({ name }).eq("id", rename.id).eq("tenant_id", tenantId);
+    setBusy(false);
+    if (done(true, "Venue renamed", error)) { setRename(null); void refresh(); }
+  };
+  const saveToggle = async () => {
+    if (!toggle) return; setBusy(true);
+    const { error } = await supabase.from("venues").update({ is_active: !toggle.is_active }).eq("id", toggle.id).eq("tenant_id", tenantId);
+    setBusy(false);
+    if (done(true, `${toggle.name} ${toggle.is_active ? "closed" : "reopened"}`, error)) { setToggle(null); void refresh(); }
   };
 
-  const toGo = overall.total - overall.done - overall.skipped;
-  const details = [tenant?.slug ? `/${tenant.slug}` : null, orgName || null, tenant?.country, tenant?.base_currency, tenant?.timezone].filter(Boolean).join(" · ");
-  const status = tenant?.status ?? "";
+  // Who adds and changes this client's users. Bani for now; hand it to the client later.
+  const setUsersBy = async (by: "bani" | "client") => {
+    if (!tenant || tenant.users_managed_by === by) return; setBusy(true);
+    const { error } = await supabase.from("tenants").update({ users_managed_by: by } as never).eq("id", tenantId);
+    setBusy(false);
+    if (done(true, by === "bani" ? "Bani manages users" : "Client manages users", error)) void refresh();
+  };
+  const sum = setupSummary(setup);
+  const details = [tenant?.country, tenant?.base_currency, tenant?.timezone].filter(Boolean).join(" · ");
+  const row = "flex h-11 items-center justify-between gap-3 px-4 sm:px-5 text-[13px] " + HAIR;
 
   return (
-    <div className="px-4 py-5 sm:p-6 space-y-5 max-w-[1100px] mx-auto">
+    <div className="px-4 py-5 sm:p-6 space-y-5 max-w-[900px] mx-auto">
       <div className="space-y-3">
-        <button type="button" onClick={() => navigate("/platform/clients")} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Clients
-        </button>
+        <button type="button" onClick={() => navigate("/platform/clients")} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Clients</button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-[22px] sm:text-2xl font-semibold tracking-tight">{tenant?.name ?? "…"}</h1>
-              {status && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
-                status === "active" ? "bg-primary/10 text-primary" : status === "setup" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"
-              }`}>{status}</span>}
-            </div>
+            <h1 className="truncate text-[22px] sm:text-2xl font-semibold tracking-tight">{tenant?.name ?? "…"}</h1>
             {details && <p className="mt-1 text-[13px] text-muted-foreground">{details}</p>}
           </div>
-          <Button className="w-full sm:w-auto shrink-0" onClick={() => tenantId && enterClient(tenantId, "/")}>
-            <LogIn className="h-4 w-4 mr-1.5" /> Enter client
-          </Button>
+          <Button className="w-full sm:w-auto shrink-0" onClick={() => enterClient(tenantId, "/")}><LogIn className="h-4 w-4 mr-1.5" /> Enter client</Button>
         </div>
       </div>
 
-      <section
-        className="card-glass rounded-xl p-4 sm:p-5 flex items-center gap-4 border border-border/60 cursor-pointer hover:border-primary/40 transition"
-        onClick={() => navigate(`/platform/clients/${tenantId}/onboarding`)}
-        role="button"
-        aria-label="Open onboarding"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-sm font-semibold">Onboarding</span>
-            <span className="text-sm font-semibold tabular-nums">{overall.pct}%</span>
-          </div>
-          <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${overall.pct}%` }} />
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            {toGo > 0 ? `Phase ${onboarding?.current_phase ?? 1} · ${toGo} step${toGo === 1 ? "" : "s"} to go` : "All steps done"}
-          </div>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-      </section>
+      <Card title="Company" action={!editOrg && <button type="button" className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => setEditOrg({ ...(org ?? {}) })}>{org ? "Edit" : "Add"}</button>}>
+        {editOrg ? <div className={`space-y-3 px-4 sm:px-5 py-4 ${HAIR}`}>
+          {ORG_FIELDS.map((f) => <label key={f.key} className="grid gap-1 text-[12px] text-muted-foreground">{f.label}
+            <Input type={f.type ?? "text"} value={String(editOrg[f.key] ?? "")} onChange={(e) => setEditOrg({ ...editOrg, [f.key]: e.target.value })} className="h-10 text-[13px] text-foreground" /></label>)}
+          <div className="flex justify-end gap-2 pt-1"><Button variant="ghost" onClick={() => setEditOrg(null)}>Cancel</Button><Button disabled={busy} onClick={() => void saveOrg()}>Save</Button></div>
+        </div> : ORG_FIELDS.map((f) => <div key={f.key} className={row}><span className="text-muted-foreground whitespace-nowrap">{f.label}</span><span className="truncate text-right">{(f.type === "date" && org?.[f.key] ? new Date(`${org[f.key]}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : org?.[f.key]) || <span className="text-muted-foreground">—</span>}</span></div>)}
+      </Card>
 
-      {/* At-a-glance counts */}
-      <section className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Venues", value: counts.venues },
-          { label: "Users", value: counts.users },
-          { label: "Bank accounts", value: counts.banks },
-          { label: "Invoices", value: counts.invoices },
-        ].map((k) => (
-          <div key={k.label} className="glass-surface rounded-xl border border-border/60 p-4">
-            <div className="text-[12px] text-muted-foreground">{k.label}</div>
-            <div className="mt-1 text-xl md:text-2xl font-semibold td-num tabular-nums">{k.value}</div>
-          </div>
-        ))}
-      </section>
+      <Card title={`Venues · ${venues.filter((v) => v.is_active).length} open`}>
+        {venues.map((v) => <div key={v.id} className={row}>
+          {rename?.id === v.id
+            ? <><Input autoFocus aria-label="Venue name" value={rename.name} onChange={(e) => setRename({ ...rename, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && void saveRename()} className="h-8 max-w-[260px] text-[13px]" />
+                <span className="flex gap-3 whitespace-nowrap"><button type="button" className="text-muted-foreground" onClick={() => setRename(null)}>Cancel</button><button type="button" disabled={busy} className="font-medium text-[#1F6B5E]" onClick={() => void saveRename()}>Save</button></span></>
+            : <><span className={`truncate ${v.is_active ? "" : "text-muted-foreground"}`}>{v.name}{!v.is_active && " · Closed"}</span>
+                <span className="flex gap-4 whitespace-nowrap text-muted-foreground"><button type="button" onClick={() => setRename({ id: v.id, name: v.name })}>Rename</button><button type="button" onClick={() => setToggle(v)}>{v.is_active ? "Close" : "Reopen"}</button></span></>}
+        </div>)}
+        <div className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 ${HAIR}`}>
+          <Input aria-label="New venue name" placeholder="New venue name" value={newVenue} onChange={(e) => setNewVenue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void addVenue()} className="h-9 max-w-[260px] text-[13px]" />
+          <Button size="sm" variant="outline" disabled={!newVenue.trim() || busy} onClick={() => void addVenue()}>Add venue</Button>
+        </div>
+      </Card>
 
-      {/* Cost reporting mode (kept — this is client-level policy, not onboarding). */}
-      <section className="card-glass rounded-xl p-4 sm:p-5">
-        <div className="mb-3">
-          <div className="text-sm font-semibold">Cost reporting</div>
-          <div className="text-xs text-muted-foreground">How purchasing costs and stock are reported.</div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {COST_MODES.map(m => {
-            const active = tenant?.cost_reporting_mode === m.value;
-            return (
-              <label
-                key={m.value}
-                className={`border rounded-lg p-3 cursor-pointer flex items-start gap-3 transition ${
-                  active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
-                }`}
-              >
-                <input
-                  type="radio" name="cost-mode" className="mt-1"
-                  checked={active} disabled={savingMode}
-                  onChange={() => handleCostModeChange(m.value)}
-                />
-                <div>
-                  <div className="text-sm font-medium">{m.label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{m.desc}</div>
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      </section>
+      <Card title={`Users · ${users}`} action={<button type="button" className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => enterClient(tenantId, "/settings?tab=users")}>Manage users</button>}>
+        <div className={row}><span className="text-muted-foreground whitespace-nowrap">Who adds and changes users</span>
+          <span className="flex gap-4 whitespace-nowrap">{(["bani", "client"] as const).map((k) => <button key={k} type="button" disabled={busy} onClick={() => void setUsersBy(k)}
+            className={(tenant?.users_managed_by ?? "bani") === k ? "font-medium text-foreground underline underline-offset-4" : "text-muted-foreground"}>{k === "bani" ? "Bani" : "Client"}</button>)}</span></div>
+      </Card>
+
+      <Card title="Setup" action={<span className="text-[12px] text-muted-foreground tabular-nums">{sum.done} of {sum.total}</span>}>
+        {SETUP_STEPS.map((s) => <div key={s.key} className={row}><span>{s.label}</span>
+          {setup?.[s.key] ? <Check className="h-4 w-4 text-[#1F6B5E]" aria-label="Done" /> : <span className="text-muted-foreground">Not yet</span>}</div>)}
+        <p className={`px-4 sm:px-5 py-3 text-[12px] text-muted-foreground ${HAIR}`}>Set up in the client's own Settings, by their team or by Bani support after Enter client.</p>
+      </Card>
+
+      <Dialog open={!!toggle} onOpenChange={(o) => !o && setToggle(null)}>
+        <DialogContent><DialogHeader><DialogTitle>{toggle?.is_active ? "Close" : "Reopen"} {toggle?.name}?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{toggle?.is_active ? "It stops appearing for new entries. All records are kept." : "It appears again for new entries."}</p>
+          <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setToggle(null)}>Cancel</Button><Button disabled={busy} onClick={() => void saveToggle()}>{toggle?.is_active ? "Close venue" : "Reopen venue"}</Button></div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

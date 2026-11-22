@@ -1,3 +1,4 @@
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,8 +21,14 @@ import { PageAction, SettingsCard } from '@/components/settings/SettingsForm';
 
 const UserAccessControl = () => {
   const { isAdmin } = useAuth();
+  const { isPlatformAdmin } = usePlatformAdmin();
+  const [clientManages, setClientManages] = useState(false);
   const { setPreviewUser } = usePreviewMode();
   const { tenantId } = useActiveTenant();
+  // Who manages this business's users is set by Bani on the control plane (Bani by default).
+  useEffect(() => { let on = true; setClientManages(false); if (!tenantId) return;
+    void supabase.from("tenants").select("users_managed_by").eq("id", tenantId).maybeSingle().then(({ data }) => { if (on) setClientManages((data as any)?.users_managed_by === "client"); });
+    return () => { on = false; }; }, [tenantId]);
   const [users, setUsers] = useState<UserAccessRecord[]>([]);
   const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -117,6 +124,8 @@ const UserAccessControl = () => {
 
 
   if (!isAdmin) return <Navigate to="/" replace />;
+  const canManage = isPlatformAdmin || clientManages; // the database and invite function enforce the same rule
+  const openUser = (u: UserAccessRecord) => { if (canManage) setEditingUser(u); };
 
   const filtered = users.filter(u => {
     const matchSearch = !search ||
@@ -148,29 +157,30 @@ const UserAccessControl = () => {
 
   return (
     <div className="contents">
-      <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
+      {canManage ? <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
+        : <p className="px-1 text-[13px] text-muted-foreground">Users are set up by Bani. Contact Bani to add someone or change their access.</p>}
       <QuickFilter label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "disabled", label: "Disabled", count: users.filter(u => u.status !== "active").length }]} />
       <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{POSITIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent></Select>} />
       {(() => {
         const venuesOf = (u: typeof users[number]) => u.venue_ids?.length ? u.venue_ids.map(id => venueNameMap[id]).filter(Boolean).join(", ") : "All venues";
         const roleOf = (u: typeof users[number]) => POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
         return <SettingsCard>
-          <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => setEditingUser(u)} />)}</ul>
+          <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => openUser(u)} />)}</ul>
           <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
             <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
-            <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...keyOpen(() => setEditingUser(u))}>
+            <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...(canManage ? keyOpen(() => openUser(u)) : {})}>
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
               <td className="sales-cell-left">{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
               <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
-              <td className="kit-num"><span className="kit-link">Edit</span></td>
+              <td className="kit-num">{canManage && <span className="kit-link">Edit</span>}</td>
             </tr>)}</tbody></table></div>
           {!filtered.length && <Empty>{loading ? "Loading people…" : "No one matches."}</Empty>}
         </SettingsCard>;
       })()}
 
       {/* Editor Panel */}
-      {editingUser && (
+      {canManage && editingUser && (
         <UserEditorPanel
           user={editingUser}
           tenantId={tenantId || undefined}
@@ -181,7 +191,7 @@ const UserAccessControl = () => {
 
       {/* Create User Dialog */}
       <CreateUserDialog
-        open={showCreateDialog}
+        open={canManage && showCreateDialog}
         onOpenChange={setShowCreateDialog}
         tenantId={tenantId || undefined}
         onCreated={fetchUsers}

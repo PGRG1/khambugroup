@@ -33,11 +33,18 @@ serve(async (req) => {
       .eq("user_id", caller.id);
     if (!callerMemberships || callerMemberships.length === 0) throw new Error("No tenant access");
 
-    const callerIsSuper = callerMemberships.some((m: any) => m.role === "super_admin");
+    // Bani staff (platform/super admins) can add users to any client.
+    const callerIsSuper = callerMemberships.some((m: any) => ["super_admin", "platform_admin"].includes(String(m.role)));
     const tenantId = requestedTenantId || callerMemberships[0].tenant_id;
     const callerInTenant = callerMemberships.find((m: any) => m.tenant_id === tenantId);
-    const callerCanManage = callerIsSuper || (callerInTenant && ["tenant_admin", "admin"].includes(String(callerInTenant.role)));
-    if (!callerCanManage) throw new Error("Admin only");
+    // A client's own admins add users only once Bani has handed user management to them.
+    const { data: tenantRow } = await supabaseAdmin.from("tenants").select("users_managed_by").eq("id", tenantId).maybeSingle();
+    const clientManages = tenantRow?.users_managed_by === "client";
+    const callerCanManage = callerIsSuper || (clientManages && callerInTenant && ["tenant_admin", "admin"].includes(String(callerInTenant.role)));
+    if (!callerCanManage) throw new Error(clientManages ? "Admin only" : "Users for this business are managed by Bani");
+    // Never let a request make someone a Bani platform/super admin or tenant owner-level role it can't grant.
+    const allowedRoles = callerIsSuper ? ["member", "admin", "tenant_admin"] : ["member"];
+    if (!allowedRoles.includes(String(role))) throw new Error("Role not allowed");
 
     // Also enforce the legacy global admin role check.
     const { data: roleCheck } = await supabaseAdmin

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOrganizations, type Organization } from '@/hooks/useOrganizations';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Field, Row, SaveBar, SettingsCard } from './SettingsForm';
@@ -14,8 +15,10 @@ const CARDS: { title: string; fields: { key: Key; label: string; type?: string; 
 const dayText = (iso?: string | null) => iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
 
 // Company details, read first: cards show what is saved; Edit turns one card into fields.
+// Company setup is done by the Bani team: only Bani platform admins can edit or add (the database enforces it too).
 export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   const org = useOrganizations();
+  const { isPlatformAdmin: canEdit } = usePlatformAdmin();
   const [id, setId] = useState<string>('new');
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>({});
@@ -28,7 +31,7 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   }, [org.organizations]);
   const isNew = id === 'new';
   const saved: Draft = (org.organizations.find(o => o.id === id) as Draft | undefined) ?? (isNew && org.organizations.length ? {} : { name: fallbackName });
-  useEffect(() => { if (!org.loading && isNew && !org.organizations.length) { setDraft({ ...saved }); setEditing('Company'); } }, [id, org.loading, org.organizations.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (canEdit && !org.loading && isNew && !org.organizations.length) { setDraft({ ...saved }); setEditing('Company'); } }, [id, org.loading, org.organizations.length, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = (title: string) => { setDraft({ ...saved }); setEditing(title); };
   const save = async (keys: Key[]) => {
     const body = Object.fromEntries(keys.map(k => [k, (draft[k] ?? '').toString().trim() || null])) as Partial<Organization>;
@@ -47,11 +50,11 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   return <>
     {(org.organizations.length > 1 || isNew && org.organizations.length > 0) && <SettingsCard title="Which company">
       <Select value={id} onValueChange={v => { setId(v); if (v === 'new') { setDraft({}); setEditing('Company'); } else setEditing(null); }}><SelectTrigger aria-label="Company" className="max-w-[420px] rounded-full bg-white"><SelectValue /></SelectTrigger>
-        <SelectContent>{org.organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}<SelectItem value="new">Add another company</SelectItem></SelectContent></Select>
+        <SelectContent>{org.organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}{canEdit && <SelectItem value="new">Add another company</SelectItem>}</SelectContent></Select>
     </SettingsCard>}
     {CARDS.map(c => {
       const on = editing === c.title;
-      return <SettingsCard key={c.title} title={c.title} editing={on} onEdit={on || isNew ? undefined : () => open(c.title)}>
+      return <SettingsCard key={c.title} title={c.title} editing={on} onEdit={on || isNew || !canEdit ? undefined : () => open(c.title)}>
         {on ? <>
           {c.fields.map(f => <Field key={f.key} label={f.label} htmlFor={`company-${f.key}`} missing={!!f.missing && !draft[f.key]}>
             <Input id={`company-${f.key}`} type={f.type ?? 'text'} placeholder={f.placeholder} value={draft[f.key] ?? ''} onChange={e => setDraft({ ...draft, [f.key]: e.target.value })} />
@@ -60,6 +63,7 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
         </> : c.fields.map(f => <Row key={f.key} label={f.label} value={f.type === 'date' ? dayText(saved[f.key]) : saved[f.key]} missing={f.missing} />)}
       </SettingsCard>;
     })}
-    {org.organizations.length === 1 && !isNew && <button type="button" className="self-start px-1 text-[13px] text-[#1F6B5E]" onClick={() => setId('new')}>Add another company</button>}
+    {!canEdit && <p className="px-1 text-[13px] text-muted-foreground">Company details are set up by Bani. Contact Bani to change them.</p>}
+    {canEdit && org.organizations.length === 1 && !isNew && <button type="button" className="self-start px-1 text-[13px] text-[#1F6B5E]" onClick={() => setId('new')}>Add another company</button>}
   </>;
 }
