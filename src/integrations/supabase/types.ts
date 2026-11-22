@@ -14753,6 +14753,7 @@ export type Database = {
           status: string
           timezone: string | null
           updated_at: string
+          users_managed_by: string
         }
         Insert: {
           base_currency?: string | null
@@ -14769,6 +14770,7 @@ export type Database = {
           status?: string
           timezone?: string | null
           updated_at?: string
+          users_managed_by?: string
         }
         Update: {
           base_currency?: string | null
@@ -14785,6 +14787,7 @@ export type Database = {
           status?: string
           timezone?: string | null
           updated_at?: string
+          users_managed_by?: string
         }
         Relationships: []
       }
@@ -16196,6 +16199,7 @@ export type Database = {
         }
         Returns: string
       }
+      client_manages_users: { Args: { t: string }; Returns: boolean }
       compute_ai_rule_key: {
         Args: { _action: Json; _pattern: Json }
         Returns: string
@@ -16954,6 +16958,7 @@ export type Database = {
           status: string
           timezone: string | null
           updated_at: string
+          users_managed_by: string
         }
         SetofOptions: {
           from: "*"

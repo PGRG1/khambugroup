@@ -1289,6 +1289,20 @@
       "when": 1795263660154,
       "tag": "0183_restrict_definer_row_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1795326266900,
+      "tag": "0184_tenant_scoped_admin_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1795326282347,
+      "tag": "0185_users_managed_by_bani",
+      "breakpoints": true
     }
   ]
 }
