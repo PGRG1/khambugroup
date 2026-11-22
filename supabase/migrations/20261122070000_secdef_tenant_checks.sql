@@ -17,7 +17,6 @@ REVOKE EXECUTE ON FUNCTION public.fx_realised_account(uuid) FROM PUBLIC, anon, a
 REVOKE EXECUTE ON FUNCTION public.fx_difference_account(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.finance_invoice_asset_account(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.finance_source_drift_count(uuid) FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.is_sales_line_mode(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.settlement_clearing_venue(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.settlement_line_allocations(uuid, uuid) FROM PUBLIC, anon, authenticated;
 
@@ -32,7 +31,6 @@ GRANT EXECUTE ON FUNCTION public.fx_realised_account(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.fx_difference_account(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.finance_invoice_asset_account(uuid, uuid, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.finance_source_drift_count(uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.is_sales_line_mode(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.settlement_clearing_venue(uuid, uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.settlement_line_allocations(uuid, uuid) TO service_role;
 
