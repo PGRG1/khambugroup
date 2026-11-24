@@ -54,6 +54,14 @@ export function TempPasswordCard({ name, email, password, detail, onDone }: { na
   </SettingsCard>;
 }
 
+/** The server function's own message (supabase-js only says "non-2xx status code"). */
+async function fnError(res: { error: any; data: any }): Promise<string | null> {
+  if (res.data?.error) return String(res.data.error);
+  if (!res.error) return null;
+  try { const body = await res.error.context?.json?.(); if (body?.error) return String(body.error); } catch { /* not JSON */ }
+  return res.error.message ?? "Something went wrong";
+}
+
 async function assign(tenantId: string, userId: string, role: string, all: boolean, ids: string[]) {
   const { error } = await (supabase.rpc as any)("assign_user_role", { t: tenantId, u: userId, k: role, all_v: all, v: all ? [] : ids });
   if (error) { toast({ title: error.message, variant: "destructive" }); return false; }
@@ -70,7 +78,7 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
     setResetting(true);
     const res = await supabase.functions.invoke("create-user", { body: { action: "reset", user_id: userId, tenant_id: tenantId } });
     setResetting(false);
-    const err = res.error?.message ?? res.data?.error;
+    const err = await fnError(res);
     if (err || !res.data?.tempPassword) { toast({ title: err ?? "Could not reset the password", variant: "destructive" }); return; }
     setTemp(res.data.tempPassword);
   };
@@ -117,7 +125,7 @@ export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone 
     if (!role) return;
     setBusy(true);
     const res = await supabase.functions.invoke("create-user", { body: { email: email.trim(), displayName: name.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId } });
-    const err = res.error?.message ?? res.data?.error;
+    const err = await fnError(res);
     if (err || !res.data?.userId) { setBusy(false); toast({ title: err ?? "Could not add this person", variant: "destructive" }); return; }
     const ok = await assign(tenantId, res.data.userId, role, all, ids);
     setBusy(false);
