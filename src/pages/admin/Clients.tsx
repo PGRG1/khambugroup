@@ -424,8 +424,9 @@ function AddClientDialog({
   });
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const valid = Object.values(form).every((v) => String(v).trim().length > 0)
-    && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.admin_email);
+  // The client administrator is optional for now; a filled email must still be a real address.
+  const valid = Object.entries(form).every(([k, v]) => k === "admin_name" || k === "admin_email" || String(v).trim().length > 0)
+    && (!form.admin_email.trim() || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.admin_email.trim()));
 
   const submit = async () => {
     setSubmitting(true);
@@ -490,10 +491,10 @@ function AddClientDialog({
             <Input value={form.initial_venue_name} onChange={(e) => set("initial_venue_name")(e.target.value)} />
           </Field>
           <div className="hidden sm:block" />
-          <Field label="Client administrator name">
+          <Field label="Client administrator name (optional)">
             <Input value={form.admin_name} onChange={(e) => set("admin_name")(e.target.value)} />
           </Field>
-          <Field label="Client administrator email">
+          <Field label="Client administrator email (optional)">
             <Input type="email" value={form.admin_email} onChange={(e) => set("admin_email")(e.target.value)} />
           </Field>
         </div>

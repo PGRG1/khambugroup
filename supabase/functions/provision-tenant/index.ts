@@ -29,8 +29,9 @@ type Body = {
 
 const REQUIRED_FIELDS: (keyof Body)[] = [
   "client_group_name","legal_entity_name","country","base_currency",
-  "timezone","financial_year_start","initial_venue_name","admin_name","admin_email",
+  "timezone","financial_year_start","initial_venue_name",
 ];
+// The client administrator is optional: without an email the client is created with no users; add them later.
 
 // COA is loaded from public.coa_templates (default template code: f_and_b_hk).
 // If the template row is missing (very old databases), a minimal fallback runs.
@@ -99,7 +100,9 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
   }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.admin_email)) {
+  const hasAdmin = typeof body.admin_email === "string" && body.admin_email.trim().length > 0;
+  if (hasAdmin) body.admin_email = body.admin_email.trim();
+  if (hasAdmin && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.admin_email)) {
     return new Response(JSON.stringify({ error: "Invalid admin_email" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
@@ -193,7 +196,8 @@ Deno.serve(async (req) => {
     rollback.push(async () => { await admin.from("venues").delete().eq("id", venueId!); });
 
 
-    // 3. Client administrator — invite or reuse
+    // 3. Client administrator — invite or reuse (only when an email was given)
+    if (hasAdmin) {
     let existingUser: any = null;
     {
       // Page through users (admin.listUsers is paginated, default perPage=50)
@@ -219,7 +223,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           email: body.admin_email,
           email_confirm: true,
-          user_metadata: { display_name: body.admin_name },
+          user_metadata: { display_name: body.admin_name?.trim() || body.admin_email },
         }),
       });
       const raw = await resp.text();
@@ -280,6 +284,8 @@ Deno.serve(async (req) => {
       await admin.from("tenant_members").delete()
         .eq("tenant_id", tenantId!).eq("user_id", adminUserId!).eq("role","tenant_admin");
     });
+
+    }
 
     // 5. Seed configuration
     // 5a. venues_config row for the initial venue
@@ -374,7 +380,7 @@ Deno.serve(async (req) => {
         timezone: body.timezone,
         financial_year_start: body.financial_year_start,
         initial_venue: body.initial_venue_name,
-        admin_email: body.admin_email,
+        admin_email: hasAdmin ? body.admin_email : null,
         created_new_user: createdNewUser,
       },
     });
