@@ -20,7 +20,7 @@ export function SetOwnPassword({ session }: { session: Session }) {
   const save = async () => {
     if (pw.length < 8 || pw !== again) return;
     setBusy(true); setError("");
-    const { error: e } = await supabase.auth.updateUser({ password: pw, data: { must_set_password: false, temp_password_set_at: null } });
+    const { error: e } = await supabase.auth.updateUser({ password: pw, data: { must_set_password: false, temp_password: null, temp_password_set_at: null } });
     setBusy(false);
     if (e) setError(e.message.includes("different") ? "Pick a password different from the temporary one." : e.message);
   };

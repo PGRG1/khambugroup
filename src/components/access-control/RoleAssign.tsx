@@ -46,7 +46,7 @@ export function TempPasswordCard({ name, email, password, detail, onDone, title 
     <p className="text-[13px] text-muted-foreground">{[detail, email].filter(Boolean).join(" · ")}</p>
     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-[#F1F6F3] px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="text-[11.5px] text-muted-foreground">Temporary password · shown once, works for 7 days</p>
+        <p className="text-[11.5px] text-muted-foreground">Temporary password · works until they set their own, up to 7 days</p>
         <p className="mt-0.5 select-all font-mono text-[20px] tracking-[.1em]" aria-label="Temporary password">{password}</p>
       </div>
       <button type="button" className={link} onClick={() => void copy()}>Copy</button>
@@ -80,12 +80,15 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
 }) {
   const [temp, setTemp] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
-  const reset = async () => {
+  const [tempTitle, setTempTitle] = useState("Temporary password");
+  // reset: a new temporary password; show: the one they still have not replaced.
+  const reset = async (action: "reset" | "show" = "reset") => {
     setResetting(true);
-    const res = await invokeCreateUser({ action: "reset", user_id: userId, tenant_id: tenantId });
+    const res = await invokeCreateUser({ action, user_id: userId, tenant_id: tenantId });
     setResetting(false);
     const err = await fnError(res);
-    if (err || !res.data?.tempPassword) { toast({ title: err ?? "Could not reset the password", variant: "destructive" }); return; }
+    if (err || !res.data?.tempPassword) { toast({ title: err ?? "Could not get the password", variant: "destructive" }); return; }
+    setTempTitle(action === "show" ? "Temporary password" : "New temporary password");
     setTemp(res.data.tempPassword);
   };
   const [role, setRole] = useState<string | null>(access?.role_key ?? null);
@@ -104,10 +107,13 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
           <div className="pt-4"><VenuePicks venues={venues} all={all} ids={ids} onChange={(a, v) => { setAll(a); setIds(v); }} /></div>
           <SaveBar dirty={ready} saving={busy} onSave={() => void save()} onCancel={onClose} /></>}
     </SettingsCard>
-    {temp ? <TempPasswordCard title="New temporary password" name={name} email={email} password={temp} onDone={() => setTemp(null)} />
+    {temp ? <TempPasswordCard title={tempTitle} name={name} email={email} password={temp} onDone={() => setTemp(null)} />
       : <SettingsCard title="Password">
         <Row label="Sign-in" value={pending ? <span className="text-[#B45309]">Has not set a password yet</span> : "Using their own password"} />
-        <div className="pt-1"><button type="button" disabled={resetting} className="inline-flex h-10 items-center rounded-full border border-border bg-white px-4 text-[14px] font-medium" onClick={() => void reset()}>{resetting ? "Creating…" : "Reset password"}</button></div>
+        <div className="flex gap-5 pt-1">
+          {pending && <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("show")}>Show temporary password</button>}
+          <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("reset")}>{resetting ? "Working…" : "Reset password"}</button>
+        </div>
       </SettingsCard>}
     {picked && <SettingsCard title={`What a ${picked.name.toLowerCase()} can do`}>
       {ROLE_AREAS.map((a) => <Row key={a} label={AREA_LABEL[a]} value={LEVEL_SHORT[picked[a]]} />)}

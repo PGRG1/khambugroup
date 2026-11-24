@@ -15,7 +15,11 @@ function temporaryPassword(): string {
   const c = Array.from(bytes, (b) => READABLE[b % READABLE.length]).join("");
   return `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`;
 }
-const pendingMeta = () => ({ must_set_password: true, temp_password_set_at: new Date().toISOString() });
+// The temporary password stays on the person (user_metadata.temp_password) until they set their own, so whoever
+// manages them can show it again; SetOwnPassword clears it. It is never shown after 7 days.
+const pendingMeta = (temp_password: string) => ({ must_set_password: true, temp_password, temp_password_set_at: new Date().toISOString() });
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const storedTemp = (meta: any): string | null => meta?.must_set_password && meta?.temp_password && Date.now() - Date.parse(String(meta.temp_password_set_at ?? "")) <= WEEK ? String(meta.temp_password) : null;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -49,7 +53,8 @@ serve(async (req) => {
 
     const body = await req.json();
     const { email, displayName, position, tenant_id: requestedTenantId, role = "member" } = body;
-    const resetting = body.action === "reset";
+    const showing = body.action === "show";
+    const resetting = body.action === "reset" || showing;
     if (!resetting && !email) throw new Error("Email is required");
 
     // Resolve which tenant to add the new user to.
@@ -93,8 +98,13 @@ serve(async (req) => {
       if (!callerIsSuper && (access?.role_key === "owner" || member.role === "tenant_admin")) throw new Error("Only Bani can reset an owner's password");
       const { data: existing, error: getError } = await supabaseAdmin.auth.admin.getUserById(target);
       if (getError || !existing?.user) throw new Error("Person not found");
+      if (showing) {
+        const kept = storedTemp(existing.user.user_metadata);
+        if (!kept) throw new Error("No temporary password to show; they have set their own, or it expired. Reset it instead.");
+        return new Response(JSON.stringify({ success: true, userId: target, tempPassword: kept }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const password = temporaryPassword();
-      const { error: updError } = await supabaseAdmin.auth.admin.updateUserById(target, { password, user_metadata: { ...(existing.user.user_metadata ?? {}), ...pendingMeta() } });
+      const { error: updError } = await supabaseAdmin.auth.admin.updateUserById(target, { password, user_metadata: { ...(existing.user.user_metadata ?? {}), ...pendingMeta(password) } });
       if (updError) throw updError;
       await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, user_id: caller.id, user_display_name: caller.email, action: "temporary_password_reset", entity_type: "people", entity_id: target, details: { title: `Reset ${existing.user.email ?? "a person"}'s password` } });
       return new Response(JSON.stringify({ success: true, userId: target, tempPassword: password }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -106,7 +116,7 @@ serve(async (req) => {
       email,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { display_name: displayName || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta() },
+      user_metadata: { display_name: displayName || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta(tempPassword) },
     });
 
     if (createError) throw createError;

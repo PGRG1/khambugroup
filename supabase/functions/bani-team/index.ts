@@ -14,7 +14,11 @@ function temporaryPassword(): string {
   const c = Array.from(bytes, (b) => READABLE[b % READABLE.length]).join("");
   return `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`;
 }
-const pendingMeta = () => ({ must_set_password: true, temp_password_set_at: new Date().toISOString() });
+// The temporary password stays on the person (user_metadata.temp_password) until they set their own, so whoever
+// manages them can show it again; SetOwnPassword clears it. It is never shown after 7 days.
+const pendingMeta = (temp_password: string) => ({ must_set_password: true, temp_password, temp_password_set_at: new Date().toISOString() });
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const storedTemp = (meta: any): string | null => meta?.must_set_password && meta?.temp_password && Date.now() - Date.parse(String(meta.temp_password_set_at ?? "")) <= WEEK ? String(meta.temp_password) : null;
 const BANI_ROLES = ["platform_admin", "super_admin"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -78,7 +82,7 @@ serve(async (req) => {
       }
       if (!userId) {
         password = temporaryPassword();
-        const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta() } });
+        const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta(password) } });
         if (error || !data.user) throw new Error(error?.message ?? "Could not create the login");
         userId = data.user.id; created = true;
         // New sign-ups are auto-attached to KHAMBU by old database triggers; a Bani team login belongs to no client.
@@ -100,9 +104,14 @@ serve(async (req) => {
     const { data: tu } = await admin.auth.admin.getUserById(target);
     const label = (tu?.user?.user_metadata as any)?.display_name || tu?.user?.email || "a team member";
 
+    if (body.action === "show") {
+      const kept = storedTemp(tu?.user?.user_metadata);
+      if (!kept) throw new Error("No temporary password to show; they have set their own, or it expired. Reset it instead.");
+      return json({ success: true, tempPassword: kept });
+    }
     if (body.action === "reset") {
       const password = temporaryPassword();
-      const { error } = await admin.auth.admin.updateUserById(target, { password, user_metadata: { ...(tu?.user?.user_metadata ?? {}), ...pendingMeta() } });
+      const { error } = await admin.auth.admin.updateUserById(target, { password, user_metadata: { ...(tu?.user?.user_metadata ?? {}), ...pendingMeta(password) } });
       if (error) throw error;
       await log("bani_team_password_reset", target, `Reset ${label}'s password`);
       return json({ success: true, tempPassword: password });

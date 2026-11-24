@@ -31,7 +31,7 @@ function PasswordCard({ shown, onDone }: { shown: Shown; onDone: () => void }) {
   const link = "text-[13px] font-medium text-[#1F6B5E]";
   return <section className="card-glass rounded-xl p-4 sm:p-5 space-y-3">
     <h2 className="text-base font-semibold">Temporary password</h2>
-    <p className="text-[13px] text-muted-foreground">Give this to {first}. It is shown only once and stops working after 7 days.</p>
+    <p className="text-[13px] text-muted-foreground">Give this to {first}. It works until they set their own password, up to 7 days. You can show it again from Bani team.</p>
     <p className="flex h-[52px] select-all items-center justify-center rounded-xl border border-dashed border-[#9CC3A8] bg-[#F1F6F3] font-mono text-[22px] tracking-[.12em]">{shown.password}</p>
     <div className="flex flex-wrap items-center gap-5">
       <button type="button" className={link} onClick={() => void navigator.clipboard.writeText(shown.password).then(() => toast({ title: "Password copied" }))}>Copy</button>
@@ -72,8 +72,8 @@ export default function BaniTeam() {
     } catch (e) { toast({ title: (e as Error).message, variant: "destructive" }); }
     setBusy(false);
   };
-  const reset = async (p: Person) => {
-    try { const r = await call({ action: "reset", user_id: p.id }); setShown({ name: p.name, email: p.email, password: r.tempPassword }); void load(); }
+  const reset = async (p: Person, action: "reset" | "show" = "reset") => {
+    try { const r = await call({ action, user_id: p.id }); setShown({ name: p.name, email: p.email, password: r.tempPassword }); void load(); }
     catch (e) { toast({ title: (e as Error).message, variant: "destructive" }); }
   };
   const remove = async () => {
@@ -116,7 +116,7 @@ export default function BaniTeam() {
           <td className="h-11 px-2 whitespace-nowrap border-b border-[#ECEAE3]"><span className={`inline-flex items-center gap-1.5 ${p.pending ? "text-[#B45309]" : ""}`}><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${p.pending ? "bg-[#C26A12]" : "bg-[#3E9B6B]"}`} />{p.pending ? "Password not set" : "Active"}</span></td>
           <td className="h-11 px-2 whitespace-nowrap border-b border-[#ECEAE3] text-muted-foreground">{day(p.added)}</td>
           <td className="h-11 px-1 text-right border-b border-[#ECEAE3]">{!p.you && <DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label={`Actions for ${p.name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-black/5"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => void reset(p)}>Reset password</DropdownMenuItem><DropdownMenuItem className="text-[#B4412F]" onSelect={() => setRemoving(p)}>Remove from Bani team</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</td>
+            <DropdownMenuContent align="end">{p.pending && <DropdownMenuItem onSelect={() => void reset(p, "show")}>Show temporary password</DropdownMenuItem>}<DropdownMenuItem onSelect={() => void reset(p)}>Reset password</DropdownMenuItem><DropdownMenuItem className="text-[#B4412F]" onSelect={() => setRemoving(p)}>Remove from Bani team</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</td>
         </tr>)}</tbody></table></div>}
     </section>}
 
