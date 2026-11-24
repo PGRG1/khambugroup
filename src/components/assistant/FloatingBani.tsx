@@ -737,12 +737,6 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {voice.userWords && <p className="floating-bani-voice-words">{voice.userWords}</p>}
           {voice.notice && voice.notice !== "Tap the orb to talk" && <p className="floating-bani-error" role="alert">{voice.notice}</p>}
         </div>}
-        {/* Always on Home, as a round button left of the chat bar: the current chat, else the latest saved one, else the chat list. */}
-        {home && !open && <button type="button" className="floating-bani-resume" aria-label="Your chats" title="Your chats" onClick={() => {
-          if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); }
-          else if (!hasConversation.current && isMobile) { openChats(); return; }
-          setOpen(true);
-        }}><History className="h-[19px] w-[19px]" strokeWidth={1.9} /></button>}
         <form className={`floating-bani-composer ${dropping ? "is-dropping" : ""} ${tall && !voiceMode && !dictation.active ? "is-tall" : ""}`} onSubmit={e => { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); if (!voiceMode) void send(); }}>
           {!!files.length && <div className="floating-bani-attachments">{files.map(f => { const ext = (f.name.split(".").pop() ?? "").toUpperCase().slice(0, 4); return <div key={f.id} className="floating-bani-attachment">
             <div className="fb-att-pv">{f.url || f.thumb ? <img src={f.url ?? f.thumb} alt="" /> : <FileText className="h-8 w-8" />}</div>
@@ -765,8 +759,14 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               {dictation.state === "transcribing" ? <span className="text-sm" style={{ color: "var(--fb-muted)" }}>Transcribing…</span> : <LiveWaveform getLevel={dictation.getLevel} color="var(--fb-wave)" className="h-7 w-full" />}
             </div>
             <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Finish dictation" disabled={dictation.state !== "recording"} onClick={async () => { const t = await dictation.confirm(); if (t) setDraft(d => joinDraft(d, t)); input.current?.focus(); }}><Check className="h-5 w-5" /></Button>
-          </div> : <div className={`floating-bani-row floating-bani-typing ${tall ? "is-tall" : ""}`}>
+          </div> : <div className={`floating-bani-row floating-bani-typing ${tall ? "is-tall" : ""} ${home && !open ? "has-chats" : ""}`}>
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
+            {/* On Home, inside the bar beside +: the current chat, else the latest saved one, else the chat list. */}
+            {home && !open && <Button variant="ghost" type="button" className="floating-bani-chats" aria-label="Your chats" title="Your chats" onClick={() => {
+              if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); }
+              else if (!hasConversation.current && isMobile) { openChats(); return; }
+              setOpen(true);
+            }}><History className="h-[17px] w-[17px]" strokeWidth={1.9} />{!isMobile && <span>Chats</span>}</Button>}
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={hint} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}

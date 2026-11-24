@@ -9,7 +9,7 @@ const canDictate = typeof window !== "undefined" && !!navigator.mediaDevices?.ge
 
 /**
  * Home's chat bar as it looks before Bani is ready: the same classes and rows as the real
- * composer (the "Your chats" button + the pill), so it is exactly the same size and nothing moves when the
+ * composer (+, the Chats button inside the pill, mic and voice), so it is exactly the same size and nothing moves when the
  * real one arrives. It does nothing except remember a tap, so the real input can take focus.
  */
 export function HomeComposerPlaceholder({ onTap }: { onTap: () => void }) {
@@ -27,10 +27,10 @@ export function HomeComposerPlaceholder({ onTap }: { onTap: () => void }) {
     <div className="floating-bani" aria-hidden="true" onPointerDown={onTap}>
       <section className={`floating-bani-panel is-home ${isMobile ? "is-mobile" : ""}`}>
         <div className="floating-bani-main">
-          <button type="button" tabIndex={-1} className="floating-bani-resume"><History className="h-[19px] w-[19px]" strokeWidth={1.9} /></button>
           <form className="floating-bani-composer" onSubmit={(e) => e.preventDefault()}>
-            <div className="floating-bani-row floating-bani-typing">
+            <div className="floating-bani-row floating-bani-typing has-chats">
               <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-plus"><Plus className="h-5 w-5" /></Button>
+              <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-chats"><History className="h-[17px] w-[17px]" strokeWidth={1.9} />{!isMobile && <span>Chats</span>}</Button>
               <textarea ref={input} rows={1} readOnly tabIndex={-1} placeholder={hint} className="floating-bani-input" />
               {canDictate && <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-mic"><Mic className="h-[18px] w-[18px]" /></Button>}
               <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-send"><AudioLines className="h-5 w-5" /></Button>
