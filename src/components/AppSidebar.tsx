@@ -497,6 +497,9 @@ export function AppSidebar() {
     ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Lists" }; }),
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
+  // Settings pages for the collapsed rail's Settings pop-up (the expanded menu lists them under Settings).
+  const settingsPages = visibleSettingsDestinations(settingsAdmin, canAccessPage("invoices"));
+  const settingsPageHere = settingsHere === "overview" ? settingsPages[0]?.id : settingsHere === "denied" ? undefined : mergedInto[settingsHere] ?? settingsHere;
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
@@ -566,7 +569,7 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
 
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsPages.map((d) => ({ title: d.label, to: settingsHref(d.id), active: settingsPageHere === d.id })) }] : []),
         ];
 
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
