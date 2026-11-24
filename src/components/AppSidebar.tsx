@@ -155,7 +155,7 @@ function RailSection({ it }: { it: RailItem }) {
   );
 }
 
-function CollapsedRail({ items, onExpand, footer, client, onSearch }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode; client?: string; onSearch?: () => void }) {
+function CollapsedRail({ items, onExpand, footer, client, onSearch, onExit }: { items: RailItem[]; onExpand: () => void; footer?: React.ReactNode; client?: string; onSearch?: () => void; onExit?: () => void }) {
   const [, setBaniOpen] = useFloatingBaniOpen();
   return (
     <SidebarContent className="bani-rail items-center gap-1 pb-2">
@@ -169,10 +169,14 @@ function CollapsedRail({ items, onExpand, footer, client, onSearch }: { items: R
           <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Expand sidebar</TooltipContent></TooltipPortal>
         </Tooltip>
       </div>
-      {/* Same items as the expanded menu, in the same order: company, search, Bani team, then the sections. */}
+      {/* Same items as the expanded menu, in the same order: company, Exit to Platform (Bani only), search, Home, then the sections. */}
       {client && <Tooltip>
         <TooltipTrigger asChild><span tabIndex={0} aria-label={client} className="bani-client-box inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center text-[11px] font-semibold">{initialsOf(client)}</span></TooltipTrigger>
         <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">{client}</TooltipContent></TooltipPortal>
+      </Tooltip>}
+      {onExit && <Tooltip>
+        <TooltipTrigger asChild><button type="button" onClick={onExit} aria-label="Exit to Platform" className={RAIL_ICON_CLS}><ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.8} /></button></TooltipTrigger>
+        <TooltipPortal><TooltipContent side="right" sideOffset={10} className="bani-rail-tip z-[70]">Exit to Platform</TooltipContent></TooltipPortal>
       </Tooltip>}
       {onSearch && <Tooltip>
         <TooltipTrigger asChild><button type="button" onClick={onSearch} aria-label="Go to a page" className={RAIL_ICON_CLS}><Search className="h-[18px] w-[18px]" strokeWidth={1.8} /></button></TooltipTrigger>
@@ -654,7 +658,7 @@ export function AppSidebar() {
       )}
 
       {collapsed ? (
-        <><CollapsedRail onExpand={() => setOpen(true)} footer={me} items={railItems} client={clientName} onSearch={() => setGoOpen(true)} /><GoToPage pages={goPages} open={goOpen} onOpenChange={setGoOpen} button={false} /></>
+        <><CollapsedRail onExpand={() => setOpen(true)} footer={me} items={railItems} client={clientName} onSearch={() => setGoOpen(true)} onExit={isPlatformAdmin && isInsideClient ? exitToPlatform : undefined} /><GoToPage pages={goPages} open={goOpen} onOpenChange={setGoOpen} button={false} /></>
       ) : (
       <SidebarContent className="py-2 gap-3">
         {/* Top-level items, no group label */}
