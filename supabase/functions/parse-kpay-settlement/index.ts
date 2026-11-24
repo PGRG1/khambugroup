@@ -3,7 +3,7 @@
 // Optionally calls Gemini to add a one-line narrative for each flagged batch.
 
 import * as XLSX from "npm:xlsx@0.18.5";
-import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
