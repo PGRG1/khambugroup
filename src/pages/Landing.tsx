@@ -72,7 +72,9 @@ function useWidth() {
   useEffect(() => {
     const el = ref.current; if (!el) return;
     const read = () => { const r = el.getBoundingClientRect(); setBox({ w: r.width, left: r.left }); };
-    const ro = new ResizeObserver(read); ro.observe(el); window.addEventListener("resize", read); read();
+    // Also watch the page area: opening or closing the sidebar moves it without always resizing this box.
+    const ro = new ResizeObserver(read); ro.observe(el); const main = el.closest("main"); if (main) ro.observe(main);
+    window.addEventListener("resize", read); read();
     return () => { ro.disconnect(); window.removeEventListener("resize", read); };
   }, []);
   return [ref, box.w, box.left] as const;
