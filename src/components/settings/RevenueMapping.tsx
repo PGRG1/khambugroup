@@ -9,26 +9,27 @@ import { SettingsCard, Field, SaveBar } from '@/components/settings/SettingsForm
 import { keyOpen, Empty } from '@/components/finance/accounting/AccountingKit';
 import { matchRead, setupProblems, linesForVenue, type SetupKind } from '../../../supabase/functions/_shared/setupReceipt';
 import {
-  type MapLine, TYPES, NO_ACCOUNT, typeValue, fromTypeValue, typeLabel, lineProblem, settlesLabel, inScope, unknownNames, suggestAccount, hkToday, dayLabel,
+  type MapLine, TYPES, typeValue, fromTypeValue, typeLabel, lineProblem, settlesLabel, inScope, unknownNames, suggestAccounts, prefillDraft,
+  methodsFor, methodLabel, accountFor, missingAccount, posts, hkToday, dayLabel,
 } from '@/utils/revenueMapping';
 
 // Settings › Revenue mapping: how each printed line of a client's sales report posts to the books. Bani and roles with
 // Approve on Finance edit it; every save is a dated version and posted days are never re-posted (save_sales_mapping).
-// Clients on fixed report fields (KHAMBU) post through Finance › Accounting instead.
+// Every client uses it: a client already scanning on the standard fields starts from those fields, with the
+// accounts How things post already uses; its days move onto this setup from the first version's start date.
 
 type Version = { id: string; version_no: number; effective_from: string; created_by_name: string | null; created_at: string; lines: MapLine[]; note: string | null };
 type Hold = { day: string; venue: string; reasons: string[] };
 type Recent = { id: string; date: string; venue: string; venue_id: string | null; lines: { printed: string; amount: number }[] };
 type Mode = 'view' | 'history' | 'edit' | 'date';
 
-const COLS = ['Report line', 'Type', 'Settles to', 'Account'];
+const COLS = ['Report line', 'Type', 'Payment method', 'Settles to', 'Account'];
 
 export function RevenueMapping() {
   const { tenantId } = useActiveTenant();
   const { isPlatformAdmin: bani } = usePlatformAdmin();
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [fixed, setFixed] = useState(false);
   const [lines, setLines] = useState<MapLine[]>([]);
   const [versions, setVersions] = useState<Version[]>([]);
   const [holds, setHolds] = useState<Hold[]>([]);
@@ -37,6 +38,7 @@ export function RevenueMapping() {
   const [processors, setProcessors] = useState<{ id: string; name: string }[]>([]);
   const [rules, setRules] = useState<{ rule_type: string; match_key: string; account_id: string }[]>([]);
   const [recent, setRecent] = useState<Recent[]>([]);
+  const [records, setRecords] = useState(0);
   const [held, setHeld] = useState<{ venue_id: string | null; names: string[] }[]>([]);
   const [mode, setMode] = useState<Mode>('view');
   const [scope, setScope] = useState<string>('all');
@@ -51,7 +53,7 @@ export function RevenueMapping() {
     setLoading(true);
     const db = supabase as any;
     const [ls, vs, hs, vn, coa, pr, ru, rec, ins, lvl] = await Promise.all([
-      db.from('sales_report_lines').select('id,venue_id,printed_name,aliases,kind,category,settles_to,processor_ids,gl_account_id,legacy_field,sort_order').eq('tenant_id', tenantId).eq('is_active', true).order('sort_order'),
+      db.from('sales_report_lines').select('id,venue_id,printed_name,aliases,kind,category,settles_to,processor_ids,gl_account_id,venue_accounts,method,legacy_field,sort_order').eq('tenant_id', tenantId).eq('is_active', true).order('sort_order'),
       db.from('sales_mapping_versions').select('id,version_no,effective_from,created_by_name,created_at,lines,note').eq('tenant_id', tenantId).order('version_no', { ascending: false }),
       db.from('sales_posting_holds').select('day,venue,reasons').eq('tenant_id', tenantId).order('day', { ascending: false }),
       db.from('venues').select('id,name').eq('tenant_id', tenantId).eq('is_active', true).order('name'),
@@ -62,14 +64,14 @@ export function RevenueMapping() {
       db.from('sales_receipt_intakes').select('venue_id,tentative_values').eq('tenant_id', tenantId).eq('status', 'needs_review').order('created_at', { ascending: false }).limit(20),
       bani ? Promise.resolve({ data: 3 }) : db.rpc('access_level', { t: tenantId, area: 'finance' }),
     ]);
-    const rows = (ls.data ?? []) as (MapLine & { legacy_field: string | null })[];
-    setFixed(rows.some((r) => r.legacy_field));
-    setLines(rows.map((r) => ({ ...r, key: r.id!, aliases: r.aliases ?? [], processor_ids: r.processor_ids ?? [] })));
+    const rows = (ls.data ?? []) as MapLine[];
+    setLines(rows.map((r) => ({ ...r, key: r.id!, aliases: r.aliases ?? [], processor_ids: r.processor_ids ?? [], venue_accounts: r.venue_accounts ?? {} })));
     setVersions((vs.data ?? []) as Version[]);
     setHolds((hs.data ?? []) as Hold[]);
     setVenues(vn.data ?? []); setAccounts(coa.data ?? []); setProcessors(pr.data ?? []); setRules(ru.data ?? []);
     setCanEdit(bani || Number(lvl.data ?? 0) >= 3);
     const recs = (rec.data ?? []) as Omit<Recent, 'lines'>[];
+    setRecords(recs.length);
     const { data: rl } = recs.length
       ? await db.from('sales_record_lines').select('sales_record_id,printed_name,amount').eq('tenant_id', tenantId).in('sales_record_id', recs.map((r) => r.id))
       : { data: [] };
@@ -82,6 +84,17 @@ export function RevenueMapping() {
 
   const venueName = (id: string | null) => (id ? venues.find((v) => v.id === id)?.name ?? 'Venue' : 'All venues');
   const accountLabel = (id: string | null) => { const a = accounts.find((x) => x.id === id); return a ? `${a.code} ${a.name}` : null; };
+  const venueIds = venues.map((v) => v.id);
+  // The account cell: a venue tab shows that venue's account; All venues shows the shared one, or "By venue".
+  const accountCell = (l: MapLine) => {
+    if (!posts(l)) return <span className="text-muted-foreground">—</span>;
+    const at = scope !== 'all' ? scope : l.venue_id;
+    const byVenue = Object.keys(l.venue_accounts).length > 0;
+    if (!at && byVenue) return <span className="text-muted-foreground">By venue</span>;
+    const label = accountLabel(at ? accountFor(l, at) : l.gl_account_id);
+    if (label) return label;
+    return <span className="text-[#B45309]">No account</span>;
+  };
   const editing = mode === 'edit' || mode === 'date';
   const source = editing ? draft : lines;
   const shown = inScope(source, scope);
@@ -93,12 +106,12 @@ export function RevenueMapping() {
   const unknown = useMemo(() => {
     if (!editing || follows) return [];
     const seen = [...recent.map((r) => ({ venue_id: r.venue_id, names: r.lines.map((l) => l.printed) })), ...held];
-    return unknownNames(draft, scope, seen, venues.map((v) => v.id));
+    return unknownNames(draft, scope, seen, venueIds);
   }, [editing, follows, recent, held, draft, scope, venues]);
 
   // Recent reports checked against the mapping being edited.
   const samples = useMemo(() => recent.slice(0, 3).map((r) => {
-    const defs = linesForVenue(draft, r.venue_id).filter((l) => l.kind).map((l) => ({ printed: l.printed_name, kind: l.kind as SetupKind, aliases: l.aliases }));
+    const defs = linesForVenue(draft, r.venue_id).filter((l) => l.kind).map((l) => ({ printed: l.printed_name, kind: l.kind as SetupKind, aliases: l.aliases, method: l.method }));
     const read = matchRead({ lines: r.lines }, defs);
     const unmapped = read.lines.filter((l) => !l.known && l.amount).length;
     const problems = unmapped ? [] : setupProblems(read.lines);
@@ -107,11 +120,13 @@ export function RevenueMapping() {
 
   const issues = draft.filter((l) => lineProblem(l)).length + (mode === 'edit' ? unknown.length : 0);
 
-  const startEdit = () => { setDraft(lines.map((l) => ({ ...l }))); setLine(null); setFrom(hkToday()); setNote(''); setMode('edit'); };
+  // A client scanning on the standard fields: it has lines with a field, or sales but no lines yet.
+  const scansFields = lines.some((l) => !!l.legacy_field) || (!lines.length && !versions.length && records > 0);
+  const startEdit = () => { setDraft(prefillDraft(lines, { hasVersion: versions.length > 0, scansFields, rules, venues })); setLine(null); setFrom(hkToday()); setNote(''); setMode('edit'); };
   const cancel = () => { setDraft([]); setLine(null); setMode('view'); };
-  const open = (l: MapLine) => setLine({ ...l, aliases: [...l.aliases], processor_ids: [...l.processor_ids] });
-  const add = (name = '') => setLine({ key: `new-${Date.now()}`, venue_id: scope === 'all' ? null : scope, printed_name: name, aliases: [], kind: null, category: null, settles_to: null, processor_ids: [], gl_account_id: null });
-  const ownLines = () => setDraft([...draft, ...inScope(draft, 'all').map((l) => ({ ...l, key: `new-${l.key}-${scope}`, id: undefined, venue_id: scope }))]);
+  const open = (l: MapLine) => setLine({ ...l, aliases: [...l.aliases], processor_ids: [...l.processor_ids], venue_accounts: { ...l.venue_accounts } });
+  const add = (name = '') => setLine({ key: `new-${Date.now()}`, venue_id: scope === 'all' ? null : scope, printed_name: name, aliases: [], kind: null, category: null, settles_to: null, processor_ids: [], gl_account_id: null, venue_accounts: {}, method: null });
+  const ownLines = () => setDraft([...draft, ...inScope(draft, 'all').map((l) => ({ ...l, key: `new-${l.key}-${scope}`, id: undefined, venue_id: scope, gl_account_id: accountFor(l, scope), venue_accounts: {} }))]);
   const useAll = () => setDraft(draft.filter((l) => l.venue_id !== scope));
   const done = () => {
     if (!line) return;
@@ -127,7 +142,8 @@ export function RevenueMapping() {
   const save = async () => {
     if (!tenantId) return;
     setSaving(true);
-    const body = draft.map((l) => ({ id: l.id ?? null, venue_id: l.venue_id, printed_name: l.printed_name, aliases: l.aliases, kind: l.kind, category: l.category, settles_to: l.settles_to, processor_ids: l.processor_ids, gl_account_id: l.gl_account_id }));
+    const body = draft.map((l) => ({ id: l.id ?? null, venue_id: l.venue_id, printed_name: l.printed_name, aliases: l.aliases, kind: l.kind, category: l.category, settles_to: l.settles_to,
+      processor_ids: l.processor_ids, gl_account_id: l.gl_account_id, venue_accounts: l.venue_accounts, method: l.method, legacy_field: l.legacy_field ?? null }));
     const { data, error } = await (supabase.rpc as any)('save_sales_mapping', { p_tenant: tenantId, p_effective: from, p_lines: body, p_note: note || null });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -136,24 +152,36 @@ export function RevenueMapping() {
   };
 
   if (loading) return <SettingsCard title="Revenue setup"><p className="py-2 text-[13px] text-muted-foreground">Loading…</p></SettingsCard>;
-  if (fixed) return <SettingsCard title="Revenue setup"><p className="py-2 text-[13px] text-muted-foreground">This business's sales reports use fixed fields. Their accounts are set in Finance › Accounting › How things post.</p></SettingsCard>;
 
   // One line, being changed.
   if (line) {
     const t = typeValue(line);
-    const needsAccount = !!line.kind && !NO_ACCOUNT.includes(line.kind);
+    const needsAccount = posts(line);
+    const suggest = (next: MapLine): MapLine => (next.gl_account_id || Object.keys(next.venue_accounts).length ? next : { ...next, ...(suggestAccounts(next, rules, venues) ?? {}) });
     const setType = (v: string) => {
-      const next = { ...line, ...fromTypeValue(v) };
+      let next: MapLine = { ...line, ...fromTypeValue(v) };
       if (next.kind !== 'payment') { next.settles_to = null; next.processor_ids = []; } else if (!next.settles_to) next.settles_to = 'bank';
-      if (!next.kind || NO_ACCOUNT.includes(next.kind)) next.gl_account_id = null;
-      else if (!next.gl_account_id) next.gl_account_id = suggestAccount(next, rules, venueName(next.venue_id), venues.map((v) => v.name));
+      if (!methodsFor(next.kind).some(([m]) => m === next.method)) next.method = null;
+      if (!posts(next)) next = { ...next, gl_account_id: null, venue_accounts: {} };
+      else next = suggest(next);
       setLine(next);
     };
-    const toggleProc = (id: string) => setLine({ ...line, settles_to: 'bank', processor_ids: line.processor_ids.includes(id) ? line.processor_ids.filter((p) => p !== id) : [...line.processor_ids, id] });
-    const toggleCash = () => {
-      const next: MapLine = line.settles_to === 'cash' ? { ...line, settles_to: 'bank' } : { ...line, settles_to: 'cash', processor_ids: [] };
-      setLine({ ...next, gl_account_id: suggestAccount(next, rules, venueName(next.venue_id), venues.map((v) => v.name)) ?? next.gl_account_id });
+    const setMethod = (m: string) => {
+      const next: MapLine = m === 'cash' ? { ...line, method: m, settles_to: 'cash', processor_ids: [] } : { ...line, method: m, settles_to: line.kind === 'payment' ? (line.settles_to === 'cash' ? 'bank' : line.settles_to ?? 'bank') : line.settles_to };
+      setLine(suggest(next));
     };
+    const toggleProc = (id: string) => setLine({ ...line, settles_to: 'bank', method: line.method === 'cash' ? null : line.method, processor_ids: line.processor_ids.includes(id) ? line.processor_ids.filter((p) => p !== id) : [...line.processor_ids, id] });
+    const toggleCash = () => {
+      const next: MapLine = line.settles_to === 'cash' ? { ...line, settles_to: 'bank', method: null } : { ...line, settles_to: 'cash', method: 'cash', processor_ids: [] };
+      setLine(suggest({ ...next, gl_account_id: null, venue_accounts: {} }));
+    };
+    const same = !!line.venue_id || !Object.keys(line.venue_accounts).length;
+    const setSame = (on: boolean) => on
+      ? setLine({ ...line, gl_account_id: line.gl_account_id ?? Object.values(line.venue_accounts)[0] ?? null, venue_accounts: {} })
+      : setLine({ ...line, gl_account_id: null, venue_accounts: Object.fromEntries(venues.map((v) => [v.id, accountFor(line, v.id) ?? ''] as const).filter(([, a]) => a)) });
+    const accountSelect = (value: string | null, onChange: (v: string) => void, label: string) => <Select value={value ?? undefined} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="h-10 text-[13px]"><SelectValue placeholder="Select account" /></SelectTrigger>
+      <SelectContent>{accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} {a.name}</SelectItem>)}</SelectContent></Select>;
     return <SettingsCard title="Report line" editing>
       <Field label="Printed as" hint="Other names the report uses for this line">
         <Input aria-label="Printed as" value={line.printed_name} onChange={(e) => setLine({ ...line, printed_name: e.target.value })} className="h-10 text-[13px]" />
@@ -163,6 +191,10 @@ export function RevenueMapping() {
         <Select value={t || undefined} onValueChange={setType}><SelectTrigger aria-label="Type" className="h-10 text-[13px]"><SelectValue placeholder="Select type" /></SelectTrigger>
           <SelectContent>{TYPES.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
       </Field>
+      {methodsFor(line.kind).length > 0 && <Field label={line.kind === 'delivery' ? 'Platform' : 'Payment method'} hint="Used for card payouts and Revenue reports">
+        <Select value={line.method ?? undefined} onValueChange={setMethod}><SelectTrigger aria-label="Payment method" className="h-10 text-[13px]"><SelectValue placeholder="Select" /></SelectTrigger>
+          <SelectContent>{methodsFor(line.kind).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent></Select>
+      </Field>}
       {line.kind === 'payment' && <Field label="Settles to">
         <div className="grid gap-1">
           {processors.map((p) => <label key={p.id} className="flex min-h-9 cursor-pointer items-center gap-2.5 text-[13px] whitespace-nowrap">
@@ -173,9 +205,14 @@ export function RevenueMapping() {
           {!processors.length && <p className="text-[12.5px] text-muted-foreground">No card processors yet. Add them in Card processors.</p>}
         </div>
       </Field>}
-      {needsAccount && <Field label="Account" missing={!line.gl_account_id}>
-        <Select value={line.gl_account_id ?? undefined} onValueChange={(v) => setLine({ ...line, gl_account_id: v })}><SelectTrigger aria-label="Account" className="h-10 text-[13px]"><SelectValue placeholder="Select account" /></SelectTrigger>
-          <SelectContent>{accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} {a.name}</SelectItem>)}</SelectContent></Select>
+      {needsAccount && <Field label="Account" missing={missingAccount(line, venueIds)}>
+        {!line.venue_id && venues.length > 1 && <label className="mb-2 flex min-h-9 cursor-pointer items-center gap-2.5 text-[13px] whitespace-nowrap">
+          <input type="checkbox" className="h-4 w-4 accent-[#1F6B5E]" checked={same} onChange={(e) => setSame(e.target.checked)} />Same for all venues</label>}
+        {same ? accountSelect(line.gl_account_id, (v) => setLine({ ...line, gl_account_id: v }), 'Account')
+          : <div className="grid gap-2">{venues.map((v) => <div key={v.id} className="grid grid-cols-[110px_1fr] items-center gap-3">
+              <span className="truncate text-[13px]">{v.name}</span>
+              {accountSelect(line.venue_accounts[v.id] ?? null, (a) => setLine({ ...line, venue_accounts: { ...line.venue_accounts, [v.id]: a } }), `Account for ${v.name}`)}
+            </div>)}</div>}
       </Field>}
       <Field label="Applies to">
         <Select value={line.venue_id ?? 'all'} onValueChange={(v) => setLine({ ...line, venue_id: v === 'all' ? null : v })}><SelectTrigger aria-label="Applies to" className="h-10 text-[13px]"><SelectValue /></SelectTrigger>
@@ -234,19 +271,19 @@ export function RevenueMapping() {
         <thead><tr>{COLS.map((h) => <th key={h} scope="col" className="sales-cell-left">{h}</th>)}</tr></thead>
         <tbody>
           {rows.map((l) => {
-            const p = editing && !follows ? lineProblem(l) : null;
             const tap = editing && !follows ? keyOpen(() => open(l)) : {};
             return <tr key={l.key} className="sales-record-row" {...tap}>
               <td className="sales-cell-left font-medium whitespace-nowrap" title={l.aliases.length ? `Also printed as ${l.aliases.join(', ')}` : undefined}>{l.printed_name}</td>
               <td className="sales-cell-left whitespace-nowrap">{l.kind ? typeLabel(l) : <span className="text-[#B45309]">Select type</span>}</td>
+              <td className="sales-cell-left whitespace-nowrap">{methodLabel(l.method) ?? <span className="text-muted-foreground">—</span>}</td>
               <td className="sales-cell-left whitespace-nowrap">{settlesLabel(l, processors)}{l.processor_ids.length > 1 && <span className="text-muted-foreground"> · split by settlement</span>}</td>
-              <td className="sales-cell-left whitespace-nowrap">{accountLabel(l.gl_account_id) ?? (p === 'Select account' ? <span className="text-[#B45309]">Select account</span> : <span className="text-muted-foreground">—</span>)}</td>
+              <td className="sales-cell-left whitespace-nowrap">{accountCell(l)}</td>
             </tr>;
           })}
           {unknown.map((n) => <tr key={`u-${n}`} className="sales-record-row" {...keyOpen(() => add(n))}>
             <td className="sales-cell-left font-medium whitespace-nowrap">{n}</td>
             <td className="sales-cell-left whitespace-nowrap"><span className="text-[#B45309]">Select type</span></td>
-            <td className="sales-cell-left text-muted-foreground">—</td><td className="sales-cell-left text-muted-foreground">—</td>
+            <td className="sales-cell-left text-muted-foreground">—</td><td className="sales-cell-left text-muted-foreground">—</td><td className="sales-cell-left text-muted-foreground">—</td>
           </tr>)}
         </tbody></table></div>}
       {!rows.length && !unknown.length && !follows && <Empty>{editing ? 'No lines yet.' : canEdit ? 'Add the lines of the sales report and where each posts in the books.' : 'Not set up yet.'}</Empty>}

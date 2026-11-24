@@ -5,8 +5,8 @@
 export type SetupKind =
   | "total" | "subtotal" | "guests" | "orders" | "service_charge" | "discount" | "tip"
   | "sales" | "payment" | "delivery" | "voucher_sold" | "voucher_used" | "deposit_taken" | "deposit_used" | "ignore";
-export interface SetupLineDef { printed: string; kind: SetupKind; aliases?: string[] }
-export interface ReadLine { printed: string; amount: number | null; kind: SetupKind | null; known: boolean }
+export interface SetupLineDef { printed: string; kind: SetupKind; aliases?: string[]; method?: string | null }
+export interface ReadLine { printed: string; amount: number | null; kind: SetupKind | null; known: boolean; method?: string | null }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 const num = (v: unknown): number | null => {
@@ -51,7 +51,7 @@ export function matchRead(raw: unknown, setup: SetupLineDef[]): { date: string |
     if (!printed || seen.has(norm(printed))) continue;
     seen.add(norm(printed));
     const def = byName.get(norm(printed));
-    lines.push({ printed: def?.printed ?? printed, amount: num(l.amount), kind: def?.kind ?? null, known: !!def });
+    lines.push({ printed: def?.printed ?? printed, amount: num(l.amount), kind: def?.kind ?? null, known: !!def, method: def?.method ?? null });
   }
   const date = typeof r.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : null;
   return {
@@ -69,7 +69,14 @@ export function basicsFromLines(lines: ReadLine[]) {
   const sales = sum("sales"), svc = sum("service_charge") ?? 0, disc = -Math.abs(sum("discount") ?? 0);
   const total = sum("total") ?? (sales != null ? sales + svc + disc : null);
   const subtotal = sum("subtotal") ?? (total != null ? total - svc - disc : null);
+  // Payment and delivery lines also fill the standard columns (by their method), so card payouts,
+  // Revenue reports and targets work the same for every client.
+  const by = (m: string, kinds: SetupKind[]) => lines.filter((l) => kinds.includes(l.kind as SetupKind) && l.method === m && l.amount != null).reduce((a, l) => a + (l.amount as number), 0);
+  const pay = (m: string) => by(m, ["payment"]), del = (m: string) => by(m, ["delivery"]);
   return {
+    visa: pay("visa"), mastercard: pay("mastercard"), amex: pay("amex"), unionPay: pay("union_pay"), jcb: pay("jcb"),
+    alipay: pay("alipay"), wechat: pay("wechat"), payme: pay("payme"), cash: pay("cash"),
+    deliveroo: del("deliveroo"), foodpanda: del("foodpanda"), keeta: del("keeta"),
     totalSales: total, subtotal, serviceCharge: svc, discount: disc,
     guests: sum("guests") ?? 0, orders: sum("orders") ?? 0, cardTips: -Math.abs(sum("tip") ?? 0),
     vouchersSold: sum("voucher_sold") ?? 0, vouchersUsed: sum("voucher_used") ?? 0,

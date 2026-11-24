@@ -3,16 +3,16 @@
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
 import { isSetupMode, linesForVenue, matchRead, setupReadPrompt, type SetupKind, type SetupLineDef } from "../_shared/setupReceipt.ts";
 
-export type SetupRow = { venue_id: string | null; printed_name: string; kind: string; legacy_field: string | null; is_active: boolean; aliases?: string[] | null };
+export type SetupRow = { venue_id: string | null; printed_name: string; kind: string; legacy_field: string | null; is_active: boolean; aliases?: string[] | null; method?: string | null };
 
 /** The client's setup, when it is read line by line; null for clients on fixed fields (KHAMBU). */
 export async function loadSetup(admin: any, tenantId: string): Promise<SetupRow[] | null> {
-  const { data } = await admin.from("sales_report_lines").select("venue_id,printed_name,kind,legacy_field,is_active,aliases").eq("tenant_id", tenantId).eq("is_active", true);
+  const { data } = await admin.from("sales_report_lines").select("venue_id,printed_name,kind,legacy_field,is_active,aliases,method").eq("tenant_id", tenantId).eq("is_active", true);
   const rows = (data ?? []) as SetupRow[];
   return isSetupMode(rows) ? rows : null;
 }
 
-export const defs = (rows: SetupRow[]): SetupLineDef[] => rows.map((r) => ({ printed: r.printed_name, kind: r.kind as SetupKind, aliases: r.aliases ?? [] }));
+export const defs = (rows: SetupRow[]): SetupLineDef[] => rows.map((r) => ({ printed: r.printed_name, kind: r.kind as SetupKind, aliases: r.aliases ?? [], method: r.method ?? null }));
 
 /** One read of the report; lines are matched to the setup of the venue it names. */
 export async function readWithSetup(admin: any, tenantId: string, rows: SetupRow[], venues: string[], imageBase64: string, mimeType: string, fileName: string, model: string) {
