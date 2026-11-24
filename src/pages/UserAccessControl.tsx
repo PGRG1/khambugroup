@@ -31,6 +31,7 @@ const UserAccessControl = () => {
   const [users, setUsers] = useState<UserAccessRecord[]>([]);
   const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<TenantRole[]>([]);
+  const [pending, setPending] = useState<Set<string>>(new Set());
   const [access, setAccess] = useState<Record<string, PersonAccess>>({});
   const [venueList, setVenueList] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,11 +49,14 @@ const UserAccessControl = () => {
     if(!memberIds.length){setUsers([]);setLoading(false);return;}
     const emailRes = await supabase.functions.invoke("list-users");
     const emailMap = new Map<string, string>();
+    const pendingIds = new Set<string>();
     if (emailRes.data?.users) {
       for (const u of emailRes.data.users) {
         emailMap.set(u.id, u.email);
+        if (u.pending_password) pendingIds.add(u.id);
       }
     }
+    setPending(pendingIds);
 
     const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }, { data: venueAccess }, { data: allVenues }] = await Promise.all([
       supabase.from("profiles").select("user_id, display_name").in('user_id',memberIds),
@@ -172,7 +176,7 @@ const UserAccessControl = () => {
   if (canManage && tenantId && showCreateDialog) return <div className="contents"><InviteCard tenantId={tenantId} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
     onClose={() => setShowCreateDialog(false)} onDone={() => { setShowCreateDialog(false); void fetchUsers(); }} /></div>;
   if (canManage && tenantId && editingUser) return <div className="contents"><PersonAccessCard key={editingUser.user_id} tenantId={tenantId} userId={editingUser.user_id}
-    name={editingUser.display_name || editingUser.email} access={access[editingUser.user_id]} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
+    name={editingUser.display_name || editingUser.email} email={editingUser.email} pending={pending.has(editingUser.user_id)} access={access[editingUser.user_id]} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
     onClose={() => setEditingUser(null)} onSaved={() => { setEditingUser(null); void fetchUsers(); }} /></div>;
   return (
     <div className="contents">
@@ -197,7 +201,7 @@ const UserAccessControl = () => {
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
               <td className={`sales-cell-left ${newRole(u) ? "" : "text-muted-foreground"}`} title={newRole(u) ? undefined : "No role yet"}>{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
-              <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
+              <td className="sales-cell-left">{u.status !== "active" ? <Status text="Disabled" tone="mut" /> : pending.has(u.user_id) ? <Status text="Password not set" tone="amber" /> : <Status text="Active" tone="ok" />}</td>
             </tr>)}</tbody></table></div>
           {!filtered.length && <p className="p-10 text-center text-sm text-muted-foreground">{loading ? "Loading people…" : search || positionFilter !== "all" ? "Nothing matches your search or filters." : "No people yet."}</p>}
         </section>;

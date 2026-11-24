@@ -49,6 +49,8 @@ serve(async (req) => {
       id: u.id,
       email: u.email,
       created_at: u.created_at,
+      // Still on a temporary password (added or reset, has not set their own yet).
+      pending_password: !!(u.user_metadata as any)?.must_set_password,
     }));
 
     return new Response(

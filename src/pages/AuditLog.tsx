@@ -26,6 +26,7 @@ const shortDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStrin
 function sentence(e: AuditEntry): string {
   const d = e.details ?? {};
   if (e.action === "bani_done") return d.title ?? "Bani made a change";
+  if ((e.action === "person_added" || e.action === "temporary_password_reset") && d.title) return d.title;
   if (e.action === "bani_undo") return d.title ? `Undid: ${d.title}` : "Undid a Bani change";
   if (e.action === "bulk_upload") return `Uploaded ${Number(d.count) || "some"} records`;
   const base = SENTENCES[`${e.action}:${e.entity_type}`] ?? SENTENCES[e.action];

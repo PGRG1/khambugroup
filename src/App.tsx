@@ -10,6 +10,7 @@ import { resolveAuthRoute } from "@/utils/authRouting";
 import { readLastShell, writeLastShell } from "@/utils/lastShell";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { SetOwnPassword, needsOwnPassword } from "@/components/auth/SetOwnPassword";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
@@ -174,6 +175,8 @@ const TenantShell = () => {
     decidedOnce.current = true;
     if (!isPlatformAdmin) writeLastShell("tenant");
   }
+  // Someone on a temporary password sets their own before anything else.
+  if (settled && session && needsOwnPassword(session)) return <SetOwnPassword session={session} />;
   // Returning client users see the empty portal frame instead of a blank screen; everyone else
   // (platform admins, first visits) keeps the plain screen so the portal never flashes for them.
   if (!decidedOnce.current) return readLastShell() === "tenant" ? <ShellFrame /> : <QuietLoading />;

@@ -6,6 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Temporary passwords: 10 easy-to-read characters (no O/0, I/l/1) in groups, e.g. K7mP-r4Wx-9q.
+// Shown once to whoever added the person; the person must set their own password at first sign-in
+// (user_metadata.must_set_password), and the app refuses a temporary password older than 7 days.
+const READABLE = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+function temporaryPassword(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  const c = Array.from(bytes, (b) => READABLE[b % READABLE.length]).join("");
+  return `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`;
+}
+const pendingMeta = () => ({ must_set_password: true, temp_password_set_at: new Date().toISOString() });
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -22,8 +33,10 @@ serve(async (req) => {
     const { data: { user: caller } } = await callerClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!caller) throw new Error("Unauthorized");
 
-    const { email, displayName, position, tenant_id: requestedTenantId, role = "member" } = await req.json();
-    if (!email) throw new Error("Email is required");
+    const body = await req.json();
+    const { email, displayName, position, tenant_id: requestedTenantId, role = "member" } = body;
+    const resetting = body.action === "reset";
+    if (!resetting && !email) throw new Error("Email is required");
 
     // Resolve which tenant to add the new user to.
     // - Caller must be either super_admin OR a tenant_admin/admin of that tenant.
@@ -54,13 +67,32 @@ serve(async (req) => {
       .in("role", ["admin", "super_admin"]);
     if ((!roleCheck || roleCheck.length === 0) && !callerIsSuper) throw new Error("Admin only");
 
-    // Create user with a random password; they'll set via reset link
-    const tempPassword = crypto.randomUUID() + "Aa1!";
+    // Reset: a new temporary password for someone already in this business.
+    if (resetting) {
+      const target = String(body.user_id ?? "");
+      if (!target) throw new Error("Pick a person");
+      if (target === caller.id) throw new Error("Change your own password from your account");
+      const { data: member } = await supabaseAdmin.from("tenant_members").select("role").eq("tenant_id", tenantId).eq("user_id", target).maybeSingle();
+      if (!member) throw new Error("This person is not in the business");
+      if (["platform_admin", "super_admin"].includes(String(member.role))) throw new Error("Bani team passwords are not reset here");
+      const { data: access } = await supabaseAdmin.from("tenant_user_access").select("role_key").eq("tenant_id", tenantId).eq("user_id", target).maybeSingle();
+      if (!callerIsSuper && (access?.role_key === "owner" || member.role === "tenant_admin")) throw new Error("Only Bani can reset an owner's password");
+      const { data: existing, error: getError } = await supabaseAdmin.auth.admin.getUserById(target);
+      if (getError || !existing?.user) throw new Error("Person not found");
+      const password = temporaryPassword();
+      const { error: updError } = await supabaseAdmin.auth.admin.updateUserById(target, { password, user_metadata: { ...(existing.user.user_metadata ?? {}), ...pendingMeta() } });
+      if (updError) throw updError;
+      await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, user_id: caller.id, user_display_name: caller.email, action: "temporary_password_reset", entity_type: "people", entity_id: target, details: { title: `Reset ${existing.user.email ?? "a person"}'s password` } });
+      return new Response(JSON.stringify({ success: true, userId: target, tempPassword: password }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Create the account with a temporary password, shown once to whoever added them.
+    const tempPassword = temporaryPassword();
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { display_name: displayName || email },
+      user_metadata: { display_name: displayName || email, ...pendingMeta() },
     });
 
     if (createError) throw createError;
@@ -89,14 +121,10 @@ serve(async (req) => {
         );
     }
 
-    // Send password reset email so user can set their own password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-    });
+    if (newUserId) await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, user_id: caller.id, user_display_name: caller.email, action: "person_added", entity_type: "people", entity_id: newUserId, details: { title: `Added ${displayName || email}` } });
 
     return new Response(
-      JSON.stringify({ success: true, userId: newUserId, tenant_id: tenantId, resetSent: !resetError }),
+      JSON.stringify({ success: true, userId: newUserId, tenant_id: tenantId, tempPassword }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
