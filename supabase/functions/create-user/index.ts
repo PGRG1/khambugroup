@@ -31,6 +31,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) throw new Error("Please sign in again");
     const token = authHeader.replace(/^[Bb]earer\s+/, "");
+    if (!token.trim()) throw new Error("Please sign in again");
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     let callerId: string | null = null;
     const anyAuth = callerClient.auth as any;
@@ -141,9 +142,10 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: message }),
+      { status: message === "Please sign in again" ? 401 : 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
