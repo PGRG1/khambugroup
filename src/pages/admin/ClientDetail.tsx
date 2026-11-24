@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, LogIn, Check } from "lucide-react";
+import { ArrowLeft, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -10,13 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import { ClientRoles } from "@/components/platform/ClientRoles";
 import { ClientBooks } from "@/components/platform/ClientBooks";
-import { SETUP_STEPS, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
 
 // Control plane: a client's business setup, done by Bani — the company, its venues, books start and opening balances,
 // and what each role can do
 // (the client only assigns roles to people). Everything else
 // (accounts, tax, suppliers, team…) is set up inside the client's own Settings, by their team or by
-// Bani support after "Enter client"; here it is only shown as read-only setup status.
+// Bani support after "Enter client".
 
 type Tenant = { id: string; name: string; slug: string; status: string; country?: string | null; base_currency?: string | null; timezone?: string | null; users_managed_by?: "bani" | "client" };
 type Org = { id: string; name: string | null; legal_name: string | null; registration_number: string | null; incorporation_date: string | null; registered_address: string | null; auditor: string | null };
@@ -44,7 +43,6 @@ export default function ClientDetail() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
-  const [setup, setSetup] = useState<SetupState | undefined>();
   const [editOrg, setEditOrg] = useState<Partial<Org> | null>(null);
   const [newVenue, setNewVenue] = useState("");
   const [rename, setRename] = useState<{ id: string; name: string } | null>(null);
@@ -54,15 +52,14 @@ export default function ClientDetail() {
 
   const refresh = useCallback(async () => {
     if (!tenantId) return;
-    const [{ data: t }, { data: os }, { data: vs }, s, { count: us }] = await Promise.all([
+    const [{ data: t }, { data: os }, { data: vs }, { count: us }] = await Promise.all([
       supabase.from("tenants").select("id, name, slug, status, country, base_currency, timezone, users_managed_by" as "*").eq("id", tenantId).maybeSingle(),
       supabase.from("organizations").select("id, name, legal_name, registration_number, incorporation_date, registered_address, auditor").eq("tenant_id", tenantId).order("created_at").limit(1),
       supabase.from("venues").select("id, name, is_active, organization_id").eq("tenant_id", tenantId).order("name"),
-      loadClientSetup(tenantId),
       supabase.from("tenant_members").select("user_id", { count: "exact", head: true }).eq("tenant_id", tenantId).not("role", "in", "(platform_admin,super_admin)"),
     ]);
     setUsers(us ?? 0);
-    setTenant((t as Tenant) ?? null); setOrg(((os ?? [])[0] as Org) ?? null); setVenues((vs ?? []) as Venue[]); setSetup(s);
+    setTenant((t as Tenant) ?? null); setOrg(((os ?? [])[0] as Org) ?? null); setVenues((vs ?? []) as Venue[]);
   }, [tenantId]);
   useEffect(() => { if (isPlatformAdmin && tenantId) void refresh(); }, [isPlatformAdmin, tenantId, refresh]);
 
@@ -115,7 +112,6 @@ export default function ClientDetail() {
     setBusy(false);
     if (done(true, by === "bani" ? "Bani manages users" : "Client manages users", error)) void refresh();
   };
-  const sum = setupSummary(setup);
   const details = [tenant?.country, tenant?.base_currency, tenant?.timezone].filter(Boolean).join(" · ");
   const row = "flex h-11 items-center justify-between gap-3 px-4 sm:px-5 text-[13px] " + HAIR;
 
@@ -164,11 +160,6 @@ export default function ClientDetail() {
 
       {tenantId && <ClientRoles tenantId={tenantId} />}
 
-      <Card title="Setup" action={<span className="text-[12px] text-muted-foreground tabular-nums">{sum.done} of {sum.total}</span>}>
-        {SETUP_STEPS.map((s) => <div key={s.key} className={row}><span>{s.label}</span>
-          {setup?.[s.key] ? <Check className="h-4 w-4 text-[#1F6B5E]" aria-label="Done" /> : <span className="text-muted-foreground">Not yet</span>}</div>)}
-        <p className={`px-4 sm:px-5 py-3 text-[12px] text-muted-foreground ${HAIR}`}>Set up in the client's own Settings, by their team or by Bani support after Enter client.</p>
-      </Card>
 
       <Dialog open={!!toggle} onOpenChange={(o) => !o && setToggle(null)}>
         <DialogContent><DialogHeader><DialogTitle>{toggle?.is_active ? "Close" : "Reopen"} {toggle?.name}?</DialogTitle></DialogHeader>

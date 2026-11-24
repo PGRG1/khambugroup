@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Loader2, LogIn, Search, ChevronRight } from "lucide-react";
+import { Plus, Loader2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { Num, useHomePlay } from "@/components/home/HomeMotion";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { clientStatus, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
+import { clientStatus, loadClientSetup, type SetupState } from "@/utils/clientSetup";
 
 type ClientRow = { id: string; name: string; slug: string; status: string; created_at: string };
 
@@ -27,76 +27,12 @@ const FY_OPTIONS = [
   { value: "10-01", label: "1 October" },
 ];
 
-const STATUS_LABELS: Record<string, string> = {
-  setup: "In setup",
-  active: "Active",
-  suspended: "Suspended",
-};
-const STATUS_CHIP: Record<string, string> = {
-  setup: "",
-  active: "chip-success",
-  suspended: "chip-neutral",
-};
-
 type Counts = { venues: number; users: number };
 
-type Setup = { done: number; total: number; pct: number; phaseLabel: string };
-
-/** Setup read from the client's own data (company, venues, accounts, banks, suppliers, team, first sales and invoice). */
-function setupFor(state: SetupState | undefined): Setup {
-  const o = setupSummary(state);
-  return { done: o.done, total: o.total, pct: o.pct, phaseLabel: o.label };
-}
-
-function SetupBar({ setup }: { setup: Setup }) {
-  return (
-    <div className="flex flex-col gap-2 min-w-0">
-      <div className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} setup steps done`}>
-        {Array.from({ length: setup.total }, (_, i) => (
-          <span
-            key={i}
-            className={`h-2 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary cl-seg" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`}
-            style={{ ["--s" as any]: i }}
-          />
-        ))}
-      </div>
-      <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
-        {setup.phaseLabel}
-      </span>
-    </div>
-  );
-}
-
-function SetupBlocks({ setup }: { setup: Setup }) {
-  return (
-    <span className="flex gap-[3px]" role="img" aria-label={`${setup.done} of ${setup.total} setup steps done`}>
-      {Array.from({ length: setup.total }, (_, i) => (
-        <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < setup.done ? "bg-primary cl-seg" : "bg-[#DCE3DE] dark:bg-white/[0.10]"}`} style={{ ["--s" as any]: i }} />
-      ))}
-    </span>
-  );
-}
-
-const STATUS_TEXT: Record<string, string> = {
-  setup: "text-muted-foreground",
-  active: "text-success",
-  suspended: "text-muted-foreground",
-};
-
-function StatusText({ status }: { status: string }) {
-  return (
-    <span className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ${STATUS_TEXT[status] ?? "text-muted-foreground"}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />{STATUS_LABELS[status] ?? status}
-    </span>
-  );
-}
-
-function StatusChip({ status }: { status: string }) {
-  return (
-    <span className={`chip whitespace-nowrap ${STATUS_CHIP[status] ?? "chip-neutral"}`}>
-      <span className="dot" />{STATUS_LABELS[status] ?? status}
-    </span>
-  );
+function Dot({ status }: { status: "active" | "setup" | "suspended" }) {
+  const label = status === "active" ? "Active" : status === "suspended" ? "Suspended" : "In setup";
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-normal ${status === "active" ? "" : "text-muted-foreground"}`}>
+    <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${status === "active" ? "bg-[#3E9B6B]" : status === "suspended" ? "bg-[#C26A12]" : "bg-[#B8C0BB]"}`} />{label}</span>;
 }
 
 export default function Clients() {
@@ -108,7 +44,6 @@ export default function Clients() {
   const [onboarding, setOnboarding] = useState<Record<string, SetupState>>({});
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [filter, setFilter] = useState<"all" | "active" | "setup">("all");
 
   const refresh = useCallback(async () => {
@@ -152,7 +87,6 @@ export default function Clients() {
       .map((r) => ({
         ...r,
         shownStatus: clientStatus(r.status, onboarding[r.id]),
-        setup: setupFor(onboarding[r.id]),
         c: counts[r.id] ?? { venues: 0, users: 0 },
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -193,14 +127,12 @@ export default function Clients() {
     { label: "Total users", short: "Users", value: totalUsers },
   ];
 
-  const MANY = 10;
-  const showFilters = totalClients > MANY;
   const filters: { key: "all" | "active" | "setup"; label: string; n: number }[] = [
     { key: "all", label: "All", n: totalClients },
     { key: "active", label: "Active", n: totalActive },
     { key: "setup", label: "In setup", n: totalSetup },
   ];
-  const visible = showFilters && filter !== "all" ? shown.filter((r) => r.shownStatus === filter) : shown;
+  const visible = filter !== "all" ? shown.filter((r) => r.shownStatus === filter) : shown;
 
   const empty = rows === null ? "Loading…" : rows.length === 0 ? "No clients yet." : visible.length === 0 ? "No clients match." : null;
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -219,24 +151,6 @@ export default function Clients() {
     </label>
   );
 
-  const filterPills = showFilters && (
-    <div className="flex gap-2 overflow-x-auto">
-      {filters.map((f) => (
-        <button
-          key={f.key}
-          type="button"
-          onClick={() => setFilter(f.key)}
-          aria-pressed={filter === f.key}
-          className={`h-9 px-3.5 rounded-full border text-[13px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-            filter === f.key ? "bg-primary border-primary text-primary-foreground" : "bg-card border-border text-foreground hover:bg-muted/60"
-          }`}
-        >
-          {f.label}<span className="opacity-70 tabular-nums">{f.n}</span>
-        </button>
-      ))}
-    </div>
-  );
-
   return (
     <div className={`w-full clients-page ${go ? `cl-go ${play ? "cl-play" : ""}` : "cl-hold"}`}>
       {/* Title row */}
@@ -245,7 +159,6 @@ export default function Clients() {
           Clients
         </h1>
         <div className="flex items-center gap-3">
-          {searchBox("hidden xl:flex w-[280px]")}
           <Button onClick={() => setOpen(true)} aria-label="Add Client" className="h-11 w-11 sm:w-auto sm:px-[18px] p-0 rounded-xl text-[15px] shrink-0">
             <Plus className="h-5 w-5 sm:h-[18px] sm:w-[18px] sm:mr-1.5" /><span className="hidden sm:inline">Add Client</span>
           </Button>
@@ -275,132 +188,44 @@ export default function Clients() {
         ))}
       </div>
 
-      {/* Phone / tablet: search, filters, one list */}
-      <div className="xl:hidden mt-5 flex flex-col gap-2.5">
-        {searchBox("w-full")}
-        {filterPills}
-      </div>
-      <div className="md:hidden mt-4 card-glass rounded-2xl overflow-hidden divide-y divide-border/70 dark:divide-white/[0.06]">
-        {empty && <div className="px-5 py-8 text-center text-muted-foreground">{empty}</div>}
-        {visible.map((r, ri) => (
-          <div key={r.id} className="cl-row flex items-center gap-3 min-h-[92px] px-4" style={{ ["--r" as any]: ri }}>
-            <button
-              type="button"
-              onClick={() => navigate(`/platform/clients/${r.id}`)}
-              className="flex-1 min-w-0 flex flex-col gap-[7px] text-left py-3"
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-[15.5px] leading-5 truncate dark:text-white">{r.name}</span>
-                <StatusText status={r.shownStatus} />
-              </span>
-              <SetupBlocks setup={r.setup} />
-              <span className="text-[12.5px] text-muted-foreground truncate tabular-nums">
-                {r.setup.phaseLabel} · {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
-              </span>
-            </button>
-            <Button size="icon" className="h-11 w-11 rounded-full shrink-0 bg-accent text-accent-foreground hover:bg-[#DCE8E0]" aria-label={`Enter ${r.name}`} onClick={() => enterClient(r.id, "/")}>
-              <LogIn className="h-[18px] w-[18px]" />
-            </Button>
+      {/* One list card for every screen size, like Bani team: the count, filter and search, then one row per client.
+          Phone shows name, status and counts; tablet and computer show the table. Tap a row to manage; Enter goes in. */}
+      <section className="mt-5 card-glass rounded-2xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Clients">
+        <h2 className="text-base font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{plural(totalClients, "client")}</span>{totalSetup > 0 && <span className="text-[13px] text-muted-foreground font-normal">· {totalSetup} in setup</span>}</h2>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-1 rounded-full bg-black/[0.05] p-[3px] self-start">
+            {filters.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} aria-pressed={filter === f.key}
+              className={`h-8 px-3 rounded-full text-[13px] whitespace-nowrap ${filter === f.key ? "bg-white font-semibold shadow-sm" : "text-muted-foreground"}`}>{f.label}</button>)}
           </div>
-        ))}
-      </div>
-
-      {/* Tablet: two columns of cards */}
-      <div className="hidden md:grid xl:hidden mt-4 grid-cols-2 gap-3">
-        {empty && <div className="col-span-2 card-glass rounded-2xl px-5 py-8 text-center text-muted-foreground">{empty}</div>}
-        {visible.map((r, ri) => (
-          <div key={r.id} className="cl-row card-glass rounded-[14px] p-4 flex flex-col gap-3.5 min-w-0" style={{ ["--r" as any]: ri }}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex flex-col gap-0.5">
-                <span className="font-medium text-[15px] leading-5 truncate dark:text-white">{r.name}</span>
-                <span className="text-[12.5px] leading-[18px] text-muted-foreground truncate">/{r.slug}</span>
-              </div>
-              <StatusChip status={r.shownStatus} />
-            </div>
-            <SetupBar setup={r.setup} />
-            <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/70 dark:border-white/[0.06]">
-              <span className="text-[13px] text-muted-foreground whitespace-nowrap tabular-nums">
-                {plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-11 px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => navigate(`/platform/clients/${r.id}`)}
-                >
-                  Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-                </Button>
-                <Button size="sm" className="h-11 px-4 rounded-[10px] whitespace-nowrap bg-accent text-accent-foreground hover:bg-[#DCE8E0]" onClick={() => enterClient(r.id, "/")}>
-                  <LogIn className="h-4 w-4 mr-1.5" /> Enter
-                </Button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Desktop: filters (more than 10 clients) + table */}
-      {showFilters && <div className="hidden xl:block mt-6">{filterPills}</div>}
-      <div className={`hidden xl:block card-glass rounded-2xl overflow-hidden ${showFilters ? "mt-3" : "mt-7"}`}>
-        <div className="w-full overflow-x-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}>
-          <table className="w-full text-sm min-w-[860px]">
-            <thead className="font-plex text-[11px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
-              <tr className="border-b border-border/70 dark:border-white/[0.06]">
-                <th scope="col" className={`sticky left-0 z-10 bg-card text-left px-5 py-3.5 font-medium transition-shadow ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>Client group</th>
-                <th scope="col" className="text-center px-4 py-3.5 font-medium">Venues</th>
-                <th scope="col" className="text-center px-4 py-3.5 font-medium">Users</th>
-                <th scope="col" className="text-left pl-6 pr-4 py-3.5 font-medium">Setup</th>
-                <th scope="col" className="text-left px-4 py-3.5 font-medium">Status</th>
-                <th scope="col" className="text-right px-5 py-3.5 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empty && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">{empty}</td></tr>
-              )}
-              {visible.map((r, ri) => (
-                <tr
-                  key={r.id}
-                  style={{ ["--r" as any]: ri }}
-                  onClick={() => navigate(`/platform/clients/${r.id}`)}
-                  className="cl-row group h-[76px] border-b last:border-b-0 border-border/60 dark:border-white/[0.045] cursor-pointer transition-colors hover:bg-[rgba(20,45,43,0.04)] dark:hover:bg-white/[0.025]"
-                >
-                  <td className={`sticky left-0 z-10 bg-card px-5 py-0 transition-[background-color,box-shadow] group-hover:bg-[#F6F8F6] dark:group-hover:bg-[hsl(96_8%_13%)] ${scrolled ? "shadow-[8px_0_12px_-8px_rgba(20,45,43,0.18)]" : ""}`}>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium text-[15px] leading-5 whitespace-nowrap dark:text-white">{r.name}</span>
-                      <span className="text-[12.5px] leading-[18px] text-muted-foreground whitespace-nowrap">/{r.slug}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.venues}</td>
-                  <td className="px-4 py-0 text-center text-[15px] tabular-nums dark:text-white">{r.c.users}</td>
-                  <td className="pl-6 pr-4 py-0"><SetupBar setup={r.setup} /></td>
-                  <td className="px-4 py-0"><StatusChip status={r.shownStatus} /></td>
-                  <td className="px-5 py-0">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-[38px] px-2.5 rounded-[10px] whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
-                      >
-                        Manage <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-[38px] px-4 rounded-[10px] whitespace-nowrap bg-accent text-accent-foreground hover:bg-[#DCE8E0]"
-                        onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}
-                      >
-                        <LogIn className="h-4 w-4 mr-1.5" /> Enter
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {searchBox("flex-1 h-10 rounded-full")}
         </div>
-      </div>
+        {empty ? <p className="p-10 text-center text-sm text-muted-foreground">{empty}</p> : <>
+          <ul className="md:hidden">{visible.map((r) => <li key={r.id} className="flex items-center gap-3 min-h-[60px] border-b border-[#ECEAE3] last:border-b-0">
+            <button type="button" onClick={() => navigate(`/platform/clients/${r.id}`)} className="flex-1 min-w-0 text-left py-2">
+              <span className="flex items-center gap-2"><span className="font-medium text-[15px] truncate">{r.name}</span><Dot status={r.shownStatus} /></span>
+              <span className="block text-[12.5px] text-muted-foreground tabular-nums">{plural(r.c.venues, "venue")} · {plural(r.c.users, "user")}</span>
+            </button>
+            <button type="button" className="text-[13px] font-medium text-[#1F6B5E] px-2 h-10" onClick={() => enterClient(r.id, "/")}>Enter</button>
+          </li>)}</ul>
+          <div className="hidden md:block overflow-x-auto"><table className="w-full min-w-[640px] border-collapse text-[13px]" aria-label="Clients">
+            <thead><tr className="text-[12px] text-muted-foreground">
+              <th scope="col" className="h-9 px-2 text-left font-medium border-b border-[#ECEAE3]">Client</th>
+              <th scope="col" className="h-9 px-2 text-left font-medium border-b border-[#ECEAE3]">Status</th>
+              <th scope="col" className="h-9 px-2 text-right font-medium border-b border-[#ECEAE3]">Venues</th>
+              <th scope="col" className="h-9 px-2 text-right font-medium border-b border-[#ECEAE3]">Users</th>
+              <th scope="col" className="h-9 px-2 pl-6 text-left font-medium border-b border-[#ECEAE3]">Added</th>
+              <th className="border-b border-[#ECEAE3]"><span className="sr-only">Enter</span></th>
+            </tr></thead>
+            <tbody>{visible.map((r) => <tr key={r.id} tabIndex={0} onClick={() => navigate(`/platform/clients/${r.id}`)} onKeyDown={(e) => e.key === "Enter" && navigate(`/platform/clients/${r.id}`)} className="cursor-pointer hover:bg-black/[0.025]">
+              <td className="h-11 px-2 font-medium whitespace-nowrap border-b border-[#ECEAE3]">{r.name}</td>
+              <td className="h-11 px-2 whitespace-nowrap border-b border-[#ECEAE3]"><Dot status={r.shownStatus} /></td>
+              <td className="h-11 px-2 text-right tabular-nums border-b border-[#ECEAE3]">{r.c.venues}</td>
+              <td className="h-11 px-2 text-right tabular-nums border-b border-[#ECEAE3]">{r.c.users}</td>
+              <td className="h-11 px-2 pl-6 whitespace-nowrap text-muted-foreground border-b border-[#ECEAE3]">{new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Hong_Kong" })}</td>
+              <td className="h-11 px-2 text-right border-b border-[#ECEAE3]"><button type="button" className="text-[13px] font-medium text-[#1F6B5E]" onClick={(e) => { e.stopPropagation(); enterClient(r.id, "/"); }}>Enter</button></td>
+            </tr>)}</tbody></table></div>
+        </>}
+      </section>
 
       <div className="h-16" />
 
