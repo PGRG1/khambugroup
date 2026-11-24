@@ -7,14 +7,15 @@ import { Field, Row, SaveBar, SettingsCard } from './SettingsForm';
 
 type Key = 'name' | 'legal_name' | 'registration_number' | 'incorporation_date' | 'auditor' | 'registered_address';
 type Draft = Partial<Record<Key, string | null>>;
-const CARDS: { title: string; fields: { key: Key; label: string; type?: string; placeholder?: string; missing?: string }[] }[] = [
-  { title: 'Company', fields: [{ key: 'name', label: 'Company name', missing: 'Add the company name' }, { key: 'legal_name', label: 'Legal name', placeholder: 'As registered' }] },
-  { title: 'Registration', fields: [{ key: 'registration_number', label: 'BR number', placeholder: 'e.g. 12345678', missing: 'Add your BR number' }, { key: 'incorporation_date', label: 'Incorporated', type: 'date' }, { key: 'auditor', label: 'Auditor', placeholder: 'Optional' }] },
-  { title: 'Registered address', fields: [{ key: 'registered_address', label: 'Address', placeholder: 'Street, district', missing: 'Add the registered address' }] },
+const FIELDS: { key: Key; label: string; type?: string; placeholder?: string; missing?: string }[] = [
+  { key: 'name', label: 'Company name', missing: 'Add the company name' }, { key: 'legal_name', label: 'Legal name', placeholder: 'As registered' },
+  { key: 'registration_number', label: 'BR number', placeholder: 'e.g. 12345678', missing: 'Add BR number' }, { key: 'incorporation_date', label: 'Incorporated', type: 'date' },
+  { key: 'registered_address', label: 'Registered address', placeholder: 'Street, district', missing: 'Add address' }, { key: 'auditor', label: 'Auditor', placeholder: 'Optional' },
 ];
 const dayText = (iso?: string | null) => iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
 
-// Company details, read first: cards show what is saved; Edit turns one card into fields.
+// Company details, read first: one card shows what is saved; Edit turns it into fields. Adding another company is
+// done on the control plane.
 // Company setup is done by the Bani team: only Bani platform admins can edit or add (the database enforces it too).
 export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
   const org = useOrganizations();
@@ -59,17 +60,16 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
       <Select value={id} onValueChange={v => { setId(v); if (v === 'new') { setDraft({}); setEditing('Company'); } else setEditing(null); }}><SelectTrigger aria-label="Company" className="max-w-[420px] rounded-full bg-white"><SelectValue /></SelectTrigger>
         <SelectContent>{org.organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}{canEdit && <SelectItem value="new">Add another company</SelectItem>}</SelectContent></Select>
     </SettingsCard>}
-    {CARDS.map(c => {
-      const on = editing === c.title;
-      return <SettingsCard key={c.title} title={c.title} editing={on} onEdit={on || isNew || !canEdit ? undefined : () => open(c.title)}>
+    {(() => {
+      const on = editing === 'Company';
+      return <SettingsCard title="Company" editing={on} onEdit={on || isNew || !canEdit ? undefined : () => open('Company')}>
         {on ? <>
-          {c.fields.map(f => <Field key={f.key} label={f.label} htmlFor={`company-${f.key}`} missing={!!f.missing && !draft[f.key]}>
+          {FIELDS.map(f => <Field key={f.key} label={f.label} htmlFor={`company-${f.key}`} missing={!!f.missing && !draft[f.key]}>
             <Input id={`company-${f.key}`} type={f.type ?? 'text'} placeholder={f.placeholder} value={draft[f.key] ?? ''} onChange={e => setDraft({ ...draft, [f.key]: e.target.value })} />
           </Field>)}
-          <SaveBar dirty saving={saving} onSave={() => void save(c.fields.map(f => f.key))} onCancel={isNew ? undefined : () => setEditing(null)} />
-        </> : c.fields.map(f => <Row key={f.key} label={f.label} value={f.type === 'date' ? dayText(saved[f.key]) : saved[f.key]} missing={f.missing} />)}
+          <SaveBar dirty saving={saving} onSave={() => void save(FIELDS.map(f => f.key))} onCancel={isNew ? undefined : () => setEditing(null)} />
+        </> : FIELDS.map(f => <Row key={f.key} label={f.label} value={f.type === 'date' ? dayText(saved[f.key]) : saved[f.key]} missing={f.missing} />)}
       </SettingsCard>;
-    })}
-    {canEdit && org.organizations.length === 1 && !isNew && <button type="button" className="self-start px-1 text-[13px] text-[#1F6B5E]" onClick={() => setId('new')}>Add another company</button>}
+    })()}
   </>;
 }
