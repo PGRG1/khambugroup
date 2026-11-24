@@ -34,24 +34,29 @@ function VenuePicks({ venues, all, ids, onChange }: { venues: Venue[]; all: bool
 }
 
 /** Shown once after adding someone or resetting their password. */
-export function TempPasswordCard({ name, email, password, detail, onDone }: { name: string; email: string; password: string; detail?: string; onDone: () => void }) {
+export function TempPasswordCard({ name, email, password, detail, onDone, title }: { name: string; email: string; password: string; detail?: string; onDone: () => void; title?: string }) {
   const first = name.split(" ")[0] || "them";
-  const where = window.location.origin.replace(/^https?:\/\//, "");
-  const message = `Your Bani sign-in\n${where}\nEmail: ${email}\nTemporary password: ${password}\nYou will set your own password when you sign in. This one stops working after 7 days.`;
+  // Lovable's preview runs on a long internal address; only show a real sign-in address.
+  const host = window.location.host;
+  const where = /lovable(project)?\.(app|com)$|^id-preview--|^localhost/.test(host) ? "" : host;
+  const message = `Your Bani sign-in${where ? `\n${where}` : ""}\nEmail: ${email}\nTemporary password: ${password}\nYou will set your own password when you sign in. This one stops working after 7 days.`;
   const copy = async () => { try { await navigator.clipboard.writeText(password); toast({ title: "Password copied" }); } catch { toast({ title: "Copy did not work; select the password instead", variant: "destructive" }); } };
-  const btn = "inline-flex h-10 items-center rounded-full border border-border bg-white px-4 text-[14px] font-medium whitespace-nowrap";
-  return <SettingsCard title="Temporary password">
-    <p className="text-[13px] text-muted-foreground">Give this to {first}. It is shown only once and stops working after 7 days.</p>
-    <p className="my-3 flex h-[52px] select-all items-center justify-center rounded-xl border border-dashed border-[#9CC3A8] bg-[#F1F6F3] font-mono text-[22px] tracking-[.12em]" aria-label="Temporary password">{password}</p>
-    <div className="flex flex-wrap gap-2">
-      <button type="button" className={btn} onClick={() => void copy()}>Copy</button>
-      <a className={btn} href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
-      <a className={btn} href={`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent("Your Bani sign-in")}&body=${encodeURIComponent(message)}`}>Email it to {first}</a>
+  const link = "text-[13px] font-medium text-[#1F6B5E] whitespace-nowrap";
+  return <SettingsCard title={title ?? `${name || email} is added`}>
+    <p className="text-[13px] text-muted-foreground">{[detail, email].filter(Boolean).join(" · ")}</p>
+    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-[#F1F6F3] px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11.5px] text-muted-foreground">Temporary password · shown once, works for 7 days</p>
+        <p className="mt-0.5 select-all font-mono text-[20px] tracking-[.1em]" aria-label="Temporary password">{password}</p>
+      </div>
+      <button type="button" className={link} onClick={() => void copy()}>Copy</button>
+      <a className={link} href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">WhatsApp</a>
+      <a className={link} href={`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent("Your Bani sign-in")}&body=${encodeURIComponent(message)}`}>Email</a>
     </div>
-    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-      <Row label="Sign in at" value={where} /><Row label="Email" value={email} />{detail && <Row label="Role" value={detail} />}
+    <div className="mt-3 flex items-center justify-between gap-3">
+      <p className="text-[13px] text-muted-foreground">{first} {where ? <>signs in at <span className="text-foreground">{where}</span> and </> : ""}sets their own password at first sign-in.</p>
+      <button type="button" className="inline-flex h-10 items-center rounded-full bg-[#1F6B5E] px-5 text-[14px] font-medium text-white" onClick={onDone}>Done</button>
     </div>
-    <div className="flex justify-end pt-3"><button type="button" className="inline-flex h-10 items-center rounded-full bg-[#1F6B5E] px-5 text-[14px] font-medium text-white" onClick={onDone}>Done</button></div>
   </SettingsCard>;
 }
 
@@ -99,7 +104,7 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
           <div className="pt-4"><VenuePicks venues={venues} all={all} ids={ids} onChange={(a, v) => { setAll(a); setIds(v); }} /></div>
           <SaveBar dirty={ready} saving={busy} onSave={() => void save()} onCancel={onClose} /></>}
     </SettingsCard>
-    {temp ? <TempPasswordCard name={name} email={email} password={temp} onDone={() => setTemp(null)} />
+    {temp ? <TempPasswordCard title="New temporary password" name={name} email={email} password={temp} onDone={() => setTemp(null)} />
       : <SettingsCard title="Password">
         <Row label="Sign-in" value={pending ? <span className="text-[#B45309]">Has not set a password yet</span> : "Using their own password"} />
         <div className="pt-1"><button type="button" disabled={resetting} className="inline-flex h-10 items-center rounded-full border border-border bg-white px-4 text-[14px] font-medium" onClick={() => void reset()}>{resetting ? "Creating…" : "Reset password"}</button></div>
@@ -137,8 +142,7 @@ export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone 
   };
   const roleName = roles.find((r) => r.role_key === role)?.name;
   const venueText = all ? "All venues" : venues.filter((v) => ids.includes(v.id)).map((v) => v.name).join(", ");
-  if (done) return <><h2 className="px-1 text-[20px] font-semibold">{name || email.trim()} is added</h2>
-    <TempPasswordCard name={name} email={email.trim()} password={done} detail={[roleName, venueText].filter(Boolean).join(" · ")} onDone={onDone} /></>;
+  if (done) return <><TempPasswordCard name={name} email={email.trim()} password={done} detail={[roleName, venueText].filter(Boolean).join(" · ")} onDone={onDone} /></>;
   return <>
     <button type="button" className="self-start px-[var(--settings-pad)] pt-2 text-[13px] text-[#1F6B5E]" onClick={onClose}>‹ People</button>
     <SettingsCard title="Who" editing>
