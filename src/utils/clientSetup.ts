@@ -5,17 +5,17 @@ import { supabase } from "@/integrations/supabase/client";
  * control plane; the work itself happens in the client's Settings (their team, or Bani support after Enter).
  */
 export const SETUP_STEPS = [
-  { key: "company", label: "Company details" },
-  { key: "venues", label: "Venues" },
-  { key: "accounts", label: "Chart of accounts" },
-  { key: "banks", label: "Bank accounts" },
-  { key: "suppliers", label: "Suppliers" },
-  { key: "team", label: "Team invited" },
-  { key: "sales", label: "First sales" },
-  { key: "invoice", label: "First invoice" },
+  { key: "business", label: "Business", what: "Company, venues and seats", href: "/settings?tab=business&section=company" },
+  { key: "people", label: "People", what: "Your team and their roles", href: "/settings?tab=users" },
+  { key: "suppliers", label: "Suppliers", what: "Who you buy from", href: "/settings?tab=master-data" },
+  { key: "products", label: "Products", what: "What you buy, each on a category", href: "/settings?tab=master-data&md=products" },
+  { key: "revenue", label: "Revenue setup", what: "Report lines and accounts", href: "/settings?tab=accounting&view=revenue" },
+  { key: "purchasing", label: "Purchasing setup", what: "An account for each category", href: "/settings?tab=accounting&view=purchasing-setup" },
+  { key: "books", label: "Books", what: "Start date and opening balances", href: "/settings?tab=accounting&view=books" },
 ] as const;
 export type SetupKey = (typeof SETUP_STEPS)[number]["key"];
-export type SetupState = Record<SetupKey, boolean>;
+/** The seven steps, plus whether sales and invoices are flowing (decides Active). */
+export type SetupState = Record<SetupKey, boolean> & { sales: boolean; invoice: boolean };
 
 export function setupSummary(s: SetupState | undefined) {
   const total = SETUP_STEPS.length;
@@ -37,20 +37,23 @@ const has = async (table: string, tenantId: string, filter?: (q: any) => any) =>
   return (count ?? 0) > 0;
 };
 
-/** One client's setup. Platform admins only (the database rules decide what is readable). */
+/** One client's setup, read from their data. Used by the client's Settings › Setup and the control plane. */
 export async function loadClientSetup(tenantId: string): Promise<SetupState> {
-  const [company, venues, accounts, banks, suppliers, team, sales, invoice] = await Promise.all([
-    has("organizations", tenantId, (q) => q.not("name", "is", null)), // the BR number is optional for running Bani
+  const [company, venues, people, suppliers, products, lines, salesVersion, rules, books, sales, invoice] = await Promise.all([
+    has("organizations", tenantId, (q) => q.not("name", "is", null)),
     has("venues", tenantId, (q) => q.eq("is_active", true)),
-    has("chart_of_accounts", tenantId),
-    has("bank_accounts", tenantId),
-    has("suppliers", tenantId),
     (async () => {
       const { count } = await supabase.from("tenant_members").select("user_id", { count: "exact", head: true }).eq("tenant_id", tenantId).not("role", "in", "(platform_admin,super_admin)");
       return (count ?? 0) > 0;
     })(),
+    has("suppliers", tenantId),
+    has("product_master", tenantId),
+    has("sales_report_lines", tenantId),
+    has("sales_mapping_versions", tenantId),
+    has("account_mapping_rules", tenantId, (q) => q.in("rule_type", ["procurement_category", "procurement_category_venue"])),
+    has("app_config", tenantId, (q) => q.eq("key", "books_start_date")),
     has("sales_records", tenantId),
     has("invoices", tenantId),
   ]);
-  return { company, venues, accounts, banks, suppliers, team, sales, invoice };
+  return { business: company && venues, people, suppliers, products, revenue: lines || salesVersion, purchasing: rules, books, sales, invoice };
 }

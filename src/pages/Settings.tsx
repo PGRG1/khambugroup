@@ -14,6 +14,8 @@ import {BaniTab} from '@/components/settings/BaniTab';
 import {MasterDataTab} from '@/components/settings/MasterDataTab';
 import {RevenueMapping} from '@/components/settings/RevenueMapping';
 import {PurchasingSetup} from '@/components/settings/PurchasingSetup';
+import {ClientSetup} from '@/components/settings/ClientSetup';
+import {ClientCategories} from '@/components/settings/ClientCategories';
 import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
@@ -53,7 +55,9 @@ export default function Settings(){
  </nav>;
 
  const ownHeading=active.id==='company'&&params.has('venue');
- const content=active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
+ const content=active.id==='setup'?<ClientSetup/>
+  :active.id==='categories'?<ClientCategories/>
+  :active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
   :active.id==='approvals'?<><UsersTab approvalOnly/><BusinessTab destination="team"/></>
   :active.id==='books'?<><AccountingTab destination="books"/><AccountingTab destination="opening"/></>
   :active.id==='company'?(params.has('venue')?<BusinessTab destination="venues"/>:<><BusinessTab destination="company"/><BusinessTab destination="venues"/></>)

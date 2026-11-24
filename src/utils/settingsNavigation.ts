@@ -1,4 +1,5 @@
 export const settingsDestinations = [
+  {id:'setup',group:'Organization',label:'Setup',description:'The steps to get running on Bani',query:'tab=setup'},
   {id:'company',group:'Organization',label:'Business',description:'Company and venues',query:'tab=business&section=company'},
   {id:'venues',group:'Organization',label:'Venues',description:'Seats, service periods, closures and stock areas',query:'tab=business&section=venues'},
   {id:'sources',group:'Organization',label:'Sales sources',description:'Where your sales come from',query:'tab=business&section=sources'},
@@ -20,7 +21,7 @@ export const settingsDestinations = [
   {id:'opening',group:'Accounting',label:'Opening balances',description:'Starting supplier balances, credits and deposits',query:'tab=accounting&view=opening'},
   {id:'suppliers',group:'Lists',label:'Suppliers',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
   {id:'products',group:'Lists',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
-  {id:'categories',group:'Lists',label:'Categories',description:'Product groups and category review',query:'tab=master-data&md=categories'},
+  {id:'categories',group:'Lists',label:'Categories',description:'Bani\'s master list plus your own',query:'tab=master-data&md=categories'},
   {id:'bani',group:'Bani',label:'What Bani learned',description:'Find, inspect and forget what your team taught Bani',query:'tab=bani'},
 ] as const;
 export type SettingsDestination = typeof settingsDestinations[number]['id'];
@@ -41,6 +42,7 @@ export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,
 export function resolveSettingsDestination(params:URLSearchParams):SettingsDestination|'overview'|'denied'{
  const tab=params.get('tab');const section=params.get('section');const view=params.get('view');
  if(!tab)return 'overview';
+ if(tab==='setup')return 'setup';
  if(tab==='business'){
    if(params.has('venue')||section==='accounts')return 'venues';
    return ['company','venues','purchasing','stock','team','sources'].includes(section??'')?section as SettingsDestination:'company';
