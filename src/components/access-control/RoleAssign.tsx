@@ -66,7 +66,7 @@ export function PersonAccessCard({ tenantId, userId, name, access, roles, venues
   </>;
 }
 
-/** Invite: who, role, venues. Creates the account, then gives the role. */
+/** Add person: who, role, venues. Creates the account (they get an email to set a password), then gives the role. */
 export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone }: {
   tenantId: string; roles: TenantRole[]; venues: Venue[]; canOwner: boolean; onClose: () => void; onDone: () => void;
 }) {
@@ -80,10 +80,10 @@ export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone 
     setBusy(true);
     const res = await supabase.functions.invoke("create-user", { body: { email: email.trim(), displayName: name.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId } });
     const err = res.error?.message ?? res.data?.error;
-    if (err || !res.data?.userId) { setBusy(false); toast({ title: err ?? "Invite failed", variant: "destructive" }); return; }
+    if (err || !res.data?.userId) { setBusy(false); toast({ title: err ?? "Could not add this person", variant: "destructive" }); return; }
     const ok = await assign(tenantId, res.data.userId, role, all, ids);
     setBusy(false);
-    toast({ title: ok ? `Invite sent to ${email.trim()}` : `Invite sent; pick ${name || "their"} role again from People` });
+    toast({ title: ok ? `${name.trim() || email.trim()} added · they get an email to set a password` : `${name.trim() || email.trim()} added; pick their role again from People` });
     onDone();
   };
   return <>
@@ -94,6 +94,6 @@ export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone 
     </SettingsCard>
     <SettingsCard title="Role"><RoleCards roles={roles} value={role} onChange={setRole} canOwner={canOwner} /></SettingsCard>
     <SettingsCard title="Venues"><VenuePicks venues={venues} all={all} ids={ids} onChange={(a, v) => { setAll(a); setIds(v); }} />
-      <SaveBar dirty={ready} saving={busy} label="Send invite" onSave={() => void send()} onCancel={onClose} /></SettingsCard>
+      <SaveBar dirty={ready} saving={busy} label="Add person" onSave={() => void send()} onCancel={onClose} /></SettingsCard>
   </>;
 }

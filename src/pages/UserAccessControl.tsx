@@ -92,7 +92,7 @@ const UserAccessControl = () => {
 
     const approverIds = new Set((approvers || []).map(a => a.user_id));
     const userMap = new Map<string, UserAccessRecord>();
-    for(const id of new Set(memberIds))userMap.set(id,{user_id:id,email:emailMap.get(id)||'Invited member',display_name:null,position:'viewer',status:'active',is_approver:approverIds.has(id),pages:[],venue_ids:venueByUser.get(id)||[]});
+    for(const id of new Set(memberIds))userMap.set(id,{user_id:id,email:emailMap.get(id)||'New member',display_name:null,position:'viewer',status:'active',is_approver:approverIds.has(id),pages:[],venue_ids:venueByUser.get(id)||[]});
 
     for (const p of (profiles || [])) {
       userMap.set(p.user_id, {
@@ -176,7 +176,7 @@ const UserAccessControl = () => {
     onClose={() => setEditingUser(null)} onSaved={() => { setEditingUser(null); void fetchUsers(); }} /></div>;
   return (
     <div className="contents">
-      {canManage ? <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
+      {canManage ? <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Add person</Button></PageAction>
         : null}
       {(() => {
         // Role and venues come from the access roles Bani set up; people not given a role yet show their old position in grey.
