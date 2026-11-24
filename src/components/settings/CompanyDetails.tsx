@@ -68,7 +68,11 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
             <Input id={`company-${f.key}`} type={f.type ?? 'text'} placeholder={f.placeholder} value={draft[f.key] ?? ''} onChange={e => setDraft({ ...draft, [f.key]: e.target.value })} />
           </Field>)}
           <SaveBar dirty saving={saving} onSave={() => void save(FIELDS.map(f => f.key))} onCancel={isNew ? undefined : () => setEditing(null)} />
-        </> : FIELDS.map(f => <Row key={f.key} label={f.label} value={f.type === 'date' ? dayText(saved[f.key]) : saved[f.key]} missing={f.missing} />)}
+        </> : FIELDS.map(f => {
+          const v = f.type === 'date' ? dayText(saved[f.key]) : saved[f.key];
+          // A missing detail ("Add BR number") opens the card for editing when tapped.
+          return <Row key={f.key} label={f.label} value={v || (f.missing && !isNew ? <button type="button" className="text-left text-[#B45309] hover:underline" onClick={() => open('Company')}>{f.missing}</button> : undefined)} />;
+        })}
       </SettingsCard>;
     })()}
   </>;
