@@ -40,7 +40,7 @@ const has = async (table: string, tenantId: string, filter?: (q: any) => any) =>
 /** One client's setup. Platform admins only (the database rules decide what is readable). */
 export async function loadClientSetup(tenantId: string): Promise<SetupState> {
   const [company, venues, accounts, banks, suppliers, team, sales, invoice] = await Promise.all([
-    has("organizations", tenantId, (q) => q.not("name", "is", null).not("registration_number", "is", null)),
+    has("organizations", tenantId, (q) => q.not("name", "is", null)), // the BR number is optional for running Bani
     has("venues", tenantId, (q) => q.eq("is_active", true)),
     has("chart_of_accounts", tenantId),
     has("bank_accounts", tenantId),
