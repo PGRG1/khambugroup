@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 
-// Settings pieces (Rillet-style, read first): each page is one glass panel; a SettingsCard is one section in it,
-// its name on the left and what is saved on the right, with one Edit. Untitled sections (lists) run full width.
-// "Edit" turns that section alone into fields with Cancel and Save. No lines.
+// Settings pieces, built like Revenue and Purchasing: a SettingsCard is a kit card with its title on top and one Edit;
+// saved values (Row) read as a grid of label-over-value, lists run full width, Choice shows options side by side.
+// "Edit" turns that card alone into fields with Cancel and Save. No lines.
 
 export function SettingsCard({ title, onEdit, action, editing, children }: { title?: string; onEdit?: () => void; action?: ReactNode; editing?: boolean; children: ReactNode }) {
   return <section className={`settings-card ${title ? 'has-title' : 'no-title'} ${editing ? 'is-editing' : ''}`} aria-label={title}>
@@ -44,7 +44,7 @@ export function Choice<K extends string>({ label, value, options, onChange, disa
   return <section className="settings-card has-title" aria-labelledby={id}>
     <h3 id={id} className="settings-card-title">{label}</h3>
     <fieldset disabled={disabled} aria-labelledby={id} className="min-w-0">
-      <div>{options.map(o => <label key={o.key} className="flex cursor-pointer items-start gap-3 rounded-lg py-1.5">
+      <div className="settings-choice-options">{options.map(o => <label key={o.key} className="settings-choice">
         <input type="radio" className="mt-0.5 h-4 w-4 accent-[#1F6B5E]" checked={value === o.key} onChange={() => onChange(o.key)} />
         <span className="min-w-0"><span className={`block text-[13px] ${value === o.key ? 'font-semibold' : ''}`}>{o.title}</span><span className="block text-[12.5px] text-muted-foreground">{o.line}</span></span>
       </label>)}</div>
