@@ -15,9 +15,8 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { tenantMemberUsers } from "@/utils/settingsFacts";
 import { Toolbar } from "@/components/kit/Toolbar";
-import { QuickFilter } from "@/components/kit/QuickFilter";
-import { Status, PhoneRow, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
-import { PageAction, SettingsCard } from '@/components/settings/SettingsForm';
+import { Status, PhoneRow, keyOpen } from "@/components/finance/accounting/AccountingKit";
+import { PageAction } from '@/components/settings/SettingsForm';
 
 const UserAccessControl = () => {
   const { isAdmin } = useAuth();
@@ -37,7 +36,6 @@ const UserAccessControl = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingUser, setEditingUser] = useState<UserAccessRecord | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -147,7 +145,7 @@ const UserAccessControl = () => {
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       (u.display_name || "").toLowerCase().includes(search.toLowerCase());
     const matchPosition = positionFilter === "all" || (access[u.user_id]?.role_key ?? "none") === positionFilter;
-    const matchStatus = statusFilter === "all" || u.status === statusFilter;
+    const matchStatus = true;
     return matchSearch && matchPosition && matchStatus;
   });
 
@@ -179,28 +177,30 @@ const UserAccessControl = () => {
   return (
     <div className="contents">
       {canManage ? <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
-        : <p className="px-1 text-[13px] text-muted-foreground">Users are set up by Bani. Contact Bani to add someone or change their access.</p>}
-      <QuickFilter label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "disabled", label: "Disabled", count: users.filter(u => u.status !== "active").length }]} />
-      <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{roles.map(r => <SelectItem key={r.role_key} value={r.role_key}>{r.name}</SelectItem>)}<SelectItem value="none">No role yet</SelectItem></SelectContent></Select>} />
+        : null}
       {(() => {
         // Role and venues come from the access roles Bani set up; people not given a role yet show their old position in grey.
         const venuesOf = (u: typeof users[number]) => { const a = access[u.user_id]; const ids = a ? (a.all_venues ? [] : a.venue_ids) : u.venue_ids ?? [];
           return a?.all_venues || !ids.length ? "All venues" : ids.map(id => venueNameMap[id]).filter(Boolean).join(", "); };
         const newRole = (u: typeof users[number]) => roles.find(r => r.role_key === access[u.user_id]?.role_key)?.name;
         const roleOf = (u: typeof users[number]) => newRole(u) ?? POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
-        return <SettingsCard>
+        const invited = users.filter(u => u.status !== "active").length;
+        // One card for the list, like Team, Supplier accounts and Payables: the count, then filter and search, then rows.
+        return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="People">
+          <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{users.length} {users.length === 1 ? "person" : "people"}</span>{invited > 0 && <span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {invited} not active</span>}{!canManage && <span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· Bani manages users</span>}</h2>
+          <Toolbar search={search} onSearch={setSearch} placeholder="Search people" searchAfterControls mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{roles.map(r => <SelectItem key={r.role_key} value={r.role_key}>{r.name}</SelectItem>)}<SelectItem value="none">No role yet</SelectItem></SelectContent></Select>} />
+
           <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => openUser(u)} />)}</ul>
           <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
-            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
+            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th></tr></thead>
             <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...(canManage ? keyOpen(() => openUser(u)) : {})}>
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
               <td className={`sales-cell-left ${newRole(u) ? "" : "text-muted-foreground"}`} title={newRole(u) ? undefined : "No role yet"}>{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
               <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
-              <td className="kit-num">{canManage && <span className="kit-link">Edit</span>}</td>
             </tr>)}</tbody></table></div>
-          {!filtered.length && <Empty>{loading ? "Loading people…" : "No one matches."}</Empty>}
-        </SettingsCard>;
+          {!filtered.length && <p className="p-10 text-center text-sm text-muted-foreground">{loading ? "Loading people…" : search || positionFilter !== "all" ? "Nothing matches your search or filters." : "No people yet."}</p>}
+        </section>;
       })()}
 
     </div>

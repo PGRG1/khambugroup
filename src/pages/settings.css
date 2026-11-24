@@ -46,7 +46,7 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
 
 /* ---- Settings: one menu (pages sit under Settings in the main menu), and pages built like Revenue and Purchasing:
    a 24px title with one white action beside it, then kit cards (title on top, content full width). No box inside a
-   box, no lines. Saved values read as a grid of label-over-value; editing turns a card into a field list. ---- */
+   box; tables use the same thin row lines as the rest of Bani. Saved values read as a grid of label-over-value; editing turns a card into a field list. ---- */
 .settings-page { --settings-ink:#16201D; --settings-mut:#6B7671; --settings-pad:18px; color:var(--settings-ink); padding-bottom:32px; }
 .settings-page-title, .settings-menu { display:none; }
 .settings-main { position:relative; min-width:0; max-width:920px; }
@@ -84,15 +84,11 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
 .settings-choice-options { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px; }
 .settings-choice { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:10px; background:#F7F7F3; cursor:pointer; }
 .settings-choice:has(input:checked) { background:#F1F6F3; box-shadow:inset 0 0 0 1.5px #1F6B5E; }
-/* Lists inside a card run edge to edge, with soft alternate shading instead of lines. */
-.settings-list-row { display:flex; width:100%; align-items:center; gap:12px; height:44px; padding:0 8px; border-radius:8px; text-align:left; }
+/* Lists inside a card: same rows as every other Bani table (44px, thin row line). */
+.settings-list-row { display:flex; width:100%; align-items:center; gap:12px; height:44px; padding:0 8px; text-align:left; border-bottom:1px solid #ECEAE3; }
 .settings-list-row:hover { background:rgba(31,63,59,.04); }
-.settings-body li:nth-child(even) > .settings-list-row { background:rgba(31,63,59,.035); }
 .settings-body .card-glass .card-glass, .settings-card .card-glass, .settings-card .glass-surface { background:none !important; border:0 !important; box-shadow:none !important; padding:0; }
-.settings-body table thead, .settings-body table tr, .settings-body table th, .settings-body table td, .settings-body .settings-detail-row, .settings-body .divide-y > *, .settings-body .settings-note-amber, .settings-body .settings-note-green { border-color:transparent !important; }
 .settings-body .sales-table { background:transparent; }
-.settings-body .sales-table th { font-size:12px; font-weight:400; color:#9AA39E; background:transparent; }
-.settings-body .sales-table tbody tr:nth-child(even) > td { background:rgba(31,63,59,.035); }
 .settings-body .settings-table td, .settings-body .settings-table th { padding:10px 12px 10px 0; }
 .settings-pad { padding:0; }
 .settings-venue { display:flex; flex-direction:column; gap:14px; }
