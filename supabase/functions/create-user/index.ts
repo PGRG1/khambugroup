@@ -106,7 +106,7 @@ serve(async (req) => {
       email,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { display_name: displayName || email, ...pendingMeta() },
+      user_metadata: { display_name: displayName || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta() },
     });
 
     if (createError) throw createError;

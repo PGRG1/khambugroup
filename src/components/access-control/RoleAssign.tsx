@@ -116,33 +116,35 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
 export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone }: {
   tenantId: string; roles: TenantRole[]; venues: Venue[]; canOwner: boolean; onClose: () => void; onDone: () => void;
 }) {
-  const [email, setEmail] = useState(""), [name, setName] = useState("");
+  const [email, setEmail] = useState(""), [first, setFirst] = useState(""), [last, setLast] = useState("");
+  const name = `${first.trim()} ${last.trim()}`.trim();
   const [role, setRole] = useState<string | null>(null);
   const [all, setAll] = useState(false), [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
-  const ready = /\S+@\S+\.\S+/.test(email) && !!role && (all || ids.length > 0);
+  const ready = /\S+@\S+\.\S+/.test(email) && !!first.trim() && !!role && (all || ids.length > 0);
   const send = async () => {
     if (!role) return;
     setBusy(true);
-    const res = await invokeCreateUser({ email: email.trim(), displayName: name.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId });
+    const res = await invokeCreateUser({ email: email.trim(), displayName: name || undefined, firstName: first.trim() || undefined, lastName: last.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId });
     const err = await fnError(res);
     if (err || !res.data?.userId) { setBusy(false); toast({ title: err ?? "Could not add this person", variant: "destructive" }); return; }
     const ok = await assign(tenantId, res.data.userId, role, all, ids);
     setBusy(false);
     if (res.data?.tempPassword) setDone(res.data.tempPassword);
-    if (!ok) toast({ title: `${name.trim() || email.trim()} added; pick their role again from People` });
+    if (!ok) toast({ title: `${name || email.trim()} added; pick their role again from People` });
     if (!res.data?.tempPassword) onDone();
   };
   const roleName = roles.find((r) => r.role_key === role)?.name;
   const venueText = all ? "All venues" : venues.filter((v) => ids.includes(v.id)).map((v) => v.name).join(", ");
-  if (done) return <><h2 className="px-1 text-[20px] font-semibold">{name.trim() || email.trim()} is added</h2>
-    <TempPasswordCard name={name.trim()} email={email.trim()} password={done} detail={[roleName, venueText].filter(Boolean).join(" · ")} onDone={onDone} /></>;
+  if (done) return <><h2 className="px-1 text-[20px] font-semibold">{name || email.trim()} is added</h2>
+    <TempPasswordCard name={name} email={email.trim()} password={done} detail={[roleName, venueText].filter(Boolean).join(" · ")} onDone={onDone} /></>;
   return <>
     <button type="button" className="self-start px-[var(--settings-pad)] pt-2 text-[13px] text-[#1F6B5E]" onClick={onClose}>‹ People</button>
     <SettingsCard title="Who" editing>
       <Field label="Email" htmlFor="invite-email" missing={!email}><Input id="invite-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@business.com" /></Field>
-      <Field label="Name" htmlFor="invite-name"><Input id="invite-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" /></Field>
+      <Field label="First name" htmlFor="invite-first" missing={!first.trim()}><Input id="invite-first" value={first} onChange={(e) => setFirst(e.target.value)} autoComplete="off" /></Field>
+      <Field label="Last name" htmlFor="invite-last"><Input id="invite-last" value={last} onChange={(e) => setLast(e.target.value)} autoComplete="off" /></Field>
     </SettingsCard>
     <SettingsCard title="Role"><RoleCards roles={roles} value={role} onChange={setRole} canOwner={canOwner} /></SettingsCard>
     <SettingsCard title="Venues"><VenuePicks venues={venues} all={all} ids={ids} onChange={(a, v) => { setAll(a); setIds(v); }} />

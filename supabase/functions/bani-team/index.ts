@@ -78,7 +78,7 @@ serve(async (req) => {
       }
       if (!userId) {
         password = temporaryPassword();
-        const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name || email, ...pendingMeta() } });
+        const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name || email, ...(body.firstName ? { first_name: String(body.firstName).trim() } : {}), ...(body.lastName ? { last_name: String(body.lastName).trim() } : {}), ...pendingMeta() } });
         if (error || !data.user) throw new Error(error?.message ?? "Could not create the login");
         userId = data.user.id; created = true;
         // New sign-ups are auto-attached to KHAMBU by old database triggers; a Bani team login belongs to no client.

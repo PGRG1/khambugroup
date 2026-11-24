@@ -48,7 +48,7 @@ export default function BaniTeam() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "" });
+  const [form, setForm] = useState({ first: "", last: "", email: "" });
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState<Shown | null>(null);
   const [removing, setRemoving] = useState<Person | null>(null);
@@ -63,11 +63,12 @@ export default function BaniTeam() {
   const add = async () => {
     setBusy(true);
     try {
-      const r = await call({ action: "add", name: form.name.trim(), email: form.email.trim() });
+      const name = `${form.first.trim()} ${form.last.trim()}`.trim();
+      const r = await call({ action: "add", name, firstName: form.first.trim(), lastName: form.last.trim(), email: form.email.trim() });
       setAdding(false);
-      if (r.tempPassword) setShown({ name: form.name.trim() || form.email.trim(), email: form.email.trim(), password: r.tempPassword });
-      else toast({ title: `${form.name.trim() || form.email.trim()} now has Bani access with their existing login` });
-      setForm({ name: "", email: "" }); void load();
+      if (r.tempPassword) setShown({ name: name || form.email.trim(), email: form.email.trim(), password: r.tempPassword });
+      else toast({ title: `${name || form.email.trim()} now has Bani access with their existing login` });
+      setForm({ first: "", last: "", email: "" }); void load();
     } catch (e) { toast({ title: (e as Error).message, variant: "destructive" }); }
     setBusy(false);
   };
@@ -84,7 +85,7 @@ export default function BaniTeam() {
   const q = search.trim().toLowerCase();
   const shownRows = people.filter((p) => !q || `${p.name} ${p.email}`.toLowerCase().includes(q));
   const pending = people.filter((p) => p.pending).length;
-  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim());
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim()) && !!form.first.trim();
 
   return <div className="px-4 py-5 sm:p-6 space-y-5 max-w-[920px] mx-auto">
     <div className="flex items-center justify-between gap-3">
@@ -95,7 +96,8 @@ export default function BaniTeam() {
     {shown ? <PasswordCard shown={shown} onDone={() => setShown(null)} />
     : adding ? <section className="card-glass rounded-xl p-4 sm:p-5 space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1 text-[12.5px] text-muted-foreground">Name<Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-10 text-[14px] text-foreground" /></label>
+        <label className="grid gap-1 text-[12.5px] text-muted-foreground">First name<Input value={form.first} onChange={(e) => setForm({ ...form, first: e.target.value })} className="h-10 text-[14px] text-foreground" /></label>
+        <label className="grid gap-1 text-[12.5px] text-muted-foreground">Last name<Input value={form.last} onChange={(e) => setForm({ ...form, last: e.target.value })} className="h-10 text-[14px] text-foreground" /></label>
         <label className="grid gap-1 text-[12.5px] text-muted-foreground">Email<Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-10 text-[14px] text-foreground" /></label>
       </div>
       <p className="text-[12.5px] text-muted-foreground">Everyone on the Bani team is a Bani admin for now.</p>

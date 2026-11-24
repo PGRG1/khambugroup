@@ -1597,6 +1597,17 @@ Deno.serve(async (req) => {
       const memoryNotes = await loadTenantMemory(admin, tenantId).catch(() => [] as string[]);
       const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
       conversation.splice(1, 0, { role: "system", content: businessMemoryBlock(memoryNotes) });
+      // Speak to the person by their first name (first_name from Add person, else the first word of their profile name).
+      {
+        const meta = ((user as any)?.user_metadata ?? {}) as Record<string, unknown>;
+        let first = String(meta.first_name ?? "").trim();
+        if (!first && user?.id) {
+          const { data: prof } = await admin.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle();
+          const full = String(prof?.display_name ?? meta.display_name ?? "").trim();
+          first = full.includes("@") ? "" : full.split(/\s+/)[0] ?? "";
+        }
+        if (first) conversation.splice(1, 0, { role: "system", content: `The person you are talking to is called ${first.slice(0, 40)}. Use their first name only, and only now and then (a greeting or a hand-off), never in every reply.` });
+      }
       conversation.splice(1,0,{role:'system',content:'When asked to prepare bill approval, call inspect_records then propose_action approve_bill immediately. Preparing the card does NOT post. Do not ask for typed approval in chat first: the actual posting card collects review and exact typed confirmation securely. Never substitute invented phrases such as I approve for the real card.'});
       conversation.splice(1,0,{role:'system',content:'Notifications are information-only business events. Housekeeping work is handled one root item at a time in plain sentences, never pushed. Keep existing action authorisations and confirmation cards; never pay money or approve payroll from chat. For unsupported work, state the existing page and wait for the user to confirm it was checked. Use notification_preferences only for explicit remembered instructions, list/forget requests. List actual saved instructions, never invented ones. Call list first to resolve an event ID. Never broaden role or venue access.'});
       conversation.splice(1, 0, { role: "system", content: "People drafts: emit at most ONE real People card per turn, then reply with one short line. Do not print fake Confirm/Cancel labels, card titles/details or pseudo-cards in prose. Use exact user instructions, never invented pay advice. Once a draft tool succeeds do not draft again in that turn." });
