@@ -6,6 +6,7 @@ import {usePreviewMode} from '@/hooks/usePreviewMode';
 import {useUserPermissions} from '@/hooks/useUserPermissions';
 import {useActiveTenant} from '@/hooks/useActiveTenant';
 import {useSettingsSummary} from '@/hooks/useSettingsSummary';
+import {usePlatformAdmin} from '@/hooks/usePlatformAdmin';
 import {BusinessTab} from '@/components/settings/BusinessTab';
 import {UsersTab} from '@/components/settings/UsersTab';
 import {AccountingTab} from '@/components/settings/AccountingTab';
@@ -16,15 +17,16 @@ import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
 import './settings.css';
 
-// Settings (Rillet-style): on computer and tablet the pages sit under Settings in the main menu (AppSidebar), so this
-// page shows only the open page: one glass panel of sections, name left and values right, one Edit each; lists run
-// full width; choices save on tap; no lines. On phone: the Settings list, then the page with ‹ Settings.
+// Settings, read first: on the green page, a settings list in a glass card on the left and the open page beside it
+// (computer and tablet); on phone the list, then the page with ‹ Settings. Pages are stacks of glass cards that show
+// what is saved, one Edit per card; single choices save on tap. No lines inside cards.
 export default function Settings(){
  const [params]=useSearchParams();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();
  const permissions=useUserPermissions(isPreviewActive?previewUserId??undefined:user?.id);const admin=isAdmin&&!isPreviewActive;
  const {tenantId}=useActiveTenant();
  useEffect(()=>{document.body.dataset.settings='1';return()=>{delete document.body.dataset.settings;};},[]);
- const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'));
+ const {isPlatformAdmin:bani}=usePlatformAdmin();
+ const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'),bani);
  const resolved=resolveSettingsDestination(params);const current=resolved!=='overview'&&resolved!=='denied'?mergedInto[resolved]??resolved:resolved;const picked=destinations.find(d=>d.id===current);
  const facts=useSettingsSummary(admin);
  const moved=current!=='overview'&&current!=='denied'?movedToAccounting[current]:undefined;
@@ -32,7 +34,8 @@ export default function Settings(){
  if(!destinations.length||current!=='overview'&&!picked)return <AccessDenied/>;
  // Computer and tablet always show a page: the first one when nothing is picked.
  const active=picked??destinations[0];
- const dot=(id:string)=>!!facts.data?.[id as keyof typeof facts.data]?.amber;
+ const amber=(id:string)=>!!facts.data?.[id as keyof typeof facts.data]?.amber;
+ const dot=(id:string)=>amber(id)||Object.entries(mergedInto).some(([child,parent])=>parent===id&&amber(child));
  const groups=settingsGroups.filter(g=>destinations.some(d=>d.group===g));
 
  const menu=<nav aria-label="Settings" className="settings-menu">
@@ -47,10 +50,11 @@ export default function Settings(){
   </div>)}
  </nav>;
 
- const ownHeading=active.id==='venues'&&params.has('venue');
+ const ownHeading=active.id==='company'&&params.has('venue');
  const content=active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
   :active.id==='approvals'?<><UsersTab approvalOnly/><BusinessTab destination="team"/></>
   :active.id==='books'?<><AccountingTab destination="books"/><AccountingTab destination="opening"/></>
+  :active.id==='company'?(params.has('venue')?<BusinessTab destination="venues"/>:<><BusinessTab destination="company"/><BusinessTab destination="venues"/></>)
   :active.group==='Organization'?<BusinessTab destination={active.id}/>
   :active.id==='activity'?<AuditLog/>:active.group==='Team'?<UsersTab/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>

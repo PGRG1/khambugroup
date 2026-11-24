@@ -47,6 +47,13 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
     setSaving(false);
   };
   if (org.loading) return <p role="status" className="text-[13px] text-muted-foreground">Loading…</p>;
+  // Clients see one read-only Company card; Bani edits company details on the control plane.
+  if (!canEdit) return <SettingsCard title="Company">
+    <Row label="Company name" value={saved.name} />
+    <Row label="Legal name" value={saved.legal_name} />
+    <Row label="BR number" value={saved.registration_number} />
+    <Row label="Registered address" value={saved.registered_address} />
+  </SettingsCard>;
   return <>
     {(org.organizations.length > 1 || isNew && org.organizations.length > 0) && <SettingsCard title="Which company">
       <Select value={id} onValueChange={v => { setId(v); if (v === 'new') { setDraft({}); setEditing('Company'); } else setEditing(null); }}><SelectTrigger aria-label="Company" className="max-w-[420px] rounded-full bg-white"><SelectValue /></SelectTrigger>
@@ -63,7 +70,6 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
         </> : c.fields.map(f => <Row key={f.key} label={f.label} value={f.type === 'date' ? dayText(saved[f.key]) : saved[f.key]} missing={f.missing} />)}
       </SettingsCard>;
     })}
-    {!canEdit && <p className="px-1 text-[13px] text-muted-foreground">Company details are set up by Bani. Contact Bani to change them.</p>}
     {canEdit && org.organizations.length === 1 && !isNew && <button type="button" className="self-start px-1 text-[13px] text-[#1F6B5E]" onClick={() => setId('new')}>Add another company</button>}
   </>;
 }

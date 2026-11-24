@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { ClientRoles } from "@/components/platform/ClientRoles";
+import { ClientBooks } from "@/components/platform/ClientBooks";
 import { SETUP_STEPS, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
 
-// Control plane: a client's business setup, done by Bani — the company, its venues and what each role can do
+// Control plane: a client's business setup, done by Bani — the company, its venues, books start and opening balances,
+// and what each role can do
 // (the client only assigns roles to people). Everything else
 // (accounts, tax, suppliers, team…) is set up inside the client's own Settings, by their team or by
 // Bani support after "Enter client"; here it is only shown as read-only setup status.
@@ -157,6 +159,8 @@ export default function ClientDetail() {
           <span className="flex gap-4 whitespace-nowrap">{(["bani", "client"] as const).map((k) => <button key={k} type="button" disabled={busy} onClick={() => void setUsersBy(k)}
             className={(tenant?.users_managed_by ?? "bani") === k ? "font-medium text-foreground underline underline-offset-4" : "text-muted-foreground"}>{k === "bani" ? "Bani" : "Client"}</button>)}</span></div>
       </Card>
+
+      {tenantId && <ClientBooks tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=books")} />}
 
       {tenantId && <ClientRoles tenantId={tenantId} />}
 
