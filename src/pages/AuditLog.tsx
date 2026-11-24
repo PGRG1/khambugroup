@@ -1,146 +1,101 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { FileText } from "lucide-react";
-import { DataTableShell, DataTablePagination } from "@/components/common/data-table";
-import { Card } from "@/components/ui/card";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import {formatDate,formatTableInteger} from '@/utils/format';
-import {Button} from '@/components/ui/button';
-import {toast} from 'sonner';
+import { QuickFilter } from "@/components/kit/QuickFilter";
+import { PhoneRow, Empty, Pager } from "@/components/finance/accounting/AccountingKit";
+import { SettingsCard } from "@/components/settings/SettingsForm";
+import { toast } from "sonner";
 
-interface AuditEntry {
-  id: string;
-  user_display_name: string;
-  action: string;
-  entity_type: string;
-  entity_id: string | null;
-  details: any;
-  created_at: string;
+interface AuditEntry { id: string; user_display_name: string | null; action: string; entity_type: string; entity_id: string | null; details: any; created_at: string }
+
+// Activity log, read as plain sentences: who did what and when. No record IDs, code names or raw details.
+const SENTENCES: Record<string, string> = {
+  "insert:sales_record": "Added a day's sales", "update:sales_record": "Changed a day's sales", "delete:sales_record": "Deleted a day's sales",
+  "insert:forecast": "Added a sales target", "update:forecast": "Changed a sales target", "delete:forecast": "Deleted a sales target",
+  attachment_link: "Attached a file to an invoice", attachment_repair: "Repaired an invoice file",
+  finance_draft_approved: "Approved a draft entry", finance_draft_cancelled: "Cancelled a draft entry",
+  source_books_updated: "Updated the books from a change", tax_notice_recorded: "Recorded a tax notice",
+  bank_multi_match_confirmed: "Matched a bank payment", bank_transfer_paired: "Paired a bank transfer",
+  bani_people_confirm: "Changed the rota", bani_people_undo: "Undid a rota change",
+  fx_card_reprice: "Repriced a foreign card bill", record_payment: "Recorded a payment",
+  finance_schedule_settings_saved: "Changed the accounting year", "tenant.provision": "Set up the business",
+  supplier_directory_merge: "Merged two suppliers", undo_supplier_directory_merge: "Undid a supplier merge",
+  bulk_delete: "Deleted records in bulk",
+};
+const shortDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+function sentence(e: AuditEntry): string {
+  const d = e.details ?? {};
+  if (e.action === "bani_done") return d.title ?? "Bani made a change";
+  if (e.action === "bani_undo") return d.title ? `Undid: ${d.title}` : "Undid a Bani change";
+  if (e.action === "bulk_upload") return `Uploaded ${Number(d.count) || "some"} records`;
+  const base = SENTENCES[`${e.action}:${e.entity_type}`] ?? SENTENCES[e.action];
+  if (base && e.entity_type === "sales_record" && d.new?.venue && d.new?.date) return `${base.replace("a day's sales", "sales")} · ${d.new.venue}, ${shortDay(d.new.date)}`;
+  if (base) return base;
+  const words = e.action.replace(/[._]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
-
-const actionLabels: Record<string, { label: string; color: string }> = {
-  bani_done: {label:'Done by Bani',color:'text-muted-foreground bg-muted'},
-  bani_undo: {label:'Undone',color:'text-muted-foreground bg-muted'},
-  insert: { label: "Created", color: "text-emerald-600 bg-emerald-500/10" },
-  update: { label: "Edited", color: "text-amber-600 bg-amber-500/10" },
-  delete: { label: "Deleted", color: "text-red-500 bg-red-500/10" },
-  bulk_upload: { label: "Bulk Upload", color: "text-blue-600 bg-blue-500/10" },
-  bulk_delete: { label: "Bulk Delete", color: "text-red-500 bg-red-500/10" },
-};
-
-const entityLabels: Record<string, string> = {
-  sales_record: "Sales Record",
-  forecast: "Forecast",
-};
+const HK = "Asia/Hong_Kong";
+const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: HK });
+function when(iso: string) {
+  const at = new Date(iso), today = new Date(), y = new Date(Date.now() - 864e5);
+  const time = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: HK });
+  if (dayKey(at) === dayKey(today)) return `Today ${time}`;
+  if (dayKey(at) === dayKey(y)) return `Yesterday ${time}`;
+  return at.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(at.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}), timeZone: HK });
+}
+type Kind = "all" | "sales" | "money" | "people" | "bani";
+const MONEY = "entity_type.in.(invoice,bill,finance,journal_entries,bank_transactions,suppliers,expense_category,expense_supplier_alias),entity_type.like.finance_*";
+const PAGE = 25;
 
 const AuditLog = () => {
-  const {tenantId}=useActiveTenant();
+  const { tenantId } = useActiveTenant();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kind, setKind] = useState<Kind>("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [total, setTotal] = useState(0);
-
   useEffect(() => {
-    const fetchLogs = async () => {
-      if(!tenantId){setEntries([]);setTotal(0);setLoading(false);return;}
+    let on = true;
+    (async () => {
+      if (!tenantId) { setEntries([]); setTotal(0); setLoading(false); return; }
       setLoading(true);
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, count, error } = await supabase
-        .from("audit_log")
-        .select("*", { count: "exact" })
-        .eq('tenant_id',tenantId)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (!error && data) {
-        setEntries(data as AuditEntry[]);
-        setTotal(count || 0);
-      }
+      let q = supabase.from("audit_log").select("*", { count: "exact" }).eq("tenant_id", tenantId);
+      if (kind === "sales") q = q.in("entity_type", ["sales_record", "forecast"]);
+      if (kind === "money") q = q.or(MONEY);
+      if (kind === "people") q = q.in("entity_type", ["people", "tenant"]);
+      if (kind === "bani") q = q.like("action", "bani_%");
+      const { data, count, error } = await q.order("created_at", { ascending: false }).range((page - 1) * PAGE, page * PAGE - 1);
+      if (!on) return;
+      if (error) toast.error("Activity could not be loaded");
+      else { setEntries(data as AuditEntry[]); setTotal(count ?? 0); }
       setLoading(false);
-    };
-    fetchLogs();
-  }, [page, pageSize,tenantId]);
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const rangeEnd = Math.min(total, page * pageSize);
-
-  return (
-    <div className="w-full mx-auto space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold font-display">Activity</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          {formatTableInteger(total)} entries · Current company
-        </p>
-      </div>
-
-      <section className="card-glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          {loading ? (
-            <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>
-          ) : entries.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">No activity recorded yet.</p>
-            </div>
-          ) : (
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Date & Time</TableHead>
-                  <TableHead className="text-xs">User</TableHead>
-                  <TableHead className="text-xs">Action</TableHead>
-                  <TableHead className="text-xs hidden sm:table-cell">Type</TableHead>
-                  <TableHead className="text-xs hidden sm:table-cell">Record</TableHead>
-                  <TableHead className="text-xs hidden sm:table-cell">Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.map((entry) => {
-                  const action = actionLabels[entry.action] || { label: entry.action, color: "text-muted-foreground bg-muted" };
-                  return (
-                    <TableRow key={entry.id}>
-                      <TableCell className="text-xs break-words">{formatDate(entry.created_at)}</TableCell>
-                      <TableCell className="text-xs font-medium break-words">{entry.user_display_name}</TableCell>
-                      <TableCell>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${action.color}`}>
-                          {action.label}
-                        </span>
-                        {entry.action==='bani_done'&&!entry.details?.undone&&<Button variant="link" size="sm" className="h-auto p-1" onClick={async()=>{const {error}=await supabase.rpc('expense_bani_undo',{p_log:entry.id});if(error)toast.error(error.message);else{setEntries(rows=>rows.map(r=>r.id===entry.id?{...r,details:{...r.details,undone:true}}:r));toast.success('Bani change undone');}}}>Undo</Button>}
-                      </TableCell>
-                      <TableCell className="text-xs hidden sm:table-cell break-words">{entityLabels[entry.entity_type] || entry.entity_type}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-all">{entry.entity_id || "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell break-words">
-                        {entry.details && Object.keys(entry.details).length > 0
-                          ? entry.details.title??(entry.action === "bulk_upload"
-                            ? `${entry.details.count} records`
-                            : JSON.stringify(entry.details).slice(0, 80))
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-        <DataTablePagination
-          page={page}
-          pageSize={pageSize}
-          totalPages={totalPages}
-          rangeStart={rangeStart}
-          rangeEnd={rangeEnd}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
-        />
-      </section>
-    </div>
-  );
+    })();
+    return () => { on = false; };
+  }, [page, kind, tenantId]);
+  const undo = async (e: AuditEntry) => {
+    const { error } = await supabase.rpc("expense_bani_undo", { p_log: e.id });
+    if (error) toast.error(error.message);
+    else { setEntries(rows => rows.map(r => r.id === e.id ? { ...r, details: { ...r.details, undone: true } } : r)); toast.success("Bani change undone"); }
+  };
+  const canUndo = (e: AuditEntry) => e.action === "bani_done" && !e.details?.undone;
+  const who = (e: AuditEntry) => e.user_display_name || (e.action.startsWith("bani_") ? "Bani" : "Someone");
+  return <>
+    <div className="px-[var(--settings-pad)] pb-2"><QuickFilter label="Show" value={kind} onChange={k => { setKind(k); setPage(1); }}
+      options={[{ key: "all", label: "All" }, { key: "sales", label: "Sales" }, { key: "money", label: "Money" }, { key: "people", label: "People" }, { key: "bani", label: "Bani" }]} /></div>
+    <SettingsCard>
+      <ul className="min-[768px]:hidden kit">{entries.map(e => <PhoneRow key={e.id} title={sentence(e)} amount={when(e.created_at)} sub={who(e)} />)}</ul>
+      <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Activity table"><table className="sales-table" aria-label="Activity">
+        <thead><tr><th scope="col" className="sales-cell-left">When</th><th scope="col" className="sales-cell-left">Who</th><th scope="col" className="sales-cell-left">What changed</th><th scope="col" className="sales-cell-right"><span className="sr-only">Undo</span></th></tr></thead>
+        <tbody>{entries.map(e => <tr key={e.id}>
+          <td className="sales-cell-left whitespace-nowrap">{when(e.created_at)}</td>
+          <td className="sales-cell-left whitespace-nowrap">{who(e)}</td>
+          <td className="sales-cell-left"><span className="block truncate max-w-[440px]" title={sentence(e)}>{sentence(e)}</span></td>
+          <td className="kit-num">{canUndo(e) && <button type="button" className="kit-link" onClick={() => void undo(e)}>Undo</button>}{e.details?.undone && <span className="text-muted-foreground">Undone</span>}</td>
+        </tr>)}</tbody></table></div>
+      {!entries.length && <Empty>{loading ? "Loading activity…" : "Nothing here yet."}</Empty>}
+    </SettingsCard>
+    <div className="px-[var(--settings-pad)] pb-3"><Pager page={page} pages={Math.max(1, Math.ceil(total / PAGE))} onPage={setPage} /></div>
+  </>;
 };
 
 export default AuditLog;

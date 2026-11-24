@@ -44,59 +44,80 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
 @media(max-width:1100px) { .settings-workspace { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } .settings-overview { grid-template-columns:1fr; } }
 @media(max-width:767px) { .settings-workspace { display:block; min-height:0; } .settings-navigation { display:none; } .settings-mobile-navigation { display:block; padding:16px 16px 0; } .settings-detail { padding:24px 16px; } .settings-detail-heading { margin-bottom:24px; } .settings-overview { gap:26px; } .settings-detail-row { flex-wrap:wrap; } .settings-detail-row > :first-child { flex:1; } .settings-venue-facts { gap:12px 20px; } }
 
-/* ---- Settings: read-first glass cards on the green page ---- */
-.settings-page { --settings-ink:#16201D; --settings-mut:#6B7772; color:var(--settings-ink); padding-bottom:32px; }
-.settings-page-title { margin:4px 2px 16px; font-size:24px; font-weight:600; }
-.settings-shell { display:grid; grid-template-columns:232px minmax(0,1fr); gap:24px; align-items:start; }
-.settings-menu { padding:6px 0 12px; border-radius:14px; background:rgba(255,255,255,.66); border:1px solid rgba(31,63,59,.10); box-shadow:0 1px 2px rgba(18,21,16,.04); position:sticky; top:72px; }
-.settings-menu-group { margin:14px 12px 4px; font-size:12px; font-weight:600; color:#1F3F3B; }
-.settings-menu-item { display:flex; align-items:center; gap:8px; height:34px; margin:0 6px; padding:0 10px; border-radius:8px; font-size:14px; color:#3D4842; }
-.settings-menu-item:hover { background:rgba(255,255,255,.7); }
-.settings-menu-item.is-on { background:#fff; color:var(--settings-ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.06); }
-.settings-menu-chev { display:none; color:#9AA4A0; }
-.settings-dot { width:6px; height:6px; flex:none; border-radius:3px; background:#E07B1A; }
-.settings-main { position:relative; min-width:0; max-width:920px; }
+/* ---- Settings (Rillet-style): pages sit under Settings in the main menu on computer and tablet;
+   each page is one glass panel of sections, name left and values right; lists run full width; no lines. ---- */
+.settings-page { --settings-ink:#16201D; --settings-mut:#6B7671; --settings-pad:28px; color:var(--settings-ink); padding-bottom:32px; }
+.settings-page-title, .settings-menu { display:none; }
+.settings-main { position:relative; min-width:0; max-width:900px; padding-bottom:8px; border-radius:12px; background:rgba(255,255,255,.74); border:1px solid rgba(31,63,59,.08); box-shadow:0 1px 2px rgba(18,21,16,.04),0 10px 30px -20px rgba(20,45,43,.25); }
 .settings-back { display:none; align-items:center; gap:2px; font-size:14px; color:#1F6B5E; margin-bottom:6px; }
-.settings-head { margin-bottom:14px; min-height:52px; padding-right:180px; }
-.settings-head-group { font-size:12px; color:var(--settings-mut); }
-.settings-head-title { margin-top:2px; font-size:22px; font-weight:600; }
-.settings-action { position:absolute; top:6px; right:0; display:flex; gap:8px; }
-.settings-body { display:flex; flex-direction:column; gap:14px; min-width:0; }
-.settings-card, .settings-body .card-glass { padding:16px 20px; border-radius:14px; background:rgba(255,255,255,.66); border:1px solid rgba(31,63,59,.10); box-shadow:0 1px 2px rgba(18,21,16,.04); min-width:0; }
-.settings-card.is-editing { box-shadow:0 0 0 2px rgba(31,107,94,.25); }
-.settings-body .card-glass .card-glass, .settings-card .card-glass { padding:0; background:none; border:0; box-shadow:none; }
-.settings-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; }
-.settings-card-title { font-size:15px; font-weight:600; }
-.settings-edit { display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:500; color:#1F6B5E; }
-.settings-row { display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px; padding:6px 0; font-size:14px; }
-.settings-row-label { color:var(--settings-mut); font-size:14px; }
-.settings-row-value.is-missing { color:#B45309; }
-.settings-field { display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px; align-items:center; padding:6px 0; }
+.settings-head { padding:22px var(--settings-pad) 6px; min-height:58px; padding-right:200px; }
+.settings-head-group { display:none; }
+.settings-head-title { font-size:20px; font-weight:600; letter-spacing:-.01em; }
+.settings-action { position:absolute; top:18px; right:var(--settings-pad); display:flex; gap:8px; }
+.settings-action button, .settings-action a { height:32px !important; padding:0 14px; font-size:13px; }
+.settings-body { display:flex; flex-direction:column; min-width:0; }
+.settings-body > .contents { display:contents; }
+.settings-body > p, .settings-body > .contents > p { padding:6px var(--settings-pad); }
+/* A section: name on the left, what is saved on the right, one Edit at the top right. */
+.settings-card { position:relative; min-width:0; padding:20px var(--settings-pad); }
+.settings-card.has-title { display:grid; grid-template-columns:200px minmax(0,1fr); column-gap:24px; align-items:start; }
+.settings-card.has-title > * { grid-column:2; }
+.settings-card-head { display:contents; }
+.settings-card.has-title .settings-card-title { grid-column:1; grid-row:1 / span 40; }
+.settings-card-title { font-size:14px; font-weight:600; }
+.settings-card.no-title .settings-card-head { display:flex; justify-content:flex-end; }
+.settings-edit { position:absolute; top:20px; right:var(--settings-pad); font-size:13px; font-weight:500; color:#1F6B5E; }
+.settings-card.has-title > :nth-child(2):not(.settings-card-head) { padding-right:56px; }
+.settings-card.no-title:has(table, ul.kit) { padding:4px 0 12px; }
+.settings-pad { padding:20px var(--settings-pad); }
+.settings-card.is-editing { background:rgba(255,255,255,.55); }
+.settings-row { display:grid; grid-template-columns:170px minmax(0,1fr); gap:12px; align-items:center; min-height:34px; font-size:13px; }
+.settings-row-label { color:var(--settings-mut); font-size:13px; }
+.settings-row-value { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.settings-row-value.is-missing { color:#C26A12; }
+.settings-field { display:grid; grid-template-columns:170px minmax(0,1fr); gap:12px; align-items:center; padding:4px 0; }
 .settings-field.is-missing input { border-color:#E9B47E; }
 .settings-save { display:flex; justify-content:flex-end; gap:8px; padding-top:10px; }
-.settings-list-row { display:flex; width:100%; align-items:center; gap:12px; padding:9px 6px; border-radius:10px; text-align:left; }
+.settings-save button { height:32px; padding:0 14px; font-size:13px; }
+.settings-list-row { display:flex; width:100%; align-items:center; gap:12px; height:44px; padding:0 var(--settings-pad); text-align:left; }
 .settings-list-row:hover { background:rgba(255,255,255,.6); }
-/* No lines inside Settings: rows are separated by space, not borders. */
-.settings-body .sales-table th, .settings-body .sales-table td, .settings-body .settings-detail-row, .settings-body .divide-y > * { border-color:transparent !important; }
+.settings-list-row:nth-child(even), .settings-body li:nth-child(even) > .settings-list-row { background:rgba(31,63,59,.035); }
+/* Older screens shown inside a page lose their own boxes so the page stays one panel. */
+.settings-body .card-glass, .settings-body .glass-surface { background:none !important; border:0 !important; box-shadow:none !important; backdrop-filter:none !important; }
+.settings-body > .card-glass, .settings-body > .contents > .card-glass { padding:20px var(--settings-pad); }
+.settings-venue { padding:22px var(--settings-pad) 20px; }
+/* Lists: small grey headings, 44px rows, soft alternate shading instead of lines. */
+.settings-body table thead, .settings-body table tr, .settings-body table th, .settings-body table td, .settings-body .settings-detail-row, .settings-body .divide-y > *, .settings-body .settings-note-amber, .settings-body .settings-note-green { border-color:transparent !important; }
 .settings-body .sales-table { background:transparent; }
-.settings-body table thead, .settings-body table tr, .settings-body table th, .settings-body table td, .settings-body .settings-note-amber, .settings-body .settings-note-green { border-color:transparent !important; }
+.settings-body .sales-table th { font-size:12px; font-weight:400; color:#9AA39E; background:transparent; }
+.settings-card.no-title .sales-table th:first-child, .settings-card.no-title .sales-table td:first-child { padding-left:var(--settings-pad); }
+.settings-card.no-title .sales-table th:last-child, .settings-card.no-title .sales-table td:last-child { padding-right:var(--settings-pad); }
+.settings-body .sales-table tbody tr:nth-child(even) > td { background:rgba(31,63,59,.035); }
 .settings-body .settings-table td, .settings-body .settings-table th { padding:10px 12px 10px 0; }
-.settings-body > .contents { display:contents; }
-@media(max-width:1023px){ .settings-shell { grid-template-columns:200px minmax(0,1fr); gap:16px; } .settings-row, .settings-field { grid-template-columns:160px minmax(0,1fr); } }
+@media(max-width:1023px){ .settings-card.has-title { grid-template-columns:150px minmax(0,1fr); column-gap:16px; } .settings-row, .settings-field { grid-template-columns:140px minmax(0,1fr); } }
+/* Phone: the Settings list first, then a page with ‹ Settings; sections become glass cards. */
 @media(max-width:767px){
- .settings-shell { display:block; }
- .settings-page.has-page .settings-menu, .settings-page.has-page .settings-page-title { display:none; }
+ .settings-page { --settings-pad:16px; }
+ .settings-page.has-menu .settings-page-title { display:block; margin:4px 2px 12px; font-size:22px; font-weight:600; }
+ .settings-page.has-menu .settings-menu { display:block; }
  .settings-page.has-menu .settings-main { display:none; }
- .settings-menu { position:static; padding:6px 0 8px; }
- .settings-menu-item { height:44px; font-size:15px; color:var(--settings-ink); }
- .settings-menu-item.is-on { background:none; box-shadow:none; font-weight:400; }
- .settings-menu-chev { display:block; }
+ .settings-menu-group { margin:14px 8px 6px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#9AA39E; }
+ .settings-menu ul { border-radius:12px; background:rgba(255,255,255,.74); border:1px solid rgba(31,63,59,.08); padding:0 14px; }
+ .settings-menu-item { display:flex; align-items:center; gap:8px; height:44px; font-size:15px; color:var(--settings-ink); }
+ .settings-menu-chev { display:block; color:#9AA39E; }
+ .settings-dot { width:6px; height:6px; flex:none; border-radius:3px; background:#C26A12; }
+ .settings-main { background:none; border:0; box-shadow:none; max-width:none; }
  .settings-back { display:inline-flex; }
- .settings-head { padding-right:0; min-height:0; }
- .settings-head-group { display:none; }
- .settings-head-title { font-size:24px; }
- .settings-action { top:30px; }
- .settings-card, .settings-body .card-glass { padding:14px 16px; }
- .settings-row, .settings-field { grid-template-columns:1fr; gap:2px; }
- .settings-row-value { font-size:15px; }
+ .settings-head { padding:0 2px 6px; padding-right:0; min-height:0; }
+ .settings-head-title { font-size:22px; }
+ .settings-action { position:static; padding:0 2px 10px; }
+ .settings-body { gap:12px; }
+ .settings-card, .settings-body > .card-glass, .settings-body > .contents > .card-glass { display:block; padding:14px 16px; border-radius:12px; background:rgba(255,255,255,.74) !important; border:1px solid rgba(31,63,59,.08) !important; }
+ .settings-card.has-title .settings-card-title { margin-bottom:4px; }
+ .settings-edit { top:14px; right:16px; }
+ .settings-card.no-title:has(table, ul.kit) { padding:4px 0; }
+ .settings-pad { padding:0; }
+ .settings-venue { padding:0 2px; }
+ .settings-row, .settings-field { grid-template-columns:1fr; gap:2px; padding:5px 0; }
+ .settings-row-value { font-size:15px; white-space:normal; }
 }

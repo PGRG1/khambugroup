@@ -47,7 +47,7 @@ type DepositOB = {
 };
 type ToastFn = ReturnType<typeof useToast>["toast"];
 
-export default function OpeningBalances() {
+export default function OpeningBalances({ embedded = false }: { embedded?: boolean }) {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -87,9 +87,9 @@ export default function OpeningBalances() {
   const goLiveISO = format(goLive, "yyyy-MM-dd");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={embedded ? "space-y-6" : "p-6 space-y-6"}>
       <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
+        <div className={embedded ? "hidden" : undefined}>
           <h1 className="text-2xl font-semibold tracking-tight">Opening Balances</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Capture supplier payables, credit notes, and deposits as of your go-live date.

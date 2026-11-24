@@ -16,9 +16,9 @@ import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
 import './settings.css';
 
-// Settings, read first: on the green page, a settings list in a glass card on the left and the open page beside it
-// (computer and tablet); on phone the list, then the page with ‹ Settings. Pages are stacks of glass cards that show
-// what is saved, one Edit per card; single choices save on tap. No lines inside cards.
+// Settings (Rillet-style): on computer and tablet the pages sit under Settings in the main menu (AppSidebar), so this
+// page shows only the open page: one glass panel of sections, name left and values right, one Edit each; lists run
+// full width; choices save on tap; no lines. On phone: the Settings list, then the page with ‹ Settings.
 export default function Settings(){
  const [params]=useSearchParams();const {user,isAdmin}=useAuth();const {isPreviewActive,previewUserId}=usePreviewMode();
  const permissions=useUserPermissions(isPreviewActive?previewUserId??undefined:user?.id);const admin=isAdmin&&!isPreviewActive;
