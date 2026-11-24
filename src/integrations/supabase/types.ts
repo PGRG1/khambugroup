@@ -16115,6 +16115,10 @@ export type Database = {
         Args: { p_rows: Json; p_supplier: string; p_tenant: string }
         Returns: number
       }
+      assign_user_role: {
+        Args: { all_v: boolean; k: string; t: string; u: string; v: string[] }
+        Returns: undefined
+      }
       bani_accounting_answer: {
         Args: { p_answer: string; p_review: string }
         Returns: undefined
@@ -17269,6 +17273,10 @@ export type Database = {
       }
       save_team_working_settings: {
         Args: { expected: Json; p: Json; t: string }
+        Returns: undefined
+      }
+      save_tenant_role: {
+        Args: { k: string; r: Json; t: string }
         Returns: undefined
       }
       seed_tenant_roles: { Args: { t: string }; Returns: undefined }
