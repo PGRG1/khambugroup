@@ -27,11 +27,24 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is authenticated
-    const authHeader = req.headers.get("Authorization")!;
+    // Verify the caller (signing-keys compatible, same as list-users: getClaims first, getUser as fallback).
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+    if (!authHeader?.toLowerCase().startsWith("bearer ")) throw new Error("Please sign in again");
+    const token = authHeader.replace(/^[Bb]earer\s+/, "");
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const { data: { user: caller } } = await callerClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!caller) throw new Error("Unauthorized");
+    let callerId: string | null = null;
+    const anyAuth = callerClient.auth as any;
+    if (typeof anyAuth.getClaims === "function") {
+      const { data } = await anyAuth.getClaims(token);
+      callerId = data?.claims?.sub ?? null;
+    }
+    if (!callerId) {
+      const { data } = await callerClient.auth.getUser(token);
+      callerId = data?.user?.id ?? null;
+    }
+    if (!callerId) throw new Error("Please sign in again");
+    const { data: callerUser } = await supabaseAdmin.auth.admin.getUserById(callerId);
+    const caller = { id: callerId, email: callerUser?.user?.email ?? null };
 
     const body = await req.json();
     const { email, displayName, position, tenant_id: requestedTenantId, role = "member" } = body;
