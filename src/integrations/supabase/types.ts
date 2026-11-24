@@ -13316,12 +13316,14 @@ export type Database = {
           is_active: boolean
           kind: string
           legacy_field: string | null
+          method: string | null
           printed_name: string
           processor_ids: string[]
           settles_to: string | null
           sort_order: number
           tenant_id: string
           updated_at: string
+          venue_accounts: Json
           venue_id: string | null
         }
         Insert: {
@@ -13335,12 +13337,14 @@ export type Database = {
           is_active?: boolean
           kind: string
           legacy_field?: string | null
+          method?: string | null
           printed_name: string
           processor_ids?: string[]
           settles_to?: string | null
           sort_order?: number
           tenant_id: string
           updated_at?: string
+          venue_accounts?: Json
           venue_id?: string | null
         }
         Update: {
@@ -13354,12 +13358,14 @@ export type Database = {
           is_active?: boolean
           kind?: string
           legacy_field?: string | null
+          method?: string | null
           printed_name?: string
           processor_ids?: string[]
           settles_to?: string | null
           sort_order?: number
           tenant_id?: string
           updated_at?: string
+          venue_accounts?: Json
           venue_id?: string | null
         }
         Relationships: [
@@ -17317,6 +17323,10 @@ export type Database = {
           journal_entry_id: string
           line_id: string
         }[]
+      }
+      sales_day_on_setup: {
+        Args: { p_day: string; p_tenant: string }
+        Returns: boolean
       }
       save_people_settings: {
         Args: { p: Json; t: string; v: string }
