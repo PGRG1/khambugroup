@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeCreateUser } from "@/utils/invokeCreateUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,7 @@ export function CreateUserDialog({ open, onOpenChange, onCreated, tenantId }: Pr
     if (!email) return;
     setLoading(true);
     try {
-      const res = await supabase.functions.invoke("create-user", {
-        body: { email, displayName, position, tenant_id: targetTenantId },
-      });
+      const res = await invokeCreateUser({ email, displayName, position, tenant_id: targetTenantId });
 
       if (res.error) throw res.error;
       if (res.data?.error) throw new Error(res.data.error);

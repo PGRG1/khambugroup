@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeCreateUser } from "@/utils/invokeCreateUser";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Field, Row, SaveBar, SettingsCard } from "@/components/settings/SettingsForm";
@@ -76,7 +77,7 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
   const [resetting, setResetting] = useState(false);
   const reset = async () => {
     setResetting(true);
-    const res = await supabase.functions.invoke("create-user", { body: { action: "reset", user_id: userId, tenant_id: tenantId } });
+    const res = await invokeCreateUser({ action: "reset", user_id: userId, tenant_id: tenantId });
     setResetting(false);
     const err = await fnError(res);
     if (err || !res.data?.tempPassword) { toast({ title: err ?? "Could not reset the password", variant: "destructive" }); return; }
@@ -124,7 +125,7 @@ export function InviteCard({ tenantId, roles, venues, canOwner, onClose, onDone 
   const send = async () => {
     if (!role) return;
     setBusy(true);
-    const res = await supabase.functions.invoke("create-user", { body: { email: email.trim(), displayName: name.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId } });
+    const res = await invokeCreateUser({ email: email.trim(), displayName: name.trim() || undefined, position: legacyPosition(role), tenant_id: tenantId });
     const err = await fnError(res);
     if (err || !res.data?.userId) { setBusy(false); toast({ title: err ?? "Could not add this person", variant: "destructive" }); return; }
     const ok = await assign(tenantId, res.data.userId, role, all, ids);
