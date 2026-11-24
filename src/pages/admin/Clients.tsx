@@ -115,6 +115,7 @@ export default function Clients() {
     const { data } = await supabase
       .from("tenants")
       .select("id, name, slug, status, created_at")
+      .neq("status", "internal") // the internal Bani business (Bani team) is not a client
       .order("created_at", { ascending: false });
     const tenants = (data ?? []) as ClientRow[];
     if (tenants.length) {

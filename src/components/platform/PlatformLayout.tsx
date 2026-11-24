@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Building2, PanelLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Building2, Users, PanelLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/UserMenu";
 import { BaniLoginMark } from "@/components/brand/BaniLoginMark";
 
-const NAV = [{ to: "/platform/clients", label: "Clients", icon: Building2 }];
+const NAV = [{ to: "/platform/clients", label: "Clients", icon: Building2 }, { to: "/platform/team", label: "Bani team", icon: Users }];
 
 const STORAGE_KEY = "bani.platform.sidebar.collapsed";
 

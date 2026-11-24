@@ -34,6 +34,7 @@ const PLReport = lazyPage(() => import("./pages/PLReport"));
 const AiRules = lazyPage(() => import("./pages/admin/AiRules"));
 const Clients = lazyPage(() => import("./pages/admin/Clients"));
 const ClientDetail = lazyPage(() => import("./pages/admin/ClientDetail"));
+const BaniTeam = lazyPage(() => import("./pages/admin/BaniTeam"));
 const BusinessStructure = lazyPage(() => import("./pages/admin/BusinessStructure"));
 const MasterData = lazyPage(() => import("./pages/admin/MasterData"));
 const Preferences = lazyPage(() => import("./pages/admin/Preferences"));
@@ -208,6 +209,7 @@ const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading || platLoading) return <QuietLoading />;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
+  if (needsOwnPassword(session)) return <SetOwnPassword session={session} />;
   writeLastShell("platform");
   return <PlatformLayout><Suspense fallback={<QuietArea />}>{children}</Suspense></PlatformLayout>;
 };
@@ -244,6 +246,7 @@ function App() {
                 <Route path="/platform" element={<Navigate to="/platform/clients" replace />} />
                 <Route path="/platform/clients" element={<PlatformRoute><Clients /></PlatformRoute>} />
                 <Route path="/platform/clients/:tenantId" element={<PlatformRoute><ClientDetail /></PlatformRoute>} />
+                <Route path="/platform/team" element={<PlatformRoute><BaniTeam /></PlatformRoute>} />
                 <Route path="/platform/clients/:tenantId/onboarding" element={<RedirectClientDetail />} />
                 <Route path="*" element={<NotFound />} />
                 <Route element={<TenantShell />}>

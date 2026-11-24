@@ -113,6 +113,9 @@ serve(async (req) => {
     const newUserId = newUser.user?.id;
 
     if (newUserId) {
+      // Old database triggers attach every new sign-up to KHAMBU; a person added to a client belongs only to that client.
+      await supabaseAdmin.from("tenant_members").delete().eq("user_id", newUserId).neq("tenant_id", tenantId);
+      await supabaseAdmin.from("user_page_permissions").delete().eq("user_id", newUserId).neq("tenant_id", tenantId);
       // Attach the new user to the chosen tenant.
       await supabaseAdmin
         .from("tenant_members")
