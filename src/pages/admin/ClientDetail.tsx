@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { ClientRoles } from "@/components/platform/ClientRoles";
 import { ClientBooks } from "@/components/platform/ClientBooks";
 import { ClientRevenue } from "@/components/platform/ClientRevenue";
+import { ClientPurchasing } from "@/components/platform/ClientPurchasing";
 
 // Control plane: a client's business setup, done by Bani — the company, its venues, books start and opening balances,
 // and what each role can do
@@ -160,6 +161,8 @@ export default function ClientDetail() {
       {tenantId && <ClientBooks tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=books")} />}
 
       {tenantId && <ClientRevenue tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=revenue")} />}
+
+      {tenantId && <ClientPurchasing tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=purchasing-setup")} />}
 
       {tenantId && <ClientRoles tenantId={tenantId} />}
 
