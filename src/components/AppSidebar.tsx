@@ -247,7 +247,7 @@ function AccountDialog({ open, onOpenChange, name, email, onSignOut }: { open: b
 type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
 
 const navItems: (Item & { icon: any })[] = [
-  { title: "Bani team", url: "/", icon: HomeOrb, pageKey: "home", end: true },
+  { title: "Home", url: "/", icon: HomeOrb, pageKey: "home", end: true },
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
@@ -531,7 +531,7 @@ export function AppSidebar() {
   const showAdmin       = isAdmin && !isPreviewActive;
   const showSettings = showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB);
   const goPages = [
-    { title: "Bani team", to: "/" },
+    { title: "Home", to: "/" },
     ...(revenueDestination ? revenueChildren.map((c) => ({ title: `Revenue · ${c.title}`, to: c.to })) : []),
     ...(showProcurement ? purchasingChildren.map((c) => ({ title: `Purchasing · ${c.title}`, to: c.url })) : []),
     ...(showProcurement ? stockMenuChildren.map((c) => ({ title: `Stock & menu · ${c.title}`, to: c.url })) : []),

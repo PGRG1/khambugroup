@@ -8,7 +8,7 @@ export type TabItem = { title: string; to: string; icon: any; active: boolean };
 
 /**
  * Phone navigation (below 768px): the app's main navigation, a frosted bar across the bottom edge of the screen.
- * Bani team stays pinned on the left; every other section the person can open sits beside it (icon with its name
+ * Home stays pinned on the left; every other section the person can open sits beside it (icon with its name
  * underneath) and slides sideways (nothing hidden under "More"). The section you are on is dark green and bold with
  * a short line along the top, and always slides into view.
  * It steps aside while you type and while a conversation with Bani fills the screen.
