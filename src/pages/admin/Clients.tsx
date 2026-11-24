@@ -188,7 +188,8 @@ export default function Clients() {
     { label: "Total clients", short: "Clients", value: totalClients },
     { label: "Active", short: "Active", value: totalActive, accent: true },
     { label: "In setup", short: "In setup", value: totalSetup },
-    { label: "Total venues", short: "Venues", value: totalVenues, extra: `${totalUsers} ${totalUsers === 1 ? "user" : "users"}` },
+    { label: "Total venues", short: "Venues", value: totalVenues },
+    { label: "Total users", short: "Users", value: totalUsers },
   ];
 
   const MANY = 10;
@@ -251,7 +252,7 @@ export default function Clients() {
       </div>
 
       {/* KPIs: plain numbers on phone/tablet, one strip on desktop */}
-      <div className="mt-5 md:hidden card-glass rounded-2xl grid grid-cols-4 overflow-hidden">
+      <div className="mt-5 md:hidden card-glass rounded-2xl grid grid-cols-5 overflow-hidden">
         {kpis.map((k, i) => (
           <div key={k.label} className={`min-w-0 flex flex-col items-center gap-1.5 py-3.5 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
             <span className={`text-[22px] leading-none font-medium tabular-nums ${k.accent ? "text-primary" : "dark:text-white"}`}>{ready ? <span className="clients-fade"><Num value={k.value} format={(n) => String(Math.round(n))} play={play} delay={260 + i * 70} duration={700} /></span> : <span className="clients-sk" aria-hidden="true">&nbsp;</span>}</span>
@@ -259,7 +260,7 @@ export default function Clients() {
           </div>
         ))}
       </div>
-      <div className="mt-6 xl:mt-7 hidden md:grid card-glass rounded-2xl grid-cols-4 overflow-hidden">
+      <div className="mt-6 xl:mt-7 hidden md:grid card-glass rounded-2xl grid-cols-5 overflow-hidden">
         {kpis.map((k, i) => (
           <div key={k.label} className={`px-[18px] py-4 xl:px-6 xl:py-[18px] flex flex-col gap-2.5 min-w-0 border-border/70 dark:border-white/[0.06] ${i ? "border-l" : ""}`}>
             <div className="font-plex text-[10.5px] xl:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate">{k.label}</div>
