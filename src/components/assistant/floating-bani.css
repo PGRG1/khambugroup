@@ -346,3 +346,10 @@
 /* Voice mode: the pill, mute and end buttons stand on their own. The composer behind them keeps
    no background, border or shadow in any panel mode (home, centred, wide), so no faint band shows. */
 .floating-bani-panel .floating-bani-composer.floating-bani-composer:has(.floating-bani-voice-row) { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* One hover for the chat bar: +, Chats and mic share a soft tint; send just darkens. */
+.floating-bani .floating-bani-typing .floating-bani-plus:hover:not(:disabled),
+.floating-bani .floating-bani-typing .floating-bani-mic:hover:not(:disabled),
+.floating-bani .floating-bani-typing .floating-bani-chats:hover { background: #EEF2EF; color: var(--fb-ink); }
+.floating-bani .floating-bani-typing .floating-bani-send:hover:not(:disabled) { background: #0E211E; color: var(--fb-on-primary); }
+.floating-bani .floating-bani-typing button { transition: background-color .12s ease, color .12s ease; }
