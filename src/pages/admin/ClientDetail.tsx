@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { ClientRoles } from "@/components/platform/ClientRoles";
 import { SETUP_STEPS, loadClientSetup, setupSummary, type SetupState } from "@/utils/clientSetup";
 
-// Control plane: a client's business setup, done by Bani — the company and its venues. Everything else
+// Control plane: a client's business setup, done by Bani — the company, its venues and what each role can do
+// (the client only assigns roles to people). Everything else
 // (accounts, tax, suppliers, team…) is set up inside the client's own Settings, by their team or by
 // Bani support after "Enter client"; here it is only shown as read-only setup status.
 
@@ -151,10 +153,12 @@ export default function ClientDetail() {
       </Card>
 
       <Card title={`Users · ${users}`} action={<button type="button" className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => enterClient(tenantId, "/settings?tab=users")}>Manage users</button>}>
-        <div className={row}><span className="text-muted-foreground whitespace-nowrap">Who adds and changes users</span>
+        <div className={row}><span className="text-muted-foreground whitespace-nowrap">Who adds people and assigns roles</span>
           <span className="flex gap-4 whitespace-nowrap">{(["bani", "client"] as const).map((k) => <button key={k} type="button" disabled={busy} onClick={() => void setUsersBy(k)}
             className={(tenant?.users_managed_by ?? "bani") === k ? "font-medium text-foreground underline underline-offset-4" : "text-muted-foreground"}>{k === "bani" ? "Bani" : "Client"}</button>)}</span></div>
       </Card>
+
+      {tenantId && <ClientRoles tenantId={tenantId} />}
 
       <Card title="Setup" action={<span className="text-[12px] text-muted-foreground tabular-nums">{sum.done} of {sum.total}</span>}>
         {SETUP_STEPS.map((s) => <div key={s.key} className={row}><span>{s.label}</span>

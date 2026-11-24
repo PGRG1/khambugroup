@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { POSITIONS, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
-import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
-import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
+import { InviteCard, PersonAccessCard, type PersonAccess } from "@/components/access-control/RoleAssign";
+import { ROLE_COLUMNS, type TenantRole } from "@/utils/roleAccess";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { tenantMemberUsers } from "@/utils/settingsFacts";
@@ -31,6 +31,9 @@ const UserAccessControl = () => {
     return () => { on = false; }; }, [tenantId]);
   const [users, setUsers] = useState<UserAccessRecord[]>([]);
   const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
+  const [roles, setRoles] = useState<TenantRole[]>([]);
+  const [access, setAccess] = useState<Record<string, PersonAccess>>({});
+  const [venueList, setVenueList] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState<string>("all");
@@ -62,9 +65,21 @@ const UserAccessControl = () => {
         ? supabase.from("user_venue_access").select("user_id, venue_id").eq("tenant_id", tenantId)
         : Promise.resolve({ data: [] as any[] }),
       tenantId
-        ? supabase.from("venues").select("id, name").eq("tenant_id", tenantId)
+        ? supabase.from("venues").select("id, name, is_active").eq("tenant_id", tenantId).order("name")
         : Promise.resolve({ data: [] as any[] }),
     ]);
+    // Roles (set by Bani) and each person's role and venues.
+    const [{ data: roleRows }, { data: accessRows }, { data: accessVenues }] = await Promise.all([
+      supabase.from("tenant_roles").select(ROLE_COLUMNS).eq("tenant_id", tenantId).order("sort_order"),
+      supabase.from("tenant_user_access").select("user_id, role_key, all_venues, status").eq("tenant_id", tenantId),
+      supabase.from("tenant_user_venues").select("user_id, venue_id").eq("tenant_id", tenantId),
+    ]);
+    setRoles((roleRows ?? []) as unknown as TenantRole[]);
+    const acc: Record<string, PersonAccess> = {};
+    for (const a of accessRows ?? []) acc[a.user_id] = { role_key: a.role_key, all_venues: a.all_venues, status: a.status, venue_ids: [] };
+    for (const v of accessVenues ?? []) acc[v.user_id]?.venue_ids.push(v.venue_id);
+    setAccess(acc);
+    setVenueList((allVenues ?? []) as any);
 
     const vMap: Record<string, string> = {};
     for (const v of (allVenues || [])) vMap[v.id] = v.name;
@@ -131,7 +146,7 @@ const UserAccessControl = () => {
     const matchSearch = !search ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       (u.display_name || "").toLowerCase().includes(search.toLowerCase());
-    const matchPosition = positionFilter === "all" || u.position === positionFilter;
+    const matchPosition = positionFilter === "all" || (access[u.user_id]?.role_key ?? "none") === positionFilter;
     const matchStatus = statusFilter === "all" || u.status === statusFilter;
     return matchSearch && matchPosition && matchStatus;
   });
@@ -155,22 +170,31 @@ const UserAccessControl = () => {
     );
   };
 
+  const venuesOpen = venueList.filter(v => v.is_active);
+  if (canManage && tenantId && showCreateDialog) return <div className="contents"><InviteCard tenantId={tenantId} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
+    onClose={() => setShowCreateDialog(false)} onDone={() => { setShowCreateDialog(false); void fetchUsers(); }} /></div>;
+  if (canManage && tenantId && editingUser) return <div className="contents"><PersonAccessCard key={editingUser.user_id} tenantId={tenantId} userId={editingUser.user_id}
+    name={editingUser.display_name || editingUser.email} access={access[editingUser.user_id]} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
+    onClose={() => setEditingUser(null)} onSaved={() => { setEditingUser(null); void fetchUsers(); }} /></div>;
   return (
     <div className="contents">
       {canManage ? <PageAction><Button size="sm" className="h-10 rounded-full" onClick={() => setShowCreateDialog(true)}><UserPlus className="h-4 w-4" />Invite</Button></PageAction>
         : <p className="px-1 text-[13px] text-muted-foreground">Users are set up by Bani. Contact Bani to add someone or change their access.</p>}
       <QuickFilter label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ key: "all", label: "All" }, { key: "active", label: "Active" }, { key: "disabled", label: "Disabled", count: users.filter(u => u.status !== "active").length }]} />
-      <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{POSITIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent></Select>} />
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search people" mobileSearchBelow filter={<Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger><SelectContent><SelectItem value="all">Every role</SelectItem>{roles.map(r => <SelectItem key={r.role_key} value={r.role_key}>{r.name}</SelectItem>)}<SelectItem value="none">No role yet</SelectItem></SelectContent></Select>} />
       {(() => {
-        const venuesOf = (u: typeof users[number]) => u.venue_ids?.length ? u.venue_ids.map(id => venueNameMap[id]).filter(Boolean).join(", ") : "All venues";
-        const roleOf = (u: typeof users[number]) => POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
+        // Role and venues come from the access roles Bani set up; people not given a role yet show their old position in grey.
+        const venuesOf = (u: typeof users[number]) => { const a = access[u.user_id]; const ids = a ? (a.all_venues ? [] : a.venue_ids) : u.venue_ids ?? [];
+          return a?.all_venues || !ids.length ? "All venues" : ids.map(id => venueNameMap[id]).filter(Boolean).join(", "); };
+        const newRole = (u: typeof users[number]) => roles.find(r => r.role_key === access[u.user_id]?.role_key)?.name;
+        const roleOf = (u: typeof users[number]) => newRole(u) ?? POSITIONS.find(p => p.value === u.position)?.label ?? u.position;
         return <SettingsCard>
           <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => openUser(u)} />)}</ul>
           <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
             <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th><th scope="col" className="sales-cell-right"><span className="sr-only">Edit</span></th></tr></thead>
             <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...(canManage ? keyOpen(() => openUser(u)) : {})}>
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
-              <td className="sales-cell-left">{roleOf(u)}</td>
+              <td className={`sales-cell-left ${newRole(u) ? "" : "text-muted-foreground"}`} title={newRole(u) ? undefined : "No role yet"}>{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
               <td className="sales-cell-left"><Status text={u.status === "active" ? "Active" : "Disabled"} tone={u.status === "active" ? "ok" : "mut"} /></td>
               <td className="kit-num">{canManage && <span className="kit-link">Edit</span>}</td>
@@ -179,23 +203,6 @@ const UserAccessControl = () => {
         </SettingsCard>;
       })()}
 
-      {/* Editor Panel */}
-      {canManage && editingUser && (
-        <UserEditorPanel
-          user={editingUser}
-          tenantId={tenantId || undefined}
-          onClose={() => setEditingUser(null)}
-          onSaved={() => { setEditingUser(null); fetchUsers(); }}
-        />
-      )}
-
-      {/* Create User Dialog */}
-      <CreateUserDialog
-        open={canManage && showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        tenantId={tenantId || undefined}
-        onCreated={fetchUsers}
-      />
     </div>
   );
 };

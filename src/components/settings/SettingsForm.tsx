@@ -31,10 +31,10 @@ export function Field({ label, hint, htmlFor, missing, children }: { label: stri
   </div>;
 }
 
-export function SaveBar({ dirty, saving, onSave, onCancel }: { dirty: boolean; saving?: boolean; onSave: () => void; onCancel?: () => void }) {
+export function SaveBar({ dirty, saving, onSave, onCancel, label = 'Save' }: { dirty: boolean; saving?: boolean; onSave: () => void; onCancel?: () => void; label?: string }) {
   return <div className="settings-save">
     {onCancel && <Button type="button" variant="outline" className="rounded-full" disabled={saving} onClick={onCancel}>Cancel</Button>}
-    <Button type="button" className="rounded-full" disabled={!dirty || saving} onClick={onSave}>{saving ? 'Saving…' : 'Save'}</Button>
+    <Button type="button" className="rounded-full" disabled={!dirty || saving} onClick={onSave}>{saving ? 'Saving…' : label}</Button>
   </div>;
 }
 
