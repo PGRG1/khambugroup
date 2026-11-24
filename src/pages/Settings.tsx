@@ -12,6 +12,7 @@ import {UsersTab} from '@/components/settings/UsersTab';
 import {AccountingTab} from '@/components/settings/AccountingTab';
 import {BaniTab} from '@/components/settings/BaniTab';
 import {MasterDataTab} from '@/components/settings/MasterDataTab';
+import {RevenueMapping} from '@/components/settings/RevenueMapping';
 import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
@@ -57,6 +58,7 @@ export default function Settings(){
   :active.id==='company'?(params.has('venue')?<BusinessTab destination="venues"/>:<><BusinessTab destination="company"/><BusinessTab destination="venues"/></>)
   :active.group==='Organization'?<BusinessTab destination={active.id}/>
   :active.id==='activity'?<AuditLog/>:active.group==='Team'?<UsersTab/>
+  :active.id==='revenue'?<RevenueMapping/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>
   :active.group==='Lists'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'}/>:<BaniTab/>;
  const page=<main className="settings-main min-w-0">

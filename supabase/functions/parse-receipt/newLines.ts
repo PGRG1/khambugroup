@@ -1,9 +1,9 @@
 // Held sales reports with lines the setup doesn't know: Bani suggests what they are, and once a
 // manager has mapped them the report is checked again exactly like a new scan (receiptIntake).
 import { z } from "npm:zod@3";
-import { linesForVenue, matchRead, type SetupKind } from "../_shared/setupReceipt.ts";
+import { linesForVenue, matchRead } from "../_shared/setupReceipt.ts";
 import { newLineNames, normalizeSuggestions, suggestPrompt } from "../_shared/newReportLines.ts";
-import { loadSetup } from "./setupRead.ts";
+import { loadSetup, defs } from "./setupRead.ts";
 import { receiptIntake } from "./intake.ts";
 
 const input = z.object({ tenantId: z.string().uuid(), intakeId: z.string().uuid() }).strict();
@@ -26,7 +26,7 @@ async function loadForAnswer(admin: any, userId: string, authHeader: string, bod
   const setup = await loadSetup(admin, tenantId);
   if (!setup) throw new Error("This client is not set up line by line");
   const t = (intake.tentative_values ?? {}) as Record<string, unknown>;
-  const read = matchRead({ ...t, lines: t.lines }, linesForVenue(setup, intake.venue_id).map((r) => ({ printed: r.printed_name, kind: r.kind as SetupKind })));
+  const read = matchRead({ ...t, lines: t.lines }, linesForVenue(setup, intake.venue_id).map((r) => defs([r])[0]));
   return { intake, read };
 }
 

@@ -15,6 +15,7 @@ export const settingsDestinations = [
   {id:'accounts',group:'Finance',label:'Chart of accounts',description:'Account names and codes in Books',query:'tab=accounting&view=accounts'},
   {id:'mappings',group:'Finance',label:'Category & account mappings',description:'Accounts used by bills, invoices and cash receipts',query:'tab=accounting&view=categories'},
   {id:'processors',group:'Accounting',label:'Card processors',description:'Processors, merchants and fee rates',query:'tab=accounting&view=processors'},
+  {id:'revenue',group:'Accounting',label:'Revenue setup',description:'The sales report lines and how they post to the books',query:'tab=accounting&view=revenue'},
   {id:'opening',group:'Accounting',label:'Opening balances',description:'Starting supplier balances, credits and deposits',query:'tab=accounting&view=opening'},
   {id:'suppliers',group:'Lists',label:'Suppliers',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
   {id:'products',group:'Lists',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
@@ -47,7 +48,7 @@ export function resolveSettingsDestination(params:URLSearchParams):SettingsDesti
  if(tab==='accounting'){
    if(view==='categories')return 'mappings';
    if(view==='merchants'||view==='fee-rates')return 'processors';
-   return ['base','books','schedule','tax','accounts','processors','opening'].includes(view??'')?view as SettingsDestination:'books';
+   return ['base','books','schedule','tax','accounts','processors','revenue','opening'].includes(view??'')?view as SettingsDestination:'books';
  }
  if(tab==='master-data')return params.get('md')==='products'?'products':params.get('md')==='categories'?'categories':'suppliers';
  return tab==='bani'?'bani':'denied';

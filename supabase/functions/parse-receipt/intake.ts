@@ -5,8 +5,8 @@ import { receiptReviewReasons } from "../_shared/receiptIntakePolicy.ts";
 import { chatImage, chatPDF } from "../_shared/documentMedia.ts";
 import { checkDocumentDate } from "../_shared/documentChecks.ts";
 import { figureProblems, hkToday, TENDERS, verificationMismatches } from "../_shared/receiptAutoPost.ts";
-import { basicsFromLines, linesForVenue, matchRead, setupMismatches, setupProblems, type SetupKind } from "../_shared/setupReceipt.ts";
-import { loadSetup, readWithSetup } from "./setupRead.ts";
+import { basicsFromLines, linesForVenue, matchRead, setupMismatches, setupProblems } from "../_shared/setupReceipt.ts";
+import { loadSetup, readWithSetup, defs } from "./setupRead.ts";
 
 const schema = z.object({ tenantId: z.string().uuid(), scanId: z.string().uuid().nullable(),
   imageBase64: z.string().min(1).max(14_000_000), mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]),
@@ -69,7 +69,7 @@ export async function receiptIntake(admin: any, userId: string, body: unknown, a
   // setup (never from the browser). KHAMBU-style clients keep the fixed-field checks.
   const setupRows = Array.isArray(t.lines) ? await loadSetup(admin, tenant.tenant_id) : null;
   const first = setupRows
-    ? matchRead({ ...t, lines: t.lines }, linesForVenue(setupRows, venue?.id ?? null).map((r) => ({ printed: r.printed_name, kind: r.kind as SetupKind })))
+    ? matchRead({ ...t, lines: t.lines }, linesForVenue(setupRows, venue?.id ?? null).map((r) => defs([r])[0]))
     : null;
   // Date and venue checks only (the fixed-field balance is replaced by the line balance below).
   const problems = first ? figureProblems({ date: t.date, totalSales: 1, subtotal: 1, cash: 1 }, !!venue, hkToday()) : figureProblems(t, !!venue, hkToday());

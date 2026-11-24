@@ -21,6 +21,10 @@ describe("setup clients' receipts", () => {
     expect(linesForVenue(all, "v1").map((l) => l.n)).toEqual([2]);
     expect(linesForVenue(all, "v2").map((l) => l.n)).toEqual([1]);
   });
+  it("another printed name for a line reads as that line", () => {
+    const r = matchRead({ date: "2026-11-14", lines: [{ printed: "Visa Card", amount: 100 }] }, [{ printed: "VISA/MC", kind: "payment", aliases: ["Visa Card"] }]);
+    expect(r.lines[0]).toMatchObject({ printed: "VISA/MC", kind: "payment", known: true });
+  });
   it("labels match the setup whatever the case; the day's usual figures come from the lines", () => {
     expect(good.lines.find((l) => l.printed === "Covers")).toMatchObject({ kind: "guests", known: true, amount: 82 });
     expect(basicsFromLines(good.lines)).toMatchObject({ totalSales: 10450, subtotal: 9500, serviceCharge: 950, guests: 82 });

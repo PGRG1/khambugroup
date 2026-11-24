@@ -5,7 +5,7 @@
 export type SetupKind =
   | "total" | "subtotal" | "guests" | "orders" | "service_charge" | "discount" | "tip"
   | "sales" | "payment" | "delivery" | "voucher_sold" | "voucher_used" | "deposit_taken" | "deposit_used" | "ignore";
-export interface SetupLineDef { printed: string; kind: SetupKind }
+export interface SetupLineDef { printed: string; kind: SetupKind; aliases?: string[] }
 export interface ReadLine { printed: string; amount: number | null; kind: SetupKind | null; known: boolean }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -33,7 +33,7 @@ export function setupReadPrompt(known: SetupLineDef[], venues: string[]): string
 Return ONLY JSON: {"date":"YYYY-MM-DD (business day; for a From/To range use From)","rawPrintedDate":"as printed","printedWeekday":"as printed or null",
 "venue":"${venues.length ? `one of: ${venues.join(", ")}, or \\"\\" if none matches` : "as printed"}","reportNumber":"as printed or \\"\\"",
 "lines":[{"printed":"label as printed (translate non-English to English)","amount":number or null}]}
-This client's report normally prints these lines (use these exact labels when they appear): ${known.map((k) => k.printed).join(" | ")}.
+This client's report normally prints these lines (use these exact labels when they appear): ${known.flatMap((k) => [k.printed, ...(k.aliases ?? [])]).join(" | ")}.
 Also list any other line with an amount or count, with its own label. Never invent lines or totals; missing is null, never 0 unless printed.
 Amounts are plain numbers with the printed sign. Two-digit years: '26 means 2026.`;
 }
@@ -41,7 +41,8 @@ Amounts are plain numbers with the printed sign. Two-digit years: '26 means 2026
 /** Match a read to the setup: known labels take their setup meaning; anything else is an unknown line. */
 export function matchRead(raw: unknown, setup: SetupLineDef[]): { date: string | null; rawPrintedDate: string; printedWeekday: string | null; venue: string; reportNumber: string; lines: ReadLine[] } {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const byName = new Map(setup.map((s) => [norm(s.printed), s]));
+  // Other printed names for a line read as that line.
+  const byName = new Map(setup.flatMap((s) => [[norm(s.printed), s] as const, ...(s.aliases ?? []).map((a) => [norm(a), s] as const)]));
   const seen = new Set<string>();
   const lines: ReadLine[] = [];
   for (const item of Array.isArray(r.lines) ? r.lines.slice(0, 120) : []) {

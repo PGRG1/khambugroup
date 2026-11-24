@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import { ClientRoles } from "@/components/platform/ClientRoles";
 import { ClientBooks } from "@/components/platform/ClientBooks";
+import { ClientRevenue } from "@/components/platform/ClientRevenue";
 
 // Control plane: a client's business setup, done by Bani — the company, its venues, books start and opening balances,
 // and what each role can do
@@ -157,6 +158,8 @@ export default function ClientDetail() {
       </Card>
 
       {tenantId && <ClientBooks tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=books")} />}
+
+      {tenantId && <ClientRevenue tenantId={tenantId} onEdit={() => enterClient(tenantId, "/settings?tab=accounting&view=revenue")} />}
 
       {tenantId && <ClientRoles tenantId={tenantId} />}
 
