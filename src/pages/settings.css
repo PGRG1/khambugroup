@@ -49,7 +49,7 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
    box; tables use the same thin row lines as the rest of Bani. Saved values read as a grid of label-over-value; editing turns a card into a field list. ---- */
 .settings-page { --settings-ink:#16201D; --settings-mut:#6B7671; --settings-pad:18px; color:var(--settings-ink); padding-bottom:32px; }
 .settings-page-title, .settings-menu { display:none; }
-.settings-main { position:relative; min-width:0; max-width:920px; }
+.settings-main { position:relative; min-width:0; max-width:none; }
 .settings-back { display:none; align-items:center; gap:2px; font-size:14px; color:#1F6B5E; margin-bottom:6px; }
 .settings-head { display:flex; align-items:center; min-height:44px; margin-bottom:16px; padding-right:200px; }
 .settings-head-group { display:none; }
