@@ -1,4 +1,5 @@
-import { resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref } from "@/utils/settingsNavigation";
+import { mergedInto, resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref, visibleSettingsDestinations } from "@/utils/settingsNavigation";
+import { useSettingsSummary } from "@/hooks/useSettingsSummary";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { PushNotificationsRow } from "@/components/UserMenu";
 import {
@@ -83,6 +84,27 @@ function FlagChildLink({ title, to, active }: { title: string; to: string; activ
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
+}
+
+// Settings pages sit under Settings in the main menu while you are in Settings, like Finance and Expenses.
+function SettingsSubNav({ admin, invoices }: { admin: boolean; invoices: boolean }) {
+  const [sp] = useSearchParams();
+  const facts = useSettingsSummary(admin);
+  const list = visibleSettingsDestinations(admin, invoices);
+  const resolved = resolveSettingsDestination(sp);
+  const current = resolved === "overview" ? list[0]?.id : resolved === "denied" ? undefined : mergedInto[resolved] ?? resolved;
+  return <>{settingsGroups.filter((g) => list.some((d) => d.group === g)).map((g) => <React.Fragment key={g}>
+    <li className="bani-sub-group pl-9 pr-3 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[.05em] text-sidebar-foreground/45">{g}</li>
+    {list.filter((d) => d.group === g).map((d) => <SidebarMenuItem key={d.id}>
+      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+        <Link to={settingsHref(d.id)} aria-current={current === d.id ? "page" : undefined}
+          className={cn("bani-sub relative flex items-center gap-2 pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", current === d.id && "glass-active !text-sidebar-primary font-medium")}>
+          <span className="truncate flex-1">{d.label}</span>
+          {facts.data?.[d.id as keyof typeof facts.data]?.amber && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--warning))]" aria-label="Something to set up" />}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>)}
+  </React.Fragment>)}</>;
 }
 
 type RailChild = { title: string; to: string; active?: boolean };
@@ -475,6 +497,9 @@ export function AppSidebar() {
     ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Lists" }; }),
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
+  // Settings pages for the collapsed rail's Settings pop-up (the expanded menu lists them under Settings).
+  const settingsPages = visibleSettingsDestinations(settingsAdmin, canAccessPage("invoices"));
+  const settingsPageHere = settingsHere === "overview" ? settingsPages[0]?.id : settingsHere === "denied" ? undefined : mergedInto[settingsHere] ?? settingsHere;
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
@@ -544,7 +569,7 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
 
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings" }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsPages.map((d) => ({ title: d.label, to: settingsHref(d.id), active: settingsPageHere === d.id })) }] : []),
         ];
 
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
@@ -714,7 +739,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} /></SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{showSubPages && pathname === "/settings" && <SettingsSubNav admin={settingsAdmin} invoices={canAccessPage("invoices")} />}</SidebarMenu></SidebarGroup>}
 
 
       </SidebarContent>

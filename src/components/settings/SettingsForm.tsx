@@ -1,15 +1,15 @@
-import type { ReactNode } from 'react';
-import { Pencil } from 'lucide-react';
+import { useId, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 
-// Settings pieces (read first, edit one card at a time): glass cards on the green page, no lines.
-// A card shows what is saved as label · value rows; "Edit" turns that card alone into fields with Cancel and Save.
+// Settings pieces (Rillet-style, read first): each page is one glass panel; a SettingsCard is one section in it,
+// its name on the left and what is saved on the right, with one Edit. Untitled sections (lists) run full width.
+// "Edit" turns that section alone into fields with Cancel and Save. No lines.
 
 export function SettingsCard({ title, onEdit, action, editing, children }: { title?: string; onEdit?: () => void; action?: ReactNode; editing?: boolean; children: ReactNode }) {
-  return <section className={`settings-card ${editing ? 'is-editing' : ''}`} aria-label={title}>
+  return <section className={`settings-card ${title ? 'has-title' : 'no-title'} ${editing ? 'is-editing' : ''}`} aria-label={title}>
     {(title || onEdit || action) && <div className="settings-card-head">
       {title && <h3 className="settings-card-title">{title}</h3>}
-      {!editing && onEdit && <button type="button" className="settings-edit" onClick={onEdit}><Pencil className="h-3.5 w-3.5" />Edit</button>}
+      {!editing && onEdit && <button type="button" className="settings-edit" onClick={onEdit}>Edit</button>}
       {!editing && !onEdit && action}
     </div>}
     {children}
@@ -40,12 +40,13 @@ export function SaveBar({ dirty, saving, onSave, onCancel, label = 'Save' }: { d
 
 /** One choice in its own card, saved as soon as it is tapped. Every option visible with one short line. */
 export function Choice<K extends string>({ label, value, options, onChange, disabled }: { label: string; value: K; options: { key: K; title: string; line: string }[]; onChange: (k: K) => void; disabled?: boolean }) {
-  return <section className="settings-card" aria-label={label}>
-    <fieldset disabled={disabled}>
-      <legend className="settings-card-title">{label}</legend>
-      <div className="mt-1">{options.map(o => <label key={o.key} className="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-2.5">
-        <input type="radio" className="mt-1 h-4 w-4 accent-[#1F6B5E]" checked={value === o.key} onChange={() => onChange(o.key)} />
-        <span className="min-w-0"><span className={`block text-[14px] ${value === o.key ? 'font-semibold' : 'font-medium'}`}>{o.title}</span><span className="block text-[12px] text-muted-foreground">{o.line}</span></span>
+  const id = useId();
+  return <section className="settings-card has-title" aria-labelledby={id}>
+    <h3 id={id} className="settings-card-title">{label}</h3>
+    <fieldset disabled={disabled} aria-labelledby={id} className="min-w-0">
+      <div>{options.map(o => <label key={o.key} className="flex cursor-pointer items-start gap-3 rounded-lg py-1.5">
+        <input type="radio" className="mt-0.5 h-4 w-4 accent-[#1F6B5E]" checked={value === o.key} onChange={() => onChange(o.key)} />
+        <span className="min-w-0"><span className={`block text-[13px] ${value === o.key ? 'font-semibold' : ''}`}>{o.title}</span><span className="block text-[12.5px] text-muted-foreground">{o.line}</span></span>
       </label>)}</div>
     </fieldset>
   </section>;
@@ -56,7 +57,7 @@ export function PlainList({ rows, empty }: { rows: { id: string; name: string; l
   if (!rows.length) return <p className="py-2 text-[13px] text-muted-foreground">{empty}</p>;
   return <ul>{rows.map(r => <li key={r.id}>
     <button type="button" onClick={r.onOpen} className="settings-list-row">
-      <span className="min-w-0 flex-1"><span className="block truncate text-[14px]">{r.name}</span>{r.line && <span className="block truncate text-[12px] text-muted-foreground">{r.line}</span>}</span>
+      <span className="min-w-0 flex-1"><span className="block truncate text-[13px]">{r.name}</span>{r.line && <span className="block truncate text-[12px] text-muted-foreground">{r.line}</span>}</span>
       <span className="text-[13px] text-[#1F6B5E]">Edit</span>
     </button>
   </li>)}</ul>;
