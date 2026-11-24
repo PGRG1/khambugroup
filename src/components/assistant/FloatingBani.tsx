@@ -761,10 +761,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Finish dictation" disabled={dictation.state !== "recording"} onClick={async () => { const t = await dictation.confirm(); if (t) setDraft(d => joinDraft(d, t)); input.current?.focus(); }}><Check className="h-5 w-5" /></Button>
           </div> : <div className={`floating-bani-row floating-bani-typing ${tall ? "is-tall" : ""} ${home && !open ? "has-chats" : ""}`}>
             <Button variant="ghost" type="button" className="floating-bani-plus" aria-label="Attach files" disabled={busy} onClick={() => picker.current?.click()}><Plus className="h-5 w-5" /></Button>
-            {/* On Home, inside the bar beside +: the current chat, else the latest saved one, else the chat list. */}
+            {/* On Home, inside the bar beside +: a new chat, with the chat history open beside it on desktop. */}
             {home && !open && <Button variant="ghost" type="button" className="floating-bani-chats" aria-label="Your chats" title="Your chats" onClick={() => {
-              if (!hasConversation.current && savedChats[0]) { setMessages(savedChats[0].messages as BaniMessage[]); setChatId(savedChats[0].id); }
-              else if (!hasConversation.current && isMobile) { openChats(); return; }
+              newChat();
+              if (!isMobile && !paneOpen) togglePane();
               setOpen(true);
             }}><History className="h-[17px] w-[17px]" strokeWidth={1.9} />{!isMobile && <span>Chats</span>}</Button>}
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
