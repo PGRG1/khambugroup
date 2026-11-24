@@ -1331,6 +1331,13 @@
       "when": 1795507357425,
       "tag": "0189_role_setup_and_assignment",
       "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1795526612775,
+      "tag": "0190_revenue_mapping_versions",
+      "breakpoints": true
     }
   ]
 }

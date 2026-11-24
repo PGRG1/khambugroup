@@ -12844,6 +12844,82 @@ export type Database = {
           },
         ]
       }
+      sales_mapping_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          effective_from: string
+          id: string
+          lines: Json
+          note: string | null
+          tenant_id: string
+          version_no: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          effective_from: string
+          id?: string
+          lines: Json
+          note?: string | null
+          tenant_id: string
+          version_no: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          effective_from?: string
+          id?: string
+          lines?: Json
+          note?: string | null
+          tenant_id?: string
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_mapping_versions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_posting_holds: {
+        Row: {
+          day: string
+          reasons: string[]
+          tenant_id: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          day: string
+          reasons?: string[]
+          tenant_id: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          day?: string
+          reasons?: string[]
+          tenant_id?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_posting_holds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_receipt_intakes: {
         Row: {
           created_at: string
@@ -13230,6 +13306,7 @@ export type Database = {
       }
       sales_report_lines: {
         Row: {
+          aliases: string[]
           bank_account_id: string | null
           category: string | null
           created_at: string
@@ -13240,6 +13317,7 @@ export type Database = {
           kind: string
           legacy_field: string | null
           printed_name: string
+          processor_ids: string[]
           settles_to: string | null
           sort_order: number
           tenant_id: string
@@ -13247,6 +13325,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          aliases?: string[]
           bank_account_id?: string | null
           category?: string | null
           created_at?: string
@@ -13257,6 +13336,7 @@ export type Database = {
           kind: string
           legacy_field?: string | null
           printed_name: string
+          processor_ids?: string[]
           settles_to?: string | null
           sort_order?: number
           tenant_id: string
@@ -13264,6 +13344,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          aliases?: string[]
           bank_account_id?: string | null
           category?: string | null
           created_at?: string
@@ -13274,6 +13355,7 @@ export type Database = {
           kind?: string
           legacy_field?: string | null
           printed_name?: string
+          processor_ids?: string[]
           settles_to?: string | null
           sort_order?: number
           tenant_id?: string
@@ -16070,6 +16152,7 @@ export type Database = {
         Args: { i: string; note: string; o: string; t: string; uid: string }
         Returns: string
       }
+      _post_line_mode_sales: { Args: { p_tenant_id: string }; Returns: number }
       _rebuild_journal_from_operations_impl: {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
@@ -17259,6 +17342,15 @@ export type Database = {
           p_venue: string
         }
         Returns: string
+      }
+      save_sales_mapping: {
+        Args: {
+          p_effective: string
+          p_lines: Json
+          p_note?: string
+          p_tenant: string
+        }
+        Returns: number
       }
       save_stock_count_area: {
         Args: {
