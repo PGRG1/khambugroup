@@ -117,9 +117,9 @@ serve(async (req) => {
       await supabaseAdmin.from("tenant_members").delete().eq("user_id", newUserId).neq("tenant_id", tenantId);
       await supabaseAdmin.from("user_page_permissions").delete().eq("user_id", newUserId).neq("tenant_id", tenantId);
       // Attach the new user to the chosen tenant.
-      await supabaseAdmin
-        .from("tenant_members")
-        .upsert({ user_id: newUserId, tenant_id: tenantId, role }, { onConflict: "user_id,tenant_id" });
+      // (tenant_members is unique on tenant + user + role, so a plain insert; a duplicate is fine.)
+      const { error: memberError } = await supabaseAdmin.from("tenant_members").insert({ user_id: newUserId, tenant_id: tenantId, role });
+      if (memberError && !String(memberError.code).includes("23505")) throw new Error("Could not add them to this business: " + memberError.message);
 
       // Profile display name
       if (displayName) {
