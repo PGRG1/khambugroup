@@ -33,7 +33,7 @@ export function HomeComposerPlaceholder({ onTap }: { onTap: () => void }) {
               <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-chats"><History className="h-[17px] w-[17px]" strokeWidth={1.9} />{!isMobile && <span>Chats</span>}</Button>
               <textarea ref={input} rows={1} readOnly tabIndex={-1} placeholder={hint} className="floating-bani-input" />
               {canDictate && <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-mic"><Mic className="h-[18px] w-[18px]" /></Button>}
-              <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-send"><AudioLines className="h-5 w-5" /></Button>
+              <Button variant="ghost" type="button" tabIndex={-1} className="floating-bani-send is-voice"><AudioLines className="h-5 w-5" /></Button>
             </div>
           </form>
         </div>

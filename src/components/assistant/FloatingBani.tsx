@@ -773,7 +773,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             {busy
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Stop" title="Stop" onClick={stopReply}><Square className="h-3.5 w-3.5 fill-current" /></Button>
               : !draft.trim() && !files.length
-              ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
+              ? <Button variant="ghost" type="button" className="floating-bani-send is-voice" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
               : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
           </div>}
           {homeDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}

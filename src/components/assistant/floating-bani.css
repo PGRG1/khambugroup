@@ -353,3 +353,6 @@
 .floating-bani .floating-bani-typing .floating-bani-chats:hover { background: #EEF2EF; color: var(--fb-ink); }
 .floating-bani .floating-bani-typing .floating-bani-send:hover:not(:disabled) { background: #0E211E; color: var(--fb-on-primary); }
 .floating-bani .floating-bani-typing button { transition: background-color .12s ease, color .12s ease; }
+/* Like Claude: an empty bar shows a quiet voice button; once there is something to send it becomes the dark arrow. */
+.floating-bani .floating-bani-typing .floating-bani-send.is-voice { background: #EEF2EF; color: var(--fb-ink); }
+.floating-bani .floating-bani-typing .floating-bani-send.is-voice:hover { background: #E1E8E3; color: var(--fb-ink); }
