@@ -12209,6 +12209,56 @@ export type Database = {
           },
         ]
       }
+      purchase_posting_holds: {
+        Row: {
+          invoice_id: string
+          reasons: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          invoice_id: string
+          reasons?: string[]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          invoice_id?: string
+          reasons?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_posting_holds_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_posting_holds_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_posting_holds_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "purchase_posting_holds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchasing_budget_changes: {
         Row: {
           category: string
@@ -12307,6 +12357,47 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchasing_setup_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          note: string | null
+          rows: Json
+          tenant_id: string
+          version_no: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note?: string | null
+          rows: Json
+          tenant_id: string
+          version_no: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note?: string | null
+          rows?: Json
+          tenant_id?: string
+          version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchasing_setup_versions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -16158,6 +16249,10 @@ export type Database = {
         Args: { i: string; note: string; o: string; t: string; uid: string }
         Returns: string
       }
+      _hold_purchase_invoice: {
+        Args: { p_invoice: string; p_tenant: string; p_venue: string }
+        Returns: undefined
+      }
       _post_line_mode_sales: { Args: { p_tenant_id: string }; Returns: number }
       _rebuild_journal_from_operations_impl: {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
@@ -17341,6 +17436,10 @@ export type Database = {
           p_venue_id: string
         }
         Returns: undefined
+      }
+      save_purchasing_setup: {
+        Args: { p_note?: string; p_rows: Json; p_tenant: string }
+        Returns: number
       }
       save_sales_day_lines: {
         Args: {

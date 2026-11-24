@@ -1345,6 +1345,13 @@
       "when": 1795529263107,
       "tag": "0191_revenue_setup_universal",
       "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1795531319165,
+      "tag": "0192_purchasing_setup",
+      "breakpoints": true
     }
   ]
 }
