@@ -71,13 +71,18 @@ export function ClientRoles({ tenantId }: { tenantId: string }) {
 
   return <section className="card-glass rounded-xl overflow-hidden">
     <div className="flex items-center justify-between px-4 sm:px-5 py-3.5"><h2 className="text-sm font-semibold">Roles · {roles.length}</h2></div>
-    <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Roles table"><table className="sales-table" aria-label="Roles">
-      <thead><tr><th scope="col" className="sales-cell-left">Role</th>{ROLE_AREAS.map((a) => <th key={a} scope="col" className="sales-cell-left">{AREA_LABEL[a]}</th>)}<th scope="col" className="sales-cell-left">Money</th><th scope="col" className="sales-cell-right">People</th></tr></thead>
-      <tbody>{roles.map((r) => <tr key={r.role_key} className="sales-record-row cursor-pointer" tabIndex={0} onClick={() => setDraft({ ...r })} onKeyDown={(e) => e.key === "Enter" && setDraft({ ...r })}>
-        <td className="sales-cell-left font-medium whitespace-nowrap">{r.name}</td>
-        {ROLE_AREAS.map((a) => <td key={a} className={`sales-cell-left whitespace-nowrap ${levelTone[r[a]] ?? ""}`}>{LEVEL_SHORT[r[a]] ?? "—"}</td>)}
-        <td className="sales-cell-left whitespace-nowrap">{moneyLabel(r.money)}</td>
-        <td className="kit-num">{counts[r.role_key] ?? 0}</td>
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Roles table"><table className="w-full min-w-[920px] border-collapse text-[13px]" aria-label="Roles">
+      <thead><tr className="text-[12px] text-muted-foreground">
+        <th scope="col" className="h-9 px-4 sm:px-5 text-left font-normal whitespace-nowrap">Role</th>
+        {ROLE_AREAS.map((a) => <th key={a} scope="col" className="h-9 px-2 text-left font-normal whitespace-nowrap">{AREA_LABEL[a]}</th>)}
+        <th scope="col" className="h-9 px-2 text-left font-normal whitespace-nowrap">Money</th>
+        <th scope="col" className="h-9 px-4 sm:px-5 text-right font-normal whitespace-nowrap">People</th>
+      </tr></thead>
+      <tbody>{roles.map((r, i) => <tr key={r.role_key} className={`cursor-pointer hover:bg-[rgba(31,63,59,.06)] ${i % 2 ? "bg-[rgba(31,63,59,.035)]" : ""}`} tabIndex={0} onClick={() => setDraft({ ...r })} onKeyDown={(e) => e.key === "Enter" && setDraft({ ...r })}>
+        <td className="h-11 px-4 sm:px-5 font-medium whitespace-nowrap">{r.name}</td>
+        {ROLE_AREAS.map((a) => <td key={a} className={`h-11 px-2 whitespace-nowrap ${levelTone[r[a]] ?? ""}`}>{LEVEL_SHORT[r[a]] ?? "—"}</td>)}
+        <td className="h-11 px-2 whitespace-nowrap">{moneyLabel(r.money)}</td>
+        <td className="h-11 px-4 sm:px-5 text-right tabular-nums">{counts[r.role_key] ?? 0}</td>
       </tr>)}</tbody></table></div>
     {!loading && !roles.length && <p className="px-4 sm:px-5 py-3 text-[13px] text-muted-foreground">No roles yet.</p>}
     <p className="px-4 sm:px-5 py-3 text-[12px] text-muted-foreground">See: view only · Do: enter and edit · Approve: sign off and change setup. Tap a role to change it.</p>
