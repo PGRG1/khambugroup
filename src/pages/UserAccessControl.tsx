@@ -46,7 +46,14 @@ const UserAccessControl = () => {
     const {data:members,error:memberError}=await supabase.from('tenant_members').select('user_id').eq('tenant_id',tenantId);
     if(memberError){setUsers([]);setLoading(false);toast({title:memberError.message,variant:'destructive'});return;}
     const memberIds=(members??[]).map(m=>m.user_id);
-    if(!memberIds.length){setUsers([]);setLoading(false);return;}
+    // Roles and venues load first, so a business with no people yet can still add its first person.
+    const [{ data: roleRows0 }, { data: venueRows0 }] = await Promise.all([
+      supabase.from("tenant_roles").select(ROLE_COLUMNS).eq("tenant_id", tenantId).order("sort_order"),
+      supabase.from("venues").select("id, name, is_active").eq("tenant_id", tenantId).order("name"),
+    ]);
+    setRoles((roleRows0 ?? []) as unknown as TenantRole[]);
+    setVenueList((venueRows0 ?? []) as any);
+    if(!memberIds.length){setUsers([]);setAccess({});setLoading(false);return;}
     const emailRes = await supabase.functions.invoke("list-users");
     const emailMap = new Map<string, string>();
     const pendingIds = new Set<string>();
