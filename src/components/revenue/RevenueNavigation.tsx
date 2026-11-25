@@ -11,8 +11,8 @@ export function RevenueNavigation() {
   const href = (path: string) => retainCurrentQuery(path, pathname, search);
   const items = [
     { key: "overview", label: "Overview", path: "/revenue", allowed: access.revenue },
-    { key: "sales", label: "Sales records", path: "/sales-data", allowed: access.revenue },
     { key: "analysis", label: "Trends", path: "/revenue/analysis", allowed: access.revenue },
+    { key: "sales", label: "Sales records", path: "/sales-data", allowed: access.revenue },
     { key: "targets", label: "Targets", path: "/revenue/targets-new", allowed: access.forecast },
   ].filter((i) => i.allowed);
   return <SectionPillRow label="Revenue" items={items.map(item => ({ label: item.label, path: href(item.path) }))} activePath={href(items.find(item => item.key === section)?.path ?? pathname)} />;

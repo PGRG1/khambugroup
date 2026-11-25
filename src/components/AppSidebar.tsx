@@ -485,8 +485,8 @@ export function AppSidebar() {
   const revSection = revenueSection(pathname);
   const revenueChildren = [
     { key: "overview", title: "Overview", to: "/revenue", allowed: revenueAccess.revenue },
-    { key: "sales", title: "Sales records", to: "/sales-data", allowed: revenueAccess.revenue },
     { key: "analysis", title: "Trends", to: "/revenue/analysis", allowed: revenueAccess.revenue },
+    { key: "sales", title: "Sales records", to: "/sales-data", allowed: revenueAccess.revenue },
     { key: "targets", title: "Targets", to: "/revenue/targets-new", allowed: revenueAccess.forecast },
   ].filter((c) => c.allowed);
   const peopleSettings=usePeopleSettings();const peopleScope=useVenueScope();
