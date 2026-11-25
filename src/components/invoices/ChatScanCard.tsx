@@ -81,7 +81,17 @@ export function ChatScanCard(p: Props) {
   const [held, setHeld] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState<HTMLElement | null>(null);
+  // Narrow (phone or the small chat window): one card per line instead of a sideways-scrolling table.
+  const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => { setPanel(anchor.current?.closest<HTMLElement>(".floating-bani-panel") ?? null); });
+  useLayoutEffect(() => {
+    const el = anchor.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setNarrow(el.clientWidth < 640));
+    ro.observe(el);
+    setNarrow(el.clientWidth > 0 && el.clientWidth < 640);
+    return () => ro.disconnect();
+  }, [p.phase]);
   useEffect(() => {
     if (!confirm) return;
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !p.saving) setConfirm(null); };
@@ -92,7 +102,7 @@ export function ChatScanCard(p: Props) {
   if (p.phase === "reading") return <p className="flex items-center gap-2 text-[13px] text-muted-foreground" role="status"><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading the invoice…</p>;
   const full = (text: string) => <div className="space-y-2"><p>{text}</p><button type="button" className="floating-bani-reply" onClick={p.onOpenFull}>Open full review</button></div>;
   if (p.phase === "denied") return <p>Booking invoices needs edit access to Purchasing.</p>;
-  if (p.phase === "failed") return full("I couldn't read this one.");
+  if (p.phase === "failed") return full("I couldn't read this one. Open it to try again or enter it by hand.");
   if (p.phase === "many") return full("This file has more than one invoice.");
   if (p.phase === "duplicate") return <p>{p.supplier} {p.number} is already booked.</p>;
   if (p.phase === "review") return full("This one needs the full review.");
@@ -169,7 +179,54 @@ export function ChatScanCard(p: Props) {
             {field("Delivered", <input type="date" aria-label="Delivery date" disabled={saved} max={today} value={deliveredOn} className={fieldCls} onChange={e => { if (e.target.value) setDelivered(e.target.value); }} />)}
           </div>
         </div>
-        <div className="overflow-x-auto" style={{ borderTop: `1px solid ${HAIR}` }}>
+        {narrow ? <div style={{ borderTop: `1px solid ${HAIR}` }}>{p.lines.map(l => {
+          const diff = Math.round((l.accepted - l.billed) * 1000) / 1000;
+          const on = ticked.has(l.key) || saved;
+          const off = diff !== 0;
+          const pc = priceChanged(l);
+          const amberBox = { borderColor: "#EF9F27", background: "#FFF8EC" };
+          return (
+            <div key={l.key} className="space-y-2.5 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
+              <div className="flex items-start gap-2.5">
+                <button type="button" role="checkbox" aria-checked={on} aria-label={`${l.name} arrived`} disabled={saved} onClick={() => tick(l.key)}
+                  className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-[5px] border" style={on ? { background: off || pc ? AMBER : "var(--fb-ink,#17302C)", borderColor: off || pc ? AMBER : "var(--fb-ink,#17302C)" } : { borderColor: "#C9D1CC", background: "#fff" }}>
+                  {on && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate font-medium" title={l.name}>{l.name}</span>
+                  {l.blocked && !saved ? <span className="block text-[12px]" style={{ color: AMBER }}>{l.blocked}</span> : l.code && <span className="block truncate text-[12px] text-muted-foreground">{l.code}</span>}
+                </div>
+                <div className="shrink-0 text-right tabular-nums">
+                  <span className="block font-medium" style={off || pc ? { color: AMBER } : undefined}>{num(Math.round(l.accepted * accPrice(l) * 100) / 100)}</span>
+                  {(off || pc) && <span className="block text-[12px] text-muted-foreground line-through">{num(Math.round(l.billed * l.price * 100) / 100)}</span>}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pl-[30px]">
+                <label className="min-w-0 space-y-1">
+                  <span className="flex justify-between gap-1 whitespace-nowrap text-[11px] text-muted-foreground"><span>Accepted</span><span>of {qty(l.billed)}{l.unit ? ` ${l.unit}` : ""}</span></span>
+                  <input key={`q-${l.accepted}`} aria-label={`${l.name} accepted`} inputMode="decimal" disabled={saved} defaultValue={qty(l.accepted)} className={cn(boxCls, "h-10")} style={off ? amberBox : { borderColor: "#CFD8D3" }}
+                    onBlur={e => setCount(l, e.target.value)} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                </label>
+                <label className="min-w-0 space-y-1">
+                  <span className="flex justify-between gap-1 whitespace-nowrap text-[11px] text-muted-foreground"><span>Price</span>{l.history && p.onHistory
+                    ? <button type="button" aria-label={`Price history for ${l.name}`} className="underline decoration-dotted underline-offset-2" style={l.was != null ? { color: AMBER } : undefined} onClick={e => { e.preventDefault(); p.onHistory?.(l.index); }}>{l.was != null ? `was ${num(l.was)}` : `billed ${num(l.price)}`}</button>
+                    : <span style={l.was != null ? { color: AMBER } : undefined}>{l.was != null ? `was ${num(l.was)}` : `billed ${num(l.price)}`}</span>}</span>
+                  <input key={`p-${accPrice(l)}`} aria-label={`${l.name} accepted price`} inputMode="decimal" disabled={saved} defaultValue={num(accPrice(l)).replace(/,/g, "")} className={cn(boxCls, "h-10")} style={pc ? amberBox : { borderColor: "#CFD8D3" }}
+                    onBlur={e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= 0 && Math.round(v * 100) !== Math.round(accPrice(l) * 100)) { p.onPrice(l.index, String(v)); setTicked(t => new Set(t).add(l.key)); } }}
+                    onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                </label>
+              </div>
+              {off && <div className="space-y-2 pl-[30px]">
+                <select aria-label={`${l.name} reason`} disabled={saved} value={l.reason && l.reason !== "matched" ? l.reason : ""} className="h-10 w-full rounded-md border px-2 text-[13px]" style={!l.reason || l.reason === "matched" ? amberBox : { borderColor: "#CFD8D3" }}
+                  onChange={e => p.onReason(l.index, e.target.value, l.note)}>
+                  <option value="" disabled>{diff < 0 ? `${qty(-diff)} short: why?` : `${qty(diff)} extra: why?`}</option>
+                  {RECEIVING_REASONS.filter(r => r.value !== "matched").map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                {l.reason === "other" && <input aria-label={`${l.name} note`} placeholder="Note" disabled={saved} defaultValue={l.note} className="h-10 w-full rounded-md border border-[#CFD8D3] px-2 text-[13px]" onBlur={e => p.onReason(l.index, "other", e.target.value)} />}
+              </div>}
+            </div>
+          );
+        })}</div> : <div className="overflow-x-auto" style={{ borderTop: `1px solid ${HAIR}` }}>
           <table className="w-full border-collapse" style={{ tableLayout: "fixed", minWidth: 1000 }}>
             <colgroup><col style={{ width: "22%" }} /><col style={{ width: "9%" }} /><col style={{ width: "10%" }} /><col style={{ width: "6%" }} /><col style={{ width: "12%" }} /><col style={{ width: "10%" }} /><col style={{ width: "11%" }} /><col style={{ width: "10%" }} /><col style={{ width: "10%" }} /></colgroup>
             <thead style={{ background: "#F7F8F7" }}>
@@ -238,7 +295,7 @@ export function ChatScanCard(p: Props) {
               })}
             </tbody>
           </table>
-        </div>
+        </div>}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
           <span className="whitespace-nowrap tabular-nums">Invoiced <b className="font-medium">{formatMoney(invoiced, p.currency)}</b></span>
           <span className="whitespace-nowrap tabular-nums">Accepted <b className="font-medium">{formatMoney(accepted, p.currency)}</b></span>

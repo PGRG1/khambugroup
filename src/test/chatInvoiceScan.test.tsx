@@ -104,5 +104,8 @@ describe("Bani chat invoice booking", () => {
     const scanner = readFileSync("src/components/invoices/InvoiceScanner.tsx", "utf8");
     expect(scanner).toContain('answers.hold ? "under_review"');
     expect(scanner).toContain("RECEIVING_REASONS.some(r => r.value === reason)");
+    // A failed scan never leaves the person stuck: they can type it in, photo kept as the source.
+    expect(scanner).toContain("Enter it by hand");
+    expect(scanner).toMatch(/line_items: \[\{ \.\.\.emptyLine \}\], sourceFiles: files/);
   });
 });

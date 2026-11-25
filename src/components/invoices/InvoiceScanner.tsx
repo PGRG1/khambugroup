@@ -355,6 +355,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // The last scan read nothing usable: the person can type the invoice in by hand, photo kept as the source.
+  const [scanFailed, setScanFailed] = useState(false);
+  useEffect(() => { if (!pendingFiles.length) setScanFailed(false); }, [pendingFiles.length]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const { createProduct, fetchProducts, products: tenantMaster } = useProductMaster();
   const canEditList = useCanEditItemList();
@@ -854,6 +857,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
+      setScanFailed(false);
       // Grounded post-scan verdict from the scanner's own checks — never an extra model call.
       const verdicts = parsedInvoices.map((inv, i) => {
         const st = computeReviewStats(inv);
@@ -868,6 +872,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       return true;
     } catch (err: any) {
       setInvoices([]);
+      setScanFailed(true);
       console.error("Invoice scan error:", err);
       let description = err?.message || "Could not scan invoice files.";
       // supabase-js wraps non-2xx Edge Function responses in FunctionsHttpError
@@ -2341,8 +2346,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                 }}
               >
                 <ScanLine className="h-3 w-3 mr-1" />
-                Scan All {pendingFiles.length} File{pendingFiles.length > 1 ? "s" : ""}
+                {scanFailed ? "Try again" : `Scan All ${pendingFiles.length} File${pendingFiles.length > 1 ? "s" : ""}`}
               </Button>
+              {scanFailed && <Button variant="outline" size="sm" className="w-full" onClick={() => {
+                // Same review, checks and save as a scanned invoice; the photo stays the source document.
+                const files = [...pendingFiles];
+                setInvoices([{ supplier_name: "", supplier_id: "", venue: handoffVenueRef.current || "", invoice_number: "", invoice_date: "", due_date: "", notes: "", invoice_status: "outstanding",
+                  invoice_discount: "0", invoice_discount_type: "discount", invoice_discount_mode: "fixed", invoice_discount_rate: "0", line_items: [{ ...emptyLine }], sourceFiles: files }]);
+                setCurrentIdx(0);
+                setPendingFiles([]);
+                setScanFailed(false);
+              }}>Enter it by hand</Button>}
             </div>
           )}
 
