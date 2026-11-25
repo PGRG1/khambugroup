@@ -8941,6 +8941,56 @@ export type Database = {
           },
         ]
       }
+      item_import_batches: {
+        Row: {
+          added_items: number
+          changes: Json
+          created_at: string
+          file_name: string
+          id: string
+          supplier_rows: number
+          tenant_id: string
+          undone_at: string | null
+          undone_by: string | null
+          updated_items: number
+          user_id: string
+        }
+        Insert: {
+          added_items?: number
+          changes?: Json
+          created_at?: string
+          file_name?: string
+          id?: string
+          supplier_rows?: number
+          tenant_id: string
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_items?: number
+          user_id: string
+        }
+        Update: {
+          added_items?: number
+          changes?: Json
+          created_at?: string
+          file_name?: string
+          id?: string
+          supplier_rows?: number
+          tenant_id?: string
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_items?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_import_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_supplier_deals: {
         Row: {
           buy_qty: number
@@ -17036,6 +17086,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_items: {
+        Args: {
+          p_apply?: boolean
+          p_file_name?: string
+          p_rows: Json
+          p_tenant: string
+        }
+        Returns: Json
+      }
       invoice_storage_path_allowed: {
         Args: { p_name: string }
         Returns: boolean
@@ -17687,6 +17746,7 @@ export type Database = {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json
       }
+      undo_item_import: { Args: { p_batch: string }; Returns: Json }
       user_has_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
