@@ -357,3 +357,14 @@
 /* Like Claude: an empty bar shows a quiet voice button; once there is something to send it becomes the dark arrow. */
 .floating-bani .floating-bani-typing .floating-bani-send.is-voice { background: #EEF2EF; color: var(--fb-ink); }
 .floating-bani .floating-bani-typing .floating-bani-send.is-voice:hover { background: #E1E8E3; color: var(--fb-ink); }
+
+/* Send button: one element that pops between voice and arrow. */
+.floating-bani .floating-bani-send.fb-morph { display: grid; place-items: center; transition: background-color .18s ease, color .18s ease; }
+.floating-bani .fb-morph > svg { grid-area: 1 / 1; transition: opacity .12s ease, transform .32s cubic-bezier(.34,1.8,.5,1); }
+.floating-bani .fb-morph .fb-morph-voice, .floating-bani .fb-morph.is-voice .fb-morph-send { opacity: 0; transform: scale(0); transition: opacity .1s ease, transform .12s ease-in; }
+.floating-bani .fb-morph.is-voice .fb-morph-voice { opacity: 1; transform: scale(1); transition: opacity .12s ease, transform .32s cubic-bezier(.34,1.8,.5,1); }
+.floating-bani .fb-morph.fb-pop-a { animation: fb-pop-a .38s cubic-bezier(.34,1.8,.5,1); }
+.floating-bani .fb-morph.fb-pop-b { animation: fb-pop-b .38s cubic-bezier(.34,1.8,.5,1); }
+@keyframes fb-pop-a { 0% { transform: scale(.7); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@keyframes fb-pop-b { 0% { transform: scale(.7); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .floating-bani .fb-morph, .floating-bani .fb-morph > svg { animation: none !important; transition: none !important; } }

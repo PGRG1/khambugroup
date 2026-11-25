@@ -116,6 +116,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const [messages, setMessages] = store?.messages ?? [[], () => {}];
   const [draft, setDraft] = store?.draft ?? ["", () => {}];
   const [files, setFiles] = store?.files ?? [[], () => {}];
+  // The send button is one element that pops between voice and arrow (pop-a/pop-b alternate to restart the spring).
+  const sendIdle = !draft.trim() && !files.length;
+  const [sendPop, setSendPop] = useState(0);
+  const sendIdleWas = useRef(sendIdle);
+  useEffect(() => { if (sendIdleWas.current !== sendIdle) { sendIdleWas.current = sendIdle; setSendPop(n => n + 1); } }, [sendIdle]);
   const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
   const [open, setOpen] = store?.open ?? [false, () => {}];
   const [chatId, setChatId] = store?.chatId ?? [null, () => {}];
@@ -772,9 +777,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
             {busy
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Stop" title="Stop" onClick={stopReply}><Square className="h-3.5 w-3.5 fill-current" /></Button>
-              : !draft.trim() && !files.length
-              ? <Button variant="ghost" type="button" className="floating-bani-send is-voice" aria-label="Start voice conversation" onClick={enterVoice}><AudioLines className="h-5 w-5" /></Button>
-              : <Button variant="ghost" type="submit" className="floating-bani-send" disabled={busy || (!draft.trim() && !files.length)} aria-label="Send to Bani"><ArrowUp className="h-5 w-5" /></Button>}
+              : <Button variant="ghost" type={sendIdle ? "button" : "submit"} className={`floating-bani-send fb-morph ${sendIdle ? "is-voice" : ""} ${sendPop ? (sendPop % 2 ? "fb-pop-a" : "fb-pop-b") : ""}`} aria-label={sendIdle ? "Start voice conversation" : "Send to Bani"} onClick={sendIdle ? enterVoice : undefined}>
+                  <AudioLines className="h-5 w-5 fb-morph-voice" aria-hidden /><ArrowUp className="h-5 w-5 fb-morph-send" aria-hidden />
+                </Button>}
           </div>}
           {homeDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </form>
