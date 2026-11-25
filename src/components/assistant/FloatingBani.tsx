@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, ArrowUpRight, ChevronDown, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History, Square } from "lucide-react";
+import { ArrowUp, ArrowUpRight, ChevronDown, ChevronLeft, X, Plus, FileText, Mic, MicOff, Check, AudioLines, House, PanelLeft, Image as ImageIcon, Folder, Maximize2, History, Square, SquarePen, TrendingUp, Receipt, ListChecks, CalendarClock, MessageSquare } from "lucide-react";
+import { firstName, readCachedName } from "@/utils/displayNameCache";
 import { pdfThumb } from "@/utils/pdfThumb";
 import { chatLast, chatTitle, deleteChat, loadChats, renameChat, storeChat, syncChats } from "@/utils/baniChats";
 import { BaniChatList, useSavedChats } from "./BaniChatsDialog";
@@ -74,6 +75,16 @@ const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resol
 });
 const revoke = (files: BaniAttachment[]) => files.forEach(f => f.url && URL.revokeObjectURL(f.url));
 
+
+/** Icon beside a starter question on the phone welcome. */
+function promptIcon(q: string) {
+  const t = q.toLowerCase();
+  if (/sales|best day|target/.test(t)) return TrendingUp;
+  if (/spent|cost|expense|price|supplier|invoice/.test(t)) return Receipt;
+  if (/attention|due|unpaid|month-end/.test(t)) return ListChecks;
+  if (/rota|leave|payroll/.test(t)) return CalendarClock;
+  return MessageSquare;
+}
 
 export function FloatingBani({ review, openSignal = 0, hosted = false }: { review?: FloatingReview; openSignal?: number; hosted?: boolean }) {
   const store = useFloatingBaniStore();
@@ -256,7 +267,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   useEffect(()=>{const event=new URLSearchParams(locationSearch).get('bani_event');if(!event||!pending.data||pushOpened.current===event)return;pushOpened.current=event;const notification=[...pending.data.notifications,...pending.data.work].find(a=>'smart-'+a.id===event||a.subject===event||'deadline-'+a.kind+'-'+a.subject===event);setMessages(prev=>[...prev,{role:'assistant',content:notification?`${notification.title}. ${notification.why}`:event.startsWith('feed-')?pending.data.feed_health.filter(f=>f.line).map(f=>f.line).join(' ')||'The connection has recovered; the latest recorded data is available.':pending.data.greeting??'There are no recent business events in your permitted scope.'}]);setOpen(true);},[locationSearch,pending.data,setMessages,setOpen]);
   // The hint sits where the cursor is (it is the box's own placeholder) and is cut to fit with "…", never wrapping.
   // Same words everywhere, so the panel reads like the main chat.
-  const hintText = (home ? open : messages.some((m) => !m.hidden)) ? "Reply to your finance team" : "Chat with your finance team";
+  const welcomeName = firstName((user?.user_metadata as { full_name?: string } | undefined)?.full_name) || readCachedName(user?.id);
+  const hintText = home && open && isMobile ? "Ask Bani" : (home ? open : messages.some((m) => !m.hidden)) ? "Reply to your finance team" : "Chat with your finance team";
   const [hint, setHint] = useState(hintText);
   useEffect(() => {
     const el = input.current;
@@ -628,15 +640,18 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             onDelete={(c) => { deleteChat(scope, c.id); if (c.id === chatId) newChat(); }} />
         </aside>}
         <div className="floating-bani-main" {...(chatDrop ? dropProps : {})}>
-        {home ? (open && <div className="fb-top">
+        {home ? (open && <div className={`fb-top ${isMobile ? "is-phone" : ""}`}>
+          {isMobile && <button type="button" className="fb-top-back" onClick={() => setOpen(false)}><ChevronLeft className="h-5 w-5" aria-hidden />Home</button>}
           {!isMobile && !paneOpen && <><button type="button" className="fb-pane-btn" aria-label="Show chat history" title="Show chat history" onClick={togglePane}><PanelLeft className="h-[18px] w-[18px]" /></button></>}
           {renaming != null
             ? <input className="fb-title fb-title-edit" autoFocus value={renaming} maxLength={90} aria-label="Chat name" onChange={e => setRenaming(e.target.value)}
                 onBlur={() => { if (chatId) renameChat(scope, chatId, renaming); setRenaming(null); }}
                 onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setRenaming(null); }} />
             : <button type="button" className="fb-title" title={chatId ? "Rename" : undefined} disabled={!chatId} onClick={() => setRenaming(shownTitle)}>{shownTitle}</button>}
-          {isMobile && <button type="button" className="fb-top-btn" onClick={openChats}>Chats</button>}
-          <button type="button" className="fb-top-btn" onClick={() => setOpen(false)}><House className="h-4 w-4" />{isMobile ? "Home" : "Back to home"}</button>
+          {isMobile ? <>
+            <button type="button" className="fb-top-icon" aria-label="Your chats" title="Your chats" onClick={openChats}><History className="h-5 w-5" /></button>
+            <button type="button" className="fb-top-icon" aria-label="New chat" title="New chat" disabled={!messages.length && !busy} onClick={newChat}><SquarePen className="h-5 w-5" /></button>
+          </> : <button type="button" className="fb-top-btn" onClick={() => setOpen(false)}><House className="h-4 w-4" />Back to home</button>}
         </div>) :
         <header className="floating-bani-header" onPointerDown={onHeaderDown} onPointerMove={onHeaderMove} onPointerUp={onHeaderUp} onPointerCancel={onHeaderUp}>
           {isMobile && <div className="floating-bani-grab" aria-hidden="true"><span /></div>}
@@ -648,11 +663,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           </div>
         </header>}
         {(open || !home) && <div className="floating-bani-transcript" aria-live="polite" onTouchMove={() => { if (document.activeElement === input.current) input.current?.blur(); }}>
-          {!home && !voiceMode && !messages.length && <div className="fb-empty">
-            <p className="fb-empty-title">What can I help with?</p>
-            <p className="fb-empty-sub">Ask about your numbers, or send a photo of an invoice or receipt.</p>
+          {(!home || isMobile) && !voiceMode && !messages.length && <div className={`fb-empty ${home ? "is-welcome" : ""}`}>
+            {home && <div className="fb-welcome"><BaniOrb size={56} mode={working ? "thinking" : "idle"} /><p className="fb-welcome-title">{welcomeName ? `How can I help, ${welcomeName}?` : "How can I help?"}</p><p className="fb-welcome-sub">Ask about sales, costs, people or bills</p></div>}
+            {!home && <><p className="fb-empty-title">What can I help with?</p>
+            <p className="fb-empty-sub">Ask about your numbers, or send a photo of an invoice or receipt.</p></>}
             <div className="fb-empty-list" role="group" aria-label="Suggestions">
-              {starterPrompts(pathname).map(q => <button key={q} type="button" className="fb-empty-q" disabled={busy || !allowed} onClick={() => void sendRef.current({ text: q, opts: { voice: false, voiceLanguage: "" } })}><span>{q}</span><ArrowUpRight aria-hidden /></button>)}
+              {starterPrompts(pathname).map(q => { const Icon = promptIcon(q); return <button key={q} type="button" className="fb-empty-q" disabled={busy || !allowed} onClick={() => void sendRef.current({ text: q, opts: { voice: false, voiceLanguage: "" } })}>{home && <Icon className="fb-empty-ic" aria-hidden />}<span>{q}</span>{!home && <ArrowUpRight aria-hidden />}</button>; })}
             </div>
           </div>}
           {messages.map((message, index) => <div dir="auto" key={index} id={message.assignmentNoticeId ? `assignment-notice-${message.assignmentNoticeId}` : undefined} className={message.role === "user" ? "floating-bani-user" : "floating-bani-answer"}>

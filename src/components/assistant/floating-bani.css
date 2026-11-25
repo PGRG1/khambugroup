@@ -368,3 +368,20 @@
 @keyframes fb-pop-a { 0% { transform: scale(.7); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
 @keyframes fb-pop-b { 0% { transform: scale(.7); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .floating-bani .fb-morph, .floating-bani .fb-morph > svg { animation: none !important; transition: none !important; } }
+
+/* Phone chat on Home: ‹ Home · title · history · new chat; welcome with orb and starter list. */
+.fb-top.is-phone { gap: 0; padding: 4px 8px 4px 4px; margin: 0 -20px 4px; border-bottom: 0; }
+.fb-top.is-phone .fb-title { flex: 1; margin: 0; text-align: center; justify-content: center; font-size: 15px; }
+.fb-top-back { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 8px 0 4px; border: 0; background: none; color: var(--fb-ink); font-size: 15px; cursor: pointer; }
+.fb-top-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--fb-ink); cursor: pointer; }
+.fb-top-icon:active:not(:disabled), .fb-top-back:active { background: rgba(23,48,44,.06); }
+.fb-top-icon:disabled { opacity: .35; cursor: default; }
+.fb-empty.is-welcome { justify-content: space-between; }
+.fb-welcome { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; margin: auto 0; padding: 24px 0; }
+.fb-welcome-title { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: var(--fb-ink); }
+.fb-welcome-sub { margin: 0; font-size: 14px; color: var(--fb-muted); }
+.fb-empty.is-welcome .fb-empty-list { gap: 0; background: rgba(255,255,255,.55); border-radius: 14px; overflow: hidden; }
+.fb-empty.is-welcome .fb-empty-q { background: none; border-radius: 0; min-height: 46px; padding: 0 14px; box-shadow: none; }
+.fb-empty.is-welcome .fb-empty-q + .fb-empty-q { border-top: 1px solid rgba(23,48,44,.08); }
+.fb-empty.is-welcome .fb-empty-q > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-empty.is-welcome .fb-empty-q > .fb-empty-ic { width: 18px; height: 18px; color: #3E8C80; }
