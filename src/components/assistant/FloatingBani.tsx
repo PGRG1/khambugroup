@@ -367,7 +367,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       const invoiceScan = { id: crypto.randomUUID(), mode: "scan" as const, files: handoffFiles, venue: action.venue, scope: identity };
       setMessages(prev => {
         const last = prev[prev.length - 1];
-        return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: "", invoiceScan }] : [...prev, { role: "assistant" as const, content: "", invoiceScan }];
+        // Keep Bani's short note (what needs attention) above the card.
+        return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, invoiceScan }] : [...prev, { role: "assistant" as const, content: "", invoiceScan }];
       });
       return;
     }

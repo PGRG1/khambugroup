@@ -205,7 +205,8 @@ export async function analyzeFiles(
       const names = files.map((f) => f.name).join(", ");
       // Bani's own short note (what needs attention); plain text only, kept short.
       const note = typeof args.note === "string" ? args.note.replace(/[`|#*]/g, "").replace(/\s+/g, " ").trim().slice(0, 320) : "";
-      const ack = note ? `${note} Nothing is saved until you book it.` : mode === "open"
+      // One invoice is checked on a card right here in chat; several go to Scan Invoice.
+      const ack = files.length === 1 ? (note || "Here it is: tick what arrived.") : mode === "open"
         ? "Opening Scan Invoice — nothing is scanned or saved until you choose files there."
         : v.venue
           ? `Opening Scan Invoice with ${names} for ${v.venue} — the scan will start there. Review the extracted invoice and save it as usual; nothing is saved yet.`
