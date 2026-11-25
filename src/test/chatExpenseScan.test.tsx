@@ -38,31 +38,30 @@ describe("Bani chat expenses", () => {
     expect(billNeedsFullScreen(off, billDraftFromScan(off, lookups), false)).toMatch(/add up/);
   });
 
-  const bill = { phase: "ready" as const, vendor: "CLP Power", number: "8812", date: "2026-11-12", due: "2026-12-03", total: 4860, currency: "HKD", venue: "Assembly", meter: "0213-55",
-    periodStart: "2026-10-12", periodEnd: "2026-11-11", accounts: lookups.accounts.map(a => ({ ...a, name: a.name ?? "" })), regular: null, saving: false, onAccount: vi.fn(), onOpenFull: vi.fn() };
+  const booked = { phase: "booked" as const, said: [], vendor: "CLP Power", number: "8812", due: "2026-12-03", currency: "HKD", recordsTo: "Nov",
+    rows: [{ left: "Assembly · fixed", amount: 400 }, { left: "Hanabi · the rest", amount: 4460 }], undoing: false, onUndo: vi.fn(), onSee: vi.fn(), onOpenFull: vi.fn() };
 
-  it("needs an account on every line before Send for approval, then a confirm", () => {
-    const onSave = vi.fn();
-    const { rerender } = render(<ChatBillCard {...bill} lines={[{ line: 1, category: "Electricity", amount: 4620, accountId: "a1" }, { line: 2, category: "Fuel", amount: 240, accountId: null }]} onSave={onSave} />);
-    expect((screen.getByText("Send for approval") as HTMLButtonElement).disabled).toBe(true);
-    rerender(<ChatBillCard {...bill} lines={[{ line: 1, category: "Electricity", amount: 4620, accountId: "a1" }, { line: 2, category: "Fuel", amount: 240, accountId: "a2" }]} onSave={onSave} />);
-    fireEvent.click(screen.getByText("Send for approval"));
-    expect(onSave).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Send"));
-    expect(onSave).toHaveBeenCalledWith("pending_review");
+  it("shows the Booked card with month, rows and footer, and no approval buttons", () => {
+    render(<ChatBillCard {...booked} canUndo />);
+    expect(screen.getByText("Booked")).toBeTruthy();
+    expect(screen.getByText("Records to Nov")).toBeTruthy();
+    expect(screen.getByText("4,460.00")).toBeTruthy();
+    expect(screen.getByText(/CLP Power · Bill 8812 · Due/)).toBeTruthy();
+    expect(screen.queryByText("Send for approval")).toBeNull();
+    expect(screen.queryByText("Hold")).toBeNull();
+    fireEvent.click(screen.getByText("Undo"));
+    expect(booked.onUndo).toHaveBeenCalledTimes(1);
   });
 
-  it("Hold saves a draft", () => {
-    const onSave = vi.fn();
-    render(<ChatBillCard {...bill} lines={[{ line: 1, category: "Fuel", amount: 240, accountId: null }]} onSave={onSave} />);
-    fireEvent.click(screen.getByText("Hold"));
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Hold"));
-    expect(onSave).toHaveBeenCalledWith("draft");
+  it("hides Undo when the bill can't be undone", () => {
+    render(<ChatBillCard {...booked} canUndo={false} />);
+    expect(screen.queryByText("Undo")).toBeNull();
+    expect(screen.getByText("See bill")).toBeTruthy();
   });
 
-  it("flags a regular cost that is far from usual", () => {
-    render(<ChatBillCard {...bill} lines={[]} regular={{ name: "Electricity", expected: 4200, estimate: true }} onSave={vi.fn()} />);
-    expect(screen.getByText(/Est\. 4,200\.00 · \+16%/)).toBeTruthy();
+  it("tells a person who can't approve that it went to an approver", () => {
+    render(<ChatBillCard {...booked} phase="sent" canUndo={false} />);
+    expect(screen.getByText("Sent to an approver. You can't book this one yourself.")).toBeTruthy();
   });
 
   it("adds a cash-box slip only with a box and category, after a confirm", () => {
@@ -81,7 +80,10 @@ describe("Bani chat expenses", () => {
   it("shares one path with the full screens and never posts from chat", () => {
     const host = readFileSync("src/components/assistant/ChatExpenseScan.tsx", "utf8");
     expect(host).toContain("saveBill(");
-    expect(host).not.toMatch(/postBill|setStatus\(|"approved"/);
+    expect(host).not.toMatch(/postBill|findRegularCost|billNeedsFullScreen/);
+    expect(host).toContain('setStatus(id, "approved")');
+    expect(host).toContain('setStatus(s.billId, "void")');
+    expect(host).toContain('area: "expenses"');
     expect(host).toContain("insertPendingCashSlip(");
     expect(host).toContain("isAdmin && !isPreviewActive");
     expect(readFileSync("src/pages/finance/BillsExpenses.tsx", "utf8")).toContain("billDraftFromScan(");

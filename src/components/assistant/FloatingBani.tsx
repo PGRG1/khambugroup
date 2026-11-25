@@ -27,7 +27,7 @@ import type { DraftProposal } from "@/utils/floatingDraft";
 import { ATTACH_TYPES, attachmentError, clampPoint, moduleLabel, pageLabel, starterPrompts } from "@/utils/floatingBaniUi";
 import { ChatInvoiceScan } from "@/components/assistant/ChatInvoiceScan";
 import { ChatSalesScan } from "@/components/assistant/ChatSalesScan";
-import { ChatExpenseScan } from "@/components/assistant/ChatExpenseScan";
+import { ChatExpenseScan, activeBillReply } from "@/components/assistant/ChatExpenseScan";
 import { ChatCashUpload } from "@/components/assistant/ChatCashUpload";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
@@ -458,6 +458,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       return;
     }
     const text = typed || FILES_ONLY_PROMPT;
+    // A bill in chat waiting for an answer takes the next typed message; its card moves below the reply.
+    const bill = !attached.length && !turn && typed ? activeBillReply() : null;
+    if (bill) { setDraft(''); setMessages(prev => [...prev.map(m => m.expenseScan?.id === bill.id ? { ...m, content: [m.content, bill.said].filter(Boolean).join("\n\n"), expenseScan: undefined } : m), { role: "user", content: typed }, { role: "assistant", content: "", expenseScan: bill.handoff }]); bill.answer(typed); return; }
     if(!attached.length&&/^(show|list)( me)? (everything|all)( that's| that is)? pending\??$/i.test(typed)){setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed},{role:'assistant',content:groupedPending(pendingItems)}]);return;}
     if(activeItem && /^(done|dismiss|skip|checked|yes|no|not sure)$/i.test(typed) && !attached.length){
       setDraft('');setMessages(prev=>[...prev,{role:'user',content:typed}]);

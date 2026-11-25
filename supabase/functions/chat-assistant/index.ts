@@ -1,5 +1,6 @@
 // Bani Analyst — read-only, tenant-scoped AI analyst.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
+import { billReply } from "./billReply.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { continueMissingSalesReply, isGapClarification, overviewMissingSales, defaultGapFrom, missingDayContext, missingSalesConversation, pinDayPicker } from "./missingSalesConversation.ts";
 import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
@@ -1525,6 +1526,10 @@ Deno.serve(async (req) => {
         admin.from("user_page_permissions").select("can_access").eq("tenant_id", tenantId).eq("user_id", user.id).eq("page_key", "assistant").maybeSingle(),
       ]);
       if (accessError || permissionError || access?.status === "disabled" || permission?.can_access === false) return new Response(JSON.stringify({ error: "Bani access is unavailable." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (body.bill_reply !== undefined) {
+      if (body.floating !== true || JSON.stringify(body.bill_reply).length > 2000) return new Response(JSON.stringify({ error: "Bill reply is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return await billReply(req, body.bill_reply, LOVABLE_API_KEY, corsHeaders, admin, tenantId);
     }
     if (body.sales_review !== undefined) {
       if (JSON.stringify(body.sales_review).length > 6000) return new Response(JSON.stringify({ error: "Receipt draft is too large." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,77 +65,53 @@ const Head = ({ name, sub, total, right }: { name: string; sub: ReactNode; total
   </div>
 );
 
-export type ChatBillLine = { line: number; category: string; amount: number; accountId: string | null };
-export type ChatBillRegular = { name: string; expected: number; estimate: boolean } | null;
+export type ChatBillPhase = ChatExpensePhase | "asking" | "booking" | "booked" | "sent" | "undone";
+export type ChatBookedRow = { left: string; amount: number };
 type BillProps = {
-  phase: ChatExpensePhase; reason?: string;
-  vendor: string; number: string; date: string; due: string | null; total: number; currency: string;
-  venue: string; meter: string | null; periodStart: string | null; periodEnd: string | null;
-  lines: ChatBillLine[]; accounts: { id: string; code: string; name: string }[];
-  regular: ChatBillRegular; saving: boolean; savedAs?: "approval" | "draft";
-  onAccount: (line: number, accountId: string) => void;
-  onSave: (status: "pending_review" | "draft") => void;
-  onOpenFull: () => void;
+  phase: ChatBillPhase; reason?: string;
+  /** What Bani is saying now: notes and the current question or read-back. */
+  said: string[];
+  vendor: string; number: string; due: string | null; currency: string; recordsTo: string;
+  rows: ChatBookedRow[];
+  canUndo: boolean; undoing: boolean;
+  onUndo: () => void; onSee: () => void; onOpenFull: () => void;
 };
 
-/** Expense bill in chat: check the category lines and accounts, then send for approval or hold. Never posts. */
+const Tick = () => <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0"><circle cx="8" cy="8" r="8" fill="#15803D" /><path d="M4.6 8.3l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+
+/** Expense bill in chat: Bani asks in plain messages until it's clear, then shows what was booked. */
 export function ChatBillCard(p: BillProps) {
-  const [confirm, setConfirm] = useState<null | "pending_review" | "draft">(null);
-  const c = useConfirm();
-  useEffect(() => { if (p.savedAs) setConfirm(null); }, [p.savedAs]);
-  if (p.phase !== "ready" && p.phase !== "saved") return <Status phase={p.phase} reason={p.reason} openLabel="Open in Expenses" onOpenFull={p.onOpenFull} />;
-  const saved = p.phase === "saved";
-  const missing = p.lines.filter(l => !l.accountId).length;
-  const acct = (id: string | null) => p.accounts.find(a => a.id === id);
-  const diff = p.regular && p.regular.expected > 0 ? (p.total - p.regular.expected) / p.regular.expected : null;
-  const off = diff != null && Math.abs(diff) >= 0.1;
-  const period = p.periodStart && p.periodEnd ? `${shortDay(p.periodStart)} – ${shortDay(p.periodEnd)}` : "";
+  const said = p.said.length ? <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line tabular-nums">{t}</p>)}</div> : null;
+  if (p.phase === "denied") return <p>Filing bills needs Do access on Expenses.</p>;
+  if (p.phase === "reading" || p.phase === "failed" || p.phase === "full" || p.phase === "duplicate") return <Status phase={p.phase} reason={p.reason} openLabel="Open in Expenses" onOpenFull={p.onOpenFull} />;
+  if (p.phase === "asking") return said;
+  if (p.phase === "booking") return <div className="space-y-2">{said}<p className="flex items-center gap-2 text-[13px] text-muted-foreground" role="status"><Loader2 className="h-3.5 w-3.5 animate-spin" />{p.reason ?? "Booking…"}</p></div>;
+  if (p.phase === "undone") return <p>Undone.</p>;
+  if (p.phase === "sent") return <div className="space-y-2">{said}<p>Sent to an approver. You can't book this one yourself.</p><button type="button" className="text-[13px] font-medium text-muted-foreground" onClick={p.onSee}>See bill</button></div>;
+  if (p.phase !== "booked") return <p>{p.reason ?? "It didn't book."}</p>;
+  const foot = [p.vendor, p.number ? `Bill ${p.number}` : "No bill number", p.due ? `Due ${shortDay(p.due)}` : "No due date"].join(" · ");
   return (
-    <div ref={c.anchor} className="space-y-3">
-      {c.render(!!confirm, () => setConfirm(null), p.saving,
-        confirm === "draft" ? "Hold as a draft?" : "Send for approval?",
-        [`${p.vendor} · ${p.number || "No number"} · ${formatMoney(p.total, p.currency)}`, confirm === "draft" ? "Nothing goes to payables yet." : "Approval and posting stay in Expenses."],
-        confirm === "draft" ? "Hold" : "Send", () => confirm && p.onSave(confirm))}
-      <p>{saved ? (p.savedAs === "draft" ? "Saved as a draft." : "Sent for approval.") : "Is this right?"}</p>
+    <div className="space-y-3">
+      {said}
       <div className="overflow-hidden rounded-xl border border-border bg-white text-[13px]">
-        <Head name={p.vendor} sub={`${p.number ? `Bill ${p.number}` : "No bill number"} · ${shortDay(p.date)}`} total={formatMoney(p.total, p.currency)} right={p.due ? `Due ${shortDay(p.due)}` : "No due date"} />
-        {p.regular && <div className="flex h-9 items-center justify-between gap-3 px-4 text-[12px]" style={{ borderTop: `1px solid ${HAIR}` }}>
-          <span className="truncate text-muted-foreground">Regular · {p.regular.name}</span>
-          <span className="shrink-0 tabular-nums" style={off ? { color: AMBER } : undefined}>
-            {p.regular.estimate ? "Est." : "Usual"} {num(p.regular.expected)}{diff != null && (off ? ` · ${diff > 0 ? "+" : ""}${Math.round(diff * 100)}%` : " · matches")}
-          </span>
-        </div>}
-        <table className="w-full table-fixed border-collapse">
-          <colgroup><col /><col className="w-[96px]" /></colgroup>
-          <thead style={{ background: "#F7F8F7", borderTop: `1px solid ${HAIR}` }}><tr><th className={th}>Category</th><th className={th + " text-right"}>Amount</th></tr></thead>
-          <tbody>
-            {p.lines.map(l => (
-              <tr key={l.line} style={{ borderTop: `1px solid ${HAIR}` }}>
-                <td className={td + " max-w-0"}>
-                  <span className="block truncate">{l.category || "Uncategorised"}</span>
-                  {l.accountId
-                    ? <span className="block truncate text-[12px] text-muted-foreground">{acct(l.accountId) ? `${acct(l.accountId)!.code} ${acct(l.accountId)!.name}` : "Account set"}</span>
-                    : saved ? null : <select aria-label={`Account for ${l.category}`} defaultValue="" onChange={e => e.target.value && p.onAccount(l.line, e.target.value)}
-                        className="mt-0.5 h-6 max-w-full rounded border-0 bg-transparent p-0 text-[12px] outline-none" style={{ color: AMBER }}>
-                        <option value="" disabled>Pick an account</option>
-                        {p.accounts.map(a => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
-                      </select>}
-                </td>
-                <td className={td + " whitespace-nowrap text-right tabular-nums"}>{num(l.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex h-11 items-center justify-between gap-3 px-4 text-[12px] text-muted-foreground" style={{ borderTop: `1px solid ${HAIR}` }}>
-          <span className="truncate">{p.venue}{p.meter ? ` · a/c ${p.meter}` : ""}</span><span className="shrink-0">{period}</span>
+        <div className="flex h-11 items-center justify-between gap-3 px-4">
+          <span className="flex items-center gap-2 font-semibold"><Tick />Booked</span>
+          <span className="shrink-0 text-[12px] text-muted-foreground">Records to {p.recordsTo}</span>
+        </div>
+        {p.rows.map((r, i) => (
+          <div key={i} className="flex h-11 items-center justify-between gap-3 px-4" style={{ borderTop: `1px solid ${HAIR}` }}>
+            <span className="min-w-0 truncate" title={r.left}>{r.left}</span>
+            <span className="shrink-0 whitespace-nowrap tabular-nums">{num(r.amount)}</span>
+          </div>
+        ))}
+        <div className="flex h-11 items-center px-4 text-[12px] text-muted-foreground" style={{ borderTop: `1px solid ${HAIR}` }}>
+          <span className="truncate" title={foot}>{foot}</span>
         </div>
       </div>
-      {!saved && missing > 0 && <p className="text-[13px]" style={{ color: AMBER }}>{missing === 1 ? "One line needs an account." : `${missing} lines need an account.`}</p>}
-      {!saved && <div className="flex items-center gap-4">
-        <button type="button" className="floating-bani-apply" disabled={missing > 0 || p.saving} onClick={() => setConfirm("pending_review")}>Send for approval</button>
-        <button type="button" className="text-[13px] font-medium text-muted-foreground" disabled={p.saving} onClick={() => setConfirm("draft")}>Hold</button>
-        <button type="button" className="ml-auto text-[13px] text-muted-foreground" onClick={p.onOpenFull}>Full screen</button>
-      </div>}
+      <div className="flex items-center gap-4">
+        {p.canUndo && <button type="button" className="text-[13px] font-medium text-muted-foreground disabled:opacity-50" disabled={p.undoing} onClick={p.onUndo}>{p.undoing ? "Undoing…" : "Undo"}</button>}
+        <button type="button" className="text-[13px] font-medium text-muted-foreground" onClick={p.onSee}>See bill</button>
+      </div>
     </div>
   );
 }
