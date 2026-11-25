@@ -118,6 +118,7 @@ export function ClientCategories() {
   }, [rows, open, needle]);
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const allOpen = open.size > 0;
+  const [here, setHere] = useState<string | null>(null);
   const toggleAll = () => setOpen(allOpen ? new Set() : new Set(rows.filter((r) => r.level < 3).map((r) => r.id)));
 
   const openAdd = (level: 1 | 2 | 3, parent: string | null) => { setName(''); setGroup(''); setAccount(''); setAdding({ level, parent }); };
@@ -162,18 +163,65 @@ export function ClientCategories() {
 
   const pathText = (r: CatRow) => pathOf(rows, r).join(' › ');
 
+  // Phone: go into a category like a settings menu; one tap, one action.
+  const phoneView = () => {
+    const cur = here ? rows.find((r) => r.id === here) ?? null : null;
+    const level = ((cur?.level ?? 0) + 1) as 1 | 2 | 3;
+    const list = needle && !cur ? rows.filter((r) => r.is_active !== false && r.name.toLowerCase().includes(needle)) : childrenOf(rows, cur?.id ?? null, level);
+    const parent = cur?.parent_id ? rows.find((r) => r.id === cur.parent_id) ?? null : null;
+    const ga = cur ? groupAndAccount.get(pathOf(rows, cur).length === 1 ? cur.id : rows.find((r) => r.level === 1 && r.name === pathOf(rows, cur)[0])?.id ?? '') : undefined;
+    const addAllowed = cur ? canAdd && cur.level < 3 : canAddL1;
+    return <div>
+      {cur ? <>
+        <button type="button" className="text-[14px] text-[#2F5E5A]" onClick={() => setHere(parent?.id ?? null)}>‹ {parent?.name ?? 'Categories'}</button>
+        <p className="pt-2 text-[17px] font-semibold">{cur.name}{isOwn(cur) && <span className="ml-1.5 text-[12px] font-normal text-muted-foreground">Yours</span>}</p>
+        <p className="pb-2 text-[13px] text-muted-foreground">{[cur.level === 1 ? (ga ? `${ga.group ?? 'No group'} · ${ga.account ?? 'No account'}` : null) : pathText(cur), `${counts.get(cur.id) ?? 0} products`].filter(Boolean).join(' · ')}</p>
+      </> : <>
+        <p className="text-[13px] text-muted-foreground tabular-nums">{level1.length} top categories · {rows.filter((r) => r.is_active !== false).length} in all{tidy.length > 0 && <> · <span className={amber}>{tidy.length} to tidy</span></>}</p>
+        <Input aria-label="Search categories" placeholder="Search categories" value={q} onChange={(e) => setQ(e.target.value)} className="my-2 h-9 w-full text-[13px]" />
+      </>}
+      <div className="border-t border-border">
+        {list.map((c) => {
+          const kids = c.level < 3 && rows.some((r) => r.parent_id === c.id && r.is_active !== false);
+          const g = c.level === 1 ? groupAndAccount.get(c.id) : undefined;
+          const t = tidyFrom.get(c.id);
+          const below = kids ? tidyBelow(c.id) - (t ? 1 : 0) : 0;
+          const subCount = kids ? rows.filter((r) => r.parent_id === c.id && r.is_active !== false).length : 0;
+          const info = [g ? (g.account ? `${g.group ?? 'No group'} · ${g.account}` : '') : subCount ? `${subCount} sub-categories` : '', needle && !cur ? pathOf(rows, c).slice(0, -1).join(' › ') : ''].filter(Boolean).join(' · ');
+          const warn = [g && !g.account ? 'No account' : '', t ? `Same as ${t.into.name}` : '', below > 0 ? `${below} to tidy` : ''].filter(Boolean).join(' · ');
+          const go = () => { if (kids) { setQ(''); setHere(c.id); } else setPicked(c); };
+          return <div key={c.id} className="flex min-h-[52px] items-center gap-2.5 border-b border-border/60 py-1.5">
+            <button type="button" className="min-w-0 flex-1 text-left" onClick={go}>
+              <span className="block truncate text-[14px]">{c.name}{isOwn(c) && <span className="ml-1.5 text-[12px] text-muted-foreground">Yours</span>}</span>
+              {info && <span className="block truncate text-[12px] text-muted-foreground">{info}</span>}
+              {warn && <span className={`block text-[12px] ${amber}`}>{warn}</span>}
+            </button>
+            {t && canTidy && <button type="button" className="shrink-0 rounded-full border border-[#EF9F27] bg-[#FFF8EC] px-2.5 py-1 text-[12px] text-[#633806]" onClick={() => setMerge(t)}>Merge</button>}
+            <button type="button" className="flex shrink-0 items-center gap-2" onClick={go} aria-label={kids ? `Open ${c.name}` : `${c.name} details`}>
+              <span className="text-[14px] tabular-nums">{counts.get(c.id) ?? 0}</span>
+              <span className="w-2.5 text-[16px] text-muted-foreground">{kids ? '›' : ''}</span>
+            </button>
+          </div>;
+        })}
+        {!list.length && <p className="py-8 text-center text-[13px] text-muted-foreground">{needle ? 'No categories found.' : 'None yet'}</p>}
+      </div>
+      {addAllowed && !needle && <button type="button" className="pt-3 text-[14px] text-[#2F5E5A]" onClick={() => openAdd(level, cur?.id ?? null)}>+ {cur ? `Add under ${cur.name}` : 'Add a top category'}</button>}
+    </div>;
+  };
+
   return <>
     <SettingsCard title="Categories">
-      {loading ? <p className="text-[13px] text-muted-foreground">Loading categories…</p> : <>
+      {loading ? <p className="text-[13px] text-muted-foreground">Loading categories…</p> : isMobile ? phoneView() : <>
         <p className="pb-3 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
           {level1.length} categories · {rows.filter((r) => r.is_active !== false).length} with sub-categories
           {tidy.length > 0 && <> · <span className={amber}>{tidy.length} to tidy</span></>}
           {missing.noLevel1 > 0 && <> · <span className={amber}>{missing.noLevel1} {missing.noLevel1 === 1 ? 'product has' : 'products have'} no category</span></>}
         </p>
+        {isMobile && <Input aria-label="Search categories" placeholder="Search categories" value={q} onChange={(e) => setQ(e.target.value)} className="mb-2 h-9 w-full text-[13px]" />}
         <div className="flex items-center gap-2 pb-3">
           <button type="button" className="text-[13px] text-[#2F5E5A] whitespace-nowrap" onClick={toggleAll}>{allOpen ? 'Close all' : 'Expand all'}</button>
           <span className="flex-1" />
-          <Input aria-label="Search categories" placeholder="Search categories" value={q} onChange={(e) => setQ(e.target.value)} className={`h-9 text-[13px] ${isMobile ? 'w-[160px]' : 'w-[260px]'}`} />
+          {!isMobile && <Input aria-label="Search categories" placeholder="Search categories" value={q} onChange={(e) => setQ(e.target.value)} className="h-9 w-[260px] text-[13px]" />}
           {canAddL1 && <Button size="sm" className="h-9 whitespace-nowrap" onClick={() => openAdd(1, null)}>{isMobile ? 'Add' : 'Add category'}</Button>}
         </div>
         <div className="overflow-x-auto">
@@ -204,9 +252,13 @@ export function ClientCategories() {
                             {open.has(c.id) || needle ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                           </button>
                         : <span className="mr-1 w-5" />}
-                      <span className={`truncate ${c.level === 1 ? 'font-medium' : ''}`} style={{ maxWidth: 'var(--bani-name-max)' }} title={pathText(c)}>{c.name}</span>
-                      {isOwn(c) && <span className="ml-1.5 text-[12px] text-muted-foreground">Yours</span>}
-                      {isMobile && (tidyText || (ga && !ga.account)) && <span className={`ml-2 text-[12px] ${amber}`}>{tidyText || 'No account'}</span>}
+                      <span className="min-w-0">
+                        <span className="flex items-center">
+                          <span className={`truncate ${c.level === 1 ? 'font-medium' : ''}`} style={{ maxWidth: 'var(--bani-name-max)' }} title={pathText(c)}>{c.name}</span>
+                          {isOwn(c) && <span className="ml-1.5 text-[12px] text-muted-foreground">Yours</span>}
+                        </span>
+                        {isMobile && (tidyText || (ga && !ga.account)) && <span className={`block text-[12px] ${amber}`}>{[ga && !ga.account ? 'No account' : '', tidyText].filter(Boolean).join(' · ')}</span>}
+                      </span>
                     </span>
                   </td>
                   {!isMobile && <td className="pr-3 text-[12px] text-muted-foreground tabular-nums">{c.level}</td>}
