@@ -256,6 +256,7 @@
 .floating-bani .floating-bani-chats:hover { background: #E6ECE8; color: #17302C; }
 .floating-bani .floating-bani-chats:focus-visible { outline: 2px solid #2F5E5A; outline-offset: 2px; }
 .floating-bani.is-mobile .floating-bani-chats, .floating-bani-panel.is-mobile .floating-bani-chats { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
+.floating-bani.is-mobile .floating-bani-typing .floating-bani-chats, .floating-bani-panel.is-mobile .floating-bani-typing .floating-bani-chats { width: 36px; height: 36px; min-width: 36px; min-height: 36px; max-height: 36px; aspect-ratio: 1; padding: 0; }
 /* One line: a fixed 40px box with the text on its middle line, in every browser. */
 .floating-bani-typing:not(.is-tall) > .floating-bani-input { box-sizing: border-box; height: 40px; min-height: 40px; padding-top: 9px; padding-bottom: 9px; line-height: 22px; overflow: hidden; }
 .floating-bani-typing.is-tall > .floating-bani-input { box-sizing: border-box; padding: .45rem .7rem .2rem; line-height: 22px; }
