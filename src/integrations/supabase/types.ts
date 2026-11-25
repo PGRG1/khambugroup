@@ -16440,6 +16440,8 @@ export type Database = {
         Returns: undefined
       }
       can_approve_bani_rules: { Args: { t: string }; Returns: boolean }
+      can_edit_account_rules: { Args: { t: string }; Returns: boolean }
+      can_edit_item_list: { Args: { t: string }; Returns: boolean }
       can_see_venue: { Args: { t: string; v: string }; Returns: boolean }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
@@ -17332,6 +17334,14 @@ export type Database = {
       }
       profile_visible: { Args: { _profile_user: string }; Returns: boolean }
       promote_client_category: { Args: { p_category: string }; Returns: string }
+      purchase_items_not_bookable: {
+        Args: { p_products: string[]; p_tenant: string; p_venue: string }
+        Returns: {
+          category: string
+          problem: string
+          product_id: string
+        }[]
+      }
       rebuild_journal_from_operations: {
         Args: { p_tenant_id: string }
         Returns: Json
