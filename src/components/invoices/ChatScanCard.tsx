@@ -11,6 +11,8 @@ export type ChatScanLine = {
   key: string; index: number; name: string; billed: number; accepted: number; unit: string; total: number;
   /** Price on the invoice, and the supplier's saved price when Bani's check found a change. */
   price: number; was?: number | null;
+  /** The item has past purchases or another supplier: the price opens its history. */
+  history?: boolean;
   reason?: string; note?: string;
 };
 export type ChatScanPhase = "reading" | "failed" | "denied" | "many" | "duplicate" | "review" | "ready" | "saved";
@@ -34,6 +36,7 @@ type Props = {
   onReason: (index: number, reason: string, note?: string) => void;
   onBook: (answers: ChatScanAnswers) => void;
   onOpenFull: () => void;
+  onHistory?: (index: number) => void;
 };
 
 const AMBER = "#B45309";
@@ -204,7 +207,9 @@ export function ChatScanCard(p: Props) {
                           {diff ? `${qty(l.accepted)}/${qty(l.billed)}` : qty(l.billed)}{l.unit ? ` ${l.unit}` : ""}
                         </button>}
                   </td>
-                  <td className={td + " whitespace-nowrap pr-4 text-right tabular-nums"} style={l.was != null ? { color: AMBER } : undefined}>{num(l.price)}</td>
+                  <td className={td + " whitespace-nowrap pr-4 text-right tabular-nums"} style={l.was != null ? { color: AMBER } : undefined}>{l.history && p.onHistory
+                    ? <button type="button" aria-label={`Price history for ${l.name}`} title="Price history" className={linkBtn + " underline decoration-dotted underline-offset-4"} style={l.was != null ? { color: AMBER } : undefined} onClick={() => p.onHistory?.(l.index)}>{num(l.price)}</button>
+                    : num(l.price)}</td>
                 </tr>,
                 editing && diff && <tr key={`${l.key}-why`}><td /><td colSpan={3} className="pb-3 pr-4">
                   <Tabs value={inTabs ? l.reason : l.reason && l.reason !== "matched" ? "other_list" : undefined} items={[...tabs, ["other_list", "Other"]]}

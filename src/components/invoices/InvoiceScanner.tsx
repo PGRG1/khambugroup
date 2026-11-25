@@ -2137,6 +2137,36 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     return <InvoiceMatchCard answer={answer} options={(line.matcher_options || []).filter(option => answer.alternatives.includes(option.id))} printed={[line.scanned_description ?? line.description, line.scanned_item_code ?? line.item_code, line.scanned_unit ?? line.unit, formatCurrency(Number(line.scanned_unit_price ?? line.unit_price) || 0)].filter(Boolean).join(" · ")} name={product?.internal_product_name} onPick={pick} onSearch={() => { openFullLine(index); requestAnimationFrame(() => openProductSearch(index)); }} quickAdd={quickAdd} editFirst={answer.decision === "new" ? <QuickAddProductPopover products={masterCatalogue} supplierName={current?.supplier_name} line={line} disableSuggestions initialMode="new" initialDraft={answer.draft} triggerLabel="Edit first" onCreated={entry => selectProduct(index, entry)} onRefresh={onProductMasterChanged} /> : undefined} existingAdd={existingAdd} />;
   };
 
+  /** Price insights for one line. Bani chat opens it read-only: changing the Items Master stays on the full review. */
+  const renderPriceHistory = (allowMasterUpdate: boolean) => {
+    if (historyLineIdx === null || !current?.line_items[historyLineIdx]) return null;
+        const hLine = current.line_items[historyLineIdx];
+        const hMaster = hLine.master_price ?? hLine.pm_unit_price ?? null;
+        const hPrice = parseFloat(hLine.accepted_price || "") || parseFloat(hLine.unit_price) || 0;
+        return (
+          <PriceHistoryPanel
+            open
+            onOpenChange={(o) => { if (!o) setHistoryLineIdx(null); }}
+            tenantId={tenantId}
+            productMasterId={hLine.product_master_id}
+            supplierId={current.supplier_id}
+            supplierName={current.supplier_name}
+            venue={current.venue}
+            itemName={hLine.matched_internal_name || hLine.description}
+            masterPrice={hMaster}
+            currentInvoiceNumber={current.invoice_number}
+            currentInvoiceDate={current.invoice_date}
+            currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
+            currentUnitCost={hPrice}
+            currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
+            currentStockQty={Number(hLine.matched_stock_qty_ratio)}
+            currentStockUom={hLine.matched_stock_uom}
+            onUpdateMaster={allowMasterUpdate ? () => handleUpdateMaster(historyLineIdx) : undefined}
+          />
+        );
+        };
+  const hasPriceHistory = (line: ScannedLineItem) => !!line.product_master_id && ((insightAvailability[line.product_master_id]?.historyCount ?? 0) > 0 || (insightAvailability[line.product_master_id]?.otherSupplierCount ?? 0) > 0);
+
   if (variant === "chat") {
     const supplierRow = current ? suppliers.find(sp => sp.id === current.supplier_id) as { payment_terms?: string | null } | undefined : undefined;
     const termsMatch = supplierRow?.payment_terms?.match(/^(?:net\s*)?(\d+)\s*(?:days?)?$/i);
@@ -2156,7 +2186,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       // A changed count is a delivery difference: short or extra, never guessed beyond that.
       if (value !== billed) updateLineReceiving(i, "receiving_reason", value < billed ? "short_delivery" : "extra_quantity_received");
     };
-    return <ChatScanCard
+    return <><ChatScanCard
       phase={phase}
       supplier={currentSupplierName}
       number={current?.invoice_number || ""}
@@ -2169,7 +2199,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const accepted = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
         const price = parseFloat(l.unit_price) || 0;
         const was = l.price_changed && !l.is_free_unit_line && l.pm_unit_price != null ? Number(l.pm_unit_price) : null;
-        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
+        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
       })}
       termsDays={termsMatch ? Number(termsMatch[1]) : null}
       printedDue={current?.due_date || null}
@@ -2189,7 +2219,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
       onOpenFull={() => onOpenFull?.()}
-    />;
+      onHistory={i => setHistoryLineIdx(i)}
+    />{renderPriceHistory(false)}</>;
   }
 
   return (
@@ -3621,32 +3652,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         </AlertDialogContent>
       </AlertDialog>
 
-      {historyLineIdx !== null && current?.line_items[historyLineIdx] && (() => {
-        const hLine = current.line_items[historyLineIdx];
-        const hMaster = hLine.master_price ?? hLine.pm_unit_price ?? null;
-        const hPrice = parseFloat(hLine.accepted_price || "") || parseFloat(hLine.unit_price) || 0;
-        return (
-          <PriceHistoryPanel
-            open
-            onOpenChange={(o) => { if (!o) setHistoryLineIdx(null); }}
-            tenantId={tenantId}
-            productMasterId={hLine.product_master_id}
-            supplierId={current.supplier_id}
-            supplierName={current.supplier_name}
-            venue={current.venue}
-            itemName={hLine.matched_internal_name || hLine.description}
-            masterPrice={hMaster}
-            currentInvoiceNumber={current.invoice_number}
-            currentInvoiceDate={current.invoice_date}
-            currentQty={parseFloat(hLine.accepted_qty || "") || parseFloat(hLine.quantity) || 0}
-            currentUnitCost={hPrice}
-            currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
-            currentStockQty={Number(hLine.matched_stock_qty_ratio)}
-            currentStockUom={hLine.matched_stock_uom}
-            onUpdateMaster={() => handleUpdateMaster(historyLineIdx)}
-          />
-        );
-      })()}
+      {renderPriceHistory(true)}
 
       {editingMasterLineIdx !== null && current?.line_items[editingMasterLineIdx]?.product_master_id && (
         <MasterItemEditSheet

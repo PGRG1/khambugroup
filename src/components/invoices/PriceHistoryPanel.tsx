@@ -39,7 +39,8 @@ interface PriceHistoryPanelProps {
   currentPurchaseUnit: string;
   currentStockQty: number;
   currentStockUom: string;
-  onUpdateMaster: () => void;
+  /** Leave out for a read-only view (Bani chat, the invoice page): no Items Master change from there. */
+  onUpdateMaster?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -675,8 +676,9 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
   };
 
   return (
+    // Above Bani chat windows (z 45–65), which can open this from an invoice card.
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
+      <DialogContent className="z-[80] w-[calc(100vw-2rem)] max-w-[600px] p-0 gap-0 [&>button]:hidden sm:w-full max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="min-w-0">
             <DialogTitle className="text-[15px] font-medium truncate">Price insights · {itemName || "Item"}</DialogTitle>
@@ -753,7 +755,7 @@ export default function PriceHistoryPanel(props: PriceHistoryPanelProps) {
               </div>
               <div className="mt-3"><TrendChart points={chartPoints} masterPrice={masterNum} /></div>
               <table className="mt-2 w-full text-xs"><thead><tr className="text-[10px] text-muted-foreground"><th className="w-[88px] border-b border-border/60 py-1.5 text-left font-normal">Date</th><th className="border-b border-border/60 py-1.5 text-left font-normal">Invoice</th><th className="w-[52px] border-b border-border/60 py-1.5 text-right font-normal">Qty</th><th className="w-[66px] border-b border-border/60 py-1.5 text-right font-normal">Unit</th><th className="w-[62px] border-b border-border/60 py-1.5 text-right font-normal">Δ</th></tr></thead><tbody>{tableRows.map((r, i) => { const older = tableRows[i + 1]; const delta = older && older.unitCost > 0 ? ((r.unitCost - older.unitCost) / older.unitCost) * 100 : null; const deltaWarn = delta != null && delta > 0 && older ? pctVaries(older.unitCost, r.unitCost) : false; const showDelta = delta != null && older != null && Math.abs(r.unitCost - older.unitCost) > PRICE_VARIANCE_EPSILON; return <tr key={r.lineId} className={`border-b border-border/40 last:border-0 ${r.isCurrent ? "bg-warning/10" : ""}`}><td className="py-2.5 font-mono text-muted-foreground">{shortDate(r.invoiceDate)}</td><td className="py-2.5">{r.isCurrent ? <span className="text-warning font-mono">{r.invoiceNumber}<span className="text-[10px] font-sans"> · current</span></span> : <button type="button" onClick={() => openDrill(r.invoiceId)} className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono">{r.invoiceNumber}<ChevronRight className="h-[13px] w-[13px]" /></button>}</td><td className="py-2.5 text-right font-mono">{r.qty}</td><td className="py-2.5 text-right font-mono">{money(r.unitCost)}</td><td className={`py-2.5 text-right font-mono ${deltaWarn ? "text-warning" : "text-muted-foreground"}`}>{showDelta ? `${delta! > 0 ? "+" : ""}${delta!.toFixed(1)}%` : "—"}</td></tr>; })}</tbody></table>
-              {variesFromMaster && <div className="flex gap-2 border-t border-border/60 mt-3 pt-3"><Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>Keep Items Master at {money(masterNum)}</Button><Button variant="secondary" className="flex-1" onClick={() => { onUpdateMaster(); onOpenChange(false); }}>Update Items Master to {money(currentUnitCost)}</Button></div>}
+              {variesFromMaster && onUpdateMaster && <div className="flex gap-2 border-t border-border/60 mt-3 pt-3"><Button variant="secondary" className="flex-1" onClick={() => onOpenChange(false)}>Keep Items Master at {money(masterNum)}</Button><Button variant="secondary" className="flex-1" onClick={() => { onUpdateMaster(); onOpenChange(false); }}>Update Items Master to {money(currentUnitCost)}</Button></div>}
             </div>
           )}
         </div>

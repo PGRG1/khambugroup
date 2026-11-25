@@ -12,6 +12,7 @@ import { autoCreateGrnFromInvoice } from "@/utils/autoCreateGrnFromInvoice";
 import { saveScannerInvoice, loadScannerProductMaster, INVOICE_BOOKED_EVENT } from "@/utils/saveScannerInvoice";
 import { syncGrnFromInvoice } from "@/utils/syncGrnFromInvoice";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
+import PriceHistoryPanel from "@/components/invoices/PriceHistoryPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -276,6 +277,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
   const [currencyEdit, setCurrencyEdit] = useState(false);
   useEffect(() => { setCurrencyEdit(false); }, [selectedInvoice?.id]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [priceHistoryLine, setPriceHistoryLine] = useState<InvoiceLineItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailPosted,setDetailPosted]=useState(true);
   const [editing, setEditing] = useState(false);
@@ -1842,6 +1844,29 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
         onAttached={() => { setAttachTarget(null); fetchAll(); }}
       />
 
+      {priceHistoryLine && selectedInvoice && (() => {
+        // Read-only here: the Items Master price is changed from Scan invoice or the Items Master itself.
+        const line = priceHistoryLine;
+        const pm = findProductMatch(line, selectedInvoice.supplier_id) as { internal_product_name?: string; purchase_unit_cost?: number | null; purchase_unit?: string | null; stock_uom?: string | null; stock_qty?: number | null } | null;
+        return <PriceHistoryPanel
+          open
+          onOpenChange={o => { if (!o) setPriceHistoryLine(null); }}
+          tenantId={tenantId}
+          productMasterId={line.product_master_id}
+          supplierId={selectedInvoice.supplier_id}
+          supplierName={selectedInvoice.supplier_name || ""}
+          venue={selectedInvoice.venue || ""}
+          itemName={pm?.internal_product_name || line.description}
+          masterPrice={pm?.purchase_unit_cost ?? null}
+          currentInvoiceNumber={selectedInvoice.invoice_number || ""}
+          currentInvoiceDate={selectedInvoice.invoice_date || ""}
+          currentQty={Number(line.accepted_qty ?? line.quantity) || 0}
+          currentUnitCost={Number(line.accepted_price ?? line.unit_price) || 0}
+          currentPurchaseUnit={pm?.purchase_unit || line.unit || ""}
+          currentStockQty={Number(pm?.stock_qty)}
+          currentStockUom={pm?.stock_uom || ""}
+        />;
+      })()}
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DialogContent className={`kit sales-day-dialog ${selectedInvoice && hasDurableAttachment(selectedInvoice.file_url) ? "max-w-[1080px]" : "max-w-[760px]"} grid-cols-[minmax(0,1fr)] p-0 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto`}>
           {selectedInvoice && (() => {
@@ -1876,8 +1901,8 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
                   {rs !== "Voided" && <Button variant="outline" className="kit-btn kit-btn-secondary" onClick={() => setProblemTarget({ invoiceId: inv.id, supplierName: inv.supplier_name || "Supplier", total: Number(inv.total_amount) || 0, invoiceDate: inv.invoice_date, lines: lineItems.map(line => { const gi = giByLine.get(line.id); return { invoice_line_item_id: line.id, description: line.description || "(no description)", unit: line.unit || "each", quantity_invoiced: Number(line.quantity) || 0, quantity_received: gi ? Number(gi.quantity_received) : Number(line.quantity) || 0, unit_price: Number(line.unit_price) || 0 }; }) })}>Report a problem</Button>}
                   <Button className="kit-btn kit-btn-primary" disabled={detailPosted} onClick={startEditing}><Pencil className="h-4 w-4" />Edit</Button>
                 </>}>
-                <div className="hidden min-[641px]:block overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}<InvoiceAssetProposal invoice={inv} line={line}/></td><td className="td-num text-right px-1">{formatDecimal(invQty)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty)}</td>}<td className="td-num text-right px-1">{formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
-                <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><InvoiceAssetProposal invoice={inv} line={line}/><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
+                <div className="hidden min-[641px]:block overflow-x-auto"><table className="w-full table-fixed text-[13px]" aria-label="Invoice items"><thead><tr className="border-b border-border text-xs text-muted-foreground"><th className="text-left py-3 w-[42%]">Item</th><th className="text-right px-1">{changed.length ? "Invoiced" : "Qty"}</th>{changed.length > 0 && <th className="text-right px-1">Received</th>}<th className="text-right px-1">Price</th><th className="text-right pl-1">Total</th></tr></thead><tbody>{rows.map(({line,invQty,recvQty}) => <tr key={line.id} className="border-b border-border/50"><td className="py-3 pr-2 break-words">{line.description}<InvoiceAssetProposal invoice={inv} line={line}/></td><td className="td-num text-right px-1">{formatDecimal(invQty)}</td>{changed.length > 0 && <td className="td-num text-right px-1">{recvQty == null ? "—" : formatDecimal(recvQty)}</td>}<td className="td-num text-right px-1">{line.product_master_id ? <button type="button" aria-label={`Price history for ${line.description}`} title="Price history" className="underline decoration-dotted underline-offset-4 hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setPriceHistoryLine(line)}>{formatDecimal(line.unit_price)}</button> : formatDecimal(line.unit_price)}</td><td className="td-num text-right pl-1">{formatDecimal(invQty * line.unit_price)}</td></tr>)}</tbody></table></div>
+                <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><InvoiceAssetProposal invoice={inv} line={line}/><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {line.product_master_id ? <button type="button" aria-label={`Price history for ${line.description}`} className="underline decoration-dotted underline-offset-4" onClick={() => setPriceHistoryLine(line)}>{formatTableCurrency(line.unit_price)}</button> : formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
                 {inv.notes && <p className="text-[13px] whitespace-pre-wrap"><span className="kit-group-h">Notes</span><br />{inv.notes}</p>}
                 {!hasPages && <InvoiceAttachmentPreview invoice={inv} onView={openPages} onAttach={() => setAttachTarget(inv)} />}
               </BaniScanSummary>
