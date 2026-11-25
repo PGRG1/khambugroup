@@ -1,5 +1,5 @@
 import {baseSymbol} from '@/utils/money';
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, MoreVertical } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, MoreVertical, Upload } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -34,6 +34,8 @@ import SupplierDealDialog, { SupplierDealEditable } from "@/components/procureme
 import { formatCurrency } from "@/utils/salesUtils";
 import { computeSetupHealth, type SetupHealthState } from "@/utils/productSetupHealth";
 import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
+import { ItemsUploadDialog } from "@/components/procurement/ItemsUploadDialog";
+import { productNeeds, needsText, boughtAs } from "@/utils/productNeeds";
 
 
 interface SupplierDealRow {
@@ -153,7 +155,11 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     { key: "internal_product_name", dir: "asc" },
   ]);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(50);
+  const [view, setView] = useState<"all" | "needs" | "inactive">("all");
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<FlatRow | null>(null);
+  const [accountKeys, setAccountKeys] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
@@ -165,6 +171,16 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
   const isMobile = useIsMobile();
+  // Fewer columns when the page area (not the screen) is narrow, e.g. Settings beside the sidebar on a tablet.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [isTablet, setIsTablet] = useState(false);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setIsTablet(el.clientWidth < 1000));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   // Supplier deals (within edit panel)
   const [deals, setDeals] = useState<SupplierDealRow[]>([]);
@@ -320,6 +336,27 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     return rows;
   }, [products, coaById]);
 
+  // Category accounts from Purchasing setup: a category (group + level 1) counts as having an account
+  // when it has one for every venue or for at least one venue.
+  useEffect(() => {
+    if (!tenantId) return;
+    let on = true;
+    void supabase.from("account_mapping_rules" as any).select("rule_type, match_key").eq("tenant_id", tenantId)
+      .in("rule_type", ["procurement_category", "procurement_category_venue"]).then(({ data }) => {
+        if (!on) return;
+        setAccountKeys(new Set(((data as any[]) || []).map(d => String(d.match_key).split("__").slice(0, 2).join("__"))));
+      });
+    return () => { on = false; };
+  }, [tenantId]);
+  const needsByRow = useMemo(() => new Map(flatRows.map(r => [r.rowKey, productNeeds({
+    supplier: r.supplier, external_sku: r.external_sku, supplier_product_name: r.supplier_product_name,
+    level1_category: r.level1_category, financial_treatment: r.financial_treatment,
+    has_account: !!r.default_coa_account_id || accountKeys.has(`${r.financial_treatment}__${r.level1_category}`),
+    purchase_unit: r.purchase_unit, purchase_unit_cost: r.purchase_unit_cost,
+    creates_stock_movement: r.creates_stock_movement, stock_uom: r.stock_uom, stock_qty: r.stock_qty, status: r.status,
+  })])), [flatRows, accountKeys]);
+  const needsCount = useMemo(() => new Set(flatRows.filter(r => (needsByRow.get(r.rowKey) ?? []).length).map(r => r.product.id)).size, [flatRows, needsByRow]);
+
   const toggleSort = (key: string, additive: boolean) => {
     setSortColumns(prev => toggleSortColumns(prev, key, additive));
   };
@@ -363,6 +400,87 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     return sortRows(result, sortColumns);
   }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, setupFilter, treatmentFilter, mappingFilter, sortColumns]);
 
+  const listRows = useMemo(() => {
+    const rows = filtered.filter(r => view === "all" ? true : view === "inactive" ? r.status !== "Active" : (needsByRow.get(r.rowKey) ?? []).length > 0);
+    return [...rows].sort((a, b) => a.internal_product_name.localeCompare(b.internal_product_name) || (a.supplier || "").localeCompare(b.supplier || ""));
+  }, [filtered, view, needsByRow]);
+  const downloadList = () => {
+              const exportRows = listRows.map(r => {
+            const py = Number(r.purchase_yield ?? 100);
+            const cy = Number(r.cooking_yield ?? 100);
+            const totalYield = (py / 100) * (cy / 100) * 100;
+            const effectiveCost = r.cost_per_base_unit > 0 && totalYield > 0
+              ? r.cost_per_base_unit / (totalYield / 100)
+              : r.cost_per_base_unit;
+
+            return {
+              internal_sku:            r.internal_sku,
+              internal_product_name:   r.internal_product_name,
+              supplier:                r.supplier,
+              supplier_product_name:   r.supplier_product_name,
+              external_sku:            r.external_sku,
+              level1_category:         r.level1_category,
+              level2_category:         r.level2_category,
+              level3_category:         r.level3_category,
+              financial_treatment:     (r as any).financial_treatment,
+              coa_account:             (r as any).default_coa_label,
+              mapping_status:          (r as any).mapping_status,
+              creates_stock_movement:  (((r as any).product?.creates_stock_movement ?? true) ? 'Yes' : 'No'),
+              purchase_unit:           r.purchase_unit,
+              purchase_unit_cost:      r.purchase_unit_cost.toFixed(2),
+              stock_uom:               r.stock_uom,
+              stock_qty:               r.stock_qty,
+              cost_per_stock_unit:     r.cost_per_stock_unit.toFixed(4),
+              base_unit_type:          r.base_unit_type,
+              base_unit_qty:           r.base_unit_qty,
+              cost_per_base_unit:      r.cost_per_base_unit.toFixed(4),
+              purchase_yield:          py,
+              cooking_yield:           cy,
+              total_yield:             totalYield.toFixed(1),
+              effective_cost_per_base: effectiveCost.toFixed(4),
+              min_stock_qty:           (r as any).product?.min_stock_qty ?? '',
+              reorder_qty:             (r as any).product?.reorder_qty ?? '',
+              notes:                   (r as any).notes,
+              status:                  r.status,
+            };
+          });
+
+          downloadCSV(
+            exportRows,
+            [
+              { key: 'internal_sku',            label: 'Internal SKU' },
+              { key: 'internal_product_name',   label: 'Product Name' },
+              { key: 'supplier',                label: 'Supplier & Vendor' },
+              { key: 'supplier_product_name',   label: 'Supplier Product Name' },
+              { key: 'external_sku',            label: 'External SKU' },
+              { key: 'level1_category',         label: 'L1' },
+              { key: 'level2_category',         label: 'L2' },
+              { key: 'level3_category',         label: 'L3' },
+              { key: 'financial_treatment',     label: 'Financial Treatment' },
+              { key: 'coa_account',             label: 'COA Account' },
+              { key: 'mapping_status',          label: 'Mapping' },
+              { key: 'creates_stock_movement',  label: 'Creates Stock Movement' },
+              { key: 'purchase_unit',           label: 'Purch. UOM' },
+              { key: 'purchase_unit_cost',      label: 'Purch. Cost' },
+              { key: 'stock_uom',               label: 'Stock UOM' },
+              { key: 'stock_qty',               label: 'Stock Qty' },
+              { key: 'cost_per_stock_unit',     label: 'Cost per Stock Unit' },
+              { key: 'base_unit_type',          label: 'Base/Recipe UOM' },
+              { key: 'base_unit_qty',           label: 'Base/Recipe Qty' },
+              { key: 'cost_per_base_unit',      label: 'Cost per Base Unit' },
+              { key: 'purchase_yield',          label: 'Purchase Yield (%)' },
+              { key: 'cooking_yield',           label: 'Cooking Yield (%)' },
+              { key: 'total_yield',             label: 'Total Yield (%)' },
+              { key: 'effective_cost_per_base', label: 'Effective Cost per Base Unit' },
+              { key: 'min_stock_qty',           label: 'Min Stock Qty' },
+              { key: 'reorder_qty',             label: 'Reorder Qty' },
+              { key: 'notes',                   label: 'Notes' },
+              { key: 'status',                  label: 'Status' },
+            ],
+            `product_master_${new Date().toISOString().slice(0, 10)}`
+);
+  };
+
   const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || setupFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
   const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSetupFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
 
@@ -391,6 +509,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   };
 
   const openEdit = (row: FlatRow) => {
+    setEditingRow(row);
     setEditingProductId(row.product.id);
     setEditingSupplierEntryId(row.supplier_entry?.id || null);
     setOriginalSku(row.internal_sku);
@@ -630,12 +749,12 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   );
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(listRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * pageSize;
-  const pageItems = filtered.slice(pageStart, pageStart + pageSize);
-  const rangeStart = filtered.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(filtered.length, pageStart + pageSize);
+  const pageItems = listRows.slice(pageStart, pageStart + pageSize);
+  const rangeStart = listRows.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = Math.min(listRows.length, pageStart + pageSize);
   const getPageNumbers = () => {
     const pages: (number | "...")[] = [];
     if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); return pages; }
@@ -722,441 +841,106 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   };
 
   return (
-    <div className="space-y-4">
-      {showRefundSeedBanner && (
-        <Alert className="border-info/40 bg-info/5">
-          <Info className="h-4 w-4 text-info" />
-          <AlertDescription className="flex items-center justify-between gap-3 w-full">
-            <span className="text-sm">
-              Add standard supplier refund items? Used for price corrections and credits on invoices.
-            </span>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button size="sm" onClick={seedRefundItems} disabled={seedingRefunds || !tenantId}>
-                {seedingRefunds ? "Adding..." : "Add refund items"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={dismissSeedBanner}>Not now</Button>
-            </div>
-          </AlertDescription>
-        </Alert>
+    <div ref={rootRef} className="space-y-4">
+      {/* Same layout as Settings › Suppliers: summary, view buttons, search, upload/download, add. */}
+      <p className="text-[13px] text-muted-foreground tabular-nums">
+        {products.length.toLocaleString()} items{needsCount > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsCount.toLocaleString()} need setup</span></>}
+      </p>
+      <div className={cn("flex items-center gap-1.5", isMobile && "flex-col items-stretch gap-2")}>
+        {isMobile && (
+          <div className="flex gap-1.5">
+            <Input aria-label="Search items" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} className="h-9 min-w-0 flex-1 text-[13px]" />
+            {canEditList && <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></Button>}
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></Button>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          {([["all", "All"], ["needs", "Needs setup"], ["inactive", "Inactive"]] as const).map(([k, l]) => (
+            <Button key={k} size="sm" variant={view === k ? "secondary" : "ghost"} aria-pressed={view === k} className="h-8 whitespace-nowrap px-3" onClick={() => { setView(k); setPage(1); }}>{l}</Button>
+          ))}
+          {isMobile && <span className="flex-1" />}
+          {isMobile && canEditList && <Button size="sm" className="h-8" onClick={openCreate}>Add</Button>}
+        </div>
+        {!isMobile && (
+          <div className="ml-auto flex items-center gap-1.5">
+            <Input aria-label="Search items" placeholder={isTablet ? "Search" : "Search items, suppliers or codes"} value={search} onChange={e => setSearch(e.target.value)} className={cn("h-9 text-[13px]", isTablet ? "w-[200px]" : "w-[280px]")} />
+            {canEditList && <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></Button>}
+            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></Button>
+            {canEditList && <Button size="sm" className="h-9" onClick={openCreate}>{isTablet ? "Add" : "Add product"}</Button>}
+          </div>
+        )}
+      </div>
+
+      {isMobile ? (
+        <div className="border-t border-border">
+          {pageItems.length === 0 && <p className="py-10 text-center text-[13px] text-muted-foreground">No products found.</p>}
+          {pageItems.map(r => {
+            const needs = needsByRow.get(r.rowKey) ?? [];
+            return (
+              <button key={r.rowKey} type="button" className="flex w-full items-center gap-3 border-b border-border/60 py-2.5 text-left" onClick={() => openEdit(r)}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium" title={r.internal_product_name}>{r.internal_product_name}</span>
+                  <span className={cn("block truncate text-[12px]", needs.length ? "text-[hsl(var(--warning))]" : "text-muted-foreground")}>
+                    {needs.length ? needsText(needs) : [r.internal_sku, r.supplier, r.external_sku || "—"].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-[14px] tabular-nums">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : "—"}</span>
+                  <span className="block text-[12px] text-muted-foreground">{boughtAs(r.purchase_unit, r.stock_qty, r.stock_uom) || "—"}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]" aria-label="Products">
+            <thead className="border-y border-border text-[12px] text-muted-foreground">
+              <tr>
+                <th className="h-10 pr-3 text-left font-normal">SKU</th>
+                <th className="pr-3 text-left font-normal">Item</th>
+                <th className="pr-3 text-left font-normal">Supplier</th>
+                <th className="pr-3 text-left font-normal">Supplier code</th>
+                {!isTablet && <th className="pr-3 text-left font-normal">Category</th>}
+                {!isTablet && <th className="pr-3 text-left font-normal">Bought as</th>}
+                <th className="pr-3 text-right font-normal">Price</th>
+                <th className="text-left font-normal">Needs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageItems.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">No products found.</td></tr>}
+              {pageItems.map(r => {
+                const needs = needsByRow.get(r.rowKey) ?? [];
+                return (
+                  <tr key={r.rowKey} className="h-11 cursor-pointer border-b border-border/50 whitespace-nowrap hover:bg-muted/40" onClick={() => openEdit(r)}>
+                    <td className="pr-3 text-muted-foreground">{r.internal_sku}</td>
+                    <td className="pr-3"><span className="block truncate font-medium" style={{ maxWidth: "var(--bani-name-max)" }} title={r.internal_product_name}>{r.internal_product_name}</span></td>
+                    <td className="pr-3"><span className="block truncate" style={{ maxWidth: "var(--bani-name-max)" }} title={r.supplier}>{r.supplier || "—"}</span></td>
+                    <td className="pr-3 text-muted-foreground">{r.external_sku || "—"}</td>
+                    {!isTablet && <td className="pr-3 text-muted-foreground">{[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ") || "—"}</td>}
+                    {!isTablet && <td className="pr-3">{boughtAs(r.purchase_unit, r.stock_qty, r.stock_uom) || "—"}</td>}
+                    <td className="td-num pr-3 text-right">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : "—"}</td>
+                    <td className="text-[hsl(var(--warning))]">{needsText(needs)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Data-health strip */}
-      {(() => {
-        const total = flatRows.length;
-        const mapped = flatRows.filter(r => r.mapping_status === "Mapped").length;
-        const unmapped = flatRows.filter(r => r.mapping_status === "Unmapped").length;
-        const inactive = flatRows.filter(r => r.setup_state === "inactive").length;
-        const needsSetup = flatRows.filter(r => r.status === "Active" && r.setup_state === "needs_setup").length;
-        const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"|"warn"; active: boolean; onClick: () => void }[] = [
-          { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all" && setupFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); setSetupFilter("all"); } },
-          { label: "Mapped", count: mapped, tone: "success", active: mappingFilter === "Mapped", onClick: () => setMappingFilter(mappingFilter === "Mapped" ? "all" : "Mapped") },
-          { label: "Unmapped", count: unmapped, tone: "danger", active: mappingFilter === "Unmapped", onClick: () => setMappingFilter(mappingFilter === "Unmapped" ? "all" : "Unmapped") },
-          { label: "Needs setup", count: needsSetup, tone: "warn", active: setupFilter === "needs_setup", onClick: () => setSetupFilter(setupFilter === "needs_setup" ? "all" : "needs_setup") },
-          { label: "Inactive", count: inactive, tone: "neutral", active: setupFilter === "inactive", onClick: () => setSetupFilter(setupFilter === "inactive" ? "all" : "inactive") },
-        ];
-        return (
-          <div className="flex flex-wrap gap-2">
-            {chips.map(c => (
-              <button key={c.label} onClick={c.onClick}
-                className={cn(
-                  "flex-1 sm:flex-none min-w-[120px] rounded-lg px-3 py-2 text-left transition-all border min-h-[52px]",
-                  c.active ? `${tonePill[c.tone]} border-transparent ring-2 ring-primary/40` : "bg-card border-border hover:border-primary/40",
-                )}>
-                <div className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground">{c.label}</div>
-                <div className="text-lg font-semibold tabular-nums leading-tight">{c.count.toLocaleString()}</div>
-              </button>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Top toolbar: search + add */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search SKU, product name, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
-        </div>
-        <Button size="sm" variant="outline" onClick={() => {
-          const exportRows = filtered.map(r => {
-            const py = Number(r.purchase_yield ?? 100);
-            const cy = Number(r.cooking_yield ?? 100);
-            const totalYield = (py / 100) * (cy / 100) * 100;
-            const effectiveCost = r.cost_per_base_unit > 0 && totalYield > 0
-              ? r.cost_per_base_unit / (totalYield / 100)
-              : r.cost_per_base_unit;
-
-            return {
-              internal_sku:            r.internal_sku,
-              internal_product_name:   r.internal_product_name,
-              supplier:                r.supplier,
-              supplier_product_name:   r.supplier_product_name,
-              external_sku:            r.external_sku,
-              level1_category:         r.level1_category,
-              level2_category:         r.level2_category,
-              level3_category:         r.level3_category,
-              financial_treatment:     (r as any).financial_treatment,
-              coa_account:             (r as any).default_coa_label,
-              mapping_status:          (r as any).mapping_status,
-              creates_stock_movement:  (((r as any).product?.creates_stock_movement ?? true) ? 'Yes' : 'No'),
-              purchase_unit:           r.purchase_unit,
-              purchase_unit_cost:      r.purchase_unit_cost.toFixed(2),
-              stock_uom:               r.stock_uom,
-              stock_qty:               r.stock_qty,
-              cost_per_stock_unit:     r.cost_per_stock_unit.toFixed(4),
-              base_unit_type:          r.base_unit_type,
-              base_unit_qty:           r.base_unit_qty,
-              cost_per_base_unit:      r.cost_per_base_unit.toFixed(4),
-              purchase_yield:          py,
-              cooking_yield:           cy,
-              total_yield:             totalYield.toFixed(1),
-              effective_cost_per_base: effectiveCost.toFixed(4),
-              min_stock_qty:           (r as any).product?.min_stock_qty ?? '',
-              reorder_qty:             (r as any).product?.reorder_qty ?? '',
-              notes:                   (r as any).notes,
-              status:                  r.status,
-            };
-          });
-
-          downloadCSV(
-            exportRows,
-            [
-              { key: 'internal_sku',            label: 'Internal SKU' },
-              { key: 'internal_product_name',   label: 'Product Name' },
-              { key: 'supplier',                label: 'Supplier & Vendor' },
-              { key: 'supplier_product_name',   label: 'Supplier Product Name' },
-              { key: 'external_sku',            label: 'External SKU' },
-              { key: 'level1_category',         label: 'L1' },
-              { key: 'level2_category',         label: 'L2' },
-              { key: 'level3_category',         label: 'L3' },
-              { key: 'financial_treatment',     label: 'Financial Treatment' },
-              { key: 'coa_account',             label: 'COA Account' },
-              { key: 'mapping_status',          label: 'Mapping' },
-              { key: 'creates_stock_movement',  label: 'Creates Stock Movement' },
-              { key: 'purchase_unit',           label: 'Purch. UOM' },
-              { key: 'purchase_unit_cost',      label: 'Purch. Cost' },
-              { key: 'stock_uom',               label: 'Stock UOM' },
-              { key: 'stock_qty',               label: 'Stock Qty' },
-              { key: 'cost_per_stock_unit',     label: 'Cost per Stock Unit' },
-              { key: 'base_unit_type',          label: 'Base/Recipe UOM' },
-              { key: 'base_unit_qty',           label: 'Base/Recipe Qty' },
-              { key: 'cost_per_base_unit',      label: 'Cost per Base Unit' },
-              { key: 'purchase_yield',          label: 'Purchase Yield (%)' },
-              { key: 'cooking_yield',           label: 'Cooking Yield (%)' },
-              { key: 'total_yield',             label: 'Total Yield (%)' },
-              { key: 'effective_cost_per_base', label: 'Effective Cost per Base Unit' },
-              { key: 'min_stock_qty',           label: 'Min Stock Qty' },
-              { key: 'reorder_qty',             label: 'Reorder Qty' },
-              { key: 'notes',                   label: 'Notes' },
-              { key: 'status',                  label: 'Status' },
-            ],
-            `product_master_${new Date().toISOString().slice(0, 10)}`
-          );
-        }} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
-        {canEditList && <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />{popup ? "Add product" : "Add Item"}</Button>}
-      </div>
-
-      {/* Document-Centre-style toolbar */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Select value={setupFilter} onValueChange={(v) => setSetupFilter(v as SetupHealthState | "all")}>
-            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Setup</SelectItem>
-              <SelectItem value="needs_setup">Needs setup</SelectItem>
-              <SelectItem value="complete">Complete</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Draft">Draft (needs setup)</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 h-9">
-                <Filter className="h-3.5 w-3.5" /> Filters
-                {activeFilterCount > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-medium bg-primary/20 text-primary rounded px-1.5 min-w-[16px] h-4">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 p-4 space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">L1 Category</label>
-                <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setL2Filter("all"); setSubCatFilter("all"); }}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All L1" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All L1</SelectItem>
-                    {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">L2 Category</label>
-                <Select value={l2Filter} onValueChange={(v) => { setL2Filter(v); setSubCatFilter("all"); }}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All L2" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All L2</SelectItem>
-                    {l2Categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">L3 Category</label>
-                <Select value={subCatFilter} onValueChange={setSubCatFilter}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All L3" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All L3</SelectItem>
-                    {subCategories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Supplier & Vendor</label>
-                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All Suppliers & Vendors" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Suppliers & Vendors</SelectItem>
-                    {allSuppliers.filter(s => s && s.trim() !== "").map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Financial Treatment</label>
-                <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All Treatments" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Treatments</SelectItem>
-                    <SelectItem value="__unmapped__">— Unmapped —</SelectItem>
-                    {FINANCIAL_TREATMENTS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Mapping Status</label>
-                <Select value={mappingFilter} onValueChange={setMappingFilter}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Mapping</SelectItem>
-                    <SelectItem value="Mapped">Mapped</SelectItem>
-                    <SelectItem value="Unmapped">Unmapped</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end pt-1">
-                <Button variant="ghost" size="sm" onClick={clearFilters} disabled={!hasFilters}>Reset</Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique items)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 h-9"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={showLegacyCols}
-                onCheckedChange={(v) => setShowLegacyCols(!!v)}
-              >
-                Show SKU / UOM details
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 h-9">
-                <ArrowUpDown className="h-3.5 w-3.5" /> {primarySort ? SORT_LABELS[primarySort.key] || primarySort.key : "Sort"} ({primarySort?.dir === "asc" ? "↑" : "↓"})
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {columns.map(c => (
-                <DropdownMenuItem key={c.key} onClick={() => setSortColumns([{ key: c.key, dir: primarySort?.key === c.key && primarySort.dir === "asc" ? "desc" : "asc" }])}>
-                  {primarySort?.key === c.key && <Check className="h-3.5 w-3.5 mr-2" />}
-                  <span className={primarySort?.key === c.key ? "" : "ml-[22px]"}>{c.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Table (desktop) / Card list (mobile) */}
-      <Card className="card-glass overflow-hidden">
-        {isMobile ? (
-          <div className="divide-y divide-border">
-            {pageItems.length === 0 && (
-              <div className="text-center text-muted-foreground py-12">No products found.</div>
-            )}
-            {pageItems.map(r => (
-              <div key={r.rowKey} className={cn("p-3 space-y-1.5", r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]")}>
-                <div className="flex items-start justify-between gap-2">
-                  <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r)}>
-                    <div className="font-medium text-sm truncate">{r.internal_product_name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{r.supplier || "—"}</div>
-                  </button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {(r.level1_category || r.level2_category || r.level3_category) && (
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ")}
-                  </div>
-                )}
-                <div className="flex items-center flex-wrap gap-1.5">
-                  <SetupStatusBadge row={r} />
-                  {r.financial_treatment && (
-                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
-                      {r.financial_treatment}
-                    </Badge>
-                  )}
-                  {r.mapping_status === "Mapped" ? (
-                    <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Mapped</span>
-                  ) : (
-                    <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
-                  )}
-                  <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map(col => (
-                  <TableHead
-                    key={col.key}
-                    className={`cursor-pointer select-none whitespace-nowrap ${(col as any).align === "right" ? "text-right" : ""}`}
-                    onClick={(e) => toggleSort(col.key, (e as any).shiftKey)}
-                    title="Click to sort. Shift+click to add another column."
-                  >
-                    <span className="inline-flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                  </TableHead>
-                ))}
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageItems.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={columns.length + 1} className="text-center text-muted-foreground py-12">
-                    No products found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {pageItems.map((r) => (
-                <TableRow key={r.rowKey} onClick={popup ? (e) => { if (!(e.target as HTMLElement).closest("button,a,[role=menuitem]")) openEdit(r); } : undefined} className={cn(r.setup_state === "needs_setup" && "border-l-2 border-l-warning/70 bg-warning/[0.04]", popup && "settings-row")}>
-                  <TableCell className="font-medium max-w-[280px] truncate" title={r.internal_product_name}>{r.internal_product_name}</TableCell>
-                  <TableCell className="truncate max-w-[180px]" title={r.supplier}>{r.supplier || <span className="settings-amber">Not set</span>}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.level1_category}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.level2_category}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.level3_category}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {r.financial_treatment ? (
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
-                          {r.financial_treatment}
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">—</span>
-                      )}
-                      {r.financial_treatment === "COGS" && !r.creates_stock_movement && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 bg-muted/30 text-muted-foreground">
-                          No stock
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {r.mapping_status === "Mapped" ? (
-                      <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Mapped</span>
-                    ) : (
-                      <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <SetupStatusBadge row={r} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
-                  </TableCell>
-                  {showLegacyCols && (
-                    <>
-                      <TableCell className="font-mono text-xs text-primary truncate max-w-[140px]">{r.internal_sku}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[140px]">{r.external_sku}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">{r.supplier_product_name}</TableCell>
-                      <TableCell className="text-xs">{r.purchase_unit}</TableCell>
-                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.purchase_unit_cost)}</TableCell>
-                      <TableCell className="text-xs">{r.stock_uom}</TableCell>
-                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.stock_qty)}</TableCell>
-                      <TableCell className="text-xs">{r.base_unit_type}</TableCell>
-                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.base_unit_qty)}</TableCell>
-                    </>
-                  )}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        )}
-
-        {/* Pagination footer */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Rows per page:</span>
-            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-              <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="td-num">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filtered.length.toLocaleString()}</span>
-            <div className="flex items-center gap-1 ml-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-              {getPageNumbers().map((p, i) =>
-                p === "..." ? (
-                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
-                ) : (
-                  <Button key={p} variant={p === currentPage ? "default" : "ghost"} size="icon" className="h-8 w-8 td-num" onClick={() => setPage(p as number)}>{p}</Button>
-                ),
-              )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-4 w-4" /></Button>
-            </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
+          <span className="tabular-nums">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {listRows.length.toLocaleString()}</span>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="tabular-nums">{currentPage} / {totalPages}</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
-      </Card>
+      )}
 
+      <ItemsUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} onDone={fetchProducts} />
 
       {/* Create/Edit Sheet — right side on desktop, bottom sheet on mobile */}
       <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1516,6 +1300,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
             </Accordion>
           </div>
           <div className="flex justify-end gap-2 px-5 py-3 border-t shrink-0 bg-background">
+            {editingProductId && editingRow && canEditList && <Button variant="ghost" className="mr-auto text-destructive hover:text-destructive" onClick={() => { setDeletingRow(editingRow); setDialogOpen(false); setDeleteOpen(true); }}>Delete</Button>}
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
               {editingProductId ? "Update" : "Create"}
