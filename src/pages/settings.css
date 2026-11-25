@@ -103,7 +103,7 @@ body[data-settings] [role="dialog"][data-state] { background:hsl(var(--popover))
  .settings-menu-chev { display:block; color:#9AA39E; }
  .settings-dot { width:6px; height:6px; flex:none; border-radius:3px; background:#C26A12; }
  .settings-back { display:inline-flex; }
- .settings-head { padding-right:0; min-height:0; margin-bottom:10px; }
+ .settings-head { flex-direction:column; align-items:flex-start; padding-right:0; min-height:0; margin-bottom:10px; }
  .settings-head-title { font-size:22px; }
  .settings-action { position:static; padding:0 0 10px; }
  .settings-card:not(.is-editing):has(> .settings-row) { grid-template-columns:1fr 1fr; }
