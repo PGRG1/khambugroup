@@ -63,7 +63,8 @@ const SALES_LABELS: Record<string, string> = {
 };
 const showSales = (field: string, v: unknown) => typeof v === "number" && field !== "orders" && field !== "guests" ? fmtHK(Math.abs(v)) : String(v ?? "—");
 const SPHERE = 44;
-const FILES_ONLY_PROMPT = "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.";
+// Files sent without words: Bani works out what they are and opens the right card (see chat-assistant replies.ts isHandOver).
+const FILES_ONLY_PROMPT = "(no message)";
 
 const toBase64 = (file: File, signal: AbortSignal) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();

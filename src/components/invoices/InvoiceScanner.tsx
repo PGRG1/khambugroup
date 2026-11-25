@@ -2216,6 +2216,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       supplier={currentSupplierName}
       number={current?.invoice_number || ""}
       date={current?.invoice_date || ""}
+      venue={current?.venue || ""}
+      venues={scannerVenues.filter(v => v.is_active && v.name.trim()).map(v => v.name)}
       total={displayTotal}
       currency={current?.currency || (supplierRow as { default_currency?: string } | undefined)?.default_currency || getBaseCurrency()}
       lines={(current?.line_items || []).filter(l => l.description.trim() && l.counts_toward_total !== false).map((l) => {
@@ -2225,13 +2227,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const price = parseFloat(l.unit_price) || 0;
         const was = l.price_changed && !l.is_free_unit_line && l.pm_unit_price != null ? Number(l.pm_unit_price) : null;
         const nb = l.product_master_id ? (notBookable?.key === bookableKey ? notBookable.items[l.product_master_id] : { problem: "checking", category: "" } as NotBookable) : undefined;
-        return { blocked: nb ? notBookableText(nb, current?.venue || "") : undefined, key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
+        const accP = parseFloat(l.accepted_price ?? "");
+        return { blocked: nb ? notBookableText(nb, current?.venue || "") : undefined, code: [l.scanned_item_code ?? l.item_code, l.matched_internal_name ? (l.scanned_description ?? l.description) : ""].filter(Boolean).join(" · ") || undefined, acceptedPrice: l.accepted_price && Number.isFinite(accP) ? accP : undefined, key: l._baniLineId || String(i), index: i, name: l.matched_internal_name || l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
       })}
       termsDays={termsMatch ? Number(termsMatch[1]) : null}
       printedDue={current?.due_date || null}
       saving={saving}
       onField={(field, value) => updateField(field, value)}
       onQty={setQty}
+      onPrice={(i, value) => updateLineAcceptedPrice(i, value)}
       onReason={(i, reason, note) => {
         // Same whitelist as Scan Invoice; "other" keeps its note.
         if (!RECEIVING_REASONS.some(r => r.value === reason)) return;
@@ -2241,7 +2245,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       onBook={answers => {
         if (!current) return;
         // Hold = not approved: a draft, never in payables. Otherwise any count difference disputes and holds money back.
-        const status = answers.hold ? "under_review" : disputeStats.hasDispute ? "disputed" : answers.paid ? "paid" : "outstanding";
+        const priceDispute = current.line_items.some(l => l.price_disputed);
+        const status = answers.hold ? "under_review" : disputeStats.hasDispute || priceDispute ? "disputed" : "outstanding";
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
       onOpenFull={() => onOpenFull?.()}

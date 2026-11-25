@@ -19,7 +19,7 @@ describe("cleanReplies", () => {
 
 describe("isHandOver", () => {
   it("treats a file handed over without a question as something to book", () => {
-    for (const m of ["", "  ", "here", "delivery today", "VegFresh for Caliente", "book this", "this is the delivery from this morning"]) expect(isHandOver(m)).toBe(true);
+    for (const m of ["", "  ", "(no message)", "Please read the attached file(s), summarise what they show, and ask me what I would like to do with them.\n[Attached files: IMG-1.jpg]", "here\n[Untrusted page context: employee X. What is this?]", "here", "delivery today", "VegFresh for Caliente", "book this", "this is the delivery from this morning"]) expect(isHandOver(m)).toBe(true);
   });
   it("lets real questions get an answer", () => {
     for (const m of ["is this price fair", "what is on this invoice", "compare suppliers for this", "check prices please", "can you explain line 3", "any overcharge?"]) expect(isHandOver(m)).toBe(false);

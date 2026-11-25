@@ -7,8 +7,8 @@ const lines: ChatScanLine[] = [
   { key: "a", index: 0, name: "Tiger prawns", billed: 4, accepted: 4, unit: "kg", total: 1120, price: 280 },
   { key: "b", index: 2, name: "Squid", billed: 8, accepted: 8, unit: "kg", total: 1040, price: 130 },
 ];
-const base = { supplier: "Sun Kee Seafood", number: "INV-1", date: "2026-11-18", total: 2160, currency: "HKD", lines, termsDays: 30, printedDue: null, saving: false };
-const fns = () => ({ onField: vi.fn(), onQty: vi.fn(), onReason: vi.fn(), onBook: vi.fn(), onOpenFull: vi.fn() });
+const base = { supplier: "Sun Kee Seafood", number: "INV-1", date: "2026-11-18", venue: "Caliente", venues: ["Caliente", "Assembly"], total: 2160, currency: "HKD", lines, termsDays: 30, printedDue: null, saving: false };
+const fns = () => ({ onField: vi.fn(), onQty: vi.fn(), onPrice: vi.fn(), onReason: vi.fn(), onBook: vi.fn(), onOpenFull: vi.fn() });
 const book = () => screen.getByRole("button", { name: "Book" }) as HTMLButtonElement;
 
 describe("Bani chat invoice booking", () => {
@@ -22,7 +22,7 @@ describe("Bani chat invoice booking", () => {
     fireEvent.click(book());
     expect(f.onBook).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Book"));
-    expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ dueDate: "2026-12-18", paid: false, hold: false }));
+    expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ dueDate: "2026-12-18", hold: false }));
   });
 
   it("never books a line that can't go into the books, but still allows Hold", () => {
@@ -48,14 +48,15 @@ describe("Bani chat invoice booking", () => {
     fireEvent.click(screen.getByText("Tick all"));
     fireEvent.click(screen.getByText("Hold for review"));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Hold"));
-    expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ hold: true, paid: false }));
+    expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ hold: true }));
   });
 
   it("changes the received quantity of the real scanner line", () => {
     const f = fns();
     render(<ChatScanCard {...base} phase="ready" {...f} />);
-    fireEvent.click(screen.getByLabelText("Change Squid received"));
-    fireEvent.click(screen.getByLabelText("Less Squid"));
+    const box = screen.getByLabelText("Squid accepted");
+    fireEvent.change(box, { target: { value: "7" } });
+    fireEvent.blur(box);
     expect(f.onQty).toHaveBeenCalledWith(2, 7);
   });
 
@@ -68,10 +69,23 @@ describe("Bani chat invoice booking", () => {
     expect(heldForCounts([lines[0], short])).toBe(130);
   });
 
-  it("shows Bani's price check without letting the receiver change price", () => {
-    render(<ChatScanCard {...base} lines={[{ ...lines[0], was: 275 }, lines[1]]} phase="ready" {...fns()} />);
+  it("shows the whole invoice as a table and takes a typed accepted price", () => {
+    const f = fns();
+    render(<ChatScanCard {...base} lines={[{ ...lines[0], was: 275 }, lines[1]]} phase="ready" {...f} />);
     expect(screen.getByText("Was 275.00")).toBeTruthy();
-    expect(screen.getByText("1 price up")).toBeTruthy();
+    for (const h of ["Quantity", "Reason", "Unit price", "Accepted price", "Total"]) expect(screen.getByText(h)).toBeTruthy();
+    const price = screen.getByLabelText("Tiger prawns accepted price");
+    fireEvent.change(price, { target: { value: "275" } });
+    fireEvent.blur(price);
+    expect(f.onPrice).toHaveBeenCalledWith(0, "275");
+    expect(heldForCounts([{ ...lines[0], acceptedPrice: 275 }])).toBe(20);
+  });
+
+  it("needs a venue before Book or Hold", () => {
+    render(<ChatScanCard {...base} venue="" phase="ready" {...fns()} />);
+    fireEvent.click(screen.getByText("Tick all"));
+    expect(book().disabled).toBe(true);
+    expect(screen.getByText("Pick the venue.")).toBeTruthy();
   });
 
   it("sends anything unclear to the full review and never offers Book", () => {
