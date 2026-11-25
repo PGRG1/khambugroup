@@ -95,6 +95,8 @@ export interface ReviewInput {
   salesNotes?: SalesNoteRow[];
   /** Venue-days the owner confirmed as closed (optional). */
   closedDays?: { venue_id: string; date: string }[];
+  /** Approved supplier invoices the books could not post, with why (purchase_posting_holds). */
+  postingHolds?: { invoice_id: string; invoice_number: string | null; supplier_name: string | null; total_amount: number | null; reasons: string[] }[];
 }
 
 // ---------------- formatting ----------------
@@ -382,6 +384,18 @@ function accountantReport(inp: ReviewInput): SpecialistReport {
     + dueBills.reduce((s, b) => s + n0(b.total_amount) - n0(b.paid_amount), 0);
   const holdAmt = onHold.reduce((s, i) => s + (i.remaining_balance != null ? n0(i.remaining_balance) : n0(i.total_amount) - n0(i.amount_paid)), 0);
   const dueNames = dueInv.map((i) => `${i.supplier_name || "Unknown supplier"} ${fmtHKD(i.remaining_balance != null ? n0(i.remaining_balance) : n0(i.total_amount) - n0(i.amount_paid))} due ${fmtDate(i.due_date!)}`);
+  // Approved invoices the books could not post (a line with no product, group or account): never left silent.
+  const holds = inp.postingHolds ?? [];
+  const holdTotal = holds.reduce((sum, h) => sum + n0(h.total_amount), 0);
+  const holdNames = holds.slice(0, 3).map((h) => `${h.supplier_name || "Supplier"} ${h.invoice_number || ""}`.trim() + (h.reasons[0] ? ` (${h.reasons[0]})` : ""));
+  findings.push({ key: "accountant.invoices_not_posted", title: "Invoices not in the books", severity: holds.length ? "action" : "info", assessable: true,
+    statement: holds.length
+      ? `${fmtCount(holds.length)} approved supplier invoices (${fmtHKD(holdTotal)}) are not in the books because a line has no product, group or account: ${holdNames.join("; ")}${holds.length > 3 ? "…" : ""}.`
+      : "Every approved supplier invoice is in the books.",
+    figures: [fig("Invoices not in the books", holds.length, "count"), fig("Amount not in the books", holdTotal, "HKD")],
+    evidence: [{ label: "Purchasing setup", route: "/settings?tab=accounting&view=purchasing-setup" }],
+    recommendation: holds.length ? "Link each line to a product, or give its category an account in Settings › Purchasing setup; the invoice then posts by itself." : null });
+
   findings.push({ key: "accountant.due_this_week", title: "Due in the next 7 days", severity: dueAmt > 0 ? "watch" : "info", assessable: true,
     statement: (dueInv.length + dueBills.length)
       ? `${fmtHKD(dueAmt)} falls due in the next 7 days (${fmtCount(dueInv.length + dueBills.length)} items): ${dueNames.slice(0, 3).join("; ")}${dueNames.length > 3 ? "…" : ""}.${onHold.length ? ` On hold (disputed): ${fmtCount(onHold.length)} invoices, ${fmtHKD(holdAmt)}.` : ""}`

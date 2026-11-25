@@ -296,3 +296,17 @@ describe("venues marked closed", () => {
     expect(find(base({ venues, closedDays: [{ venue_id: "a", date: end }] }), "revenue.missing_venues").severity).toBe("info");
   });
 });
+
+describe("invoices not in the books", () => {
+  const find = (over: Partial<ReviewInput>) => buildSpecialists(base(over)).flatMap(r => r.findings).find(f => f.key === "accountant.invoices_not_posted")!;
+  it("raises an action for approved invoices the books could not post, with the reason", () => {
+    const f = find({ postingHolds: [{ invoice_id: "i1", invoice_number: "18813", supplier_name: "VegFresh HK", total_amount: 257.4, reasons: ["Spring onion has no account"] }] });
+    expect(f.severity).toBe("action");
+    expect(f.statement).toContain("VegFresh HK 18813 (Spring onion has no account)");
+    expect(f.figures.find(x => x.label === "Amount not in the books")?.value).toBe(257.4);
+  });
+  it("stays quiet when every approved invoice posted", () => {
+    expect(find({ postingHolds: [] }).severity).toBe("info");
+    expect(find({}).statement).toBe("Every approved supplier invoice is in the books.");
+  });
+});

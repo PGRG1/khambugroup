@@ -142,6 +142,16 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
       .filter(Boolean) as ReviewInput["priceLines"];
   }
 
+  // Approved invoices the books could not post, limited to the venues this review covers.
+  const holdRows = await fetchAll((f, t) => admin.from("purchase_posting_holds").select("invoice_id,reasons").eq("tenant_id", tenantId).range(f, t)) as { invoice_id: string; reasons: string[] | null }[];
+  let postingHolds: ReviewInput["postingHolds"] = [];
+  if (holdRows.length) {
+    const ids = holdRows.map((h) => h.invoice_id);
+    const { data: heldInvs } = await scoped(admin.from("invoices").select("id,invoice_number,total_amount,suppliers(name)").eq("tenant_id", tenantId).in("id", ids.slice(0, 500)));
+    const why = new Map(holdRows.map((h) => [h.invoice_id, (h.reasons ?? []).filter(Boolean)]));
+    postingHolds = ((heldInvs ?? []) as any[]).map((r) => ({ invoice_id: r.id, invoice_number: r.invoice_number ?? null, supplier_name: r.suppliers?.name ?? null, total_amount: Number(r.total_amount) || 0, reasons: why.get(r.id) ?? [] }));
+  }
+
   // Revenue per calendar month (for staff-cost ratio).
   const byMonth = new Map<string, number>();
   for (const r of salesMonths as any[]) {
@@ -172,7 +182,7 @@ async function loadInput(admin: Admin, tenantId: string, venueId: string | null,
 
   return {
     reviewType: type, ...p, asOf,
-    sales: s, comparisonSales: cs, invoices: inv.map(mapInv), comparisonInvoices: cinv.map(mapInv), openPayableInvoices: open.map(mapInv), bills, bankAccounts,
+    sales: s, comparisonSales: cs, invoices: inv.map(mapInv), comparisonInvoices: cinv.map(mapInv), openPayableInvoices: open.map(mapInv), bills, bankAccounts, postingHolds,
     venues: venues as any,
     priceLines,
     payroll: payroll as any,
