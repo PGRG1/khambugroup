@@ -74,7 +74,7 @@ export function AiSuggestionPanel({
                 Accept Once
               </Button>
               <Button size="sm" onClick={onAcceptAndTeach}>
-                Accept &amp; Teach
+                Accept and save rule
               </Button>
             </div>
           </div>

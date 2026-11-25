@@ -1,3 +1,4 @@
+import { teachMessage, type TeachResult } from "@/utils/ruleTeachResult";
 import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -87,8 +88,10 @@ export function useAiSuggestion(params: UseAiSuggestionParams) {
         });
         if (error) throw error;
         if ((data as any)?.error) throw new Error((data as any).error);
-        toast.success(teach ? "Accepted & taught — the AI will remember this." : "Accepted.");
-        return data as { ok: true; rule_id: string | null };
+        const msg = teachMessage(teach, data as TeachResult);
+        if ((data as TeachResult)?.rule_refused) toast.warning(msg.title, { description: msg.description });
+        else toast.success(msg.title, { description: msg.description });
+        return data as { ok: true; rule_id: string | null; rule_status?: string | null; rule_refused?: string | null };
       } catch (e) {
         handleError(e);
       }

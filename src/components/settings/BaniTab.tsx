@@ -16,6 +16,7 @@ const GROUPS:[LearningGroup,string][]=[['bank','Bank'],['invoices','Invoices'],[
 export function BaniTab(){
   const {tenantId}=useActiveTenant();const bani=useBaniAccounting();
   const [raw,setRaw]=useState<{rules:any[];feedback:any[];notes:any[];look:Lookups}>({rules:[],feedback:[],notes:[],look:{people:{},suppliers:{},products:{},venues:{}}});
+  const [canApprove,setCanApprove]=useState(false);
   const [loading,setLoading]=useState(true),[filter,setFilter]=useState<'all'|LearningGroup>('all'),[search,setSearch]=useState(''),[open,setOpen]=useState<Learning|null>(null),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
   async function load(){if(!tenantId)return;setLoading(true);try{
     const [rules,feedback,notes,people,suppliers,products,venues]=await Promise.all([
@@ -30,12 +31,20 @@ export function BaniTab(){
     setRaw({rules,feedback,notes,look:{people:map(people.data??[],'user_id','display_name'),suppliers:map(suppliers,'id','name'),products:map(products,'id','internal_product_name'),venues:Object.fromEntries(venues.map((v:any)=>[String(v.name).toLowerCase(),v.name]))}});
   }catch(e){toast.error((e as Error).message);}finally{setLoading(false);}}
   useEffect(()=>{void load();},[tenantId]);
-  const items=useMemo(()=>[...fromRules(raw.rules,raw.look),...fromExamples(bani.examples,raw.look),...fromFeedback(raw.feedback,raw.look),...fromNotes(raw.notes,raw.look)].filter(i=>!i.forgotten),[raw,bani.examples]);
+  useEffect(()=>{if(!tenantId)return;let on=true;void (supabase.rpc as any)('can_approve_bani_rules',{t:tenantId}).then(({data}:any)=>{if(on)setCanApprove(data===true);});return()=>{on=false;};},[tenantId]);
+  const waiting=useMemo(()=>fromRules(raw.rules.filter(r=>r.status==='needs_review'),raw.look),[raw]);
+  const items=useMemo(()=>[...fromRules(raw.rules.filter(r=>r.status!=='needs_review'),raw.look),...fromExamples(bani.examples,raw.look),...fromFeedback(raw.feedback,raw.look),...fromNotes(raw.notes,raw.look)].filter(i=>!i.forgotten),[raw,bani.examples]);
   const shown=items.filter(i=>(filter==='all'||i.group===filter)&&`${i.sentence} ${i.from} ${i.example}`.toLowerCase().includes(search.toLowerCase()));
+  async function review(item:Learning,approve:boolean){if(!tenantId)return;setBusy(true);const {error}=await (supabase.rpc as any)('settings_review_rule',{t:tenantId,rule:item.ids[0],approve});setBusy(false);
+    if(error){toast.error(error.message);return;}toast.success(approve?'Rule approved. Bani will use it from now on':'Rule turned down');void load();}
   async function forget(){if(!open||!tenantId)return;setBusy(true);const {error}=await supabase.rpc('settings_forget_learning',{t:tenantId,k:open.kind,ids:open.ids});setBusy(false);
     if(error){toast.error(error.message);return;}setConfirm(false);setOpen(null);toast.success('Bani will no longer use this');void load();void bani.refresh();}
   return <><div className="space-y-4">
     {bani.settings.paused_reason&&<div className="kit-explain"><p>Bani can't check new bills right now: the AI spending limit for the workspace was reached. Nothing is posted while this lasts.</p><Button className="mt-3" variant="outline" disabled={bani.busy} onClick={()=>bani.run('resume')}>Try again</Button></div>}
+    {!!waiting.length&&<SettingsCard title={`Waiting for approval (${waiting.length})`}>
+      <p className="text-sm text-muted-foreground mb-2">{canApprove?'Bani only uses these after someone approves them. Check the rule is narrow enough: it applies to every matching line from now on.':'An admin or someone with Approve on Finance needs to approve these before Bani uses them.'}</p>
+      <ul className="divide-y divide-border/60">{waiting.map(w=><li key={w.key} className="py-3 flex flex-wrap items-start gap-3"><div className="min-w-0 flex-1"><p className="text-sm break-words">{w.sentence}</p><p className="text-xs text-muted-foreground mt-1">Asked by {w.by??'someone'}{w.added?` · ${formatDate(w.added)}`:''} · {w.example}</p></div>
+        {canApprove&&<div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={()=>void review(w,false)}>Turn down</Button><Button size="sm" disabled={busy} onClick={()=>void review(w,true)}>Approve</Button></div>}</li>)}</ul></SettingsCard>}
     <div className="flex flex-wrap items-center gap-3"><div className="settings-tabs" role="tablist" aria-label="Filter learning">{([['all','All'],...GROUPS] as [string,string][]).map(([k,l])=><button key={k} role="tab" aria-selected={filter===k} onClick={()=>setFilter(k as any)}>{l}</button>)}</div><Input className="sm:ml-auto sm:max-w-xs" aria-label="Search what Bani learned" placeholder="Search" value={search} onChange={e=>setSearch(e.target.value)}/></div></div>
     {loading?<p className="py-6 text-muted-foreground text-sm">Loading…</p>:!shown.length?<p className="py-6 text-muted-foreground text-sm">{items.length?'Nothing matches this view.':'Nothing taught yet.'}</p>:
     GROUPS.filter(([g])=>shown.some(i=>i.group===g)).map(([g,label])=><SettingsCard key={g} title={label}>
@@ -44,6 +53,6 @@ export function BaniTab(){
     <Dialog open={!!open} onOpenChange={o=>{if(!o){setOpen(null);setConfirm(false);}}}><DialogContent><DialogHeader><DialogTitle className="break-words leading-snug">{open?.sentence}</DialogTitle><DialogDescription>What Bani learned</DialogDescription></DialogHeader>
       {open&&<dl className="text-sm grid grid-cols-[110px_1fr] gap-x-3 gap-y-2">{([['From',open.from],['Added',open.added?formatDate(open.added):'Not recorded'],['Taught by',open.by??'Not recorded'],['Used',open.used],['Example',open.example]] as [string,string][]).map(([k,v])=><Fragment key={k}><dt className="text-muted-foreground">{k}</dt><dd className="break-words">{v}</dd></Fragment>)}</dl>}
       {confirm?<div className="space-y-3 border-t border-border pt-3"><p className="text-sm">Bani will no longer use this, and will ask next time instead. Nothing already recorded changes.</p><div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setConfirm(false)}>Keep it</Button><Button disabled={busy} onClick={()=>void forget()}>Forget</Button></div></div>
-      :<div className="flex justify-between gap-2"><Button variant="outline" onClick={()=>setOpen(null)}>Close</Button><Button variant="outline" onClick={()=>setConfirm(true)}>Forget</Button></div>}
+      :<div className="flex justify-between gap-2"><Button variant="outline" onClick={()=>setOpen(null)}>Close</Button>{canApprove&&<Button variant="outline" onClick={()=>setConfirm(true)}>Forget</Button>}</div>}
     </DialogContent></Dialog></>;
 }

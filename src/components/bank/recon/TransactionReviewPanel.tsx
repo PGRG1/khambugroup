@@ -1,3 +1,4 @@
+import { teachMessage, type TeachResult } from "@/utils/ruleTeachResult";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -135,7 +136,7 @@ export function TransactionReviewPanel({
       action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
       notes: { manual_notes: notes, ai: aiResult, teach: alsoSaveRule },
     });
-    await supabase.functions.invoke("ai-classify", {
+    const { data: taught } = await supabase.functions.invoke("ai-classify", {
       body: {
         op: "apply",
         domain: "bank_recon",
@@ -158,7 +159,7 @@ export function TransactionReviewPanel({
         record_id: txn.id,
       },
     });
-    toast({ title: alsoSaveRule ? "Accepted & taught — AI will remember this" : "Classification applied" });
+    toast(teachMessage(alsoSaveRule, taught as TeachResult));
     setBusy(false);
     onChanged();
     onClose();
@@ -261,7 +262,7 @@ export function TransactionReviewPanel({
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => acceptAi(true)} disabled={busy} className="flex-1">Accept &amp; Teach</Button>
+                    <Button size="sm" onClick={() => acceptAi(true)} disabled={busy} className="flex-1">Accept and save rule</Button>
                     <Button size="sm" variant="outline" onClick={() => acceptAi(false)} disabled={busy} className="flex-1">Accept Once</Button>
                   </div>
                 </div>

@@ -11,6 +11,7 @@
 // Only when nothing matches do we call the model. Gemini 2.5 Flash by default;
 // Pro fallback is workflow-gated, capped at 1/invoice/workflow, and always logged.
 
+import { checkRulePattern, canApproveRules } from "../_shared/rulePatternSafety.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { alignBatchResults } from "../_shared/aiBatchAlign.ts";
 import { sanitizeAnomalyOutput } from "../_shared/anomalyFlags.ts";
@@ -143,7 +144,7 @@ async function resolveCaller(req: Request, requestedTenantId: string | null): Pr
 }
 
 // ---------- Pattern matcher ----------
-/** Supports {contains, equals, regex, eq:{field:value}, eq_all:{field:value,...}}. */
+/** Supports {contains, equals, eq:{field:value}, eq_all:{field:value,...}}. */
 function matchesPattern(pattern: any, input: any): boolean {
   if (!pattern || typeof pattern !== "object") return false;
   const desc = String(input?.description ?? "").toLowerCase();
@@ -153,11 +154,6 @@ function matchesPattern(pattern: any, input: any): boolean {
   }
   if (typeof pattern.equals === "string") {
     if (desc !== pattern.equals.toLowerCase()) return false;
-  }
-  if (typeof pattern.regex === "string") {
-    try {
-      if (!new RegExp(pattern.regex, "i").test(desc)) return false;
-    } catch { return false; }
   }
   if (pattern.eq && typeof pattern.eq === "object") {
     for (const [k, v] of Object.entries(pattern.eq)) {
@@ -169,7 +165,9 @@ function matchesPattern(pattern: any, input: any): boolean {
       if (String(input?.[k] ?? "") !== String(v)) return false;
     }
   }
-  const known = ["contains", "equals", "regex", "eq", "eq_all"];
+  // Regular expressions are never applied: rules must be plain text or exact field values.
+  if ("regex" in pattern) return false;
+  const known = ["contains", "equals", "eq", "eq_all"];
   if (!known.some((k) => k in pattern)) return false;
   return true;
 }
@@ -302,11 +300,10 @@ function rulePatternSchema() {
     properties: {
       contains: { type: "string" },
       equals: { type: "string" },
-      regex: { type: "string" },
       eq: { type: "object", additionalProperties: true },
       eq_all: { type: "object", additionalProperties: true },
     },
-    additionalProperties: true,
+    additionalProperties: false,
   };
 }
 
@@ -575,7 +572,7 @@ Deno.serve(async (req) => {
 
 You will receive learned_rules, recent_examples and the new input.
 Return your answer ONLY by calling the return_suggestion tool. Confidence ∈ [0,1].
-The rule_pattern must be a generic trigger that would match similar future inputs.`;
+The rule_pattern must match similar future inputs from the same payee or item and nothing else: use the distinctive name (never generic words like payment, transfer or fee), and never a regular expression.`;
 
       const userPayload = {
         learned_rules: activeRules ?? [],
@@ -737,7 +734,36 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
     if (op === "apply") {
       let ruleId: string | null = body.rule_id ?? null;
 
-      if (body.teach && body.rule_pattern && body.output_action) {
+      let ruleStatus: "active" | "needs_review" | null = null;
+      let ruleRefused: string | null = null;
+      // A rule is applied to every future match, so it must be narrow, and only approvers can switch it on.
+      // An unsafe pattern is refused (no rule saved) but this one classification is still recorded below.
+      const checked = body.teach && body.rule_pattern && body.output_action ? checkRulePattern(body.rule_pattern) : null;
+      if (checked && !checked.ok) ruleRefused = checked.reason;
+      if (checked && checked.ok) {
+        let financeLevel: number | null = null;
+        if (!ctx.isSuper && ctx.role !== "tenant_admin" && ctx.role !== "super_admin") {
+          const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+          const { data: lvl } = await userClient.rpc("access_level", { t: ctx.tenant_id, area: "finance" });
+          financeLevel = typeof lvl === "number" ? lvl : null;
+        }
+        const approver = canApproveRules(ctx.role, ctx.isSuper, financeLevel);
+        ruleStatus = approver ? "active" : "needs_review";
+        const { data: same } = await admin.from("ai_learned_rules").select("id, status, hit_count")
+          .eq("tenant_id", ctx.tenant_id).eq("domain", domain).eq("workflow", workflow)
+          .eq("input_pattern", JSON.stringify(checked.pattern)).eq("output_action", JSON.stringify(body.output_action)).limit(1).maybeSingle();
+        if (same && (same.status === "active" || !approver)) {
+          // Never switch an existing rule's status from here: count the use, or leave the request waiting.
+          ruleId = same.id;
+          ruleStatus = same.status === "active" ? "active" : "needs_review";
+          if (same.status === "disabled") {
+            // A switched-off rule taught again by someone who can't approve goes back to the approver, not live.
+            await admin.from("ai_learned_rules").update({ status: "needs_review", created_by: ctx.user_id }).eq("id", same.id);
+          }
+          if (same.status === "active") {
+            await admin.from("ai_learned_rules").update({ hit_count: (same.hit_count ?? 0) + 1, last_used_at: new Date().toISOString() }).eq("id", same.id);
+          }
+        } else {
         const { data: ins, error: insErr } = await admin
           .from("ai_learned_rules")
           .upsert({
@@ -747,10 +773,10 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
             workflow,
             rule_type: body.rule_type ?? null,
             name: body.name ?? null,
-            input_pattern: body.rule_pattern,
+            input_pattern: checked.pattern,
             output_action: body.output_action,
             confidence: body.confidence ?? 0.85,
-            status: "active",
+            status: ruleStatus,
             created_by: ctx.user_id,
             last_used_at: new Date().toISOString(),
           }, { onConflict: "tenant_id,domain,workflow,rule_key" })
@@ -758,10 +784,13 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
           .single();
         if (insErr) throw insErr;
         ruleId = ins.id;
-        await admin
-          .from("ai_learned_rules")
-          .update({ hit_count: (ins.hit_count ?? 0) + 1, last_used_at: new Date().toISOString() })
-          .eq("id", ins.id);
+        if (ruleStatus === "active") {
+          await admin
+            .from("ai_learned_rules")
+            .update({ hit_count: (ins.hit_count ?? 0) + 1, last_used_at: new Date().toISOString() })
+            .eq("id", ins.id);
+        }
+        }
       } else if (ruleId) {
         const { data: r } = await admin
           .from("ai_learned_rules")
@@ -789,7 +818,7 @@ Return ONLY by calling return_suggestion with output_action = { "items": [ {line
         output_snapshot: body.output_action ?? {},
       });
 
-      return new Response(JSON.stringify({ ok: true, rule_id: ruleId }), {
+      return new Response(JSON.stringify({ ok: true, rule_id: ruleId, rule_status: ruleStatus, rule_refused: ruleRefused }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
