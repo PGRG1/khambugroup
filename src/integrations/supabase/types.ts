@@ -2154,6 +2154,50 @@ export type Database = {
           },
         ]
       }
+      category_master: {
+        Row: {
+          created_at: string
+          default_group: string | null
+          id: string
+          is_active: boolean
+          level: number
+          name: string
+          parent_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_group?: string | null
+          id?: string
+          is_active?: boolean
+          level: number
+          name: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_group?: string | null
+          id?: string
+          is_active?: boolean
+          level?: number
+          name?: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_master_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "category_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_type: string
@@ -11735,6 +11779,7 @@ export type Database = {
           id: string
           is_active: boolean
           level: number
+          master_id: string | null
           name: string
           parent_id: string | null
           sort_order: number
@@ -11746,6 +11791,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           level: number
+          master_id?: string | null
           name: string
           parent_id?: string | null
           sort_order?: number
@@ -11757,6 +11803,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           level?: number
+          master_id?: string | null
           name?: string
           parent_id?: string | null
           sort_order?: number
@@ -11764,6 +11811,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_categories_master_id_fkey"
+            columns: ["master_id"]
+            isOneToOne: false
+            referencedRelation: "category_master"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_categories_parent_id_fkey"
             columns: ["parent_id"]
@@ -16258,7 +16312,20 @@ export type Database = {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
       }
+      _sync_tenant_categories: {
+        Args: { p_tenant: string }
+        Returns: undefined
+      }
       access_level: { Args: { area: string; t: string }; Returns: number }
+      add_client_level1: {
+        Args: {
+          p_account?: string
+          p_group: string
+          p_name: string
+          p_tenant: string
+        }
+        Returns: string
+      }
       add_revenue_event_with_replacement: {
         Args: {
           p_event_mode: string
@@ -17021,6 +17088,10 @@ export type Database = {
         Args: { p_from: string; p_into: string; p_tenant: string }
         Returns: number
       }
+      merge_product_category: {
+        Args: { p_from: string; p_into: string; p_tenant: string }
+        Returns: number
+      }
       money_level: { Args: { t: string }; Returns: string }
       payroll_apply_repeats: {
         Args: { m: number; t: string; y: number }
@@ -17260,6 +17331,7 @@ export type Database = {
         }[]
       }
       profile_visible: { Args: { _profile_user: string }; Returns: boolean }
+      promote_client_category: { Args: { p_category: string }; Returns: string }
       rebuild_journal_from_operations: {
         Args: { p_tenant_id: string }
         Returns: Json
@@ -17423,6 +17495,16 @@ export type Database = {
       sales_day_on_setup: {
         Args: { p_day: string; p_tenant: string }
         Returns: boolean
+      }
+      save_master_category: {
+        Args: {
+          p_active?: boolean
+          p_group?: string
+          p_id: string
+          p_name: string
+          p_parent?: string
+        }
+        Returns: string
       }
       save_people_settings: {
         Args: { p: Json; t: string; v: string }

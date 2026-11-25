@@ -1359,6 +1359,13 @@
       "when": 1795577027801,
       "tag": "0193_bani_rule_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1795580250071,
+      "tag": "0194_master_categories",
+      "breakpoints": true
     }
   ]
 }
