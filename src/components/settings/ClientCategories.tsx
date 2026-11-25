@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SettingsCard, Field } from '@/components/settings/SettingsForm';
-import { GROUPS } from '@/utils/purchasingSetup';
+import { GROUPS, groupLabel } from '@/utils/purchasingSetup';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { childrenOf, isOwn, missingLevels, pathOf, productCounts, toTidy, type CatRow, type ProductCats, type Tidy } from '@/utils/categoryTree';
 
 // Settings › Categories: Bani's master list plus the client's own (master_id null, marked Yours). Products choose
@@ -25,7 +27,12 @@ export function ClientCategories() {
   const { isPreviewActive } = usePreviewMode();
   const { isPlatformAdmin: bani } = usePlatformAdmin();
   const [rows, setRows] = useState<CatRow[]>([]);
-  const [products, setProducts] = useState<ProductCats[]>([]);
+  const [products, setProducts] = useState<(ProductCats & { financial_treatment?: string | null })[]>([]);
+  const [rules, setRules] = useState<{ rule_type: string; match_key: string; account_id: string }[]>([]);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState('');
+  const [picked, setPicked] = useState<CatRow | null>(null);
+  const isMobile = useIsMobile();
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [finance, setFinance] = useState(0);
   const [buying, setBuying] = useState(0);
@@ -45,16 +52,18 @@ export function ClientCategories() {
     const db = supabase as any;
     const prods: ProductCats[] = [];
     for (let from = 0; ; from += 1000) {
-      const { data } = await db.from('product_master').select('level1_category,level2_category,level3_category').eq('tenant_id', tenantId).range(from, from + 999);
+      const { data } = await db.from('product_master').select('level1_category,level2_category,level3_category,financial_treatment').eq('tenant_id', tenantId).range(from, from + 999);
       prods.push(...(data ?? []));
       if (!data || data.length < 1000) break;
     }
-    const [cats, coa, fin, buy] = await Promise.all([
+    const [cats, coa, fin, buy, rl] = await Promise.all([
       db.from('product_categories').select('id,name,level,parent_id,master_id,is_active').eq('tenant_id', tenantId),
       db.from('chart_of_accounts').select('id,code,name').eq('tenant_id', tenantId).eq('is_active', true).order('code'),
       bani ? Promise.resolve({ data: 3 }) : db.rpc('access_level', { t: tenantId, area: 'finance' }),
       bani ? Promise.resolve({ data: 3 }) : db.rpc('access_level', { t: tenantId, area: 'purchasing' }),
+      db.from('account_mapping_rules').select('rule_type,match_key,account_id').eq('tenant_id', tenantId).in('rule_type', ['procurement_category', 'procurement_category_venue']),
     ]);
+    setRules(rl.data ?? []);
     setRows(cats.data ?? []); setProducts(prods); setAccounts(coa.data ?? []);
     setFinance(Number(fin.data ?? 0)); setBuying(Number(buy.data ?? 0));
     setLoading(false);
@@ -74,6 +83,42 @@ export function ClientCategories() {
   const canAdd = live && (bani || isAdmin);
   const canAddL1 = live && (bani || finance >= 3);
   const canTidy = live && (bani || finance >= 3 || buying >= 3);
+
+  // One table that opens like folders: top categories first; a row's arrow shows what is under it.
+  const tidyFrom = useMemo(() => new Map(tidy.map((t) => [t.from.id, t])), [tidy]);
+  const groupAndAccount = useMemo(() => {
+    const out = new Map<string, { group: string | null; account: string | null }>();
+    const label = (id: string) => { const a = accounts.find((x) => x.id === id); return a ? `${a.code} ${a.name}` : null; };
+    for (const c of level1) {
+      const rule = rules.find((x) => x.rule_type === 'procurement_category' && x.match_key.split('__').slice(1).join('__') === c.name);
+      const venue = rules.find((x) => x.rule_type === 'procurement_category_venue' && x.match_key.split('__')[1] === c.name);
+      const used = new Map<string, number>();
+      for (const p of products) if ((p.level1_category ?? '').trim() === c.name && p.financial_treatment) used.set(p.financial_treatment, (used.get(p.financial_treatment) ?? 0) + 1);
+      const g = rule?.match_key.split('__')[0] ?? venue?.match_key.split('__')[0] ?? [...used.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      out.set(c.id, { group: g ? groupLabel(g) ?? g : null, account: rule ? label(rule.account_id) : venue ? 'By venue' : null });
+    }
+    return out;
+  }, [level1, rules, products, accounts]);
+  const under = (id: string): CatRow[] => { const kids = rows.filter((r) => r.parent_id === id && r.is_active !== false); return kids.flatMap((k) => [k, ...under(k.id)]); };
+  const tidyBelow = (id: string) => [rows.find((r) => r.id === id)!, ...under(id)].filter((r) => r && tidyFrom.has(r.id)).length;
+  const needle = q.trim().toLowerCase();
+  const visible = useMemo(() => {
+    const out: CatRow[] = [];
+    const matches = (c: CatRow): boolean => c.name.toLowerCase().includes(needle) || under(c.id).some((k) => k.name.toLowerCase().includes(needle));
+    const walk = (parent: string | null, level: 1 | 2 | 3) => {
+      for (const c of childrenOf(rows, parent, level)) {
+        if (needle && !matches(c)) continue;
+        out.push(c);
+        if (level < 3 && (needle || open.has(c.id))) walk(c.id, (level + 1) as 2 | 3);
+      }
+    };
+    walk(null, 1);
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, open, needle]);
+  const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allOpen = open.size > 0;
+  const toggleAll = () => setOpen(allOpen ? new Set() : new Set(rows.filter((r) => r.level < 3).map((r) => r.id)));
 
   const openAdd = (level: 1 | 2 | 3, parent: string | null) => { setName(''); setGroup(''); setAccount(''); setAdding({ level, parent }); };
   const add = async () => {
@@ -119,27 +164,78 @@ export function ClientCategories() {
 
   return <>
     <SettingsCard title="Categories">
-      <p className="pb-3 text-[13px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Bani's master list plus your own · products choose from here</p>
-      {loading ? <p className="text-[13px] text-muted-foreground">Loading categories…</p>
-        : <div className="grid gap-4 sm:grid-cols-3">
-          {column('Level 1', level1, pick1, (id) => { setL1(id); setL2(null); }, 1, null, canAddL1)}
-          {column(pick1 ? `Level 2 · ${pick1.name}` : 'Level 2', level2, pick2, setL2, 2, pick1?.id ?? null, canAdd && !!pick1)}
-          {column(pick2 ? `Level 3 · ${pick2.name}` : 'Level 3', level3, undefined, null, 3, pick2?.id ?? null, canAdd && !!pick2)}
-        </div>}
+      {loading ? <p className="text-[13px] text-muted-foreground">Loading categories…</p> : <>
+        <p className="pb-3 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap overflow-hidden text-ellipsis">
+          {level1.length} categories · {rows.filter((r) => r.is_active !== false).length} with sub-categories
+          {tidy.length > 0 && <> · <span className={amber}>{tidy.length} to tidy</span></>}
+          {missing.noLevel1 > 0 && <> · <span className={amber}>{missing.noLevel1} {missing.noLevel1 === 1 ? 'product has' : 'products have'} no category</span></>}
+        </p>
+        <div className="flex items-center gap-2 pb-3">
+          <button type="button" className="text-[13px] text-[#2F5E5A] whitespace-nowrap" onClick={toggleAll}>{allOpen ? 'Close all' : 'Expand all'}</button>
+          <span className="flex-1" />
+          <Input aria-label="Search categories" placeholder="Search categories" value={q} onChange={(e) => setQ(e.target.value)} className={`h-9 text-[13px] ${isMobile ? 'w-[160px]' : 'w-[260px]'}`} />
+          {canAddL1 && <Button size="sm" className="h-9 whitespace-nowrap" onClick={() => openAdd(1, null)}>{isMobile ? 'Add' : 'Add category'}</Button>}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]" aria-label="Categories">
+            <thead className="border-y border-border text-[12px] text-muted-foreground">
+              <tr>
+                <th className="h-10 pr-3 text-left font-normal">Category</th>
+                {!isMobile && <th className="pr-3 text-left font-normal">Level</th>}
+                {!isMobile && <th className="pr-3 text-left font-normal">Group</th>}
+                {!isMobile && <th className="pr-3 text-left font-normal">Account</th>}
+                <th className="pr-3 text-right font-normal">Products</th>
+                {!isMobile && <th className="text-left font-normal">Tidy</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((c) => {
+                const ga = c.level === 1 ? groupAndAccount.get(c.id) : undefined;
+                const hasKids = c.level < 3 && rows.some((r) => r.parent_id === c.id && r.is_active !== false);
+                const t = tidyFrom.get(c.id);
+                const below = c.level < 3 && !open.has(c.id) && !needle ? tidyBelow(c.id) - (t ? 1 : 0) : 0;
+                const tidyText = t ? `Same as ${t.into.name}` : below > 0 ? `${below} to tidy` : '';
+                const n = counts.get(c.id) ?? 0;
+                return <tr key={c.id} className="h-11 cursor-pointer whitespace-nowrap border-b border-border/50 hover:bg-muted/40" onClick={() => setPicked(c)}>
+                  <td className="pr-3">
+                    <span className="flex items-center" style={{ paddingLeft: (c.level - 1) * 24 }}>
+                      {hasKids
+                        ? <button type="button" aria-label={open.has(c.id) ? `Close ${c.name}` : `Open ${c.name}`} aria-expanded={open.has(c.id) || !!needle} className="mr-1 grid h-6 w-5 place-items-center text-muted-foreground" onClick={(e) => { e.stopPropagation(); toggle(c.id); }}>
+                            {open.has(c.id) || needle ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </button>
+                        : <span className="mr-1 w-5" />}
+                      <span className={`truncate ${c.level === 1 ? 'font-medium' : ''}`} style={{ maxWidth: 'var(--bani-name-max)' }} title={pathText(c)}>{c.name}</span>
+                      {isOwn(c) && <span className="ml-1.5 text-[12px] text-muted-foreground">Yours</span>}
+                      {isMobile && (tidyText || (ga && !ga.account)) && <span className={`ml-2 text-[12px] ${amber}`}>{tidyText || 'No account'}</span>}
+                    </span>
+                  </td>
+                  {!isMobile && <td className="pr-3 text-[12px] text-muted-foreground tabular-nums">{c.level}</td>}
+                  {!isMobile && <td className="pr-3 text-muted-foreground">{ga ? ga.group ?? '—' : ''}</td>}
+                  {!isMobile && <td className={`pr-3 ${ga && !ga.account ? amber : 'text-muted-foreground'}`}>{ga ? ga.account ?? 'No account' : ''}</td>}
+                  <td className={`td-num pr-3 text-right ${n === 0 ? 'text-muted-foreground' : ''}`}>{n}</td>
+                  {!isMobile && <td className={amber}>{tidyText}</td>}
+                </tr>;
+              })}
+              {!visible.length && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No categories found.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </>}
     </SettingsCard>
 
-    {!loading && (tidy.length > 0 || missing.noLevel1 + missing.noLevel2 > 0) && <SettingsCard title={`To tidy · ${tidy.length + (missing.noLevel1 ? 1 : 0) + (missing.noLevel2 ? 1 : 0)}`}>
-      {tidy.length > 0 && <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Categories to merge"><table className="sales-table" aria-label="Categories to merge">
-        <thead><tr>{['Category', 'Same as', 'Products', ''].map((h, i) => <th key={i} scope="col" className={i === 2 ? 'sales-cell-right' : 'sales-cell-left'}>{h}</th>)}</tr></thead>
-        <tbody>{tidy.map((t) => <tr key={t.from.id + t.into.id} className="sales-record-row">
-          <td className="sales-cell-left font-medium whitespace-nowrap">{pathText(t.from)}</td>
-          <td className="sales-cell-left whitespace-nowrap">{pathText(t.into)}</td>
-          <td className="kit-num">{t.products}</td>
-          <td className="sales-cell-left whitespace-nowrap">{canTidy && <button type="button" className="settings-edit" onClick={() => setMerge(t)}>Merge</button>}</td>
-        </tr>)}</tbody></table></div>}
-      {missing.noLevel1 > 0 && <p className={`pt-3 text-[13px] whitespace-nowrap ${amber}`}>{missing.noLevel1} {missing.noLevel1 === 1 ? 'product has' : 'products have'} no category · set it in Products</p>}
-      {missing.noLevel2 > 0 && <p className={`pt-2 text-[13px] whitespace-nowrap ${amber}`}>{missing.noLevel2} {missing.noLevel2 === 1 ? 'product has' : 'products have'} no Level 2 · set it in Products</p>}
-    </SettingsCard>}
+    <Dialog open={!!picked} onOpenChange={(o) => !o && setPicked(null)}>
+      <DialogContent className="!bg-card !backdrop-blur-none">
+        <DialogHeader><DialogTitle>{picked?.name}</DialogTitle>
+          <DialogDescription>{picked && `${pathText(picked)} · Level ${picked.level} · ${counts.get(picked.id) ?? 0} products${isOwn(picked) ? ' · Yours' : ''}`}</DialogDescription></DialogHeader>
+        {picked?.level === 1 && <p className="text-[13px]">{groupAndAccount.get(picked.id)?.group ?? 'No group'} · {groupAndAccount.get(picked.id)?.account ?? <span className={amber}>No account</span>}. Group and account are set in Purchasing setup.</p>}
+        {picked && tidyFrom.has(picked.id) && <p className={`text-[13px] ${amber}`}>Looks the same as {pathText(tidyFrom.get(picked.id)!.into)}.</p>}
+        <div className="flex flex-wrap gap-2 justify-end">
+          {picked && tidyFrom.has(picked.id) && canTidy && <Button variant="outline" onClick={() => { setMerge(tidyFrom.get(picked.id)!); setPicked(null); }}>Merge into {tidyFrom.get(picked.id)!.into.name}</Button>}
+          {picked && picked.level < 3 && canAdd && <Button variant="outline" onClick={() => { const p = picked; setPicked(null); openAdd((p.level + 1) as 2 | 3, p.id); }}>Add Level {picked.level + 1} under it</Button>}
+          <Button onClick={() => setPicked(null)}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={!!adding} onOpenChange={(o) => !o && setAdding(null)}>
       <DialogContent className="!bg-card !backdrop-blur-none">
