@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { sameCategory, toTidy, productCounts, pathOf, missingLevels, type CatRow } from "@/utils/categoryTree";
 
 const rows: CatRow[] = [
