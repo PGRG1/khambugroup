@@ -63,16 +63,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const retryable = (s: number) => s === 429 || (s >= 500 && s <= 599);
 
 /** Ask Bani's model. Primary with retries, then the backup; same message shape either way. */
-export async function askBani(key: string, req: { messages: ChatMessage[]; tools?: ChatTool[]; signal?: AbortSignal }): Promise<ModelReply> {
+export async function askBani(key: string, req: { messages: ChatMessage[]; tools?: ChatTool[]; signal?: AbortSignal; /** "required": the model must call one of the tools. */ toolChoice?: "auto" | "required" }): Promise<ModelReply> {
   const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Lovable-AIG-SDK": "fetch" };
   const tools = req.tools?.length ? req.tools : undefined;
+  const toolChoice = req.toolChoice === "required" ? "required" : "auto";
   let last: ModelReply = { ok: false, status: 0, text: "" };
   const { instructions, input } = toResponsesInput(req.messages);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const r = await fetch(`${GATEWAY}/responses`, {
         method: "POST", headers, signal: req.signal,
-        body: JSON.stringify({ model: BANI_MODEL, instructions, input, store: false, reasoning: { effort: BANI_REASONING }, ...(tools ? { tools: toResponsesTools(tools), tool_choice: "auto" } : {}) }),
+        body: JSON.stringify({ model: BANI_MODEL, instructions, input, store: false, reasoning: { effort: BANI_REASONING }, ...(tools ? { tools: toResponsesTools(tools), tool_choice: toolChoice } : {}) }),
       });
       if (r.ok) {
         const message = fromResponsesOutput(await r.json().catch(() => null));
@@ -93,7 +94,7 @@ export async function askBani(key: string, req: { messages: ChatMessage[]; tools
   try {
     const r = await fetch(`${GATEWAY}/chat/completions`, {
       method: "POST", headers, signal: req.signal,
-      body: JSON.stringify({ model: BANI_BACKUP_MODEL, messages: req.messages, reasoning_effort: "none", ...(tools ? { tools, tool_choice: "auto" } : {}) }),
+      body: JSON.stringify({ model: BANI_BACKUP_MODEL, messages: req.messages, reasoning_effort: "none", ...(tools ? { tools, tool_choice: toolChoice } : {}) }),
     });
     if (!r.ok) return { ok: false, status: r.status, text: await r.text().catch(() => "") };
     const message = (await r.json().catch(() => null))?.choices?.[0]?.message;

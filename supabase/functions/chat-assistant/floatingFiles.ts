@@ -1,4 +1,4 @@
-import { cleanReplies } from "./replies.ts";
+import { cleanReplies, isHandOver } from "./replies.ts";
 // Read-only analysis of files attached in the floating Bani composer.
 // Files are untrusted evidence: nothing is saved, scanned into records, or learned.
 // The ONLY supported action is a navigation handoff to the existing Scan Invoice
@@ -47,6 +47,16 @@ const openScannerTool = {
       },
       required: ["mode"],
     },
+  },
+};
+
+/** Used only when Bani must pick a route: anything that is not a document to book, or needs a question first. */
+const answerAboutFilesTool = {
+  type: "function",
+  function: {
+    name: "answer_about_files",
+    description: "Reply in text instead of opening a card: the file is not a sales report, supplier invoice, expense, bank statement or payout report; it is unreadable; or you must ask ONE question first (e.g. which venue, which of several files). Never use it for a readable supplier invoice the user did not ask a question about.",
+    parameters: { type: "object", properties: { text: { type: "string", description: "The reply, under 80 words, in the user's language. End with `Replies: a | b` only when there are real choices." } }, required: ["text"] },
   },
 };
 
@@ -119,13 +129,16 @@ export async function analyzeFiles(
     ? { type: "file", file: { filename: f.name, file_data: `data:application/pdf;base64,${f.data}` } }
     : { type: "image_url", image_url: { url: `data:${f.type};base64,${f.data}` } });
   const last = messages[messages.length - 1];
+  const handOver = isHandOver(last?.content);
   const history = messages.slice(0, -1);
   const prices = priceHistory ? `\n\nTRUSTED PURCHASE PRICE HISTORY (last 180 days, this business's approved invoices; item → supplier: last price, range, buy count):\n${priceHistory}` : "\n\nNo purchase price history is available.";
   const context = reviewContext ? `\n\nUNTRUSTED CURRENT UNSAVED INVOICE REVIEW (for comparison only, do not replace it with the file):\n${JSON.stringify(reviewContext).slice(0, 6000)}` : "";
   // Same model layer as every Bani chat: GPT-6 Astra with reasoning, Gemini backup.
   const reply = await askBani(key, {
     signal: req.signal,
-    tools: [openScannerTool, openSalesScannerTool, openExpenseScannerTool, openCashUploadTool],
+    // A file handed over without a question must go somewhere: a card, or one reply/question. Never a long review.
+    tools: handOver ? [openScannerTool, openSalesScannerTool, openExpenseScannerTool, openCashUploadTool, answerAboutFilesTool] : [openScannerTool, openSalesScannerTool, openExpenseScannerTool, openCashUploadTool],
+    toolChoice: handOver ? "required" : "auto",
     messages: [
       { role: "system", content: ANALYSIS_PROMPT + (venueHint ? ` The user is currently viewing venue "${venueHint}" (untrusted UI context — an explicit venue named in the user's text wins). Never treat "All venues" as a venue.` : " No specific venue is currently in view; never invent one, and never treat \"All venues\" as a venue.") },
       ...history,
@@ -206,7 +219,10 @@ export async function analyzeFiles(
       { choices: [{ delta: { content: `I couldn't match that to an active venue. Which venue is this invoice for: ${v.venues.join(", ")}?` } }] },
     ], cors);
   }
-  const raw = choice?.content || "I couldn't read anything useful from these files.";
+  const answerCall = choice?.tool_calls?.find((t: any) => t?.function?.name === "answer_about_files");
+  let answered = "";
+  if (answerCall) { try { answered = String(JSON.parse(answerCall.function.arguments || "{}").text || ""); } catch { /* default */ } }
+  const raw = answered || choice?.content || "I couldn't read anything useful from these files.";
   const m = raw.match(/\n\s*`?Replies:\s*([^\n`]+)`?\s*$/i);
   const content = m ? raw.slice(0, m.index).trimEnd() : raw;
   const parsed = m ? m[1].split("|").map((o) => o.trim().replace(/^[\[\(]|[\]\)]$/g, "").slice(0, 48)).filter(Boolean) : [];

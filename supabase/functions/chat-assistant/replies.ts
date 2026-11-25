@@ -9,3 +9,12 @@ export function cleanReplies(options: string[]): string[] {
   const kept = options.filter((o) => !zero(o) && !(disputeWithoutAmount && /credit note|accept new prices/i.test(o)));
   return (disputeWithoutAmount && !kept.length ? ["Book it", "Full review"] : kept).slice(0, 4);
 }
+
+/** A message that only hands the file over ('', 'here', 'delivery today', 'book this') rather than asking about it. */
+export function isHandOver(text: string | undefined | null): boolean {
+  const t = (text || "").trim().toLowerCase();
+  if (!t) return true;
+  if (t.includes("?")) return false;
+  if (/^(is|are|does|do|did|can|could|should|would|what|why|how|which|who|when|where)\b/.test(t)) return false;
+  return !/\b(compare|explain|tell me|summar\w*|fair|cheaper|price history|analy[sz]e|review|check (the )?prices?)\b/.test(t);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanReplies } from "../../supabase/functions/chat-assistant/replies";
+import { cleanReplies, isHandOver } from "../../supabase/functions/chat-assistant/replies";
 
 describe("cleanReplies", () => {
   it("drops dispute and price-change options when nothing is overcharged", () => {
@@ -14,5 +14,14 @@ describe("cleanReplies", () => {
   it("leaves ordinary replies alone and keeps at most four", () => {
     expect(cleanReplies(["Book it", "Full review"])).toEqual(["Book it", "Full review"]);
     expect(cleanReplies(["a", "b", "c", "d", "e"])).toHaveLength(4);
+  });
+});
+
+describe("isHandOver", () => {
+  it("treats a file handed over without a question as something to book", () => {
+    for (const m of ["", "  ", "here", "delivery today", "VegFresh for Caliente", "book this", "this is the delivery from this morning"]) expect(isHandOver(m)).toBe(true);
+  });
+  it("lets real questions get an answer", () => {
+    for (const m of ["is this price fair", "what is on this invoice", "compare suppliers for this", "check prices please", "can you explain line 3", "any overcharge?"]) expect(isHandOver(m)).toBe(false);
   });
 });
