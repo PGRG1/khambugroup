@@ -63,6 +63,8 @@ import {
 } from "@/components/ui/dialog";
 import { Info, Sparkles } from "lucide-react";
 import QuickAddProductPopover from "./QuickAddProductPopover";
+import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
+import { notBookableText, type NotBookable } from "@/utils/notBookable";
 import QuickAddBulkDialog from "./QuickAddBulkDialog";
 import PriceHistoryPanel, { useSupplierInsightAvailability } from "./PriceHistoryPanel";
 import { PRICE_VARIANCE_EPSILON } from "@/utils/priceVariance";
@@ -355,6 +357,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const { createProduct, fetchProducts, products: tenantMaster } = useProductMaster();
+  const canEditList = useCanEditItemList();
   const [creatingLineIdx, setCreatingLineIdx] = useState<number | null>(null);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -364,6 +367,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { tenantId } = useActiveTenant();
   const { venues: scannerVenues } = useVenues();
   const { user: baniUser, isAdmin: baniAdmin, roleLoading: baniRoleLoading } = useAuth();
+  // Chat booking: the journal rebuild holds any invoice whose item has no group or no account for the
+  // venue, so the card checks first with the same server rules and never books what can't post.
+  const [notBookable, setNotBookable] = useState<{ key: string; items: Record<string, NotBookable> } | null>(null);
+  const bookableKey = variant === "chat" && current && tenantId
+    ? `${current.venue || ""}|${[...new Set(current.line_items.map(l => l.product_master_id).filter(Boolean) as string[])].sort().join(",")}`
+    : "";
+  useEffect(() => {
+    if (!bookableKey || !tenantId) return;
+    const [venue, list] = [bookableKey.slice(0, bookableKey.indexOf("|")), bookableKey.slice(bookableKey.indexOf("|") + 1)];
+    const ids = list ? list.split(",") : [];
+    if (!ids.length) { setNotBookable({ key: bookableKey, items: {} }); return; }
+    let on = true;
+    void (supabase.rpc as any)("purchase_items_not_bookable", { p_tenant: tenantId, p_venue: venue, p_products: ids }).then(({ data, error }: { data: { product_id: string; problem: NotBookable["problem"]; category: string }[] | null; error: unknown }) => {
+      if (!on) return;
+      // A failed check never lets Book through: every item counts as unchecked.
+      if (error || !data) { setNotBookable({ key: bookableKey, items: Object.fromEntries(ids.map(id => [id, { problem: "unchecked", category: "" } as NotBookable])) }); return; }
+      setNotBookable({ key: bookableKey, items: Object.fromEntries(data.map(r => [r.product_id, { problem: r.problem, category: r.category }])) });
+    });
+    return () => { on = false; };
+  }, [bookableKey, tenantId]);
   const { isPreviewActive: baniPreview, previewUserId: baniPreviewUser } = usePreviewMode();
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
   const { setHost: setBaniHost } = useFloatingBaniHost();
@@ -1420,6 +1443,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const handleUpdateMaster = async (lineIdx: number) => {
     const line = invoices[currentIdx]?.line_items[lineIdx];
     if (!line) return;
+    if (!canEditList) { toast({ title: ITEM_LIST_APPROVER_ONLY, variant: "destructive" }); return; }
     const newPrice = parseFloat(line.accepted_price || "");
     if (!Number.isFinite(newPrice) || newPrice <= 0) {
       toast({ title: "Invalid price", description: "Accepted price must be a positive number.", variant: "destructive" });
@@ -1777,6 +1801,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const inv = invoices[currentIdx];
     const line = inv?.line_items[lineIdx];
     if (!line || !line.suggested_new_item) return;
+    if (!canEditList) { toast({ title: ITEM_LIST_APPROVER_ONLY, variant: "destructive" }); return; }
     setCreatingLineIdx(lineIdx);
     try {
       const s = line.suggested_new_item;
@@ -1847,7 +1872,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     } finally {
       setCreatingLineIdx(null);
     }
-  }, [invoices, currentIdx, createProduct, fetchProducts, tenantId, linkEntryToLine]);
+  }, [invoices, currentIdx, createProduct, fetchProducts, tenantId, linkEntryToLine, canEditList]);
 
   const handleSaveAll = async () => {
     const noSupplier = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && !inv.supplier_id);
@@ -2161,7 +2186,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
             currentPurchaseUnit={hLine.matched_purchase_uom || hLine.unit}
             currentStockQty={Number(hLine.matched_stock_qty_ratio)}
             currentStockUom={hLine.matched_stock_uom}
-            onUpdateMaster={allowMasterUpdate ? () => handleUpdateMaster(historyLineIdx) : undefined}
+            onUpdateMaster={allowMasterUpdate && canEditList ? () => handleUpdateMaster(historyLineIdx) : undefined}
           />
         );
         };
@@ -2199,7 +2224,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const accepted = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
         const price = parseFloat(l.unit_price) || 0;
         const was = l.price_changed && !l.is_free_unit_line && l.pm_unit_price != null ? Number(l.pm_unit_price) : null;
-        return { key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
+        const nb = l.product_master_id ? (notBookable?.key === bookableKey ? notBookable.items[l.product_master_id] : { problem: "checking", category: "" } as NotBookable) : undefined;
+        return { blocked: nb ? notBookableText(nb, current?.venue || "") : undefined, key: l._baniLineId || String(i), index: i, name: l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
       })}
       termsDays={termsMatch ? Number(termsMatch[1]) : null}
       printedDue={current?.due_date || null}
@@ -3103,7 +3129,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
                                   {line.master_price == null && !matchesInvoice && (
                                     <span className="text-[10px] text-muted-foreground">No Items Master price</span>
                                   )}
-                                  {differsFromMaster && line.product_master_id && (
+                                  {differsFromMaster && line.product_master_id && canEditList && (
                                     <button
                                       type="button"
                                       disabled={updatingMasterIdx === i}

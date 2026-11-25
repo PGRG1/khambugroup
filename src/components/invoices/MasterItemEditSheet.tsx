@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useToast } from "@/hooks/use-toast";
+import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
 import { useProductMaster, FINANCIAL_TREATMENTS, type ProductMasterItem, type ProductSupplierEntry } from "@/hooks/useProductMaster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ export default function MasterItemEditSheet({ open, onOpenChange, productId, sup
   const { items: coaAccounts } = useChartOfAccounts();
   const { fetchProducts } = useProductMaster();
   const { toast } = useToast();
+  const canEditList = useCanEditItemList();
   const [form, setForm] = useState<ProductMasterEditorForm>(emptyForm);
   const [product, setProduct] = useState<ProductMasterItem | null>(null);
   const [supplier, setSupplier] = useState<ProductSupplierEntry | null>(null);
@@ -142,6 +144,7 @@ export default function MasterItemEditSheet({ open, onOpenChange, productId, sup
 
   const save = async () => {
     if (!product || !tenantId) return;
+    if (!canEditList) { toast({ title: ITEM_LIST_APPROVER_ONLY, variant: "destructive" }); return; }
     const validation = validateProductMasterEditor(form);
     if (validation) { toast({ title: "Check the item details", description: validation, variant: "destructive" }); return; }
     const duplicate = await supabase.from("product_master" as any).select("id").eq("tenant_id", tenantId).ilike("internal_sku", form.internal_sku.trim()).neq("id", product.id).limit(1);

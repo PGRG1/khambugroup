@@ -14,6 +14,8 @@ export type ChatScanLine = {
   /** The item has past purchases or another supplier: the price opens its history. */
   history?: boolean;
   reason?: string; note?: string;
+  /** Why this line could not go into the books yet (no group or account for the venue): Book stays off. */
+  blocked?: string;
 };
 export type ChatScanPhase = "reading" | "failed" | "denied" | "many" | "duplicate" | "review" | "ready" | "saved";
 export type ChatScanAnswers = { dueDate: string | null; paid: boolean; receivedDate: string; hold: boolean };
@@ -107,7 +109,9 @@ export function ChatScanCard(p: Props) {
   const deliveredOn = delivered ?? today;
   const allTicked = p.lines.every(l => ticked.has(l.key));
   const settled = p.lines.every(lineSettled);
-  const ready = allTicked && settled && !p.saving && !saved;
+  const blocked = p.lines.filter(l => l.blocked);
+  const canHold = allTicked && settled && !p.saving && !saved;
+  const ready = canHold && !blocked.length;
   const heldBack = heldForCounts(p.lines);
   const tick = (k: string) => setTicked(t => { const n = new Set(t); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const setCount = (l: ChatScanLine, v: number) => { p.onQty(l.index, v); setTicked(t => new Set(t).add(l.key)); };
@@ -183,7 +187,7 @@ export function ChatScanCard(p: Props) {
               const editing = open === l.key && !saved;
               const tabs = l.accepted < l.billed ? SHORT_TABS : EXTRA_TABS;
               const inTabs = tabs.some(([v]) => v === l.reason);
-              const sub = diff ? (l.reason && l.reason !== "matched" ? label(l.reason) : "Why?") : l.was != null ? `Was ${num(l.was)}` : "";
+              const sub = l.blocked && !saved ? l.blocked : diff ? (l.reason && l.reason !== "matched" ? label(l.reason) : "Why?") : l.was != null ? `Was ${num(l.was)}` : "";
               return [
                 <tr key={l.key} style={{ borderTop: `1px solid ${HAIR}` }}>
                   <td className={td + " pl-4 pr-0"}>
@@ -232,13 +236,14 @@ export function ChatScanCard(p: Props) {
           </button>
         </div>
       </div>
+      {!saved && blocked.length > 0 && !blocked.every(l => /^Checking/.test(l.blocked || "")) && <p className="text-[13px]" style={{ color: AMBER }}>Can't go into the books yet. An approver sets this in Settings › Purchasing setup, or hold it for review.</p>}
       {!saved && heldBack > 0 && <p className="text-[13px] tabular-nums" style={{ color: AMBER }}>{num(heldBack)} held back for what didn't arrive.</p>}
       {saved
         ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">{held ? "✓ Saved as a draft" : "✓ Booked · stock updated"}</p>
         : <div className="flex items-center gap-4">
             <button type="button" className="floating-bani-apply" disabled={!ready} onClick={() => setConfirm("book")}>{p.saving ? "Saving…" : "Book"}</button>
             {!allTicked && <button type="button" className="text-[13px] font-medium text-foreground" onClick={() => setTicked(new Set(p.lines.map(l => l.key)))}>Tick all</button>}
-            <button type="button" className="text-[13px] font-medium text-muted-foreground disabled:opacity-40" disabled={!ready} onClick={() => setConfirm("hold")}>Hold for review</button>
+            <button type="button" className="text-[13px] font-medium text-muted-foreground disabled:opacity-40" disabled={!canHold} onClick={() => setConfirm("hold")}>Hold for review</button>
             <button type="button" className="ml-auto text-[13px] text-muted-foreground" onClick={p.onOpenFull}>Full review</button>
           </div>}
     </div>

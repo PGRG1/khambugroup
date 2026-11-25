@@ -21,6 +21,7 @@ import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelec
 import UomSelect from "@/components/procurement/UomSelect";
 import { FINANCIAL_TREATMENTS } from "@/hooks/useProductMaster";
 import { toast } from "sonner";
+import { useCanEditItemList } from "@/hooks/useCanEditItemList";
 import { FUZZY, scoreCandidates } from "@/utils/productFuzzyMatch";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +127,7 @@ export default function QuickAddProductPopover({
   disableSuggestions = false,
 }: Props) {
   const { tenantId } = useActiveTenant();
+  const canEditList = useCanEditItemList();
   const { items: coaAccounts } = useChartOfAccounts();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
@@ -403,6 +405,9 @@ export default function QuickAddProductPopover({
   const field = (label: string, value: string, onChange: (value: string) => void, options: React.ComponentProps<typeof Input> = {}) => (
     <div className="space-y-1.5"><Label className="text-[11px] font-medium text-muted-foreground">{label}</Label><Input {...options} value={value} onChange={(event) => onChange(event.target.value)} className={cn("h-8 px-2.5 text-xs md:text-xs", options.className)} /></div>
   );
+
+  // The Items Master is the pre-approved list: only approvers add to it.
+  if (canEditList !== true) return <span className="px-2 text-[10px] text-muted-foreground">{canEditList === false ? "Ask an approver to add this item" : ""}</span>;
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>

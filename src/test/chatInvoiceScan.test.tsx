@@ -25,6 +25,23 @@ describe("Bani chat invoice booking", () => {
     expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ dueDate: "2026-12-18", paid: false, hold: false }));
   });
 
+  it("never books a line that can't go into the books, but still allows Hold", () => {
+    const f = fns();
+    render(<ChatScanCard {...base} lines={[{ ...lines[0], blocked: "Seafood has no account at Caliente" }, lines[1]]} phase="ready" {...f} />);
+    fireEvent.click(screen.getByText("Tick all"));
+    expect(screen.getByText("Seafood has no account at Caliente")).toBeTruthy();
+    expect(screen.getByText(/Can't go into the books yet/)).toBeTruthy();
+    expect(book().disabled).toBe(true);
+    expect((screen.getByText("Hold for review") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("reasons match the journal rebuild's holds", async () => {
+    const { notBookableText } = await import("@/utils/notBookable");
+    expect(notBookableText({ problem: "account", category: "Fruit" }, "Caliente")).toBe("Fruit has no account at Caliente");
+    expect(notBookableText({ problem: "group", category: "" }, "Caliente")).toBe("Item has no group");
+    expect(notBookableText({ problem: "unchecked", category: "" }, "")).toBe("Couldn't check the books");
+  });
+
   it("Tick all, and Hold for review saves as a held draft", () => {
     const f = fns();
     render(<ChatScanCard {...base} phase="ready" {...f} />);

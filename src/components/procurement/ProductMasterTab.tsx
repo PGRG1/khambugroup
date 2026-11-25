@@ -33,6 +33,7 @@ import UomSelect from "@/components/procurement/UomSelect";
 import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
 import { formatCurrency } from "@/utils/salesUtils";
 import { computeSetupHealth, type SetupHealthState } from "@/utils/productSetupHealth";
+import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
 
 
 interface SupplierDealRow {
@@ -128,6 +129,8 @@ function SetupStatusBadge({ row }: { row: FlatRow }) {
 export default function ProductMasterTab({ popup = false }: { popup?: boolean } = {}) {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { tenantId } = useActiveTenant();
+  const canEditList = useCanEditItemList();
+  const blockedEdit = () => { if (canEditList) return false; toast({ title: ITEM_LIST_APPROVER_ONLY, variant: "destructive" }); return true; };
   const { toast } = useToast();
   const [seedingRefunds, setSeedingRefunds] = useState(false);
   const [refundSeedDismissed, setRefundSeedDismissed] = useState(
@@ -189,7 +192,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   }, [dialogOpen, editingProductId, loadDeals]);
 
   const handleDeleteDeal = async (dealId: string) => {
-    if (!tenantId) return;
+    if (!tenantId || blockedEdit()) return;
     const { error } = await supabase
       .from("item_supplier_deals" as any)
       .update({ is_active: false })
@@ -425,6 +428,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
   const handleSave = async () => {
     setConfirmDuplicateOpen(false);
+    if (blockedEdit()) return;
 
     // Yield validation (only relevant when item creates stock movement, but we sanitise regardless)
     const py = parseFloat(form.purchase_yield);
@@ -539,6 +543,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
   const handleDelete = async () => {
     if (!deletingRow) return;
+    if (blockedEdit()) return;
     if (deletingRow.supplier_entry) {
       const supplierCount = deletingRow.product.suppliers?.length || 0;
       if (supplierCount > 1) {
@@ -657,7 +662,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const primarySort = sortColumns[0];
 
   const hasRefundItems = products.some(p => p.internal_sku?.startsWith("REF-"));
-  const showRefundSeedBanner = !refundSeedDismissed && !hasRefundItems && !loading;
+  const showRefundSeedBanner = !refundSeedDismissed && !hasRefundItems && !loading && canEditList === true;
 
   const dismissSeedBanner = () => {
     localStorage.setItem("refund_seed_dismissed", "true");
@@ -665,7 +670,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   };
 
   const seedRefundItems = async () => {
-    if (!tenantId || seedingRefunds) return;
+    if (!tenantId || seedingRefunds || blockedEdit()) return;
     setSeedingRefunds(true);
     const refundItems = [
       { internal_sku: "REF-0001", internal_product_name: "Price correction" },
@@ -847,7 +852,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
             `product_master_${new Date().toISOString().slice(0, 10)}`
           );
         }} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
-        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />{popup ? "Add product" : "Add Item"}</Button>
+        {canEditList && <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />{popup ? "Add product" : "Add Item"}</Button>}
       </div>
 
       {/* Document-Centre-style toolbar */}
