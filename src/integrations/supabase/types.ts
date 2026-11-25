@@ -16372,6 +16372,7 @@ export type Database = {
         Args: { p_ids: string[]; p_tenant_id: string }
         Returns: undefined
       }
+      can_approve_bani_rules: { Args: { t: string }; Returns: boolean }
       can_see_venue: { Args: { t: string; v: string }; Returns: boolean }
       capitalize_bill_allocation: {
         Args: { p_allocation_id: string }
@@ -17499,6 +17500,10 @@ export type Database = {
       }
       settings_forget_learning: {
         Args: { ids: string[]; k: string; t: string }
+        Returns: undefined
+      }
+      settings_review_rule: {
+        Args: { approve: boolean; rule: string; t: string }
         Returns: undefined
       }
       settlement_clearing_venue: {

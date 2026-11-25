@@ -1352,6 +1352,13 @@
       "when": 1795531319165,
       "tag": "0192_purchasing_setup",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1795577027801,
+      "tag": "0193_bani_rule_approval",
+      "breakpoints": true
     }
   ]
 }
