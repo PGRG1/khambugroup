@@ -1380,6 +1380,13 @@
       "when": 1795584523705,
       "tag": "0196_item_list_approvers",
       "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1795585946379,
+      "tag": "0197_category_master_platform_read",
+      "breakpoints": true
     }
   ]
 }

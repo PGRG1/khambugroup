@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "category master readable" ON public.category_master;
+CREATE POLICY "category master readable" ON public.category_master FOR SELECT TO authenticated USING (public.is_platform_admin(auth.uid()));
