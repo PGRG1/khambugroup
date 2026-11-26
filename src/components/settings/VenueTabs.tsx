@@ -265,6 +265,27 @@ export function VenueAreasTab({ venueId, venueName, tenantId, areas, onChanged }
   </>;
 }
 
+export function VenueAddressCard({ venueId, tenantId, address, onSaved }: { venueId: string; tenantId: string | null; address: string; onSaved: (address: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(address);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (!tenantId) return;
+    setBusy(true);
+    const { error } = await (supabase as any).rpc("save_venue_address", { t: tenantId, v: venueId, p_address: text.trim() });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Address saved");
+    setEditing(false); onSaved(text.trim());
+  };
+  return <SettingsCard title="Address" editing={editing} onEdit={() => { setText(address); setEditing(true); }}>
+    {editing ? <>
+      <Field label="Address" htmlFor="venue-address"><Input id="venue-address" value={text} maxLength={300} placeholder="G/F, 18 Elgin Street, Central, Hong Kong" onChange={(e) => setText(e.target.value)} /></Field>
+      <SaveBar dirty={text.trim() !== address} saving={busy} onSave={() => void save()} onCancel={() => setEditing(false)} />
+    </> : <Row label="Address" value={address || undefined} missing="Not set" />}
+  </SettingsCard>;
+}
+
 export function VenueLocationTab({ venueId, tenantId, lat, lng, onSaved }: { venueId: string; tenantId: string | null; lat: string; lng: string; onSaved: (lat: string, lng: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [a, setA] = useState(lat);
