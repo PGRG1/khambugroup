@@ -593,7 +593,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   sendRef.current = send;
   // Stop: cancels the reply in flight (the server stops its model call too); the question stays.
   // An invoice still being read counts as Bani working: the composer's stop button stops it too.
-  const reading = messages.some(m => m.invoiceScan && !m.outcome && m.status === "Reading…");
+  const reading = messages.some(m => m.invoiceScan && !m.outcome && m.status === "Reading…" && m.invoiceScan.files[0] instanceof File);
   const stopReading = () => setMessages(prev => prev.map(m => m.invoiceScan && !m.outcome && m.status === "Reading…" ? { ...m, outcome: "Stopped. Send the photo again to read it.", status: "Stopped" } : m));
   const stopReply = () => { abort.current?.abort(); abort.current = null; setBusy(false); stopReading(); };
 
