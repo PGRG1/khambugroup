@@ -74,6 +74,10 @@ Return ONLY valid JSON with this exact structure:
 
 {
   "vendor_name": "exact name as printed",
+  "vendor_phone": "vendor's phone as printed, or empty string",
+  "vendor_email": "vendor's email as printed, or empty string",
+  "vendor_address": "vendor's own address as printed (not the service address), or empty string",
+  "payment_terms": "payment terms as printed (e.g. Cash, COD, 30 days), or empty string",
   "bill_number": "invoice/bill/reference number, or empty string",
   "account_number": "customer/account/meter number, or empty string",
   "bill_date": "YYYY-MM-DD",
@@ -234,6 +238,7 @@ Deno.serve(async (req) => {
     if(documentKind==='tax_notice')return new Response(JSON.stringify({success:true,data:{is_tax_notice:parsed.is_tax_notice===true,reference:String(parsed.reference??''),tax_year:String(parsed.tax_year??''),installments:Array.isArray(parsed.installments)?parsed.installments.slice(0,12).map((i:any)=>({due_date:typeof i.due_date==='string'?i.due_date:null,amount:typeof i.amount==='number'&&Number.isFinite(i.amount)&&i.amount>0?i.amount:null})):[]}}),{headers:{...corsHeaders,'Content-Type':'application/json'}});
     // Normalise strings/numbers
     parsed.vendor_name = String(parsed.vendor_name || "").trim();
+    for (const k of ["vendor_phone", "vendor_email", "vendor_address", "payment_terms"]) parsed[k] = String(parsed[k] || "").trim().slice(0, 200);
     parsed.bill_number = String(parsed.bill_number || "").trim();
     parsed.account_number = String(parsed.account_number || "").trim();
     parsed.bill_date = String(parsed.bill_date || "").trim();

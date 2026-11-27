@@ -10,6 +10,10 @@ export interface ScannedBill {
   statement_check?: import('@/utils/expenseSupplierAccounts').UtilityStatement;
   service_address?: string;
   vendor_name: string;
+  vendor_phone?: string;
+  vendor_email?: string;
+  vendor_address?: string;
+  payment_terms?: string;
   bill_number: string;
   account_number?: string;
   bill_date: string;

@@ -64,9 +64,6 @@ export function ChatInvoiceSetup(p: Props) {
   const [error, setError] = useState("");
   const [done, setDone] = useState<string[]>([]);
   const [itemsDone, setItemsDone] = useState(0);
-  const [terms, setTerms] = useState<string>("COD");
-  const [supName, setSupName] = useState(p.supplierName);
-  const [sup, setSup] = useState({ contact: "", phone: "", email: "", address: "", type: "procurement" });
 
   useEffect(() => {
     let live = true;
@@ -102,41 +99,11 @@ export function ChatInvoiceSetup(p: Props) {
   const card = "w-full max-w-[640px] rounded-2xl border bg-white p-4";
 
   // Step 1: the supplier.
-  if (!p.supplierId) {
-    const add = async () => {
-      const name = supName.trim();
-      if (!name) { setError("Enter the supplier's name"); return; }
-      setBusy(true); setError("");
-      const { data: same } = await db.from("suppliers").select("*").eq("tenant_id", p.tenantId).ilike("name", name).limit(1);
-      const code = same?.[0] ? null : await nextSupplierCode(p.tenantId, name);
-      const row = same?.[0] ?? (await db.from("suppliers").insert({ tenant_id: p.tenantId, name, code, vendor_type: sup.type, payment_terms: terms, contact_person: sup.contact.trim() || null, phone: sup.phone.trim() || null, email: sup.email.trim() || null, address: sup.address.trim() || null, is_active: true, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 }).select("*").single()).data;
-      if (!row) { setBusy(false); setError("Couldn't add the supplier. Try again."); return; }
-      setDone(d => [...d, `${row.name}${row.code ? ` (${row.code})` : ""} added`]);
-      await p.onSupplierCreated(row);
-      setBusy(false);
-    };
-    return <div className="space-y-2.5">
-      <p className="text-[14px]">Before I can book it, there {steps === 1 ? "is 1 thing" : `are ${steps} things`} to set up. I'll go one at a time.</p>
-      {head(1, "Supplier")}
-      <p className="text-[14px]"><b className="font-medium">{p.supplierName}</b> is new. Add it?</p>
-      <div className={card} style={{ borderColor: HAIR }}>
-        <div className="grid gap-3" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Name</span><input className={field} value={supName} onChange={e => setSupName(e.target.value)} /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Payment terms</span>
-            <select className={field} value={terms} onChange={e => setTerms(e.target.value)}>{TERMS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Contact</span><input className={field} placeholder="Who you deal with" value={sup.contact} onChange={e => setSup({ ...sup, contact: e.target.value })} /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Phone</span><input className={field} inputMode="tel" value={sup.phone} onChange={e => setSup({ ...sup, phone: e.target.value })} /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Email</span><input className={field} inputMode="email" value={sup.email} onChange={e => setSup({ ...sup, email: e.target.value })} /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Type</span>
-            <select className={field} value={sup.type} onChange={e => setSup({ ...sup, type: e.target.value })}><option value="procurement">Supplier</option><option value="expense">Vendor</option></select></label>
-          <label className="col-span-2 flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Address</span><input className={field} value={sup.address} onChange={e => setSup({ ...sup, address: e.target.value })} /></label>
-        </div>
-        <p className="mt-3 text-[12px] text-muted-foreground">Code {supplierPrefix(supName || p.supplierName)}-… is given automatically.</p>
-        <div className="mt-3 flex justify-end"><button type="button" disabled={busy} className="h-9 rounded-full bg-[#1F6B5E] px-4 text-[13px] font-medium text-white disabled:opacity-50" onClick={() => void add()}>{busy ? "Adding…" : "Add supplier"}</button></div>
-      </div>
-      {err}
-    </div>;
-  }
+  if (!p.supplierId) return <div className="space-y-2.5">
+    <p className="text-[14px]">Before I can book it, there {steps === 1 ? "is 1 thing" : `are ${steps} things`} to set up. I'll go one at a time.</p>
+    {head(1, "Supplier")}
+    <NewSupplierStep tenantId={p.tenantId} supplierName={p.supplierName} onCreated={async row => { setDone(d => [...d, `${row.name}${row.code ? ` (${row.code})` : ""} added`]); await p.onSupplierCreated(row); }} />
+  </div>;
 
   if (!line) return <>{ticks}</>;
   return <div className="space-y-2.5">
@@ -306,4 +273,49 @@ function ItemStep(p: Props & {
 /** The supplier's code exactly as printed (some print codes like "44230.1"). */
 function cleanCode(code: string): string {
   return (code ?? "").trim();
+}
+
+/** Step "is new. Add it?": the same supplier form for invoices and bills, adding the supplier to this client only. */
+export function NewSupplierStep(p: {
+  tenantId: string; supplierName: string; type?: "procurement" | "expense";
+  initial?: { terms?: string; contact?: string; phone?: string; email?: string; address?: string };
+  onCreated: (row: { id: string; name: string; code?: string | null; [k: string]: unknown }) => Promise<void> | void;
+}) {
+  const db = supabase as any;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [terms, setTerms] = useState<string>(TERMS.some(([v]) => v === p.initial?.terms) ? p.initial!.terms! : "COD");
+  const [supName, setSupName] = useState(p.supplierName);
+  const [sup, setSup] = useState({ contact: p.initial?.contact ?? "", phone: p.initial?.phone ?? "", email: p.initial?.email ?? "", address: p.initial?.address ?? "", type: p.type ?? "procurement" });
+  const card = "w-full max-w-[640px] rounded-2xl border bg-white p-4";
+  const add = async () => {
+    const name = supName.trim();
+    if (!name) { setError("Enter the supplier's name"); return; }
+    setBusy(true); setError("");
+    const { data: same } = await db.from("suppliers").select("*").eq("tenant_id", p.tenantId).ilike("name", name).limit(1);
+    const code = same?.[0] ? null : await nextSupplierCode(p.tenantId, name);
+    const row = same?.[0] ?? (await db.from("suppliers").insert({ tenant_id: p.tenantId, name, code, vendor_type: sup.type, payment_terms: terms, contact_person: sup.contact.trim() || null, phone: sup.phone.trim() || null, email: sup.email.trim() || null, address: sup.address.trim() || null, is_active: true, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 }).select("*").single()).data;
+    if (!row) { setBusy(false); setError("Couldn't add the supplier. Try again."); return; }
+    await p.onCreated(row);
+    setBusy(false);
+  };
+  return <>
+    <p className="text-[14px]"><b className="font-medium">{p.supplierName}</b> is new. Add it?</p>
+    <div className={card} style={{ borderColor: HAIR }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Name</span><input className={field} value={supName} onChange={e => setSupName(e.target.value)} /></label>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Payment terms</span>
+          <select className={field} value={terms} onChange={e => setTerms(e.target.value)}>{TERMS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Contact</span><input className={field} placeholder="Who you deal with" value={sup.contact} onChange={e => setSup({ ...sup, contact: e.target.value })} /></label>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Phone</span><input className={field} inputMode="tel" value={sup.phone} onChange={e => setSup({ ...sup, phone: e.target.value })} /></label>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Email</span><input className={field} inputMode="email" value={sup.email} onChange={e => setSup({ ...sup, email: e.target.value })} /></label>
+        <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Type</span>
+          <select className={field} value={sup.type} onChange={e => setSup({ ...sup, type: e.target.value as "procurement" | "expense" })}><option value="procurement">Supplier</option><option value="expense">Vendor</option></select></label>
+        <label className="col-span-2 flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Address</span><input className={field} value={sup.address} onChange={e => setSup({ ...sup, address: e.target.value })} /></label>
+      </div>
+      <p className="mt-3 text-[12px] text-muted-foreground">Code {supplierPrefix(supName || p.supplierName)}-… is given automatically.</p>
+      <div className="mt-3 flex justify-end"><button type="button" disabled={busy} className="h-9 rounded-full bg-[#1F6B5E] px-4 text-[13px] font-medium text-white disabled:opacity-50" onClick={() => void add()}>{busy ? "Adding…" : "Add supplier"}</button></div>
+    </div>
+    {error && <p className="text-[13px]" style={{ color: AMBER }}>{error}</p>}
+  </>;
 }

@@ -224,6 +224,11 @@ export async function analyzeFiles(
   let answered = "";
   if (answerCall) { try { answered = String(JSON.parse(answerCall.function.arguments || "{}").text || ""); } catch { /* default */ } }
   const raw = answered || choice?.content || "I couldn't read anything useful from these files.";
+  // A bill handed over with no question is for filing: when the model only offers to file it, open it instead of asking.
+  if (handOver && files.length === 1 && /\b(expense|bill|receipt)\b/i.test(raw) && /(would you like|do you want|shall i|should i|want me)[^?]*\b(file|record|book|add)\b/i.test(raw)) {
+    const kind = /\b(cash[- ]box|petty cash|taxi|shop receipt)\b/i.test(raw) ? "cash" : "bill";
+    return sseResponse([{ action: { type: "open_expense_scanner", kind, files: [files[0].name] } }, { choices: [{ delta: { content: "Reading it now — nothing is saved until you confirm." } }] }], cors);
+  }
   const m = raw.match(/\n\s*`?Replies:\s*([^\n`]+)`?\s*$/i);
   const content = m ? raw.slice(0, m.index).trimEnd() : raw;
   const parsed = m ? m[1].split("|").map((o) => o.trim().replace(/^[\[\(]|[\]\)]$/g, "").slice(0, 48)).filter(Boolean) : [];

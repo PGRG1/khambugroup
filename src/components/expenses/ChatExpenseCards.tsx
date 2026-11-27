@@ -65,7 +65,7 @@ const Head = ({ name, sub, total, right }: { name: string; sub: ReactNode; total
   </div>
 );
 
-export type ChatBillPhase = ChatExpensePhase | "asking" | "review" | "booking" | "booked" | "sent" | "held" | "undone";
+export type ChatBillPhase = ChatExpensePhase | "setup" | "asking" | "review" | "booking" | "booked" | "sent" | "held" | "undone";
 export type ChatBookedRow = { left: string; amount: number };
 type BillProps = {
   phase: ChatBillPhase; reason?: string;
@@ -243,6 +243,63 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
         </div>
       </div>
       {p.said.length > 0 && <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line tabular-nums">{t}</p>)}</div>}
+    </div>
+  );
+}
+
+/* ───────────── Bill setup in chat: one step at a time, like a supplier invoice ───────────── */
+
+export type BillSetupStep = "vendor" | "type" | "venue";
+export type BillSetupProps = {
+  steps: BillSetupStep[]; at: number; done: string[]; busy: boolean; error?: string;
+  vendorName: string; total: number; currency: string;
+  /** The same "is new. Add it?" supplier step as a supplier invoice in chat. */
+  vendorStep: ReactNode;
+  /** Expense type step: each line with Bani's suggested account (picked already) and why. */
+  lines: { line_no: number; description: string; amount: number; account_id: string | null; suggested: boolean }[];
+  accounts: { id: string; code: string; name: string; group: string }[];
+  onAccount: (line: number, account: string) => void; onTypeDone: () => void;
+  venues: string[]; onVenue: (v: string) => void; shared: boolean;
+};
+
+export function ChatBillSetup(p: BillSetupProps) {
+  const step = p.steps[p.at];
+  const field = "h-8 w-full min-w-0 rounded-[7px] border border-[#E1E7E4] bg-[#FBFCFB] px-2.5 text-[13px]";
+  const card = "w-full max-w-[640px] rounded-2xl border bg-white p-4";
+  const go = "h-9 rounded-full bg-[#1F6B5E] px-4 text-[13px] font-medium text-white disabled:opacity-50";
+  const groups = [...new Set(p.accounts.map(a => a.group))];
+  const head = <p className="text-[12px] text-muted-foreground">Step {p.at + 1} of {p.steps.length} · {step === "vendor" ? "Supplier" : step === "type" ? "Expense type" : "Venue"}</p>;
+  return (
+    <div className="space-y-2.5">
+      {p.at === 0 && <p className="text-[14px]">Before I can book it, there {p.steps.length === 1 ? "is 1 thing" : `are ${p.steps.length} things`} to set up. I'll go one at a time.</p>}
+      {p.done.length > 0 && <div className="space-y-1">{p.done.map(d => <p key={d} className="text-[13px] text-[#2F7A5E]">✓ {d}</p>)}</div>}
+      {head}
+      {step === "vendor" && p.vendorStep}
+      {step === "type" && <>
+        <p className="text-[14px]">What kind of cost is it? I've picked what fits best — change it if it's wrong.</p>
+        <div className={card} style={{ borderColor: HAIR }}>
+          {p.lines.map(l => {
+            const a = p.accounts.find(x => x.id === l.account_id);
+            return <div key={l.line_no} className="grid items-center gap-3 border-b py-2.5 first:pt-0 last:border-b-0" style={{ borderColor: HAIR, gridTemplateColumns: "1fr auto" }}>
+              <div className="min-w-0">
+                <p className="truncate text-[13px]" title={l.description}>{l.description || "—"} <span className="tabular-nums text-muted-foreground">· {num(l.amount)}</span></p>
+                <select aria-label={`Expense type for ${l.description}`} className={cn(field, "mt-1.5 h-9", !a && "border-[#EF9F27] bg-[#FFF8EC]")} value={l.account_id ?? ""} onChange={e => p.onAccount(l.line_no, e.target.value)}>
+                  <option value="">Pick the expense type</option>
+                  {groups.map(g => <optgroup key={g} label={g}>{p.accounts.filter(x => x.group === g).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
+                </select>
+                <p className="mt-1 text-[12px] text-muted-foreground">{a ? <>{l.suggested && <span className="mr-1.5 rounded-md bg-[#E4F1EC] px-1.5 py-px text-[11px] text-[#1F6B5E]">Bani suggests</span>}In the P&amp;L: {a.group} › {a.code} {a.name}</> : <span style={{ color: AMBER }}>I couldn't tell — pick one</span>}</p>
+              </div>
+            </div>;
+          })}
+          <div className="mt-3 flex justify-end"><button type="button" disabled={p.busy || p.lines.some(l => !l.account_id)} className={go} onClick={p.onTypeDone}>Use {p.lines.length > 1 ? "these" : "this"}</button></div>
+        </div>
+      </>}
+      {step === "venue" && <>
+        <p className="text-[14px]">Which venue is this for?</p>
+        <div className="flex flex-wrap gap-2">{p.venues.map(v => <button key={v} type="button" className="floating-bani-reply" onClick={() => p.onVenue(v)}>{v}</button>)}</div>
+        {p.shared && <p className="text-[13px] text-muted-foreground">Shared by several venues? Tell me who pays how much, e.g. "half Assembly, half Caliente".</p>}
+      </>}
+      {p.error && <p className="text-[13px]" style={{ color: AMBER }}>{p.error}</p>}
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { useExpenseBills, type ExpenseBill, type ExpenseBillAllocation } from "@
 import { usePettyCash } from "@/hooks/usePettyCash";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { billDraftFromScan, loadBillLookups, readBillFiles } from "@/utils/billFromScan";
+import { ChatBillSetup, type BillSetupStep } from "@/components/expenses/ChatExpenseCards";
+import { NewSupplierStep } from "@/components/assistant/ChatInvoiceSetup";
 import { billMayBeShared, canUndoBill, isYes, looksLikeEquipment, recordMonth, splitAmounts, usefulLifeMonths, type SplitPart, type VenueShare } from "@/utils/billChatRules";
 import { supabase } from "@/integrations/supabase/client";
 import { insertPendingCashSlip, readCashSlip } from "@/utils/cashSlip";
@@ -45,6 +47,8 @@ type BillState = {
   level: number; billId?: string; canUndo: boolean; undoing: boolean;
   /** A vendor not in Bani yet: added only when the bill is booked or held. */
   newVendor?: string; venues: { id: string; name: string }[]; saving?: boolean;
+  /** Set up first, one step at a time (like a supplier invoice): a new vendor, the expense type, the venue. */
+  setup?: { steps: BillSetupStep[]; at: number; done: string[]; error?: string; busy?: boolean; vendor: { terms: string; phone: string; email: string; address: string }; suggested: number[]; shared: boolean };
 };
 const blank: BillState = { phase: "reading", said: [], header: null, allocs: [], accounts: [], todo: [], ask: null, split: null, months: null, level: 0, canUndo: false, undoing: false, venues: [] };
 // Kept by handoff id so the card can move to the bottom of the chat with each answer.
@@ -107,6 +111,41 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     const code = await nextSupplierCode(tenantId!, name);
     const { data: sup, error } = await supabase.from("suppliers").insert({ name, code, vendor_type: "expense", is_active: true, tenant_id: tenantId, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 } as never).select("id").single();
     return error || !sup ? null : (sup as { id: string }).id;
+  };
+
+  /** The bill's expense lines with Bani's pick for each: the account it already has, else one read from the line. */
+  const suggestAccounts = async (st0: BillState): Promise<{ allocs: ExpenseBillAllocation[]; suggested: number[] }> => {
+    const suggested: number[] = [];
+    const allocs = await Promise.all(st0.allocs.map(async a => {
+      if (a.account_id) { suggested.push(a.line_no); return a; }
+      const text = [a.expense_category, a.notes].filter(Boolean).join(" · ") || st0.header?.vendor_name || "";
+      const { data } = await supabase.functions.invoke("chat-assistant", { body: { tenant_id: tenantId, floating: true, messages: [{ role: "user", content: text }], bill_reply: { ask: "account", answer: text, context: `${st0.header?.vendor_name ?? ""} bill line "${text}" ${money(Number(a.amount || 0))}` } } });
+      const id = (data as { account_id?: string } | null)?.account_id;
+      if (id && st0.accounts.some(x => x.id === id)) { suggested.push(a.line_no); return { ...a, account_id: id }; }
+      return a;
+    }));
+    return { allocs, suggested };
+  };
+
+  /** Everything the bill needs before it can be booked, one step at a time; then the bill card. */
+  const startSetup = async (st0: BillState, shared: boolean, scan: { payment_terms?: string | null; vendor_address?: string | null; vendor_phone?: string | null; vendor_email?: string | null }) => {
+    const steps: BillSetupStep[] = [];
+    if (st0.newVendor) steps.push("vendor");
+    // A new vendor has no past bills to follow, so Bani's pick is shown to confirm; a known vendor only when a line has none.
+    const { allocs, suggested } = st0.newVendor || st0.allocs.some(a => !a.account_id) ? await suggestAccounts(st0) : { allocs: st0.allocs, suggested: [] };
+    if (st0.newVendor || allocs.some(a => !a.account_id)) steps.push("type");
+    if (!st0.header?.venue_id || shared) steps.push("venue");
+    if (!steps.length) return next({ ...st0, allocs }, []);
+    const terms = String(scan.payment_terms ?? (st0.header as { payment_terms?: string } | null)?.payment_terms ?? "");
+    const vendor = { terms: /cash|cod|receipt|immediate/i.test(terms) || !terms ? "COD" : (terms.match(/\b(7|14|30|60)\b/) ? `Net ${terms.match(/\b(7|14|30|60)\b/)![1]}` : "COD"), phone: String(scan.vendor_phone ?? ""), email: String(scan.vendor_email ?? ""), address: String(scan.vendor_address ?? "") };
+    patch({ ...st0, allocs, phase: "setup", said: [], ask: shared && steps[0] === "venue" ? { kind: "venue" } : null, setup: { steps, at: 0, done: [], vendor, suggested, shared } });
+  };
+
+  /** Move to the next setup step, or show the bill card when all are done. */
+  const advance = (s: BillState, done: string) => {
+    const su = s.setup!; const at = su.at + 1;
+    if (at >= su.steps.length) return next({ ...s, setup: undefined, ask: null }, [`✓ ${[...su.done, done].join(" · ")}`]);
+    patch({ ...s, ask: su.shared && su.steps[at] === "venue" ? { kind: "venue" } : null, setup: { ...su, at, done: [...su.done, done], error: undefined, busy: false } });
   };
 
   const hold = async () => {
@@ -189,7 +228,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       const allocs = s.allocs.map(a => a.line_no === ask.line ? { ...a, account_id: acct.id } : a);
       return next({ ...s, allocs }, [`I'll put it under ${acct.code} ${acct.name}.`]);
     }
-    if (ask.kind === "split" && isYes(text)) return next({ ...s, split: { shares: ask.shares, parts: ask.parts }, todo: s.todo.slice(1) }, []);
+    if (ask.kind === "split" && isYes(text)) return next({ ...s, split: { shares: ask.shares, parts: ask.parts }, setup: undefined, todo: s.todo.filter(t => t !== "venue") }, []);
     if (ask.kind === "venue" || ask.kind === "split") {
       const r = await read("split", `${s.header.vendor_name} bill, total ${money(total)}`);
       const parts = Array.isArray(r.parts) ? (r.parts as SplitPart[]) : [];
@@ -214,7 +253,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
 
   // Free-text answers from the chat box come here while Bani is waiting.
   useEffect(() => {
-    if (!st.ask || (st.phase !== "asking" && st.phase !== "review")) { if (replyTarget?.id === handoff.id) replyTarget = null; return; }
+    if (!st.ask || (st.phase !== "asking" && st.phase !== "review" && st.phase !== "setup")) { if (replyTarget?.id === handoff.id) replyTarget = null; return; }
     replyTarget = { id: handoff.id, handoff, said: st.said.join("\n\n"), answer: t => void answer(t) };
     return () => { if (replyTarget?.id === handoff.id) replyTarget = null; };
   });
@@ -259,9 +298,9 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
         const todo: BillState["todo"] = [];
         // An unknown venue is just picked in the card; only a bill that looks shared (head office address,
         // shared service) also asks in chat who pays how much.
-        if (billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0 })) todo.push("venue");
+        const shared = billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0 });
         if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) todo.push("asset");
-        next({ ...base, header, todo, newVendor, venues: l.venues }, said);
+        await startSetup({ ...base, header, todo, newVendor, venues: l.venues }, shared, scan);
       } catch {
         patch({ phase: "failed" });
       }
@@ -270,6 +309,20 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
   }, [roleLoading, tenantId, billsLoading]);
 
   const h = st.header;
+  const plAccounts = st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) }));
+  if (st.phase === "setup" && st.setup && h) {
+    const su = st.setup;
+    return <ChatBillSetup steps={su.steps} at={su.at} done={su.done} busy={!!su.busy} error={su.error}
+      vendorName={st.newVendor || h.vendor_name || ""} total={Number(h.total_amount || 0)} currency={h.currency || getBaseCurrency()}
+      vendorStep={tenantId && <NewSupplierStep key={handoff.id} tenantId={tenantId} supplierName={st.newVendor || h.vendor_name || ""} type="expense" initial={su.vendor}
+        onCreated={row => { const cur = stRef.current; advance({ ...cur, newVendor: undefined, header: { ...cur.header, supplier_id: row.id, vendor_name: row.name } }, `${row.name}${row.code ? ` (${row.code})` : ""} added`); }} />}
+      lines={st.allocs.map(a => ({ line_no: a.line_no, description: a.notes || a.expense_category || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null, suggested: su.suggested.includes(a.line_no) }))}
+      accounts={plAccounts}
+      onAccount={(line, account) => patch({ allocs: stRef.current.allocs.map(a => a.line_no === line ? { ...a, account_id: account || null } : a), setup: { ...stRef.current.setup!, suggested: stRef.current.setup!.suggested.filter(n => n !== line) } })}
+      onTypeDone={() => { const cur = stRef.current; const names = [...new Set(cur.allocs.map(a => cur.accounts.find(x => x.id === a.account_id)?.name).filter(Boolean))]; advance(cur, `Expense type: ${names.join(", ")}`); }}
+      venues={st.venues.map(v => v.name)} shared={su.shared}
+      onVenue={v => { const cur = stRef.current; const venue = cur.venues.find(x => x.name === v); advance({ ...cur, header: { ...cur.header, venue: v, venue_id: venue?.id ?? null }, split: null, todo: cur.todo.filter(t => t !== "venue") }, `Venue: ${v}`); }} />;
+  }
   return <ChatBillCard phase={st.phase} reason={st.reason} said={st.said}
     vendor={h?.vendor_name || ""} number={h?.bill_number || ""} due={h?.due_date || null} currency={h?.currency || getBaseCurrency()}
     recordsTo={h?.bill_date ? recordMonth(h.bill_date) : ""} rows={venueRows(st)}
