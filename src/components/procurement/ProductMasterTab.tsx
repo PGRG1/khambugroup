@@ -38,6 +38,9 @@ import { computeSetupHealth, type SetupHealthState } from "@/utils/productSetupH
 import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
 import { ItemsUploadDialog } from "@/components/procurement/ItemsUploadDialog";
 import { productNeeds, needsText, boughtAs } from "@/utils/productNeeds";
+import { costAfterDeal, cheapestIndex } from "@/utils/productCosts";
+import { useColumnLayout, ResizeHandle, ColumnsButton, fitCell, type ColumnDef } from "@/components/kit/ColumnLayout";
+import { useAuth } from "@/hooks/useAuth";
 
 
 interface SupplierDealRow {
@@ -130,6 +133,24 @@ function SetupStatusBadge({ row }: { row: FlatRow }) {
   );
 }
 
+// Products list columns (widths are the defaults; people can resize, hide and reset them).
+const LIST_COLS: ColumnDef[] = [
+  { key: "sku", label: "SKU", width: 90, min: 60 },
+  { key: "product", label: "Product", width: 210, min: 120, lockShown: true, grow: true },
+  { key: "category", label: "Category", width: 170, min: 80, grow: true },
+  { key: "supplier", label: "Supplier", width: 215, min: 130, lockShown: true, grow: true },
+  { key: "code", label: "Supplier code", width: 110, min: 70 },
+  { key: "bought", label: "Bought as", width: 120, min: 70 },
+  { key: "price", label: "Price", width: 85, min: 70 },
+  { key: "deal", label: "Deal", width: 110, min: 60 },
+  { key: "cost", label: "Cost after deal", width: 125, min: 95 },
+  { key: "status", label: "Status", width: 115, min: 85 },
+];
+const RIGHT = new Set(["price", "cost", "status"]);
+const SORTABLE = new Set(["sku", "product", "category", "price", "cost", "status"]);
+// Shown once per product; the product's other supplier lines leave them blank.
+const PRODUCT_COLS = new Set(["sku", "product", "category", "status"]);
+
 export default function ProductMasterTab({ popup = false }: { popup?: boolean } = {}) {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { tenantId } = useActiveTenant();
@@ -184,13 +205,19 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  // Columns: defaults below; each person's widths and hidden columns are kept for them (Columns › Reset columns).
   // Fewer columns when the page area (not the screen) is narrow, e.g. Settings beside the sidebar on a tablet.
   const rootRef = useRef<HTMLDivElement>(null);
   const [isTablet, setIsTablet] = useState(false);
+  const [areaW, setAreaW] = useState(1400);
+  // Default columns fit the page area: Supplier code goes first, then Category (a person's own choice wins).
+  const defaultHidden = useMemo(() => [...(areaW < 1250 ? ["code"] : []), ...(areaW < 1120 ? ["category"] : [])], [areaW]);
+  const colLayout = useColumnLayout("products-list", user?.id, LIST_COLS, defaultHidden);
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setIsTablet(el.clientWidth < 1000));
+    const ro = new ResizeObserver(() => { setIsTablet(el.clientWidth < 1000); setAreaW(Math.round(el.clientWidth / 50) * 50); });
     ro.observe(el);
     return () => ro.disconnect();
   });
@@ -235,10 +262,11 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   };
 
   useEffect(() => {
-    supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
+    if (!tenantId) return;
+    supabase.from("suppliers").select("id, name").eq("tenant_id", tenantId).eq("is_active", true).order("name").then(({ data }) => {
       setDbSuppliers((data || []) as { id: string; name: string }[]);
     });
-  }, []);
+  }, [tenantId]);
 
   const coaById = useMemo(() => {
     const m = new Map<string, { code: string; name: string; account_type: string }>();
@@ -368,6 +396,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     purchase_unit: r.purchase_unit, purchase_unit_cost: r.purchase_unit_cost,
     creates_stock_movement: r.creates_stock_movement, stock_uom: r.stock_uom, stock_qty: r.stock_qty, status: r.status,
   })])), [flatRows, accountKeys]);
+  const multiCount = useMemo(() => products.filter(p => (p.suppliers?.length ?? 0) > 1).length, [products]);
   const needsCount = useMemo(() => new Set(flatRows.filter(r => (needsByRow.get(r.rowKey) ?? []).length).map(r => r.product.id)).size, [flatRows, needsByRow]);
 
   const toggleSort = (key: string, additive: boolean) => {
@@ -417,6 +446,41 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     const rows = filtered.filter(r => view === "all" ? true : view === "inactive" ? r.status !== "Active" : (needsByRow.get(r.rowKey) ?? []).length > 0);
     return [...rows].sort((a, b) => a.internal_product_name.localeCompare(b.internal_product_name) || (a.supplier || "").localeCompare(b.supplier || ""));
   }, [filtered, view, needsByRow]);
+
+  // One group per product: its supplier lines (cheapest after deal first), the cheapest marked, sorted by column.
+  const [listSort, setListSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "product", dir: 1 });
+  const groups = useMemo(() => {
+    const supIdByName = new Map(dbSuppliers.map(x => [x.name, x.id]));
+    const by = new Map<string, FlatRow[]>();
+    for (const r of listRows) { const a = by.get(r.product.id); if (a) a.push(r); else by.set(r.product.id, [r]); }
+    const out = [...by.values()].map(rows => {
+      const lines = rows.map(r => {
+        const supId = supIdByName.get(r.supplier);
+        const deal = supId ? allDeals.find(d => d.product_id === r.product.id && d.supplier_id === supId && dealLive(d, today)) ?? null : null;
+        return { r, deal, cost: costAfterDeal(r, deal), needs: needsByRow.get(r.rowKey) ?? [] };
+      }).sort((a, b) => (a.cost ?? Infinity) - (b.cost ?? Infinity) || (a.r.supplier || "").localeCompare(b.r.supplier || ""));
+      const p = rows[0].product;
+      return { id: p.id, p, first: rows[0], lines, cheapest: cheapestIndex(lines.map(l => ({ cost: l.cost, stock_uom: l.r.stock_uom }))),
+        best: lines.find(l => l.cost != null)?.cost ?? null, needs: [...new Set(lines.flatMap(l => l.needs))], inactive: !!p.status && p.status !== "Active" };
+    });
+    const cat = (g: typeof out[number]) => [g.first.level1_category, g.first.level2_category, g.first.level3_category].filter(Boolean).join(" › ");
+    const val = (g: typeof out[number]): string | number | null => {
+      switch (listSort.key) {
+        case "sku": return g.p.internal_sku || "";
+        case "category": return cat(g);
+        case "price": { const ps = g.lines.map(l => l.r.purchase_unit_cost).filter(n => n > 0); return ps.length ? Math.min(...ps) : null; }
+        case "cost": return g.best;
+        case "status": return g.inactive ? 2 : g.needs.length ? 0 : 1;
+        default: return g.p.internal_product_name || "";
+      }
+    };
+    return out.sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1; // blanks last either way
+      const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true });
+      return c * listSort.dir || (a.p.internal_product_name || "").localeCompare(b.p.internal_product_name || "");
+    });
+  }, [listRows, dbSuppliers, allDeals, today, needsByRow, listSort]);
   const downloadList = () => {
               const exportRows = listRows.map(r => {
             const py = Number(r.purchase_yield ?? 100);
@@ -765,12 +829,12 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   );
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(listRows.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * pageSize;
-  const pageItems = listRows.slice(pageStart, pageStart + pageSize);
-  const rangeStart = listRows.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(listRows.length, pageStart + pageSize);
+  const pageGroups = groups.slice(pageStart, pageStart + pageSize);
+  const rangeStart = groups.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = Math.min(groups.length, pageStart + pageSize);
   const getPageNumbers = () => {
     const pages: (number | "...")[] = [];
     if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); return pages; }
@@ -856,12 +920,20 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     }
   };
 
+  // Supplier filter: shows only that supplier's lines (one per product).
+  const supplierPick = (
+    <Select value={supplierFilter} onValueChange={v => { setSupplierFilter(v); setPage(1); }}>
+      <SelectTrigger aria-label="Supplier" className={cn("h-9 w-auto gap-1 text-[13px]", "h-8 max-w-[200px] border-none bg-transparent px-3 shadow-none", supplierFilter !== "all" && "bg-secondary")}><SelectValue /></SelectTrigger>
+      <SelectContent><SelectItem value="all">All suppliers</SelectItem>{allSuppliers.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent>
+    </Select>
+  );
+
   return (
     <div ref={rootRef} className="space-y-4">
       {!dialogOpen && (<>
       {/* Same layout as Settings › Suppliers: summary, view buttons, search, upload/download, add. */}
       <p className="text-[13px] text-muted-foreground tabular-nums">
-        {products.length.toLocaleString()} items{needsCount > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsCount.toLocaleString()} need setup</span></>}
+        {products.length.toLocaleString()} items{multiCount > 0 && <> · {multiCount.toLocaleString()} from more than one supplier</>}{needsCount > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsCount.toLocaleString()} need setup</span></>}
       </p>
       <div className={cn("flex items-center gap-1.5", isMobile && "flex-col items-stretch gap-2")}>
         {isMobile && (
@@ -875,14 +947,17 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           {([["all", "All"], ["needs", "Needs setup"], ["inactive", "Inactive"]] as const).map(([k, l]) => (
             <Button key={k} size="sm" variant={view === k ? "secondary" : "ghost"} aria-pressed={view === k} className="h-8 whitespace-nowrap px-3" onClick={() => { setView(k); setPage(1); }}>{l}</Button>
           ))}
+          {!isMobile && supplierPick}
           {isMobile && <span className="flex-1" />}
           {isMobile && canEditList && <Button size="sm" className="h-8" onClick={openCreate}>Add</Button>}
         </div>
+        {isMobile && <div className="-mt-1">{supplierPick}</div>}
         {!isMobile && (
           <div className="ml-auto flex items-center gap-1.5">
             <Input aria-label="Search items" placeholder={isTablet ? "Search" : "Search items, suppliers or codes"} value={search} onChange={e => setSearch(e.target.value)} className={cn("h-9 text-[13px]", isTablet ? "w-[200px]" : "w-[280px]")} />
             {canEditList && <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></Button>}
             <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></Button>
+            <ColumnsButton cols={LIST_COLS} hidden={colLayout.hidden} onToggle={colLayout.toggle} onReset={colLayout.reset} changed={colLayout.changed} />
             {canEditList && <Button size="sm" className="h-9" onClick={openCreate}>{isTablet ? "Add" : "Add product"}</Button>}
           </div>
         )}
@@ -890,58 +965,81 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
       {isMobile ? (
         <div className="border-t border-border">
-          {pageItems.length === 0 && <p className="py-10 text-center text-[13px] text-muted-foreground">No products found.</p>}
-          {pageItems.map(r => {
-            const needs = needsByRow.get(r.rowKey) ?? [];
-            return (
-              <button key={r.rowKey} type="button" className="flex w-full items-center gap-3 border-b border-border/60 py-2.5 text-left" onClick={() => openEdit(r)}>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium" title={r.internal_product_name}>{r.internal_product_name}</span>
-                  <span className={cn("block truncate text-[12px]", needs.length ? "text-[hsl(var(--warning))]" : "text-muted-foreground")}>
-                    {needs.length ? needsText(needs) : [r.internal_sku, r.supplier, r.external_sku || "—"].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="block text-[14px] tabular-nums">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : "—"}</span>
-                  <span className="block text-[12px] text-muted-foreground">{boughtAs(r.purchase_unit, r.stock_qty, r.stock_uom) || "—"}</span>
-                </span>
+          {pageGroups.length === 0 && <p className="py-10 text-center text-[13px] text-muted-foreground">No products found.</p>}
+          {pageGroups.map(g => (
+            <div key={g.id} className={cn("border-b border-border py-2.5", g.inactive && "opacity-60")}>
+              <button type="button" className="flex w-full items-baseline justify-between gap-3 text-left" onClick={() => openEdit(g.first)}>
+                <span className="min-w-0 truncate text-[14px] font-medium" title={g.p.internal_product_name}>{g.p.internal_product_name}</span>
+                <span className={cn("shrink-0 text-[12px]", g.needs.length && !g.inactive ? "text-[hsl(var(--warning))]" : "text-muted-foreground")}>{g.inactive ? "Inactive" : g.needs.length ? "Needs setup" : "Ready"}</span>
               </button>
-            );
-          })}
+              <div className="text-[12px] text-muted-foreground">{g.p.internal_sku}</div>
+              {g.lines.map((l, i) => (
+                <button key={l.r.rowKey} type="button" className="mt-1 flex w-full items-start justify-between gap-3 text-left text-[13px]" onClick={() => openEdit(l.r)}>
+                  <span className="min-w-0">
+                    <span className="block truncate">{l.r.supplier || <span className="text-[hsl(var(--warning))]">No supplier</span>}{g.cheapest === i && <span className="ml-1.5 rounded-md bg-[#E4F1EC] px-1.5 py-px text-[11px] text-[#1F6B5E]">Cheapest</span>}</span>
+                    <span className="block truncate text-[12px] text-muted-foreground">{boughtAs(l.r.purchase_unit, l.r.stock_qty, l.r.stock_uom) || <span className="text-[hsl(var(--warning))]">No unit</span>}{l.deal && <span className="text-[#2F7A5E]"> · {dealLabel(l.deal, l.r.purchase_unit_cost)}</span>}</span>
+                  </span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    <span className="block">{l.r.purchase_unit_cost > 0 ? fmt(l.r.purchase_unit_cost) : <span className="text-[hsl(var(--warning))]">No price</span>}</span>
+                    <span className="block text-[12px] text-muted-foreground">{l.cost != null ? `${fmt(l.cost)} / ${l.r.stock_uom}` : "—"}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Products table">
-          {/* Same table as Revenue › Sales records: SKU · Product · Category · Supplier · Price · Deal · Status. */}
-          <table className="sales-table" aria-label="Products">
+          {/* One product, its suppliers on the lines below (named once). Drag a header edge to resize; Columns hides or resets. */}
+          <table className="sales-table kit-resizable" aria-label="Products" style={colLayout.tableStyle}>
+            <colgroup>{colLayout.shown.map(c => <col key={c.key} data-col={c.key} style={{ width: colLayout.colWidth(c) }} />)}</colgroup>
             <thead><tr>
-              <th scope="col" className="sales-cell-left">SKU</th>
-              <th scope="col" className="sales-cell-left">Product</th>
-              {!isTablet && <th scope="col" className="sales-cell-left">Category</th>}
-              <th scope="col" className="sales-cell-left">Supplier</th>
-              <th scope="col" className="sales-cell-right">Price</th>
-              <th scope="col" className="sales-cell-left">Deal</th>
-              <th scope="col" className="sales-cell-right">Status</th>
-            </tr></thead>
-            <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">No products found.</td></tr>}
-              {pageItems.map(r => {
-                const needs = needsByRow.get(r.rowKey) ?? [];
-                const supId = dbSuppliers.find(x => x.name === r.supplier)?.id;
-                const deal = allDeals.find(d => d.product_id === r.product.id && (!supId || d.supplier_id === supId) && dealLive(d, today));
-                const inactive = r.status && r.status !== "Active";
-                const missing = (t: string) => <span className="text-[hsl(var(--warning))]">{t}</span>;
+              {colLayout.shown.map(c => {
+                const sortable = SORTABLE.has(c.key);
+                const on = listSort.key === c.key;
                 return (
-                  <tr key={r.rowKey} className={cn("sales-record-row", inactive && "sales-closed-row")} onClick={() => openEdit(r)}>
-                    <td className="sales-cell-left text-muted-foreground whitespace-nowrap">{r.internal_sku}</td>
-                    <td className="sales-cell-left font-medium" title={r.internal_product_name}>{r.internal_product_name}</td>
-                    {!isTablet && <td className="sales-cell-left" title={[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ")}>{r.level3_category || r.level2_category || r.level1_category ? <>{r.level3_category || r.level2_category || r.level1_category}{r.level1_category && (r.level3_category || r.level2_category) && <span className="text-muted-foreground"> · {r.level1_category}</span>}</> : missing("Not set")}</td>}
-                    <td className="sales-cell-left" title={r.supplier}>{r.supplier || missing("Not set")}</td>
-                    <td className="kit-num">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : missing("Not set")}</td>
-                    <td className="sales-cell-left whitespace-nowrap">{deal ? <span className="text-[#2F7A5E]">{dealLabel(deal, r.purchase_unit_cost)}</span> : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="sales-cell-right whitespace-nowrap">{inactive ? "Inactive" : needs.length ? <span className="text-[hsl(var(--warning))]" title={needsText(needs)}>Needs setup</span> : "Ready"}</td>
-                  </tr>
+                  <th key={c.key} scope="col" data-col={c.key} className={RIGHT.has(c.key) ? "sales-cell-right" : "sales-cell-left"}
+                    aria-sort={on ? (listSort.dir === 1 ? "ascending" : "descending") : undefined}>
+                    {sortable
+                      ? <button type="button" className="inline-flex max-w-full items-center gap-1 truncate" onClick={() => setListSort(on ? { key: c.key, dir: listSort.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 })}>
+                          <span className="truncate">{c.label}</span>{on && (listSort.dir === 1 ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />)}
+                        </button>
+                      : c.label}
+                    <ResizeHandle colKey={c.key} label={c.label} width={colLayout.widthOf(c)} min={c.min} onResize={(w, now) => colLayout.setWidth(c.key, w, now)} />
+                  </th>
                 );
               })}
+            </tr></thead>
+            <tbody>
+              {pageGroups.length === 0 && <tr><td colSpan={colLayout.shown.length} className="py-10 text-center text-muted-foreground">No products found.</td></tr>}
+              {pageGroups.map(g => g.lines.map((l, i) => {
+                const r = l.r;
+                const warn = (t: string) => <span className="text-[hsl(var(--warning))]">{t}</span>;
+                const catPath = [r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ");
+                const cell = (key: string): { v: React.ReactNode; t?: string } => {
+                  if (i > 0 && PRODUCT_COLS.has(key)) return { v: null };
+                  switch (key) {
+                    case "sku": return { v: <span className="text-muted-foreground">{r.internal_sku}</span>, t: r.internal_sku };
+                    case "product": return { v: <span className="font-medium">{r.internal_product_name}</span>, t: r.internal_product_name };
+                    case "category": return { v: catPath || warn("Not set"), t: catPath };
+                    case "supplier": return { v: <span className="flex min-w-0 items-center gap-1.5"><span className="min-w-0 truncate">{r.supplier || warn("Not set")}</span>{g.cheapest === i && <span className="shrink-0 rounded-md bg-[#E4F1EC] px-1.5 py-px text-[11px] text-[#1F6B5E]">Cheapest</span>}</span>, t: g.cheapest === i ? `${r.supplier} · cheapest after deals` : r.supplier };
+                    case "code": return { v: <span className="text-muted-foreground">{r.external_sku || "—"}</span>, t: [r.external_sku, r.supplier_product_name].filter(Boolean).join(" · ") };
+                    case "bought": { const b = boughtAs(r.purchase_unit, r.stock_qty, r.stock_uom); return { v: b || warn("No unit"), t: b }; }
+                    case "price": return { v: r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : warn("Not set") };
+                    case "deal": { const d = l.deal ? dealLabel(l.deal, r.purchase_unit_cost) : ""; return { v: d ? <span className="text-[#2F7A5E]">{d}</span> : <span className="text-muted-foreground">—</span>, t: d }; }
+                    case "cost": return { v: l.cost != null ? <span className="font-medium">{fmt(l.cost)} <span className="font-normal text-muted-foreground">/ {r.stock_uom}</span></span> : <span className="text-muted-foreground">—</span> };
+                    case "status": return g.inactive ? { v: "Inactive" } : g.needs.length ? { v: warn("Needs setup"), t: needsText(g.needs) } : { v: "Ready" };
+                    default: return { v: null };
+                  }
+                };
+                return (
+                  <tr key={r.rowKey} className={cn("sales-record-row", g.inactive && "sales-closed-row", i < g.lines.length - 1 && "kit-group-mid")} onClick={() => openEdit(r)}>
+                    {colLayout.shown.map(c => { const { v, t } = cell(c.key); return (
+                      <td key={c.key} data-col={c.key} className={RIGHT.has(c.key) ? "kit-num" : "sales-cell-left"} style={fitCell} title={t || undefined}>{v}</td>
+                    ); })}
+                  </tr>
+                );
+              }))}
             </tbody>
           </table>
         </div>
@@ -949,7 +1047,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
-          <span className="tabular-nums">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {listRows.length.toLocaleString()}</span>
+          <span className="tabular-nums">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {groups.length.toLocaleString()} products</span>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="tabular-nums">{currentPage} / {totalPages}</span>
@@ -988,7 +1086,16 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
         const cat = [form.level1_category, form.level2_category, form.level3_category].filter(Boolean).join(" › ");
         const acct = form.default_coa_account_id ? coaById.get(form.default_coa_account_id) : null;
         const fromSetup = !acct && accountKeys.has(`${form.financial_treatment}__${form.level1_category}`);
-        const sups = prod?.suppliers ?? [];
+        // Each supplier with its live deal and cost per stock unit after it, cheapest first.
+        const supIdByName = new Map(dbSuppliers.map(x => [x.name, x.id]));
+        const supLines = (prod?.suppliers ?? []).map(sp => {
+          const id = supIdByName.get(sp.supplier);
+          const deal = id ? allDeals.find(d => d.product_id === prod?.id && d.supplier_id === id && dealLive(d, today)) ?? null : null;
+          return { sp, deal, cost: costAfterDeal({ purchase_unit: sp.purchase_unit, purchase_unit_cost: sp.purchase_unit_cost, stock_qty: sp.stock_qty, stock_uom: sp.stock_uom }, deal) };
+        }).sort((a, b) => (a.cost ?? Infinity) - (b.cost ?? Infinity));
+        const cheapestAt = cheapestIndex(supLines.map(l => ({ cost: l.cost, stock_uom: l.sp.stock_uom })));
+        const sups = supLines.map(l => l.sp);
+        const tag = <span className="ml-1.5 rounded-md bg-[#E4F1EC] px-1.5 py-px text-[11px] font-normal text-[#1F6B5E]">Cheapest</span>;
         const openSupplier = (id: string) => {
           const row = flatRows.find(r => r.product.id === prod?.id && r.supplier_entry?.id === id);
           if (row) { openEdit(row); setEditCard("supplier"); }
@@ -1057,19 +1164,21 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
             {!isNew && card("supplier", editCard === "supplier" ? `Supplier: ${form.supplier || "—"}` : "Suppliers",
               sups.length === 0 ? <p className="text-[13px] text-[hsl(var(--warning))]">No supplier yet.</p> : isMobile
-                ? <div className="border-t border-border">{sups.map(sp => (
+                ? <div className="border-t border-border">{supLines.map(({ sp, deal, cost }, i) => (
                     <button key={sp.id} type="button" disabled={!canEditList} className="flex min-h-[48px] w-full items-center justify-between gap-3 border-b border-border/60 py-1.5 text-left" onClick={() => openSupplier(sp.id)}>
-                      <span className="min-w-0"><span className="block truncate text-[14px]">{sp.supplier || "—"}</span><span className="block truncate text-[12px] text-muted-foreground">{[sp.external_sku || sp.supplier_product_name || "No code", boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom)].filter(Boolean).join(" · ")}</span></span>
-                      <span className="shrink-0 text-[14px] tabular-nums">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : "—"}</span>
+                      <span className="min-w-0"><span className="block truncate text-[14px]">{sp.supplier || "—"}{cheapestAt === i && tag}</span><span className="block truncate text-[12px] text-muted-foreground">{[sp.external_sku || sp.supplier_product_name || "No code", boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom)].filter(Boolean).join(" · ")}{deal && <span className="text-[#2F7A5E]"> · {dealLabel(deal, sp.purchase_unit_cost)}</span>}</span></span>
+                      <span className="shrink-0 text-right tabular-nums"><span className="block text-[14px]">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : "—"}</span><span className="block text-[12px] text-muted-foreground">{cost != null ? `${fmt(cost)} / ${sp.stock_uom}` : "—"}</span></span>
                     </button>))}</div>
                 : <div className="overflow-x-auto"><table className="w-full text-[13px]">
-                    <thead className="border-b border-border text-[12px] text-muted-foreground"><tr><th className="h-9 pr-3 text-left font-normal">Supplier</th><th className="pr-3 text-left font-normal">Supplier code</th><th className="pr-3 text-left font-normal">Their name</th><th className="pr-3 text-left font-normal">Bought as</th><th className="text-right font-normal">Price</th></tr></thead>
-                    <tbody>{sups.map(sp => (
+                    <thead className="border-b border-border text-[12px] text-muted-foreground"><tr><th className="h-9 pr-3 text-left font-normal">Supplier</th><th className="pr-3 text-left font-normal">Supplier code</th><th className="pr-3 text-left font-normal">Their name</th><th className="pr-3 text-left font-normal">Bought as</th><th className="pr-3 text-right font-normal">Price</th><th className="pr-3 text-left font-normal">Deal</th><th className="text-right font-normal">Cost after deal</th></tr></thead>
+                    <tbody>{supLines.map(({ sp, deal, cost }, i) => (
                       <tr key={sp.id} className={cn("h-11 whitespace-nowrap border-b border-border/50", canEditList && "cursor-pointer hover:bg-muted/40")} onClick={() => canEditList && openSupplier(sp.id)}>
-                        <td className="pr-3 font-medium">{sp.supplier || "—"}</td><td className="pr-3 text-muted-foreground">{sp.external_sku || "—"}</td>
+                        <td className="pr-3 font-medium">{sp.supplier || "—"}{cheapestAt === i && tag}</td><td className="pr-3 text-muted-foreground">{sp.external_sku || "—"}</td>
                         <td className="pr-3 text-muted-foreground"><span className="block truncate" style={{ maxWidth: "var(--bani-name-max)" }}>{sp.supplier_product_name || "—"}</span></td>
                         <td className="pr-3">{boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom) || <span className="text-[hsl(var(--warning))]">No unit</span>}</td>
-                        <td className="td-num text-right">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : <span className="text-[hsl(var(--warning))]">No price</span>}</td>
+                        <td className="td-num pr-3 text-right">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : <span className="text-[hsl(var(--warning))]">No price</span>}</td>
+                        <td className="pr-3">{deal ? <span className="text-[#2F7A5E]">{dealLabel(deal, sp.purchase_unit_cost)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                        <td className="td-num text-right font-medium">{cost != null ? <>{fmt(cost)} <span className="font-normal text-muted-foreground">/ {sp.stock_uom}</span></> : <span className="text-muted-foreground">—</span>}</td>
                       </tr>))}</tbody></table></div>,
               <>
                       <div>
@@ -1303,9 +1412,13 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                         <div className="space-y-2">
                           {deals.map((d) => {
                             const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
-                            const pc = parseFloat(form.purchase_unit_cost) || 0;
-                            const effective = d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
-                            const unit = form.purchase_unit || "unit";
+                            // Price and pack of the deal's own supplier (not the supplier this page was opened from).
+                            const entry = products.find(p => p.id === editingProductId)?.suppliers?.find(x => x.supplier === supplier?.name);
+                            const pc = entry ? Number(entry.purchase_unit_cost) || 0 : parseFloat(form.purchase_unit_cost) || 0;
+                            const unit = entry?.purchase_unit || form.purchase_unit || "unit";
+                            const perStock = entry ? costAfterDeal({ purchase_unit: entry.purchase_unit, purchase_unit_cost: pc, stock_qty: entry.stock_qty, stock_uom: entry.stock_uom }, d as any) : null;
+                            const effective = perStock ?? (d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0);
+                            const effUnit = perStock != null ? entry!.stock_uom : unit;
                             const expired = !!d.valid_until && d.valid_until < today;
                             const notYet = !!d.valid_from && d.valid_from > today;
                             const fmtDay = (v: string | null) => {
@@ -1334,7 +1447,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                                 </div>
                                 <div className="text-right whitespace-nowrap">
                                   <div className="text-muted-foreground">Effective</div>
-                                  <div className="tabular-nums font-semibold">{formatCurrency(effective)} / {unit}</div>
+                                  <div className="tabular-nums font-semibold">{formatCurrency(effective)} / {effUnit}</div>
                                 </div>
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-8 w-8"

@@ -7,3 +7,4 @@ export { DownloadMenu, type DownloadFormat } from "./DownloadMenu";
 export { ListRow, type ListRowState } from "./ListRow";
 export { StatusPill } from "./StatusPill";
 export { DetailPanel, DetailGroup, DetailRow, ExplainBox } from "./DetailPanel";
+export { useColumnLayout, ResizeHandle, ColumnsButton, fitCell, type ColumnDef } from "./ColumnLayout";
