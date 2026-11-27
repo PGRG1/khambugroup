@@ -16,7 +16,7 @@ import {RevenueMapping} from '@/components/settings/RevenueMapping';
 import {PurchasingSetup} from '@/components/settings/PurchasingSetup';
 import {ClientSetup} from '@/components/settings/ClientSetup';
 import {ClientCategories} from '@/components/settings/ClientCategories';
-import {SectionPillRow} from '@/components/kit/SectionPillRow';
+import '@/components/kit/kit.css';
 import ChartOfAccounts from '@/pages/finance/ChartOfAccounts';
 import {FinanceTaxView} from '@/components/finance/FinanceTaxView';
 import {CurrenciesView} from '@/components/finance/CurrenciesView';
@@ -76,8 +76,8 @@ export default function Settings(){
  const page=<main className="settings-main min-w-0">
   {!ownHeading&&<header className="settings-head">
    <Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>
-   <h2 className="settings-head-title">{active.group}</h2>
-   {pills.length>1&&<div className="settings-pills"><SectionPillRow label={active.group} items={pills.map(d=>({label:d.label,path:settingsHref(d.id)}))} activePath={settingsHref(active.id)}/></div>}
+   {pills.length>1&&<nav aria-label={active.group} className="settings-pills max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="invoice-switch">{pills.map(d=><Link key={d.id} to={settingsHref(d.id)} replace aria-current={d.id===active.id?'page':undefined} className={`invoice-switch-item ${d.id===active.id?'is-active':''}`}>{d.label}</Link>)}</div></nav>}
+   <h2 className="settings-head-title">{pills.length>1?active.label:active.group}</h2>
   </header>}
   <div key={`${tenantId}:${active.id}`} className="settings-body min-w-0">{content}</div>
  </main>;
