@@ -139,8 +139,8 @@ const Index = () => {
         </div>
         <section className="card-glass rounded-xl border border-border/60 p-4"><LoadingLines rows={3} /></section>
       </div> : error && !data.length ? null : filtered.length === 0 ? (
-        <div className="card-glass rounded-xl p-8 sm:p-12 text-center max-w-xl mx-auto">
-          <p className="font-display text-lg text-foreground">No sales recorded</p>
+        <div className="card-glass rounded-xl p-8 sm:p-12 text-center">
+          <p className="text-muted-foreground">No sales recorded</p>
         </div>
       ) : (
         <RevenueEnter id="overview" className="space-y-5 max-sm:space-y-3">
