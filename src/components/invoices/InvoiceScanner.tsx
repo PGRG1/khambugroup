@@ -2236,6 +2236,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const hasPriceHistory = (line: ScannedLineItem) => !!line.product_master_id && ((insightAvailability[line.product_master_id]?.historyCount ?? 0) > 0 || (insightAvailability[line.product_master_id]?.otherSupplierCount ?? 0) > 0);
 
   if (variant === "chat") {
+    // Bani's suggestion for a line it couldn't link on its own (probably / can't tell with a pick), shown for one-tap confirm.
+    // Only an entry that already exists for this supplier is offered; anything else goes to the full review.
+    const suggestionFor = (l: ScannedLineItem) => {
+      const a = l.matcher_answer;
+      if (l.product_master_id || !a?.product_master_id || !["probably", "cant_tell"].includes(a.decision)) return null;
+      const entry = supplierScopedPM.find(e => e.id === a.product_master_id && e.supplier_entry_id) as ProductMasterEntry | undefined;
+      if (!entry) return null;
+      return { entry, text: [entry.external_sku, entry.supplier_product_name || entry.internal_product_name, entry.purchase_unit].filter(Boolean).join(" · "), why: (a.reason || "").split(" — ")[0].trim() };
+    };
+    const suggested = new Set((current?.line_items || []).flatMap((l, i) => suggestionFor(l) ? [i] : []));
+    const otherBlocking = !!current && ((current.review_blocking?.length || 0) > 0 || current.line_items.some((l, i) => !suggested.has(i) && (l.review_blocking?.length || 0) > 0) || hasTotalMismatchForSave(current));
+    const otherUnmatched = !!current && current.line_items.some((l, i) => !suggested.has(i) && l.description.trim() && l.unmatched);
     const supplierRow = current ? suppliers.find(sp => sp.id === current.supplier_id) as { payment_terms?: string | null } | undefined : undefined;
     const termsMatch = supplierRow?.payment_terms?.match(/^(?:net\s*)?(\d+)\s*(?:days?)?$/i);
     const phase: ChatScanPhase = handoffOutcome === "denied" ? "denied"
@@ -2244,7 +2256,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       : invoices.length > 1 ? "many"
       : current.saved ? "saved"
       : current.is_duplicate ? "duplicate"
-      : !current.supplier_id || !current.invoice_number || !current.invoice_date || hasUnmatchedItems || hasBlockingIssues || hasUnmatchedForSave(current) ? "review"
+      : !current.supplier_id || !current.invoice_number || !current.invoice_date || otherUnmatched || otherBlocking ? "review"
       : "ready";
     const setQty = (i: number, value: number) => {
       const line = current?.line_items[i];
@@ -2271,7 +2283,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const was = l.price_changed && !l.is_free_unit_line && l.pm_unit_price != null ? Number(l.pm_unit_price) : null;
         const nb = l.product_master_id ? (notBookable?.key === bookableKey ? notBookable.items[l.product_master_id] : { problem: "checking", category: "" } as NotBookable) : undefined;
         const accP = parseFloat(l.accepted_price ?? "");
-        return { blocked: nb ? notBookableText(nb, current?.venue || "") : undefined, code: [l.scanned_item_code ?? l.item_code, l.matched_internal_name ? (l.scanned_description ?? l.description) : ""].filter(Boolean).join(" · ") || undefined, acceptedPrice: l.accepted_price && Number.isFinite(accP) ? accP : undefined, key: l._baniLineId || String(i), index: i, name: l.matched_internal_name || l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
+        const sug = suggestionFor(l);
+        return { suggestion: sug ? { text: sug.text, why: sug.why } : undefined, blocked: nb ? notBookableText(nb, current?.venue || "") : undefined, code: [l.scanned_item_code ?? l.item_code, l.matched_internal_name ? (l.scanned_description ?? l.description) : ""].filter(Boolean).join(" · ") || undefined, acceptedPrice: l.accepted_price && Number.isFinite(accP) ? accP : undefined, key: l._baniLineId || String(i), index: i, name: l.matched_internal_name || l.description, billed, accepted: Number.isFinite(accepted) ? accepted : billed, unit: l.unit || "", total: calcLineTotal(l), price, was, history: hasPriceHistory(l), reason: l.receiving_reason || undefined, note: l.receiving_note || undefined };
       })}
       termsDays={termsMatch ? Number(termsMatch[1]) : null}
       printedDue={current?.due_date || null}
@@ -2293,6 +2306,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
       reasons={current ? scanProblems(current) : []}
+      onConfirm={i => { const l = current?.line_items[i]; const sug = l && suggestionFor(l); if (sug) selectProduct(i, sug.entry); }}
       onOpenFull={() => onOpenFull?.()}
       onHistory={i => setHistoryLineIdx(i)}
     />{renderPriceHistory(false)}</>;

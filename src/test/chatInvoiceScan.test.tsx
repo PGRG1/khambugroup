@@ -25,6 +25,17 @@ describe("Bani chat invoice booking", () => {
     expect(f.onBook).toHaveBeenCalledWith(expect.objectContaining({ dueDate: "2026-12-18", hold: false }));
   });
 
+  it("shows Bani's likely match for one-tap confirm and keeps Book and Hold off until confirmed", () => {
+    const f = { ...fns(), onConfirm: vi.fn() };
+    render(<ChatScanCard {...base} lines={[{ ...lines[0], suggestion: { text: "Tiger Prawn 16/20 · kg", why: "Same supplier, same price" } }, lines[1]]} phase="ready" {...f} />);
+    expect(screen.getByText(/Likely: Tiger Prawn 16\/20 · kg/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Tick all"));
+    expect(book().disabled).toBe(true);
+    expect((screen.getByText("Hold for review") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getAllByText("Yes, that's it")[0]);
+    expect(f.onConfirm).toHaveBeenCalledWith(0);
+  });
+
   it("never books a line that can't go into the books, but still allows Hold", () => {
     const f = fns();
     render(<ChatScanCard {...base} lines={[{ ...lines[0], blocked: "Seafood has no account at Caliente" }, lines[1]]} phase="ready" {...f} />);

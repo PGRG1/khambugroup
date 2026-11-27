@@ -19,6 +19,8 @@ export type ChatScanLine = {
   reason?: string; note?: string;
   /** Why this line could not go into the books yet (no group or account for the venue): Book stays off. */
   blocked?: string;
+  /** Bani's suggested Items Master entry for a line it couldn't link on its own: the supplier's code (when saved), their name, unit and why. */
+  suggestion?: { text: string; why: string };
 };
 export type ChatScanPhase = "reading" | "failed" | "denied" | "many" | "duplicate" | "review" | "ready" | "saved";
 export type ChatScanAnswers = { dueDate: string | null; receivedDate: string; hold: boolean };
@@ -48,6 +50,8 @@ type Props = {
   /** Why it can't be booked here yet (review phase). */
   reasons?: string[];
   onHistory?: (index: number) => void;
+  /** Confirm Bani's suggestion for a line. */
+  onConfirm?: (index: number) => void;
 };
 
 const AMBER = "#B45309";
@@ -123,7 +127,8 @@ export function ChatScanCard(p: Props) {
   const allTicked = p.lines.every(l => ticked.has(l.key));
   const settled = p.lines.every(lineSettled);
   const blocked = p.lines.filter(l => l.blocked);
-  const canHold = allTicked && settled && !p.saving && !saved && !!p.venue;
+  const toConfirm = p.lines.filter(l => l.suggestion);
+  const canHold = allTicked && settled && !p.saving && !saved && !!p.venue && !toConfirm.length;
   const ready = canHold && !blocked.length;
   const invoiced = Math.round(p.lines.reduce((s, l) => s + l.billed * l.price, 0) * 100) / 100;
   const heldBack = heldForCounts(p.lines);
@@ -138,7 +143,7 @@ export function ChatScanCard(p: Props) {
 
   const th = "px-2.5 pb-2 pt-1 text-[11px] font-normal text-muted-foreground whitespace-nowrap";
   const group = "px-2.5 pt-2 text-left text-[11px] font-medium text-foreground";
-  const td = "px-2.5 py-2.5 align-top";
+  const td = "px-2.5 py-2.5 align-middle";
   const gl = { borderLeft: `1px solid ${HAIR}` };
   const sticky = "sticky left-0 z-[1] bg-white";
 
@@ -202,6 +207,10 @@ export function ChatScanCard(p: Props) {
                 <div className="min-w-0 flex-1">
                   <span className="block truncate font-medium" title={l.name}>{l.name}</span>
                   {l.blocked && !saved ? <span className="block text-[12px]" style={{ color: AMBER }}>{l.blocked}</span> : l.code && <span className="block truncate text-[12px] text-muted-foreground">{l.code}</span>}
+                  {l.suggestion && !saved && <>
+                    <span className="block text-[12px]" style={{ color: AMBER }}>Likely: {l.suggestion.text}{l.suggestion.why ? ` · ${l.suggestion.why}` : ""}</span>
+                    <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Pick another</button></span>
+                  </>}
                 </div>
                 <div className="shrink-0 text-right tabular-nums">
                   <span className="block font-medium" style={off || pc ? { color: AMBER } : undefined}>{num(Math.round(l.accepted * accPrice(l) * 100) / 100)}</span>
@@ -237,10 +246,10 @@ export function ChatScanCard(p: Props) {
           <table className="w-full border-collapse" style={{ tableLayout: "fixed", minWidth: 1000 }}>
             <colgroup><col style={{ width: "22%" }} /><col style={{ width: "9%" }} /><col style={{ width: "10%" }} /><col style={{ width: "6%" }} /><col style={{ width: "12%" }} /><col style={{ width: "10%" }} /><col style={{ width: "11%" }} /><col style={{ width: "10%" }} /><col style={{ width: "10%" }} /></colgroup>
             <thead style={{ background: "#F7F8F7" }}>
-              <tr><th className={cn(group, sticky, "bg-[#F7F8F7]")} /><th colSpan={4} className={group}>Quantity</th><th colSpan={2} className={group} style={gl}>Price</th><th colSpan={2} className={group} style={gl}>Total</th></tr>
+              <tr><th className={cn(group, sticky, "bg-[#F7F8F7]")} /><th colSpan={4} className={cn(group, "text-center")}>Quantity</th><th colSpan={2} className={cn(group, "text-center")} style={gl}>Price</th><th colSpan={2} className={cn(group, "text-center")} style={gl}>Total</th></tr>
               <tr>
                 <th className={cn(th, sticky, "bg-[#F7F8F7] pl-4 text-left")}>Item</th>
-                <th className={cn(th, "text-right")}>Invoiced</th><th className={cn(th, "text-right")}>Accepted</th><th className={cn(th, "text-right")}>Diff</th><th className={cn(th, "text-left")}>Reason</th>
+                <th className={cn(th, "text-center")}>Invoiced</th><th className={cn(th, "text-center")}>Accepted</th><th className={cn(th, "text-center")}>Diff</th><th className={cn(th, "text-center")}>Reason</th>
                 <th className={cn(th, "text-right")} style={gl}>Unit price</th><th className={cn(th, "text-right")}>Accepted price</th>
                 <th className={cn(th, "text-right")} style={gl}>Invoiced</th><th className={cn(th, "pr-4 text-right")}>Accepted</th>
               </tr>
@@ -263,17 +272,21 @@ export function ChatScanCard(p: Props) {
                           {on && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                         </button>
                         <div className="min-w-0">
-                          <span className="block truncate font-medium" title={l.name}>{l.name}</span>
+                          <span className="block truncate" title={l.name}>{l.name}</span>
                           {sub && <span className="block truncate text-[12px] text-muted-foreground">{sub}</span>}
+                          {l.suggestion && !saved && <>
+                            <span className="block truncate text-[12px]" style={{ color: AMBER }} title={`${l.suggestion.text} · ${l.suggestion.why}`}>Likely: {l.suggestion.text}{l.suggestion.why ? ` · ${l.suggestion.why}` : ""}</span>
+                            <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Pick another</button></span>
+                          </>}
                         </div>
                       </div>
                     </td>
-                    <td className={cn(td, "whitespace-nowrap text-right tabular-nums")}>{qty(l.billed)}{l.unit && <span className="text-muted-foreground"> {l.unit}</span>}</td>
+                    <td className={cn(td, "whitespace-nowrap text-center tabular-nums")}>{qty(l.billed)}{l.unit && <span className="text-muted-foreground"> {l.unit}</span>}</td>
                     <td className={td}>
-                      <input key={`q-${l.accepted}`} aria-label={`${l.name} accepted`} inputMode="decimal" disabled={saved} defaultValue={qty(l.accepted)} className={boxCls} style={off ? amberBox : { borderColor: "#CFD8D3" }}
+                      <input key={`q-${l.accepted}`} aria-label={`${l.name} accepted`} inputMode="decimal" disabled={saved} defaultValue={qty(l.accepted)} className={cn(boxCls, "text-center")} style={off ? amberBox : { borderColor: "#CFD8D3" }}
                         onBlur={e => setCount(l, e.target.value)} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                     </td>
-                    <td className={cn(td, "whitespace-nowrap text-right tabular-nums")} style={{ color: off ? AMBER : "#B4BDB8" }}>{off ? (diff > 0 ? `+${qty(diff)}` : qty(diff)) : "0"}</td>
+                    <td className={cn(td, "whitespace-nowrap text-center tabular-nums")} style={{ color: off ? AMBER : "#B4BDB8" }}>{off ? (diff > 0 ? `+${qty(diff)}` : qty(diff)) : "0"}</td>
                     <td className={td}>
                       {off ? <div className="space-y-1">
                         <select aria-label={`${l.name} reason`} disabled={saved} value={l.reason && l.reason !== "matched" ? l.reason : ""} className="h-8 w-full min-w-0 rounded-md border px-1.5 text-[12px]" style={!l.reason || l.reason === "matched" ? amberBox : { borderColor: "#CFD8D3" }}
@@ -282,7 +295,7 @@ export function ChatScanCard(p: Props) {
                           {RECEIVING_REASONS.filter(r => r.value !== "matched").map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                         {l.reason === "other" && <input aria-label={`${l.name} note`} placeholder="Note" disabled={saved} defaultValue={l.note} className="h-8 w-full min-w-0 rounded-md border border-[#CFD8D3] px-1.5 text-[12px]" onBlur={e => p.onReason(l.index, "other", e.target.value)} />}
-                      </div> : <span style={{ color: "#B4BDB8" }}>—</span>}
+                      </div> : <span className="block text-center" style={{ color: "#B4BDB8" }}>—</span>}
                     </td>
                     <td className={cn(td, "whitespace-nowrap text-right tabular-nums")} style={gl}>
                       {l.history && p.onHistory
@@ -296,7 +309,7 @@ export function ChatScanCard(p: Props) {
                         onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                     </td>
                     <td className={cn(td, "whitespace-nowrap text-right tabular-nums")} style={gl}>{num(Math.round(l.billed * l.price * 100) / 100)}</td>
-                    <td className={cn(td, "whitespace-nowrap pr-4 text-right font-medium tabular-nums")} style={off || pc ? { color: AMBER } : undefined}>{num(lineAccepted)}</td>
+                    <td className={cn(td, "whitespace-nowrap pr-4 text-right tabular-nums")} style={off || pc ? { color: AMBER } : undefined}>{num(lineAccepted)}</td>
                   </tr>
                 );
               })}
@@ -317,6 +330,7 @@ export function ChatScanCard(p: Props) {
         </div>
       </div>
       {!saved && blocked.length > 0 && !blocked.every(l => /^Checking/.test(l.blocked || "")) && <p className="text-[13px]" style={{ color: AMBER }}>Can't go into the books yet. An approver sets this in Settings › Purchasing setup, or hold it for review.</p>}
+      {!saved && toConfirm.length > 0 && <p className="text-[13px]" style={{ color: AMBER }}>Confirm {toConfirm.length} match{toConfirm.length === 1 ? "" : "es"} to book.</p>}
       {!saved && !p.venue && <p className="text-[13px]" style={{ color: AMBER }}>Pick the venue.</p>}
     </div>
   );
