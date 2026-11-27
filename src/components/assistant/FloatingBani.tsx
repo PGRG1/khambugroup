@@ -372,7 +372,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       setMessages(prev => {
         const last = prev[prev.length - 1];
         // Keep Bani's short note (what needs attention) above the card.
-        return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, invoiceScan }] : [...prev, { role: "assistant" as const, content: "", invoiceScan }];
+        return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, invoiceScan, status: "Reading…" }] : [...prev, { role: "assistant" as const, content: "", invoiceScan, status: "Reading…" }];
       });
       return;
     }
@@ -592,7 +592,10 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
 
   sendRef.current = send;
   // Stop: cancels the reply in flight (the server stops its model call too); the question stays.
-  const stopReply = () => { abort.current?.abort(); abort.current = null; setBusy(false); };
+  // An invoice still being read counts as Bani working: the composer's stop button stops it too.
+  const reading = messages.some(m => m.invoiceScan && !m.outcome && m.status === "Reading…");
+  const stopReading = () => setMessages(prev => prev.map(m => m.invoiceScan && !m.outcome && m.status === "Reading…" ? { ...m, outcome: "Stopped. Send the photo again to read it.", status: "Stopped" } : m));
+  const stopReply = () => { abort.current?.abort(); abort.current = null; setBusy(false); stopReading(); };
 
   // Desktop: panel moves by its header. Mobile: swipe the header down to close (springs back otherwise).
   const onHeaderDown = (e: RPointerEvent<HTMLElement>) => {
@@ -688,7 +691,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             {message.invoiceScan && (message.outcome
               ? message.status === "Stopped" ? <p className="text-[13px] text-muted-foreground">{message.outcome}</p> : <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
               : message.invoiceScan.files[0] instanceof File && message.invoiceScan.scope === identity
-                ? <div className="fb-wide-card"><ChatInvoiceScan handoff={message.invoiceScan} onStop={() => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: "Stopped. Send the photo again to read it.", status: "Stopped" } : m))} onStatus={(label, status) => setMessages(prev => prev.map((m, i) => i === index && (m.label !== label || m.status !== status) ? { ...m, label, status } : m))} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} /></div>
+                ? <div className="fb-wide-card"><ChatInvoiceScan handoff={message.invoiceScan} onStatus={(label, status) => setMessages(prev => prev.map((m, i) => i === index && (m.label !== label || m.status !== status) ? { ...m, label, status } : m))} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} /></div>
                 : <p className="text-xs text-muted-foreground">Attach the invoice again to book it.</p>)}
             {message.salesScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
@@ -807,7 +810,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             <input ref={picker} type="file" hidden multiple accept={ATTACH_TYPES.join(",")} onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             <textarea dir="auto" ref={input} rows={1} value={draft} maxLength={2000} onChange={e => setDraft(e.target.value)} placeholder={hint} aria-label={home ? "Chat with your finance team" : "Ask Bani"} className="floating-bani-input" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); if (home && (draft.trim() || files.length)) setOpen(true); void send(); } }} />
             {dictation.supported && <Button variant="ghost" type="button" className="floating-bani-mic" aria-label="Start dictation" disabled={busy} onClick={() => dictation.start()}><Mic className="h-[18px] w-[18px]" /></Button>}
-            {busy
+            {busy || reading
               ? <Button variant="ghost" type="button" className="floating-bani-send" aria-label="Stop" title="Stop" onClick={stopReply}><Square className="h-3.5 w-3.5 fill-current" /></Button>
               : <Button variant="ghost" type={sendIdle ? "button" : "submit"} className={`floating-bani-send fb-morph ${sendIdle ? "is-voice" : ""} ${sendPop ? (sendPop % 2 ? "fb-pop-a" : "fb-pop-b") : ""}`} aria-label={sendIdle ? "Start voice conversation" : "Send to Bani"} onClick={sendIdle ? enterVoice : undefined}>
                   <AudioLines className="h-5 w-5 fb-morph-voice" aria-hidden /><ArrowUp className="h-5 w-5 fb-morph-send" aria-hidden />

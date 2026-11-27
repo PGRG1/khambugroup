@@ -458,7 +458,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const chatStatusSent = useRef("");
   useEffect(() => {
     const st = chatStatusRef.current;
-    if (!onChatStatus || !st?.title) return;
+    if (!onChatStatus || !st) return;
     const key = `${st.title}|${st.status}`;
     if (chatStatusSent.current === key) return;
     chatStatusSent.current = key;
