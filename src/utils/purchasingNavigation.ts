@@ -8,6 +8,7 @@ export const purchasingSectionPages: PurchasingTab[] = [
   { title: "Purchase orders", url: PURCHASE_ORDERS_URL },
   { title: "Invoices", url: "/procurement/invoices" },
   { title: "Supplier accounts", url: "/procurement/finance/suppliers" },
+  { title: "Deals", url: "/procurement/deals" },
 ];
 
 /** Supplier directory: listed under Settings → Master Data for admins; non-admins keep it in Purchasing. */

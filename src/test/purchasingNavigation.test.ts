@@ -74,7 +74,7 @@ describe("Purchasing section destinations", () => {
   it("lists the Purchasing links in the approved order (Trends after Overview, as in Revenue)", () => {
     expect(purchasingSectionPages.map(page => page.url)).toEqual([
       "/procurement/dashboard", "/procurement/trends", "/procurement/purchase-orders", "/procurement/invoices",
-      "/procurement/finance/suppliers",
+      "/procurement/finance/suppliers", "/procurement/deals",
     ]);
   });
   it("keeps the supplier directory route and its non-admin invoice access unchanged", () => {

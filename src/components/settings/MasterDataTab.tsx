@@ -14,7 +14,7 @@ import {Plus} from 'lucide-react';
 import {useQuery} from '@tanstack/react-query';
 import {useCanEditItemList} from '@/hooks/useCanEditItemList';
 import {hongKongDate} from '@/utils/purchasingOverview';
-import {rebateLabel,rebateProgress,type Rebate} from '@/utils/supplierRebates';
+import {periodWindow,rebateLabel,rebateProgress,type Rebate} from '@/utils/supplierRebates';
 import {PhoneRow} from '@/components/finance/accounting/AccountingKit';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {useAuth} from '@/hooks/useAuth';
@@ -38,15 +38,16 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
  const rebateOf=(r:any)=>(rebatesQ.data??[]).find(x=>r.ids?.has?.(x.supplier_id)||x.supplier_id===r.id);
  const progressOf=(r:any)=>{const rb=rebateOf(r);return rb?rebateProgress(rb,spend,r.ids instanceof Set?r.ids:new Set([r.id]),today):null;};
  const earnedN=rows.filter(r=>!r.archived&&progressOf(r)?.earned).length;
- type RebateForm={id?:string;supplier:any;threshold:string;basis:'percent'|'fixed';value:string;period:'monthly'|'quarterly'|'yearly';starts_on:string};
+ type RebateForm={id?:string;supplier:any;threshold:string;basis:'percent'|'fixed';value:string;starts_on:string;ends_on:string};
  const [rebate,setRebate]=useState<RebateForm|null>(null);
- const openRebate=(r:any)=>{const rb=rebateOf(r);setRebate(rb?{id:rb.id,supplier:r,threshold:String(rb.threshold),basis:rb.basis,value:String(rb.value),period:rb.period,starts_on:rb.starts_on}:{supplier:r,threshold:'',basis:'percent',value:'',period:'quarterly',starts_on:today.slice(0,8)+'01'});};
+ const openRebate=(r:any)=>{const rb=rebateOf(r);setRebate(rb?{id:rb.id,supplier:r,threshold:String(rb.threshold),basis:rb.basis,value:String(rb.value),starts_on:rb.starts_on,ends_on:rb.ends_on??periodWindow(rb,today).to}:{supplier:r,threshold:'',basis:'percent',value:'',starts_on:today.slice(0,4)+'-01-01',ends_on:today.slice(0,4)+'-12-31'});};
  async function saveRebate(stop=false){if(!rebate||!data.tenantId)return;const t=Number(rebate.threshold),v=Number(rebate.value);
-  if(!stop&&(!(t>0)||!(v>0)||(rebate.basis==='percent'&&v>=100))){toast.error('Enter the spend and what you get back');return;}
+  if(!stop&&(!(t>0)||!(v>0)||(rebate.basis==='percent'&&v>=100))){toast.error('Enter the spend target and the rebate');return;}
+  if(!stop&&(!rebate.starts_on||!rebate.ends_on||rebate.ends_on<rebate.starts_on)){toast.error('Enter From and To dates');return;}
   setBusy(true);const db=(supabase as any).from('supplier_rebates');
   const {error}=stop?await db.update({is_active:false,ends_on:today,updated_at:new Date().toISOString()}).eq('id',rebate.id).eq('tenant_id',data.tenantId)
-   :rebate.id?await db.update({threshold:t,basis:rebate.basis,value:v,period:rebate.period,starts_on:rebate.starts_on,updated_at:new Date().toISOString()}).eq('id',rebate.id).eq('tenant_id',data.tenantId)
-   :await db.insert({tenant_id:data.tenantId,supplier_id:rebate.supplier.id,threshold:t,basis:rebate.basis,value:v,period:rebate.period,starts_on:rebate.starts_on});
+   :rebate.id?await db.update({threshold:t,basis:rebate.basis,value:v,period:null,starts_on:rebate.starts_on,ends_on:rebate.ends_on,updated_at:new Date().toISOString()}).eq('id',rebate.id).eq('tenant_id',data.tenantId)
+   :await db.insert({tenant_id:data.tenantId,supplier_id:rebate.supplier.id,threshold:t,basis:rebate.basis,value:v,period:null,starts_on:rebate.starts_on,ends_on:rebate.ends_on});
   setBusy(false);if(error){toast.error(error.message);return;}toast.success(stop?'Rebate stopped':'Rebate saved');setRebate(null);void rebatesQ.refetch();}
  const kind=(r:any)=>r.vendor_type==='expense'?'Vendor':'Supplier';
  const supplies=(r:any)=>(r.categories??[]).join(', ');
@@ -74,7 +75,7 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
   {issues>0&&<p className="px-1 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis"><b className="font-semibold">{[duplicates.length?`${formatTableInteger(duplicates.length)} possible duplicates`:'',noContact.length?`${formatTableInteger(noContact.length)} missing a contact`:'',earnedN?`${formatTableInteger(earnedN)} rebate${earnedN===1?'':'s'} earned`:''].filter(Boolean).join(' · ')}</b> · <button type="button" className="kit-link" onClick={()=>setShowIssues(v=>!v)}>{showIssues?'Hide them':'Show them'}</button></p>}
   {showIssues&&<ul className="px-1 text-[13px] space-y-1.5">
    {duplicates.map(d=><li key={d.from.id+d.into.id} className="flex flex-wrap gap-x-2"><span>{d.from.name} and {d.into.name} may be the same business</span>{canMerge&&<button type="button" className="kit-link" onClick={()=>setMerge(d)}>Merge</button>}</li>)}
-   {rows.filter(r=>!r.archived&&progressOf(r)?.earned).map(r=>{const p=progressOf(r)!;return <li key={'rb'+r.id}>{r.name} rebate earned: HK${Math.round(p.amount).toLocaleString('en-HK')} on HK${Math.round(p.spent).toLocaleString('en-HK')} spent · ask them for it</li>;})}
+   {rows.filter(r=>!r.archived&&progressOf(r)?.earned).map(r=>{const p=progressOf(r)!;return <li key={'rb'+r.id}>{r.name} rebate earned: HK${Math.round(p.amount).toLocaleString('en-HK')} on HK${Math.round(p.spent).toLocaleString('en-HK')} spent · record it on Purchasing › Deals</li>;})}
    {noContact.map(r=><li key={r.id} className="flex gap-x-2"><span>{r.name} has no contact</span><SupplierNameLink id={r.id}><span className="kit-link">Add contact</span></SupplierNameLink></li>)}
    {data.data?.suppliers.filter(s=>s.directory_merged_into).map(s=><li key={s.id} className="text-muted-foreground">✓ {s.name} merged into {data.data?.suppliers.find(a=>a.id===s.directory_merged_into)?.name}{canMerge&&<> · <button type="button" className="kit-link" disabled={busy} onClick={()=>alias(s.id,null)}>Undo</button></>}</li>)}
   </ul>}
@@ -93,12 +94,12 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
    </tr>;})}</tbody></table></div>
   {!shown.length&&<p className="p-10 text-center text-sm text-muted-foreground">{data.isPending?'Loading suppliers…':q||status!=='active'||type!=='all'?'Nothing matches your search or filters.':'No suppliers or vendors yet.'}</p>}
   <Dialog open={!!merge} onOpenChange={o=>!o&&setMerge(null)}><DialogContent className="!bg-card !backdrop-blur-none"><DialogHeader><DialogTitle>Merge these two?</DialogTitle><DialogDescription>{merge?.from.name} → {merge?.into.name}</DialogDescription></DialogHeader><p className="text-sm">They show as one in this list. Invoices, payments and the books are not changed, and you can undo it.</p><div className="flex justify-end gap-2"><Button variant="outline" className="rounded-full" onClick={()=>setMerge(null)}>Cancel</Button><Button className="rounded-full" disabled={busy} onClick={()=>merge&&alias(merge.from.id,merge.into.id)}>Merge</Button></div></DialogContent></Dialog>
-  <Dialog open={!!rebate} onOpenChange={o=>!o&&!busy&&setRebate(null)}><DialogContent className="!bg-card !backdrop-blur-none"><DialogHeader><DialogTitle>Rebate · {rebate?.supplier.name}</DialogTitle><DialogDescription>Money back from this supplier when you spend enough</DialogDescription></DialogHeader>
+  <Dialog open={!!rebate} onOpenChange={o=>!o&&!busy&&setRebate(null)}><DialogContent className="!bg-card !backdrop-blur-none"><DialogHeader><DialogTitle>Rebate · {rebate?.supplier.name}</DialogTitle><DialogDescription className="sr-only">Spend target, rebate and dates</DialogDescription></DialogHeader>
    {rebate&&<div className="space-y-3.5">
-    {field('When you spend',<Input className="h-10 text-[14px]" inputMode="decimal" placeholder="100000" value={rebate.threshold} onChange={e=>setRebate({...rebate,threshold:e.target.value})}/>)}
-    {field('You get back',<><div className="grid grid-cols-2 gap-2 mb-2">{([['percent','A % of spend','e.g. 2% back'],['fixed','A fixed amount','e.g. HK$5,000']] as const).map(([k,t,l])=><button key={k} type="button" aria-pressed={rebate.basis===k} onClick={()=>setRebate({...rebate,basis:k})} className={`text-left rounded-lg border px-3 py-2 ${rebate.basis===k?'border-[rgba(31,107,94,0.35)] bg-[rgba(31,107,94,0.08)]':'border-border bg-white'}`}><p className="text-[13px] font-medium">{t}</p><p className="text-[12px] text-muted-foreground">{l}</p></button>)}</div><Input className="h-10 text-[14px]" inputMode="decimal" placeholder={rebate.basis==='percent'?'2':'5000'} value={rebate.value} onChange={e=>setRebate({...rebate,value:e.target.value})}/></>)}
-    <div className="grid grid-cols-2 gap-3">{field('Counted',<Select value={rebate.period} onValueChange={v=>setRebate({...rebate,period:v as RebateForm['period']})}><SelectTrigger className="h-10 text-[14px]"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="monthly">Every month</SelectItem><SelectItem value="quarterly">Every quarter</SelectItem><SelectItem value="yearly">Every year</SelectItem></SelectContent></Select>)}{field('From',<Input type="date" className="h-10 text-[14px]" value={rebate.starts_on} onChange={e=>setRebate({...rebate,starts_on:e.target.value})}/>)}</div>
-    <p className="text-[12px] text-muted-foreground">Counted from this supplier's approved invoices. When it's earned, Bani tells you to ask for it.</p>
+    {field('Spend target',<Input className="h-10 text-[14px]" inputMode="decimal" placeholder="100000" value={rebate.threshold} onChange={e=>setRebate({...rebate,threshold:e.target.value})}/>)}
+    {field('Rebate',<><div className="grid grid-cols-2 gap-2 mb-2">{([['percent','% of spend'],['fixed','Fixed amount']] as const).map(([k,t])=><button key={k} type="button" aria-pressed={rebate.basis===k} onClick={()=>setRebate({...rebate,basis:k})} className={`text-left rounded-lg border px-3 py-2 ${rebate.basis===k?'border-[rgba(31,107,94,0.35)] bg-[rgba(31,107,94,0.08)]':'border-border bg-white'}`}><p className="text-[13px] font-medium">{t}</p></button>)}</div><Input className="h-10 text-[14px]" inputMode="decimal" placeholder={rebate.basis==='percent'?'2':'5000'} value={rebate.value} onChange={e=>setRebate({...rebate,value:e.target.value})}/></>)}
+    <div className="grid grid-cols-2 gap-3">{field('From',<Input type="date" className="h-10 text-[14px]" value={rebate.starts_on} onChange={e=>setRebate({...rebate,starts_on:e.target.value})}/>)}{field('To',<Input type="date" className="h-10 text-[14px]" value={rebate.ends_on} onChange={e=>setRebate({...rebate,ends_on:e.target.value})}/>)}</div>
+    <p className="text-[12px] text-muted-foreground">Spend counts from this supplier's approved invoices between these dates. Track it on Purchasing › Deals.</p>
     <div className="flex items-center gap-2 pt-1">{rebate.id&&<Button variant="ghost" className="mr-auto" disabled={busy} onClick={()=>void saveRebate(true)}>Stop rebate</Button>}<Button variant="outline" className="ml-auto rounded-full" disabled={busy} onClick={()=>setRebate(null)}>Cancel</Button><Button className="rounded-full bg-[#1F6B5E] text-white hover:bg-[#1A5C51]" disabled={busy} onClick={()=>void saveRebate()}>{busy?'Saving…':'Save'}</Button></div>
    </div>}
   </DialogContent></Dialog>

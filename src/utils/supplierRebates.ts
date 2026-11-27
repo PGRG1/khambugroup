@@ -1,13 +1,14 @@
 // Supplier rebates (money back over a spend) and item deals (buy X get Y, discount): pure rules for Master data.
 
-export type Rebate = { id: string; supplier_id: string; threshold: number; basis: 'percent' | 'fixed'; value: number; period: 'monthly' | 'quarterly' | 'yearly'; starts_on: string; ends_on: string | null; is_active: boolean };
+export type Rebate = { id: string; supplier_id: string; threshold: number; basis: 'percent' | 'fixed'; value: number; period: 'monthly' | 'quarterly' | 'yearly' | null; starts_on: string; ends_on: string | null; is_active: boolean };
 export type SpendRow = { supplier_id: string | null; date: string; total: number };
 
 const short = (n: number) => n >= 1000 ? `HK$${Math.round(n / 100) / 10}k`.replace('.0k', 'k') : `HK$${Math.round(n).toLocaleString('en-HK')}`;
 const money = (n: number) => `HK$${Math.round(n).toLocaleString('en-HK')}`;
 
 /** The rebate period that contains `day` (YYYY-MM-DD), never before the rebate starts. */
-export function periodWindow(r: Pick<Rebate, 'period' | 'starts_on'>, day: string): { from: string; to: string } {
+export function periodWindow(r: Pick<Rebate, 'period' | 'starts_on'> & { ends_on?: string | null }, day: string): { from: string; to: string } {
+  if (!r.period) return { from: r.starts_on, to: r.ends_on ?? day };
   const y = Number(day.slice(0, 4)), m = Number(day.slice(5, 7));
   const iso = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm - 1, dd)).toISOString().slice(0, 10);
   let from: string, to: string;
@@ -28,9 +29,16 @@ export function rebateProgress(r: Rebate, spend: SpendRow[], supplierIds: Set<st
 
 export const PERIOD_WORD = { monthly: 'monthly', quarterly: 'quarterly', yearly: 'yearly' } as const;
 
-/** "2% over HK$100k · quarterly" or "HK$5,000 over HK$250k · yearly". */
-export function rebateLabel(r: Pick<Rebate, 'basis' | 'value' | 'threshold' | 'period'>) {
-  return `${r.basis === 'percent' ? `${r.value}%` : money(r.value)} over ${short(r.threshold)} · ${PERIOD_WORD[r.period]}`;
+const dmy = (d: string, year = true) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
+/** "1 Jan – 31 Dec 2026", "1 Dec 2026 – 31 Jan 2027". */
+export function rangeLabel(from: string, to: string) {
+  return `${dmy(from, from.slice(0, 4) !== to.slice(0, 4))} – ${dmy(to)}`;
+}
+
+/** "2% over HK$100k · to 31 Dec 2026" (older repeating ones: "· quarterly"). */
+export function rebateLabel(r: Pick<Rebate, 'basis' | 'value' | 'threshold' | 'period'> & { ends_on?: string | null }) {
+  const when = r.period ? PERIOD_WORD[r.period] : r.ends_on ? `to ${dmy(r.ends_on)}` : '';
+  return `${r.basis === 'percent' ? `${r.value}%` : money(r.value)} over ${short(r.threshold)}${when ? ` · ${when}` : ''}`;
 }
 
 export type ItemDeal = { deal_type: string; buy_qty: number | null; free_qty: number | null; discount_percent?: number | null; special_price?: number | null; valid_until?: string | null; is_active: boolean };
