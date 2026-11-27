@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {purchasingChecks,priceMoves,itemRanking,categoryRanking,percentage,type OverviewInvoice} from '@/utils/purchasingOverview';
-import {directoryRows,directoryDuplicates,type DirectorySupplier} from '@/utils/supplierDirectory';
+import {directoryRows,directoryDuplicates,isArchived,type DirectorySupplier} from '@/utils/supplierDirectory';
 const invoices=(n:number,total=100)=>Array.from({length:n},(_,i)=>({id:String(i),supplier_id:'s',total_amount:total,invoice_date:'2026-10-01',discount:0,venue:'Caliente',created_at:'',review_status:'Approved',has_disputes:false} satisfies OverviewInvoice));
 describe('Purchasing incomplete periods',()=>{
  it('under 25% of previous invoice count waits',()=>expect(purchasingChecks(invoices(15),invoices(64),10000,10000).waiting).toBe(true));
@@ -21,6 +21,7 @@ describe('Same-unit price moves and category split',()=>{
 describe('Unified supplier directory',()=>{
  const supplier=(id:string):DirectorySupplier=>({id,name:id,directory_merged_into:null,is_active:true,contact_person:null,email:null,phone:null,address:null,payment_terms:null,delivery_days:[],notes:null});
  it('no invoice ever is archived, never removed',()=>expect(directoryRows([supplier('s')],[],'2026')[0].archived).toBe(true));
+ it('a newly added supplier stays active until its first invoice',()=>{expect(isArchived({is_active:true,created_at:'2026-11-27T14:00:00Z'},0,'2026-11-27')).toBe(false);expect(isArchived({is_active:true,created_at:'2026-01-01'},0,'2026-11-27')).toBe(true);expect(isArchived({is_active:false,created_at:'2026-11-27'},3,'2026-11-27')).toBe(true);});
  it('expense-only supplier is active in same list',()=>expect(directoryRows([supplier('s')],[{id:'b',supplier_id:'s',kind:'expense',date:'2026-10-01',number:'b',total:50,categories:['Cleaning']}],'2026')[0]).toMatchObject({archived:false,thisYear:1,categories:['Cleaning']}));
  it('directory merge combines histories without changing source IDs',()=>{const records=[{id:'b',supplier_id:'a',kind:'expense' as const,date:'2026-10-01',number:'b',total:50,categories:['Cleaning']}];const rows=directoryRows([{...supplier('a'),directory_merged_into:'b'},supplier('b')],records,'2026');expect(rows).toHaveLength(1);expect(rows[0].thisYear).toBe(1);expect(records[0].supplier_id).toBe('a');});
  it('CLP and CLP Power Hong Kong Limited are possible duplicates',()=>expect(directoryDuplicates([{id:'a',name:'CLP'},{id:'b',name:'CLP Power Hong Kong Limited'}])).toHaveLength(1));
