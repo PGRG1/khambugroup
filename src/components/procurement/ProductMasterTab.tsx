@@ -41,6 +41,8 @@ import { productNeeds, needsText, boughtAs } from "@/utils/productNeeds";
 import { costAfterDeal, cheapestIndex } from "@/utils/productCosts";
 import { useColumnLayout, ResizeHandle, ColumnsButton, fitCell, type ColumnDef } from "@/components/kit/ColumnLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { Toolbar, SortMenu, FilterPanel, FilterGroup } from "@/components/kit";
+import { PageAction } from "@/components/settings/SettingsForm";
 
 
 interface SupplierDealRow {
@@ -147,7 +149,15 @@ const LIST_COLS: ColumnDef[] = [
   { key: "status", label: "Status", width: 115, min: 85 },
 ];
 const RIGHT = new Set(["price", "cost", "status"]);
-const SORTABLE = new Set(["sku", "product", "category", "price", "cost", "status"]);
+// Sort menu (products always stay together; price and cost use each product's cheapest supplier).
+const SORT_OPTIONS = [
+  { key: "product:1", label: "Product A–Z" }, { key: "product:-1", label: "Product Z–A" },
+  { key: "sku:1", label: "SKU" }, { key: "category:1", label: "Category" },
+  { key: "cost:1", label: "Cost after deal, lowest" }, { key: "cost:-1", label: "Cost after deal, highest" },
+  { key: "price:1", label: "Price, lowest" }, { key: "price:-1", label: "Price, highest" },
+  { key: "status:1", label: "Needs setup first" },
+] as const;
+type SortKey = typeof SORT_OPTIONS[number]["key"];
 // Shown once per product; the product's other supplier lines leave them blank.
 const PRODUCT_COLS = new Set(["sku", "product", "category", "status"]);
 
@@ -931,37 +941,28 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   return (
     <div ref={rootRef} className="space-y-4">
       {!dialogOpen && (<>
-      {/* Same layout as Settings › Suppliers: summary, view buttons, search, upload/download, add. */}
-      <p className="text-[13px] text-muted-foreground tabular-nums">
-        {products.length.toLocaleString()} items{multiCount > 0 && <> · {multiCount.toLocaleString()} from more than one supplier</>}{needsCount > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsCount.toLocaleString()} need setup</span></>}
-      </p>
-      <div className={cn("flex items-center gap-1.5", isMobile && "flex-col items-stretch gap-2")}>
-        {isMobile && (
-          <div className="flex gap-1.5">
-            <Input aria-label="Search items" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} className="h-9 min-w-0 flex-1 text-[13px]" />
-            {canEditList && <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></Button>}
-            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></Button>
-          </div>
-        )}
-        <div className="flex items-center gap-1">
-          {([["all", "All"], ["needs", "Needs setup"], ["inactive", "Inactive"]] as const).map(([k, l]) => (
-            <Button key={k} size="sm" variant={view === k ? "secondary" : "ghost"} aria-pressed={view === k} className="h-8 whitespace-nowrap px-3" onClick={() => { setView(k); setPage(1); }}>{l}</Button>
-          ))}
-          {!isMobile && supplierPick}
-          {isMobile && <span className="flex-1" />}
-          {isMobile && canEditList && <Button size="sm" className="h-8" onClick={openCreate}>Add</Button>}
-        </div>
-        {isMobile && <div className="-mt-1">{supplierPick}</div>}
-        {!isMobile && (
-          <div className="ml-auto flex items-center gap-1.5">
-            <Input aria-label="Search items" placeholder={isTablet ? "Search" : "Search items, suppliers or codes"} value={search} onChange={e => setSearch(e.target.value)} className={cn("h-9 text-[13px]", isTablet ? "w-[200px]" : "w-[280px]")} />
-            {canEditList && <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></Button>}
-            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></Button>
-            <ColumnsButton cols={LIST_COLS} hidden={colLayout.hidden} onToggle={colLayout.toggle} onReset={colLayout.reset} changed={colLayout.changed} />
-            {canEditList && <Button size="sm" className="h-9" onClick={openCreate}>{isTablet ? "Add" : "Add product"}</Button>}
-          </div>
-        )}
-      </div>
+      {/* Same list layout as Settings › Suppliers and Purchasing (Sales records kit): card, count heading, Toolbar, sales-table. */}
+      {canEditList && <PageAction><Button size="sm" className="h-10 rounded-full" onClick={openCreate}><Plus className="h-4 w-4" />Add</Button></PageAction>}
+      <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Products">
+      <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5">
+        <span>{groups.length.toLocaleString()} {groups.length === 1 ? "product" : "products"}</span>
+        {multiCount > 0 && <span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {multiCount.toLocaleString()} from more than one supplier</span>}
+        {needsCount > 0 && <span className="text-[13px] font-normal whitespace-nowrap text-[hsl(var(--warning))]">· {needsCount.toLocaleString()} need setup</span>}
+      </h2>
+      <Toolbar search={search} onSearch={setSearch} placeholder="Search items, suppliers or codes" searchAfterControls mobileSearchBelow
+        filter={isMobile ? <FilterPanel activeCount={Number(view !== "all") + Number(supplierFilter !== "all")} onReset={() => { setView("all"); setSupplierFilter("all"); setPage(1); }} width={300}>
+          <FilterGroup title="Show"><Select value={view} onValueChange={v => { setView(v as typeof view); setPage(1); }}><SelectTrigger aria-label="Show"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All products</SelectItem><SelectItem value="needs">Needs setup</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select></FilterGroup>
+          <FilterGroup title="Supplier"><Select value={supplierFilter} onValueChange={v => { setSupplierFilter(v); setPage(1); }}><SelectTrigger aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{allSuppliers.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></FilterGroup>
+        </FilterPanel> : <div className="flex gap-2">
+          <Select value={view} onValueChange={v => { setView(v as typeof view); setPage(1); }}><SelectTrigger className="h-9 w-36 rounded-full" aria-label="Show"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All products</SelectItem><SelectItem value="needs">Needs setup</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
+          <Select value={supplierFilter} onValueChange={v => { setSupplierFilter(v); setPage(1); }}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Supplier"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All suppliers</SelectItem>{allSuppliers.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select>
+        </div>}
+        sort={<SortMenu options={[...SORT_OPTIONS]} value={`${listSort.key}:${listSort.dir}` as SortKey} onChange={v => { const [key, dir] = v.split(":"); setListSort({ key, dir: dir === "-1" ? -1 : 1 }); }} />}
+        columns={!isMobile ? <ColumnsButton cols={LIST_COLS} hidden={colLayout.hidden} onToggle={colLayout.toggle} onReset={colLayout.reset} changed={colLayout.changed} /> : undefined}
+        downloadControl={<div className="flex gap-1.5">
+          {canEditList && <button type="button" className="kit kit-btn kit-btn-secondary kit-btn-icon" aria-label="Upload items" title="Upload items" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" /></button>}
+          <button type="button" className="kit kit-btn kit-btn-secondary kit-btn-icon" aria-label="Download" title="Download" onClick={downloadList}><Download className="h-4 w-4" /></button>
+        </div>} />
 
       {isMobile ? (
         <div className="border-t border-border">
@@ -995,16 +996,11 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
             <colgroup>{colLayout.shown.map(c => <col key={c.key} data-col={c.key} style={{ width: colLayout.colWidth(c) }} />)}</colgroup>
             <thead><tr>
               {colLayout.shown.map(c => {
-                const sortable = SORTABLE.has(c.key);
                 const on = listSort.key === c.key;
                 return (
                   <th key={c.key} scope="col" data-col={c.key} className={RIGHT.has(c.key) ? "sales-cell-right" : "sales-cell-left"}
                     aria-sort={on ? (listSort.dir === 1 ? "ascending" : "descending") : undefined}>
-                    {sortable
-                      ? <button type="button" className="inline-flex max-w-full items-center gap-1 truncate" onClick={() => setListSort(on ? { key: c.key, dir: listSort.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 })}>
-                          <span className="truncate">{c.label}</span>{on && (listSort.dir === 1 ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />)}
-                        </button>
-                      : c.label}
+                    {c.label}
                     <ResizeHandle colKey={c.key} label={c.label} width={colLayout.widthOf(c)} min={c.min} onResize={(w, now) => colLayout.setWidth(c.key, w, now)} />
                   </th>
                 );
@@ -1055,6 +1051,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           </div>
         </div>
       )}
+      </section>
 
       </>)}
 

@@ -180,7 +180,8 @@ html:not(.dark) .tenant-portal .app-shell .kit-search input { background: transp
 table.sales-table.sales-table.kit-resizable { table-layout: fixed !important; }
 .kit-resizable th { position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kit-col-resize { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; z-index: 1; }
-.kit-col-resize::after { content: ""; position: absolute; top: 25%; bottom: 25%; right: 3px; width: 1px; background: hsl(var(--border)); }
-.kit-col-resize:hover::after, .kit-col-resize.is-dragging::after { background: #1F6B5E; width: 2px; top: 0; bottom: 0; }
+.kit-col-resize::after { content: ""; position: absolute; top: 25%; bottom: 25%; right: 3px; width: 1px; background: hsl(var(--border)); opacity: 0; transition: opacity .15s; }
+.kit-resizable thead:hover .kit-col-resize::after { opacity: 1; }
+.kit-col-resize:hover::after, .kit-col-resize.is-dragging::after { opacity: 1; background: #1F6B5E; width: 2px; top: 0; bottom: 0; }
 /* Grouped rows (one product, its supplier lines below): a line only after each product's last line. */
 .sales-table tr.kit-group-mid td { border-bottom-color: transparent; }
