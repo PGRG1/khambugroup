@@ -12,7 +12,7 @@
 // Pro fallback is workflow-gated, capped at 1/invoice/workflow, and always logged.
 
 import { checkRulePattern, canApproveRules } from "../_shared/rulePatternSafety.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { alignBatchResults } from "../_shared/aiBatchAlign.ts";
 import { sanitizeAnomalyOutput } from "../_shared/anomalyFlags.ts";
 
@@ -110,9 +110,13 @@ async function resolveCaller(req: Request, requestedTenantId: string | null): Pr
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: u } = await userClient.auth.getUser();
-  const userId = u?.user?.id;
-  if (!userId) return null;
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+  const userId = claimsData?.claims?.sub as string | undefined;
+  if (claimsError || !userId) {
+    console.warn("ai-classify: token rejected", claimsError?.message ?? "no sub");
+    return null;
+  }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: memberships } = await admin
@@ -133,7 +137,10 @@ async function resolveCaller(req: Request, requestedTenantId: string | null): Pr
   let tenantId = requestedTenantId;
   if (tenantId) {
     const allowed = isSuper || (memberships ?? []).some((m: any) => m.tenant_id === tenantId);
-    if (!allowed) return null;
+    if (!allowed) {
+      console.warn("ai-classify: user not in tenant", userId, tenantId);
+      return null;
+    }
   } else {
     tenantId = memberships?.[0]?.tenant_id ?? null;
     if (!tenantId) return null;
