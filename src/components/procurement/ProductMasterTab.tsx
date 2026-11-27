@@ -1196,7 +1196,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                         <SelectContent>{dbSuppliers.filter(x => x.name?.trim() && !takenSup.has(x.name)).map(x => <SelectItem key={x.id} value={x.name}>{x.name}</SelectItem>)}</SelectContent></Select></div>
                     <div><Label className="text-xs">Their code</Label><Input className="h-9 text-sm" value={newSup.external_sku} onChange={e => setNewSup({ ...newSup, external_sku: e.target.value })} /></div>
                     <div><Label className="text-xs">Their name on the invoice</Label><Input className="h-9 text-sm" value={newSup.supplier_product_name} onChange={e => setNewSup({ ...newSup, supplier_product_name: e.target.value })} /></div>
-                    <div><Label className="text-xs">Bought as</Label><UomSelect type="purchase" value={newSup.purchase_unit} onChange={v => setNewSup({ ...newSup, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                    <div><Label className="text-xs">Bought as</Label><UomSelect allowCreate type="purchase" value={newSup.purchase_unit} onChange={v => setNewSup({ ...newSup, purchase_unit: v })} placeholder="e.g. Case" /></div>
                     <div><Label className="text-xs">{stockUnit || "Stock units"} in each {newSup.purchase_unit || "pack"}</Label><Input className="h-9 text-sm" type="number" min="0" inputMode="decimal" value={newSup.stock_qty} onChange={e => setNewSup({ ...newSup, stock_qty: e.target.value })} /></div>
                     <div><Label className="text-xs">Price per {newSup.purchase_unit || "pack"}</Label><Input className="h-9 text-sm" type="number" min="0" step="0.01" inputMode="decimal" value={newSup.price} onChange={e => setNewSup({ ...newSup, price: e.target.value })} /></div>
                   </div>
@@ -1233,9 +1233,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect allowCreate type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
                           <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect allowCreate type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
                           <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
                         </div>
                         <div className="mt-2 bg-muted/30 rounded-lg p-2">
@@ -1248,7 +1248,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect allowCreate type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
                           <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
                         </div>
                         <div className="mt-2 bg-muted/30 rounded-lg p-2">
@@ -1288,9 +1288,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect allowCreate type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
                           <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect allowCreate type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
                           <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
                         </div>
                         <div className="mt-2 bg-muted/30 rounded-lg p-2">
@@ -1303,7 +1303,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect allowCreate type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
                           <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
                         </div>
                         <div className="mt-2 bg-muted/30 rounded-lg p-2">
