@@ -15,14 +15,10 @@ export type VenueCost={venue_id:string|null;name:string;cost:number;sales:number
 export type TeamCost={month:string;cost:number|null;people:PersonCost[];venues:VenueCost[];central:VenueCost;unallocated:VenueCost};
 // Largest-remainder cents keep every person's saved employment cost intact.
 export function splitCents(total:number,weights:number[]):number[]{const sum=weights.reduce((n,w)=>n+w,0);if(sum<=0)return weights.map(()=>0);const sign=total<0?-1:1,abs=Math.abs(total),raw=weights.map(w=>abs*w/sum),result=raw.map(Math.floor);let remaining=abs-result.reduce((n,w)=>n+w,0);const order=raw.map((n,i)=>({i,remainder:n-result[i]})).sort((a,b)=>b.remainder-a.remainder||a.i-b.i);for(const item of order){if(remaining--<=0)break;result[item.i]++;}return result.map(n=>n*sign);}
-/** A person's own choice of where their pay is charged (People › person › Pay charged to); null = use the role/company default. */
-export function personPaySplit(person:RotaRow|null|undefined):TeamMode|null {const m=person?.pay_split;return m==='own'||m==='across'||m==='central'?m:null;}
-/** One person's rota hours by venue for a month, for Bani's hint on Pay charged to. */
-export function personRotaShare(personId:string,people:RotaRow[],shifts:RotaRow[],terms:RotaRow[],venues:RotaRow[],month:string){const own=shifts.filter(s=>s.employee_id===personId&&String(s.shift_date).startsWith(month)&&s.status!=='cancelled'&&!s.no_show_decision&&shiftHours(s)>0);const rows=venues.map(v=>({name:String(v.name),hours:own.filter(s=>shiftAt(s,v,people,terms)).reduce((n,s)=>n+shiftHours(s),0)})).filter(r=>r.hours>0);const total=rows.reduce((n,r)=>n+r.hours,0);return total?rows.sort((a,b)=>b.hours-a.hours).map(r=>({...r,pct:Math.round(r.hours/total*100)})):[];}
 export function allocateTeamCost(payroll:RotaRow[],people:RotaRow[],shifts:RotaRow[],terms:RotaRow[],venues:RotaRow[],sales:RotaRow[],month:string,setting:TeamWorking=DEFAULT_TEAM_WORKING,roles:Record<string,string>={}):TeamCost {
  const rows=payroll.filter(p=>monthKey(p)===month),end=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10);
  const persons:PersonCost[]=rows.map(p=>{
-  const raw=people.find(e=>e.id===p.employee_id),person=raw?personOnDate(raw,terms,end):null,mode=personPaySplit(raw)??setting.role_modes[roleGroup(person?.job_title,roles)]??setting.default_mode;
+  const raw=people.find(e=>e.id===p.employee_id),person=raw?personOnDate(raw,terms,end):null,mode=setting.role_modes[roleGroup(person?.job_title,roles)]??setting.default_mode;
   const primary=venues.find(v=>person?.venue_id?person.venue_id===v.id:person?.venue===v.name),cents=Math.round((Number(p.gross_salary??0)+Number(p.mpf_employer??0))*100);
   const own=shifts.filter(s=>s.employee_id===p.employee_id&&String(s.shift_date).startsWith(month)&&s.status!=='cancelled'&&!s.no_show_decision&&shiftHours(s)>0);
   const hours=venues.map(v=>own.filter(s=>shiftAt(s,v,people,terms)).reduce((n,s)=>n+shiftHours(s),0)),sumHours=hours.reduce((n,h)=>n+h,0);
