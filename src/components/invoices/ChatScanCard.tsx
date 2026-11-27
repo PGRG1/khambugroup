@@ -47,6 +47,8 @@ type Props = {
   onReason: (index: number, reason: string, note?: string) => void;
   onBook: (answers: ChatScanAnswers) => void;
   onOpenFull: () => void;
+  /** Stop reading this invoice (the chat drops the card). */
+  onStop?: () => void;
   /** Why it can't be booked here yet (review phase). */
   reasons?: string[];
   onHistory?: (index: number) => void;
@@ -120,7 +122,7 @@ export function ChatScanCard(p: Props) {
         : <span className="h-[18px] w-[18px] shrink-0 rounded-full border border-dashed border-[#C3CEC9]" />}
       <span className="whitespace-nowrap">{text}</span></li>;
     return <div className="w-full max-w-[440px] rounded-2xl border bg-white px-[18px] py-4" style={{ borderColor: HAIR }} role="status">
-      <p className="text-[14px] font-medium">Reading the invoice</p>
+      <div className="flex items-baseline justify-between gap-3"><p className="text-[14px] font-medium">Reading the invoice</p>{p.onStop && <button type="button" className="text-[13px] text-[#1F6B5E] underline underline-offset-2" onClick={p.onStop}>Stop</button>}</div>
       <ul className="mt-3 space-y-3">
         {step(g?.read ? "done" : "now", g?.read ? `Read the photo · ${g.lines} line${g.lines === 1 ? "" : "s"}, ${formatMoney(g.total, p.currency)}` : "Reading the photo…")}
         {step(g?.read ? (g.supplier ? "done" : "now") : "next", g?.supplier ? `Supplier: ${g.supplier}` : "Finding the supplier")}

@@ -285,6 +285,8 @@ interface InvoiceScannerProps {
   onOpenFull?: () => void;
   /** Chat: name the chat after the invoice and say where it stands ("1 match to confirm"). */
   onChatStatus?: (title: string, status: string) => void;
+  /** Chat: stop reading. */
+  onStop?: () => void;
 }
 
 const emptyLine: ScannedLineItem = {
@@ -374,7 +376,7 @@ export function closePrintedName(printed: string, entries: ProductMasterEntry[],
   return { entry: e, why: `Name differs by ${scored[0].d === 1 ? "one letter" : "two letters"}${samePrice ? " · same price" : ""}` };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull, onChatStatus }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull, onChatStatus, onStop }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
@@ -2368,6 +2370,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       progress={{ read: !scanning && !!current, lines: (current?.line_items || []).filter(l => l.description.trim()).length, total: displayTotal, supplier: current?.supplier_id ? currentSupplierName : "", matching: !!current?.line_items.some(l => l.matcher_pending) }}
       terms={(supplierRow as { payment_terms?: string | null } | undefined)?.payment_terms?.trim() || undefined}
       onPick={i => setPickLines(prev => new Set(prev).add(i))}
+      onStop={onStop}
       onConfirm={i => { const l = current?.line_items[i]; const sug = l && suggestionFor(l); if (sug) selectProduct(i, sug.entry); }}
       onOpenFull={() => onOpenFull?.()}
       onHistory={i => setHistoryLineIdx(i)}
