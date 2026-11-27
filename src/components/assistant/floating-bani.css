@@ -393,3 +393,7 @@
 .fb-empty.is-welcome .fb-empty-q + .fb-empty-q { border-top: 1px solid rgba(23,48,44,.08); }
 .fb-empty.is-welcome .fb-empty-q > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fb-empty.is-welcome .fb-empty-q > .fb-empty-ic { width: 18px; height: 18px; color: #3E8C80; }
+/* Dropdowns and small dialogs opened from inside the chat (category, units, Add new…) sit above the chat panel. */
+body:has(.floating-bani-panel) [data-radix-popper-content-wrapper] { z-index: 90 !important; }
+body:has(.floating-bani-panel) .fixed.inset-0.z-50 { z-index: 89 !important; }
+body:has(.floating-bani-panel) [role="dialog"].z-50, body:has(.floating-bani-panel) [role="alertdialog"].z-50 { z-index: 90 !important; }
