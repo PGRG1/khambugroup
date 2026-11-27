@@ -21,3 +21,7 @@ describe('How your team works',()=>{
  it('never mutates saved rows',()=>{const before=JSON.stringify(pay);allocate('across',[work('a')]);expect(JSON.stringify(pay)).toBe(before);});
  it('suggestions need repeated cross-venue evidence and never set choices',()=>{const s=teamSuggestions(people,[work('a'),work('c'),work('a','2026-04-01'),work('c','2026-04-02')],[],venues);expect(s[0].mode).toBe('across');expect(resolveTeamWorking(null).role_modes).toEqual({});});
 });
+import {personPaySplit} from '@/utils/teamWorking';
+describe('person pay split',()=>{
+ it('uses the person\'s own choice, else falls back',()=>{expect(personPaySplit({pay_split:'central'})).toBe('central');expect(personPaySplit({pay_split:null})).toBeNull();expect(personPaySplit({pay_split:'bogus'})).toBeNull();expect(personPaySplit(undefined)).toBeNull();});
+});

@@ -58,7 +58,6 @@ export default function Settings(){
  const content=active.id==='setup'?<ClientSetup/>
   :active.id==='categories'?<ClientCategories/>
   :active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
-  :active.id==='approvals'?<><UsersTab approvalOnly/><BusinessTab destination="team"/></>
   :active.id==='books'?<><AccountingTab destination="books"/><AccountingTab destination="opening"/></>
   :active.id==='company'?(params.has('venue')?<BusinessTab destination="venues"/>:<><BusinessTab destination="company"/><BusinessTab destination="venues"/></>)
   :active.group==='Organization'?<BusinessTab destination={active.id}/>

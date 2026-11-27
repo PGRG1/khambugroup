@@ -35,7 +35,7 @@ export const movedToAccounting: Partial<Record<SettingsDestination,string>> = {
 };
 export function settingsHref(id:SettingsDestination){return `/settings?${settingsDestinations.find(d=>d.id===id)?.query??''}`;}
 /** Small settings shown inside a bigger page; their old links open that page. */
-export const mergedInto: Partial<Record<SettingsDestination,SettingsDestination>> = {venues:'company',stock:'purchasing',team:'approvals',opening:'books'};
+export const mergedInto: Partial<Record<SettingsDestination,SettingsDestination>> = {venues:'company',stock:'purchasing',team:'users',approvals:'users',opening:'books'};
 /** Set up by Bani once (control plane): only shown in a client's Settings to Bani platform admins. */
 export const baniOnly: Partial<Record<SettingsDestination,true>> = {books:true};
 export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,bani=false){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(bani||!baniOnly[d.id])&&(admin||(invoiceAccess&&d.group==='Lists')));}

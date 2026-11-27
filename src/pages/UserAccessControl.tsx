@@ -2,7 +2,7 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,8 @@ const UserAccessControl = () => {
   const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<TenantRole[]>([]);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  // Login → staff record in People (linked by user_id, else the same email). Display only.
+  const [staffOf, setStaffOf] = useState<Record<string, string>>({});
   const [access, setAccess] = useState<Record<string, PersonAccess>>({});
   const [venueList, setVenueList] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,14 @@ const UserAccessControl = () => {
       }
     }
     setPending(pendingIds);
+    if (tenantId) {
+      const { data: staff } = await (supabase as any).from("hr_employees").select("id, email, user_id").eq("tenant_id", tenantId);
+      const byEmail = new Map<string, string>(); const byUser = new Map<string, string>();
+      for (const e of staff ?? []) { if (e.user_id) byUser.set(e.user_id, e.id); if (e.email) byEmail.set(String(e.email).trim().toLowerCase(), e.id); }
+      const links: Record<string, string> = {};
+      for (const id of memberIds) { const hit = byUser.get(id) ?? byEmail.get(String(emailMap.get(id) ?? "").trim().toLowerCase()); if (hit) links[id] = hit; }
+      setStaffOf(links);
+    }
 
     const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }, { data: venueAccess }, { data: allVenues }] = await Promise.all([
       supabase.from("profiles").select("user_id, display_name").in('user_id',memberIds),
@@ -203,11 +213,12 @@ const UserAccessControl = () => {
 
           <ul className="min-[768px]:hidden kit">{filtered.map(u => <PhoneRow key={u.user_id} flag={u.status !== "active" && "Disabled"} title={u.display_name || u.email} amount={roleOf(u)} sub={u.status === "active" ? venuesOf(u) : `${venuesOf(u)} · Disabled`} tone={u.status === "active" ? "mut" : "amber"} onOpen={() => openUser(u)} />)}</ul>
           <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="People table"><table className="sales-table" aria-label="People">
-            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Status</th></tr></thead>
+            <thead><tr><th scope="col" className="sales-cell-left">Person</th><th scope="col" className="sales-cell-left">Role</th><th scope="col" className="sales-cell-left">Venues</th><th scope="col" className="sales-cell-left">Staff record</th><th scope="col" className="sales-cell-left">Status</th></tr></thead>
             <tbody>{filtered.map(u => <tr key={u.user_id} className="sales-record-row" {...(canManage ? keyOpen(() => openUser(u)) : {})}>
               <td className="sales-cell-left" title={`${u.display_name || ""} ${u.email}`}>{u.display_name || u.email}</td>
               <td className={`sales-cell-left ${newRole(u) ? "" : "text-muted-foreground"}`} title={newRole(u) ? undefined : "No role yet"}>{roleOf(u)}</td>
               <td className="sales-cell-left" title={venuesOf(u)}>{venuesOf(u)}</td>
+              <td className="sales-cell-left">{staffOf[u.user_id] ? <Link className="kit-link" to={`/hr/employees/${staffOf[u.user_id]}`} onClick={(e) => e.stopPropagation()}>Staff record ›</Link> : <span className="text-muted-foreground">—</span>}</td>
               <td className="sales-cell-left">{u.status !== "active" ? <Status text="Disabled" tone="mut" /> : pending.has(u.user_id) ? <Status text="Password not set" tone="amber" /> : <Status text="Active" tone="ok" />}</td>
             </tr>)}</tbody></table></div>
           {!filtered.length && <p className="p-10 text-center text-sm text-muted-foreground">{loading ? "Loading people…" : search || positionFilter !== "all" ? "Nothing matches your search or filters." : "No people yet."}</p>}
