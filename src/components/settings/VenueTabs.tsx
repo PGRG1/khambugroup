@@ -142,29 +142,34 @@ export function VenuePeriodsTab({ venueId, onChanged }: { venueId: string; onCha
     <Dialog open={!!form} onOpenChange={(o) => !o && !saving && setForm(null)}>
       <DialogContent className="!bg-card !backdrop-blur-none">
         <DialogHeader><DialogTitle>{form?.id ? form.name : "New service period"}</DialogTitle></DialogHeader>
-        {form && <div className="space-y-3">
-          <Field label="Name" htmlFor="sp-name"><Input id="sp-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Lunch" /></Field>
+        {form && <div className="space-y-3.5">
+          <Stacked label="Name" htmlFor="sp-name"><Input id="sp-name" className="h-10 text-[14px]" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Lunch" /></Stacked>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Starts" htmlFor="sp-start"><Input id="sp-start" type="time" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></Field>
-            <Field label="Ends" htmlFor="sp-end" hint={form.end <= form.start ? "Next day" : undefined}><Input id="sp-end" type="time" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></Field>
+            <Stacked label="Starts" htmlFor="sp-start"><Input id="sp-start" type="time" className="h-10 text-[14px]" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></Stacked>
+            <Stacked label={form.end <= form.start ? "Ends · next day" : "Ends"} htmlFor="sp-end"><Input id="sp-end" type="time" className="h-10 text-[14px]" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></Stacked>
           </div>
-          <Field label="Days">
-            <div className="flex flex-wrap gap-1.5">{[1, 2, 3, 4, 5, 6, 0].map((d) => {
+          <Stacked label="Days">
+            <div className="grid grid-cols-7 gap-1.5">{[1, 2, 3, 4, 5, 6, 0].map((d) => {
               const on = form.days.includes(d);
               return <button key={d} type="button" aria-pressed={on} onClick={() => setForm({ ...form, days: on ? form.days.filter((x) => x !== d) : [...form.days, d] })}
-                className={`h-8 rounded-full border px-3 text-[13px] ${on ? "border-[#17302C] bg-[#17302C] text-white" : "border-border bg-white"}`}>{weekdayName(d).slice(0, 3)}</button>;
+                className={`h-9 rounded-lg border text-[13px] ${on ? "border-[rgba(31,107,94,0.35)] bg-[rgba(31,107,94,0.1)] font-semibold text-[#1F6B5E]" : "border-border bg-white text-muted-foreground"}`}>{weekdayName(d).slice(0, 3)}</button>;
             })}</div>
-          </Field>
-          <Field label="From" htmlFor="sp-from"><Input id="sp-from" type="date" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} /></Field>
+          </Stacked>
+          <Stacked label="From" htmlFor="sp-from"><Input id="sp-from" type="date" className="h-10 text-[14px]" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} /></Stacked>
           <div className="flex items-center gap-2 pt-1">
             {form.id && <Button variant="ghost" className="mr-auto text-destructive hover:text-destructive" disabled={saving} onClick={() => void stop()}>Stop using it</Button>}
-            <Button variant="outline" className="ml-auto" disabled={saving} onClick={() => setForm(null)}>Cancel</Button>
-            <Button disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button>
+            <Button variant="outline" className="ml-auto rounded-full" disabled={saving} onClick={() => setForm(null)}>Cancel</Button>
+            <Button disabled={saving} className="rounded-full bg-[#1F6B5E] text-white hover:bg-[#1A5C51]" onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button>
           </div>
         </div>}
       </DialogContent>
     </Dialog>
   </>;
+}
+
+/** A pop-up field: label above the box, full width (pop-ups are too narrow for label-beside-field rows). */
+function Stacked({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+  return <div className="min-w-0"><label htmlFor={htmlFor} className="mb-1.5 block text-[13px] text-muted-foreground">{label}</label>{children}</div>;
 }
 
 export function VenueClosuresTab({ venueId, venueName }: { venueId: string; venueName: string }) {
