@@ -8993,14 +8993,16 @@ export type Database = {
       }
       item_supplier_deals: {
         Row: {
-          buy_qty: number
+          buy_qty: number | null
           created_at: string
           deal_type: string
-          free_qty: number
+          discount_percent: number | null
+          free_qty: number | null
           id: string
           is_active: boolean
           notes: string | null
           product_id: string
+          special_price: number | null
           supplier_id: string
           tenant_id: string
           updated_at: string
@@ -9008,14 +9010,16 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
-          buy_qty: number
+          buy_qty?: number | null
           created_at?: string
           deal_type?: string
-          free_qty: number
+          discount_percent?: number | null
+          free_qty?: number | null
           id?: string
           is_active?: boolean
           notes?: string | null
           product_id: string
+          special_price?: number | null
           supplier_id: string
           tenant_id: string
           updated_at?: string
@@ -9023,14 +9027,16 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
-          buy_qty?: number
+          buy_qty?: number | null
           created_at?: string
           deal_type?: string
-          free_qty?: number
+          discount_percent?: number | null
+          free_qty?: number | null
           id?: string
           is_active?: boolean
           notes?: string | null
           product_id?: string
+          special_price?: number | null
           supplier_id?: string
           tenant_id?: string
           updated_at?: string
@@ -14547,6 +14553,143 @@ export type Database = {
           },
         ]
       }
+      supplier_rebate_receipts: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          credit_note_id: string | null
+          id: string
+          period_from: string
+          period_to: string
+          rebate_id: string
+          received_as: string
+          received_on: string
+          supplier_id: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          period_from: string
+          period_to: string
+          rebate_id: string
+          received_as: string
+          received_on: string
+          supplier_id: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          period_from?: string
+          period_to?: string
+          rebate_id?: string
+          received_as?: string
+          received_on?: string
+          supplier_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_rebate_receipts_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_rebate_receipts_rebate_id_fkey"
+            columns: ["rebate_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_rebates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_rebate_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_rebate_receipts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_rebates: {
+        Row: {
+          basis: string
+          created_at: string
+          ends_on: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          period: string | null
+          starts_on: string
+          supplier_id: string
+          tenant_id: string
+          threshold: number
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          basis: string
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period?: string | null
+          starts_on: string
+          supplier_id: string
+          tenant_id: string
+          threshold: number
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          basis?: string
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period?: string | null
+          starts_on?: string
+          supplier_id?: string
+          tenant_id?: string
+          threshold?: number
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_rebates_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_rebates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           account_number: string
@@ -15221,6 +15364,39 @@ export type Database = {
           },
         ]
       }
+      unit_master: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          uom_type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          uom_type: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          uom_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       uom_options: {
         Row: {
           code: string
@@ -15228,6 +15404,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          master_id: string | null
           sort_order: number
           tenant_id: string
           uom_type: string
@@ -15239,6 +15416,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label: string
+          master_id?: string | null
           sort_order?: number
           tenant_id?: string
           uom_type?: string
@@ -15250,12 +15428,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          master_id?: string | null
           sort_order?: number
           tenant_id?: string
           uom_type?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "uom_options_master_id_fkey"
+            columns: ["master_id"]
+            isOneToOne: false
+            referencedRelation: "unit_master"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "uom_options_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -15365,6 +15551,27 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_ui_prefs: {
+        Row: {
+          pref_key: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          pref_key: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Update: {
+          pref_key?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -15754,6 +15961,7 @@ export type Database = {
       }
       venues: {
         Row: {
+          address: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -15769,6 +15977,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -15784,6 +15993,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -16366,6 +16576,7 @@ export type Database = {
         Args: { p_tenant: string }
         Returns: undefined
       }
+      _sync_tenant_units: { Args: { p_tenant: string }; Returns: undefined }
       access_level: { Args: { area: string; t: string }; Returns: number }
       add_client_level1: {
         Args: {
@@ -17332,6 +17543,7 @@ export type Database = {
           _tenant_id: string
         }
         Returns: {
+          address: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -17427,6 +17639,17 @@ export type Database = {
           p_payment: Json
           p_receipts?: Json
           p_tenant_id: string
+        }
+        Returns: string
+      }
+      record_rebate_received: {
+        Args: {
+          p_amount: number
+          p_as: string
+          p_date: string
+          p_from: string
+          p_rebate: string
+          p_to: string
         }
         Returns: string
       }
@@ -17575,6 +17798,16 @@ export type Database = {
         }
         Returns: string
       }
+      save_master_unit: {
+        Args: {
+          p_active?: boolean
+          p_code: string
+          p_id: string
+          p_label: string
+          p_type: string
+        }
+        Returns: string
+      }
       save_people_settings: {
         Args: { p: Json; t: string; v: string }
         Returns: undefined
@@ -17630,6 +17863,10 @@ export type Database = {
       }
       save_tenant_role: {
         Args: { k: string; r: Json; t: string }
+        Returns: undefined
+      }
+      save_venue_address: {
+        Args: { p_address: string; t: string; v: string }
         Returns: undefined
       }
       seed_tenant_roles: { Args: { t: string }; Returns: undefined }
