@@ -9,7 +9,7 @@ const lines: ChatScanLine[] = [
 ];
 const base = { supplier: "Sun Kee Seafood", number: "INV-1", date: "2026-11-18", venue: "Caliente", venues: ["Caliente", "Assembly"], total: 2160, currency: "HKD", lines, termsDays: 30, printedDue: null, saving: false };
 const fns = () => ({ onField: vi.fn(), onQty: vi.fn(), onPrice: vi.fn(), onReason: vi.fn(), onBook: vi.fn(), onOpenFull: vi.fn() });
-const book = () => screen.getByRole("button", { name: "Book" }) as HTMLButtonElement;
+const book = () => screen.getByRole("button", { name: /^Book/ }) as HTMLButtonElement;
 
 describe("Bani chat invoice booking", () => {
   it("needs every line ticked, then a confirm, before booking", () => {
@@ -102,7 +102,7 @@ describe("Bani chat invoice booking", () => {
   it("sends anything unclear to the full review and never offers Book", () => {
     const f = fns();
     render(<ChatScanCard {...base} phase="review" reasons={["Normex isn't a supplier in Bani yet"]} {...f} />);
-    expect(screen.queryByRole("button", { name: "Book" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Book/ })).toBeNull();
     expect(screen.getByText("Normex isn't a supplier in Bani yet")).toBeTruthy();
     fireEvent.click(screen.getByText("Open full review"));
     expect(f.onOpenFull).toHaveBeenCalled();

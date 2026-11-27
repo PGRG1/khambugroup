@@ -282,6 +282,8 @@ interface InvoiceScannerProps {
   variant?: "full" | "chat";
   /** Chat only: hand the files to the full Scan Invoice review. */
   onOpenFull?: () => void;
+  /** Chat: name the chat after the invoice and say where it stands ("1 match to confirm"). */
+  onChatStatus?: (title: string, status: string) => void;
 }
 
 const emptyLine: ScannedLineItem = {
@@ -371,7 +373,7 @@ export function closePrintedName(printed: string, entries: ProductMasterEntry[],
   return { entry: e, why: `Name differs by ${scored[0].d === 1 ? "one letter" : "two letters"}${samePrice ? " · same price" : ""}` };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull, onChatStatus }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setRawInvoices] = useState<ScannedInvoice[]>([]);
@@ -448,6 +450,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { setHost: setBaniHost } = useFloatingBaniHost();
   const baniSay = useFloatingBaniSay();
   const saidFor = useRef<string | null>(null);
+  const chatStatusRef = useRef<{ title: string; status: string } | null>(null);
+  const chatStatusSent = useRef("");
+  useEffect(() => {
+    const st = chatStatusRef.current;
+    if (!onChatStatus || !st?.title) return;
+    const key = `${st.title}|${st.status}`;
+    if (chatStatusSent.current === key) return;
+    chatStatusSent.current = key;
+    onChatStatus(st.title, st.status);
+  });
   const [baniHostNode, setBaniHostNode] = useState<HTMLDivElement | null>(null);
   const baniHostToken = useRef(crypto.randomUUID());
   const [baniLineId, setBaniLineId] = useState<string | null>(null);
@@ -2294,6 +2306,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       // A changed count is a delivery difference: short or extra, never guessed beyond that.
       if (value !== billed) updateLineReceiving(i, "receiving_reason", value < billed ? "short_delivery" : "extra_quantity_received");
     };
+    const chatTitleText = current?.invoice_number ? `${(currentSupplierName || "Supplier").split(" ")[0]} invoice ${current.invoice_number}` : "";
+    const chatStatusText = phase === "reading" ? "Reading…" : phase === "saved" ? "Booked" : phase === "duplicate" ? "Already booked" : phase === "review" ? "Needs the full review"
+      : suggested.size ? `${suggested.size} match${suggested.size === 1 ? "" : "es"} to confirm` : "Ready to book";
+    chatStatusRef.current = { title: chatTitleText, status: chatStatusText };
     return <><ChatScanCard
       phase={phase}
       supplier={currentSupplierName}
@@ -2334,6 +2350,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
       reasons={current ? scanProblems(current) : []}
+      progress={{ read: !scanning && !!current, lines: (current?.line_items || []).filter(l => l.description.trim()).length, total: displayTotal, supplier: current?.supplier_id ? currentSupplierName : "", matching: !!current?.line_items.some(l => l.matcher_pending) }}
+      terms={(supplierRow as { payment_terms?: string | null } | undefined)?.payment_terms?.trim() || undefined}
       onConfirm={i => { const l = current?.line_items[i]; const sug = l && suggestionFor(l); if (sug) selectProduct(i, sug.entry); }}
       onOpenFull={() => onOpenFull?.()}
       onHistory={i => setHistoryLineIdx(i)}

@@ -14,7 +14,7 @@ import type { ScannerHandoff } from "@/utils/scannerHandoff";
  * Everything is loaded for the active tenant only; the scanner rechecks identity
  * and edit access before reading the files.
  */
-export function ChatInvoiceScan({ handoff, onOpenFull, onBooked }: { handoff: ScannerHandoff; onOpenFull: () => void; onBooked: (text: string) => void }) {
+export function ChatInvoiceScan({ handoff, onOpenFull, onBooked, onStatus }: { handoff: ScannerHandoff; onOpenFull: () => void; onBooked: (text: string) => void; onStatus?: (title: string, status: string) => void }) {
   const { tenantId } = useActiveTenant();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -35,6 +35,7 @@ export function ChatInvoiceScan({ handoff, onOpenFull, onBooked }: { handoff: Sc
     userId={user.id}
     onClose={() => undefined}
     onOpenFull={onOpenFull}
+    onChatStatus={onStatus}
     onSave={async (inv, lines, files, meta) => {
       const id = await saveScannerInvoice({ tenantId, userId: user.id, navigate, createRecord: (i, l, a) => createScannerInvoiceRecord(tenantId, i, l, a) }, inv, lines, files, meta);
       window.dispatchEvent(new CustomEvent(INVOICE_BOOKED_EVENT));

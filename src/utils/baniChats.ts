@@ -17,11 +17,15 @@ const firstLine = (s: string) => s.replace(/[#*_`>[\]]/g, "").split("\n").map((l
 /** The chat is named by the first thing the person asked. */
 export function chatTitle(messages: ChatMessage[]): string {
   const q = messages.find((m) => m.role === "user" && !m.hidden && m.content.trim());
-  return firstLine(q?.content ?? "").slice(0, 90) || "Chat with Bani";
+  // A file sent without a question is named by what Bani found in it ("Normex invoice INV-2602390").
+  const label = messages.find((m) => typeof m.label === "string" && m.label.trim())?.label as string | undefined;
+  return firstLine(q?.content ?? "").slice(0, 90) || label?.slice(0, 90) || "Chat with Bani";
 }
 
 /** Bani's latest visible line (kept with the chat). */
 export function chatLast(messages: ChatMessage[]): string {
+  const latest = [...messages].reverse().find((m) => m.role === "assistant" && !m.hidden);
+  if (latest && typeof latest.status === "string" && latest.status) return latest.status;
   const a = [...messages].reverse().find((m) => m.role === "assistant" && !m.hidden && m.content.trim());
   return firstLine(a?.content ?? "").slice(0, 140);
 }

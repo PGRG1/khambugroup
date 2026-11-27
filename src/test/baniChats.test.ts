@@ -27,6 +27,8 @@ describe("bani chat history", () => {
     expect(chatTitle(msgs)).toBe("Why are Tuesdays slow?");
     expect(chatLast(msgs)).toBe("Tuesdays average HK$28.5k");
     expect(chatTitle([])).toBe("Chat with Bani");
+    expect(chatTitle([{ role: "user", content: "" }, { role: "assistant", content: "Normex invoice for HK$906", label: "Normex invoice INV-2602390", status: "1 match to confirm" }])).toBe("Normex invoice INV-2602390");
+    expect(chatLast([{ role: "assistant", content: "Normex invoice for HK$906", status: "1 match to confirm" }])).toBe("1 match to confirm");
   });
   it("moves an updated chat to the top without duplicates and keeps the newest", () => {
     const list = upsertChat([chat("a"), chat("b"), chat("c")], chat("b", 9), 3);

@@ -52,6 +52,10 @@ type Props = {
   onHistory?: (index: number) => void;
   /** Confirm Bani's suggestion for a line. */
   onConfirm?: (index: number) => void;
+  /** While reading: what is known so far (photo read, supplier found, items being matched). */
+  progress?: { read: boolean; lines: number; total: number; supplier: string; matching: boolean };
+  /** Supplier's saved payment terms, e.g. "Net 30" or "COD". */
+  terms?: string;
 };
 
 const AMBER = "#B45309";
@@ -61,6 +65,7 @@ const addDays = (date: string, days: number) => { const d = new Date(`${date}T00
 const qty = (n: number) => String(Math.round(n * 1000) / 1000);
 const num = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const label = (v: string) => RECEIVING_REASONS.find(r => r.value === v)?.label ?? v;
+const longDate = (d: string) => { const t = Date.parse(`${d}T00:00:00Z`); return Number.isFinite(t) ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : ""; };
 const accPrice = (l: ChatScanLine) => (l.acceptedPrice != null && Number.isFinite(l.acceptedPrice) ? l.acceptedPrice : l.price);
 const priceChanged = (l: ChatScanLine) => Math.round(accPrice(l) * 100) !== Math.round(l.price * 100);
 
@@ -105,7 +110,23 @@ export function ChatScanCard(p: Props) {
     return () => window.removeEventListener("keydown", esc);
   }, [confirm, p.saving]);
 
-  if (p.phase === "reading") return <p className="flex items-center gap-2 text-[13px] text-muted-foreground" role="status"><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading the invoice…</p>;
+  if (p.phase === "reading") {
+    const g = p.progress;
+    const step = (state: "done" | "now" | "next", text: string) => <li className="flex items-center gap-2.5 text-[13px]" style={{ color: state === "next" ? "#8A9893" : undefined }}>
+      {state === "done" ? <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#1F6B5E] text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>
+        : state === "now" ? <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin text-[#1F6B5E]" />
+        : <span className="h-[18px] w-[18px] shrink-0 rounded-full border border-dashed border-[#C3CEC9]" />}
+      <span className="whitespace-nowrap">{text}</span></li>;
+    return <div className="w-full max-w-[440px] rounded-2xl border bg-white px-[18px] py-4" style={{ borderColor: HAIR }} role="status">
+      <p className="text-[14px] font-medium">Reading the invoice</p>
+      <ul className="mt-3 space-y-3">
+        {step(g?.read ? "done" : "now", g?.read ? `Read the photo · ${g.lines} line${g.lines === 1 ? "" : "s"}, ${formatMoney(g.total, p.currency)}` : "Reading the photo…")}
+        {step(g?.read ? (g.supplier ? "done" : "now") : "next", g?.supplier ? `Supplier: ${g.supplier}` : "Finding the supplier")}
+        {step(g?.read && g.supplier ? (g.matching ? "now" : "done") : "next", g?.matching ? "Matching items to your Items Master…" : "Matching items to your Items Master")}
+        {step("next", "Checking prices")}
+      </ul>
+    </div>;
+  }
   const full = (text: string) => <div className="space-y-2"><p>{text}</p><button type="button" className="floating-bani-reply" onClick={p.onOpenFull}>Open full review</button></div>;
   if (p.phase === "denied") return <p>Booking invoices needs edit access to Purchasing.</p>;
   if (p.phase === "failed") return full("I couldn't read this one. Open it to try again or enter it by hand.");
@@ -128,6 +149,7 @@ export function ChatScanCard(p: Props) {
   const settled = p.lines.every(lineSettled);
   const blocked = p.lines.filter(l => l.blocked);
   const toConfirm = p.lines.filter(l => l.suggestion);
+  const priceDiffs = p.lines.filter(l => l.was != null).length;
   const canHold = allTicked && settled && !p.saving && !saved && !!p.venue && !toConfirm.length;
   const ready = canHold && !blocked.length;
   const invoiced = Math.round(p.lines.reduce((s, l) => s + l.billed * l.price, 0) * 100) / 100;
@@ -175,12 +197,25 @@ export function ChatScanCard(p: Props) {
       {sheet && (panel ? createPortal(sheet, panel) : sheet)}
       <div className="overflow-hidden rounded-2xl border bg-white text-[13px]" style={{ borderColor: HAIR }}>
         <div className="space-y-3 px-4 pb-4 pt-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[15px] font-medium">{saved ? (held ? "Held for review." : "Booked.") : "Tick what arrived."}</p>
-            {!saved && <button type="button" className="shrink-0 text-[13px] text-[#2F5E5A]" onClick={p.onOpenFull}>Full review</button>}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="truncate text-[18px] font-semibold" title={p.supplier}>{p.supplier}</p>
+              <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{[p.number, longDate(p.date), p.terms, p.venue].filter(Boolean).join(" · ")}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-[22px] font-semibold tabular-nums">{formatMoney(p.total, p.currency)}</p>
+              <p className="text-[12px] text-muted-foreground">{saved ? (held ? "Held for review" : "Booked") : `${p.lines.length} item${p.lines.length === 1 ? "" : "s"}`}</p>
+            </div>
           </div>
+        </div>
+        {!saved && <div className="flex items-center gap-5 overflow-x-auto whitespace-nowrap px-4 py-2.5 text-[13px]" style={{ background: "#F6F9F7", borderTop: `1px solid ${HAIR}`, borderBottom: `1px solid ${HAIR}` }}>
+          <span className="text-[#1F6B5E]">✓ {p.lines.length - toConfirm.length} matched</span>
+          {toConfirm.length > 0 && <span style={{ color: AMBER }}>● {toConfirm.length} to confirm</span>}
+          {priceDiffs ? <span style={{ color: AMBER }}>● {priceDiffs} price{priceDiffs === 1 ? "" : "s"} differ{priceDiffs === 1 ? "s" : ""} from the Items Master</span> : <span className="text-[#1F6B5E]">✓ Prices match the Items Master</span>}
+          <button type="button" className="ml-auto text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Full review</button>
+        </div>}
+        <div className="px-4 pb-4 pt-4">
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-            {field("Supplier", <span className={cn(fieldCls, "flex items-center truncate bg-muted/30")} title={p.supplier}>{p.supplier}</span>)}
             {field("Invoice no.", <input aria-label="Invoice number" disabled={saved} defaultValue={p.number} className={fieldCls} onBlur={e => { const v = e.target.value.trim(); if (v && v !== p.number) p.onField("invoice_number", v); }} />)}
             {field("Invoice date", <input type="date" aria-label="Invoice date" disabled={saved} defaultValue={p.date} className={fieldCls} onBlur={e => { if (e.target.value && e.target.value !== p.date) p.onField("invoice_date", e.target.value); }} />)}
             {field("Venue", <select aria-label="Venue" disabled={saved} value={p.venue} className={fieldCls} onChange={e => p.onField("venue", e.target.value)}>
@@ -325,7 +360,7 @@ export function ChatScanCard(p: Props) {
             : <div className="ml-auto flex items-center gap-3">
                 {!allTicked && <button type="button" className="text-[13px] font-medium" onClick={() => setTicked(new Set(p.lines.map(l => l.key)))}>Tick all</button>}
                 <button type="button" className="h-9 rounded-full border border-[#CFD8D3] bg-white px-4 text-[13px] font-medium disabled:opacity-40" disabled={!canHold} onClick={() => setConfirm("hold")}>Hold for review</button>
-                <button type="button" className="h-9 rounded-full px-5 text-[13px] font-medium text-white disabled:opacity-40" style={{ background: "var(--fb-ink,#17302C)" }} disabled={!ready} onClick={() => setConfirm("book")}>{p.saving ? "Saving…" : "Book"}</button>
+                <button type="button" className="h-9 rounded-full px-5 text-[13px] font-medium text-white disabled:opacity-40" style={{ background: "var(--fb-ink,#17302C)" }} disabled={!ready} onClick={() => setConfirm("book")}>{p.saving ? "Saving…" : `Book ${formatMoney(accepted, p.currency)}`}</button>
               </div>}
         </div>
       </div>

@@ -184,8 +184,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (hosted || busy || !store || !user || !tenantId || scope !== identity || !messages.some((m) => !m.hidden)) return;
     const id = chatId ?? crypto.randomUUID();
     if (!chatId) setChatId(id);
-    const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }) =>
-      ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before }));
+    const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before, label, status }) =>
+      ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before, label, status }));
     const was = loadChats(scope).find((c) => c.id === id);
     if (was && JSON.stringify(was.messages) === JSON.stringify(keep)) return; // just reopened, nothing new: keep its place in the list
     storeChat(scope, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep });
@@ -688,7 +688,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             {message.invoiceScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
               : message.invoiceScan.files[0] instanceof File && message.invoiceScan.scope === identity
-                ? <div className="fb-wide-card"><ChatInvoiceScan handoff={message.invoiceScan} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} /></div>
+                ? <div className="fb-wide-card"><ChatInvoiceScan handoff={message.invoiceScan} onStatus={(label, status) => setMessages(prev => prev.map((m, i) => i === index && (m.label !== label || m.status !== status) ? { ...m, label, status } : m))} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} /></div>
                 : <p className="text-xs text-muted-foreground">Attach the invoice again to book it.</p>)}
             {message.salesScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
