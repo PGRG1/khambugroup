@@ -30,10 +30,9 @@ export function nextCode(prefix: string, taken: (string | null | undefined)[], d
 /** Next product SKU for a client, from the item's Level 1 category. */
 export async function nextSku(tenantId: string, level1: string): Promise<string> {
   const db = supabase as any;
-  const { data: cat } = await db.from("product_categories").select("master_id").eq("tenant_id", tenantId).eq("level", 1).ilike("name", level1).limit(1);
-  const masterId = cat?.[0]?.master_id as string | undefined;
-  const { data: master } = masterId ? await db.from("category_master").select("code").eq("id", masterId).limit(1) : { data: null };
-  const prefix = skuPrefix(level1, master?.[0]?.code);
+  const { data: l1s } = await db.rpc("client_level1_defaults", { p_tenant: tenantId });
+  const code = ((l1s ?? []) as { name: string; code: string | null }[]).find(r => r.name.toLowerCase() === level1.toLowerCase())?.code;
+  const prefix = skuPrefix(level1, code);
   const { data } = await db.from("product_master").select("internal_sku").eq("tenant_id", tenantId).ilike("internal_sku", `${prefix}-%`);
   return nextCode(prefix, ((data ?? []) as { internal_sku: string }[]).map(r => r.internal_sku), 4);
 }

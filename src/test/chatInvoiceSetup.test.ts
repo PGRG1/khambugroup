@@ -19,7 +19,7 @@ describe("chat invoice setup", () => {
       { id: "d", name: "Dried Chillies", level: 3 as const, parent_id: "s" },
       { id: "z", name: "Frozen", level: 2 as const, parent_id: "f" },
     ];
-    expect(categoryPaths(cats, { mf: "COGS" })).toEqual([
+    expect(categoryPaths(cats, { Food: "COGS" })).toEqual([
       { id: "z", label: "Food › Frozen", l1: "Food", l2: "Frozen", l3: "", group: "COGS" },
       { id: "d", label: "Food › Spices & Seasonings › Dried Chillies", l1: "Food", l2: "Spices & Seasonings", l3: "Dried Chillies", group: "COGS" },
     ]);
