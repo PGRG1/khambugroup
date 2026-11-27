@@ -59,12 +59,12 @@ describe("Bani chat expenses", () => {
       lines: [{ line_no: 1, description: "Pest control", amount: 300, account_id: null as string | null }],
       accounts: [{ id: "c", code: "6310", name: "Cleaning & Waste Disposal", group: "Running costs" }],
       onField: vi.fn(), onAccount, onBook, onHold: vi.fn() };
-    const { rerender } = render(<ChatBillCard {...booked} phase="review" vendor="Masterly" review={review} />);
+    const { rerender } = render(<ChatBillCard {...booked} canUndo={false} phase="review" vendor="Masterly" review={review} />);
     expect(screen.getByText("● New vendor, added when you book")).toBeTruthy();
     expect((screen.getByText(/^Book HK/) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Expense type for Pest control"), { target: { value: "c" } });
     expect(onAccount).toHaveBeenCalledWith(1, "c");
-    rerender(<ChatBillCard {...booked} phase="review" vendor="Masterly" review={{ ...review, lines: [{ ...review.lines[0], account_id: "c" }] }} />);
+    rerender(<ChatBillCard {...booked} canUndo={false} phase="review" vendor="Masterly" review={{ ...review, lines: [{ ...review.lines[0], account_id: "c" }] }} />);
     expect(screen.getByText(/6310 Cleaning & Waste Disposal/)).toBeTruthy();
     fireEvent.click(screen.getByText(/^Book HK/));
     expect(onBook).toHaveBeenCalledTimes(1);
