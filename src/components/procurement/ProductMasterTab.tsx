@@ -161,6 +161,8 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [view, setView] = useState<"all" | "needs" | "inactive">("all");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<FlatRow | null>(null);
+  // Item page: which card is being edited (null = reading).
+  const [editCard, setEditCard] = useState<string | null>(null);
   const [accountKeys, setAccountKeys] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -579,6 +581,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     const costPerRecipeUnit = recipeQty > 0 ? purchaseUnitCost / recipeQty : 0;
 
     if (editingProductId) {
+      let failed = false;
       const pmUpdates: any = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
@@ -624,11 +627,11 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
       } else {
         // Update product_master
         const { error: pmErr } = await supabase.from("product_master" as any).update(pmUpdates as any).eq("id", editingProductId);
-        if (pmErr) { console.error("product_master update error:", pmErr); }
+        if (pmErr) { failed = true; toast({ title: "Couldn't save the item", description: pmErr.message, variant: "destructive" }); }
         // Update supplier entry if present
         if (editingSupplierEntryId) {
           const { error: psErr } = await supabase.from("product_suppliers" as any).update(supplierLevelFields as any).eq("id", editingSupplierEntryId);
-          if (psErr) { console.error("product_suppliers update error:", psErr); }
+          if (psErr) { failed = true; toast({ title: "Couldn't save the supplier", description: psErr.message, variant: "destructive" }); }
         } else {
           // Orphan product (no supplier row yet) — auto-create one if any supplier-level data was entered
           const hasSupplierData =
@@ -639,14 +642,14 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           if (hasSupplierData) {
             const { error: psErr } = await supabase
               .from("product_suppliers" as any)
-              .insert({ ...supplierLevelFields, product_master_id: editingProductId } as any);
-            if (psErr) { console.error("product_suppliers insert error:", psErr); }
+              .insert({ ...supplierLevelFields, product_master_id: editingProductId, tenant_id: tenantId } as any);
+            if (psErr) { failed = true; toast({ title: "Couldn't add the supplier", description: psErr.message, variant: "destructive" }); }
           }
         }
         // Single fetch after both updates are committed
         await fetchProducts();
       }
-      setDialogOpen(false);
+      if (!failed) { setEditCard(null); toast({ title: "Saved" }); }
     } else {
       const toNumOrNull = (v: string) => {
         if (v === "" || v == null) return null;
@@ -686,6 +689,8 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     }
     setDeleteOpen(false);
     setDeletingRow(null);
+    setDialogOpen(false);
+    setEditCard(null);
   };
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -853,6 +858,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
 
   return (
     <div ref={rootRef} className="space-y-4">
+      {!dialogOpen && (<>
       {/* Same layout as Settings › Suppliers: summary, view buttons, search, upload/download, add. */}
       <p className="text-[13px] text-muted-foreground tabular-nums">
         {products.length.toLocaleString()} items{needsCount > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsCount.toLocaleString()} need setup</span></>}
@@ -952,49 +958,53 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
         </div>
       )}
 
+      </>)}
+
       <ItemsUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} onDone={fetchProducts} />
 
-      {/* Create/Edit Sheet — right side on desktop, bottom sheet on mobile */}
-      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
-        <SheetContent
-          side={isMobile ? "bottom" : "right"}
-          className={cn(
-            "flex flex-col p-0 gap-0",
-            popup ? "settings-wide" : isMobile
-              ? "h-[92vh] rounded-t-2xl border-t sm:max-w-full w-full"
-              : "w-full sm:max-w-[560px]",
-          )}
-        >
-          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
-            <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            {editingSetupHealth?.state === "needs_setup" && (
-              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <AlertDescription className="text-xs">
-                  <span className="font-medium">Setup issues:</span>{" "}{editingSetupHealth.issues.join(", ")}
-                </AlertDescription>
-              </Alert>
-            )}
+      {/* Item page (no side panel): read-first cards with one Edit each; a new item opens with every card editable. */}
+      {dialogOpen && (() => {
+        const isNew = !editingProductId;
+        const prod = editingProductId ? products.find(p => p.id === editingProductId) ?? null : null;
+        const needs = editingRow ? needsByRow.get(editingRow.rowKey) ?? [] : [];
+        const editing = (k: string) => isNew || editCard === k;
+        const reset = () => { if (editingRow) openEdit(editingRow); };
+        const startEdit = (k: string) => { if (editCard && editCard !== k) reset(); setEditCard(k); };
+        const cancelEdit = () => { reset(); setEditCard(null); };
+        const kv = (label: string, value: React.ReactNode, missing = "Not set") => (
+          <div className="min-w-0"><div className="text-[11.5px] text-muted-foreground">{label}</div>
+            <div className={cn("mt-0.5 truncate text-[14px]", !value && value !== 0 && "text-[hsl(var(--warning))]")}>{value || value === 0 ? value : missing}</div></div>);
+        const grid = (children: React.ReactNode) => <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">{children}</div>;
+        const card = (key: string, title: string, view: React.ReactNode, edit: React.ReactNode, action?: React.ReactNode) => (
+          <section className="rounded-2xl border border-border bg-card p-5" aria-label={title}>
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h3 className="text-[15px] font-semibold">{title}</h3>
+              {!isNew && canEditList && !editing(key) && (action ?? <button type="button" className="text-[13px] text-[#1F6B5E]" onClick={() => startEdit(key)}>Edit</button>)}
+            </div>
+            {editing(key) ? <div className="space-y-3">{edit}
+              {!isNew && <div className="flex justify-end gap-2 pt-1"><Button variant="outline" onClick={cancelEdit}>Cancel</Button><Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>Save</Button></div>}
+            </div> : view}
+          </section>);
+        const cat = [form.level1_category, form.level2_category, form.level3_category].filter(Boolean).join(" › ");
+        const acct = form.default_coa_account_id ? coaById.get(form.default_coa_account_id) : null;
+        const fromSetup = !acct && accountKeys.has(`${form.financial_treatment}__${form.level1_category}`);
+        const sups = prod?.suppliers ?? [];
+        const openSupplier = (id: string) => {
+          const row = flatRows.find(r => r.product.id === prod?.id && r.supplier_entry?.id === id);
+          if (row) { openEdit(row); setEditCard("supplier"); }
+        };
+        return (
+          <div className="space-y-3">
+            <div>
+              <button type="button" className="text-[13px] text-[#1F6B5E]" onClick={() => { setDialogOpen(false); setEditCard(null); }}>‹ Products</button>
+              <h2 className="mt-1 truncate text-[22px] font-semibold">{isNew ? "New product" : form.internal_product_name || "Product"}</h2>
+              {!isNew && <p className="truncate text-[13px] text-muted-foreground">{[form.internal_sku, form.supplier].filter(Boolean).join(" · ")}{needs.length > 0 && <> · <span className="text-[hsl(var(--warning))]">{needsText(needs)}</span></>}</p>}
+            </div>
+            {duplicateSku !== null && <p className="text-[13px] text-[hsl(var(--warning))]">SKU "{form.internal_sku}" is already {duplicateSku}. Saving adds this supplier to that item.</p>}
 
-            {duplicateSku !== null && (
-              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <AlertDescription className="text-xs">
-                  SKU "{form.internal_sku}" already exists — "{duplicateSku}".{" "}
-                  {editingProductId
-                    ? "Saving will merge this supplier entry into the existing product."
-                    : "Saving will add a new supplier entry (e.g. different weight/pack size) to this product."}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Accordion type="multiple" defaultValue={["identity", "classification", "financial"]} className="space-y-2">
-              {/* IDENTITY */}
-              <AccordionItem value="identity" className="border rounded-lg px-3">
-                <AccordionTrigger className="text-sm font-medium py-3">Identity</AccordionTrigger>
-                <AccordionContent className="pb-3 space-y-3">
+            {card("item", "Item",
+              grid(<>{kv("SKU", form.internal_sku)}{kv("Name", form.internal_product_name)}{kv("Status", form.status)}<div className="col-span-2 sm:col-span-3">{kv("Category", cat, "No category")}</div></>),
+              <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Internal SKU *</Label>
@@ -1018,13 +1028,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       </div>
                     )}
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              {/* CLASSIFICATION */}
-              <AccordionItem value="classification" className="border rounded-lg px-3">
-                <AccordionTrigger className="text-sm font-medium py-3">Classification</AccordionTrigger>
-                <AccordionContent className="pb-3">
+                
                   <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
                   <div className="mt-1">
                     <CategoryCascadeSelect
@@ -1034,13 +1038,193 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
                     />
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                
+                  <div>
+                    <Label className="text-xs">Notes</Label>
+                    <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-20" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>)}
 
-              {/* FINANCIAL MAPPING */}
-              <AccordionItem value="financial" className="border rounded-lg px-3">
-                <AccordionTrigger className="text-sm font-medium py-3">Financial Mapping</AccordionTrigger>
-                <AccordionContent className="pb-3 space-y-3">
+            {!isNew && card("supplier", editCard === "supplier" ? `Supplier: ${form.supplier || "—"}` : "Suppliers",
+              sups.length === 0 ? <p className="text-[13px] text-[hsl(var(--warning))]">No supplier yet.</p> : isMobile
+                ? <div className="border-t border-border">{sups.map(sp => (
+                    <button key={sp.id} type="button" disabled={!canEditList} className="flex min-h-[48px] w-full items-center justify-between gap-3 border-b border-border/60 py-1.5 text-left" onClick={() => openSupplier(sp.id)}>
+                      <span className="min-w-0"><span className="block truncate text-[14px]">{sp.supplier || "—"}</span><span className="block truncate text-[12px] text-muted-foreground">{[sp.external_sku || sp.supplier_product_name || "No code", boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom)].filter(Boolean).join(" · ")}</span></span>
+                      <span className="shrink-0 text-[14px] tabular-nums">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : "—"}</span>
+                    </button>))}</div>
+                : <div className="overflow-x-auto"><table className="w-full text-[13px]">
+                    <thead className="border-b border-border text-[12px] text-muted-foreground"><tr><th className="h-9 pr-3 text-left font-normal">Supplier</th><th className="pr-3 text-left font-normal">Supplier code</th><th className="pr-3 text-left font-normal">Their name</th><th className="pr-3 text-left font-normal">Bought as</th><th className="text-right font-normal">Price</th></tr></thead>
+                    <tbody>{sups.map(sp => (
+                      <tr key={sp.id} className={cn("h-11 whitespace-nowrap border-b border-border/50", canEditList && "cursor-pointer hover:bg-muted/40")} onClick={() => canEditList && openSupplier(sp.id)}>
+                        <td className="pr-3 font-medium">{sp.supplier || "—"}</td><td className="pr-3 text-muted-foreground">{sp.external_sku || "—"}</td>
+                        <td className="pr-3 text-muted-foreground"><span className="block truncate" style={{ maxWidth: "var(--bani-name-max)" }}>{sp.supplier_product_name || "—"}</span></td>
+                        <td className="pr-3">{boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom) || <span className="text-[hsl(var(--warning))]">No unit</span>}</td>
+                        <td className="td-num text-right">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : <span className="text-[hsl(var(--warning))]">No price</span>}</td>
+                      </tr>))}</tbody></table></div>,
+              <>
+                      <div>
+                        <Label className="text-xs">Supplier</Label>
+                        <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                          <SelectContent>
+                            {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">
+                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">{baseSymbol()}{fmt(liveCostPerStock)}</span>
+                            <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          {(() => {
+                            const py = parseFloat(form.purchase_yield) || 100;
+                            const cy = parseFloat(form.cooking_yield) || 100;
+                            const totalYield = (py / 100) * (cy / 100);
+                            const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                            const baseQty = parseFloat(form.base_unit_qty) || 1;
+                            const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                            const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                            const hasYield = totalYield < 0.9999;
+                            return hasYield ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">{baseSymbol()}{rawCostPerBase.toFixed(4)}</span></p>
+                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">{baseSymbol()}{effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">{baseSymbol()}{rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </>,
+              <span />)}
+            {isNew && card("supplier", "Supplier", null, <>
+                      <div>
+                        <Label className="text-xs">Supplier</Label>
+                        <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                          <SelectContent>
+                            {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">
+                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">{baseSymbol()}{fmt(liveCostPerStock)}</span>
+                            <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          {(() => {
+                            const py = parseFloat(form.purchase_yield) || 100;
+                            const cy = parseFloat(form.cooking_yield) || 100;
+                            const totalYield = (py / 100) * (cy / 100);
+                            const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                            const baseQty = parseFloat(form.base_unit_qty) || 1;
+                            const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                            const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                            const hasYield = totalYield < 0.9999;
+                            return hasYield ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">{baseSymbol()}{rawCostPerBase.toFixed(4)}</span></p>
+                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">{baseSymbol()}{effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">{baseSymbol()}{rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </>)}
+
+            {card("stock", "Stock & recipes",
+              grid(<>{kv("Counts as stock", form.creates_stock_movement ? "Yes" : "No")}{form.creates_stock_movement && kv("Stock unit", form.stock_uom)}{form.creates_stock_movement && kv("Recipe unit", form.base_unit_type ? `${form.base_unit_qty} ${form.base_unit_type} per ${form.purchase_unit || "unit"}` : "")}
+                {form.creates_stock_movement && kv("Yields", `${form.purchase_yield || 100}% · ${form.cooking_yield || 100}%`)}{form.creates_stock_movement && kv("Reorder", form.reorder_qty ? `${form.reorder_qty} (min ${form.min_stock_qty || 0})` : "", "Not set")}</>),
+              <>
+                      <p className="text-xs text-muted-foreground">Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Purchase yield %</Label>
+                          <div className="relative">
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.purchase_yield}
+                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Cooking yield %</Label>
+                          <div className="relative">
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.cooking_yield}
+                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Moisture &amp; shrinkage lost during cooking</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const py = parseFloat(form.purchase_yield) || 100;
+                        const cy = parseFloat(form.cooking_yield) || 100;
+                        const totalYield = (py / 100) * (cy / 100) * 100;
+                        return (
+                          <div className="rounded-lg bg-secondary/50 px-3 py-2 text-sm flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">Total yield:</span>
+                            <span className={cn("tabular-nums font-medium", totalYield < 80 ? "text-warning" : "text-foreground")}>{totalYield.toFixed(1)}%</span>
+                          </div>
+                        );
+                      })()}
+                    
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label className="text-xs">Min stock qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        <div><Label className="text-xs">Reorder qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                      </div>
+                    </>)}
+
+            {card("books", "Books",
+              grid(<>{kv("Group", form.financial_treatment, "No group")}{kv("Account", acct ? `${acct.code} ${acct.name}` : fromSetup ? "From Purchasing setup" : "", "No account")}{kv("Set", acct ? "On this item" : "By category", "")}</>),
+              <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Financial Treatment</Label>
@@ -1103,123 +1287,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                     <Switch checked={form.creates_stock_movement}
                       onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))} />
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                </>)}
 
-              {form.creates_stock_movement && (
-                <>
-                  {/* UNITS & COST */}
-                  <AccordionItem value="units" className="border rounded-lg px-3">
-                    <AccordionTrigger className="text-sm font-medium py-3">Units &amp; Cost</AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-3">
-                      <div>
-                        <Label className="text-xs">Supplier</Label>
-                        <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
-                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                          <SelectContent>
-                            {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
-                          <div><Label className="text-xs">Purchase Cost ({baseSymbol()})</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
-                          <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                        </div>
-                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
-                          <p className="text-xs text-muted-foreground">
-                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">{baseSymbol()}{fmt(liveCostPerStock)}</span>
-                            <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
-                          <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
-                        </div>
-                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
-                          {(() => {
-                            const py = parseFloat(form.purchase_yield) || 100;
-                            const cy = parseFloat(form.cooking_yield) || 100;
-                            const totalYield = (py / 100) * (cy / 100);
-                            const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
-                            const baseQty = parseFloat(form.base_unit_qty) || 1;
-                            const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
-                            const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
-                            const hasYield = totalYield < 0.9999;
-                            return hasYield ? (
-                              <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">{baseSymbol()}{rawCostPerBase.toFixed(4)}</span></p>
-                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">{baseSymbol()}{effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">{baseSymbol()}{rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* YIELD & WASTE */}
-                  <AccordionItem value="yield" className="border rounded-lg px-3">
-                    <AccordionTrigger className="text-sm font-medium py-3">Yield &amp; Waste</AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-3">
-                      <p className="text-xs text-muted-foreground">Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Purchase yield %</Label>
-                          <div className="relative">
-                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.purchase_yield}
-                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
-                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed</p>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Cooking yield %</Label>
-                          <div className="relative">
-                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.cooking_yield}
-                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
-                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">Moisture &amp; shrinkage lost during cooking</p>
-                        </div>
-                      </div>
-                      {(() => {
-                        const py = parseFloat(form.purchase_yield) || 100;
-                        const cy = parseFloat(form.cooking_yield) || 100;
-                        const totalYield = (py / 100) * (cy / 100) * 100;
-                        return (
-                          <div className="rounded-lg bg-secondary/50 px-3 py-2 text-sm flex items-center gap-2">
-                            <span className="text-muted-foreground text-xs">Total yield:</span>
-                            <span className={cn("tabular-nums font-medium", totalYield < 80 ? "text-warning" : "text-foreground")}>{totalYield.toFixed(1)}%</span>
-                          </div>
-                        );
-                      })()}
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* REORDER */}
-                  <AccordionItem value="reorder" className="border rounded-lg px-3">
-                    <AccordionTrigger className="text-sm font-medium py-3">Reorder</AccordionTrigger>
-                    <AccordionContent className="pb-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><Label className="text-xs">Min stock qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                        <div><Label className="text-xs">Reorder qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* SUPPLIER DEALS */}
-                  <AccordionItem value="deals" className="border rounded-lg px-3">
-                    <AccordionTrigger className="text-sm font-medium py-3">Supplier Deals</AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-2">
+            {!isNew && form.creates_stock_movement && <section className="rounded-2xl border border-border bg-card p-5" aria-label="Deals"><h3 className="mb-3 text-[15px] font-semibold">Deals</h3>
                       {editingProductId && (
                         <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
                           <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
@@ -1283,42 +1353,14 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                           })}
                         </div>
                       )}
-                    </AccordionContent>
-                  </AccordionItem>
-                </>
-              )}
+                    </section>}
 
-              {/* NOTES & STATUS */}
-              <AccordionItem value="notes" className="border rounded-lg px-3">
-                <AccordionTrigger className="text-sm font-medium py-3">Notes &amp; Status</AccordionTrigger>
-                <AccordionContent className="pb-3 space-y-3">
-                  <div>
-                    <Label className="text-xs">Notes</Label>
-                    <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-20" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Status</Label>
-                    <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            {isNew
+              ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>Create</Button></div>
+              : canEditList && editingRow && <button type="button" className="text-[13px] text-destructive" onClick={() => { setDeletingRow(editingRow); setDeleteOpen(true); }}>{(prod?.suppliers?.length ?? 0) > 1 ? `Remove ${form.supplier || "this supplier"} from this item` : "Delete item"}</button>}
           </div>
-          <div className="flex justify-end gap-2 px-5 py-3 border-t shrink-0 bg-background">
-            {editingProductId && editingRow && canEditList && <Button variant="ghost" className="mr-auto text-destructive hover:text-destructive" onClick={() => { setDeletingRow(editingRow); setDialogOpen(false); setDeleteOpen(true); }}>Delete</Button>}
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
-              {editingProductId ? "Update" : "Create"}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+        );
+      })()}
 
 
 
