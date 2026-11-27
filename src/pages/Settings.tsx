@@ -76,7 +76,7 @@ export default function Settings(){
  // Like Finance › Books: the group's view tabs first, then the page (its title, with any page action on the right).
  const page=<main className="settings-main min-w-0">
   {!ownHeading&&<Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>}
-  {!ownHeading&&pills.length>1&&<nav aria-label={active.group} className="settings-viewtabs max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="invoice-switch">{pills.map(d=><Link key={d.id} to={settingsHref(d.id)} replace aria-current={d.id===active.id?'page':undefined} className={`invoice-switch-item ${d.id===active.id?'is-active':''}`}>{d.label}</Link>)}</div></nav>}
+  {!ownHeading&&pills.length>1&&<nav aria-label={`Settings · ${active.group}`} className="settings-viewtabs max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="invoice-switch">{pills.map(d=><Link key={d.id} to={settingsHref(d.id)} replace aria-current={d.id===active.id?'page':undefined} className={`invoice-switch-item ${d.id===active.id?'is-active':''}`}>{d.label}</Link>)}</div></nav>}
   <div className="settings-frame">
    {!ownHeading&&!['accounts','tax','base','schedule'].includes(active.id)&&<header className="settings-head"><h2 className="settings-head-title">{pills.length>1?active.label:active.group}</h2></header>}
    <div key={`${tenantId}:${active.id}`} className="settings-body min-w-0">{content}</div>
