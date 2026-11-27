@@ -37,7 +37,8 @@ STATEMENT vs INVOICE (CRITICAL — do not double-count):
 - CLP worked example: printed Total 37,027 = Brought Forward 18,706 + current charges 18,321. Correct output: total_amount=18321, subtotal=18321, brought_forward=18706, statement_total=37027, allocations sum to 18321.
 
 IMPORTANT — ALLOCATION SPLITS:
-- Most bills have one allocation row. If the bill has multiple distinct charges (e.g. service charge + late payment fee + base utility), split them into separate allocation rows.
+- One allocation row per PRINTED item or charge line, in the order printed, so the bill can be checked against the paper: e.g. a printer's invoice with stickers 400, delivery fee 30, menus 400, photo print 60 gives FOUR rows. Delivery, packing and similar fees are their own row. expense_category is a short label of what the line is (e.g. "Round stickers"), notes holds the printed quantity/spec in a few words (e.g. "1,000pcs").
+- Utility statements (electricity, water, gas, telecom) are the exception: one row per meter/account for its current charges, never one row per tariff component.
 - LATE PAYMENT INTEREST, PENALTIES, SURCHARGES, FINANCE CHARGES must be a SEPARATE allocation row with category "Late Payment Charges" — never rolled into the main expense.
 - Each allocation row has: expense_category (short label), amount (number), notes (optional).
 - The SUM of allocation amounts must equal the bill subtotal (i.e. current_charges for statements, or total minus tax for plain invoices).

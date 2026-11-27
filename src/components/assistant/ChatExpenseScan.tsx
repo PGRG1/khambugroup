@@ -316,7 +316,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       vendorName={st.newVendor || h.vendor_name || ""} total={Number(h.total_amount || 0)} currency={h.currency || getBaseCurrency()}
       vendorStep={tenantId && <NewSupplierStep key={handoff.id} tenantId={tenantId} supplierName={st.newVendor || h.vendor_name || ""} type="expense" initial={su.vendor}
         onCreated={row => { const cur = stRef.current; advance({ ...cur, newVendor: undefined, header: { ...cur.header, supplier_id: row.id, vendor_name: row.name } }, `${row.name}${row.code ? ` (${row.code})` : ""} added`); }} />}
-      lines={st.allocs.map(a => ({ line_no: a.line_no, description: a.notes || a.expense_category || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null, suggested: su.suggested.includes(a.line_no) }))}
+      lines={st.allocs.map(a => ({ line_no: a.line_no, description: [a.expense_category, a.notes].filter(Boolean).join(" · ") || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null, suggested: su.suggested.includes(a.line_no) }))}
       accounts={plAccounts}
       onAccount={(line, account) => patch({ allocs: stRef.current.allocs.map(a => a.line_no === line ? { ...a, account_id: account || null } : a), setup: { ...stRef.current.setup!, suggested: stRef.current.setup!.suggested.filter(n => n !== line) } })}
       onTypeDone={() => { const cur = stRef.current; const names = [...new Set(cur.allocs.map(a => cur.accounts.find(x => x.id === a.account_id)?.name).filter(Boolean))]; advance(cur, `Expense type: ${names.join(", ")}`); }}
@@ -334,7 +334,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       venue: st.split ? "Split" : h.venue || "", venues: st.split ? ["Split", ...st.venues.map(v => v.name)] : st.venues.map(v => v.name), total: Number(h.total_amount || 0),
       intro: `${h.vendor_name || "Bill"} for ${money(Number(h.total_amount || 0))}${(h as { payment_terms?: string }).payment_terms ? `, ${String((h as { payment_terms?: string }).payment_terms).toLowerCase()}` : ""}. ${st.allocs.some(a => !a.account_id) || !(st.split || h.venue) ? "Fill in the amber parts, then book." : "Check it and book."}`,
       newVendor: !!st.newVendor, saving: !!st.saving,
-      lines: st.allocs.map(a => ({ line_no: a.line_no, description: a.notes || a.expense_category || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null })),
+      lines: st.allocs.map(a => ({ line_no: a.line_no, description: [a.expense_category, a.notes].filter(Boolean).join(" · ") || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null })),
       accounts: st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) })),
       onField: (k, v) => {
         const cur = stRef.current.header; if (!cur) return;
