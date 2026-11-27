@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 
 import UomSelect from "@/components/procurement/UomSelect";
 import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
+import { dealLabel, dealLive } from "@/utils/supplierRebates";
+import { hongKongDate } from "@/utils/purchasingOverview";
 import { formatCurrency } from "@/utils/salesUtils";
 import { computeSetupHealth, type SetupHealthState } from "@/utils/productSetupHealth";
 import { useCanEditItemList, ITEM_LIST_APPROVER_ONLY } from "@/hooks/useCanEditItemList";
@@ -168,6 +170,15 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
   const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
+  // Every item deal for the client (buy X get Y, discount), shown in the Deal column.
+  const [allDeals, setAllDeals] = useState<any[]>([]);
+  const loadAllDeals = useCallback(async () => {
+    if (!tenantId) return;
+    const { data } = await supabase.from("item_supplier_deals" as any).select("id, product_id, supplier_id, deal_type, buy_qty, free_qty, discount_percent, special_price, valid_from, valid_until, is_active").eq("tenant_id", tenantId).eq("is_active", true);
+    setAllDeals((data as any[]) ?? []);
+  }, [tenantId]);
+  useEffect(() => { void loadAllDeals(); }, [loadAllDeals]);
+  const today = hongKongDate();
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -191,7 +202,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
     if (!tenantId || !productId) { setDeals([]); return; }
     const { data } = await supabase
       .from("item_supplier_deals" as any)
-      .select("id, supplier_id, buy_qty, free_qty, notes, is_active, valid_from, valid_until")
+      .select("id, supplier_id, deal_type, buy_qty, free_qty, discount_percent, special_price, notes, is_active, valid_from, valid_until")
       .eq("tenant_id", tenantId)
       .eq("product_id", productId)
       .eq("is_active", true)
@@ -893,34 +904,35 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           })}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]" aria-label="Products">
-            <thead className="border-y border-border text-[12px] text-muted-foreground">
-              <tr>
-                <th className="h-10 pr-3 text-left font-normal">SKU</th>
-                <th className="pr-3 text-left font-normal">Item</th>
-                <th className="pr-3 text-left font-normal">Supplier</th>
-                <th className="pr-3 text-left font-normal">Supplier code</th>
-                {!isTablet && <th className="pr-3 text-left font-normal">Category</th>}
-                {!isTablet && <th className="pr-3 text-left font-normal">Bought as</th>}
-                <th className="pr-3 text-right font-normal">Price</th>
-                <th className="text-left font-normal">Needs</th>
-              </tr>
-            </thead>
+        <div className="kit sales-table-scroll" tabIndex={0} role="region" aria-label="Products table">
+          {/* Same table as Revenue › Sales records: SKU · Product · Category · Supplier · Price · Deal · Status. */}
+          <table className="sales-table" aria-label="Products">
+            <thead><tr>
+              <th scope="col" className="sales-cell-left">SKU</th>
+              <th scope="col" className="sales-cell-left">Product</th>
+              {!isTablet && <th scope="col" className="sales-cell-left">Category</th>}
+              <th scope="col" className="sales-cell-left">Supplier</th>
+              <th scope="col" className="sales-cell-right">Price</th>
+              <th scope="col" className="sales-cell-left">Deal</th>
+              <th scope="col" className="sales-cell-right">Status</th>
+            </tr></thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">No products found.</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">No products found.</td></tr>}
               {pageItems.map(r => {
                 const needs = needsByRow.get(r.rowKey) ?? [];
+                const supId = dbSuppliers.find(x => x.name === r.supplier)?.id;
+                const deal = allDeals.find(d => d.product_id === r.product.id && (!supId || d.supplier_id === supId) && dealLive(d, today));
+                const inactive = r.status && r.status !== "Active";
+                const missing = (t: string) => <span className="text-[hsl(var(--warning))]">{t}</span>;
                 return (
-                  <tr key={r.rowKey} className="h-11 cursor-pointer border-b border-border/50 whitespace-nowrap hover:bg-muted/40" onClick={() => openEdit(r)}>
-                    <td className="pr-3 text-muted-foreground">{r.internal_sku}</td>
-                    <td className="pr-3"><span className="block truncate font-medium" style={{ maxWidth: "var(--bani-name-max)" }} title={r.internal_product_name}>{r.internal_product_name}</span></td>
-                    <td className="pr-3"><span className="block truncate" style={{ maxWidth: "var(--bani-name-max)" }} title={r.supplier}>{r.supplier || "—"}</span></td>
-                    <td className="pr-3 text-muted-foreground">{r.external_sku || "—"}</td>
-                    {!isTablet && <td className="pr-3 text-muted-foreground">{[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ") || "—"}</td>}
-                    {!isTablet && <td className="pr-3">{boughtAs(r.purchase_unit, r.stock_qty, r.stock_uom) || "—"}</td>}
-                    <td className="td-num pr-3 text-right">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : "—"}</td>
-                    <td className="text-[hsl(var(--warning))]">{needsText(needs)}</td>
+                  <tr key={r.rowKey} className={cn("sales-record-row", inactive && "sales-closed-row")} onClick={() => openEdit(r)}>
+                    <td className="sales-cell-left text-muted-foreground whitespace-nowrap">{r.internal_sku}</td>
+                    <td className="sales-cell-left font-medium" title={r.internal_product_name}>{r.internal_product_name}</td>
+                    {!isTablet && <td className="sales-cell-left" title={[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ")}>{r.level3_category || r.level2_category || r.level1_category ? <>{r.level3_category || r.level2_category || r.level1_category}{r.level1_category && (r.level3_category || r.level2_category) && <span className="text-muted-foreground"> · {r.level1_category}</span>}</> : missing("Not set")}</td>}
+                    <td className="sales-cell-left" title={r.supplier}>{r.supplier || missing("Not set")}</td>
+                    <td className="kit-num">{r.purchase_unit_cost > 0 ? fmt(r.purchase_unit_cost) : missing("Not set")}</td>
+                    <td className="sales-cell-left whitespace-nowrap">{deal ? <span className="text-[#2F7A5E]">{dealLabel(deal, r.purchase_unit_cost)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                    <td className="sales-cell-right whitespace-nowrap">{inactive ? "Inactive" : needs.length ? <span className="text-[hsl(var(--warning))]" title={needsText(needs)}>Needs setup</span> : "Ready"}</td>
                   </tr>
                 );
               })}
@@ -1224,7 +1236,6 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                             const pc = parseFloat(form.purchase_unit_cost) || 0;
                             const effective = d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
                             const unit = form.purchase_unit || "unit";
-                            const today = new Date().toISOString().slice(0, 10);
                             const expired = !!d.valid_until && d.valid_until < today;
                             const notYet = !!d.valid_from && d.valid_from > today;
                             const fmtDay = (v: string | null) => {
@@ -1243,7 +1254,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                                     {notYet && <span className="chip chip-info shrink-0">Scheduled</span>}
                                   </div>
                                   <div className="text-muted-foreground">
-                                    Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free
+                                    {(d as any).deal_type === "discount" ? dealLabel(d as any, pc) : <>Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free</>}
                                   </div>
                                   {(d.valid_from || d.valid_until) && (
                                     <div className="text-muted-foreground">
@@ -1258,7 +1269,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-8 w-8"
                                     onClick={() => {
-                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, notes: d.notes, is_active: d.is_active, valid_from: d.valid_from, valid_until: d.valid_until });
+                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, deal_type: (d as any).deal_type, discount_percent: (d as any).discount_percent, special_price: (d as any).special_price, notes: d.notes, is_active: d.is_active, valid_from: d.valid_from, valid_until: d.valid_until });
                                       setDealDialogOpen(true);
                                     }}>
                                     <Pencil className="h-3.5 w-3.5" />
@@ -1351,9 +1362,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           stockUom={form.stock_uom}
           suppliers={dbSuppliers}
           lockedSupplierId={dbSuppliers.find((s) => s.name === form.supplier)?.id || null}
-          existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id }))}
+          existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id, deal_type: (d as any).deal_type ?? "buy_x_get_y_free" }))}
           initial={editingDeal}
-          onSaved={() => loadDeals(editingProductId)}
+          onSaved={() => { loadDeals(editingProductId); void loadAllDeals(); }}
         />
       )}
     </div>

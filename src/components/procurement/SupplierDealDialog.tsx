@@ -20,6 +20,9 @@ export interface SupplierDealEditable {
   is_active: boolean;
   valid_from?: string | null;
   valid_until?: string | null;
+  deal_type?: string;
+  discount_percent?: number | null;
+  special_price?: number | null;
 }
 
 interface Props {
@@ -31,7 +34,7 @@ interface Props {
   stockUom: string;
   suppliers: { id: string; name: string }[];
   lockedSupplierId?: string | null;
-  existingDeals: { supplier_id: string; id: string }[];
+  existingDeals: { supplier_id: string; id: string; deal_type?: string }[];
   initial?: SupplierDealEditable | null;
   onSaved: () => void;
 }
@@ -43,6 +46,9 @@ export default function SupplierDealDialog({
   const { tenantId } = useActiveTenant();
   const { toast } = useToast();
   const [supplierId, setSupplierId] = useState("");
+  const [kind, setKind] = useState<"buy_x_get_y_free" | "discount">("buy_x_get_y_free");
+  const [discountMode, setDiscountMode] = useState<"percent" | "price">("percent");
+  const [discountValue, setDiscountValue] = useState("");
   const [buyQty, setBuyQty] = useState("");
   const [freeQty, setFreeQty] = useState("");
   const [notes, setNotes] = useState("");
@@ -57,7 +63,10 @@ export default function SupplierDealDialog({
     setError(null);
     if (initial) {
       setSupplierId(initial.supplier_id);
-      setBuyQty(String(initial.buy_qty));
+      setKind(initial.deal_type === "discount" ? "discount" : "buy_x_get_y_free");
+      setDiscountMode(initial.special_price != null ? "price" : "percent");
+      setDiscountValue(initial.special_price != null ? String(initial.special_price) : initial.discount_percent != null ? String(initial.discount_percent) : "");
+      setBuyQty(String(initial.buy_qty ?? ""));
       setFreeQty(String(initial.free_qty));
       setNotes(initial.notes ?? "");
       setIsActive(initial.is_active);
@@ -65,6 +74,9 @@ export default function SupplierDealDialog({
       setValidUntil(initial.valid_until ?? "");
     } else {
       setSupplierId(lockedSupplierId || "");
+      setKind("buy_x_get_y_free");
+      setDiscountMode("percent");
+      setDiscountValue("");
       setBuyQty("");
       setFreeQty("");
       setNotes("");
@@ -87,15 +99,23 @@ export default function SupplierDealDialog({
   const handleSave = async () => {
     setError(null);
     if (!supplierId) return setError("Supplier is required");
-    if (buy <= 0) return setError("Buy qty must be greater than 0");
-    if (free <= 0) return setError("Free qty must be greater than 0");
+    const dv = parseFloat(discountValue) || 0;
+    if (kind === "buy_x_get_y_free") {
+      if (buy <= 0) return setError("Buy qty must be greater than 0");
+      if (free <= 0) return setError("Free qty must be greater than 0");
+    } else if (discountMode === "percent" ? !(dv > 0 && dv < 100) : !(dv >= 0 && discountValue.trim() !== "")) {
+      return setError(discountMode === "percent" ? "Enter a % between 0 and 100" : "Enter the special price");
+    }
+    const fields = kind === "discount"
+      ? { deal_type: "discount", buy_qty: null, free_qty: null, discount_percent: discountMode === "percent" ? dv : null, special_price: discountMode === "price" ? dv : null }
+      : { deal_type: "buy_x_get_y_free", buy_qty: buy, free_qty: free, discount_percent: null, special_price: null };
     if (!tenantId) return setError("Missing tenant");
     if (validFrom && validUntil && validUntil < validFrom) {
       return setError("Valid until must be on or after Valid from");
     }
 
     const dup = existingDeals.find(
-      (d) => d.supplier_id === supplierId && d.id !== (initial?.id ?? ""),
+      (d) => d.supplier_id === supplierId && (d.deal_type ?? "buy_x_get_y_free") === fields.deal_type && d.id !== (initial?.id ?? ""),
     );
     if (dup) return setError("A deal with this supplier already exists");
 
@@ -106,8 +126,7 @@ export default function SupplierDealDialog({
           .from("item_supplier_deals" as any)
           .update({
             supplier_id: supplierId,
-            buy_qty: buy,
-            free_qty: free,
+            ...fields,
             notes: notes || null,
             is_active: isActive,
             valid_from: validFrom || null,
@@ -124,16 +143,14 @@ export default function SupplierDealDialog({
           .eq("tenant_id", tenantId)
           .eq("product_id", productId)
           .eq("supplier_id", supplierId)
-          .eq("deal_type", "buy_x_get_y_free")
+          .eq("deal_type", fields.deal_type)
           .eq("is_active", false);
 
         const { error: e } = await supabase.from("item_supplier_deals" as any).insert({
           tenant_id: tenantId,
           product_id: productId,
           supplier_id: supplierId,
-          deal_type: "buy_x_get_y_free",
-          buy_qty: buy,
-          free_qty: free,
+          ...fields,
           notes: notes || null,
           is_active: isActive,
           valid_from: validFrom || null,
@@ -177,12 +194,30 @@ export default function SupplierDealDialog({
             </div>
           )}
           <div>
-            <Label className="text-xs">Deal type</Label>
-            <div className="h-9 px-3 text-sm border rounded-md bg-muted/40 flex items-center text-muted-foreground">
-              Buy X get Y free
+            <Label className="text-xs">Deal</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {([["buy_x_get_y_free", "Buy and get", "Buy 2 get 1 free"], ["discount", "Discount", "% off or a special price"]] as const).map(([k, t, l]) => (
+                <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
+                  className={`text-left rounded-lg border px-3 py-2 ${kind === k ? "border-[rgba(31,107,94,0.35)] bg-[rgba(31,107,94,0.08)]" : "border-border bg-white"}`}>
+                  <p className="text-[13px] font-medium">{t}</p><p className="text-[12px] text-muted-foreground">{l}</p>
+                </button>
+              ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          {kind === "discount" && <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Discount as</Label>
+              <Select value={discountMode} onValueChange={(v) => setDiscountMode(v as "percent" | "price")}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="percent">% off</SelectItem><SelectItem value="price">Special price</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">{discountMode === "percent" ? "% off *" : "Price *"}</Label>
+              <Input type="number" step="0.01" min="0" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>}
+          {kind === "buy_x_get_y_free" && <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Buy (units) *</Label>
               <Input type="number" step="0.01" min="0" value={buyQty}
@@ -193,7 +228,7 @@ export default function SupplierDealDialog({
               <Input type="number" step="0.01" min="0" value={freeQty}
                 onChange={(e) => setFreeQty(e.target.value)} className="h-9 text-sm" />
             </div>
-          </div>
+          </div>}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Valid from</Label>
@@ -218,7 +253,7 @@ export default function SupplierDealDialog({
             <Label className="text-sm">Active</Label>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+          {kind === "buy_x_get_y_free" && <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
             <div>
               Effective price:{" "}
               <span className="font-mono font-semibold">{formatCurrency(effective)}</span>{" "}
@@ -228,7 +263,8 @@ export default function SupplierDealDialog({
               Saving per deal:{" "}
               <span className="font-mono font-semibold">{formatCurrency(saving$)}</span>
             </div>
-          </div>
+            <div className="text-muted-foreground">On invoices, the free units at HK$0 are expected, not a price problem.</div>
+          </div>}
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <DialogFooter>
