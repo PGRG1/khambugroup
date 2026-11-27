@@ -29,6 +29,9 @@ export default function CategoryCascadeSelect({
   const { categories, createCategory } = useProductCategories();
   const [adding, setAdding] = useState<{ level: 1 | 2 | 3; parent_id: string | null } | null>(null);
   const [newName, setNewName] = useState("");
+  // Picking "Add new" must not stay selected, and the dialog opens after the dropdown has closed:
+  // opened in the same tick, the dropdown's closing click lands outside the dialog and shuts it at once.
+  const [resetKey, setResetKey] = useState(0);
 
   const l1Items = useMemo(
     () => categories.filter((c) => c.level === 1 && c.is_active),
@@ -67,7 +70,8 @@ export default function CategoryCascadeSelect({
         level === 1 ? null : level === 2 ? l1Match?.id ?? null : l2Match?.id ?? null;
       if (level !== 1 && !parent_id) return;
       setNewName("");
-      setAdding({ level, parent_id });
+      setResetKey((k) => k + 1);
+      window.setTimeout(() => setAdding({ level, parent_id }), 0);
       return;
     }
     if (level === 1) onChange({ level1: value, level2: "", level3: "" });
@@ -100,6 +104,7 @@ export default function CategoryCascadeSelect({
     disabled: boolean
   ) => (
     <Select
+      key={`${level}-${resetKey}`}
       value={value || undefined}
       onValueChange={(v) => handle(level, v)}
       disabled={disabled}
