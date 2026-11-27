@@ -348,6 +348,29 @@ export function exactPrintedMatches(lines: { description: string; scanned_descri
   return out;
 }
 
+/** This supplier's one entry whose saved name differs from the printed name by at most 2 letters (names of 10+ letters),
+ * e.g. "Chilli" vs "Chili". Ignores case, spaces and punctuation. Two equally close entries = no suggestion. */
+export function closePrintedName(printed: string, entries: ProductMasterEntry[], price: number): { entry: ProductMasterEntry; why: string } | null {
+  const key = (v?: string | null) => (v ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const p = key(printed);
+  if (p.length < 10) return null;
+  const dist = (a: string, b: string) => {
+    if (Math.abs(a.length - b.length) > 2) return 3;
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  };
+  const scored = entries.filter(e => e.supplier_entry_id).map(e => ({ e, d: dist(p, key(e.supplier_product_name)) })).filter(x => x.d > 0 && x.d <= 2).sort((x, y) => x.d - y.d);
+  if (!scored.length || (scored[1] && scored[1].d === scored[0].d && scored[1].e.id !== scored[0].e.id)) return null;
+  const e = scored[0].e;
+  const samePrice = price > 0 && Number(e.purchase_unit_cost) > 0 && Math.round(price * 100) === Math.round(Number(e.purchase_unit_cost) * 100);
+  return { entry: e, why: `Name differs by ${scored[0].d === 1 ? "one letter" : "two letters"}${samePrice ? " · same price" : ""}` };
+}
+
 const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -2238,12 +2261,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   if (variant === "chat") {
     // Bani's suggestion for a line it couldn't link on its own (probably / can't tell with a pick), shown for one-tap confirm.
     // Only an entry that already exists for this supplier is offered; anything else goes to the full review.
-    const suggestionFor = (l: ScannedLineItem) => {
+    const show = (entry: ProductMasterEntry) => [entry.external_sku, entry.supplier_product_name || entry.internal_product_name, entry.purchase_unit].filter(Boolean).join(" · ");
+    const suggestionFor = (l: ScannedLineItem): { entry: ProductMasterEntry; text: string; why: string } | null => {
+      if (l.product_master_id || l.matcher_pending) return null;
       const a = l.matcher_answer;
-      if (l.product_master_id || !a?.product_master_id || !["probably", "cant_tell"].includes(a.decision)) return null;
-      const entry = supplierScopedPM.find(e => e.id === a.product_master_id && e.supplier_entry_id) as ProductMasterEntry | undefined;
-      if (!entry) return null;
-      return { entry, text: [entry.external_sku, entry.supplier_product_name || entry.internal_product_name, entry.purchase_unit].filter(Boolean).join(" · "), why: (a.reason || "").split(" — ")[0].trim() };
+      if (a?.product_master_id && ["probably", "cant_tell"].includes(a.decision)) {
+        const entry = supplierScopedPM.find(e => e.id === a.product_master_id && e.supplier_entry_id) as ProductMasterEntry | undefined;
+        if (entry) return { entry, text: show(entry), why: (a.reason || "").split(" — ")[0].trim() };
+      }
+      // No AI pick: this supplier's entry whose saved name is the printed name give or take a letter or two.
+      const near = closePrintedName(l.scanned_description ?? l.description, supplierScopedPM as ProductMasterEntry[], parseFloat(l.unit_price) || 0);
+      return near ? { entry: near.entry, text: show(near.entry), why: near.why } : null;
     };
     const suggested = new Set((current?.line_items || []).flatMap((l, i) => suggestionFor(l) ? [i] : []));
     const otherBlocking = !!current && ((current.review_blocking?.length || 0) > 0 || current.line_items.some((l, i) => !suggested.has(i) && (l.review_blocking?.length || 0) > 0) || hasTotalMismatchForSave(current));
