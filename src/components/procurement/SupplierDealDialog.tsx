@@ -34,6 +34,8 @@ interface Props {
   stockUom: string;
   suppliers: { id: string; name: string }[];
   lockedSupplierId?: string | null;
+  /** Shown in the title when the deal is for one supplier. */
+  supplierName?: string;
   existingDeals: { supplier_id: string; id: string; deal_type?: string }[];
   initial?: SupplierDealEditable | null;
   onSaved: () => void;
@@ -41,7 +43,7 @@ interface Props {
 
 export default function SupplierDealDialog({
   open, onOpenChange, productId, purchaseUnitCost, purchaseUnit, stockUom,
-  suppliers, lockedSupplierId, existingDeals, initial, onSaved,
+  suppliers, lockedSupplierId, supplierName, existingDeals, initial, onSaved,
 }: Props) {
   const { tenantId } = useActiveTenant();
   const { toast } = useToast();
@@ -177,7 +179,7 @@ export default function SupplierDealDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{initial?.id ? "Edit deal" : "Add deal"}</DialogTitle>
+          <DialogTitle>{initial?.id ? "Edit deal" : "Add deal"}{supplierName ? ` · ${supplierName}` : ""}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {!lockedSupplierId && (

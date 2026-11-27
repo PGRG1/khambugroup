@@ -194,6 +194,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [editingRow, setEditingRow] = useState<FlatRow | null>(null);
   // Item page: which card is being edited (null = reading).
   const [editCard, setEditCard] = useState<string | null>(null);
+  // Item page: the supplier a deal is being added/edited for, and the Add supplier form.
+  const [dealSup, setDealSup] = useState<{ id: string; name: string; entry: ProductSupplierEntry } | null>(null);
+  const [newSup, setNewSup] = useState<{ supplier: string; external_sku: string; supplier_product_name: string; purchase_unit: string; stock_qty: string; price: string } | null>(null);
   const [accountKeys, setAccountKeys] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -1093,6 +1096,31 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
         const cheapestAt = cheapestIndex(supLines.map(l => ({ cost: l.cost, stock_uom: l.sp.stock_uom })));
         const sups = supLines.map(l => l.sp);
         const tag = <span className="ml-1.5 rounded-md bg-[#E4F1EC] px-1.5 py-px text-[11px] font-normal text-[#1F6B5E]">Cheapest</span>;
+        // Deals belong to one supplier: open the deal form for that supplier's line (its price and pack).
+        const openDeal = (sp: ProductSupplierEntry, existing?: any) => {
+          const id = supIdByName.get(sp.supplier); if (!id) return;
+          const d = existing ? deals.find(x => x.id === existing.id) ?? existing : null;
+          setEditingDeal(d ? { id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, deal_type: d.deal_type, discount_percent: d.discount_percent, special_price: d.special_price, notes: d.notes, is_active: d.is_active, valid_from: d.valid_from, valid_until: d.valid_until } : null);
+          setDealSup({ id, name: sp.supplier, entry: sp }); setDealDialogOpen(true);
+        };
+        const dealCell = (sp: ProductSupplierEntry, deal: any) => deal
+          ? <button type="button" className="text-[#2F7A5E] hover:underline disabled:no-underline" disabled={!canEditList} onClick={e => { e.stopPropagation(); openDeal(sp, deal); }}>{dealLabel(deal, sp.purchase_unit_cost)}</button>
+          : canEditList && supIdByName.get(sp.supplier) ? <button type="button" className="text-[#1F6B5E] hover:underline" onClick={e => { e.stopPropagation(); openDeal(sp); }}>+ Add deal</button>
+          : <span className="text-muted-foreground">—</span>;
+        const stockUnit = sups.find(x => x.stock_uom)?.stock_uom || form.stock_uom || "";
+        const ref = sups.find(x => (x.stock_qty || 0) > 0 && (x.base_unit_qty || 0) > 0);
+        const takenSup = new Set(sups.map(x => x.supplier));
+        const saveNewSup = async () => {
+          if (!newSup || !prod || blockedEdit()) return;
+          const qty = Number(newSup.stock_qty) || 0, price = Number(newSup.price) || 0;
+          if (!newSup.supplier || !newSup.purchase_unit.trim() || qty <= 0 || price <= 0) { toast({ title: "Fill in supplier, how it's bought, how many in each and the price", variant: "destructive" }); return; }
+          const ok = await addSupplier({
+            product_master_id: prod.id, supplier: newSup.supplier, external_sku: newSup.external_sku.trim(), supplier_product_name: newSup.supplier_product_name.trim(),
+            purchase_unit: newSup.purchase_unit.trim(), purchase_unit_cost: price, status: "Active", stock_uom: stockUnit, stock_qty: qty,
+            base_unit_type: ref?.base_unit_type || form.base_unit_type || "", base_unit_qty: ref ? (ref.base_unit_qty / ref.stock_qty) * qty : qty,
+          });
+          if (ok) { setNewSup(null); toast({ title: `${newSup.supplier} added` }); }
+        };
         const openSupplier = (id: string) => {
           const row = flatRows.find(r => r.product.id === prod?.id && r.supplier_entry?.id === id);
           if (row) { openEdit(row); setEditCard("supplier"); }
@@ -1159,11 +1187,26 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                   </div>
                 </>)}
 
-            {!isNew && card("supplier", editCard === "supplier" ? `Supplier: ${form.supplier || "—"}` : "Suppliers",
-              sups.length === 0 ? <p className="text-[13px] text-[hsl(var(--warning))]">No supplier yet.</p> : isMobile
+            {!isNew && card("supplier", editCard === "supplier" ? `Supplier: ${form.supplier || "—"}` : newSup ? `Add a supplier for ${form.internal_product_name}` : "Suppliers",
+              newSup ? (
+                <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div><Label className="text-xs">Supplier</Label>
+                      <Select value={newSup.supplier} onValueChange={v => setNewSup({ ...newSup, supplier: v })}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Choose a supplier" /></SelectTrigger>
+                        <SelectContent>{dbSuppliers.filter(x => x.name?.trim() && !takenSup.has(x.name)).map(x => <SelectItem key={x.id} value={x.name}>{x.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div><Label className="text-xs">Their code</Label><Input className="h-9 text-sm" value={newSup.external_sku} onChange={e => setNewSup({ ...newSup, external_sku: e.target.value })} /></div>
+                    <div><Label className="text-xs">Their name on the invoice</Label><Input className="h-9 text-sm" value={newSup.supplier_product_name} onChange={e => setNewSup({ ...newSup, supplier_product_name: e.target.value })} /></div>
+                    <div><Label className="text-xs">Bought as</Label><UomSelect type="purchase" value={newSup.purchase_unit} onChange={v => setNewSup({ ...newSup, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                    <div><Label className="text-xs">{stockUnit || "Stock units"} in each {newSup.purchase_unit || "pack"}</Label><Input className="h-9 text-sm" type="number" min="0" inputMode="decimal" value={newSup.stock_qty} onChange={e => setNewSup({ ...newSup, stock_qty: e.target.value })} /></div>
+                    <div><Label className="text-xs">Price per {newSup.purchase_unit || "pack"}</Label><Input className="h-9 text-sm" type="number" min="0" step="0.01" inputMode="decimal" value={newSup.price} onChange={e => setNewSup({ ...newSup, price: e.target.value })} /></div>
+                  </div>
+                  {stockUnit && <p className="text-[12px] text-muted-foreground">Same product, counted in {stockUnit}, so its cost lines up with the other suppliers.</p>}
+                  <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setNewSup(null)}>Cancel</Button><Button onClick={saveNewSup}>Add supplier</Button></div>
+                </div>
+              ) : sups.length === 0 ? <p className="text-[13px] text-[hsl(var(--warning))]">No supplier yet.</p> : isMobile
                 ? <div className="border-t border-border">{supLines.map(({ sp, deal, cost }, i) => (
                     <button key={sp.id} type="button" disabled={!canEditList} className="flex min-h-[48px] w-full items-center justify-between gap-3 border-b border-border/60 py-1.5 text-left" onClick={() => openSupplier(sp.id)}>
-                      <span className="min-w-0"><span className="block truncate text-[14px]">{sp.supplier || "—"}{cheapestAt === i && tag}</span><span className="block truncate text-[12px] text-muted-foreground">{[sp.external_sku || sp.supplier_product_name || "No code", boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom)].filter(Boolean).join(" · ")}{deal && <span className="text-[#2F7A5E]"> · {dealLabel(deal, sp.purchase_unit_cost)}</span>}</span></span>
+                      <span className="min-w-0"><span className="block truncate text-[14px]">{sp.supplier || "—"}{cheapestAt === i && tag}</span><span className="block truncate text-[12px] text-muted-foreground">{[sp.external_sku || sp.supplier_product_name || "No code", boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom)].filter(Boolean).join(" · ")}</span><span className="block text-[12px]">{dealCell(sp, deal)}</span></span>
                       <span className="shrink-0 text-right tabular-nums"><span className="block text-[14px]">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : "—"}</span><span className="block text-[12px] text-muted-foreground">{cost != null ? `${fmt(cost)} / ${sp.stock_uom}` : "—"}</span></span>
                     </button>))}</div>
                 : <div className="overflow-x-auto"><table className="w-full text-[13px]">
@@ -1174,7 +1217,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                         <td className="pr-3 text-muted-foreground"><span className="block truncate" style={{ maxWidth: "var(--bani-name-max)" }}>{sp.supplier_product_name || "—"}</span></td>
                         <td className="pr-3">{boughtAs(sp.purchase_unit, sp.stock_qty, sp.stock_uom) || <span className="text-[hsl(var(--warning))]">No unit</span>}</td>
                         <td className="td-num pr-3 text-right">{sp.purchase_unit_cost > 0 ? fmt(sp.purchase_unit_cost) : <span className="text-[hsl(var(--warning))]">No price</span>}</td>
-                        <td className="pr-3">{deal ? <span className="text-[#2F7A5E]">{dealLabel(deal, sp.purchase_unit_cost)}</span> : <span className="text-muted-foreground">—</span>}</td>
+                        <td className="pr-3">{dealCell(sp, deal)}</td>
                         <td className="td-num text-right font-medium">{cost != null ? <>{fmt(cost)} <span className="font-normal text-muted-foreground">/ {sp.stock_uom}</span></> : <span className="text-muted-foreground">—</span>}</td>
                       </tr>))}</tbody></table></div>,
               <>
@@ -1229,8 +1272,9 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                           })()}
                         </div>
                       </div>
+                      {(prod?.suppliers?.length ?? 0) > 1 && editingRow?.supplier_entry && <button type="button" className="text-[13px] text-destructive" onClick={() => { setDeletingRow(editingRow); setDeleteOpen(true); }}>Remove {form.supplier || "this supplier"} from this product</button>}
                     </>,
-              <span />)}
+              newSup ? <span /> : <button type="button" className="text-[13px] text-[#1F6B5E]" onClick={() => setNewSup({ supplier: "", external_sku: "", supplier_product_name: "", purchase_unit: "", stock_qty: "", price: "" })}>+ Add supplier</button>)}
             {isNew && card("supplier", "Supplier", null, <>
                       <div>
                         <Label className="text-xs">Supplier</Label>
@@ -1395,79 +1439,11 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                   </div>
                 </>)}
 
-            {!isNew && form.creates_stock_movement && <section className="rounded-2xl border border-border bg-card p-5" aria-label="Deals"><h3 className="mb-3 text-[15px] font-semibold">Deals</h3>
-                      {editingProductId && (
-                        <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
-                        </Button>
-                      )}
-                      {!editingProductId ? (
-                        <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
-                      ) : deals.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No deals configured</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {deals.map((d) => {
-                            const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
-                            // Price and pack of the deal's own supplier (not the supplier this page was opened from).
-                            const entry = products.find(p => p.id === editingProductId)?.suppliers?.find(x => x.supplier === supplier?.name);
-                            const pc = entry ? Number(entry.purchase_unit_cost) || 0 : parseFloat(form.purchase_unit_cost) || 0;
-                            const unit = entry?.purchase_unit || form.purchase_unit || "unit";
-                            const perStock = entry ? costAfterDeal({ purchase_unit: entry.purchase_unit, purchase_unit_cost: pc, stock_qty: entry.stock_qty, stock_uom: entry.stock_uom }, d as any) : null;
-                            const effective = perStock ?? (d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0);
-                            const effUnit = perStock != null ? entry!.stock_uom : unit;
-                            const expired = !!d.valid_until && d.valid_until < today;
-                            const notYet = !!d.valid_from && d.valid_from > today;
-                            const fmtDay = (v: string | null) => {
-                              if (!v) return "—";
-                              const dt = new Date(`${v}T00:00:00`);
-                              return Number.isNaN(dt.getTime())
-                                ? v
-                                : dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
-                            };
-                            return (
-                              <div key={d.id} className={`flex items-center gap-3 border rounded-md px-3 py-2 text-xs ${expired ? "opacity-60" : ""}`}>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="font-medium truncate">{supplier?.name || "—"}</span>
-                                    {expired && <span className="chip chip-neutral shrink-0">Expired</span>}
-                                    {notYet && <span className="chip chip-info shrink-0">Scheduled</span>}
-                                  </div>
-                                  <div className="text-muted-foreground">
-                                    {(d as any).deal_type === "discount" ? dealLabel(d as any, pc) : <>Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free</>}
-                                  </div>
-                                  {(d.valid_from || d.valid_until) && (
-                                    <div className="text-muted-foreground">
-                                      Valid: {fmtDay(d.valid_from)} – {fmtDay(d.valid_until)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-right whitespace-nowrap">
-                                  <div className="text-muted-foreground">Effective</div>
-                                  <div className="tabular-nums font-semibold">{formatCurrency(effective)} / {effUnit}</div>
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button size="icon" variant="ghost" className="h-8 w-8"
-                                    onClick={() => {
-                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, deal_type: (d as any).deal_type, discount_percent: (d as any).discount_percent, special_price: (d as any).special_price, notes: d.notes, is_active: d.is_active, valid_from: d.valid_from, valid_until: d.valid_until });
-                                      setDealDialogOpen(true);
-                                    }}>
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDeal(d.id)}>
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </section>}
+
 
             {isNew
               ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>Create</Button></div>
-              : canEditList && editingRow && <button type="button" className="text-[13px] text-destructive" onClick={() => { setDeletingRow(editingRow); setDeleteOpen(true); }}>{(prod?.suppliers?.length ?? 0) > 1 ? `Remove ${form.supplier || "this supplier"} from this item` : "Delete item"}</button>}
+              : canEditList && editingRow && <button type="button" className="text-[13px] text-destructive" onClick={() => { setDeletingRow({ ...editingRow, supplier_entry: null }); setDeleteOpen(true); }}>Delete item</button>}
           </div>
         );
       })()}
@@ -1509,11 +1485,12 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
           open={dealDialogOpen}
           onOpenChange={setDealDialogOpen}
           productId={editingProductId}
-          purchaseUnitCost={parseFloat(form.purchase_unit_cost) || 0}
-          purchaseUnit={form.purchase_unit}
-          stockUom={form.stock_uom}
+          purchaseUnitCost={dealSup ? Number(dealSup.entry.purchase_unit_cost) || 0 : parseFloat(form.purchase_unit_cost) || 0}
+          purchaseUnit={dealSup?.entry.purchase_unit ?? form.purchase_unit}
+          stockUom={dealSup?.entry.stock_uom ?? form.stock_uom}
           suppliers={dbSuppliers}
-          lockedSupplierId={dbSuppliers.find((s) => s.name === form.supplier)?.id || null}
+          lockedSupplierId={dealSup?.id ?? dbSuppliers.find((s) => s.name === form.supplier)?.id ?? null}
+          supplierName={dealSup?.name}
           existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id, deal_type: (d as any).deal_type ?? "buy_x_get_y_free" }))}
           initial={editingDeal}
           onSaved={() => { loadDeals(editingProductId); void loadAllDeals(); }}
