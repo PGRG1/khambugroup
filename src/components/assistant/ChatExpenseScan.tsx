@@ -95,8 +95,9 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       patch({ ...s, phase: "asking", ask: { kind: "account", line: line.line_no }, said: [...said, `What kind of cost is "${what}" (${money(Number(line.amount || 0))})?`] });
       return;
     }
-    if (first === "venue") { patch({ ...s, phase: "asking", ask: { kind: "venue" }, said: [...said, "Who pays for this, and how much each? Say it however you like."] }); return; }
-    if (first === "asset") { patch({ ...s, phase: "asking", ask: { kind: "asset" }, said: [...said, "Something you'll keep for years? Over how many years?"] }); return; }
+    // The bill is always shown first; these questions sit under it and Book stays usable.
+    if (first === "venue") { patch({ ...s, phase: "review", ask: { kind: "venue" }, said: [...said, "This could be shared between venues. Pick one venue above, or tell me who pays how much, e.g. \"half Assembly, half Caliente\"."] }); return; }
+    if (first === "asset") { patch({ ...s, phase: "review", ask: { kind: "asset" }, said: [...said, "This looks like something you'll keep for years. Over how many years? Or say \"normal cost\"."] }); return; }
     // Everything settled: lay the bill out to check, and book only when the person presses Book.
     patch({ ...s, ask: null, phase: "review", said });
   };
@@ -175,7 +176,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     const total = Number(s.header.total_amount || 0);
     const said: string[] = [];
     const read = async (kind: "split" | "account", context: string) => {
-      patch({ phase: "booking", said: [], reason: "Reading that…" });
+      patch({ phase: "review", said: ["Reading that…"] });
       const { data, error } = await supabase.functions.invoke("chat-assistant", { body: { tenant_id: tenantId, floating: true, messages: [{ role: "user", content: text }], bill_reply: { ask: kind, answer: text, context } } });
       if (error) return { unclear: "I didn't catch that. Could you say it again?" } as Record<string, unknown>;
       return (data ?? {}) as Record<string, unknown>;
@@ -184,7 +185,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       const line = s.allocs.find(a => a.line_no === ask.line);
       const r = await read("account", `${s.header.vendor_name} · line "${line?.expense_category || line?.notes || ""}" ${money(Number(line?.amount || 0))}`);
       const acct = s.accounts.find(a => a.id === r.account_id);
-      if (!acct) { patch({ phase: "asking", said: [String(r.unclear || "What kind of cost is it?")] }); return; }
+      if (!acct) { patch({ phase: "review", said: [String(r.unclear || "What kind of cost is it?")] }); return; }
       const allocs = s.allocs.map(a => a.line_no === ask.line ? { ...a, account_id: acct.id } : a);
       return next({ ...s, allocs }, [`I'll put it under ${acct.code} ${acct.name}.`]);
     }
@@ -193,9 +194,9 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       const r = await read("split", `${s.header.vendor_name} bill, total ${money(total)}`);
       const parts = Array.isArray(r.parts) ? (r.parts as SplitPart[]) : [];
       const res = parts.length ? splitAmounts(total, parts) : null;
-      if (!res || "problem" in res) { patch({ phase: "asking", ask: { kind: "venue" }, said: [res && "problem" in res ? `${res.problem}. Who pays, and how much each?` : String(r.unclear || "Who pays for this, and how much each?")] }); return; }
+      if (!res || "problem" in res) { patch({ phase: "review", ask: { kind: "venue" }, said: [res && "problem" in res ? `${res.problem}. Who pays, and how much each?` : String(r.unclear || "Who pays, and how much each?")] }); return; }
       const lines = res.shares.map((v, i) => `${v.venue} · ${howOf(parts[i])}: ${money(v.amount)}`);
-      patch({ phase: "asking", ask: { kind: "split", shares: res.shares, parts }, said: [`${lines.join("\n")}\nTotal: ${money(total)}`, "Right? Or tell me what to change."] });
+      patch({ phase: "review", ask: { kind: "split", shares: res.shares, parts }, said: [`${lines.join("\n")}\nTotal: ${money(total)}`, "Right? Or tell me what to change."] });
       return;
     }
     if (ask.kind === "asset_ok") {
@@ -204,16 +205,16 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     }
     const months = usefulLifeMonths(text);
     if (months === 0) return next({ ...s, months: null, todo: s.todo.slice(1) }, ["Booking it as a normal cost."]);
-    if (!months) { patch({ phase: "asking", ask: { kind: "asset" }, said: ["Over how many years will you use it?"] }); return; }
+    if (!months) { patch({ phase: "review", ask: { kind: "asset" }, said: ["Over how many years will you use it?"] }); return; }
     const monthly = Math.round(total / months * 100) / 100;
     const start = new Date(`${String(s.header.bill_date).slice(0, 7)}-01T00:00:00Z`).toLocaleString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
-    patch({ phase: "asking", ask: { kind: "asset_ok", months }, said: [`${money(monthly)} a month for ${months % 12 ? `${months} months` : `${months / 12} years`}, starting ${start}.`, "Right? Or tell me what to change."] });
+    patch({ phase: "review", ask: { kind: "asset_ok", months }, said: [`${money(monthly)} a month for ${months % 12 ? `${months} months` : `${months / 12} years`}, starting ${start}.`, "Right? Or tell me what to change."] });
     void said;
   };
 
   // Free-text answers from the chat box come here while Bani is waiting.
   useEffect(() => {
-    if (st.phase !== "asking") { if (replyTarget?.id === handoff.id) replyTarget = null; return; }
+    if (!st.ask || (st.phase !== "asking" && st.phase !== "review")) { if (replyTarget?.id === handoff.id) replyTarget = null; return; }
     replyTarget = { id: handoff.id, handoff, said: st.said.join("\n\n"), answer: t => void answer(t) };
     return () => { if (replyTarget?.id === handoff.id) replyTarget = null; };
   });
@@ -256,7 +257,9 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
         }
         const meter = l.meters.find(m => m.id === header.supplier_account_id);
         const todo: BillState["todo"] = [];
-        if (billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: !!header.venue_id, meterCovers: meter?.covers?.length ?? 0 })) todo.push("venue");
+        // An unknown venue is just picked in the card; only a bill that looks shared (head office address,
+        // shared service) also asks in chat who pays how much.
+        if (billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0 })) todo.push("venue");
         if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) todo.push("asset");
         next({ ...base, header, todo, newVendor, venues: l.venues }, said);
       } catch {
@@ -275,14 +278,22 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     onOpenFull={() => navigate("/expenses/bills")}
     review={st.phase === "review" && h ? {
       number: h.bill_number || "", date: h.bill_date || "", due: h.due_date || "", terms: String((h as { payment_terms?: string }).payment_terms ?? ""),
-      venue: st.split ? "Split" : h.venue || "", venues: st.split ? ["Split"] : st.venues.map(v => v.name), total: Number(h.total_amount || 0),
+      venue: st.split ? "Split" : h.venue || "", venues: st.split ? ["Split", ...st.venues.map(v => v.name)] : st.venues.map(v => v.name), total: Number(h.total_amount || 0),
+      intro: `${h.vendor_name || "Bill"} for ${money(Number(h.total_amount || 0))}${(h as { payment_terms?: string }).payment_terms ? `, ${String((h as { payment_terms?: string }).payment_terms).toLowerCase()}` : ""}. ${st.allocs.some(a => !a.account_id) || !(st.split || h.venue) ? "Fill in the amber parts, then book." : "Check it and book."}`,
       newVendor: !!st.newVendor, saving: !!st.saving,
       lines: st.allocs.map(a => ({ line_no: a.line_no, description: a.notes || a.expense_category || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null })),
       accounts: st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) })),
       onField: (k, v) => {
         const cur = stRef.current.header; if (!cur) return;
         const venue = k === "venue" ? st.venues.find(x => x.name === v) : null;
-        patch({ header: k === "number" ? { ...cur, bill_number: v } : k === "date" ? { ...cur, bill_date: v } : k === "due" ? { ...cur, due_date: v || null } : { ...cur, venue: v, venue_id: venue?.id ?? null } });
+        if (k === "venue") {
+          if (v === "Split") return;
+          const ask = stRef.current.ask;
+          const settled = ask && (ask.kind === "venue" || ask.kind === "split");
+          patch({ header: { ...cur, venue: v, venue_id: venue?.id ?? null }, split: null, ...(settled ? { ask: null, said: [], todo: stRef.current.todo.filter(t => t !== "venue") } : {}) });
+          return;
+        }
+        patch({ header: k === "number" ? { ...cur, bill_number: v } : k === "date" ? { ...cur, bill_date: v } : { ...cur, due_date: v || null } });
       },
       onAccount: (line, account) => patch({ allocs: stRef.current.allocs.map(a => a.line_no === line ? { ...a, account_id: account || null } : a) }),
       onBook: () => void book(stRef.current, []),

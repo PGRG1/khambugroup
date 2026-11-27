@@ -81,6 +81,8 @@ type BillProps = {
 export type BillReviewLine = { line_no: number; description: string; amount: number; account_id: string | null };
 export type BillReview = {
   number: string; date: string; due: string; venue: string; venues: string[]; terms: string; total: number;
+  /** One line above the card: what the bill is and what's left to do. Bani's questions go under the card. */
+  intro?: string;
   newVendor: boolean; lines: BillReviewLine[];
   accounts: { id: string; code: string; name: string; group: string }[];
   saving: boolean;
@@ -189,7 +191,7 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
   const sub = [r.number ? `Bill ${r.number}` : "No bill number", r.date ? shortDay(r.date) : "", r.terms, r.venue].filter(Boolean).join(" · ");
   return (
     <div className="space-y-2.5">
-      {p.said.length > 0 && <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line">{t}</p>)}</div>}
+      {r.intro && <p>{r.intro}</p>}
       <div className="overflow-hidden rounded-2xl border bg-white text-[13px]" style={{ borderColor: HAIR }}>
         <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-4">
           <div className="min-w-0"><p className="truncate text-[18px] font-semibold" title={p.vendor}>{p.vendor}</p><p className="mt-0.5 truncate text-[13px] text-muted-foreground">{sub}</p></div>
@@ -200,13 +202,14 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
           <span className="text-[#1F6B5E]">✓ Not a duplicate</span>
           {adds ? <span className="text-[#1F6B5E]">✓ Adds up</span> : <span style={{ color: AMBER }}>● Lines come to {num(sum)}</span>}
           {missing > 0 && <span style={{ color: AMBER }}>● Pick the expense type{missing > 1 ? ` for ${missing} lines` : ""}</span>}
+          {!r.venue && <span style={{ color: AMBER }}>● Pick the venue</span>}
           <button type="button" className="ml-auto text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Open in Expenses</button>
         </div>
         <div className="grid gap-3 px-4 py-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
           {lbl("Bill no.", <input className={field} defaultValue={r.number} onBlur={e => e.target.value.trim() !== r.number && r.onField("number", e.target.value.trim())} />)}
           {lbl("Bill date", <input type="date" className={field} value={r.date} onChange={e => e.target.value && r.onField("date", e.target.value)} />)}
           {lbl("Due date", <input type="date" className={field} value={r.due} min={r.date || undefined} onChange={e => r.onField("due", e.target.value)} />)}
-          {lbl("Venue", <select className={field} value={r.venue} onChange={e => r.onField("venue", e.target.value)}>{!r.venue && <option value="">Pick a venue</option>}{r.venues.map(v => <option key={v} value={v}>{v}</option>)}</select>)}
+          {lbl("Venue", <select className={cn(field, !r.venue && "border-[#EF9F27] bg-[#FFF8EC]")} value={r.venue} onChange={e => r.onField("venue", e.target.value)}>{!r.venue && <option value="">Pick a venue</option>}{r.venues.map(v => <option key={v} value={v}>{v}</option>)}</select>)}
           {lbl("Records to", <span className={cn(field, "flex items-center bg-muted/30")}>{p.recordsTo || "—"}</span>)}
         </div>
         <div className="overflow-x-auto" style={{ borderTop: `1px solid ${HAIR}` }}>
@@ -239,6 +242,7 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
           </div>
         </div>
       </div>
+      {p.said.length > 0 && <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line tabular-nums">{t}</p>)}</div>}
     </div>
   );
 }

@@ -70,6 +70,20 @@ describe("Bani chat expenses", () => {
     expect(onBook).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the bill first: one line above, an unknown venue in amber, and Bani's question under the card", () => {
+    const review = { number: "1", date: "2026-11-27", due: "", venue: "", venues: ["ARKA", "Assembly"], terms: "", total: 300, newVendor: false, saving: false,
+      intro: "Masterly for HK$300.00. Fill in the amber parts, then book.",
+      lines: [{ line_no: 1, description: "Pest control", amount: 300, account_id: "c" as string | null }],
+      accounts: [{ id: "c", code: "6310", name: "Cleaning", group: "Running costs" }],
+      onField: vi.fn(), onAccount: vi.fn(), onBook: vi.fn(), onHold: vi.fn() };
+    const { container } = render(<ChatBillCard {...booked} said={["This could be shared between venues."]} canUndo={false} phase="review" vendor="Masterly" review={review} />);
+    expect(screen.getByText("● Pick the venue")).toBeTruthy();
+    expect((screen.getByText(/^Book HK/) as HTMLButtonElement).disabled).toBe(true);
+    const text = container.textContent ?? "";
+    expect(text.indexOf("Fill in the amber parts")).toBeLessThan(text.indexOf("Bill no."));
+    expect(text.indexOf("This could be shared")).toBeGreaterThan(text.indexOf("Hold for review"));
+  });
+
   it("hides Undo when the bill can't be undone", () => {
     render(<ChatBillCard {...booked} canUndo={false} />);
     expect(screen.queryByText("Undo")).toBeNull();
