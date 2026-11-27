@@ -12,7 +12,7 @@ Deno.serve(async(req)=>{
  const headers={...corsHeaders,'Content-Type':'application/json'};
  try{
  const auth=req.headers.get('authorization');if(!auth)return new Response(JSON.stringify({error:'Sign in required'}),{status:401,headers});
- const client=createClient(Deno.env.get('SUPABASE_URL')??'',Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:auth}}});const {data:{user}}=await client.auth.getUser();if(!user)return new Response(JSON.stringify({error:'Sign in required'}),{status:401,headers});
+ const client=createClient(Deno.env.get('SUPABASE_URL')??'',Deno.env.get('SUPABASE_ANON_KEY')??'',{global:{headers:{Authorization:auth}}});const {data:claimData}=await client.auth.getClaims(auth.replace(/^Bearer /i,''));const user=claimData?.claims?.sub?{id:claimData.claims.sub as string}:null;if(!user)return new Response(JSON.stringify({error:'Sign in required'}),{status:401,headers});
  const body=Body.parse(await req.json());const {data:allowed}=await client.rpc('people_access',{t:body.tenant_id,u:user.id});if(!allowed)return new Response(JSON.stringify({error:'People access required'}),{status:403,headers});
  if(body.employee_id){const {data:personAccess}=await client.rpc('people_person_access',{t:body.tenant_id,e:body.employee_id,u:user.id});if(!personAccess)return new Response(JSON.stringify({error:'Person access required'}),{status:403,headers});}
  if(body.file){const {data:docAccess}=await client.rpc('people_documents_access',{t:body.tenant_id,u:user.id});if(!docAccess)return new Response(JSON.stringify({error:'Document access required'}),{status:403,headers});}
