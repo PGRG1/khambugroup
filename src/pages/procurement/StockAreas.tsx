@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus } from 'lucide-react';
 import { Toolbar } from '@/components/kit/Toolbar';
-import { Status, PhoneRow, keyOpen } from '@/components/finance/accounting/AccountingKit';
+import { PhoneRow, keyOpen } from '@/components/finance/accounting/AccountingKit';
 import '@/components/kit/kit.css';
 
 // Stock & menu › Stock areas: the places stock is counted (Kitchen, Bar…), for every venue in scope.
@@ -79,11 +79,11 @@ export default function StockAreas() {
       <Toolbar search={search} onSearch={setSearch} placeholder="Search areas" />
       <ul className="min-[768px]:hidden kit">{shown.map((a) => <PhoneRow key={a.id} title={a.name} amount={a.is_active ? 'In use' : 'Archived'} sub={venueName(a)} tone="mut" onOpen={live ? () => open(a) : undefined} />)}</ul>
       <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Stock areas table"><table className="sales-table" aria-label="Stock areas">
-        <thead><tr><th scope="col" className="sales-cell-left">Area</th><th scope="col" className="sales-cell-left">Venue</th><th scope="col" className="sales-cell-left">Status</th></tr></thead>
-        <tbody>{shown.map((a) => <tr key={a.id} className="sales-record-row" {...(live ? keyOpen(() => open(a)) : {})}>
+        <thead><tr><th scope="col" className="sales-cell-left">Area</th><th scope="col" className="sales-cell-left">Venue</th><th scope="col" className="sales-cell-right">Status</th></tr></thead>
+        <tbody>{shown.map((a) => <tr key={a.id} className={`sales-record-row ${a.is_active ? "" : "sales-closed-row"}`} {...(live ? keyOpen(() => open(a)) : {})}>
           <td className="sales-cell-left" title={a.name}>{a.name}</td>
           <td className="sales-cell-left" title={venueName(a)}>{venueName(a)}</td>
-          <td className="sales-cell-left">{a.is_active ? <Status text="In use" tone="ok" /> : <Status text="Archived" tone="mut" />}</td>
+          <td className={`sales-cell-right whitespace-nowrap ${a.is_active ? "text-[#2F7A5E]" : ""}`}>{a.is_active ? "In use" : "Archived"}</td>
         </tr>)}</tbody></table></div>
       {!shown.length && <p className="p-10 text-center text-sm text-muted-foreground">{loading ? 'Loading stock areas…' : search ? 'Nothing matches your search.' : 'No stock areas yet. Add the places you count stock, like Kitchen or Bar.'}</p>}
     </section>
