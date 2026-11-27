@@ -18,6 +18,7 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
+import { nextSku } from "@/utils/codes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
@@ -200,6 +201,7 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
   const [accountKeys, setAccountKeys] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const autoSku = useRef("");
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
   const [originalSku, setOriginalSku] = useState<string>("");
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1167,7 +1169,12 @@ export default function ProductMasterTab({ popup = false }: { popup?: boolean } 
                       level1={form.level1_category}
                       level2={form.level2_category}
                       level3={form.level3_category}
-                      onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
+                      onChange={(v) => {
+                        setForm(f => ({ ...f, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 }));
+                        // A new item gets its SKU from its Level 1 category (FOD-0001…), unless one was typed.
+                        const auto = !editingProductId && tenantId && v.level1 && v.level1 !== form.level1_category && (!form.internal_sku.trim() || form.internal_sku === autoSku.current);
+                        if (auto) void nextSku(tenantId!, v.level1).then(sku => { autoSku.current = sku; setForm(f => (!f.internal_sku.trim() || f.internal_sku === form.internal_sku) ? { ...f, internal_sku: sku } : f); });
+                      }}
                     />
                   </div>
                 

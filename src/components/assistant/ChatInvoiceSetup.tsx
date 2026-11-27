@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUomOptions } from "@/hooks/useUomOptions";
-import { parsePrintedSize, categoryPaths, itemSku, type SetupCategory } from "@/utils/chatInvoiceSetup";
+import { parsePrintedSize, categoryPaths, type SetupCategory } from "@/utils/chatInvoiceSetup";
+import { nextSku, nextSupplierCode, supplierPrefix } from "@/utils/codes";
 
 // Bani chat: everything an invoice needs before it can be booked, set up right here, one step at a time:
 // 1) a new supplier, 2) each item that isn't in the Items Master (link an existing item or add a new one, with its
@@ -45,6 +46,7 @@ export function ChatInvoiceSetup(p: Props) {
   const [done, setDone] = useState<string[]>([]);
   const [terms, setTerms] = useState<string>("COD");
   const [supName, setSupName] = useState(p.supplierName);
+  const [sup, setSup] = useState({ contact: "", phone: "", email: "", address: "", type: "procurement" });
 
   useEffect(() => {
     let live = true;
@@ -86,9 +88,10 @@ export function ChatInvoiceSetup(p: Props) {
       if (!name) { setError("Enter the supplier's name"); return; }
       setBusy(true); setError("");
       const { data: same } = await db.from("suppliers").select("*").eq("tenant_id", p.tenantId).ilike("name", name).limit(1);
-      const row = same?.[0] ?? (await db.from("suppliers").insert({ tenant_id: p.tenantId, name, vendor_type: "procurement", payment_terms: terms, is_active: true, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 }).select("*").single()).data;
+      const code = same?.[0] ? null : await nextSupplierCode(p.tenantId, name);
+      const row = same?.[0] ?? (await db.from("suppliers").insert({ tenant_id: p.tenantId, name, code, vendor_type: sup.type, payment_terms: terms, contact_person: sup.contact.trim() || null, phone: sup.phone.trim() || null, email: sup.email.trim() || null, address: sup.address.trim() || null, is_active: true, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 }).select("*").single()).data;
       if (!row) { setBusy(false); setError("Couldn't add the supplier. Try again."); return; }
-      setDone(d => [...d, `${row.name} added`]);
+      setDone(d => [...d, `${row.name}${row.code ? ` (${row.code})` : ""} added`]);
       await p.onSupplierCreated(row);
       setBusy(false);
     };
@@ -101,7 +104,14 @@ export function ChatInvoiceSetup(p: Props) {
           <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Name</span><input className={field} value={supName} onChange={e => setSupName(e.target.value)} /></label>
           <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Payment terms</span>
             <select className={field} value={terms} onChange={e => setTerms(e.target.value)}>{TERMS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Contact</span><input className={field} placeholder="Who you deal with" value={sup.contact} onChange={e => setSup({ ...sup, contact: e.target.value })} /></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Phone</span><input className={field} inputMode="tel" value={sup.phone} onChange={e => setSup({ ...sup, phone: e.target.value })} /></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Email</span><input className={field} inputMode="email" value={sup.email} onChange={e => setSup({ ...sup, email: e.target.value })} /></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Type</span>
+            <select className={field} value={sup.type} onChange={e => setSup({ ...sup, type: e.target.value })}><option value="procurement">Supplier</option><option value="expense">Vendor</option></select></label>
+          <label className="col-span-2 flex min-w-0 flex-col gap-1"><span className="text-[11px] text-muted-foreground">Address</span><input className={field} value={sup.address} onChange={e => setSup({ ...sup, address: e.target.value })} /></label>
         </div>
+        <p className="mt-3 text-[12px] text-muted-foreground">Code {supplierPrefix(supName || p.supplierName)}-… is given automatically.</p>
         <div className="mt-3 flex justify-end"><button type="button" disabled={busy} className="h-9 rounded-full bg-[#1F6B5E] px-4 text-[13px] font-medium text-white disabled:opacity-50" onClick={() => void add()}>{busy ? "Adding…" : "Add supplier"}</button></div>
       </div>
       {err}
@@ -187,8 +197,7 @@ function ItemStep(p: Props & {
       if (error) { p.setBusy(false); p.setError(error.message); return; }
       p.onRule(ruleKey, account);
     }
-    const { data: skus } = await db.from("product_master").select("internal_sku").eq("tenant_id", p.tenantId).ilike("internal_sku", `${itemSku(name, []).slice(0, 3)}-%`);
-    const sku = itemSku(name, ((skus ?? []) as { internal_sku: string }[]).map(s => s.internal_sku));
+    const sku = await nextSku(p.tenantId, path.l1);
     const stockQ = stock ? Number(countQty) : 1;
     const { data: pm, error: e1 } = await db.from("product_master").insert({
       tenant_id: p.tenantId, internal_sku: sku, internal_product_name: name.trim(), supplier_product_name: p.line.printed, external_sku: p.line.code || "",

@@ -33,10 +33,3 @@ export function categoryPaths(cats: SetupCategory[], groupsByMaster: Record<stri
   }
   return out.sort((a, b) => a.label.localeCompare(b.label));
 }
-
-/** Next SKU from the item name: "Motel Mezcal" → "MOT-0001", or "MOT-0003" when MOT-0001/0002 exist. */
-export function itemSku(name: string, taken: string[]): string {
-  const prefix = (name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "ITM").padEnd(3, "X");
-  const used = taken.map(s => s.toUpperCase().match(new RegExp(`^${prefix}-(\\d+)$`))?.[1]).filter(Boolean).map(Number);
-  return `${prefix}-${String((used.length ? Math.max(...used) : 0) + 1).padStart(4, "0")}`;
-}

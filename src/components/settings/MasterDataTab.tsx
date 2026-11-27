@@ -15,6 +15,7 @@ import {Plus} from 'lucide-react';
 import {useQuery} from '@tanstack/react-query';
 import {useCanEditItemList} from '@/hooks/useCanEditItemList';
 import {hongKongDate} from '@/utils/purchasingOverview';
+import {nextSupplierCode} from '@/utils/codes';
 import {periodWindow,rebateLabel,rebateProgress,type Rebate} from '@/utils/supplierRebates';
 import {PhoneRow} from '@/components/finance/accounting/AccountingKit';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -63,8 +64,8 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
  const issues=duplicates.length+noContact.length+earnedN;
  async function addSupplier(){if(!adding||!data.tenantId)return;const name=adding.name.trim();if(!name)return;
   if(rows.some(r=>r.name.trim().toLowerCase()===name.toLowerCase())){toast.error(`${name} is already in the list`);return;}
-  setBusy(true);const {error}=await supabase.from('suppliers').insert({tenant_id:data.tenantId,name,vendor_type:adding.type,contact_person:adding.contact.trim()||null,phone:adding.phone.trim()||null,email:adding.email.trim()||null,payment_terms:adding.terms,is_active:true,invoice_rounding_mode:'sum_then_round',categories:[],delivery_days:[],moq:0} as any);setBusy(false);
-  if(error){toast.error(error.message);return;}toast.success(`${name} added`);setAdding(null);await data.refetch();}
+  setBusy(true);const code=await nextSupplierCode(data.tenantId,name);const {error}=await supabase.from('suppliers').insert({tenant_id:data.tenantId,name,code,vendor_type:adding.type,contact_person:adding.contact.trim()||null,phone:adding.phone.trim()||null,email:adding.email.trim()||null,payment_terms:adding.terms,is_active:true,invoice_rounding_mode:'sum_then_round',categories:[],delivery_days:[],moq:0} as any);setBusy(false);
+  if(error){toast.error(error.message);return;}toast.success(`${name} added · ${code}`);setAdding(null);await data.refetch();}
  const field=(label:string,el:React.ReactNode)=><div><label className="mb-1.5 block text-[13px] text-muted-foreground">{label}</label>{el}</div>;
  return <>{canMerge&&<PageAction><Button size="sm" className="h-10 rounded-full" onClick={()=>setAdding(blank)}><Plus className="h-4 w-4"/>Add</Button></PageAction>}<section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Suppliers and vendors">
   <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(rows.length)} suppliers and vendors</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(suppliersN)} suppliers · {formatTableInteger(vendorsN)} vendors</span></h2>

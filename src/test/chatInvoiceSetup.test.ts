@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { categoryPaths, itemSku, parsePrintedSize } from "@/utils/chatInvoiceSetup";
+import { categoryPaths, parsePrintedSize } from "@/utils/chatInvoiceSetup";
+import { nextCode, skuPrefix, supplierPrefix } from "@/utils/codes";
 
 describe("chat invoice setup", () => {
   it("reads the pack size printed in the name", () => {
@@ -21,8 +22,13 @@ describe("chat invoice setup", () => {
       { id: "d", label: "Food › Spices & Seasonings › Dried Chillies", l1: "Food", l2: "Spices & Seasonings", l3: "Dried Chillies", group: "COGS" },
     ]);
   });
-  it("numbers SKUs from the name", () => {
-    expect(itemSku("Motel Mezcal", [])).toBe("MOT-0001");
-    expect(itemSku("Motel Mezcal", ["MOT-0001", "mot-0002"])).toBe("MOT-0003");
+  it("gives codes: Level 1 prefix for items, name for suppliers, next free number", () => {
+    expect(skuPrefix("Food", "FOD")).toBe("FOD");
+    expect(skuPrefix("My Own Stuff")).toBe("MYO");
+    expect(nextCode("FOD", [], 4)).toBe("FOD-0001");
+    expect(nextCode("BEV", ["BEV-0187", "bev-0188", "BEVX-1"], 4)).toBe("BEV-0189");
+    expect(supplierPrefix("Drinks99 International Trading Limited")).toBe("DRI");
+    expect(supplierPrefix("The Wine Co")).toBe("WIN");
+    expect(nextCode("NOR", ["NOR-001"], 3)).toBe("NOR-002");
   });
 });
