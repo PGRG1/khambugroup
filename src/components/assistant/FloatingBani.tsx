@@ -35,6 +35,7 @@ import { fmtHK } from "@/components/expenses/shared";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { fitHint, textWidth } from "./composerText";
 import { ChatFileViewer } from "./ChatFileViewer";
+import { keepChatFiles, openChatFile } from "@/utils/chatFiles";
 import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 import { PeopleActionCard } from "./PeopleActionCard";
 import { GuardedOperationCard } from "./GuardedOperationCard";
@@ -184,8 +185,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     if (hosted || busy || !store || !user || !tenantId || scope !== identity || !messages.some((m) => !m.hidden)) return;
     const id = chatId ?? crypto.randomUUID();
     if (!chatId) setChatId(id);
-    const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before, label, status }) =>
-      ({ role, content, replies, teamMessageId, eventId, files, outcome, actionOutcome, charts, hidden, target, before, label, status }));
+    const keep = messages.map(({ role, content, replies, teamMessageId, eventId, files, fileRefs, outcome, actionOutcome, charts, hidden, target, before, label, status }) =>
+      ({ role, content, replies, teamMessageId, eventId, files, fileRefs, outcome, actionOutcome, charts, hidden, target, before, label, status }));
     const was = loadChats(scope).find((c) => c.id === id);
     if (was && JSON.stringify(was.messages) === JSON.stringify(keep)) return; // just reopened, nothing new: keep its place in the list
     storeChat(scope, { id, title: chatTitle(keep), last: chatLast(keep), updated: Date.now(), messages: keep });
@@ -486,7 +487,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
     const staleNote = pending.data?.feed_health?.filter(f=>f.state==='broken').map(f=>`${f.name} data stops on ${f.complete_up_to??'its last successful date'}`).join('; ');
     const history = recentBaniTurns([...earlier.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
-    if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: attached.map(f => f.name) }]);
+    const sentNames = attached.map(f => f.name);
+    if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: sentNames }]);
+    // Keep the files (private to this person and client) so they still open after a reload or from Your chats.
+    if (attached.length && !turn?.hidden && tenantId && user) void keepChatFiles(tenantId, user.id, attached.map(a => a.file)).then(refs => {
+      if (Object.keys(refs).length) setMessages(prev => prev.map(m => m.files === sentNames ? { ...m, fileRefs: refs } : m));
+    });
     else if (fresh) setMessages([]);
     if (attached.length) {
       setLastFiles(attached);
@@ -711,7 +717,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
               ? <SentPhoto key={name} file={sentFiles[name]} onOpen={() => setViewing(sentFiles[name])} />
               : sentFiles[name]
               ? <button key={name} type="button" className="floating-bani-file-chip is-openable" title={`Open ${name}`} onClick={() => setViewing(sentFiles[name])}><FileText className="h-4 w-4" />{name}</button>
-              : <span key={name} className="floating-bani-file-chip" title="Only the name is kept once the page is reloaded or the chat is reopened"><FileText className="h-4 w-4" />{name}</span>)}</div>}
+              : message.fileRefs?.[name]
+              ? <button key={name} type="button" className="floating-bani-file-chip is-openable" title={`Open ${name}`} onClick={() => void openChatFile(message.fileRefs![name], name).then(f => f ? setViewing(f) : setError(`${name} couldn't be opened.`))}><FileText className="h-4 w-4" />{name}</button>
+              : <span key={name} className="floating-bani-file-chip" title="This file was sent before files were kept"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
               const base = message.salesBase; const preview = applySalesChanges(base, message.salesChanges);
               const stale = !salesDraft || JSON.stringify(salesDraft.record) !== JSON.stringify(base);
