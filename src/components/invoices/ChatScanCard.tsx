@@ -45,6 +45,8 @@ type Props = {
   onReason: (index: number, reason: string, note?: string) => void;
   onBook: (answers: ChatScanAnswers) => void;
   onOpenFull: () => void;
+  /** Why it can't be booked here yet (review phase). */
+  reasons?: string[];
   onHistory?: (index: number) => void;
 };
 
@@ -105,7 +107,12 @@ export function ChatScanCard(p: Props) {
   if (p.phase === "failed") return full("I couldn't read this one. Open it to try again or enter it by hand.");
   if (p.phase === "many") return full("This file has more than one invoice.");
   if (p.phase === "duplicate") return <p>{p.supplier} {p.number} is already booked.</p>;
-  if (p.phase === "review") return full("This one needs the full review.");
+  if (p.phase === "review") return <div className="space-y-2">
+    <p>Can't book this one yet:</p>
+    {p.reasons?.length ? <ul className="list-disc pl-5 space-y-0.5">{p.reasons.slice(0, 6).map(r => <li key={r}>{r}</li>)}</ul> : null}
+    <p>Add {p.reasons?.length === 1 ? "it" : "them"} in the full review, then save.</p>
+    <button type="button" className="floating-bani-reply" onClick={p.onOpenFull}>Open full review</button>
+  </div>;
 
   const saved = p.phase === "saved";
   const today = iso(new Date());

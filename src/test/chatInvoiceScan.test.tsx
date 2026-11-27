@@ -90,8 +90,9 @@ describe("Bani chat invoice booking", () => {
 
   it("sends anything unclear to the full review and never offers Book", () => {
     const f = fns();
-    render(<ChatScanCard {...base} phase="review" {...f} />);
+    render(<ChatScanCard {...base} phase="review" reasons={["Normex isn't a supplier in Bani yet"]} {...f} />);
     expect(screen.queryByRole("button", { name: "Book" })).toBeNull();
+    expect(screen.getByText("Normex isn't a supplier in Bani yet")).toBeTruthy();
     fireEvent.click(screen.getByText("Open full review"));
     expect(f.onOpenFull).toHaveBeenCalled();
   });

@@ -318,6 +318,22 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
+/** Plain reasons an invoice can't be saved yet: no supplier, items not in the Items Master, missing number/date,
+ * then the scan's own must-fix flags with their internal field keys removed. Shared by the chat card and the page's verdict. */
+export function scanProblems(inv: ScannedInvoice): string[] {
+  const out: string[] = [];
+  if (!inv.supplier_id) out.push(`${inv.supplier_name || "The supplier"} isn't a supplier in Bani yet`);
+  const missing = inv.line_items.filter(l => l.description.trim() && l.counts_toward_total !== false && (l.unmatched || !l.product_master_id));
+  if (missing.length) out.push(`${missing.length} item${missing.length === 1 ? " isn't" : "s aren't"} in the Items Master: ${missing.slice(0, 4).map(l => l.description.trim()).join(", ")}${missing.length > 4 ? ` and ${missing.length - 4} more` : ""}`);
+  if (!inv.invoice_number) out.push("No invoice number");
+  if (!inv.invoice_date) out.push("No invoice date");
+  const plain = (f: string) => f.replace(/^[a-z_]+:\s*/i, "").replace(/\s*\(must fix\)$/i, "");
+  const flags = [...(inv.review_blocking || []), ...inv.line_items.flatMap(l => l.review_blocking || [])].map(plain)
+    .filter(f => !/items master match/i.test(f) || !missing.length);
+  for (const f of flags) if (!out.includes(f)) out.push(f);
+  return out;
+}
+
 const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -394,6 +410,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const { loading: baniPermissionLoading, canAccessPage: baniCanAccess, getAuthority: baniAuthority } = useUserPermissions(baniUser?.id);
   const { setHost: setBaniHost } = useFloatingBaniHost();
   const baniSay = useFloatingBaniSay();
+  const saidFor = useRef<string | null>(null);
   const [baniHostNode, setBaniHostNode] = useState<HTMLDivElement | null>(null);
   const baniHostToken = useRef(crypto.randomUUID());
   const [baniLineId, setBaniLineId] = useState<string | null>(null);
@@ -858,17 +875,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       await checkDuplicates(parsedInvoices);
       setPendingFiles([]);
       setScanFailed(false);
-      // Grounded post-scan verdict from the scanner's own checks — never an extra model call.
-      const verdicts = parsedInvoices.map((inv, i) => {
-        const st = computeReviewStats(inv);
-        const flags = [...(inv.review_blocking || []), ...(inv.line_items || []).flatMap(l => l.review_blocking || [])];
-        const warns = [...(inv.review_warnings || []), ...(inv.line_items || []).flatMap(l => l.review_warnings || [])];
-        const name = `${parsedInvoices.length > 1 ? `Invoice ${i + 1}` : "This invoice"}${inv.supplier_name ? ` from ${inv.supplier_name}` : ""}`;
-        if (!flags.length && !warns.length) return `${name} looks good — ${st.totalLines} line${st.totalLines === 1 ? "" : "s"}, ${st.matched} matched to Items Master${st.newItems ? `, ${st.newItems} new item${st.newItems === 1 ? "" : "s"}` : ""}. Check it over and save when ready.`;
-        const list = [...flags.map(f => `${f} (must fix)`), ...warns].slice(0, 6);
-        return `${name} needs a look:\n- ${list.join("\n- ")}${flags.length + warns.length > 6 ? `\n- …and ${flags.length + warns.length - 6} more` : ""}`;
-      });
-      baniSay(`${verdicts.join("\n\n")}\n\nTap a line and tell me what's right if anything needs fixing.`);
+      // Grounded post-scan verdict from the scanner's own checks — never an extra model call. Only on the full page
+      // (the chat card says its own), and once per set of files, so a re-read never repeats it.
+      const sayKey = files.map(f => `${f.name}:${f.size}`).join("|");
+      if (variant !== "chat" && saidFor.current !== sayKey) {
+        saidFor.current = sayKey;
+        const verdicts = parsedInvoices.map((inv, i) => {
+          const name = `${parsedInvoices.length > 1 ? `Invoice ${i + 1}` : "This invoice"}${inv.supplier_name ? ` from ${inv.supplier_name}` : ""}`;
+          const list = scanProblems(inv);
+          if (!list.length) return `${name} is ready to check and save.`;
+          return `${name} can't be saved yet:\n- ${list.slice(0, 6).join("\n- ")}${list.length > 6 ? `\n- …and ${list.length - 6} more` : ""}`;
+        });
+        baniSay(verdicts.join("\n\n"));
+      }
       return true;
     } catch (err: any) {
       setInvoices([]);
@@ -897,7 +916,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId, baniSay]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId, baniSay, variant]);
 
   const invoicesCountRef = useRef(0);
   invoicesCountRef.current = invoices.length;
@@ -2254,6 +2273,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         const status = answers.hold ? "under_review" : disputeStats.hasDispute || priceDispute ? "disputed" : "outstanding";
         void handleSaveCurrent({ invoice: { ...current, due_date: answers.dueDate || current.due_date, received_date: answers.receivedDate, invoice_status: status, status_manually_selected: true } });
       }}
+      reasons={current ? scanProblems(current) : []}
       onOpenFull={() => onOpenFull?.()}
       onHistory={i => setHistoryLineIdx(i)}
     />{renderPriceHistory(false)}</>;
