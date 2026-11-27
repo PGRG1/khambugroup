@@ -43,6 +43,23 @@ export function ChatInvoiceSetup(p: Props) {
   const [groups, setGroups] = useState<Record<string, string>>({});
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string; account_type: string | null }[]>([]);
   const [rules, setRules] = useState<Record<string, string>>({});
+  // The Level 1 most of this supplier's items are in, so a new item starts there and gets its SKU straight away.
+  const [usualL1, setUsualL1] = useState("");
+  useEffect(() => {
+    let live = true;
+    const top = (rows: { level1_category: string | null }[] | null) => {
+      const n = new Map<string, number>();
+      for (const r of rows ?? []) if (r.level1_category) n.set(r.level1_category, (n.get(r.level1_category) ?? 0) + 1);
+      return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+    };
+    void (async () => {
+      // This supplier's usual Level 1; for a new supplier, the client's most used one.
+      const own = await db.from("product_master").select("level1_category").eq("tenant_id", p.tenantId).ilike("supplier", p.supplierName);
+      const pick = top(own.data) || top((await db.from("product_master").select("level1_category").eq("tenant_id", p.tenantId).limit(2000)).data);
+      if (live) setUsualL1(pick);
+    })();
+    return () => { live = false; };
+  }, [p.tenantId, p.supplierName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<string[]>([]);
@@ -125,7 +142,7 @@ export function ChatInvoiceSetup(p: Props) {
   return <div className="space-y-2.5">
     {ticks}
     <p className="text-[12px] text-muted-foreground">New item · {itemsDone + 1} of {itemsDone + p.lines.length}</p>
-    <ItemStep key={line.index} {...p} line={line} paths={paths} rules={rules} accounts={accounts} unitsOf={unitsOf} busy={busy} setBusy={setBusy} setError={setError}
+    <ItemStep key={`${line.index}-${usualL1}`} {...p} usualL1={usualL1} line={line} paths={paths} rules={rules} accounts={accounts} unitsOf={unitsOf} busy={busy} setBusy={setBusy} setError={setError}
       onRule={(k, a) => setRules(r => ({ ...r, [k]: a }))} onDone={t => { setItemsDone(n => n + 1); setDone(d => [...d, t]); }} />
     {err}
   </div>;
@@ -134,7 +151,7 @@ export function ChatInvoiceSetup(p: Props) {
 function ItemStep(p: Props & {
   line: SetupLine; paths: ReturnType<typeof categoryPaths>; rules: Record<string, string>; accounts: { id: string; code: string; name: string; account_type: string | null }[];
   unitsOf: (t: "purchase" | "stock" | "base") => { code: string; label: string }[]; busy: boolean; setBusy: (b: boolean) => void; setError: (e: string) => void;
-  onRule: (key: string, account: string) => void; onDone: (text: string) => void;
+  onRule: (key: string, account: string) => void; onDone: (text: string) => void; usualL1: string;
 }) {
   const db = supabase as any;
   const size = parsePrintedSize(p.line.printed);
@@ -148,7 +165,7 @@ function ItemStep(p: Props & {
   // Same fields as Master data › Products › Add, filled from the invoice.
   const [f, setF] = useState({
     sku: "", external: cleanCode(p.line.code), name: p.line.printed.replace(/_r$/i, "").replace(/\s*[x×*]\s*\d+\s*$/i, "").trim(), theirs: p.line.printed,
-    l1: "", l2: "", l3: "", stock: true,
+    l1: p.usualL1, l2: "", l3: "", stock: true,
     purchase: purchaseCodes.find(c => norm(c) === norm(p.line.unit)) ?? (size && size.pack > 1 ? (purchaseCodes.find(c => c === "Case") ?? "") : size?.unit === "ml" && purchaseCodes.includes("Bot") ? "Bot" : ""),
     cost: String(p.line.price || ""), stockUom: "", stockQty: String(size?.pack ?? 1),
     recipe: size?.unit ?? "", recipeQty: size ? String(Math.round(size.qty * size.pack * 1000) / 1000) : "1",
