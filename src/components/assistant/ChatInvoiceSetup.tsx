@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUomOptions } from "@/hooks/useUomOptions";
@@ -143,17 +143,28 @@ function ItemStep(p: Props & {
   }, [p.entries, p.supplierName]);
   const [mode, setMode] = useState<"new" | "link">("new");
   const [linkId, setLinkId] = useState("");
-  const [name, setName] = useState(p.line.printed.replace(/_r$/i, "").trim());
+  const [name, setName] = useState(p.line.printed.replace(/_r$/i, "").replace(/\s*x\s*\d+\s*$/i, "").trim());
+  const [theirName, setTheirName] = useState(p.line.printed);
+  const [theirCode, setTheirCode] = useState(p.line.code);
+  const [sku, setSku] = useState("");
+  const autoSku = useRef("");
   const [cat, setCat] = useState("");
   const [stock, setStock] = useState(true);
   const purchaseCodes = p.unitsOf("purchase").map(u => u.code);
   const [bought, setBought] = useState(purchaseCodes.find(c => norm(c) === norm(p.line.unit)) ?? (size?.unit === "ml" && purchaseCodes.includes("Bot") ? "Bot" : ""));
-  const [countQty, setCountQty] = useState("1");
+  const [countQty, setCountQty] = useState(String(size?.pack ?? 1));
   const [counted, setCounted] = useState("");
-  const [recipeQty, setRecipeQty] = useState(size ? String(size.qty) : "1");
+  const [recipeQty, setRecipeQty] = useState(size ? String(Math.round(size.qty * size.pack * 1000) / 1000) : "1");
   const [recipe, setRecipe] = useState(size?.unit ?? "");
   const [account, setAccount] = useState("");
   const path = p.paths.find(x => x.id === cat);
+  // The SKU fills from the category's Level 1 (FOD-0001…) unless one was typed.
+  useEffect(() => {
+    if (!path || (sku && sku !== autoSku.current)) return;
+    let live = true;
+    void nextSku(p.tenantId, path.l1).then(next => { if (live) { autoSku.current = next; setSku(next); } });
+    return () => { live = false; };
+  }, [path?.l1]); // eslint-disable-line react-hooks/exhaustive-deps
   const ruleKey = path ? `${path.group}__${path.l1}` : "";
   const needsAccount = !!path && !!path.group && !p.rules[ruleKey];
   const suggestedAccounts = path ? p.accounts.filter(a => path.group === "COGS" ? /cogs|cost/i.test(`${a.account_type} ${a.name}`) : path.group === "OpEx" ? /opex|expense/i.test(`${a.account_type}`) : true) : p.accounts;
@@ -191,16 +202,18 @@ function ItemStep(p: Props & {
     if (stock && (!countedUnit || !(Number(countQty) > 0))) return p.setError("Enter how it's counted");
     if (!recipe || !(Number(recipeQty) > 0)) return p.setError("Enter the recipe unit");
     if (needsAccount && !account) return p.setError(`Pick the account for ${path.l1}`);
+    if (!sku.trim()) return p.setError("Enter the SKU");
     p.setBusy(true); p.setError("");
     if (needsAccount) {
       const { error } = await db.rpc("save_purchasing_setup", { p_tenant: p.tenantId, p_rows: [{ treatment: path.group, category: path.l1, new_treatment: null, account_id: account, venue_accounts: {} }], p_note: `Set from a chat invoice (${p.supplierName})` });
       if (error) { p.setBusy(false); p.setError(error.message); return; }
       p.onRule(ruleKey, account);
     }
-    const sku = await nextSku(p.tenantId, path.l1);
+    const { data: taken } = await db.from("product_master").select("id").eq("tenant_id", p.tenantId).eq("internal_sku", sku.trim()).limit(1);
+    if (taken?.length) { p.setBusy(false); p.setError(`${sku.trim()} is already used. Pick another SKU.`); return; }
     const stockQ = stock ? Number(countQty) : 1;
     const { data: pm, error: e1 } = await db.from("product_master").insert({
-      tenant_id: p.tenantId, internal_sku: sku, internal_product_name: name.trim(), supplier_product_name: p.line.printed, external_sku: p.line.code || "",
+      tenant_id: p.tenantId, internal_sku: sku.trim(), internal_product_name: name.trim(), supplier_product_name: theirName.trim() || p.line.printed, external_sku: theirCode.trim(),
       level1_category: path.l1, level2_category: path.l2, level3_category: path.l3, financial_treatment: path.group, default_coa_account_id: null,
       supplier: p.supplierName, status: "Active", unit: countedUnit, unit_cost: price / stockQ,
       purchase_unit: bought, purchase_unit_cost: price, stock_uom: countedUnit, stock_qty: stockQ, cost_per_stock_unit: price / stockQ,
@@ -209,11 +222,11 @@ function ItemStep(p: Props & {
     }).select("id").single();
     if (e1 || !pm) { p.setBusy(false); p.setError(e1?.message ?? "Couldn't add the item"); return; }
     const { data: ps, error: e2 } = await db.from("product_suppliers").insert({
-      tenant_id: p.tenantId, product_master_id: pm.id, supplier: p.supplierName, external_sku: p.line.code || "", supplier_product_name: p.line.printed,
+      tenant_id: p.tenantId, product_master_id: pm.id, supplier: p.supplierName, external_sku: theirCode.trim(), supplier_product_name: theirName.trim() || p.line.printed,
       purchase_unit: bought, purchase_unit_cost: price, stock_uom: countedUnit, stock_qty: stockQ, base_unit_type: recipe, base_unit_qty: Number(recipeQty), status: "Active",
     }).select("id").single();
     if (e2 || !ps) { p.setBusy(false); p.setError(e2?.message ?? "Couldn't link the item to the supplier"); return; }
-    p.onLinked(p.line.index, { id: pm.id, supplier_entry_id: ps.id, internal_sku: sku, external_sku: p.line.code || "", internal_product_name: name.trim(), supplier_product_name: p.line.printed, purchase_unit_cost: price, supplier: p.supplierName, purchase_unit: bought, stock_uom: countedUnit, stock_qty: stockQ });
+    p.onLinked(p.line.index, { id: pm.id, supplier_entry_id: ps.id, internal_sku: sku.trim(), external_sku: theirCode.trim(), internal_product_name: name.trim(), supplier_product_name: theirName.trim() || p.line.printed, purchase_unit_cost: price, supplier: p.supplierName, purchase_unit: bought, stock_uom: countedUnit, stock_qty: stockQ });
     p.onDone(`${name.trim()} added to the Items Master`);
     p.setBusy(false);
   };
@@ -230,8 +243,11 @@ function ItemStep(p: Props & {
         <div className="flex justify-end"><button type="button" disabled={p.busy} className="h-9 rounded-full bg-[#1F6B5E] px-4 text-[13px] font-medium text-white disabled:opacity-50" onClick={() => void link()}>{p.busy ? "Linking…" : "Link item"}</button></div>
       </div> : <div className="space-y-3">
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          {lbl("Item name", <input className={field} value={name} onChange={e => setName(e.target.value)} />)}
+          {lbl("Supplier's name (as printed)", <input className={field} value={theirName} onChange={e => setTheirName(e.target.value)} />)}
+          {lbl("Supplier's code", <input className={field} placeholder="None printed" value={theirCode} onChange={e => setTheirCode(e.target.value)} />)}
+          {lbl("Your item name", <input className={field} value={name} onChange={e => setName(e.target.value)} />)}
           {lbl("Category", <select className={field} value={cat} onChange={e => setCat(e.target.value)}><option value="">Pick a category</option>{p.paths.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</select>)}
+          {lbl("SKU", <input className={`${field} font-mono`} placeholder="Fills when you pick the category" value={sku} onChange={e => setSku(e.target.value)} />)}
         </div>
         <div className="grid gap-3" style={{ gridTemplateColumns: "0.8fr 1fr 1fr 1fr" }}>
           {lbl("Stock item", <select className={field} value={stock ? "yes" : "no"} onChange={e => setStock(e.target.value === "yes")}><option value="yes">Yes</option><option value="no">No</option></select>)}

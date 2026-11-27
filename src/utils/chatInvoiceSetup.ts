@@ -4,17 +4,20 @@ export type SetupCategory = { id: string; name: string; level: 1 | 2 | 3; parent
 export type CategoryPath = { id: string; label: string; l1: string; l2: string; l3: string; group: string };
 
 /** "Sholo Agave Syrup 5KG" → 5000 g; "Pepper 35g_R" → 35 g; "Mezcal 750ml" → 750 ml; "1.5L" → 1500 ml. */
-export function parsePrintedSize(printed: string): { qty: number; unit: "g" | "ml" } | null {
+export function parsePrintedSize(printed: string): { qty: number; unit: "g" | "ml"; pack: number } | null {
   const m = printed.match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|g|gm|gr|ml|cl|l|ltr|litre|liter)(?![a-z])/i);
   if (!m) return null;
+  // "3.85KG x 4" or "x4": a case of 4, each 3.85 kg.
+  const packM = printed.slice((m.index ?? 0) + m[0].length).match(/^\s*[x×*]\s*(\d+)\b/i) ?? printed.match(/\b(\d+)\s*[x×*]\s*\d+(?:[.,]\d+)?\s*(?:kg|g|ml|cl|l)\b/i);
+  const pack = packM ? Math.max(1, Number(packM[1])) : 1;
   const n = Number(m[1].replace(",", "."));
   if (!(n > 0)) return null;
   const u = m[2].toLowerCase();
-  if (u.startsWith("kg")) return { qty: Math.round(n * 1000), unit: "g" };
-  if (u === "g" || u === "gm" || u === "gr") return { qty: n, unit: "g" };
-  if (u === "ml") return { qty: n, unit: "ml" };
-  if (u === "cl") return { qty: Math.round(n * 10), unit: "ml" };
-  return { qty: Math.round(n * 1000), unit: "ml" };
+  if (u.startsWith("kg")) return { qty: Math.round(n * 1000), unit: "g", pack };
+  if (u === "g" || u === "gm" || u === "gr") return { qty: n, unit: "g", pack };
+  if (u === "ml") return { qty: n, unit: "ml", pack };
+  if (u === "cl") return { qty: Math.round(n * 10), unit: "ml", pack };
+  return { qty: Math.round(n * 1000), unit: "ml", pack };
 }
 
 /** Every category an item can sit in (a Level 3, or a Level 2 with nothing under it), as "L1 › L2 › L3",

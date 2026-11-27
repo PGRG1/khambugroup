@@ -4,10 +4,12 @@ import { nextCode, skuPrefix, supplierPrefix } from "@/utils/codes";
 
 describe("chat invoice setup", () => {
   it("reads the pack size printed in the name", () => {
-    expect(parsePrintedSize("Sholo Agave Syrup 5KG")).toEqual({ qty: 5000, unit: "g" });
-    expect(parsePrintedSize("Fresh Harvest Dried Habanero Pepper 35g_R")).toEqual({ qty: 35, unit: "g" });
-    expect(parsePrintedSize("Motel Mezcal Espadin 750ml")).toEqual({ qty: 750, unit: "ml" });
-    expect(parsePrintedSize("Lime cordial 1.5L")).toEqual({ qty: 1500, unit: "ml" });
+    expect(parsePrintedSize("Sholo Agave Syrup 5KG")).toEqual({ qty: 5000, unit: "g", pack: 1 });
+    expect(parsePrintedSize("Fresh Harvest Dried Habanero Pepper 35g_R")).toEqual({ qty: 35, unit: "g", pack: 1 });
+    expect(parsePrintedSize("Motel Mezcal Espadin 750ml")).toEqual({ qty: 750, unit: "ml", pack: 1 });
+    expect(parsePrintedSize("Lime cordial 1.5L")).toEqual({ qty: 1500, unit: "ml", pack: 1 });
+    expect(parsePrintedSize("Olive Pitted Queens Spain 3.85KG x 4")).toEqual({ qty: 3850, unit: "g", pack: 4 });
+    expect(parsePrintedSize("Coke 24 x 330ml")).toEqual({ qty: 330, unit: "ml", pack: 24 });
     expect(parsePrintedSize("Lemons")).toBeNull();
   });
   it("lists leaf categories as L1 › L2 › L3 with the master group", () => {
