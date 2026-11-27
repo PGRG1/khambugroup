@@ -286,8 +286,7 @@ function ItemStep(p: Props & {
   </>;
 }
 
-/** A supplier code is never a decimal: "44230.1" read off a photo is kept as "44230". */
+/** The supplier's code exactly as printed (some print codes like "44230.1"). */
 function cleanCode(code: string): string {
-  const c = (code ?? "").trim();
-  return /^\d+\.\d+$/.test(c) ? c.split(".")[0] : c;
+  return (code ?? "").trim();
 }

@@ -22,8 +22,8 @@ export function ChatFileViewer({ file, onClose }: { file: File; onClose: () => v
         <a href={url} download={file.name} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25" aria-label="Download" title="Download"><Download className="h-4 w-4" /></a>
         <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25" aria-label="Close" title="Close" onClick={onClose}><X className="h-4 w-4" /></button>
       </div>
-      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-auto rounded-xl bg-white" onClick={e => e.stopPropagation()}>
-        {isImage ? <img src={url} alt={file.name} className="max-h-full max-w-full object-contain" />
+      <div className={`mx-auto flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-auto rounded-xl ${isImage ? "" : "bg-white"}`} onClick={e => { if (!isImage) e.stopPropagation(); }}>
+        {isImage ? <img src={url} alt={file.name} className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" onClick={e => e.stopPropagation()} />
           : isPdf ? <iframe src={url} title={file.name} className="h-full w-full rounded-xl" />
           : <div className="p-8 text-center text-[14px] text-muted-foreground">This file can't be shown here.<br /><a href={url} download={file.name} className="mt-3 inline-block text-[#1F6B5E] underline">Download {file.name}</a></div>}
       </div>
