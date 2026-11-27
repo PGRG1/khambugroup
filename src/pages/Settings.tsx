@@ -8,7 +8,7 @@ import {useActiveTenant} from '@/hooks/useActiveTenant';
 import {useSettingsSummary} from '@/hooks/useSettingsSummary';
 import {usePlatformAdmin} from '@/hooks/usePlatformAdmin';
 import {BusinessTab} from '@/components/settings/BusinessTab';
-import {UsersTab} from '@/components/settings/UsersTab';
+import {UsersTab,ApprovalsCard} from '@/components/settings/UsersTab';
 import {AccountingTab} from '@/components/settings/AccountingTab';
 import {BaniTab} from '@/components/settings/BaniTab';
 import {MasterDataTab} from '@/components/settings/MasterDataTab';
@@ -16,6 +16,11 @@ import {RevenueMapping} from '@/components/settings/RevenueMapping';
 import {PurchasingSetup} from '@/components/settings/PurchasingSetup';
 import {ClientSetup} from '@/components/settings/ClientSetup';
 import {ClientCategories} from '@/components/settings/ClientCategories';
+import {SectionPillRow} from '@/components/kit/SectionPillRow';
+import ChartOfAccounts from '@/pages/finance/ChartOfAccounts';
+import {FinanceTaxView} from '@/components/finance/FinanceTaxView';
+import {CurrenciesView} from '@/components/finance/CurrenciesView';
+import {FinanceSchedulesView} from '@/components/finance/FinanceSchedulesView';
 import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
@@ -42,35 +47,37 @@ export default function Settings(){
  const dot=(id:string)=>amber(id)||Object.entries(mergedInto).some(([child,parent])=>parent===id&&amber(child));
  const groups=settingsGroups.filter(g=>destinations.some(d=>d.group===g));
 
+ // One item per group; its pages are pills at the top of the page (like Purchasing).
+ const groupDot=(g:string)=>destinations.some(d=>d.group===g&&dot(d.id));
  const menu=<nav aria-label="Settings" className="settings-menu">
-  {groups.map(g=><div key={g}>
-   <p className="settings-menu-group">{g}</p>
-   <ul>{destinations.filter(d=>d.group===g).map(d=>{const on=d.id===active.id;return <li key={d.id}>
-    <Link to={settingsHref(d.id)} aria-current={on?'page':undefined} className={`settings-menu-item ${on?'is-on':''}`}>
-     <span className="min-w-0 flex-1 truncate">{d.label}</span>
-     {dot(d.id)&&<span className="settings-dot" role="img" aria-label="Something is missing"/>}
-     <ChevronRight className="settings-menu-chev h-4 w-4"/>
-    </Link></li>;})}</ul>
-  </div>)}
+  <ul>{groups.map(g=>{const first=destinations.find(d=>d.group===g)!;const on=g===active.group;return <li key={g}>
+   <Link to={settingsHref(first.id)} aria-current={on?'page':undefined} className={`settings-menu-item ${on?'is-on':''}`}>
+    <span className="min-w-0 flex-1 truncate">{g}</span>
+    {groupDot(g)&&<span className="settings-dot" role="img" aria-label="Something is missing"/>}
+    <ChevronRight className="settings-menu-chev h-4 w-4"/>
+   </Link></li>;})}</ul>
  </nav>;
 
- const ownHeading=active.id==='company'&&params.has('venue');
+ const ownHeading=active.id==='venues'&&params.has('venue');
+ const pills=destinations.filter(d=>d.group===active.group);
  const content=active.id==='setup'?<ClientSetup/>
   :active.id==='categories'?<ClientCategories/>
-  :active.id==='purchasing'?<><BusinessTab destination="purchasing"/><BusinessTab destination="stock"/></>
   :active.id==='books'?<><AccountingTab destination="books"/><AccountingTab destination="opening"/></>
-  :active.id==='company'?(params.has('venue')?<BusinessTab destination="venues"/>:<><BusinessTab destination="company"/><BusinessTab destination="venues"/></>)
-  :active.group==='Organization'?<BusinessTab destination={active.id}/>
-  :active.id==='activity'?<AuditLog/>:active.group==='Team'?<UsersTab/>
+  :active.group==='Business'||active.group==='Operations'?<BusinessTab destination={active.id}/>
+  :active.id==='activity'?<AuditLog/>:active.id==='approvals'?<ApprovalsCard/>:active.group==='People'?<UsersTab/>
   :active.id==='revenue'?<RevenueMapping/>
   :active.id==='purchasingsetup'?<PurchasingSetup/>
+  :active.id==='accounts'?<ChartOfAccounts/>
+  :active.id==='tax'?<FinanceTaxView/>
+  :active.id==='base'?<CurrenciesView/>
+  :active.id==='schedule'?<FinanceSchedulesView/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>
   :active.group==='Lists'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'}/>:<BaniTab/>;
  const page=<main className="settings-main min-w-0">
   {!ownHeading&&<header className="settings-head">
    <Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>
-   <p className="settings-head-group">{active.group}</p>
-   <h2 className="settings-head-title">{active.label}</h2>
+   <h2 className="settings-head-title">{active.group}</h2>
+   {pills.length>1&&<div className="mt-3"><SectionPillRow label={active.group} items={pills.map(d=>({label:d.label,path:settingsHref(d.id)}))} activePath={settingsHref(active.id)}/></div>}
   </header>}
   <div key={`${tenantId}:${active.id}`} className="settings-body min-w-0">{content}</div>
  </main>;

@@ -94,18 +94,18 @@ function SettingsSubNav({ admin, invoices, bani }: { admin: boolean; invoices: b
   const amber = (id: string) => !!facts.data?.[id as keyof typeof facts.data]?.amber;
   const resolved = resolveSettingsDestination(sp);
   const current = resolved === "overview" ? list[0]?.id : resolved === "denied" ? undefined : mergedInto[resolved] ?? resolved;
-  return <>{settingsGroups.filter((g) => list.some((d) => d.group === g)).map((g) => <React.Fragment key={g}>
-    <li className="bani-sub-group pl-9 pr-3 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[.05em] text-sidebar-foreground/45">{g}</li>
-    {list.filter((d) => d.group === g).map((d) => <SidebarMenuItem key={d.id}>
+  // One item per group (Business, People, Accounting…); the group's pages are pills on the Settings page.
+  const currentGroup = list.find((d) => d.id === current)?.group;
+  const dot = (g: string) => list.some((d) => d.group === g && (amber(d.id) || Object.entries(mergedInto).some(([c, p]) => p === d.id && amber(c))));
+  return <>{settingsGroups.filter((g) => list.some((d) => d.group === g)).map((g) => { const first = list.find((d) => d.group === g)!; return <SidebarMenuItem key={g}>
       <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
-        <Link to={settingsHref(d.id)} aria-current={current === d.id ? "page" : undefined}
-          className={cn("bani-sub relative flex items-center gap-2 pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", current === d.id && "glass-active !text-sidebar-primary font-medium")}>
-          <span className="truncate flex-1">{d.label}</span>
-          {(amber(d.id) || Object.entries(mergedInto).some(([c, p]) => p === d.id && amber(c))) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--warning))]" aria-label="Something to set up" />}
+        <Link to={settingsHref(first.id)} aria-current={currentGroup === g ? "page" : undefined}
+          className={cn("bani-sub relative flex items-center gap-2 pl-9 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors", currentGroup === g && "glass-active !text-sidebar-primary font-medium")}>
+          <span className="truncate flex-1">{g}</span>
+          {dot(g) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--warning))]" aria-label="Something to set up" />}
         </Link>
       </SidebarMenuButton>
-    </SidebarMenuItem>)}
-  </React.Fragment>)}</>;
+    </SidebarMenuItem>; })}</>;
 }
 
 type RailChild = { title: string; to: string; active?: boolean };
@@ -574,7 +574,7 @@ export function AppSidebar() {
           ...(showFinance ? [{ title: "Expenses", to: "/expenses", icon: ReceiptText, active: pathname.startsWith("/expenses"), children: expenseNav.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
           ...(showFinance ? [{ title: "Finance", to: "/finance", icon: Scale, active: pathname === "/finance" || pathname.startsWith("/finance/") || pathname === "/pl-report", children: financeTabs.map((t) => ({ title: t.label, to: t.path, active: t.path === pathname })) }] : []),
 
-          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsPages.map((d) => ({ title: d.label, to: settingsHref(d.id), active: settingsPageHere === d.id })) }] : []),
+          ...(showSettings ? [{ title: "Settings", to: showAdmin ? "/settings" : "/settings?tab=master-data", icon: Settings, active: pathname === "/settings", children: settingsGroups.filter((g) => settingsPages.some((d) => d.group === g)).map((g) => ({ title: g, to: settingsHref(settingsPages.find((d) => d.group === g)!.id), active: settingsPages.find((d) => d.id === settingsPageHere)?.group === g })) }] : []),
         ];
 
   // Phone: sections along the bottom (Bani team pinned), account behind the initials in the top bar.
