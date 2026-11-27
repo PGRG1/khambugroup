@@ -499,7 +499,7 @@ export function AppSidebar() {
   const settingsGroupOf = settingsDestinations.find((d) => d.id === settingsHere)?.group;
   const settingsChildren = [
     { title: "All settings", to: "/settings", active: settingsHere === "overview", admin: false },
-    ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Lists" }; }),
+    ...settingsGroups.map((g) => { const first = settingsDestinations.find((d) => d.group === g)!; return { title: g, to: settingsHref(first.id), active: settingsGroupOf === g, admin: g !== "Master data" }; }),
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
   // Settings pages for the collapsed rail's Settings pop-up (the expanded menu lists them under Settings).

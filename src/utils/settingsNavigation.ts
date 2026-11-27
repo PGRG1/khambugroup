@@ -19,9 +19,9 @@ export const settingsDestinations = [
   {id:'opening',group:'Accounting',label:'Opening balances',description:'Starting supplier balances, credits and deposits',query:'tab=accounting&view=opening'},
   {id:'purchasing',group:'Operations',label:'How you buy',description:'How you buy and share central costs',query:'tab=business&section=purchasing'},
   {id:'stock',group:'Operations',label:'Stock counts',description:'Blind counts or show the last approved count',query:'tab=business&section=stock'},
-  {id:'suppliers',group:'Lists',label:'Suppliers',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
-  {id:'products',group:'Lists',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
-  {id:'categories',group:'Lists',label:'Categories',description:'Bani\'s master list plus your own',query:'tab=master-data&md=categories'},
+  {id:'suppliers',group:'Master data',label:'Suppliers',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
+  {id:'products',group:'Master data',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
+  {id:'categories',group:'Master data',label:'Categories',description:'Bani\'s master list plus your own',query:'tab=master-data&md=categories'},
   {id:'bani',group:'Bani',label:'What Bani learned',description:'Find, inspect and forget what your team taught Bani',query:'tab=bani'},
 ] as const;
 export type SettingsDestination = typeof settingsDestinations[number]['id'];
@@ -33,7 +33,7 @@ export function settingsHref(id:SettingsDestination){return `/settings?${setting
 export const mergedInto: Partial<Record<SettingsDestination,SettingsDestination>> = {team:'users',mappings:'accounts',opening:'books'};
 /** Set up by Bani once (control plane): only shown in a client's Settings to Bani platform admins. */
 export const baniOnly: Partial<Record<SettingsDestination,true>> = {books:true};
-export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,bani=false){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(bani||!baniOnly[d.id])&&(admin||(invoiceAccess&&d.group==='Lists')));}
+export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,bani=false){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(bani||!baniOnly[d.id])&&(admin||(invoiceAccess&&d.group==='Master data')));}
 export function resolveSettingsDestination(params:URLSearchParams):SettingsDestination|'overview'|'denied'{
  const tab=params.get('tab');const section=params.get('section');const view=params.get('view');
  if(!tab)return 'overview';
@@ -54,7 +54,7 @@ export function resolveSettingsDestination(params:URLSearchParams):SettingsDesti
 }
 export const venueSections=['seats','periods','closures','areas','location','accounts','status'] as const;
 /** Group order on the Settings overview. */
-export const settingsGroups=['Business','People','Accounting','Operations','Lists','Bani'] as const;
+export const settingsGroups=['Business','People','Accounting','Operations','Master data','Bani'] as const;
 export type SettingsGroup = typeof settingsGroups[number];
 /** Settings has one menu item per group; a group's pages are pills at the top of the page. */
 export const groupOf=(id:string)=>settingsDestinations.find(d=>d.id===id)?.group as SettingsGroup|undefined;

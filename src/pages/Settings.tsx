@@ -72,7 +72,7 @@ export default function Settings(){
   :active.id==='base'?<CurrenciesView/>
   :active.id==='schedule'?<FinanceSchedulesView/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>
-  :active.group==='Lists'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'}/>:<BaniTab/>;
+  :active.group==='Master data'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'}/>:<BaniTab/>;
  // Like Finance › Books: the group's view tabs first, then the page (its title, with any page action on the right).
  const page=<main className="settings-main min-w-0">
   {!ownHeading&&<Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>}
