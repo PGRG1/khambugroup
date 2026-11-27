@@ -704,7 +704,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 ? <ChatExpenseScan handoff={message.expenseScan} onDone={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} />
                 : <p className="text-xs text-muted-foreground">Attach the file again to file it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
-            {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => sentFiles[name]
+            {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => sentFiles[name]?.type.startsWith("image/")
+              ? <SentPhoto key={name} file={sentFiles[name]} onOpen={() => setViewing(sentFiles[name])} />
+              : sentFiles[name]
               ? <button key={name} type="button" className="floating-bani-file-chip is-openable" title={`Open ${name}`} onClick={() => setViewing(sentFiles[name])}><FileText className="h-4 w-4" />{name}</button>
               : <span key={name} className="floating-bani-file-chip" title="Only the name is kept once the page is reloaded or the chat is reopened"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
@@ -829,4 +831,12 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   // A modal owns focus and inertness: portal into that modal, never above it.
   if (homeSlot) return createPortal(surface, homeSlot);
   return hosted ? createPortal(surface, host?.node.closest('[role="dialog"]') || document.body) : surface;
+}
+
+
+/** A photo sent in chat shows as the picture itself (tap to open), not a file-name chip. */
+function SentPhoto({ file, onOpen }: { file: File; onOpen: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { const u = URL.createObjectURL(file); setUrl(u); return () => URL.revokeObjectURL(u); }, [file]);
+  return <button type="button" className="floating-bani-sent-photo" title={`Open ${file.name}`} aria-label={`Open ${file.name}`} onClick={onOpen}>{url && <img src={url} alt={file.name} />}</button>;
 }

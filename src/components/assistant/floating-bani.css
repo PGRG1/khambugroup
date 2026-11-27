@@ -48,6 +48,9 @@
 .floating-bani-file-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .7rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-size: .82rem; }
 .floating-bani-file-chip.is-openable { cursor: pointer; color: inherit; }
 .floating-bani-file-chip.is-openable:hover { border-color: #1F6B5E; color: #1F6B5E; }
+.floating-bani-sent-photo { display: block; padding: 0; border: 1px solid var(--fb-line); border-radius: 14px; overflow: hidden; background: var(--fb-glass); cursor: pointer; }
+.floating-bani-sent-photo img { display: block; max-width: 220px; max-height: 300px; width: auto; height: auto; object-fit: cover; }
+@media (max-width: 640px) { .floating-bani-sent-photo img { max-width: 160px; max-height: 220px; } }
 .floating-bani-change { margin-top: .6rem; padding: .7rem .8rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); }
 .floating-bani-change-target { font-size: .75rem; color: var(--fb-muted); }
 .floating-bani-change-value { margin-top: .2rem; font-size: .9rem; font-family: "JetBrains Mono", monospace; overflow-wrap: anywhere; }
