@@ -277,12 +277,13 @@ export default function Landing() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const db = supabase as any;
-      let iq = db.from("invoices").select("id,invoice_date,total_amount,discount,voided_at,supplier_id,venue_id").eq("tenant_id", tenantId).gte("invoice_date", `${addMonths(month < thisMonth ? month : thisMonth, -3)}-01`).limit(5000);
-      if (scopeIds?.length) iq = iq.in("venue_id", scopeIds);
+      // Some invoices carry only the venue's name (no venue_id), so the scope is applied here by id or by name.
+      const iq = db.from("invoices").select("id,invoice_date,total_amount,discount,voided_at,supplier_id,venue_id,venue").eq("tenant_id", tenantId).gte("invoice_date", `${addMonths(month < thisMonth ? month : thisMonth, -3)}-01`).limit(5000);
       let bq = db.from("purchasing_budgets").select("amount,venue_id").eq("tenant_id", tenantId).eq("month", `${month}-01`);
       if (scopeIds?.length) bq = bq.in("venue_id", scopeIds);
       const [inv, sup, bud] = await Promise.all([iq, db.from("suppliers").select("id,name").eq("tenant_id", tenantId), bq]);
-      const invoices = ((inv.data ?? []) as any[]).filter((i) => !i.voided_at);
+      const scopeNames = new Set(vs.venues.filter((v) => scopeIds?.includes(v.id)).map((v) => v.name));
+      const invoices = ((inv.data ?? []) as any[]).filter((i) => !i.voided_at && (!scopeIds?.length || (i.venue_id ? scopeIds.includes(i.venue_id) : scopeNames.has(i.venue))));
       const since = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90));
       const recentIds = invoices.filter((i) => String(i.invoice_date) >= since).map((i) => i.id);
       const lines: any[] = [];
@@ -570,7 +571,7 @@ export default function Landing() {
         <section className="l2-col">
           <Link to="/procurement/dashboard" className="l2-top"><div className="k">Purchases</div>
             <div className="v">{k.spent ? <Num value={k.spent} format={money} play={playSnap} delay={snapAt + 230} /> : "—"}</div>
-            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent && k.spentPct != null ? `${pctTxt(k.spentPct)} of revenue` : "No invoices yet"}</div></Link>
+            <div className={`s ${k.budget && k.spent > k.budget ? "amb" : k.spent ? "ok" : "quiet"}`}><i />{k.spent ? (k.spentPct != null ? `${pctTxt(k.spentPct)} of revenue` : "No sales to compare yet") : "No invoices yet"}</div></Link>
           {/* Always four rows (the biggest categories) and one line for "See all", so the card never changes shape. */}
           <div className="l2-ch l2-cats">
             {[0, 1, 2, 3].map((i) => { const c = k.cats[i]; return c ? <div key={c.name} className="cat">
