@@ -46,6 +46,8 @@
 .floating-bani-table-wrap + p:has(> em:only-child), .floating-bani-prose > p:has(> em:only-child) { font-size: 12px; line-height: 1.5; color: var(--fb-muted); }
 .floating-bani-sent-files { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
 .floating-bani-file-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .7rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); font-size: .82rem; }
+.floating-bani-file-chip.is-openable { cursor: pointer; color: inherit; }
+.floating-bani-file-chip.is-openable:hover { border-color: #1F6B5E; color: #1F6B5E; }
 .floating-bani-change { margin-top: .6rem; padding: .7rem .8rem; border-radius: 12px; background: var(--fb-glass); border: 1px solid var(--fb-line); }
 .floating-bani-change-target { font-size: .75rem; color: var(--fb-muted); }
 .floating-bani-change-value { margin-top: .2rem; font-size: .9rem; font-family: "JetBrains Mono", monospace; overflow-wrap: anywhere; }

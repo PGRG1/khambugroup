@@ -25,6 +25,8 @@ type Store = {
   /** Original attachments from the last turn that had files, so a follow-up
    *  "add it in procurement" can hand them to the scanner after the composer cleared. */
   lastFiles: S<BaniAttachment[]>;
+  /** Files sent in this conversation, by name, kept in memory only so a sent file can be opened from its chip. */
+  sentFiles: S<Record<string, File>>;
   open: S<boolean>; hidden: S<boolean>; sphere: S<Point | null>; panel: S<Point | null>; page: S<PageContext>;
   sales: S<SalesDraft | null>;
   work: S<{ path: string; items: PageWorkItem[] } | null>;
@@ -51,7 +53,7 @@ export function FloatingBaniProvider({ children }: { children: ReactNode }) {
   const store: Store = {
     host, setHost,
     scope: useState(""), messages: useState<BaniMessage[]>([]), chatId: useState<string | null>(null), chatsOpen: useState(false), draft: useState(""), files: useState<BaniAttachment[]>([]),
-    lastFiles: useState<BaniAttachment[]>([]),
+    lastFiles: useState<BaniAttachment[]>([]), sentFiles: useState<Record<string, File>>({}),
     open: useState(false), hidden: useState(false), sphere: useState<Point | null>(null), panel: useState<Point | null>(null), page: useState<PageContext>(null),
     sales: useState<SalesDraft | null>(null),
     work: useState<{ path: string; items: PageWorkItem[] } | null>(null), continueToPage: useState(false), ask: useState<string | null>(null),

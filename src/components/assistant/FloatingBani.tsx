@@ -34,6 +34,7 @@ import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCor
 import { fmtHK } from "@/components/expenses/shared";
 import { useVenueScope } from "@/hooks/useVenueScope";
 import { fitHint, textWidth } from "./composerText";
+import { ChatFileViewer } from "./ChatFileViewer";
 import { useFloatingBaniStore, type BaniActionCard, type BaniAttachment, type BaniMessage } from "./FloatingBaniContext";
 import { PeopleActionCard } from "./PeopleActionCard";
 import { GuardedOperationCard } from "./GuardedOperationCard";
@@ -134,6 +135,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
   const sendIdleWas = useRef(sendIdle);
   useEffect(() => { if (sendIdleWas.current !== sendIdle) { sendIdleWas.current = sendIdle; setSendPop(n => n + 1); } }, [sendIdle]);
   const [lastFiles, setLastFiles] = store?.lastFiles ?? [[], () => {}];
+  const [sentFiles, setSentFiles] = store?.sentFiles ?? [{}, () => {}];
+  const [viewing, setViewing] = useState<File | null>(null);
   const [open, setOpen] = store?.open ?? [false, () => {}];
   const [chatId, setChatId] = store?.chatId ?? [null, () => {}];
   const openChats = () => store?.chatsOpen[1](true);
@@ -174,8 +177,8 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     voiceEndRef.current(); setVoiceMode(false);
     // Chats come from the database; Home's "Back to your conversation" opens the latest one.
     void syncChats(identity);
-    setMessages([]); setChatId(null); setDraft(""); setFiles([]); setLastFiles([]); setOpen(false); setError(""); setBusy(false); setScope(identity);
-  }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setChatId, setDraft, setFiles, setLastFiles, setOpen, setScope]);
+    setMessages([]); setChatId(null); setDraft(""); setFiles([]); setLastFiles([]); setSentFiles({}); setViewing(null); setOpen(false); setError(""); setBusy(false); setScope(identity);
+  }, [identity, scope, store, user, tenantId, authLoading, tenantLoading, messages.length, setMessages, setChatId, setDraft, setFiles, setLastFiles, setSentFiles, setOpen, setScope]);
   // Every conversation is saved to "Your chats" (this browser, this person and restaurant) as it goes.
   useEffect(() => {
     if (hosted || busy || !store || !user || !tenantId || scope !== identity || !messages.some((m) => !m.hidden)) return;
@@ -485,7 +488,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const history = recentBaniTurns([...earlier.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
     if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: attached.map(f => f.name) }]);
     else if (fresh) setMessages([]);
-    if (attached.length) setLastFiles(attached);
+    if (attached.length) {
+      setLastFiles(attached);
+      // Keep the last 20 sent files (this browser tab only) so their chips can be opened.
+      setSentFiles(prev => Object.fromEntries([...Object.entries(prev).filter(([n]) => !attached.some(a => a.name === n)), ...attached.map(a => [a.name, a.file] as const)].slice(-20)));
+    }
     if (!turn) setDraft(""); setFiles([]);
     setBusy(true); setError(""); setStepLabel("");
     const restore = () => { setDraft(d => d || typed); setFiles(f => f.length ? f : attached); setMessages(prev => prev.slice(0, -1)); };
@@ -697,7 +704,9 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 ? <ChatExpenseScan handoff={message.expenseScan} onDone={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} />
                 : <p className="text-xs text-muted-foreground">Attach the file again to file it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
-            {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => <span key={name} className="floating-bani-file-chip"><FileText className="h-4 w-4" />{name}</span>)}</div>}
+            {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => sentFiles[name]
+              ? <button key={name} type="button" className="floating-bani-file-chip is-openable" title={`Open ${name}`} onClick={() => setViewing(sentFiles[name])}><FileText className="h-4 w-4" />{name}</button>
+              : <span key={name} className="floating-bani-file-chip" title="Only the name is kept once the page is reloaded or the chat is reopened"><FileText className="h-4 w-4" />{name}</span>)}</div>}
             {message.salesChanges && message.salesBase && (() => {
               const base = message.salesBase; const preview = applySalesChanges(base, message.salesChanges);
               const stale = !salesDraft || JSON.stringify(salesDraft.record) !== JSON.stringify(base);
@@ -805,6 +814,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           {homeDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </form>
         {(open || !home) && !voiceMode && <p className="fb-disclaimer">Bani can make mistakes. Please check important information.</p>}
+        {viewing && <ChatFileViewer file={viewing} onClose={() => setViewing(null)} />}
         {chatDrop && dropping && <div className="fb-drop" aria-hidden="true"><div className="fb-drop-ic"><ImageIcon className="l" /><FileText /><Folder className="r" /></div><b>Drop files here</b><span>PDFs or photos</span></div>}
         </div>
       </section>
