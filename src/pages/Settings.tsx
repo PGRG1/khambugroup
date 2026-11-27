@@ -77,7 +77,7 @@ export default function Settings(){
   {!ownHeading&&<header className="settings-head">
    <Link to="/settings" className="settings-back"><ChevronLeft className="h-4 w-4"/>Settings</Link>
    <h2 className="settings-head-title">{active.group}</h2>
-   {pills.length>1&&<div className="mt-3"><SectionPillRow label={active.group} items={pills.map(d=>({label:d.label,path:settingsHref(d.id)}))} activePath={settingsHref(active.id)}/></div>}
+   {pills.length>1&&<div className="settings-pills"><SectionPillRow label={active.group} items={pills.map(d=>({label:d.label,path:settingsHref(d.id)}))} activePath={settingsHref(active.id)}/></div>}
   </header>}
   <div key={`${tenantId}:${active.id}`} className="settings-body min-w-0">{content}</div>
  </main>;
