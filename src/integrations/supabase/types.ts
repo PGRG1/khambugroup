@@ -2212,10 +2212,12 @@ export type Database = {
           id: string
           is_active: boolean
           is_cash: boolean
+          is_system: boolean
           name: string
           normal_side: string
           parent_id: string | null
           sort_order: number
+          statement_group: string | null
           tenant_id: string
           updated_at: string
         }
@@ -2229,10 +2231,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_cash?: boolean
+          is_system?: boolean
           name: string
           normal_side: string
           parent_id?: string | null
           sort_order?: number
+          statement_group?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -2246,10 +2250,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_cash?: boolean
+          is_system?: boolean
           name?: string
           normal_side?: string
           parent_id?: string | null
           sort_order?: number
+          statement_group?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -16720,6 +16726,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      client_level1_defaults: {
+        Args: { p_tenant: string }
+        Returns: {
+          code: string
+          default_group: string
+          name: string
+        }[]
       }
       client_manages_users: { Args: { t: string }; Returns: boolean }
       compute_ai_rule_key: {
