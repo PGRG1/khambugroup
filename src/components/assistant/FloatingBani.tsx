@@ -688,7 +688,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
             {message.invoiceScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
               : message.invoiceScan.files[0] instanceof File && message.invoiceScan.scope === identity
-                ? <ChatInvoiceScan handoff={message.invoiceScan} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} />
+                ? <div className="fb-wide-card"><ChatInvoiceScan handoff={message.invoiceScan} onBooked={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} onOpenFull={() => { const h = message.invoiceScan!; requestScannerHandoff({ ...h, id: crypto.randomUUID() }); navigate("/procurement/invoices"); }} /></div>
                 : <p className="text-xs text-muted-foreground">Attach the invoice again to book it.</p>)}
             {message.salesScan && (message.outcome
               ? <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">✓ {message.outcome}</p>
