@@ -10,7 +10,8 @@ export async function buildPriceHistory(admin: any, tenantId: string): Promise<s
     .gte("invoices.invoice_date", since)
     .not("invoices.review_status", "in", "(Draft,Voided)")
     .limit(1000);
-  if (error || !data?.length) return "";
+  const master = await itemsMasterPrices(admin, tenantId);
+  if (error || !data?.length) return master;
   type Agg = { supplier: string; unit: string; last: number; lastDate: string; min: number; max: number; n: number };
   const items = new Map<string, Map<string, Agg>>();
   for (const r of data as any[]) {
@@ -32,5 +33,16 @@ export async function buildPriceHistory(admin: any, tenantId: string): Promise<s
     lines.push(`- ${desc} → ${parts.join("; ")}`);
     if (lines.length >= 200) break;
   }
-  return lines.join("\n");
+  return [master, lines.length ? `Last 180 days of approved invoices (item → supplier: last price, range, buy count):\n${lines.join("\n")}` : ""].filter(Boolean).join("\n\n");
+}
+
+/** The Items Master price agreed per supplier: what an invoice line is compared with when there is no buying history yet. */
+async function itemsMasterPrices(admin: any, tenantId: string): Promise<string> {
+  const { data } = await admin.from("product_suppliers")
+    .select("supplier, supplier_product_name, external_sku, purchase_unit, purchase_unit_cost, product_master!inner(internal_product_name, status)")
+    .eq("tenant_id", tenantId).limit(1000);
+  const rows = ((data ?? []) as any[]).filter((r) => Number(r.purchase_unit_cost) > 0 && (r.product_master?.status ?? "Active") === "Active");
+  if (!rows.length) return "";
+  const lines = rows.slice(0, 300).map((r) => `- ${r.supplier}: "${r.supplier_product_name || r.product_master?.internal_product_name}"${r.external_sku ? ` [${r.external_sku}]` : ""} = ${r.product_master?.internal_product_name}, HK$${Number(r.purchase_unit_cost).toFixed(2)} per ${r.purchase_unit || "unit"}`);
+  return `Items Master agreed prices (supplier: printed name = our item, price per bought unit). Compare each invoice line with these first:\n${lines.join("\n")}`;
 }

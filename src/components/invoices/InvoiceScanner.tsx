@@ -334,6 +334,20 @@ export function scanProblems(inv: ScannedInvoice): string[] {
   return out;
 }
 
+/** Lines whose printed name (or item code) is exactly one supplier entry's printed name (or code), ignoring case,
+ * spaces and punctuation. Only a single, linked supplier entry counts; anything else is left to the matcher. */
+export function exactPrintedMatches(lines: { description: string; scanned_description?: string; item_code?: string; scanned_item_code?: string; product_master_id?: string | null }[], entries: ProductMasterEntry[]): Map<number, ProductMasterEntry> {
+  const key = (v?: string | null) => (v ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const out = new Map<number, ProductMasterEntry>();
+  lines.forEach((l, i) => {
+    if (l.product_master_id) return;
+    const name = key(l.scanned_description ?? l.description), code = key(l.scanned_item_code ?? l.item_code);
+    const hits = entries.filter(e => e.supplier_entry_id && ((name && key(e.supplier_product_name) === name) || (code && key(e.external_sku) === code)));
+    if (new Set(hits.map(h => h.id)).size === 1) out.set(i, hits[0]);
+  });
+  return out;
+}
+
 const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSuppliersChanged, onSave, onClose, userId, handoff = null, onDirtyChange, variant = "full", onOpenFull }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -1363,6 +1377,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const requestKey = `${tenantId}:${userId}:${inv._baniDraftId}:${inv.supplier_id}`;
     if (matcherAttempted.current.has(requestKey)) return;
     matcherAttempted.current.add(requestKey);
+    // A line printed exactly as this supplier's Items Master entry (same printed name or same code) links straight away;
+    // the matcher only has to judge the rest.
+    const exact = exactPrintedMatches(inv.line_items, scopePMToSupplier(matcherLive.current.productMaster, inv.supplier_name) as ProductMasterEntry[]);
+    if (exact.size) setInvoices(previous => previous.map(invoice => invoice._baniDraftId !== inv._baniDraftId || invoice.saved ? invoice
+      : { ...invoice, line_items: invoice.line_items.map((line, i) => !line.product_master_id && exact.has(i) ? linkEntryToLine(line, exact.get(i)!) : line) }));
     const originals = inv.line_items.map(line => ({ id: line._baniLineId, snapshot: matcherSnapshot(line) }));
     const controller = new AbortController();
     matcherControllers.current.add(controller);

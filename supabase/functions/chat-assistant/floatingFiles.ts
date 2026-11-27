@@ -131,7 +131,7 @@ export async function analyzeFiles(
   const last = messages[messages.length - 1];
   const handOver = isHandOver(last?.content);
   const history = messages.slice(0, -1);
-  const prices = priceHistory ? `\n\nTRUSTED PURCHASE PRICE HISTORY (last 180 days, this business's approved invoices; item → supplier: last price, range, buy count):\n${priceHistory}` : "\n\nNo purchase price history is available.";
+  const prices = priceHistory ? `\n\nTRUSTED PRICES (Items Master agreed prices, then buying history). Compare every line with its Items Master price; when there is no history, say it matches or differs from the Items Master price, never that it cannot be compared:\n${priceHistory}` : "\n\nNo Items Master prices or buying history yet.";
   const context = reviewContext ? `\n\nUNTRUSTED CURRENT UNSAVED INVOICE REVIEW (for comparison only, do not replace it with the file):\n${JSON.stringify(reviewContext).slice(0, 6000)}` : "";
   // Same model layer as every Bani chat: GPT-6 Astra with reasoning, Gemini backup.
   const reply = await askBani(key, {
