@@ -13,6 +13,8 @@ export interface UomOption {
   uom_type: UomType;
   sort_order: number;
   is_active: boolean;
+  /** Set when the unit comes from Bani's master list (its name follows the master). */
+  master_id?: string | null;
 }
 
 export function useUomOptions() {

@@ -22,6 +22,7 @@ export const settingsDestinations = [
   {id:'suppliers',group:'Master data',label:'Suppliers & vendors',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
   {id:'products',group:'Master data',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
   {id:'categories',group:'Master data',label:'Categories',description:'Bani\'s master list plus your own',query:'tab=master-data&md=categories'},
+  {id:'units',group:'Master data',label:'Units',description:'Recipe, stock and buying units',query:'tab=master-data&md=units'},
   {id:'bani',group:'Bani',label:'What Bani learned',description:'Find, inspect and forget what your team taught Bani',query:'tab=bani'},
 ] as const;
 export type SettingsDestination = typeof settingsDestinations[number]['id'];
@@ -49,7 +50,7 @@ export function resolveSettingsDestination(params:URLSearchParams):SettingsDesti
    if(view==='purchasing-setup')return 'purchasingsetup';
    return ['base','books','schedule','tax','accounts','processors','revenue','opening'].includes(view??'')?view as SettingsDestination:'books';
  }
- if(tab==='master-data')return params.get('md')==='products'?'products':params.get('md')==='categories'?'categories':'suppliers';
+ if(tab==='master-data'){const md=params.get('md');return md==='products'||md==='categories'||md==='units'?md:'suppliers';}
  return tab==='bani'?'bani':'denied';
 }
 export const venueSections=['seats','periods','closures','areas','location','accounts','status'] as const;
