@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "category master readable by signed-in" ON public.category_master;
