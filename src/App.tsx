@@ -39,6 +39,7 @@ const StockAreas = lazyPage(() => import("./pages/procurement/StockAreas"));
 const Deals = lazyPage(() => import("./pages/procurement/Deals"));
 const MasterCategories = lazyPage(() => import("./pages/admin/MasterCategories"));
 const MasterUnits = lazyPage(() => import("./pages/admin/MasterUnits"));
+const MasterChart = lazyPage(() => import("./pages/admin/MasterChart"));
 const BusinessStructure = lazyPage(() => import("./pages/admin/BusinessStructure"));
 const MasterData = lazyPage(() => import("./pages/admin/MasterData"));
 const Preferences = lazyPage(() => import("./pages/admin/Preferences"));
@@ -253,6 +254,7 @@ function App() {
                 <Route path="/platform/team" element={<PlatformRoute><BaniTeam /></PlatformRoute>} />
                 <Route path="/platform/categories" element={<PlatformRoute><MasterCategories /></PlatformRoute>} />
                 <Route path="/platform/units" element={<PlatformRoute><MasterUnits /></PlatformRoute>} />
+                <Route path="/platform/accounts" element={<PlatformRoute><MasterChart /></PlatformRoute>} />
                 <Route path="/platform/clients/:tenantId/onboarding" element={<RedirectClientDetail />} />
                 <Route path="*" element={<NotFound />} />
                 <Route element={<TenantShell />}>

@@ -1,12 +1,10 @@
 import {AccountingTab} from '@/components/settings/AccountingTab';
 import { Fragment, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useTrialBalance } from "@/hooks/useTrialBalance";
 import { PageTop } from "@/components/kit/PageTop";
 import { Toolbar } from "@/components/kit/Toolbar";
 import { QuickFilter } from "@/components/kit/QuickFilter";
 import { downloadCSV } from "@/utils/csvDownload";
-import { formatTableCurrency, formatTableInteger } from "@/utils/format";
+import { formatTableInteger } from "@/utils/format";
 import { Section, PhoneRow, GroupHead, Note, Empty, keyOpen } from "@/components/finance/accounting/AccountingKit";
 import {
   useChartOfAccounts, ChartAccount, AccountType, NormalSide,
@@ -153,12 +151,10 @@ export default function ChartOfAccountsPage() {
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [items, draft.account_type, editing]);
 
-  const tb = useTrialBalance({});
-  const balanceOf = useMemo(() => new Map(tb.rows.map(r => [r.account_id, Number(r.total_debit) - Number(r.total_credit)] as const)), [tb.rows]);
-  const side = (n?: number) => n == null || Math.abs(n) < 0.005 ? "—" : `${formatTableCurrency(Math.abs(n))}${n < 0 ? " Cr" : ""}`;
+  // Settings is for setting the accounts up: no balances or ledger links here (those live in Finance).
   const groups = TYPE_ORDER.map(t => ({ t, list: filtered.filter(a => a.account_type === t).sort((a, b) => (a.sort_order - b.sort_order) || a.code.localeCompare(b.code)) })).filter(g => g.list.length);
-  const usedFor = (a: ChartAccount) => [a.is_cash ? "Cash account" : null, a.cash_flow_category ? `Cash flow · ${CASH_FLOW_CATEGORY_LABEL[a.cash_flow_category]}` : null, !a.is_active ? "Hidden" : null].filter(Boolean).join(" · ") || ACCOUNT_TYPE_LABEL[a.account_type];
-  const download = () => downloadCSV(filtered.map(a => ({ code: a.code, name: a.name, type: ACCOUNT_TYPE_LABEL[a.account_type], side: a.normal_side, active: a.is_active ? "Yes" : "No", balance: (balanceOf.get(a.id) ?? 0).toFixed(2) })), [{ key: "code", label: "Code" }, { key: "name", label: "Account" }, { key: "type", label: "Type" }, { key: "side", label: "Normal side" }, { key: "active", label: "Active" }, { key: "balance", label: "Balance (debit − credit)" }], "chart_of_accounts");
+  const usedFor = (a: ChartAccount) => [a.is_cash ? "Cash account" : null, a.cash_flow_category ? `Cash flow · ${CASH_FLOW_CATEGORY_LABEL[a.cash_flow_category]}` : null].filter(Boolean).join(" · ") || "—";
+  const download = () => downloadCSV(filtered.map(a => ({ code: a.code, name: a.name, type: ACCOUNT_TYPE_LABEL[a.account_type], side: a.normal_side, active: a.is_active ? "Yes" : "No" })), [{ key: "code", label: "Code" }, { key: "name", label: "Account" }, { key: "type", label: "Type" }, { key: "side", label: "Normal side" }, { key: "active", label: "Active" }], "chart_of_accounts");
   const AREAS: [string, string, string][] = [["sales", "Sales", "Food, drinks, service charge, discounts"], ["payments", "Payment methods", "Cash, cards, wallets, delivery apps"], ["procurement", "Purchasing", "Stock and supplies by category"], ["payroll", "Payroll", "Wages, MPF, allowances"], ["expenses", "Expenses", "Rent, utilities, repairs"], ["categories", "Bills and cash receipts", "Bill and receipt categories"]];
   const area = AREAS.find(a => a[0] === mapping);
   const typeChip = <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all" | "other")}><SelectTrigger className="h-9 w-40 rounded-full" aria-label="Account type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All types</SelectItem>{TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</SelectItem>)}</SelectContent></Select>;
@@ -171,17 +167,17 @@ export default function ChartOfAccountsPage() {
         <QuickFilter label="Accounts" value={activeFilter} onChange={setActiveFilter} options={[{ key: "active", label: "In use" }, { key: "inactive", label: "Hidden" }, { key: "all", label: "All" }]} />
         <Toolbar search={search} onSearch={setSearch} placeholder="Search accounts" mobileSearchBelow filter={typeChip} onDownload={download} downloadLabel="Download chart of accounts" />
         <div className="min-[768px]:hidden kit">{groups.map(g => <Fragment key={g.t}><GroupHead name={`${FRIENDLY[g.t] ?? g.t} · ${g.list.length}`} />
-          <ul className="divide-y divide-border/60 border-t border-border/60">{g.list.map(a => <PhoneRow key={a.id} title={a.name} amount={side(balanceOf.get(a.id))} sub={`${a.code} · ${usedFor(a)}`} onOpen={() => openEdit(a)} />)}</ul></Fragment>)}</div>
+          <ul className="divide-y divide-border/60 border-t border-border/60">{g.list.map(a => <PhoneRow key={a.id} title={a.name} amount={a.is_active ? undefined : "Hidden"} sub={`${a.code} · ${ACCOUNT_TYPE_LABEL[a.account_type]}`} onOpen={() => openEdit(a)} />)}</ul></Fragment>)}</div>
         <div className="hidden min-[768px]:block kit sales-table-scroll" tabIndex={0} role="region" aria-label="Accounts table"><table className="sales-table" aria-label="Chart of accounts">
-          <thead><tr><th scope="col" className="sales-cell-left">Code</th><th scope="col" className="sales-cell-left">Account</th><th scope="col" className="sales-cell-left">Used for</th><th scope="col" className="sales-cell-right">Balance</th><th scope="col" className="sales-cell-right"><span className="sr-only">Ledger</span></th></tr></thead>
+          <thead><tr><th scope="col" className="sales-cell-left">Code</th><th scope="col" className="sales-cell-left">Account</th><th scope="col" className="sales-cell-left">Type</th><th scope="col" className="sales-cell-left">Used for</th><th scope="col" className="sales-cell-right">Status</th></tr></thead>
           <tbody>{groups.map(g => <Fragment key={g.t}>
             <tr className="sales-week-row"><th colSpan={5}><span>{FRIENDLY[g.t] ?? g.t} · {g.list.length}</span></th></tr>
             {g.list.map(a => <tr key={a.id} className="sales-record-row" {...keyOpen(() => openEdit(a))}>
               <td className="sales-cell-left">{a.code}</td>
               <td className="sales-cell-left" title={a.description ? `${a.name} · ${a.description}` : a.name}>{a.name}</td>
+              <td className="sales-cell-left">{ACCOUNT_TYPE_LABEL[a.account_type]}</td>
               <td className="sales-cell-left text-muted-foreground">{usedFor(a)}</td>
-              <td className="kit-num">{tb.loading ? "…" : side(balanceOf.get(a.id))}</td>
-              <td className="kit-num"><Link className="kit-link" to={`/finance/books?view=ledger&account=${a.id}`} onClick={e => e.stopPropagation()}>Ledger</Link></td>
+              <td className={a.is_active ? "kit-num" : "kit-num text-muted-foreground"}>{a.is_system ? "🔒 System" : a.is_active ? "In use" : "Hidden"}</td>
             </tr>)}</Fragment>)}</tbody></table></div>
         {!groups.length && <Empty>{loading ? "Loading accounts…" : "No accounts found."}</Empty>}
         <div className="flex flex-wrap items-center gap-2 px-1"><AccountMerge accounts={items} onSaved={() => void fetchAll()} />
@@ -317,7 +313,6 @@ export default function ChartOfAccountsPage() {
         </div>
         <DialogFooter>
           {editing && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { const a = editing; setEditorOpen(false); void beginDelete(a); }}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>}
-          {editing && <Button variant="ghost" asChild><Link to={`/finance/books?view=ledger&account=${editing.id}`}>See ledger</Link></Button>}
           <Button variant="ghost" onClick={() => setEditorOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!draft.code || !draft.name}>{editing ? "Save changes" : "Add account"}</Button>
         </DialogFooter>

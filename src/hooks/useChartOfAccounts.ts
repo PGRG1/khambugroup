@@ -19,6 +19,10 @@ export interface ChartAccount {
   description: string | null;
   sort_order: number;
   cash_flow_category: CashFlowCategory;
+  /** From Bani's master: Bani posts to it, so it cannot be deleted, hidden or change type (enforced in the database). */
+  is_system?: boolean;
+  /** Statement group from the master (Current assets, Fixed assets, …). */
+  statement_group?: string | null;
   created_at?: string;
   updated_at?: string;
 }
