@@ -35,7 +35,7 @@ export function billDraftFromScan(s: ScannedBill, l: BillLookups): { header: Par
   const header: Partial<ExpenseBill> = {
     supplier_id: matched?.id || null,
     supplier_account_id: match.kind === "account" ? match.account_id : null,
-    vendor_name: s.vendor_name || null,
+    vendor_name: matched?.name || s.vendor_name || null,
     bill_number: s.bill_number || null,
     bill_date: s.bill_date || new Date().toISOString().slice(0, 10),
     due_date: s.due_date || null,
