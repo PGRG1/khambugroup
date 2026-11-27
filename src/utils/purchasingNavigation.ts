@@ -18,6 +18,7 @@ export const stockMenuSectionPages: PurchasingTab[] = [
   { title: "Overview", url: "/procurement/stock-overview" },
   { title: "Stock", url: "/procurement/inventory" },
   { title: "Menu costs", url: "/procurement/menu-costing" },
+  { title: "Stock areas", url: "/procurement/stock-areas" },
 ];
 
 export const purchasingAnalysisPages: PurchasingTab[] = [];
@@ -71,7 +72,7 @@ export function supplierAccountsRedirect(pathname: string) {
 }
 
 export function isStockMenuRoute(pathname: string) {
-  return ["stock-overview", "inventory", "stock-counts", "movements", "transfers", "waste", "menu-costing", "products", "categories"]
+  return ["stock-overview", "inventory", "stock-counts", "movements", "transfers", "waste", "menu-costing", "stock-areas", "products", "categories"]
     .some(path => matchesPurchasingPath(pathname, `/procurement/${path}`));
 }
 

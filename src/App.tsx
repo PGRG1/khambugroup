@@ -35,6 +35,7 @@ const AiRules = lazyPage(() => import("./pages/admin/AiRules"));
 const Clients = lazyPage(() => import("./pages/admin/Clients"));
 const ClientDetail = lazyPage(() => import("./pages/admin/ClientDetail"));
 const BaniTeam = lazyPage(() => import("./pages/admin/BaniTeam"));
+const StockAreas = lazyPage(() => import("./pages/procurement/StockAreas"));
 const MasterCategories = lazyPage(() => import("./pages/admin/MasterCategories"));
 const BusinessStructure = lazyPage(() => import("./pages/admin/BusinessStructure"));
 const MasterData = lazyPage(() => import("./pages/admin/MasterData"));
@@ -341,6 +342,7 @@ function App() {
                 <Route path="/procurement/stock-overview" element={<ProtectedRoute pageKey="invoices"><StockMenuOverview /></ProtectedRoute>} />
                 <Route path="/procurement/inventory" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="inventory" /></ProtectedRoute>} />
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
+                <Route path="/procurement/stock-areas" element={<ProtectedRoute pageKey="invoices"><StockAreas /></ProtectedRoute>} />
                 <Route path="/procurement/documents" element={<Navigate to="/procurement/invoices" replace />} />
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<ProtectedRoute pageKey="invoices"><StockCounts /></ProtectedRoute>} />

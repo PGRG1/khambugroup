@@ -7,7 +7,7 @@ import {Choice,PlainList,PageAction,SettingsCard,Field,SaveBar} from './Settings
 import {TeamWorkingSettings} from '@/components/settings/TeamWorkingSettings';
 import {CentralSharingSetting} from '@/components/settings/CentralSharingSetting';
 import {useEffect,useState} from 'react';
-import {Link,useSearchParams} from 'react-router-dom';
+import {Link,Navigate,useSearchParams} from 'react-router-dom';
 import {resolveVenueSection,type SettingsDestination} from '@/utils/settingsNavigation';
 import {useVenues,type Venue} from '@/hooks/useVenues';
 import {useActiveTenant} from '@/hooks/useActiveTenant';
@@ -53,11 +53,11 @@ export function BusinessTab({destination='company'}:{destination?:SettingsDestin
  {destination==='sources'&&<><PageAction><Button size="sm" className="h-10 rounded-full" onClick={()=>{setSource({name:'',description:''});setSourceOpen(true);}}><Plus className="h-4 w-4"/>Add source</Button></PageAction>
  <SettingsCard title="In use"><PlainList empty="No sales sources yet." rows={sources.sources.filter(s=>s.is_active).map(s=>({id:s.id,name:s.name,line:s.description||undefined,onOpen:()=>{setSource({...s});setSourceOpen(true);}}))}/></SettingsCard>
  {sources.sources.some(s=>!s.is_active)&&<SettingsCard title="Archived"><PlainList empty="" rows={sources.sources.filter(s=>!s.is_active).map(s=>({id:s.id,name:s.name,line:s.description||undefined,onOpen:()=>{setSource({...s});setSourceOpen(true);}}))}/></SettingsCard>}</>}
- {selected&&destination==='venues'&&<section className="settings-venue space-y-4 min-w-0"><header><button type="button" className="text-[13px] text-[#1F6B5E]" onClick={closeDialog}>‹ Business</button><h1 className="mt-1 text-[20px] font-semibold flex flex-wrap items-baseline gap-x-2"><span>{selected.name}</span>{!selected.is_active&&<span className="text-[13px] font-normal"><Status text="Closed" tone="mut"/></span>}</h1></header><FinanceViewTabs param="section" value={view==='accounts'?'seats':view==='closures'?'periods':view} items={[{key:'seats',label:'Seats'},{key:'periods',label:'Opening hours'},{key:'areas',label:'Stock areas'},{key:'location',label:'Location'},...(bani?[{key:'status',label:'Status'}]:[])]}/><div className="min-w-0 space-y-4">
+ {selected&&destination==='venues'&&<section className="settings-venue space-y-4 min-w-0"><header><button type="button" className="text-[13px] text-[#1F6B5E]" onClick={closeDialog}>‹ Business</button><h1 className="mt-1 text-[20px] font-semibold flex flex-wrap items-baseline gap-x-2"><span>{selected.name}</span>{!selected.is_active&&<span className="text-[13px] font-normal"><Status text="Closed" tone="mut"/></span>}</h1></header><FinanceViewTabs param="section" value={view==='accounts'?'seats':view==='closures'?'periods':view} items={[{key:'seats',label:'Seats'},{key:'periods',label:'Opening hours'},{key:'location',label:'Location'},...(bani?[{key:'status',label:'Status'}]:[])]}/><div className="min-w-0 space-y-4">
  {view==='seats'&&<VenueSeatsTab venueId={selected.id} tenantId={tenantId} history={seats.rows.filter(h=>h.venue_id===selected.id)} onSaved={()=>{void seats.reload();void v.reload();}}/>}
  {/* Opening hours: when the venue trades (service periods) and when it doesn't (closures), one tab. */}
  {(view==='periods'||view==='closures')&&<><VenuePeriodsTab venueId={selected.id} onChanged={periods.refetch}/><VenueClosuresTab venueId={selected.id} venueName={selected.name}/></>}
- {view==='areas'&&<VenueAreasTab venueId={selected.id} venueName={selected.name} tenantId={tenantId} areas={locations} onChanged={()=>void loadAreas()}/>}
+ {view==='areas'&&<Navigate to="/procurement/stock-areas" replace/>}
  {view==='location'&&<VenueAddressCard key={'a'+selected.id} venueId={selected.id} tenantId={tenantId} address={address} onSaved={(a)=>{setAddress(a);void v.reload();}}/>}
  {view==='location'&&<VenueLocationTab key={selected.id} venueId={selected.id} tenantId={tenantId} lat={lat} lng={lng} onSaved={(a,b)=>{setLat(a);setLng(b);}}/>}
  {view==='accounts'&&<p className="settings-card text-sm text-muted-foreground">A venue's sales, service charge, tips and cash accounts are set in one place: <Link className="kit-link" to="/finance/books?view=chart-of-accounts">Finance › Accounting › How things post</Link>.</p>}
