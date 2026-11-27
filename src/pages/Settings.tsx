@@ -21,6 +21,7 @@ import ChartOfAccounts from '@/pages/finance/ChartOfAccounts';
 import {FinanceTaxView} from '@/components/finance/FinanceTaxView';
 import {CurrenciesView} from '@/components/finance/CurrenciesView';
 import {FinanceSchedulesView} from '@/components/finance/FinanceSchedulesView';
+import {AssetsPage} from '@/components/settings/AssetsPage';
 import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
@@ -71,6 +72,7 @@ export default function Settings(){
   :active.id==='tax'?<FinanceTaxView/>
   :active.id==='base'?<CurrenciesView/>
   :active.id==='schedule'?<FinanceSchedulesView/>
+  :active.id==='assets'?<AssetsPage/>
   :active.group==='Accounting'?<AccountingTab destination={active.id}/>
   :active.group==='Master data'?<MasterDataTab destination={active.id as 'suppliers'|'products'|'categories'|'units'}/>:<BaniTab/>;
  // Like Finance › Books: the group's view tabs first, then the page (its title, with any page action on the right).

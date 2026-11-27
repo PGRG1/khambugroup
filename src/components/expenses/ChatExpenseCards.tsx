@@ -89,6 +89,8 @@ export type BillReview = {
   onField: (k: "number" | "date" | "due" | "venue", v: string) => void;
   onAccount: (line: number, account: string) => void;
   onBook: () => void; onHold: () => void;
+  /** Quick answers to Bani's question under the card. */
+  choices?: { label: string; onPick: () => void }[];
 };
 
 const Tick = () => <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0"><circle cx="8" cy="8" r="8" fill="#15803D" /><path d="M4.6 8.3l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -234,15 +236,16 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
             })}</tbody>
           </table>
         </div>
-        <div className="flex items-center gap-5 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
           <span className="whitespace-nowrap">Total <b className="font-medium tabular-nums">{formatMoney(r.total, p.currency)}</b></span>
-          <div className="ml-auto flex items-center gap-2">
-            <button type="button" className="h-9 rounded-full border border-[#CFD8D3] bg-white px-4 text-[13px] font-medium disabled:opacity-40" disabled={r.saving} onClick={r.onHold}>Hold for review</button>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <button type="button" className="h-9 whitespace-nowrap rounded-full border border-[#CFD8D3] bg-white px-4 text-[13px] font-medium disabled:opacity-40" disabled={r.saving} onClick={r.onHold}>Hold for review</button>
             <button type="button" className="h-9 whitespace-nowrap rounded-full px-5 text-[13px] font-medium text-white disabled:opacity-40" style={{ background: "var(--fb-ink,#17302C)" }} disabled={!ready} onClick={r.onBook}>{r.saving ? "Saving…" : `Book ${formatMoney(r.total, p.currency)}`}</button>
           </div>
         </div>
       </div>
       {p.said.length > 0 && <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line tabular-nums">{t}</p>)}</div>}
+      {!!r.choices?.length && <div className="flex flex-wrap gap-2">{r.choices.map(c => <button key={c.label} type="button" className="floating-bani-reply" disabled={r.saving} onClick={c.onPick}>{c.label}</button>)}</div>}
     </div>
   );
 }

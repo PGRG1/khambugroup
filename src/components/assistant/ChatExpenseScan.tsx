@@ -12,6 +12,7 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { billDraftFromScan, loadBillLookups, readBillFiles } from "@/utils/billFromScan";
 import { ChatBillSetup, type BillSetupStep } from "@/components/expenses/ChatExpenseCards";
 import { NewSupplierStep } from "@/components/assistant/ChatInvoiceSetup";
+import { loadAssetPolicy, assetClassOf, type AssetClassKey } from "@/hooks/useAssetPolicy";
 import { billMayBeShared, canUndoBill, isYes, looksLikeEquipment, recordMonth, splitAmounts, usefulLifeMonths, type SplitPart, type VenueShare } from "@/utils/billChatRules";
 import { supabase } from "@/integrations/supabase/client";
 import { insertPendingCashSlip, readCashSlip } from "@/utils/cashSlip";
@@ -44,6 +45,8 @@ type BillState = {
   ask: Ask | null;
   split: { shares: VenueShare[]; parts: SplitPart[] } | null;
   months: number | null;
+  /** Equipment over the client's asset threshold: its class from the asset policy. */
+  asset?: { key: AssetClassKey; name: string; years: number; accountId: string | null };
   level: number; billId?: string; canUndo: boolean; undoing: boolean;
   /** A vendor not in Bani yet: added only when the bill is booked or held. */
   newVendor?: string; venues: { id: string; name: string }[]; saving?: boolean;
@@ -59,6 +62,9 @@ let replyTarget: BillReplyTarget | null = null;
 /** The bill waiting for a free-text answer, if any. FloatingBani sends the next typed message here. */
 export const activeBillReply = () => replyTarget;
 
+/** "Kitchen equipment · 5 years · HK$180/month" */
+const assetLine = (name: string, months: number, total: number) =>
+  `${name} · ${months % 12 ? `${months} months` : `${months / 12} year${months === 12 ? "" : "s"}`} · HK$${(Math.round(total / months * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}/month`;
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const howOf = (p: SplitPart) => p.kind === "percent" ? `${p.value}%` : p.kind === "rest" ? "the rest" : p.kind === "equal" ? "equal share" : "fixed";
 const acctLabel = (a?: { code: string; name: string }) => a ? `${a.code} ${a.name}` : "No account";
@@ -101,7 +107,12 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     }
     // The bill is always shown first; these questions sit under it and Book stays usable.
     if (first === "venue") { patch({ ...s, phase: "review", ask: { kind: "venue" }, said: [...said, "This could be shared between venues. Pick one venue above, or tell me who pays how much, e.g. \"half Assembly, half Caliente\"."] }); return; }
-    if (first === "asset") { patch({ ...s, phase: "review", ask: { kind: "asset" }, said: [...said, "This looks like something you'll keep for years. Over how many years? Or say \"normal cost\"."] }); return; }
+    if (first === "asset") {
+      if (!s.asset) { patch({ ...s, phase: "review", ask: { kind: "asset" }, said: [...said, "Over how many years?"] }); return; }
+      const months = s.asset.years * 12;
+      patch({ ...s, phase: "review", ask: { kind: "asset_ok", months }, said: [...said, assetLine(s.asset.name, months, Number(s.header?.total_amount || 0))] });
+      return;
+    }
     // Everything settled: lay the bill out to check, and book only when the person presses Book.
     patch({ ...s, ask: null, phase: "review", said });
   };
@@ -132,8 +143,11 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     const steps: BillSetupStep[] = [];
     if (st0.newVendor) steps.push("vendor");
     // A new vendor has no past bills to follow, so Bani's pick is shown to confirm; a known vendor only when a line has none.
-    const { allocs, suggested } = st0.newVendor || st0.allocs.some(a => !a.account_id) ? await suggestAccounts(st0) : { allocs: st0.allocs, suggested: [] };
-    if (st0.newVendor || allocs.some(a => !a.account_id)) steps.push("type");
+    // An asset takes its class's account from the asset policy, so there's no expense type to pick.
+    const assetAcct = st0.asset?.accountId;
+    const { allocs, suggested } = assetAcct ? { allocs: st0.allocs.map(a => ({ ...a, account_id: assetAcct })), suggested: [] }
+      : st0.newVendor || st0.allocs.some(a => !a.account_id) ? await suggestAccounts(st0) : { allocs: st0.allocs, suggested: [] };
+    if (!assetAcct && (st0.newVendor || allocs.some(a => !a.account_id))) steps.push("type");
     if (!st0.header?.venue_id || shared) steps.push("venue");
     if (!steps.length) return next({ ...st0, allocs }, []);
     const terms = String(scan.payment_terms ?? (st0.header as { payment_terms?: string } | null)?.payment_terms ?? "");
@@ -161,6 +175,8 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
 
   const book = async (s: BillState, said: string[]) => {
     if (!s.header || !tenantId) return;
+    // Booked while the asset line is showing: it's booked as shown.
+    if (!s.months && s.ask?.kind === "asset_ok") s = { ...s, months: s.ask.months };
     patch({ ...s, phase: "booking", said, reason: undefined });
     let h = s.header; const total = Number(h.total_amount || 0);
     if (s.newVendor && !h.supplier_id) {
@@ -185,7 +201,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       header = { ...header, venue: null, venue_id: null, supplier_account_id: null } as Partial<ExpenseBill>;
       (header as Record<string, unknown>).cost_allocation_mode = "split";
     } else (header as Record<string, unknown>).cost_allocation_mode = "single";
-    if (s.months) allocs = allocs.map(a => ({ ...a, capitalize: true, useful_life_months: s.months, in_service_date: h.bill_date ?? null, asset_name: a.notes || a.expense_category || h.vendor_name || "Equipment", asset_category: a.expense_category ?? null }));
+    if (s.months) allocs = allocs.map(a => ({ ...a, capitalize: true, useful_life_months: s.months, in_service_date: h.bill_date ?? null, asset_name: [a.expense_category, a.notes].filter(Boolean).join(" · ") || h.vendor_name || "Equipment", asset_category: s.asset?.key ?? assetClassOf(`${a.expense_category ?? ""} ${a.notes ?? ""}`), ...(s.asset?.accountId ? { account_id: s.asset.accountId } : {}) }));
     const id = await saveBill(header, allocs);
     if (!id) { patch({ phase: "full", reason: "It didn't save", said: [] }); return; }
     const approved = await setStatus(id, "approved");
@@ -239,15 +255,13 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       return;
     }
     if (ask.kind === "asset_ok") {
-      if (isYes(text)) return next({ ...s, months: ask.months, todo: s.todo.slice(1) }, []);
+      if (isYes(text)) return next({ ...s, months: ask.months, todo: s.todo.filter(t => t !== "asset") }, []);
       // Otherwise it's a new answer to the same question.
     }
     const months = usefulLifeMonths(text);
-    if (months === 0) return next({ ...s, months: null, todo: s.todo.slice(1) }, ["Booking it as a normal cost."]);
-    if (!months) { patch({ phase: "review", ask: { kind: "asset" }, said: ["Over how many years will you use it?"] }); return; }
-    const monthly = Math.round(total / months * 100) / 100;
-    const start = new Date(`${String(s.header.bill_date).slice(0, 7)}-01T00:00:00Z`).toLocaleString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
-    patch({ phase: "review", ask: { kind: "asset_ok", months }, said: [`${money(monthly)} a month for ${months % 12 ? `${months} months` : `${months / 12} years`}, starting ${start}.`, "Right? Or tell me what to change."] });
+    if (months === 0) return next({ ...s, months: null, asset: undefined, allocs: s.asset?.accountId ? s.allocs.map(a => a.account_id === s.asset!.accountId ? { ...a, account_id: null } : a) : s.allocs, todo: s.todo.filter(t => t !== "asset") }, ["Normal cost. Pick the expense type."]);
+    if (!months) { patch({ phase: "review", ask: { kind: "asset" }, said: ["How many years?"] }); return; }
+    patch({ phase: "review", ask: { kind: "asset_ok", months }, said: [assetLine(s.asset?.name ?? "Asset", months, total)] });
     void said;
   };
 
@@ -299,8 +313,19 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
         // An unknown venue is just picked in the card; only a bill that looks shared (head office address,
         // shared service) also asks in chat who pays how much.
         const shared = billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0 });
-        if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) todo.push("asset");
-        await startSetup({ ...base, header, todo, newVendor, venues: l.venues }, shared, scan);
+        let asset: BillState["asset"];
+        if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) {
+          // The client's asset policy: over its threshold it's an asset of the matching class; under it, a normal cost.
+          const policy = await loadAssetPolicy(tenantId).catch(() => null);
+          const line = d.allocations[0];
+          const key = assetClassOf(`${line?.expense_category ?? ""} ${line?.notes ?? ""}`);
+          const cls = policy?.classes.find(c => c.class_key === key);
+          if (!policy?.settings || Number(d.header.total_amount || 0) >= policy.settings.threshold) {
+            todo.push("asset");
+            if (cls) asset = { key, name: cls.name, years: cls.useful_years, accountId: cls.asset_account_id };
+          }
+        }
+        await startSetup({ ...base, header, todo, newVendor, venues: l.venues, asset }, shared, scan);
       } catch {
         patch({ phase: "failed" });
       }
@@ -335,7 +360,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       intro: `${h.vendor_name || "Bill"} for ${money(Number(h.total_amount || 0))}${(h as { payment_terms?: string }).payment_terms ? `, ${String((h as { payment_terms?: string }).payment_terms).toLowerCase()}` : ""}. ${st.allocs.some(a => !a.account_id) || !(st.split || h.venue) ? "Fill in the amber parts, then book." : "Check it and book."}`,
       newVendor: !!st.newVendor, saving: !!st.saving,
       lines: st.allocs.map(a => ({ line_no: a.line_no, description: [a.expense_category, a.notes].filter(Boolean).join(" · ") || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null })),
-      accounts: st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) })),
+      accounts: [...(st.asset?.accountId ? st.accounts.filter(a => a.id === st.asset!.accountId).map(a => ({ id: a.id, code: a.code, name: a.name, group: "Assets" })) : []), ...st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) }))],
       onField: (k, v) => {
         const cur = stRef.current.header; if (!cur) return;
         const venue = k === "venue" ? st.venues.find(x => x.name === v) : null;
@@ -351,6 +376,11 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       onAccount: (line, account) => patch({ allocs: stRef.current.allocs.map(a => a.line_no === line ? { ...a, account_id: account || null } : a) }),
       onBook: () => void book(stRef.current, []),
       onHold: () => void hold(),
+      choices: st.ask?.kind === "asset_ok" ? [
+        { label: "Yes", onPick: () => void answer("yes") },
+        { label: "Change years", onPick: () => patch({ ask: { kind: "asset" }, said: ["How many years?"] }) },
+        { label: "Not an asset", onPick: () => void answer("not an asset") },
+      ] : undefined,
     } : undefined} />;
 }
 

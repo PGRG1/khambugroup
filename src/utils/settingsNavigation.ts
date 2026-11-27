@@ -14,6 +14,7 @@ export const settingsDestinations = [
   {id:'mappings',group:'Accounting',label:'Category & account mappings',description:'Accounts used by bills, invoices and cash receipts',query:'tab=accounting&view=categories'},
   {id:'tax',group:'Accounting',label:'Tax',description:'Year end, tax preparation and assessment dates',query:'tab=accounting&view=tax'},
   {id:'base',group:'Accounting',label:'Currency',description:'Reporting currency and its current lock',query:'tab=accounting&view=base'},
+  {id:'assets',group:'Accounting',label:'Assets',description:'When a purchase is an asset, and its years',query:'tab=accounting&view=assets'},
   {id:'schedule',group:'Accounting',label:'Schedules',description:'Assets, stock and deferred revenue',query:'tab=accounting&view=schedule'},
   {id:'books',group:'Accounting',label:'Books setup',description:'When your books start and what was owed then',query:'tab=accounting&view=books'},
   {id:'opening',group:'Accounting',label:'Opening balances',description:'Starting supplier balances, credits and deposits',query:'tab=accounting&view=opening'},
@@ -48,7 +49,7 @@ export function resolveSettingsDestination(params:URLSearchParams):SettingsDesti
    if(view==='categories')return 'mappings';
    if(view==='merchants'||view==='fee-rates')return 'processors';
    if(view==='purchasing-setup')return 'purchasingsetup';
-   return ['base','books','schedule','tax','accounts','processors','revenue','opening'].includes(view??'')?view as SettingsDestination:'books';
+   return ['base','books','schedule','assets','tax','accounts','processors','revenue','opening'].includes(view??'')?view as SettingsDestination:'books';
  }
  if(tab==='master-data'){const md=params.get('md');return md==='products'||md==='categories'||md==='units'?md:'suppliers';}
  return tab==='bani'?'bani':'denied';
