@@ -53,7 +53,7 @@ export function CompanyDetails({ fallbackName }: { fallbackName: string }) {
     <Row label="Company name" value={saved.name} />
     <Row label="Legal name" value={saved.legal_name} />
     <Row label="BR number" value={saved.registration_number} />
-    <Row label="Registered address" value={saved.registered_address} />
+    <Row label="Registered address" value={saved.registered_address} wide />
   </SettingsCard>;
   return <>
     {(org.organizations.length > 1 || isNew && org.organizations.length > 0) && <SettingsCard title="Which company">

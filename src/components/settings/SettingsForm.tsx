@@ -17,8 +17,9 @@ export function SettingsCard({ title, onEdit, action, editing, children }: { tit
 }
 
 /** One saved value. Missing ones read in orange. */
-export function Row({ label, value, missing }: { label: string; value?: ReactNode; missing?: string }) {
-  return <div className="settings-row">
+/** wide: takes the whole card width and wraps (addresses, notes) instead of cutting off. */
+export function Row({ label, value, missing, wide }: { label: string; value?: ReactNode; missing?: string; wide?: boolean }) {
+  return <div className={`settings-row ${wide ? 'is-wide' : ''}`}>
     <span className="settings-row-label">{label}</span>
     <span className={`settings-row-value ${!value && missing ? 'is-missing' : ''}`}>{value || missing || '—'}</span>
   </div>;

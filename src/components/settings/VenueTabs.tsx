@@ -287,7 +287,7 @@ export function VenueAddressCard({ venueId, tenantId, address, onSaved }: { venu
     {editing ? <>
       <Field label="Address" htmlFor="venue-address"><Input id="venue-address" value={text} maxLength={300} placeholder="G/F, 18 Elgin Street, Central, Hong Kong" onChange={(e) => setText(e.target.value)} /></Field>
       <SaveBar dirty={text.trim() !== address} saving={busy} onSave={() => void save()} onCancel={() => setEditing(false)} />
-    </> : <Row label="Address" value={address || undefined} missing="Not set" />}
+    </> : <Row label="Address" value={address || undefined} missing="Not set" wide />}
   </SettingsCard>;
 }
 
