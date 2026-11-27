@@ -9,6 +9,8 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import {Toolbar} from '@/components/kit/Toolbar';
+import {PageAction} from '@/components/settings/SettingsForm';
+import {Plus} from 'lucide-react';
 import {PhoneRow} from '@/components/finance/accounting/AccountingKit';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {useAuth} from '@/hooks/useAuth';
@@ -23,6 +25,7 @@ const termsLabel=(t:string|null)=>{if(!t)return '';const k=t.trim().toLowerCase(
 function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAuth();const {isPreviewActive}=usePreviewMode();
  const [search,setSearch]=useState(''),[status,setStatus]=useState('active'),[type,setType]=useState('all'),[busy,setBusy]=useState(false),[showIssues,setShowIssues]=useState(false);
  const [merge,setMerge]=useState<ReturnType<typeof directoryDuplicates>[number]|null>(null);
+ const blank={name:'',type:'procurement',contact:'',phone:'',email:'',terms:'Net 30'};const [adding,setAdding]=useState<typeof blank|null>(null);
  const rows:any[]=data.data?.rows??[];
  const kind=(r:any)=>r.vendor_type==='expense'?'Vendor':'Supplier';
  const supplies=(r:any)=>(r.categories??[]).join(', ');
@@ -35,7 +38,12 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
  const open=(e:React.MouseEvent<HTMLElement>)=>{if((e.target as HTMLElement).closest('button,a'))return;(e.currentTarget.querySelector('button,a') as HTMLElement|null)?.click();};
  const amber=(t:string)=><span className="text-[#B45309]">{t}</span>;
  const issues=duplicates.length+noContact.length;
- return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Suppliers and vendors">
+ async function addSupplier(){if(!adding||!data.tenantId)return;const name=adding.name.trim();if(!name)return;
+  if(rows.some(r=>r.name.trim().toLowerCase()===name.toLowerCase())){toast.error(`${name} is already in the list`);return;}
+  setBusy(true);const {error}=await supabase.from('suppliers').insert({tenant_id:data.tenantId,name,vendor_type:adding.type,contact_person:adding.contact.trim()||null,phone:adding.phone.trim()||null,email:adding.email.trim()||null,payment_terms:adding.terms,is_active:true,invoice_rounding_mode:'sum_then_round',categories:[],delivery_days:[],moq:0} as any);setBusy(false);
+  if(error){toast.error(error.message);return;}toast.success(`${name} added`);setAdding(null);await data.refetch();}
+ const field=(label:string,el:React.ReactNode)=><div><label className="mb-1.5 block text-[13px] text-muted-foreground">{label}</label>{el}</div>;
+ return <>{canMerge&&<PageAction><Button size="sm" className="h-10 rounded-full" onClick={()=>setAdding(blank)}><Plus className="h-4 w-4"/>Add</Button></PageAction>}<section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Suppliers and vendors">
   <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(rows.length)} suppliers and vendors</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(suppliersN)} suppliers · {formatTableInteger(vendorsN)} vendors</span></h2>
   <Toolbar search={search} onSearch={setSearch} placeholder="Search suppliers and vendors" searchAfterControls mobileSearchBelow filter={<div className="flex gap-2">
    <Select value={type} onValueChange={setType}><SelectTrigger className="h-9 w-36 rounded-full" aria-label="Type"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All types</SelectItem><SelectItem value="supplier">Suppliers</SelectItem><SelectItem value="vendor">Vendors</SelectItem></SelectContent></Select>
@@ -62,7 +70,17 @@ function SuppliersList(){const data=useSupplierDirectory();const {isAdmin}=useAu
    </tr>;})}</tbody></table></div>
   {!shown.length&&<p className="p-10 text-center text-sm text-muted-foreground">{data.isPending?'Loading suppliers…':q||status!=='active'||type!=='all'?'Nothing matches your search or filters.':'No suppliers or vendors yet.'}</p>}
   <Dialog open={!!merge} onOpenChange={o=>!o&&setMerge(null)}><DialogContent className="!bg-card !backdrop-blur-none"><DialogHeader><DialogTitle>Merge these two?</DialogTitle><DialogDescription>{merge?.from.name} → {merge?.into.name}</DialogDescription></DialogHeader><p className="text-sm">They show as one in this list. Invoices, payments and the books are not changed, and you can undo it.</p><div className="flex justify-end gap-2"><Button variant="outline" className="rounded-full" onClick={()=>setMerge(null)}>Cancel</Button><Button className="rounded-full" disabled={busy} onClick={()=>merge&&alias(merge.from.id,merge.into.id)}>Merge</Button></div></DialogContent></Dialog>
- </section>;
+  <Dialog open={!!adding} onOpenChange={o=>!o&&!busy&&setAdding(null)}><DialogContent className="!bg-card !backdrop-blur-none"><DialogHeader><DialogTitle>Add a supplier or vendor</DialogTitle></DialogHeader>
+   {adding&&<div className="space-y-3.5">
+    {field('Name',<Input className="h-10 text-[14px]" value={adding.name} placeholder="Angliss HK Food Service" onChange={e=>setAdding({...adding,name:e.target.value})}/>)}
+    {field('Type',<div className="grid grid-cols-2 gap-2">{[['procurement','Supplier','Stock and goods on invoices'],['expense','Vendor','Bills and running costs (CLP, rent…)']].map(([k,t,l])=><button key={k} type="button" aria-pressed={adding.type===k} onClick={()=>setAdding({...adding,type:k})} className={`text-left rounded-lg border px-3 py-2 ${adding.type===k?'border-[rgba(31,107,94,0.35)] bg-[rgba(31,107,94,0.08)]':'border-border bg-white'}`}><p className="text-[13px] font-medium">{t}</p><p className="text-[12px] text-muted-foreground">{l}</p></button>)}</div>)}
+    <div className="grid grid-cols-2 gap-3">{field('Contact',<Input className="h-10 text-[14px]" value={adding.contact} placeholder="Name" onChange={e=>setAdding({...adding,contact:e.target.value})}/>)}{field('Phone',<Input className="h-10 text-[14px]" inputMode="tel" value={adding.phone} onChange={e=>setAdding({...adding,phone:e.target.value})}/>)}</div>
+    {field('Email',<Input className="h-10 text-[14px]" type="email" value={adding.email} onChange={e=>setAdding({...adding,email:e.target.value})}/>)}
+    {field('Payment terms',<Select value={adding.terms} onValueChange={v=>setAdding({...adding,terms:v})}><SelectTrigger className="h-10 text-[14px]"><SelectValue/></SelectTrigger><SelectContent>{['COD','On receipt','Net 7','Net 14','Net 30','Net 60','Monthly','Autopay'].map(t=><SelectItem key={t} value={t}>{termsLabel(t)}</SelectItem>)}</SelectContent></Select>)}
+    <div className="flex justify-end gap-2 pt-1"><Button variant="outline" className="rounded-full" disabled={busy} onClick={()=>setAdding(null)}>Cancel</Button><Button className="rounded-full bg-[#1F6B5E] text-white hover:bg-[#1A5C51]" disabled={busy||!adding.name.trim()} onClick={()=>void addSupplier()}>{busy?'Adding…':'Add'}</Button></div>
+   </div>}
+  </DialogContent></Dialog>
+ </section></>;
 }
 const MD_TABS=[['suppliers','Suppliers & vendors'],['products','Products'],['categories','Categories']] as const;
 export function MasterDataTab({destination}:{destination?:'suppliers'|'products'|'categories'}){const [params,setParams]=useSearchParams();const tab=destination??MD_TABS.find(t=>t[0]===params.get('md'))?.[0]??'suppliers';
