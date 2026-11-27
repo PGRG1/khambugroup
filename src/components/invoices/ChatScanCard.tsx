@@ -52,6 +52,8 @@ type Props = {
   onHistory?: (index: number) => void;
   /** Confirm Bani's suggestion for a line. */
   onConfirm?: (index: number) => void;
+  /** Pick a different item for a line, set up right here in chat. */
+  onPick?: (index: number) => void;
   /** While reading: what is known so far (photo read, supplier found, items being matched). */
   progress?: { read: boolean; lines: number; total: number; supplier: string; matching: boolean };
   /** Supplier's saved payment terms, e.g. "Net 30" or "COD". */
@@ -244,7 +246,7 @@ export function ChatScanCard(p: Props) {
                   {l.blocked && !saved ? <span className="block text-[12px]" style={{ color: AMBER }}>{l.blocked}</span> : l.code && <span className="block truncate text-[12px] text-muted-foreground">{l.code}</span>}
                   {l.suggestion && !saved && <>
                     <span className="block text-[12px]" style={{ color: AMBER }}>Likely: {l.suggestion.text}{l.suggestion.why ? ` · ${l.suggestion.why}` : ""}</span>
-                    <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Pick another</button></span>
+                    <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => (p.onPick ? p.onPick(l.index) : p.onOpenFull())}>Pick another</button></span>
                   </>}
                 </div>
                 <div className="shrink-0 text-right tabular-nums">
@@ -311,7 +313,7 @@ export function ChatScanCard(p: Props) {
                           {sub && <span className="block truncate text-[12px] text-muted-foreground">{sub}</span>}
                           {l.suggestion && !saved && <>
                             <span className="block truncate text-[12px]" style={{ color: AMBER }} title={`${l.suggestion.text} · ${l.suggestion.why}`}>Likely: {l.suggestion.text}{l.suggestion.why ? ` · ${l.suggestion.why}` : ""}</span>
-                            <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Pick another</button></span>
+                            <span className="mt-1 block whitespace-nowrap text-[12px]"><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => p.onConfirm?.(l.index)}>Yes, that's it</button><span className="mx-1.5 text-muted-foreground">·</span><button type="button" className="text-[#1F6B5E] underline underline-offset-2" onClick={() => (p.onPick ? p.onPick(l.index) : p.onOpenFull())}>Pick another</button></span>
                           </>}
                         </div>
                       </div>

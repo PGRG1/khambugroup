@@ -79,6 +79,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal } from "lucide-react";
 
 import { scopePMToSupplier } from "@/utils/invoiceAiMatching";
+import { ChatInvoiceSetup, type SetupEntry } from "@/components/assistant/ChatInvoiceSetup";
 import { NO_SUPPLIER_ENTRY_MESSAGE, updateSupplierItemPrice } from "@/utils/invoiceMasterPriceUpdate";
 import { FloatingBani, type FloatingReview } from "@/components/assistant/FloatingBani";
 import { useFloatingBaniHost, useFloatingBaniSay } from "@/components/assistant/FloatingBaniContext";
@@ -451,6 +452,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   const baniSay = useFloatingBaniSay();
   const saidFor = useRef<string | null>(null);
   const chatStatusRef = useRef<{ title: string; status: string } | null>(null);
+  const [pickLines, setPickLines] = useState<Set<number>>(new Set());
   const chatStatusSent = useRef("");
   useEffect(() => {
     const st = chatStatusRef.current;
@@ -2285,7 +2287,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       const near = closePrintedName(l.scanned_description ?? l.description, supplierScopedPM as ProductMasterEntry[], parseFloat(l.unit_price) || 0);
       return near ? { entry: near.entry, text: show(near.entry), why: near.why } : null;
     };
-    const suggested = new Set((current?.line_items || []).flatMap((l, i) => suggestionFor(l) ? [i] : []));
+    const suggested = new Set((current?.line_items || []).flatMap((l, i) => suggestionFor(l) && !pickLines.has(i) ? [i] : []));
+    // Lines to set up right here in chat: not in the Items Master with no suggestion, or "Pick another".
+    const setupLines = (current?.line_items || []).flatMap((l, i) => l.description.trim() && l.counts_toward_total !== false && !l.product_master_id && (!suggested.has(i) || pickLines.has(i))
+      ? [{ index: i, printed: (l.scanned_description ?? l.description).trim(), code: (l.scanned_item_code ?? l.item_code ?? "").trim(), unit: l.scanned_unit ?? l.unit ?? "", price: parseFloat(l.unit_price) || 0 }] : []);
     const otherBlocking = !!current && ((current.review_blocking?.length || 0) > 0 || current.line_items.some((l, i) => !suggested.has(i) && (l.review_blocking?.length || 0) > 0) || hasTotalMismatchForSave(current));
     const otherUnmatched = !!current && current.line_items.some((l, i) => !suggested.has(i) && l.description.trim() && l.unmatched);
     const supplierRow = current ? suppliers.find(sp => sp.id === current.supplier_id) as { payment_terms?: string | null } | undefined : undefined;
@@ -2310,6 +2315,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
     const chatStatusText = phase === "reading" ? "Reading…" : phase === "saved" ? "Booked" : phase === "duplicate" ? "Already booked" : phase === "review" ? "Needs the full review"
       : suggested.size ? `${suggested.size} match${suggested.size === 1 ? "" : "es"} to confirm` : "Ready to book";
     chatStatusRef.current = { title: chatTitleText, status: chatStatusText };
+    if (phase === "review" && current && (!current.supplier_id || setupLines.length) && tenantId) return <ChatInvoiceSetup
+      tenantId={tenantId}
+      supplierName={currentSupplierName || current.supplier_name || "The supplier"}
+      supplierId={current.supplier_id || null}
+      canEdit={canEditList === true}
+      lines={setupLines}
+      entries={productMaster as SetupEntry[]}
+      onSupplierCreated={created => handleSupplierCreated(created as { id: string; name: string })}
+      onLinked={(i, entry) => { setPickLines(prev => { const n = new Set(prev); n.delete(i); return n; }); selectProduct(i, entry as ProductMasterEntry); void onProductMasterChanged?.(); }}
+    />;
     return <><ChatScanCard
       phase={phase}
       supplier={currentSupplierName}
@@ -2352,6 +2367,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       reasons={current ? scanProblems(current) : []}
       progress={{ read: !scanning && !!current, lines: (current?.line_items || []).filter(l => l.description.trim()).length, total: displayTotal, supplier: current?.supplier_id ? currentSupplierName : "", matching: !!current?.line_items.some(l => l.matcher_pending) }}
       terms={(supplierRow as { payment_terms?: string | null } | undefined)?.payment_terms?.trim() || undefined}
+      onPick={i => setPickLines(prev => new Set(prev).add(i))}
       onConfirm={i => { const l = current?.line_items[i]; const sug = l && suggestionFor(l); if (sug) selectProduct(i, sug.entry); }}
       onOpenFull={() => onOpenFull?.()}
       onHistory={i => setHistoryLineIdx(i)}
