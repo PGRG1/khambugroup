@@ -65,7 +65,7 @@ const Head = ({ name, sub, total, right }: { name: string; sub: ReactNode; total
   </div>
 );
 
-export type ChatBillPhase = ChatExpensePhase | "asking" | "booking" | "booked" | "sent" | "undone";
+export type ChatBillPhase = ChatExpensePhase | "asking" | "review" | "booking" | "booked" | "sent" | "held" | "undone";
 export type ChatBookedRow = { left: string; amount: number };
 type BillProps = {
   phase: ChatBillPhase; reason?: string;
@@ -75,6 +75,18 @@ type BillProps = {
   rows: ChatBookedRow[];
   canUndo: boolean; undoing: boolean;
   onUndo: () => void; onSee: () => void; onOpenFull: () => void;
+  /** The bill laid out before booking (phase "review"). */
+  review?: BillReview;
+};
+export type BillReviewLine = { line_no: number; description: string; amount: number; account_id: string | null };
+export type BillReview = {
+  number: string; date: string; due: string; venue: string; venues: string[]; terms: string; total: number;
+  newVendor: boolean; lines: BillReviewLine[];
+  accounts: { id: string; code: string; name: string; group: string }[];
+  saving: boolean;
+  onField: (k: "number" | "date" | "due" | "venue", v: string) => void;
+  onAccount: (line: number, account: string) => void;
+  onBook: () => void; onHold: () => void;
 };
 
 const Tick = () => <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0"><circle cx="8" cy="8" r="8" fill="#15803D" /><path d="M4.6 8.3l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -87,6 +99,8 @@ export function ChatBillCard(p: BillProps) {
   if (p.phase === "asking") return said;
   if (p.phase === "booking") return <div className="space-y-2">{said}<p className="flex items-center gap-2 text-[13px] text-muted-foreground" role="status"><Loader2 className="h-3.5 w-3.5 animate-spin" />{p.reason ?? "Booking…"}</p></div>;
   if (p.phase === "undone") return <p>Undone.</p>;
+  if (p.phase === "held") return <div className="space-y-2"><p>Held for review in Expenses. Nothing is booked yet.</p><button type="button" className="text-[13px] font-medium text-muted-foreground" onClick={p.onSee}>See bill</button></div>;
+  if (p.phase === "review" && p.review) return <BillReviewCard {...p} r={p.review} />;
   if (p.phase === "sent") return <div className="space-y-2">{said}<p>Sent to an approver. You can't book this one yourself.</p><button type="button" className="text-[13px] font-medium text-muted-foreground" onClick={p.onSee}>See bill</button></div>;
   if (p.phase !== "booked") return <p>{p.reason ?? "It didn't book."}</p>;
   const foot = [p.vendor, p.number ? `Bill ${p.number}` : "No bill number", p.due ? `Due ${shortDay(p.due)}` : "No due date"].join(" · ");
@@ -158,6 +172,73 @@ export function ChatCashSlipCard(p: SlipProps) {
         <button type="button" className="floating-bani-apply" disabled={!cls || !box || !(p.amount > 0) || p.saving} onClick={() => setConfirm(true)}>Add</button>
         <button type="button" className="ml-auto text-[13px] text-muted-foreground" onClick={p.onOpenFull}>Full screen</button>
       </div>}
+    </div>
+  );
+}
+
+/** The bill as a card before booking: header, checks, fields, one row per line with its account and P&L place, Book. */
+function BillReviewCard(p: BillProps & { r: BillReview }) {
+  const r = p.r;
+  const field = "h-9 w-full min-w-0 rounded-lg border border-[#DCE4E0] bg-white px-2.5 text-[13px]";
+  const lbl = (t: string, el: ReactNode) => <label className="flex min-w-0 flex-col gap-1"><span className="text-[11.5px] text-muted-foreground">{t}</span>{el}</label>;
+  const missing = r.lines.filter(l => !l.account_id).length;
+  const sum = Math.round(r.lines.reduce((n, l) => n + l.amount, 0) * 100) / 100;
+  const adds = Math.abs(sum - r.total) < 0.01;
+  const ready = !missing && !!r.venue && !!r.date && !r.saving;
+  const groups = [...new Set(r.accounts.map(a => a.group))];
+  const sub = [r.number ? `Bill ${r.number}` : "No bill number", r.date ? shortDay(r.date) : "", r.terms, r.venue].filter(Boolean).join(" · ");
+  return (
+    <div className="space-y-2.5">
+      {p.said.length > 0 && <div className="space-y-2">{p.said.map((t, i) => <p key={i} className="whitespace-pre-line">{t}</p>)}</div>}
+      <div className="overflow-hidden rounded-2xl border bg-white text-[13px]" style={{ borderColor: HAIR }}>
+        <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-4">
+          <div className="min-w-0"><p className="truncate text-[18px] font-semibold" title={p.vendor}>{p.vendor}</p><p className="mt-0.5 truncate text-[13px] text-muted-foreground">{sub}</p></div>
+          <div className="shrink-0 text-right"><p className="text-[22px] font-semibold tabular-nums">{formatMoney(r.total, p.currency)}</p><p className="text-[12px] text-muted-foreground">{r.lines.length} line{r.lines.length === 1 ? "" : "s"}</p></div>
+        </div>
+        <div className="flex items-center gap-5 overflow-x-auto whitespace-nowrap px-4 py-2.5" style={{ background: "#F6F9F7", borderTop: `1px solid ${HAIR}`, borderBottom: `1px solid ${HAIR}` }}>
+          {r.newVendor && <span style={{ color: AMBER }}>● New vendor, added when you book</span>}
+          <span className="text-[#1F6B5E]">✓ Not a duplicate</span>
+          {adds ? <span className="text-[#1F6B5E]">✓ Adds up</span> : <span style={{ color: AMBER }}>● Lines come to {num(sum)}</span>}
+          {missing > 0 && <span style={{ color: AMBER }}>● Pick the expense type{missing > 1 ? ` for ${missing} lines` : ""}</span>}
+          <button type="button" className="ml-auto text-[#1F6B5E] underline underline-offset-2" onClick={p.onOpenFull}>Open in Expenses</button>
+        </div>
+        <div className="grid gap-3 px-4 py-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+          {lbl("Bill no.", <input className={field} defaultValue={r.number} onBlur={e => e.target.value.trim() !== r.number && r.onField("number", e.target.value.trim())} />)}
+          {lbl("Bill date", <input type="date" className={field} value={r.date} onChange={e => e.target.value && r.onField("date", e.target.value)} />)}
+          {lbl("Due date", <input type="date" className={field} value={r.due} min={r.date || undefined} onChange={e => r.onField("due", e.target.value)} />)}
+          {lbl("Venue", <select className={field} value={r.venue} onChange={e => r.onField("venue", e.target.value)}>{!r.venue && <option value="">Pick a venue</option>}{r.venues.map(v => <option key={v} value={v}>{v}</option>)}</select>)}
+          {lbl("Records to", <span className={cn(field, "flex items-center bg-muted/30")}>{p.recordsTo || "—"}</span>)}
+        </div>
+        <div className="overflow-x-auto" style={{ borderTop: `1px solid ${HAIR}` }}>
+          <table className="w-full border-collapse tabular-nums">
+            <thead style={{ background: "#F7F9F8" }}><tr>
+              <th className="whitespace-nowrap px-3 py-2 pl-4 text-left text-[12px] font-normal text-muted-foreground">Description</th>
+              <th className="whitespace-nowrap px-3 py-2 text-left text-[12px] font-normal text-muted-foreground">Expense type</th>
+              <th className="whitespace-nowrap px-3 py-2 text-left text-[12px] font-normal text-muted-foreground">In the P&amp;L</th>
+              <th className="whitespace-nowrap px-3 py-2 pr-4 text-right text-[12px] font-normal text-muted-foreground">Amount</th>
+            </tr></thead>
+            <tbody>{r.lines.map(l => {
+              const a = r.accounts.find(x => x.id === l.account_id);
+              return <tr key={l.line_no} style={{ borderTop: `1px solid ${HAIR}`, background: a ? undefined : "#FFFBF3" }}>
+                <td className="max-w-[260px] truncate px-3 py-2.5 pl-4" title={l.description}>{l.description || "—"}</td>
+                <td className="px-3 py-2"><select aria-label={`Expense type for ${l.description}`} className={cn(field, "h-8 w-auto min-w-[190px]", !a && "border-[#EF9F27] bg-[#FFF8EC]")} value={l.account_id ?? ""} onChange={e => r.onAccount(l.line_no, e.target.value)}>
+                  <option value="">Pick the expense type</option>
+                  {groups.map(g => <optgroup key={g} label={g}>{r.accounts.filter(x => x.group === g).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
+                </select></td>
+                <td className="whitespace-nowrap px-3 py-2.5">{a ? <><span className="text-muted-foreground">{a.group} ›</span> {a.code} {a.name}</> : <span className="text-muted-foreground">—</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 pr-4 text-right">{num(l.amount)}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+        <div className="flex items-center gap-5 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
+          <span className="whitespace-nowrap">Total <b className="font-medium tabular-nums">{formatMoney(r.total, p.currency)}</b></span>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" className="h-9 rounded-full border border-[#CFD8D3] bg-white px-4 text-[13px] font-medium disabled:opacity-40" disabled={r.saving} onClick={r.onHold}>Hold for review</button>
+            <button type="button" className="h-9 whitespace-nowrap rounded-full px-5 text-[13px] font-medium text-white disabled:opacity-40" style={{ background: "var(--fb-ink,#17302C)" }} disabled={!ready} onClick={r.onBook}>{r.saving ? "Saving…" : `Book ${formatMoney(r.total, p.currency)}`}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,8 @@ import { billMayBeShared, canUndoBill, isYes, looksLikeEquipment, recordMonth, s
 import { supabase } from "@/integrations/supabase/client";
 import { insertPendingCashSlip, readCashSlip } from "@/utils/cashSlip";
 import { formatMoney, getBaseCurrency } from "@/utils/money";
+import { nextSupplierCode } from "@/utils/codes";
+import { plGroup } from "@/utils/financeClose";
 
 type Props = { handoff: ExpenseHandoff; onDone: (text: string) => void };
 
@@ -34,15 +36,17 @@ type Ask = { kind: "account"; line: number } | { kind: "venue" } | { kind: "spli
 type BillState = {
   phase: ChatBillPhase; reason?: string; said: string[];
   header: Partial<ExpenseBill> | null; allocs: ExpenseBillAllocation[];
-  accounts: { id: string; code: string; name: string }[];
+  accounts: { id: string; code: string; name: string; account_type?: string | null }[];
   /** Still to settle, in order. */
   todo: ("account" | "venue" | "asset")[];
   ask: Ask | null;
   split: { shares: VenueShare[]; parts: SplitPart[] } | null;
   months: number | null;
   level: number; billId?: string; canUndo: boolean; undoing: boolean;
+  /** A vendor not in Bani yet: added only when the bill is booked or held. */
+  newVendor?: string; venues: { id: string; name: string }[]; saving?: boolean;
 };
-const blank: BillState = { phase: "reading", said: [], header: null, allocs: [], accounts: [], todo: [], ask: null, split: null, months: null, level: 0, canUndo: false, undoing: false };
+const blank: BillState = { phase: "reading", said: [], header: null, allocs: [], accounts: [], todo: [], ask: null, split: null, months: null, level: 0, canUndo: false, undoing: false, venues: [] };
 // Kept by handoff id so the card can move to the bottom of the chat with each answer.
 const billStates = new Map<string, BillState>();
 const billListeners = new Map<string, Set<(s: BillState) => void>>();
@@ -93,13 +97,37 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     }
     if (first === "venue") { patch({ ...s, phase: "asking", ask: { kind: "venue" }, said: [...said, "Who pays for this, and how much each? Say it however you like."] }); return; }
     if (first === "asset") { patch({ ...s, phase: "asking", ask: { kind: "asset" }, said: [...said, "Something you'll keep for years? Over how many years?"] }); return; }
-    void book({ ...s, ask: null }, said);
+    // Everything settled: lay the bill out to check, and book only when the person presses Book.
+    patch({ ...s, ask: null, phase: "review", said });
+  };
+
+  const addVendor = async (name: string): Promise<string | null> => {
+    // Same new-supplier insert as Expenses › Bills, with a code like every new supplier.
+    const code = await nextSupplierCode(tenantId!, name);
+    const { data: sup, error } = await supabase.from("suppliers").insert({ name, code, vendor_type: "expense", is_active: true, tenant_id: tenantId, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 } as never).select("id").single();
+    return error || !sup ? null : (sup as { id: string }).id;
+  };
+
+  const hold = async () => {
+    const s = stRef.current;
+    if (!s.header || !tenantId) return;
+    patch({ saving: true });
+    let h = s.header;
+    if (s.newVendor && !h.supplier_id) { const id = await addVendor(s.newVendor); if (!id) { patch({ saving: false, said: ["I couldn't add the new vendor. Try again."] }); return; } h = { ...h, supplier_id: id }; }
+    const id = await saveBill({ ...h, approval_status: "pending_review", cost_allocation_mode: "single" } as Partial<ExpenseBill>, s.allocs);
+    qc.invalidateQueries({ queryKey: ["expense-bills"] });
+    patch(id ? { phase: "held", billId: id, saving: false, newVendor: undefined } : { saving: false, said: ["It didn't save. Try again."] });
   };
 
   const book = async (s: BillState, said: string[]) => {
     if (!s.header || !tenantId) return;
     patch({ ...s, phase: "booking", said, reason: undefined });
-    const h = s.header; const total = Number(h.total_amount || 0);
+    let h = s.header; const total = Number(h.total_amount || 0);
+    if (s.newVendor && !h.supplier_id) {
+      const id = await addVendor(s.newVendor);
+      if (!id) { patch({ phase: "review", reason: undefined, said: ["I couldn't add the new vendor. Try again."] }); return; }
+      h = { ...h, supplier_id: id }; s = { ...s, header: h, newVendor: undefined };
+    }
     let header: Partial<ExpenseBill> = { ...h, approval_status: "pending_review" };
     let allocs = s.allocs;
     if (s.split) {
@@ -201,7 +229,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
       try {
         const [scan, l] = await Promise.all([readBillFiles([handoff.file]), loadBillLookups(tenantId)]);
         const d = billDraftFromScan(scan, l);
-        const accounts = l.accounts.map(a => ({ id: a.id, code: a.code, name: a.name ?? "" }));
+        const accounts = l.accounts.map(a => ({ id: a.id, code: a.code, name: a.name ?? "", account_type: (a as { account_type?: string | null }).account_type ?? null }));
         const base: BillState = { ...blank, level, header: d.header, allocs: d.allocations, accounts };
         if (scan.suggested_document_type === "procurement_invoice") { patch({ ...base, phase: "full", reason: "This looks like a stock invoice" }); return; }
         if ((scan as { contract_terms?: unknown }).contract_terms) { patch({ ...base, phase: "full", reason: "This is a contract bill" }); return; }
@@ -214,21 +242,23 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
         if (dup) { patch({ ...base, phase: "duplicate", reason: `${d.header.vendor_name} bill ${d.header.bill_number} is already filed` }); return; }
         const said: string[] = [];
         let header = d.header;
+        let newVendor: string | undefined;
         if (!d.matched) {
           const name = (scan.vendor_name || "").trim();
           if (!name) { patch({ ...base, phase: "full", reason: "I couldn't tell who it's from" }); return; }
-          // Same new-supplier insert as Expenses › Bills.
-          const { data: sup, error } = await supabase.from("suppliers").insert({ name, vendor_type: "expense", is_active: true, tenant_id: tenantId, invoice_rounding_mode: "sum_then_round", categories: [], delivery_days: [], moq: 0 } as never).select("id,name").single();
-          if (error || !sup) { patch({ ...base, phase: "full", reason: "I couldn't add the new supplier" }); return; }
-          header = { ...header, supplier_id: (sup as { id: string }).id, meta: { ...(header.meta ?? {}), bani_question: undefined } };
-          said.push(`${name} is new, I've added it.`);
+          newVendor = name;
+          header = { ...header, vendor_name: name, meta: { ...(header.meta ?? {}), bani_question: undefined } };
+        } else if (header.supplier_id && d.allocations.some(a => !a.account_id)) {
+          // A known vendor: use the account its last bill went to.
+          const { data: last } = await supabase.from("expense_bill_allocations").select("account_id, expense_bills!inner(supplier_id, bill_date)").eq("tenant_id", tenantId).eq("expense_bills.supplier_id", header.supplier_id).not("account_id", "is", null).order("created_at", { ascending: false }).limit(1);
+          const acct = (last as { account_id: string }[] | null)?.[0]?.account_id;
+          if (acct) d.allocations.forEach(a => { if (!a.account_id) a.account_id = acct; });
         }
         const meter = l.meters.find(m => m.id === header.supplier_account_id);
         const todo: BillState["todo"] = [];
-        if (d.allocations.some(a => !a.account_id)) todo.push("account");
         if (billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: !!header.venue_id, meterCovers: meter?.covers?.length ?? 0 })) todo.push("venue");
         if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) todo.push("asset");
-        next({ ...base, header, todo }, said);
+        next({ ...base, header, todo, newVendor, venues: l.venues }, said);
       } catch {
         patch({ phase: "failed" });
       }
@@ -242,7 +272,22 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
     recordsTo={h?.bill_date ? recordMonth(h.bill_date) : ""} rows={venueRows(st)}
     canUndo={st.canUndo} undoing={st.undoing} onUndo={() => void undo()}
     onSee={() => navigate(st.billId ? `/expenses?bill=${st.billId}` : "/expenses/bills")}
-    onOpenFull={() => navigate("/expenses/bills")} />;
+    onOpenFull={() => navigate("/expenses/bills")}
+    review={st.phase === "review" && h ? {
+      number: h.bill_number || "", date: h.bill_date || "", due: h.due_date || "", terms: String((h as { payment_terms?: string }).payment_terms ?? ""),
+      venue: st.split ? "Split" : h.venue || "", venues: st.split ? ["Split"] : st.venues.map(v => v.name), total: Number(h.total_amount || 0),
+      newVendor: !!st.newVendor, saving: !!st.saving,
+      lines: st.allocs.map(a => ({ line_no: a.line_no, description: a.notes || a.expense_category || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null })),
+      accounts: st.accounts.filter(a => ["opex", "other_expense", "cogs"].includes(String(a.account_type))).map(a => ({ id: a.id, code: a.code, name: a.name, group: plGroup(String(a.account_type)) })),
+      onField: (k, v) => {
+        const cur = stRef.current.header; if (!cur) return;
+        const venue = k === "venue" ? st.venues.find(x => x.name === v) : null;
+        patch({ header: k === "number" ? { ...cur, bill_number: v } : k === "date" ? { ...cur, bill_date: v } : k === "due" ? { ...cur, due_date: v || null } : { ...cur, venue: v, venue_id: venue?.id ?? null } });
+      },
+      onAccount: (line, account) => patch({ allocs: stRef.current.allocs.map(a => a.line_no === line ? { ...a, account_id: account || null } : a) }),
+      onBook: () => void book(stRef.current, []),
+      onHold: () => void hold(),
+    } : undefined} />;
 }
 
 /** Cash-box slips: shared read and pending insert with Petty Cash › Import. A manager approves it later. */

@@ -53,6 +53,23 @@ describe("Bani chat expenses", () => {
     expect(booked.onUndo).toHaveBeenCalledTimes(1);
   });
 
+  it("lays the bill out before booking: Book waits for an expense type, and shows where it lands in the P&L", () => {
+    const onBook = vi.fn(), onAccount = vi.fn();
+    const review = { number: "20261518", date: "2026-11-27", due: "2026-11-27", venue: "ARKA", venues: ["ARKA"], terms: "Cash", total: 300, newVendor: true, saving: false,
+      lines: [{ line_no: 1, description: "Pest control", amount: 300, account_id: null as string | null }],
+      accounts: [{ id: "c", code: "6310", name: "Cleaning & Waste Disposal", group: "Running costs" }],
+      onField: vi.fn(), onAccount, onBook, onHold: vi.fn() };
+    const { rerender } = render(<ChatBillCard {...booked} phase="review" vendor="Masterly" review={review} />);
+    expect(screen.getByText("● New vendor, added when you book")).toBeTruthy();
+    expect((screen.getByText(/^Book HK/) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Expense type for Pest control"), { target: { value: "c" } });
+    expect(onAccount).toHaveBeenCalledWith(1, "c");
+    rerender(<ChatBillCard {...booked} phase="review" vendor="Masterly" review={{ ...review, lines: [{ ...review.lines[0], account_id: "c" }] }} />);
+    expect(screen.getByText(/6310 Cleaning & Waste Disposal/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/^Book HK/));
+    expect(onBook).toHaveBeenCalledTimes(1);
+  });
+
   it("hides Undo when the bill can't be undone", () => {
     render(<ChatBillCard {...booked} canUndo={false} />);
     expect(screen.queryByText("Undo")).toBeNull();
