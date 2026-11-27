@@ -19,7 +19,7 @@ export const settingsDestinations = [
   {id:'opening',group:'Accounting',label:'Opening balances',description:'Starting supplier balances, credits and deposits',query:'tab=accounting&view=opening'},
   {id:'purchasing',group:'Operations',label:'How you buy',description:'How you buy and share central costs',query:'tab=business&section=purchasing'},
   {id:'stock',group:'Operations',label:'Stock counts',description:'Blind counts or show the last approved count',query:'tab=business&section=stock'},
-  {id:'suppliers',group:'Master data',label:'Suppliers',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
+  {id:'suppliers',group:'Master data',label:'Suppliers & vendors',description:'Directory, profiles and archived suppliers',query:'tab=master-data'},
   {id:'products',group:'Master data',label:'Products',description:'Product records and supplier links',query:'tab=master-data&md=products'},
   {id:'categories',group:'Master data',label:'Categories',description:'Bani\'s master list plus your own',query:'tab=master-data&md=categories'},
   {id:'bani',group:'Bani',label:'What Bani learned',description:'Find, inspect and forget what your team taught Bani',query:'tab=bani'},
