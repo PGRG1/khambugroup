@@ -8619,6 +8619,70 @@ export type Database = {
           },
         ]
       }
+      invoice_delivery_photos: {
+        Row: {
+          bucket: string
+          id: string
+          invoice_id: string
+          mime_type: string
+          original_name: string
+          path: string
+          size_bytes: number
+          taken_at: string
+          taken_by: string | null
+          taken_by_name: string | null
+          tenant_id: string
+        }
+        Insert: {
+          bucket?: string
+          id?: string
+          invoice_id: string
+          mime_type?: string
+          original_name: string
+          path: string
+          size_bytes?: number
+          taken_at?: string
+          taken_by?: string | null
+          taken_by_name?: string | null
+          tenant_id: string
+        }
+        Update: {
+          bucket?: string
+          id?: string
+          invoice_id?: string
+          mime_type?: string
+          original_name?: string
+          path?: string
+          size_bytes?: number
+          taken_at?: string
+          taken_by?: string | null
+          taken_by_name?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_delivery_photos_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_delivery_photos_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_missing_attachment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_delivery_photos_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           accepted_price: number | null
