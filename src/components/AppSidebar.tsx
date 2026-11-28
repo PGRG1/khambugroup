@@ -1,3 +1,4 @@
+import { useCanEditAccountRules } from "@/hooks/useCanEditAccountRules";
 import { mergedInto, resolveSettingsDestination, settingsDestinations, settingsGroups, settingsHref, visibleSettingsDestinations } from "@/utils/settingsNavigation";
 import { useSettingsSummary } from "@/hooks/useSettingsSummary";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
@@ -451,6 +452,7 @@ export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const { isPlatformAdmin } = usePlatformAdmin();
+  const booksApprover = useCanEditAccountRules();
   const { activeTenantId, isInsideClient, exitToPlatform } = useTenantSession();
   const [clientName, setClientName] = useState("");
   const expenseNav = visibleExpenseTabs(useExpenseClaimsExist());
@@ -503,7 +505,7 @@ export function AppSidebar() {
   ].filter((c) => (c.admin ? settingsAdmin : settingsAdmin || canAccessPage("invoices")));
   const showSubPages = !isMobile;
   // Settings pages for the collapsed rail's Settings pop-up (the expanded menu lists them under Settings).
-  const settingsPages = visibleSettingsDestinations(settingsAdmin, canAccessPage("invoices"), isPlatformAdmin);
+  const settingsPages = visibleSettingsDestinations(settingsAdmin, canAccessPage("invoices"), isPlatformAdmin || booksApprover);
   const settingsPageHere = settingsHere === "overview" ? settingsPages[0]?.id : settingsHere === "denied" ? undefined : mergedInto[settingsHere] ?? settingsHere;
 
   const setGroup = (key: GroupKey, open: boolean) => {
@@ -744,7 +746,7 @@ export function AppSidebar() {
 
         {showFinance && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Finance",url:"/finance",icon:Scale}} />{showSubPages && (pathname === "/finance" || pathname.startsWith("/finance/")) && financeTabs.map(t=><FlagChildLink key={t.path} title={t.label} to={t.path} active={t.path===pathname}/>)}</SidebarMenu></SidebarGroup>}
 
-        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{showSubPages && pathname === "/settings" && <SettingsSubNav admin={settingsAdmin} invoices={canAccessPage("invoices")} bani={isPlatformAdmin} />}</SidebarMenu></SidebarGroup>}
+        {(showAdmin || purchasingAccess.canOpen(SUPPLIER_DIRECTORY_TAB)) && <SidebarGroup className="py-0 px-2"><SidebarMenu><TopLink item={{title:"Settings",url:showAdmin?"/settings":"/settings?tab=master-data",icon:Settings}} />{showSubPages && pathname === "/settings" && <SettingsSubNav admin={settingsAdmin} invoices={canAccessPage("invoices")} bani={isPlatformAdmin || booksApprover} />}</SidebarMenu></SidebarGroup>}
 
 
       </SidebarContent>

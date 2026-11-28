@@ -34,8 +34,9 @@ export function settingsHref(id:SettingsDestination){return `/settings?${setting
 /** Small settings shown inside a bigger page; their old links open that page. */
 export const mergedInto: Partial<Record<SettingsDestination,SettingsDestination>> = {team:'users',mappings:'accounts',opening:'books'};
 /** Set up by Bani once (control plane): only shown in a client's Settings to Bani platform admins. */
+// Books setup: shown to books approvers only (Bani, business admin, Approve on Finance), like an ERP's conversion balances.
 export const baniOnly: Partial<Record<SettingsDestination,true>> = {books:true};
-export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,bani=false){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(bani||!baniOnly[d.id])&&(admin||(invoiceAccess&&d.group==='Master data')));}
+export function visibleSettingsDestinations(admin:boolean,invoiceAccess:boolean,booksApprover=false){return settingsDestinations.filter(d=>!movedToAccounting[d.id]&&!mergedInto[d.id]&&(booksApprover||!baniOnly[d.id])&&(admin||(invoiceAccess&&d.group==='Master data')));}
 export function resolveSettingsDestination(params:URLSearchParams):SettingsDestination|'overview'|'denied'{
  const tab=params.get('tab');const section=params.get('section');const view=params.get('view');
  if(!tab)return 'overview';

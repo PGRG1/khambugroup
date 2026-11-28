@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useActiveTenant } from '@/hooks/useActiveTenant';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useCanEditAccountRules } from '@/hooks/useCanEditAccountRules';
 import { SettingsCard } from '@/components/settings/SettingsForm';
 import { SETUP_STEPS, loadClientSetup, setupSummary, type SetupState } from '@/utils/clientSetup';
 
@@ -13,6 +14,7 @@ const SUPPLIER_HINT = 'Add suppliers and products in Lists, or scan invoices in 
 export function ClientSetup() {
   const { tenantId } = useActiveTenant();
   const { isPlatformAdmin: bani } = usePlatformAdmin();
+  const booksApprover = useCanEditAccountRules();
   const [state, setState] = useState<SetupState | null>(null);
   useEffect(() => { if (tenantId) void loadClientSetup(tenantId).then(setState); }, [tenantId]);
   const s = state ? setupSummary(state) : null;
@@ -24,7 +26,7 @@ export function ClientSetup() {
         <td className="sales-cell-left font-medium whitespace-nowrap">{i + 1}. {st.label}</td>
         <td className="sales-cell-left whitespace-nowrap" title={st.key === 'suppliers' || st.key === 'products' ? SUPPLIER_HINT : undefined}>{st.what}</td>
         <td className={`sales-cell-left whitespace-nowrap ${state[st.key] ? 'text-success' : 'text-[#B45309]'}`}>{state[st.key] ? '✓ Done' : 'To do'}</td>
-        <td className="sales-cell-left whitespace-nowrap">{st.key === 'books' && !bani ? <span className="text-muted-foreground">By Bani</span> : <Link className="kit-link text-[13px]" to={st.href}>Open</Link>}</td>
+        <td className="sales-cell-left whitespace-nowrap">{st.key === 'books' && !bani && !booksApprover ? <span className="text-muted-foreground">By Bani</span> : <Link className="kit-link text-[13px]" to={st.href}>Open</Link>}</td>
       </tr>)}</tbody></table></div>}
   </SettingsCard>;
 }

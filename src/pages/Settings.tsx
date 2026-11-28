@@ -22,6 +22,7 @@ import {FinanceTaxView} from '@/components/finance/FinanceTaxView';
 import {CurrenciesView} from '@/components/finance/CurrenciesView';
 import {FinanceSchedulesView} from '@/components/finance/FinanceSchedulesView';
 import {AssetsPage} from '@/components/settings/AssetsPage';
+import {useCanEditAccountRules} from '@/hooks/useCanEditAccountRules';
 import {mergedInto,movedToAccounting,resolveSettingsDestination,settingsGroups,settingsHref,visibleSettingsDestinations} from '@/utils/settingsNavigation';
 import AuditLog from '@/pages/AuditLog';
 import AccessDenied from '@/pages/AccessDenied';
@@ -35,8 +36,8 @@ export default function Settings(){
  const permissions=useUserPermissions(isPreviewActive?previewUserId??undefined:user?.id);const admin=isAdmin&&!isPreviewActive;
  const {tenantId}=useActiveTenant();
  useEffect(()=>{document.body.dataset.settings='1';return()=>{delete document.body.dataset.settings;};},[]);
- const {isPlatformAdmin:bani}=usePlatformAdmin();
- const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'),bani);
+ const {isPlatformAdmin:bani}=usePlatformAdmin();const booksApprover=useCanEditAccountRules();
+ const destinations=visibleSettingsDestinations(admin,permissions.canAccessPage('invoices'),bani||booksApprover);
  const resolved=resolveSettingsDestination(params);const current=resolved!=='overview'&&resolved!=='denied'?mergedInto[resolved]??resolved:resolved;const picked=destinations.find(d=>d.id===current);
  const facts=useSettingsSummary(admin);
  const moved=current!=='overview'&&current!=='denied'?movedToAccounting[current]:undefined;
