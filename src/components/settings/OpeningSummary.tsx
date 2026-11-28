@@ -4,14 +4,16 @@ import { useActiveTenant } from '@/hooks/useActiveTenant';
 import { shortMoney } from '@/utils/revenueOverview';
 import OpeningBalances from '@/pages/procurement/OpeningBalances';
 import { Row, SettingsCard } from './SettingsForm';
+import { OpeningTrialBalance } from './OpeningTrialBalance';
 
 type Sum = { n: number; total: number };
 const line = (s?: Sum) => !s ? '' : s.n ? `${shortMoney(s.total)} · ${s.n} ${s.n === 1 ? 'entry' : 'entries'}` : '';
-// Settings › Books setup: opening balances read first (three lines); Edit opens the existing opening balances editor.
+// Settings › Books setup: the opening trial balance (posts to the books), then the supplier detail behind
+// Payables and Supplier Deposits (three lines; Edit opens the existing supplier openings editor).
 export function OpeningSummary() {
   const { tenantId } = useActiveTenant();
   const [sums, setSums] = useState<{ owed?: Sum; credits?: Sum; deposits?: Sum }>({});
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(false), [version, setVersion] = useState(0);
   useEffect(() => {
     let on = true;
     if (!tenantId || editing) return;
@@ -26,13 +28,13 @@ export function OpeningSummary() {
     });
     return () => { on = false; };
   }, [tenantId, editing]);
-  if (editing) return <SettingsCard title="Opening balances" editing>
-    <button type="button" className="mb-2 text-[13px] font-medium text-[#1F6B5E]" onClick={() => setEditing(false)}>Done</button>
+  if (editing) return <SettingsCard title="Supplier detail" editing>
+    <button type="button" className="mb-2 text-[13px] font-medium text-[#1F6B5E]" onClick={() => { setEditing(false); setVersion(v => v + 1); }}>Done</button>
     <OpeningBalances embedded />
   </SettingsCard>;
-  return <SettingsCard title="Opening balances" onEdit={() => setEditing(true)}>
+  return <><OpeningTrialBalance detailVersion={version} /><SettingsCard title="Supplier detail" onEdit={() => setEditing(true)}>
     <Row label="Owed to suppliers" value={line(sums.owed)} missing="None yet" />
     <Row label="Supplier credits" value={line(sums.credits)} missing="None yet" />
     <Row label="Deposits paid" value={line(sums.deposits)} missing="None yet" />
-  </SettingsCard>;
+  </SettingsCard></>;
 }
