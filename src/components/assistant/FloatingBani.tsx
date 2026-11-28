@@ -504,11 +504,11 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
     const history = recentBaniTurns([...earlier.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
     const sentNames = attached.map(f => f.name);
     if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: sentNames }]);
+    else if (fresh) setMessages([]);
     // Keep the files (private to this person and client) so they still open after a reload or from Your chats.
     if (attached.length && !turn?.hidden && tenantId && user) void keepChatFiles(tenantId, user.id, attached.map(a => a.file)).then(refs => {
       if (Object.keys(refs).length) setMessages(prev => prev.map(m => m.files === sentNames ? { ...m, fileRefs: refs } : m));
     });
-    else if (fresh) setMessages([]);
     if (attached.length) {
       setLastFiles(attached);
       // Keep the last 20 sent files (this browser tab only) so their chips can be opened.

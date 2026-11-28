@@ -1,3 +1,7 @@
+## Project monitoring — Home chat and Team working
+- [x] Verify Team working removal against the current rule: intentionally unavailable; leave Settings unchanged.
+- [x] Restore the Home question message independently of attachment storage; 27 focused tests pass and preview build OK. Signed-in browser redirected to the control plane and did not reach the Home composer; live question/answer and saved-chat readback remain unverified. No record writes or deployment.
+
 ## Settings information architecture — current request
 - [ ] Build grouped Settings overview/navigation and preserve legacy links and access gates.
 - [ ] Split Business/Operations, focused venue subsections, People approval policy and inline Finance destinations; retain all existing save handlers.
