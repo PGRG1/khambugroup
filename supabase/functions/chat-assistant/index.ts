@@ -7,6 +7,7 @@ import { monthEndTool, monthEndChecklist } from './monthEnd.ts';
 import { planAnalysisTool, analyzeRevenueGoal } from './planAnalysis.ts';
 import { homeNeeds } from './homeNeeds.ts';
 import { menuMarginsTool, menuMargins } from './menuMargins.ts';
+import { findOrderItemsTool, findOrderItems, showOrderListsTool, showOrderLists } from './orderLists.ts';
 import { buildPriceHistory } from "./priceHistory.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuth, resolveTenant } from "../_shared/auth.ts";
@@ -1718,7 +1719,7 @@ Deno.serve(async (req) => {
         // One model layer: GPT-6 Astra with reasoning, Gemini backup (see _shared/baniBrain.ts).
         const reply = await askBani(LOVABLE_API_KEY, {
           messages: conversation,
-          tools: forceFinal ? undefined : body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, rotaPlanningTool, openScannerTool, openSalesScannerTool, openExpenseScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, rotaPlanningTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool],
+          tools: forceFinal ? undefined : body.floating === true ? [...tools, proposeActionTool, peopleTool, peopleContextTool, rotaPlanningTool, openScannerTool, openSalesScannerTool, openExpenseScannerTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool, findOrderItemsTool, showOrderListsTool] : [...tools, proposeActionTool, peopleTool, peopleContextTool, rotaPlanningTool, openItemsTool, repliesTool, memoryTool, navigationTool, recordsTool, monthEndTool, planAnalysisTool, menuMarginsTool],
           signal: req.signal,
         });
         if (!reply.ok) {
@@ -1784,6 +1785,10 @@ Deno.serve(async (req) => {
                     ? await proposeAction(args, tenantId, user?.id??"", req.headers.get("Authorization")??"")
                     : tc.function.name === "get_open_items"
                       ? await getOpenItems(tenantId, typeof body.active_venue === "string" && body.active_venue.trim() && body.active_venue.trim().toLowerCase() !== "all venues" ? body.active_venue.trim() : null, peopleClient)
+                    : tc.function.name === 'find_order_items'
+                      ? await findOrderItems(args, admin, tenantId)
+                    : tc.function.name === 'show_order_lists'
+                      ? await showOrderLists(args, admin, tenantId)
                     : tc.function.name === 'get_menu_margins'
                       ? await menuMargins(args, admin, tenantId)
                     : tc.function.name === 'analyze_revenue_goal'
@@ -1811,6 +1816,7 @@ Deno.serve(async (req) => {
                     : await runTool(tc.function.name, args, tenantId);
                 if(tc.function.name==='notification_preferences'&&args.operation==='list'&&Array.isArray(result?.preferences))emit({action:{type:'notification_preferences',preferences:result.preferences}});
                 if(tc.function.name==='notification_preferences'&&result?.message){writeCompleted=true;emit({action:{type:'preferences_changed'}});}
+                if (tc.function.name === 'show_order_lists' && result?.ok && Array.isArray(result.lists)) { cardEmitted = true; emit({ action: { type: 'order_lists', lists: result.lists } }); }
                 if (tc.function.name === 'navigate_to' && result?.ok) { screenOpened = true; emit({action:{type:'navigate',navigation:result.navigation}}); }
                 if (tc.function.name === "propose_action" && result?.ok) { cardEmitted = true; emit({ action: { type: "action_card", action_id: result.action_id, kind: args.kind, title: String(result.title ?? args.title ?? "").slice(0, 200), detail: typeof result.detail === "string" ? result.detail : typeof args.detail === "string" ? args.detail.slice(0, 500) : null, challenge: result.challenge, amount: result.amount, currency: result.currency } }); }
                 if (tc.function.name === "suggest_replies" && Array.isArray(result?.shown) && result.shown.length) { repliesEmitted = true; emit({ action: { type: "replies", options: result.shown.map((o: string) => o.trim().slice(0, 48)) } }); }

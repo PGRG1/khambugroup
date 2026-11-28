@@ -59,6 +59,10 @@ export function toolStepLabel(name: string, args: any = {}): StepStatus {
       const B = formatRange(a.period_b_from, a.period_b_to, true);
       return { label: A && B ? `Comparing ${A} with ${B}` : "Comparing two periods", kind: "sales" };
     }
+    case "find_order_items":
+      return { label: "Finding the items, suppliers and prices", kind: "stock" };
+    case "show_order_lists":
+      return { label: "Putting the order together", kind: "stock" };
     case "get_menu_costing":
       return { label: "Checking menu costs against target", kind: "menu" };
     case "get_inventory_status":

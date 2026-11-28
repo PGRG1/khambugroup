@@ -1,3 +1,4 @@
+import type { ChatOrderList } from "@/components/assistant/ChatOrderLists";
 import type { ChartSpec } from "./AssistantChart";
 import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { DraftProposal } from "@/utils/floatingDraft";
@@ -16,7 +17,7 @@ import type { SalesHandoff, ScannerHandoff } from "@/utils/scannerHandoff";
 export type ExpenseHandoff = { id: string; file: File; scope: string; kind: "bill" | "cash" };
 export type CashUploadHandoff = { id: string; files: File[]; scope: string; kind: "statement" | "payout" };
 export type OpeningImportHandoff = { id: string; file: File; scope: string; kind: "trial_balance" | "assets" };
-export type BaniMessage = { role: "user" | "assistant"; content: string; replies?: string[]; assignmentNoticeId?: string; teamMessageId?: string; eventId?:string; preferenceId?:string; files?: string[]; fileRefs?: Record<string, string>; proposal?: DraftProposal; outcome?: string; actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string }; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; charts?: ChartSpec[]; hidden?: boolean; invoiceScan?: ScannerHandoff; label?: string; status?: string; salesScan?: SalesHandoff; expenseScan?: ExpenseHandoff; cashUpload?: CashUploadHandoff; openingImport?: OpeningImportHandoff };
+export type BaniMessage = { role: "user" | "assistant"; content: string; replies?: string[]; assignmentNoticeId?: string; teamMessageId?: string; eventId?:string; preferenceId?:string; files?: string[]; fileRefs?: Record<string, string>; proposal?: DraftProposal; outcome?: string; actionOutcome?: { message: string; link?: string; undo_available?: boolean; instruction?: string }; before?: string; target?: string; salesChanges?: SalesChange[]; salesBase?: SalesRecord; actionCard?: BaniActionCard; charts?: ChartSpec[]; hidden?: boolean; invoiceScan?: ScannerHandoff; label?: string; status?: string; salesScan?: SalesHandoff; expenseScan?: ExpenseHandoff; cashUpload?: CashUploadHandoff; openingImport?: OpeningImportHandoff; orderLists?: ChatOrderList[] };
 export type PageContext = { path: string; detail: string; person?: { id: string; name: string }; facts?: string; retainFiles?: (files: File[]) => Promise<void> } | null;
 
 type S<T> = [T, Dispatch<SetStateAction<T>>];

@@ -30,6 +30,7 @@ import { ChatSalesScan } from "@/components/assistant/ChatSalesScan";
 import { ChatExpenseScan, activeBillReply } from "@/components/assistant/ChatExpenseScan";
 import { ChatCashUpload } from "@/components/assistant/ChatCashUpload";
 import { ChatOpeningImport } from "@/components/assistant/ChatOpeningImport";
+import { ChatOrderLists, orderListsContext, type ChatOrderList } from "@/components/assistant/ChatOrderLists";
 import { clearSalesHandoff, clearScannerHandoff, requestSalesHandoff, requestScannerHandoff } from "@/utils/scannerHandoff";
 import { applySalesChanges, sanitizeSalesChanges } from "@/utils/salesReceiptCorrections";
 import { fmtHK } from "@/components/expenses/shared";
@@ -501,7 +502,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       ({ role, content: names?.length ? `${content}\n[Attached files: ${names.join(", ")}]` : content });
     const personContext = page?.path === pathname && page.person ? `\n[Untrusted page context: employee ${page.person.name}, id ${page.person.id}. Validate this person and permissions server-side. ${page.facts ?? ''}]` : '';
     const staleNote = pending.data?.feed_health?.filter(f=>f.state==='broken').map(f=>`${f.name} data stops on ${f.complete_up_to??'its last successful date'}`).join('; ');
-    const history = recentBaniTurns([...earlier.map(m => withNames(m.role, m.outcome ? `${m.content}\n[Actual action outcome: ${m.outcome}]` : m.content, m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
+    const history = recentBaniTurns([...earlier.map(m => withNames(m.role, [m.content, m.outcome ? `[Actual action outcome: ${m.outcome}]` : "", m.orderLists?.length ? orderListsContext(m.orderLists) : ""].filter(Boolean).join("\n"), m.files)), withNames("user" as const, text + personContext + (staleNote ? `\n[Data freshness: ${staleNote}. If the answer uses these data, add one clause saying so.]` : "") + (activeItem && !fresh ? `\n[Current work: ${activeItem.title}. ${activeItem.why}. Existing page: ${activeItem.action_path}. Work is housekeeping, never a payment instruction. Do not claim a write without a confirmed existing action.]` : ""), attached.map(f => f.name))]);
     const sentNames = attached.map(f => f.name);
     if (!turn?.hidden) setMessages(prev => [...(fresh ? [] : prev), { role: "user", content: typed, files: sentNames }]);
     else if (fresh) setMessages([]);
@@ -569,6 +570,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       let navigation: unknown = null;
       let replies: string[] = [];
       const charts: ChartSpec[] = [];
+      let orderLists: ChatOrderList[] | null = null;
       while (true) {
         const chunk = await reader.read(); if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
@@ -586,6 +588,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
           if(event.action?.type==='preferences_changed'){queryClient.invalidateQueries({queryKey:['smart-alerts']});queryClient.invalidateQueries({queryKey:['bani-pending']});}
           if(event.action?.type==='notification_preferences'&&Array.isArray(event.action.preferences))setMessages(prev=>[...prev,...event.action.preferences.filter((p:unknown):p is {id:string;reason:string}=>typeof p==='object'&&p!==null&&'id' in p&&typeof p.id==='string'&&'reason' in p&&typeof p.reason==='string').map((p:{id:string;reason:string})=>({role:'assistant' as const,content:p.reason,preferenceId:p.id}))]);
           if(event.action?.type === "navigate") navigation = event.action.navigation;
+          if (event.action?.type === "order_lists" && Array.isArray(event.action.lists)) orderLists = event.action.lists as ChatOrderList[];
           if (event.action?.type === "action_card" && typeof event.action.action_id === "string") { actionCard = { id: event.action.action_id, kind: event.action.kind, title: String(event.action.title ?? ""), detail: typeof event.action.detail === "string" ? event.action.detail : null, challenge: typeof event.action.challenge === "string" ? event.action.challenge : undefined, amount: typeof event.action.amount === "number" ? event.action.amount : undefined, currency: typeof event.action.currency === "string" ? event.action.currency : undefined }; actionCards.push(actionCard); }
           if (event.action?.type === "replies" && Array.isArray(event.action.options)) replies = event.action.options.filter((o: unknown): o is string => typeof o === "string" && !!o.trim()).slice(0, 4);
           if (event.action?.type === "open_cash_upload" && (event.action.kind === "statement" || event.action.kind === "payout")) cashAction = { kind: event.action.kind, files: Array.isArray(event.action.files) ? event.action.files.filter((n: unknown) => typeof n === "string") : [] };
@@ -598,7 +601,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
       if (!controller.signal.aborted && liveIdentity.current === requestIdentity) {
         if (!content.trim()) throw new Error("No answer received. Please try again.");
         revoke(attached);
-        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}), ...(charts.length ? { charts } : {}) }]);
+        setMessages(prev => [...prev, { role: "assistant", content, proposal, before: proposal ? review?.before(proposal) : undefined, target: review ? review.label : undefined, ...(actionCard ? { actionCard } : {}), ...(replies.length ? { replies } : {}), ...(charts.length ? { charts } : {}), ...(orderLists ? { orderLists } : {}) }]);
         if(actionCards.length>1) setMessages(prev => [...prev.slice(0,-1), ...actionCards.map((card,i) => ({role: "assistant" as const, content: i===0?content:"", actionCard:card, ...(i===actionCards.length-1&&replies.length?{replies}:{})}))]);
         const path=navigationPath(navigation);
         if(path) {const screen=(navigation as {screen:keyof typeof SCREENS}).screen;if(!isPreviewActive&&canAccessPage(SCREENS[screen].page)){keepOpenNav.current=true;navigate(path);}else setError("That screen is not available in this view.");}
@@ -736,6 +739,7 @@ export function FloatingBani({ review, openSignal = 0, hosted = false }: { revie
                 ? <ChatExpenseScan handoff={message.expenseScan} onDone={text => setMessages(prev => prev.map((m, i) => i === index ? { ...m, outcome: text } : m))} />
                 : <p className="text-xs text-muted-foreground">Attach the file again to file it.</p>)}
             {message.charts?.map((c, ci) => <div key={ci} className="mt-2"><AssistantChart spec={c} /></div>)}
+            {message.orderLists?.length ? <ChatOrderLists lists={message.orderLists} onSaved={(li, po) => setMessages(prev => prev.map((m, i) => i === index && m.orderLists ? { ...m, orderLists: m.orderLists.map((l, j) => j === li ? { ...l, saved_po: po } : l) } : m))} /> : null}
             {!!message.files?.length && <div className="floating-bani-sent-files">{message.files.map(name => sentFiles[name]?.type.startsWith("image/")
               ? <SentPhoto key={name} file={sentFiles[name]} onOpen={() => setViewing(sentFiles[name])} />
               : sentFiles[name]
