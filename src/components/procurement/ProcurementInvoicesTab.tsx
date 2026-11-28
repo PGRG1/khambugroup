@@ -34,6 +34,7 @@ import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { DeliveryPhotos } from "@/components/invoices/DeliveryPhotos";
+import { RecordHistory } from "@/components/kit/RecordHistory";
 import { InvoicePages } from "@/components/invoices/InvoicePages";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
@@ -1906,6 +1907,7 @@ export default function ProcurementInvoicesTab({ renderRegister }: { renderRegis
                 <ul className="min-[641px]:hidden divide-y divide-border text-[13px]" aria-label="Invoice items">{rows.map(({line,invQty,recvQty,variance}) => <li key={line.id} className="py-3 flex justify-between gap-3"><div className="min-w-0"><p className="break-words">{line.description}</p><InvoiceAssetProposal invoice={inv} line={line}/><p className="td-num text-xs text-muted-foreground mt-1">{formatDecimal(invQty)} {line.unit} × {line.product_master_id ? <button type="button" aria-label={`Price history for ${line.description}`} className="underline decoration-dotted underline-offset-4" onClick={() => setPriceHistoryLine(line)}>{formatTableCurrency(line.unit_price)}</button> : formatTableCurrency(line.unit_price)}</p>{variance != null && Math.abs(variance) > 0.001 && <p className="text-xs text-warning mt-1">Invoiced {formatDecimal(invQty)} · Received {formatDecimal(recvQty ?? 0)}</p>}</div><span className="td-num shrink-0">{formatTableCurrency(invQty * line.unit_price)}</span></li>)}</ul>
                 {inv.notes && <p className="text-[13px] whitespace-pre-wrap"><span className="kit-group-h">Notes</span><br />{inv.notes}</p>}
                 <DeliveryPhotos tenantId={tenantId} invoiceId={inv.id} />
+                <RecordHistory kind="invoice" id={inv.id} refreshKey={`${rs}:${inv.payment_status}`} />
                 {!hasPages && <InvoiceAttachmentPreview invoice={inv} onView={openPages} onAttach={() => setAttachTarget(inv)} />}
               </BaniScanSummary>
             </div>;

@@ -199,11 +199,7 @@ export function useSalesData(cached = false) {
     if (!error) {
       if (inserted?.id) void captureSavedSalesScan(record, inserted.id, tenantId,
         async (body) => { await supabase.functions.invoke("parse-receipt", { body }); });
-      await logAuditEvent({
-        action: "insert",
-        entityType: "sales_record",
-        entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
-      }).catch(() => undefined);
+      // History (add / edit / delete) is written by the database trigger sales_record_history.
       await fetchData().catch(() => undefined);
       try {
         const { error: journalError } = await supabase.rpc("rebuild_journal_from_operations", { p_tenant_id: tenantId });
@@ -223,12 +219,7 @@ export function useSalesData(cached = false) {
       .eq("id", oldRecord.id);
 
     if (!error) {
-      await logAuditEvent({
-        action: "update",
-        entityType: "sales_record",
-        entityId: oldRecord.id,
-        details: { old: oldRecord, new: newRecord },
-      });
+      // History (add / edit / delete) is written by the database trigger sales_record_history.
       await fetchData();
       rebuildJournalSilently();
     }
@@ -245,11 +236,7 @@ export function useSalesData(cached = false) {
       .eq("id", record.id);
 
     if (!error) {
-      await logAuditEvent({
-        action: "delete",
-        entityType: "sales_record",
-        entityId: record.id,
-      });
+      // History (add / edit / delete) is written by the database trigger sales_record_history.
       await fetchData();
       rebuildJournalSilently();
     }

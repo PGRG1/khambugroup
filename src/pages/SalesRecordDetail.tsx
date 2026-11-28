@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { RecordHistory } from "@/components/kit/RecordHistory";
 import { toast } from "sonner";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
@@ -311,6 +312,7 @@ const SalesRecordDetail = () => {
             </span>
           </div>
         )}
+        <RecordHistory kind="sales" id={record.id} refreshKey={editing} />
       </Card>
 
       <DeleteConfirmDialog
