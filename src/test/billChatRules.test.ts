@@ -26,6 +26,7 @@ describe("when Bani asks", () => {
   });
   it("no venue means asking", () => {
     expect(billMayBeShared({ vendor: "Ace Cleaning", categories: ["Cleaning"], venueKnown: false })).toBe(true);
+    expect(billMayBeShared({ vendor: "Peel Street Properties", categories: ["Rent"], venueKnown: true, venueCount: 1 })).toBe(false);
   });
   it("a single kitchen equipment line is asked about", () => {
     expect(looksLikeEquipment([{ category: "Kitchen Equipment" }])).toBe(true);

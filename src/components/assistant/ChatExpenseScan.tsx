@@ -308,11 +308,13 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
           const acct = (last as { account_id: string }[] | null)?.[0]?.account_id;
           if (acct) d.allocations.forEach(a => { if (!a.account_id) a.account_id = acct; });
         }
+        // A business with one venue: the bill is that venue's, so there's no venue to pick or share.
+        if (!header.venue_id && l.venues.length === 1) header = { ...header, venue: l.venues[0].name, venue_id: l.venues[0].id };
         const meter = l.meters.find(m => m.id === header.supplier_account_id);
         const todo: BillState["todo"] = [];
         // An unknown venue is just picked in the card; only a bill that looks shared (head office address,
         // shared service) also asks in chat who pays how much.
-        const shared = billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0 });
+        const shared = billMayBeShared({ vendor: header.vendor_name || "", categories: d.allocations.map(a => a.expense_category || ""), address: scan.service_address ?? null, venueKnown: true, meterCovers: meter?.covers?.length ?? 0, venueCount: l.venues.length });
         let asset: BillState["asset"];
         if (looksLikeEquipment(d.allocations.map(a => ({ category: a.expense_category || "", notes: a.notes, accountName: accounts.find(x => x.id === a.account_id)?.name })))) {
           // The client's asset policy: over its threshold it's an asset of the matching class; under it, a normal cost.
@@ -338,7 +340,7 @@ function BillHost({ handoff, onDone: _onDone }: Props) {
   if (st.phase === "setup" && st.setup && h) {
     const su = st.setup;
     return <ChatBillSetup steps={su.steps} at={su.at} done={su.done} busy={!!su.busy} error={su.error}
-      vendorName={st.newVendor || h.vendor_name || ""} total={Number(h.total_amount || 0)} currency={h.currency || getBaseCurrency()}
+      vendorName={st.newVendor || h.vendor_name || ""} number={h.bill_number || ""} total={Number(h.total_amount || 0)} currency={h.currency || getBaseCurrency()}
       vendorStep={tenantId && <NewSupplierStep key={handoff.id} tenantId={tenantId} supplierName={st.newVendor || h.vendor_name || ""} type="expense" initial={su.vendor}
         onCreated={row => { const cur = stRef.current; advance({ ...cur, newVendor: undefined, header: { ...cur.header, supplier_id: row.id, vendor_name: row.name } }, `${row.name}${row.code ? ` (${row.code})` : ""} added`); }} />}
       lines={st.allocs.map(a => ({ line_no: a.line_no, description: [a.expense_category, a.notes].filter(Boolean).join(" · ") || h.vendor_name || "", amount: Number(a.amount || 0), account_id: a.account_id ?? null, suggested: su.suggested.includes(a.line_no) }))}

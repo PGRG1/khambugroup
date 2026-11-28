@@ -255,7 +255,7 @@ function BillReviewCard(p: BillProps & { r: BillReview }) {
 export type BillSetupStep = "vendor" | "type" | "venue";
 export type BillSetupProps = {
   steps: BillSetupStep[]; at: number; done: string[]; busy: boolean; error?: string;
-  vendorName: string; total: number; currency: string;
+  vendorName: string; total: number; currency: string; number?: string;
   /** The same "is new. Add it?" supplier step as a supplier invoice in chat. */
   vendorStep: ReactNode;
   /** Expense type step: each line with Bani's suggested account (picked already) and why. */
@@ -274,6 +274,7 @@ export function ChatBillSetup(p: BillSetupProps) {
   const head = <p className="text-[12px] text-muted-foreground">Step {p.at + 1} of {p.steps.length} · {step === "vendor" ? "Supplier" : step === "type" ? "Expense type" : "Venue"}</p>;
   return (
     <div className="space-y-2.5">
+      <p className="text-[14px]">Expense bill from <b className="font-medium">{p.vendorName || "a new vendor"}</b>{p.number ? ` · bill ${p.number}` : ""} · {formatMoney(p.total, p.currency)}.</p>
       {p.at === 0 && <p className="text-[14px]">Before I can book it, there {p.steps.length === 1 ? "is 1 thing" : `are ${p.steps.length} things`} to set up. I'll go one at a time.</p>}
       {p.done.length > 0 && <div className="space-y-1">{p.done.map(d => <p key={d} className="text-[13px] text-[#2F7A5E]">✓ {d}</p>)}</div>}
       {head}

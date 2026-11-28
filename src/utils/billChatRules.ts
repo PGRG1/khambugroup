@@ -38,7 +38,8 @@ const SHARED = /\b(rent|rental|landlord|management fee|building|floor|estate|pro
 const HEAD_OFFICE = /head office|headquarters|\bhq\b|corporate office/i;
 
 /** Could this bill be shared between venues? A printed venue never settles it on its own. */
-export function billMayBeShared(b: { vendor: string; categories: string[]; address?: string | null; venueKnown: boolean; meterCovers?: number }): boolean {
+export function billMayBeShared(b: { vendor: string; categories: string[]; address?: string | null; venueKnown: boolean; meterCovers?: number; venueCount?: number }): boolean {
+  if ((b.venueCount ?? 2) <= 1) return false; // one venue: it's that venue's bill
   if ((b.meterCovers ?? 0) > 0) return false; // the meter account already says who pays
   if (!b.venueKnown) return true;
   if (HEAD_OFFICE.test(b.address || "")) return true;
