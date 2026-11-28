@@ -27,6 +27,7 @@ import {proposeAlertAsk} from './alertAsks.ts';
 import {TARGET_KINDS,proposeTargetAction,confirmTargetAction} from './targetActions.ts';
 import {notificationPreferenceTool,notificationPreferences} from './notificationPreferences.ts';
 import { memoryTool, proposeWaste, confirmWaste, WASTE_REASONS } from "./wasteActions.ts";
+import { proposePayment, confirmPayment, PAYMENT_KIND_HELP } from "./paymentActions.ts";
 import { proposeSeats, confirmSeats } from "./seatActions.ts";
 import { loadTenantMemory, businessMemoryBlock, saveMemory } from "./contextMemory.ts";
 import { navigationTool, recordsTool, inspectRecords, navigateTo, proposeOperation } from './operations.ts';
@@ -499,12 +500,18 @@ const proposeActionTool = {
       type: "object",
       properties: {
         item: { type: "string", description: "log_waste: item name as the user said it." },
+        payee: { type: "string", description: "record_payment: supplier/vendor that was paid, or for repay the person being paid back." },
+        payment_method: { type: "string", enum: ["bank", "cash", "paid_by", "repay"], description: "record_payment: bank = from a business bank account, cash = business cash, paid_by = someone else paid the supplier for the business, repay = paying back someone who paid for the business." },
+        paid_by_kind: { type: "string", enum: ["staff", "director", "group_company", "other"], description: "record_payment paid_by: who paid." },
+        paid_by_name: { type: "string", description: "record_payment paid_by: their name." },
+        bank: { type: "string", description: "record_payment: bank account name if the user said one." },
+        reference: { type: "string", description: "record_payment: optional payment reference." },
         quantity: { type: "number", description: "log_waste: quantity wasted (> 0)." },
         uom: { type: "string", description: "log_waste: unit, e.g. kg, bottle, portion." },
         date: { type: "string", description: "log_waste: YYYY-MM-DD, default today." },
         record_id: { type: 'string', description: 'Exact existing record UUID returned by inspect_records, required for approve_bill or resolve_receipt_intake.' },
         resolution: { type: 'string', enum: ['already_recorded','not_needed'], description: 'Receipt review only: user must explicitly choose the resolution.' },
-        kind: { type: "string", enum: ["approve_bill", "resolve_receipt_intake", "log_waste", "mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification", "set_venue_seats"], description: `approve_bill = approve AND POST an existing ordinary unposted expense bill; requires exact typed user confirmation, no payment or instant Undo. Recurring/asset/split bills must use existing monthly review. resolve_receipt_intake = clear an existing review as already_recorded/not_needed, never posts sales; safe Undo for 10 minutes if unchanged. log_waste = record stock waste (venue, item, quantity, optional uom, reason one of ${WASTE_REASONS.join("/")} default Other, date); set_revenue_target = plan a monthly revenue goal split into a daily plan by usual weekday sales (month, amount, optional venues, optional avg_spend or guests); re-propose to adjust; set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = team message delivered in the app plus existing phone push (title, message, recipient_roles). Accept tenant job role names/keys or membership roles or everyone; if no recipients match, ask using the returned available roles. mark_closed_days = record venue closed days; set_venue_seats = change customer seats (venue, seats, optional date = effective from, default today); call it even without seats to get the current count first; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice.` },
+        kind: { type: "string", enum: ["approve_bill", "resolve_receipt_intake", "log_waste", "record_payment", "mark_closed_days", "open_sales_scanner", "open_invoice_scanner", "expense_meter_coverage", "create_alert_ask", "set_revenue_target", "set_purchasing_budget", "send_team_notification", "set_venue_seats"], description: `approve_bill = approve AND POST an existing ordinary unposted expense bill; requires exact typed user confirmation, no payment or instant Undo. Recurring/asset/split bills must use existing monthly review. resolve_receipt_intake = clear an existing review as already_recorded/not_needed, never posts sales; safe Undo for 10 minutes if unchanged. log_waste = record stock waste (venue, item, quantity, optional uom, reason one of ${WASTE_REASONS.join("/")} default Other, date); set_revenue_target = plan a monthly revenue goal split into a daily plan by usual weekday sales (month, amount, optional venues, optional avg_spend or guests); re-propose to adjust; set_purchasing_budget = monthly purchasing spend budget per category (month, budgets, optional venue); send_team_notification = team message delivered in the app plus existing phone push (title, message, recipient_roles). Accept tenant job role names/keys or membership roles or everyone; if no recipients match, ask using the returned available roles. mark_closed_days = record venue closed days; ${PAYMENT_KIND_HELP} set_venue_seats = change customer seats (venue, seats, optional date = effective from, default today); call it even without seats to get the current count first; open_sales_scanner = open Sales Data → Scan Receipt; open_invoice_scanner = open Procurement → Scan Invoice.` },
         title: { type: "string", description: "Short card title, e.g. 'Mark Caliente closed on 1–5 Oct'." },
         detail: { type: "string", description: "One line explaining exactly what Confirm will do." },
         venue: { type: "string", description: "Venue name exactly as stored (required for mark_closed_days)." },
@@ -544,6 +551,15 @@ async function proposeAction(args: any, tenantId: string, userId: string, authHe
   const title = typeof args.title === "string" ? args.title.trim().slice(0, 200) : "";
   const detail = typeof args.detail === "string" ? args.detail.trim().slice(0, 500) : null;
   if (kind === "set_venue_seats") return proposeSeats(args, admin, tenantId, userId);
+  if (kind === "record_payment") {
+    // Read as the requester (RLS), so a card never shows balances they cannot see; Confirm rechecks finance access.
+    const client = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authHeader } } });
+    const w = await proposePayment(args, client, tenantId);
+    if (!w.ok) return w;
+    const { data: row, error } = await admin.from("bani_pending_actions").insert({ tenant_id: tenantId, user_id: userId, kind, title: w.title, detail: w.detail, payload: w.payload }).select("id").single();
+    if (error || !row) return { ok: false, error: "Could not create the action card." };
+    return { ok: true, action_id: (row as any).id, title: w.title, detail: w.detail, note: "Payment card shown. Say in one line what Confirm will record; do not claim it is done." };
+  }
   if (kind === "log_waste") {
     const w = await proposeWaste(args, admin, tenantId);
     if (!w.ok) return w;
@@ -649,6 +665,12 @@ async function confirmAction(body: any, tenantId: string, userId: string, authHe
   if (r.kind === "set_venue_seats") {
     const uc = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
     const out = await confirmSeats(r.payload, uc, tenantId, userId);
+    if (out.status === 200) await resolve("confirmed");
+    return out;
+  }
+  if (r.kind === "record_payment") {
+    const uc = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const out = await confirmPayment(r.payload, uc, tenantId);
     if (out.status === 200) await resolve("confirmed");
     return out;
   }

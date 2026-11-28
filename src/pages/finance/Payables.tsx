@@ -35,9 +35,10 @@ import { tenantToday, shortDay } from '@/utils/salesRecordChecks';
 // Payables follows Cash and Receivables: Suppliers (you owe, then one owed amount, plain status and Pay per payee),
 // Bills (every bill, earliest due first), Payments (what was paid and whether it is in the bank), Ageing (by days late).
 // A supplier's account page lives in Purchasing (/procurement/finance/suppliers/:id); rows link there.
-type Cat = 'Suppliers' | 'Bills & contracts' | 'Staff & MPF';
-const CATS: Cat[] = ['Suppliers', 'Bills & contracts', 'Staff & MPF'];
-const catOf = (i: OwedItem): Cat => i.source === 'supplier' ? 'Suppliers' : i.source === 'bill' ? 'Bills & contracts' : 'Staff & MPF';
+type Cat = 'Suppliers' | 'Bills & contracts' | 'Staff & MPF' | 'Paid for you';
+const CATS: Cat[] = ['Suppliers', 'Bills & contracts', 'Staff & MPF', 'Paid for you'];
+// 'Paid for you': staff, the director or a group company paid a supplier, and the business owes them back.
+const catOf = (i: OwedItem): Cat => i.source === 'supplier' ? 'Suppliers' : i.source === 'bill' ? 'Bills & contracts' : i.source === 'person' ? 'Paid for you' : 'Staff & MPF';
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);
 const AGE = ['Not due / 0–30 days', '31–60 days late', '61–90 days late', 'Over 90 days late'];
 const ageIndex = (late: number) => late <= 30 ? 0 : late <= 60 ? 1 : late <= 90 ? 2 : 3;
@@ -83,7 +84,7 @@ export default function Payables() {
         <div><p className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">You owe · {shortDay(asAt)}</p>
         <p className="mt-1 text-[32px] sm:text-[42px] leading-none font-semibold td-num tabular-nums whitespace-nowrap">{loading ? '…' : shortMoney(total)}</p>
         {overdueTotal > 0.005 && <p className="mt-2 max-sm:mt-1.5 text-[13px] max-sm:text-[12px] text-[#B45309] tabular-nums">{shortMoney(overdueTotal)} overdue</p>}</div>
-        <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>{CATS.map(c => <div key={c} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{c}</p><p className="text-[16px] font-semibold td-num tabular-nums whitespace-nowrap">{shortMoney(catTotal(c))}</p></div>)}</div>
+        <div className="grid gap-3 border-t border-border/50 pt-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>{CATS.map(c => <div key={c} className="min-w-0"><p className="text-[11px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{c}</p><p className="text-[16px] font-semibold td-num tabular-nums whitespace-nowrap">{shortMoney(catTotal(c))}</p></div>)}</div>
       </section>
       <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Who you owe" aria-busy={loading}>
         <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>{formatTableInteger(payees)} {payees === 1 ? 'payee' : 'payees'}</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableCurrency(total)}{needs ? ` · ${formatTableInteger(needs)} overdue` : ''}</span></h2>
@@ -149,12 +150,12 @@ export default function Payables() {
   // ---- Payments ----
   const paymentsView = () => {
     const rows = [
-      ...ap.payments.map(p => ({ key: p.id, own: true, id: p.id, date: p.payment_date, who: p.supplier_name, from: paidFromAccountLabel(p.paid_from_account_name), amount: Number(p.amount), what: p.allocation_count ? `${formatTableInteger(p.allocation_count)} ${p.allocation_count === 1 ? 'invoice' : 'invoices'}${Number(p.unallocated_amount) > 0.005 ? ` · ${formatTableCurrency(Number(p.unallocated_amount))} on account` : ''}` : 'On account', inBank: p.match_status === 'matched', receipts: p.receipt_count ?? 0, link: '' })),
-      ...other.history.map(p => ({ key: p.key, own: false, id: p.paymentId ?? '', date: p.date, who: p.payee, from: p.method, amount: Number(p.amount), what: '', inBank: /match|clear|bank/i.test(p.match), receipts: 0, link: p.link })),
+      ...ap.payments.map(p => ({ key: p.id, own: true, id: p.id, date: p.payment_date, who: p.supplier_name, from: paidFromAccountLabel(p.paid_from_account_name), amount: Number(p.amount), what: p.allocation_count ? `${formatTableInteger(p.allocation_count)} ${p.allocation_count === 1 ? 'invoice' : 'invoices'}${Number(p.unallocated_amount) > 0.005 ? ` · ${formatTableCurrency(Number(p.unallocated_amount))} on account` : ''}` : 'On account', inBank: p.match_status === 'matched' || p.match_status === 'not_required', noBank: p.match_status === 'not_required', receipts: p.receipt_count ?? 0, link: '' })),
+      ...other.history.map(p => ({ key: p.key, own: false, id: p.paymentId ?? '', date: p.date, who: p.payee, from: p.method, amount: Number(p.amount), what: '', noBank: false, inBank: /match|clear|bank/i.test(p.match), receipts: 0, link: p.link })),
     ].filter(r => r.date <= asAt && (!search || r.who.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => b.date.localeCompare(a.date));
-    const download = () => downloadCSV(rows.map(r => ({ date: r.date, who: r.who, from: r.from, amount: r.amount, what: r.what, bank: r.inBank ? 'In the bank' : 'Not in the bank yet' })), [{ key: 'date', label: 'Date' }, { key: 'who', label: 'Paid to' }, { key: 'from', label: 'From' }, { key: 'amount', label: 'Amount' }, { key: 'what', label: 'What it paid' }, { key: 'bank', label: 'Bank' }], 'payments');
+    const download = () => downloadCSV(rows.map(r => ({ date: r.date, who: r.who, from: r.from, amount: r.amount, what: r.what, bank: r.noBank ? 'No bank payment' : r.inBank ? 'In the bank' : 'Not in the bank yet' })), [{ key: 'date', label: 'Date' }, { key: 'who', label: 'Paid to' }, { key: 'from', label: 'From' }, { key: 'amount', label: 'Amount' }, { key: 'what', label: 'What it paid' }, { key: 'bank', label: 'Bank' }], 'payments');
     const openRow = (r: typeof rows[number]) => r.own ? setPaymentId(r.id) : r.link && navigate(r.link);
-    const bankCell = (r: typeof rows[number]) => r.inBank ? <span className="text-[#1F6B5E]">✓ In the bank</span> : <span className="text-[#B45309]">Not in the bank yet</span>;
+    const bankCell = (r: typeof rows[number]) => r.noBank ? <span className="text-muted-foreground">No bank payment</span> : r.inBank ? <span className="text-[#1F6B5E]">✓ In the bank</span> : <span className="text-[#B45309]">Not in the bank yet</span>;
     return <section className="card-glass rounded-xl p-3 sm:p-4 space-y-3 min-w-0" aria-label="Payments" aria-busy={loading}>
       <h2 className="text-base font-display font-semibold px-1 flex flex-wrap gap-x-1.5"><span>Payments</span><span className="text-[13px] text-muted-foreground font-normal whitespace-nowrap">· {formatTableInteger(rows.length)} · {formatTableCurrency(rows.reduce((n, r) => n + r.amount, 0))}</span></h2>
       <Toolbar search={search} onSearch={setSearch} placeholder="Search" mobileSearchBelow onDownload={download} downloadLabel="Download payments" />

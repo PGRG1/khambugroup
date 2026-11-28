@@ -197,7 +197,7 @@ export function usePayables() {
       // NEW: payments + allocations
       const paymentRows = await fetchAllRows(
         "payments",
-        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status",
+        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status, paid_by_kind, paid_by_name",
         undefined,
         tenantId,
       );
@@ -236,7 +236,7 @@ export function usePayables() {
           amount,
           payment_method: p.payment_method || "",
           paid_from_account_id: p.paid_from_account_id || null,
-          paid_from_account_name: bankLabel(p.paid_from_account_id),
+          paid_from_account_name: p.paid_by_kind ? `Paid by ${p.paid_by_name ?? "someone else"}` : bankLabel(p.paid_from_account_id),
           reference_number: p.reference_number || "",
           cheque_number: p.cheque_number || "",
           notes: p.notes || "",

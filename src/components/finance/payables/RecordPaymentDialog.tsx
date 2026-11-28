@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Paperclip, Receipt, X } from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { PaidByFields, PaidByNote, type PaidBy } from "@/components/finance/payables/PaidByFields";
+import { PAID_BY_METHOD, paidByValid } from "@/utils/paidBy";
 import { supabaseStorageAdapter } from "@/utils/invoiceAttachmentClient";
 import {
   PAYMENT_RECEIPT_ACCEPT,
@@ -70,6 +72,7 @@ export function RecordPaymentDialog({
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<File[]>([]);
   const [origPay, setOrigPay] = useState("");
+  const [paidBy, setPaidBy] = useState<PaidBy>({ kind: "director", name: "" });
   const fxCur = invoice?.currency && invoice.currency !== getBaseCurrency() && invoice.original_total ? invoice.currency : null;
   const fxOwed = Number(invoice?.owed_in_currency ?? invoice?.original_total ?? 0);
   const fxRate = fxCur ? Number(invoice?.total_amount || 0) / Number(invoice?.original_total || 1) : 0;
@@ -161,6 +164,7 @@ export function RecordPaymentDialog({
   if (!invoice) return null;
 
   const bankLinked = isBankLinkedMethod(method);
+  const someoneElse = method === PAID_BY_METHOD;
   // Switching to a non-bank / TBC method must immediately drop any selected account.
   const changeMethod = (m: string) => {
     setMethod(m);
@@ -272,6 +276,7 @@ export function RecordPaymentDialog({
         return toast.error(`Total credit applied exceeds available on ${cn.credit_note_number}`);
       }
     }
+    if (someoneElse && paymentAmt > 0 && !paidByValid(paidBy)) return toast.error("Say who paid");
     if (paymentAmt === 0 && totalCredit === 0) {
       return toast.error("Enter a cash amount or apply a credit note");
     }
@@ -332,7 +337,8 @@ export function RecordPaymentDialog({
         cheque_number: method === "Cheque" ? chequeNumber : "",
         notes,
         supplier_id: invoice.supplier_id,
-        match_status: paymentAmt > 0 ? "awaiting_bank_match" : "not_required",
+        match_status: paymentAmt > 0 && !someoneElse ? "awaiting_bank_match" : "not_required",
+        ...(someoneElse && paymentAmt > 0 ? { paid_by_kind: paidBy.kind, paid_by_name: paidBy.name.trim() } : {}),
         ...(fxCur && Number(origPay) > 0 ? { original_amount: Number(origPay), currency: fxCur } : {}),
       },
       p_allocations: allocations,
@@ -396,9 +402,11 @@ export function RecordPaymentDialog({
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAYMENT_METHOD_OPTIONS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                      {!fxCur && <SelectItem value={PAID_BY_METHOD}>{PAID_BY_METHOD}</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
+                {someoneElse && <div className="col-span-2 space-y-3"><PaidByFields value={paidBy} onChange={setPaidBy} /><PaidByNote value={paidBy} supplier={invoice.supplier_name} amount={`${baseSymbol()}${fmt(paymentAmt)}`} /></div>}
                 {bankLinked && (
                   <div>
                     <Label>Paid From Account</Label>

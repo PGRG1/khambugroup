@@ -36,6 +36,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { VenueSplitEditor, saveVenueSplit, SplitLine } from "@/components/allocation/VenueSplitEditor";
 import { toast } from "sonner";
+import { PaidByFields, PaidByNote, type PaidBy } from "@/components/finance/payables/PaidByFields";
+import { PAID_BY_METHOD, paidByValid } from "@/utils/paidBy";
+import { getBaseCurrency } from "@/utils/money";
+import { formatMenuCurrency } from "@/utils/format";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
 import {
@@ -157,6 +161,7 @@ export default function BillsExpenses() {
   
 
   const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [paidBy, setPaidBy] = useState<PaidBy>({ kind: "director", name: "" });
   const [payForm, setPayForm] = useState<{ amount: string; payment_date: string; payment_method: string; bank_account_id: string; reference: string }>({
     amount: "",
     payment_date: new Date().toISOString().slice(0, 10),
@@ -472,14 +477,17 @@ export default function BillsExpenses() {
     if (!editing) return;
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) return;
+    const someoneElse = payForm.payment_method === "paid_by";
+    if (someoneElse && !paidByValid(paidBy)) { toast.error("Say who paid"); return; }
     const ok = await recordPayment({
       bill_id: editing.id,
       payment_date: payForm.payment_date,
       amount: amt,
       payment_method: payForm.payment_method,
-      bank_account_id: payForm.bank_account_id || null,
+      bank_account_id: someoneElse ? null : payForm.bank_account_id || null,
       reference: payForm.reference || null,
       notes: null,
+      ...(someoneElse ? { paid_by_kind: paidBy.kind, paid_by_name: paidBy.name.trim() } : {}),
     });
     if (ok) {
       setPayDialogOpen(false);
@@ -570,14 +578,14 @@ export default function BillsExpenses() {
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent className="kit sales-day-dialog max-w-[760px] grid-cols-[minmax(0,1fr)] p-5 sm:p-7 gap-0 w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] rounded-lg overflow-y-auto overflow-x-hidden">
-          <BillReadDetails header={header} setHeader={setHeader} allocations={allocations} setAllocations={setAllocations} suppliers={suppliers} supplierAccounts={allMeters.filter(m=>m.supplier_id===header.supplier_id)} accounts={accounts} venues={venues} canWrite={canWrite} busy={busy} onApprove={handlePost} onPay={()=>{if(!editing)return;setPayForm({...payForm,amount:String(editing.total_amount-editing.paid_amount)});setPayDialogOpen(true);}} onVoid={async()=>{const ok=await confirm({title:"Void this bill?",description:"The draft stays in the audit record and is excluded from totals.",confirmLabel:"Void bill"});if(ok)await handleSave("void");}} onAttach={()=>{setEditorOpen(false);setScanOpen(true);}}/>
+          <BillReadDetails header={header} setHeader={setHeader} allocations={allocations} setAllocations={setAllocations} suppliers={suppliers} supplierAccounts={allMeters.filter(m=>m.supplier_id===header.supplier_id)} accounts={accounts} venues={venues} canWrite={canWrite} busy={busy} onApprove={handlePost} payments={payments} onPay={()=>{if(!editing)return;setPayForm({...payForm,amount:String(Math.round((editing.total_amount-editing.paid_amount)*100)/100)});setPayDialogOpen(true);}} onVoid={async()=>{const ok=await confirm({title:"Void this bill?",description:"The draft stays in the audit record and is excluded from totals.",confirmLabel:"Void bill"});if(ok)await handleSave("void");}} onAttach={()=>{setEditorOpen(false);setScanOpen(true);}}/>
         </DialogContent>
       </Dialog>
 
       {/* Payment dialog */}
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Record payment</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Payment date</Label>
@@ -596,10 +604,12 @@ export default function BillsExpenses() {
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="cheque">Cheque</SelectItem>
                   <SelectItem value="autopay">Autopay</SelectItem>
+                  {!(editing?.currency && editing.currency !== getBaseCurrency()) && <SelectItem value="paid_by">{PAID_BY_METHOD}</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
-            {payForm.payment_method !== "cash" && (
+            {payForm.payment_method === "paid_by" && <div className="space-y-3"><PaidByFields value={paidBy} onChange={setPaidBy} /><PaidByNote value={paidBy} supplier={editing?.vendor_name || "The vendor"} amount={formatMenuCurrency(Number(payForm.amount) || 0)} /></div>}
+            {payForm.payment_method !== "cash" && payForm.payment_method !== "paid_by" && (
               <div>
                 <Label>Bank account</Label>
                 <Select value={payForm.bank_account_id} onValueChange={(v) => setPayForm({ ...payForm, bank_account_id: v })}>

@@ -130,6 +130,9 @@ export interface ExpenseBillPayment {
   reference: string | null;
   notes: string | null;
   journal_entry_id?: string | null;
+  /** Paid by someone else (staff, director, group company, other): no bank account; the business now owes them. */
+  paid_by_kind?: string | null;
+  paid_by_name?: string | null;
 }
 
 export function useExpenseBills() {
@@ -353,6 +356,8 @@ export function useExpenseBills() {
           bank_account_id: payment.bank_account_id || null,
           reference: payment.reference || null,
           notes: payment.notes || null,
+          paid_by_kind: payment.paid_by_kind || null,
+          paid_by_name: payment.paid_by_kind ? (payment.paid_by_name || "").trim() : null,
           created_by: auth,
           tenant_id: tenantId,
         })
