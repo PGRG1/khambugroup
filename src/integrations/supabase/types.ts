@@ -3496,6 +3496,8 @@ export type Database = {
           journal_entry_id: string | null
           notes: string | null
           original_amount: number | null
+          paid_by_kind: string | null
+          paid_by_name: string | null
           payment_date: string
           payment_method: string
           reference: string | null
@@ -3516,6 +3518,8 @@ export type Database = {
           journal_entry_id?: string | null
           notes?: string | null
           original_amount?: number | null
+          paid_by_kind?: string | null
+          paid_by_name?: string | null
           payment_date: string
           payment_method?: string
           reference?: string | null
@@ -3536,6 +3540,8 @@ export type Database = {
           journal_entry_id?: string | null
           notes?: string | null
           original_amount?: number | null
+          paid_by_kind?: string | null
+          paid_by_name?: string | null
           payment_date?: string
           payment_method?: string
           reference?: string | null
@@ -10377,6 +10383,160 @@ export type Database = {
           },
         ]
       }
+      owed_to_others: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          name: string
+          owed_date: string
+          paid_amount: number
+          source_id: string
+          source_type: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          kind: string
+          name: string
+          owed_date: string
+          paid_amount?: number
+          source_id: string
+          source_type: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          name?: string
+          owed_date?: string
+          paid_amount?: number
+          source_id?: string
+          source_type?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owed_to_others_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owed_to_others_repayments: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          journal_entry_id: string | null
+          owed_id: string
+          payment_date: string
+          payment_method: string
+          reference: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          owed_id: string
+          payment_date: string
+          payment_method: string
+          reference?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          owed_id?: string
+          payment_date?: string
+          payment_method?: string
+          reference?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owed_to_others_repayments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_repayments_owed_id_fkey"
+            columns: ["owed_id"]
+            isOneToOne: false
+            referencedRelation: "owed_to_others"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owed_to_others_repayments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_visibility: {
         Row: {
           id: string
@@ -11137,6 +11297,8 @@ export type Database = {
           match_status: string
           notes: string
           original_amount: number | null
+          paid_by_kind: string | null
+          paid_by_name: string | null
           paid_from_account_id: string | null
           payment_date: string
           payment_method: string
@@ -11160,6 +11322,8 @@ export type Database = {
           match_status?: string
           notes?: string
           original_amount?: number | null
+          paid_by_kind?: string | null
+          paid_by_name?: string | null
           paid_from_account_id?: string | null
           payment_date: string
           payment_method: string
@@ -11183,6 +11347,8 @@ export type Database = {
           match_status?: string
           notes?: string
           original_amount?: number | null
+          paid_by_kind?: string | null
+          paid_by_name?: string | null
           paid_from_account_id?: string | null
           payment_date?: string
           payment_method?: string
@@ -16730,10 +16896,42 @@ export type Database = {
         Args: { p_invoice: string; p_tenant: string; p_venue: string }
         Returns: undefined
       }
+      _paid_by_account: {
+        Args: { p_kind: string; p_tenant: string }
+        Returns: string
+      }
+      _payables_account: { Args: { p_tenant: string }; Returns: string }
       _post_line_mode_sales: { Args: { p_tenant_id: string }; Returns: number }
       _rebuild_journal_from_operations_impl: {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
+      }
+      _record_owed_to_other: {
+        Args: {
+          p_account: string
+          p_amount: number
+          p_date: string
+          p_entry: string
+          p_kind: string
+          p_name: string
+          p_source: string
+          p_source_id: string
+          p_tenant: string
+          p_what: string
+        }
+        Returns: undefined
+      }
+      _repay_owed_to_other: {
+        Args: {
+          p_account: string
+          p_amount: number
+          p_date: string
+          p_method: string
+          p_owed: string
+          p_reference: string
+          p_tenant: string
+        }
+        Returns: string
       }
       _seed_asset_policy: { Args: { p_tenant: string }; Returns: undefined }
       _sync_tenant_categories: {
@@ -17259,6 +17457,8 @@ export type Database = {
           p_date: string
           p_items: Json
           p_method: string
+          p_paid_by_kind?: string
+          p_paid_by_name?: string
           p_reference: string
           p_tenant: string
         }
