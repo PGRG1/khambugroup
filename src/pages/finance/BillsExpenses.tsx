@@ -105,7 +105,7 @@ function AmountCell({ value, onChange }: { value: number; onChange: (n: number) 
 export default function BillsExpenses() {
   const baniAccounting=useBaniAccounting();
   const { isAdmin, user } = useAuth();
-  const { tenantId } = useActiveTenant();
+  const { tenantId, memberships } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const location = useLocation();
@@ -467,7 +467,10 @@ export default function BillsExpenses() {
       const id = await saveBill({...header, approval_status:'pending_review'}, allocations);
       if (!id) return;
       if (tenantId) await saveVenueSplit({tenantId,ownerType:'expense_bill',ownerId:id,mode:splitDraft.mode,lines:splitDraft.lines,baseAmount:Number(header.total_amount||0)});
-      if(allocations.some(a=>a.capitalize)||header.recurring_rule_id){toast.success('Bill saved for monthly approval');setEditorOpen(false);return;}
+      // Equipment is a one-off purchase: an owner or admin books it now (the server registers the asset and its monthly
+      // write-off). Anyone else's equipment bill, and every regular cost, waits for the month-end review.
+      const ownerOrAdmin=isAdmin||memberships.some(m=>m.tenant_id===tenantId&&m.role==='owner');
+      if(header.recurring_rule_id||(allocations.some(a=>a.capitalize)&&!ownerOrAdmin)){toast.success('Bill saved for monthly approval');setEditorOpen(false);return;}
       const ok = await postBill(id);
       if (ok) setEditorOpen(false);
     } finally { setBusy(false); }
