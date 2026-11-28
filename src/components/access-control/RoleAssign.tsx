@@ -75,8 +75,8 @@ async function assign(tenantId: string, userId: string, role: string, all: boole
 }
 
 /** One person's access: role and venues to pick, what that role can do read-only. */
-export function PersonAccessCard({ tenantId, userId, name, email, pending, access, roles, venues, canOwner, onClose, onSaved }: {
-  tenantId: string; userId: string; name: string; email: string; pending?: boolean; access?: PersonAccess; roles: TenantRole[]; venues: Venue[]; canOwner: boolean; onClose: () => void; onSaved: () => void;
+export function PersonAccessCard({ tenantId, userId, name, email, pending, canShowTemp, access, roles, venues, canOwner, onClose, onSaved }: {
+  tenantId: string; userId: string; name: string; email: string; pending?: boolean; canShowTemp?: boolean; access?: PersonAccess; roles: TenantRole[]; venues: Venue[]; canOwner: boolean; onClose: () => void; onSaved: () => void;
 }) {
   const [temp, setTemp] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -111,7 +111,7 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, acces
       : <SettingsCard title="Password">
         <Row label="Sign-in" value={pending ? <span className="text-[#B45309]">Has not set a password yet</span> : "Using their own password"} />
         <div className="flex gap-5 pt-1">
-          {pending && <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("show")}>Show temporary password</button>}
+          {pending && canShowTemp && <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("show")}>Show temporary password</button>}
           <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("reset")}>{resetting ? "Working…" : "Reset password"}</button>
         </div>
       </SettingsCard>}

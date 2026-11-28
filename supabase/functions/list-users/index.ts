@@ -51,6 +51,8 @@ serve(async (req) => {
       created_at: u.created_at,
       // Still on a temporary password (added or reset, has not set their own yet).
       pending_password: !!(u.user_metadata as any)?.must_set_password,
+      // A temporary password can still be shown (same 7-day rule as create-user "show").
+      temp_viewable: (() => { const m = u.user_metadata as any; return !!(m?.must_set_password && m?.temp_password && Date.now() - Date.parse(String(m.temp_password_set_at ?? "")) <= 7 * 24 * 60 * 60 * 1000); })(),
     }));
 
     return new Response(

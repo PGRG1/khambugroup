@@ -32,6 +32,7 @@ const UserAccessControl = () => {
   const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<TenantRole[]>([]);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [viewable, setViewable] = useState<Set<string>>(new Set());
   const [access, setAccess] = useState<Record<string, PersonAccess>>({});
   const [venueList, setVenueList] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,13 +58,16 @@ const UserAccessControl = () => {
     const emailRes = await supabase.functions.invoke("list-users");
     const emailMap = new Map<string, string>();
     const pendingIds = new Set<string>();
+    const viewableIds = new Set<string>();
     if (emailRes.data?.users) {
       for (const u of emailRes.data.users) {
         emailMap.set(u.id, u.email);
         if (u.pending_password) pendingIds.add(u.id);
+        if (u.temp_viewable) viewableIds.add(u.id);
       }
     }
     setPending(pendingIds);
+    setViewable(viewableIds);
 
     const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }, { data: venueAccess }, { data: allVenues }] = await Promise.all([
       supabase.from("profiles").select("user_id, display_name").in('user_id',memberIds),
@@ -183,7 +187,7 @@ const UserAccessControl = () => {
   if (canManage && tenantId && showCreateDialog) return <div className="contents"><InviteCard tenantId={tenantId} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
     onClose={() => setShowCreateDialog(false)} onDone={() => { setShowCreateDialog(false); void fetchUsers(); }} /></div>;
   if (canManage && tenantId && editingUser) return <div className="contents"><PersonAccessCard key={editingUser.user_id} tenantId={tenantId} userId={editingUser.user_id}
-    name={editingUser.display_name || editingUser.email} email={editingUser.email} pending={pending.has(editingUser.user_id)} access={access[editingUser.user_id]} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
+    name={editingUser.display_name || editingUser.email} email={editingUser.email} pending={pending.has(editingUser.user_id)} canShowTemp={viewable.has(editingUser.user_id)} access={access[editingUser.user_id]} roles={roles} venues={venuesOpen} canOwner={isPlatformAdmin}
     onClose={() => setEditingUser(null)} onSaved={() => { setEditingUser(null); void fetchUsers(); }} /></div>;
   return (
     <div className="contents">
