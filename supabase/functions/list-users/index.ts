@@ -34,26 +34,38 @@ serve(async (req) => {
       callerId = data.user.id;
     }
 
-    const { data: roleCheck } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId)
-      .eq("role", "admin");
-    if (!roleCheck || roleCheck.length === 0) throw new Error("Admin only");
+    // Only this client's people, for someone in this client (or Bani staff). Never everyone's emails.
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const tenantId = String((body as { tenant_id?: string }).tenant_id ?? "");
+    if (!tenantId) throw new Error("Pick a business");
+    const { data: callerMemberships } = await supabaseAdmin.from("tenant_members").select("tenant_id, role").eq("user_id", callerId);
+    const callerIsSuper = (callerMemberships ?? []).some((m: any) => ["super_admin", "platform_admin"].includes(String(m.role)));
+    const callerInTenant = (callerMemberships ?? []).some((m: any) => m.tenant_id === tenantId);
+    if (!callerIsSuper && !callerInTenant) throw new Error("No access to this business");
+    if (!callerIsSuper) {
+      const { data: roleCheck } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", callerId).eq("role", "admin");
+      if (!roleCheck?.length) throw new Error("Admin only");
+    }
 
-    // List all users
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: members, error } = await supabaseAdmin.from("tenant_members").select("user_id").eq("tenant_id", tenantId);
     if (error) throw error;
-
-    const userList = users.map(u => ({
-      id: u.id,
-      email: u.email,
-      created_at: u.created_at,
-      // Still on a temporary password (added or reset, has not set their own yet).
-      pending_password: !!(u.user_metadata as any)?.must_set_password,
-      // A temporary password can still be shown (same 7-day rule as create-user "show").
-      temp_viewable: (() => { const m = u.user_metadata as any; return !!(m?.must_set_password && m?.temp_password && Date.now() - Date.parse(String(m.temp_password_set_at ?? "")) <= 7 * 24 * 60 * 60 * 1000); })(),
-    }));
+    const WEEK = 7 * 24 * 60 * 60 * 1000;
+    const userList = (await Promise.all((members ?? []).map(async (m: any) => {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
+      const u = data?.user;
+      if (!u) return null;
+      const meta = (u.user_metadata ?? {}) as any;
+      const pending = !!meta.must_set_password;
+      return {
+        id: u.id,
+        email: u.email,
+        created_at: u.created_at,
+        // Still on a temporary password (added or reset, has not set their own yet).
+        pending_password: pending,
+        // That temporary password can still be shown (kept, and under 7 days old); otherwise only Reset works.
+        temp_showable: pending && !!meta.temp_password && Date.now() - Date.parse(String(meta.temp_password_set_at ?? "")) <= WEEK,
+      };
+    }))).filter(Boolean);
 
     return new Response(
       JSON.stringify({ users: userList }),

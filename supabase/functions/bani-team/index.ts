@@ -63,7 +63,7 @@ serve(async (req) => {
         const { data } = await admin.auth.admin.getUserById(id);
         const u = data?.user; if (!u) continue;
         const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-        people.push({ id, email: u.email, name: (meta.display_name as string) || u.email, added: u.created_at, pending: !!meta.must_set_password, you: id === callerId });
+        people.push({ id, email: u.email, name: (meta.display_name as string) || u.email, added: u.created_at, pending: !!meta.must_set_password, showable: !!storedTemp(meta), you: id === callerId });
       }
       people.sort((a, b) => String(a.name).localeCompare(String(b.name)));
       return json({ people });
@@ -106,7 +106,7 @@ serve(async (req) => {
 
     if (body.action === "show") {
       const kept = storedTemp(tu?.user?.user_metadata);
-      if (!kept) throw new Error("No temporary password to show; they have set their own, or it expired. Reset it instead.");
+      if (!kept) throw new Error("There is no temporary password kept for them. Reset it to make a new one.");
       return json({ success: true, tempPassword: kept });
     }
     if (body.action === "reset") {

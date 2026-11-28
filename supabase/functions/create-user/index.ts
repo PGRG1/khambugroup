@@ -100,7 +100,7 @@ serve(async (req) => {
       if (getError || !existing?.user) throw new Error("Person not found");
       if (showing) {
         const kept = storedTemp(existing.user.user_metadata);
-        if (!kept) throw new Error("No temporary password to show; they have set their own, or it expired. Reset it instead.");
+        if (!kept) throw new Error("There is no temporary password kept for them. Reset it to make a new one.");
         return new Response(JSON.stringify({ success: true, userId: target, tempPassword: kept }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const password = temporaryPassword();

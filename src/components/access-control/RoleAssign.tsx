@@ -109,7 +109,8 @@ export function PersonAccessCard({ tenantId, userId, name, email, pending, canSh
     </SettingsCard>
     {temp ? <TempPasswordCard title={tempTitle} name={name} email={email} password={temp} onDone={() => setTemp(null)} />
       : <SettingsCard title="Password">
-        <Row label="Sign-in" value={pending ? <span className="text-[#B45309]">Has not set a password yet</span> : "Using their own password"} />
+        <Row label="Email" value={email || "—"} />
+        <Row label="Sign-in" value={pending ? <span className="text-[#B45309]">{canShowTemp ? "Has not set a password yet" : "Has not set a password yet · reset to get a new temporary one"}</span> : "Using their own password"} />
         <div className="flex gap-5 pt-1">
           {pending && canShowTemp && <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("show")}>Show temporary password</button>}
           <button type="button" disabled={resetting} className="text-[13px] font-medium text-[#1F6B5E]" onClick={() => void reset("reset")}>{resetting ? "Working…" : "Reset password"}</button>

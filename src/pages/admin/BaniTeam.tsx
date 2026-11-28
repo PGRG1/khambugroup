@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 
 // Control plane › Bani team: one table of everyone at Bani (all Bani admins for now). Add someone with a temporary
 // password shown once; the ··· on each row resets a password or removes them. Server: supabase/functions/bani-team.
-type Person = { id: string; email: string; name: string; added: string; pending: boolean; you: boolean };
+type Person = { id: string; email: string; name: string; added: string; pending: boolean; showable?: boolean; you: boolean };
 type Shown = { name: string; email: string; password: string };
 
 async function call(body: Record<string, unknown>) {
@@ -116,7 +116,7 @@ export default function BaniTeam() {
           <td className="h-11 px-2 whitespace-nowrap border-b border-[#ECEAE3]"><span className={`inline-flex items-center gap-1.5 ${p.pending ? "text-[#B45309]" : ""}`}><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${p.pending ? "bg-[#C26A12]" : "bg-[#3E9B6B]"}`} />{p.pending ? "Password not set" : "Active"}</span></td>
           <td className="h-11 px-2 whitespace-nowrap border-b border-[#ECEAE3] text-muted-foreground">{day(p.added)}</td>
           <td className="h-11 px-1 text-right border-b border-[#ECEAE3]">{!p.you && <DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label={`Actions for ${p.name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-black/5"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">{p.pending && <DropdownMenuItem onSelect={() => void reset(p, "show")}>Show temporary password</DropdownMenuItem>}<DropdownMenuItem onSelect={() => void reset(p)}>Reset password</DropdownMenuItem><DropdownMenuItem className="text-[#B4412F]" onSelect={() => setRemoving(p)}>Remove from Bani team</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</td>
+            <DropdownMenuContent align="end">{p.pending && p.showable && <DropdownMenuItem onSelect={() => void reset(p, "show")}>Show temporary password</DropdownMenuItem>}<DropdownMenuItem onSelect={() => void reset(p)}>Reset password</DropdownMenuItem><DropdownMenuItem className="text-[#B4412F]" onSelect={() => setRemoving(p)}>Remove from Bani team</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</td>
         </tr>)}</tbody></table></div>}
     </section>}
 
