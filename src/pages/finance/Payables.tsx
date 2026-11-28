@@ -14,6 +14,7 @@ import { useVenueScope } from '@/hooks/useVenueScope';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { PageTop } from '@/components/kit/PageTop';
 import { useFinancePeriod } from '@/components/kit/PeriodControl';
+import { paidByKindLabel } from '@/utils/paidBy';
 import { RecordOwedPaymentDialog } from '@/components/finance/RecordOwedPaymentDialog';
 import { PaymentReceiptsDialog } from '@/components/finance/payables/PaymentReceiptsDialog';
 import { Button } from '@/components/ui/button';
@@ -102,7 +103,7 @@ export default function Payables() {
             <tr className="sales-week-row"><th colSpan={5}><span>{c}</span></th><td className="kit-num font-semibold">{formatTableCurrency(gs.reduce((n, x) => n + x.g.amount, 0))}</td></tr>
             {gs.map(({ g, s }) => { const due = g.items.map(i => i.due).filter((d): d is string => !!d).sort()[0], fx = owedInCurrency(g.items, getBaseCurrency()); return <tr key={g.key} className={`sales-record-row ${s.amber ? 'sales-attention-row' : ''}`} {...keyOpen(() => open(g.items[0]?.link))}>
               <td className="sales-flag-cell">{s.amber && flag(s.text)}</td>
-              <td className="sales-cell-left" title={g.name}>{g.name}</td>
+              <td className="sales-cell-left" title={[g.name, paidByKindLabel(g.items[0]?.personKind)].filter(Boolean).join(" · ")}>{g.name}</td>
               <td className="kit-num" title={fx ? `Owed in currency ${fx}` : undefined}>{formatTableCurrency(g.amount)}</td>
               <td className="sales-cell-left">{due ? shortDay(due) : <span className="text-muted-foreground">—</span>}</td>
               <td className={`sales-cell-left ${s.amber ? 'text-[#B45309]' : 'text-muted-foreground'}`}>{s.text}</td>
@@ -134,7 +135,7 @@ export default function Payables() {
         <tbody>{list.map(i => { const l = late(i) > 0; return <tr key={i.key} className={`sales-record-row ${l ? 'sales-attention-row' : ''}`} {...keyOpen(() => open(i.link))}>
           <td className="sales-flag-cell">{l && flag(dueText(i))}</td>
           <td className="sales-cell-left">{i.due ? shortDay(i.due) : <span className="text-muted-foreground">—</span>}</td>
-          <td className="sales-cell-left" title={i.payee}>{i.payee}</td>
+          <td className="sales-cell-left" title={[i.payee, paidByKindLabel(i.personKind)].filter(Boolean).join(" · ")}>{i.payee}</td>
           <td className="sales-cell-left" title={i.what}>{i.what}</td>
           <td className="sales-cell-left">{i.venue || <span className="text-muted-foreground">—</span>}</td>
           <td className="kit-num">{formatTableCurrency(i.amount)}</td>
@@ -203,7 +204,7 @@ export default function Payables() {
           <thead><tr><th scope="col" className="sales-flag-cell"><span className="sr-only">Over 90 days</span></th><th scope="col" className="sales-cell-left">Who</th><th scope="col" className="sales-cell-right">Not due / 0–30</th><th scope="col" className="sales-cell-right">31–60</th><th scope="col" className="sales-cell-right">61–90</th><th scope="col" className="sales-cell-right">Over 90</th><th scope="col" className="sales-cell-right">Total</th></tr></thead>
           <tbody>{groups.map(({ g, v }) => <tr key={g.key} className={`sales-record-row ${v[3] > 0.005 ? 'sales-attention-row' : ''}`} {...keyOpen(() => open(g.items[0]?.link))}>
             <td className="sales-flag-cell">{v[3] > 0.005 && flag('Over 90 days late')}</td>
-            <td className="sales-cell-left" title={g.name}>{g.name}</td>
+            <td className="sales-cell-left" title={[g.name, paidByKindLabel(g.items[0]?.personKind)].filter(Boolean).join(" · ")}>{g.name}</td>
             {v.map((x, k) => <td key={k} className="kit-num">{amt(x, k === 3)}</td>)}
             <td className="kit-num font-semibold">{formatTableCurrency(g.amount)}</td>
           </tr>)}

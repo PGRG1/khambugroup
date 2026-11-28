@@ -8,5 +8,8 @@ export const PAID_BY_KINDS: { value: PaidByKind; label: string; owedIn: string }
 ];
 export const PAID_BY_METHOD = "Paid by someone else";
 export const paidByValid = (p: { name: string } | null | undefined) => !!p && p.name.trim().length > 0 && p.name.trim().length <= 120;
+/** Who paid, by name only (like an ERP contact). The type only decides the account; see paidByKindLabel. */
 export const paidByLabel = (kind: string | null | undefined, name: string | null | undefined) =>
-  kind ? `${name ?? ""}${name ? " · " : ""}${PAID_BY_KINDS.find(k => k.value === kind)?.label.toLowerCase() ?? kind}` : "";
+  kind ? (name?.trim() || "someone else") : "";
+/** Only where it is owed (the account), shown on hover, e.g. "Other payables". Never a label like "staff member". */
+export const paidByKindLabel = (kind: string | null | undefined) => PAID_BY_KINDS.find(x => x.value === kind)?.owedIn ?? "";
