@@ -987,6 +987,160 @@ export type Database = {
           },
         ]
       }
+      asset_classes: {
+        Row: {
+          asset_account_id: string | null
+          class_key: string
+          id: string
+          name: string
+          sort_order: number
+          tenant_id: string
+          useful_years: number
+        }
+        Insert: {
+          asset_account_id?: string | null
+          class_key: string
+          id?: string
+          name: string
+          sort_order?: number
+          tenant_id: string
+          useful_years: number
+        }
+        Update: {
+          asset_account_id?: string | null
+          class_key?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          tenant_id?: string
+          useful_years?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_classes_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_classes_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_classes_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_classes_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_classes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_settings: {
+        Row: {
+          accum_account_id: string | null
+          expense_account_id: string | null
+          tenant_id: string
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          accum_account_id?: string | null
+          expense_account_id?: string | null
+          tenant_id: string
+          threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          accum_account_id?: string | null
+          expense_account_id?: string | null
+          tenant_id?: string
+          threshold?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_settings_accum_account_id_fkey"
+            columns: ["accum_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_settings_accum_account_id_fkey"
+            columns: ["accum_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_accum_account_id_fkey"
+            columns: ["accum_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_accum_account_id_fkey"
+            columns: ["accum_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_settings_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "asset_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -16581,6 +16735,7 @@ export type Database = {
         Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
         Returns: Json
       }
+      _seed_asset_policy: { Args: { p_tenant: string }; Returns: undefined }
       _sync_tenant_categories: {
         Args: { p_tenant: string }
         Returns: undefined
@@ -16820,6 +16975,7 @@ export type Database = {
         Returns: Json
       }
       document_undo_receipt: { Args: { p_record: string }; Returns: string }
+      ensure_asset_policy: { Args: { p_tenant: string }; Returns: undefined }
       ensure_revenue_manager_target_lines_month: {
         Args: {
           p_month: number
