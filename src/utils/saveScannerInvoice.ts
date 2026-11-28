@@ -1,3 +1,4 @@
+import { saveDeliveryPhotos } from "@/utils/deliveryPhotos";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { autoCreateGrnFromInvoice } from "@/utils/autoCreateGrnFromInvoice";
@@ -23,7 +24,7 @@ export interface ScannerProductMasterEntry {
 /** Fired after Bani books an invoice so an open Invoices list refreshes. */
 export const INVOICE_BOOKED_EVENT = "bani:invoice-booked";
 
-export type ScannerSaveMeta = { receivedDate?: string };
+export type ScannerSaveMeta = { receivedDate?: string; deliveryPhotos?: File[] };
 export type ScannerSaveDeps = {
   tenantId: string | null;
   userId: string;
@@ -107,6 +108,12 @@ export async function saveScannerInvoice(deps: ScannerSaveDeps, inv: any, lines:
     throw e;
   }
   const created = { id: createdId } as { id: string };
+
+  // Optional delivery photos: proof of what arrived. A failure never undoes the booked invoice.
+  if (tenantId && meta?.deliveryPhotos?.length) {
+    try { await saveDeliveryPhotos(tenantId, createdId, deps.userId, meta.deliveryPhotos); }
+    catch (e: any) { toast.error(`Invoice booked, but the delivery photos weren't saved. ${e?.message || ""}`); }
+  }
 
   // Auto-trigger Bani's post-scan analysis (non-blocking).
   if (created?.id && tenantId) {

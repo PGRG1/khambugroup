@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/utils/money";
 import { RECEIVING_REASONS } from "@/utils/receivingReasons";
+import { usableDeliveryPhotos } from "@/utils/deliveryPhotos";
 
 export type ChatScanLine = {
   key: string; index: number; name: string; billed: number; accepted: number; unit: string; total: number;
@@ -23,7 +24,7 @@ export type ChatScanLine = {
   suggestion?: { text: string; why: string };
 };
 export type ChatScanPhase = "reading" | "failed" | "denied" | "many" | "duplicate" | "review" | "ready" | "saved";
-export type ChatScanAnswers = { dueDate: string | null; receivedDate: string; hold: boolean };
+export type ChatScanAnswers = { dueDate: string | null; receivedDate: string; hold: boolean; photos?: File[] };
 export type ChatScanField = "invoice_number" | "invoice_date" | "venue";
 
 type Props = {
@@ -94,6 +95,12 @@ export function ChatScanCard(p: Props) {
   const [delivered, setDelivered] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | "book" | "hold">(null);
   const [held, setHeld] = useState(false);
+  // Optional delivery photos: proof of what arrived, saved with the invoice. Never needed to book.
+  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const photoUrls = useRef<string[]>([]);
+  photoUrls.current = photos.map(ph => ph.url);
+  useEffect(() => () => photoUrls.current.forEach(u => URL.revokeObjectURL(u)), []);
   const anchor = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState<HTMLElement | null>(null);
   // Narrow (phone or the small chat window): one card per line instead of a sideways-scrolling table.
@@ -186,7 +193,7 @@ export function ChatScanCard(p: Props) {
         <div className="flex justify-end gap-2">
           <button type="button" className={cn(buttonVariants({ variant: "outline" }), "h-9 border-0 bg-muted hover:bg-muted/80")} disabled={p.saving} onClick={() => setConfirm(null)}>Cancel</button>
           <button type="button" className={cn(buttonVariants(), "h-9 bg-[var(--fb-ink,#17302C)] text-white hover:bg-[var(--fb-ink,#17302C)]/90")} disabled={p.saving}
-            onClick={() => { const hold = confirm === "hold"; setHeld(hold); p.onBook({ dueDate: dueNow, receivedDate: deliveredOn, hold }); setConfirm(null); }}>
+            onClick={() => { const hold = confirm === "hold"; setHeld(hold); p.onBook({ dueDate: dueNow, receivedDate: deliveredOn, hold, photos: photos.map(ph => ph.file) }); setConfirm(null); }}>
             {p.saving ? "Saving…" : confirm === "hold" ? "Hold" : "Book"}
           </button>
         </div>
@@ -355,6 +362,17 @@ export function ChatScanCard(p: Props) {
             </tbody>
           </table>
         </div>}
+        <input ref={photoInput} type="file" accept="image/*" multiple hidden aria-label="Delivery photos"
+          onChange={e => { const add = usableDeliveryPhotos(Array.from(e.target.files || [])); e.target.value = ""; if (add.length) setPhotos(ps => [...ps, ...add.map(file => ({ file, url: URL.createObjectURL(file) }))]); }} />
+        {photos.length > 0 && <div className="flex flex-wrap items-center gap-3 px-4 py-3" style={{ borderTop: `1px solid ${HAIR}` }}>
+          <span className="whitespace-nowrap text-[12px] text-muted-foreground">Delivery photos</span>
+          {photos.map((ph, i) => <span key={ph.url} className="relative h-14 w-14 shrink-0">
+            <img src={ph.url} alt={`Delivery photo ${i + 1}`} className="h-14 w-14 rounded-lg object-cover" />
+            {!saved && <button type="button" aria-label={`Remove delivery photo ${i + 1}`} className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full border bg-white text-[11px] leading-none" style={{ borderColor: "#CFD8D3" }}
+              onClick={() => { URL.revokeObjectURL(ph.url); setPhotos(ps => ps.filter(x => x.url !== ph.url)); }}>×</button>}
+          </span>)}
+          {!saved && <button type="button" className="whitespace-nowrap text-[12.5px] underline underline-offset-4" onClick={() => photoInput.current?.click()}>Add more</button>}
+        </div>}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 px-4 py-3.5" style={{ borderTop: `1px solid ${HAIR}` }}>
           <span className="whitespace-nowrap tabular-nums">Invoiced <b className="font-medium">{formatMoney(invoiced, p.currency)}</b></span>
           <span className="whitespace-nowrap tabular-nums">Accepted <b className="font-medium">{formatMoney(accepted, p.currency)}</b></span>
@@ -363,6 +381,7 @@ export function ChatScanCard(p: Props) {
             ? <span className="ml-auto font-medium text-emerald-700">{held ? "✓ Saved as a draft" : "✓ Booked · stock updated"}</span>
             : <div className="ml-auto flex items-center gap-3">
                 {!allTicked && <button type="button" className="text-[13px] font-medium" onClick={() => setTicked(new Set(p.lines.map(l => l.key)))}>Tick all</button>}
+                {!photos.length && <button type="button" className="whitespace-nowrap text-[13px] underline underline-offset-4" onClick={() => photoInput.current?.click()}>Add delivery photo</button>}
                 <button type="button" className="h-9 rounded-full border border-[#CFD8D3] bg-white px-4 text-[13px] font-medium disabled:opacity-40" disabled={!canHold} onClick={() => setConfirm("hold")}>Hold for review</button>
                 <button type="button" className="h-9 rounded-full px-5 text-[13px] font-medium text-white disabled:opacity-40" style={{ background: "var(--fb-ink,#17302C)" }} disabled={!ready} onClick={() => setConfirm("book")}>{p.saving ? "Saving…" : `Book ${formatMoney(accepted, p.currency)}`}</button>
               </div>}

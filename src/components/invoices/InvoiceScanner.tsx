@@ -270,7 +270,7 @@ interface InvoiceScannerProps {
     total: number;
     notes: null;
     product_master_id: string | null;
-  }[], files?: File[], meta?: { receivedDate?: string }) => Promise<any>;
+  }[], files?: File[], meta?: { receivedDate?: string; deliveryPhotos?: File[] }) => Promise<any>;
   
   onClose: () => void;
   userId: string;
@@ -395,6 +395,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
   }, []);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** Optional delivery photos from the chat card; sent with the next save. */
+  const deliveryPhotosRef = useRef<File[]>([]);
   const [savingAll, setSavingAll] = useState(false);
   const [detailsLineIdx, setDetailsLineIdx] = useState<number | null>(null);
   const [reviewDetailsOpen, setReviewDetailsOpen] = useState(false);
@@ -1805,7 +1807,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
         },
         lines,
         filesToSave.length > 0 ? filesToSave : undefined,
-        inv.received_date ? { receivedDate: inv.received_date } : undefined,
+        inv.received_date || deliveryPhotosRef.current.length ? { receivedDate: inv.received_date || undefined, deliveryPhotos: deliveryPhotosRef.current.length ? deliveryPhotosRef.current : undefined } : undefined,
       );
 
       setInvoices((prev) => {
@@ -2361,6 +2363,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSu
       }}
       onBook={answers => {
         if (!current) return;
+        deliveryPhotosRef.current = answers.photos || [];
         // Hold = not approved: a draft, never in payables. Otherwise any count difference disputes and holds money back.
         const priceDispute = current.line_items.some(l => l.price_disputed);
         const status = answers.hold ? "under_review" : disputeStats.hasDispute || priceDispute ? "disputed" : "outstanding";
