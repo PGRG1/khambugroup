@@ -5,6 +5,7 @@ import { shortMoney } from '@/utils/revenueOverview';
 import OpeningBalances from '@/pages/procurement/OpeningBalances';
 import { Row, SettingsCard } from './SettingsForm';
 import { OpeningTrialBalance } from './OpeningTrialBalance';
+import { OpeningAssets } from './OpeningAssets';
 
 type Sum = { n: number; total: number };
 const line = (s?: Sum) => !s ? '' : s.n ? `${shortMoney(s.total)} · ${s.n} ${s.n === 1 ? 'entry' : 'entries'}` : '';
@@ -32,7 +33,7 @@ export function OpeningSummary() {
     <button type="button" className="mb-2 text-[13px] font-medium text-[#1F6B5E]" onClick={() => { setEditing(false); setVersion(v => v + 1); }}>Done</button>
     <OpeningBalances embedded />
   </SettingsCard>;
-  return <><OpeningTrialBalance detailVersion={version} /><SettingsCard title="Supplier detail" onEdit={() => setEditing(true)}>
+  return <><OpeningTrialBalance detailVersion={version} /><OpeningAssets onChanged={() => setVersion(v => v + 1)} /><SettingsCard title="Supplier detail" onEdit={() => setEditing(true)}>
     <Row label="Owed to suppliers" value={line(sums.owed)} missing="None yet" />
     <Row label="Supplier credits" value={line(sums.credits)} missing="None yet" />
     <Row label="Deposits paid" value={line(sums.deposits)} missing="None yet" />

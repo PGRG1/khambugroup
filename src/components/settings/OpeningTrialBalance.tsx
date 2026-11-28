@@ -8,8 +8,9 @@ import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatMoney } from '@/utils/money';
-import { BALANCE_SHEET_TYPES, TYPE_LABEL, dayBefore, r2, tbChecks, tbTotals, type TbAccount, type TbLine } from '@/utils/openingTrialBalance';
+import { ANY_TYPE_LABEL, BALANCE_SHEET_TYPES, TYPE_ORDER, dayBefore, r2, tbChecks, tbTotals, type OpeningAssets, type TbAccount, type TbLine } from '@/utils/openingTrialBalance';
 import { Row, SettingsCard } from './SettingsForm';
+import { loadOpeningAssets } from './OpeningAssets';
 
 const db = supabase as any;
 const money = (n: number) => formatMoney(n, undefined, { decimals: 2 });
@@ -23,16 +24,16 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
   const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]), [orgId, setOrgId] = useState('');
   const [accounts, setAccounts] = useState<TbAccount[]>([]);
   const [saved, setSaved] = useState<{ lines: Record<string, TbLine>; asAt: string; posted: boolean }>({ lines: {}, asAt: '', posted: false });
-  const [detail, setDetail] = useState({ owed: 0, credits: 0, customers: 0, deposits: 0 });
+  const [detail, setDetail] = useState<{ owed: number; credits: number; customers: number; deposits: number; assets?: OpeningAssets }>({ owed: 0, credits: 0, customers: 0, deposits: 0 });
   const [canEdit, setCanEdit] = useState(false), [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [confirm, setConfirm] = useState<'' | 'post' | 'undo'>('');
-  const [draft, setDraft] = useState<Record<string, { debit: string; credit: string }>>({}), [asAt, setAsAt] = useState('');
+  const [draft, setDraft] = useState<Record<string, { debit: string; credit: string }>>({}), [asAt, setAsAt] = useState(''), [showPl, setShowPl] = useState(false);
 
   useEffect(() => {
     if (!tenantId) return;
     let on = true;
     void Promise.all([
       db.from('organizations').select('id,name').eq('tenant_id', tenantId).order('name'),
-      db.from('chart_of_accounts').select('id,code,name,account_type').eq('tenant_id', tenantId).eq('is_active', true).in('account_type', BALANCE_SHEET_TYPES as unknown as string[]).order('code'),
+      db.from('chart_of_accounts').select('id,code,name,account_type').eq('tenant_id', tenantId).eq('is_active', true).in('account_type', TYPE_ORDER).order('code'),
       db.rpc('can_edit_account_rules', { t: tenantId }),
     ]).then(([o, a, c]: any[]) => {
       if (!on) return;
@@ -44,13 +45,19 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
 
   const load = useCallback(async () => {
     if (!tenantId || !orgId) return;
-    const [ob, sup, cn, cust, dep] = await Promise.all([
+    const [ob, sup, cn, cust, dep, fa] = await Promise.all([
       db.from('account_opening_balances').select('coa_account_id,debit,credit,as_at_date,status').eq('tenant_id', tenantId).eq('organization_id', orgId),
       db.from('supplier_opening_balances').select('amount').eq('tenant_id', tenantId),
       db.from('credit_notes').select('remaining_balance,status').eq('tenant_id', tenantId).eq('is_opening_balance', true),
       db.from('customer_opening_balances').select('outstanding_amount,is_credit_note').eq('tenant_id', tenantId),
       db.from('deposit_opening_balances').select('total_value').eq('tenant_id', tenantId),
+      loadOpeningAssets(tenantId),
     ]);
+    const assets: OpeningAssets = { cost: {}, depreciated: {} };
+    for (const a of fa) {
+      assets.cost[a.asset_account_id] = r2((assets.cost[a.asset_account_id] ?? 0) + a.cost);
+      if (a.opening_depreciation) assets.depreciated[a.accumulated_depr_account_id] = r2((assets.depreciated[a.accumulated_depr_account_id] ?? 0) + a.opening_depreciation);
+    }
     const lines: Record<string, TbLine> = {};
     for (const r of ob.data ?? []) lines[r.coa_account_id] = { debit: Number(r.debit) || 0, credit: Number(r.credit) || 0 };
     setSaved({ lines, asAt: ob.data?.[0]?.as_at_date ?? '', posted: (ob.data ?? []).some((r: any) => r.status === 'posted') });
@@ -60,6 +67,7 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
       credits: sum((cn.data ?? []).filter((r: any) => r.status !== 'void'), r => Number(r.remaining_balance) || 0),
       customers: sum(cust.data, r => (r.is_credit_note ? -1 : 1) * (Number(r.outstanding_amount) || 0)),
       deposits: sum(dep.data, r => Number(r.total_value) || 0),
+      assets,
     });
   }, [tenantId, orgId]);
   useEffect(() => { void load(); }, [load, detailVersion]);
@@ -74,6 +82,7 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
   function startEdit() {
     setDraft(Object.fromEntries(Object.entries(saved.lines).map(([k, l]) => [k, { debit: l.debit ? String(l.debit) : '', credit: l.credit ? String(l.credit) : '' }])));
     setAsAt(saved.asAt || defaultAsAt); setEditing(true);
+    setShowPl(accounts.some(a => !(BALANCE_SHEET_TYPES as readonly string[]).includes(a.account_type) && (saved.lines[a.id]?.debit || saved.lines[a.id]?.credit)));
   }
   async function run(fn: () => Promise<{ error: any }>, ok: string) {
     setBusy(true);
@@ -102,8 +111,8 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
     <div className="overflow-x-auto">
       <table className="w-full min-w-[520px] text-[13px]" aria-label="Opening trial balance">
         <thead><tr className="text-[12px] text-muted-foreground"><th className="py-2 text-left font-medium">Account</th><th className="w-36 text-right font-medium">Debit</th><th className="w-36 text-right font-medium">Credit</th></tr></thead>
-        {BALANCE_SHEET_TYPES.map(t => <tbody key={t}>
-          <tr><td colSpan={3} className="pt-3 pb-1 text-[12px] font-semibold text-muted-foreground">{TYPE_LABEL[t]}</td></tr>
+        {TYPE_ORDER.filter(t => showPl || (BALANCE_SHEET_TYPES as readonly string[]).includes(t)).filter(t => accounts.some(a => a.account_type === t)).map(t => <tbody key={t}>
+          <tr><td colSpan={3} className="pt-3 pb-1 text-[12px] font-semibold text-muted-foreground">{ANY_TYPE_LABEL[t]}</td></tr>
           {accounts.filter(a => a.account_type === t).map(a => <tr key={a.id}>
             <td className="py-1 pr-2 whitespace-nowrap">{a.code} · {a.name}</td>
             {(['debit', 'credit'] as const).map(side => <td key={side} className="py-1 pl-2"><Input inputMode="decimal" aria-label={`${a.name} ${side}`} className="h-9 text-right tabular-nums" value={draft[a.id]?.[side] ?? ''}
@@ -113,6 +122,7 @@ export function OpeningTrialBalance({ detailVersion = 0 }: { detailVersion?: num
         <tfoot><tr className="font-semibold"><td className="pt-3">Totals</td><td className="pt-3 text-right tabular-nums">{money(totals.debit)}</td><td className="pt-3 text-right tabular-nums">{money(totals.credit)}</td></tr></tfoot>
       </table>
     </div>
+    {!showPl && <button type="button" className="mt-2 text-[13px] text-[#1F6B5E]" onClick={() => setShowPl(true)}>+ Income and expense accounts (books starting mid-year)</button>}
     <p className={`mt-2 text-[13px] ${totals.difference ? 'text-[#B45309]' : 'text-[#1F6B5E]'}`}>{diffLine}</p>
     <Checks checks={checks} />
     <div className="settings-save">

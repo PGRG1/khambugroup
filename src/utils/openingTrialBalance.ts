@@ -34,10 +34,16 @@ export function controlAccounts(accounts: TbAccount[]) {
 
 const net = (l?: TbLine) => r2((Number(l?.debit) || 0) - (Number(l?.credit) || 0));
 
-/** Supplier, customer and deposit openings are the detail behind these lines; they must agree. */
-export function tbChecks(accounts: TbAccount[], lines: Record<string, TbLine>, detail: { owed: number; credits: number; customers: number; deposits: number }): TbCheck[] {
+/** Opening assets in the register: cost per asset account, and depreciation to date per accumulated-depreciation account. */
+export type OpeningAssets = { cost: Record<string, number>; depreciated: Record<string, number> };
+
+/** Supplier, customer, deposit and asset openings are the detail behind these lines; they must agree. */
+export function tbChecks(accounts: TbAccount[], lines: Record<string, TbLine>, detail: { owed: number; credits: number; customers: number; deposits: number; assets?: OpeningAssets }): TbCheck[] {
   const c = controlAccounts(accounts), out: TbCheck[] = [];
   const add = (label: string, d: number, ledger: number) => { if (d || ledger) out.push({ label, detail: r2(d), ledger: r2(ledger), ok: Math.abs(r2(d) - r2(ledger)) < 0.01 }); };
+  const name = (id: string) => { const a = accounts.find(x => x.id === id); return a ? `${a.code} ${a.name}` : 'an account'; };
+  for (const [id, cost] of Object.entries(detail.assets?.cost ?? {})) add(`Assets vs ${name(id)}`, cost, net(lines[id]));
+  for (const [id, dep] of Object.entries(detail.assets?.depreciated ?? {})) add(`Depreciation to date vs ${name(id)}`, dep, -net(lines[id]));
   if (c.payables) add(`Suppliers vs ${c.payables.code} ${c.payables.name}`, detail.owed - detail.credits, -net(lines[c.payables.id]));
   if (c.receivables) add(`Customers vs ${c.receivables.code} ${c.receivables.name}`, detail.customers, net(lines[c.receivables.id]));
   if (c.deposits) add(`Deposits vs ${c.deposits.code} ${c.deposits.name}`, detail.deposits, net(lines[c.deposits.id]));
@@ -46,3 +52,25 @@ export function tbChecks(accounts: TbAccount[], lines: Record<string, TbLine>, d
 
 export const BALANCE_SHEET_TYPES = ['asset', 'liability', 'equity'] as const;
 export const TYPE_LABEL: Record<string, string> = { asset: 'Assets', liability: 'Liabilities', equity: 'Equity' };
+
+// Common accountant wordings for the same account (UK/HK trial balances).
+const SAME: [RegExp, string][] = [[/\bstocks?\b/g, 'inventory'], [/\btrade creditors?\b|\bcreditors?\b/g, 'accounts payable'], [/\btrade debtors?\b|\bdebtors?\b/g, 'accounts receivable'], [/\bcash in hand\b/g, 'cash on hand']];
+const norm = (s: string) => { let n = s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim(); for (const [re, to] of SAME) n = n.replace(re, to); return n; };
+/** Which of the client's accounts a printed trial balance line is: same code and name, same name, or the same code. Never a guess. */
+export function matchTbAccount(line: { code: string; name: string }, accounts: TbAccount[]): string | null {
+  const n = norm(line.name), code = line.code.trim();
+  const byName = accounts.filter(a => norm(a.name) === n);
+  const both = byName.find(a => code && a.code === code);
+  if (both) return both.id;
+  if (byName.length === 1) return byName[0].id;
+  const byCode = code ? accounts.filter(a => a.code === code) : [];
+  if (byCode.length === 1 && !byName.length) {
+    // A code alone counts only when the names share a word, so an old chart's numbering is not trusted blindly.
+    const words = new Set(n.split(' ').filter(w => w.length > 3));
+    if (norm(byCode[0].name).split(' ').some(w => words.has(w))) return byCode[0].id;
+  }
+  return null;
+}
+
+export const TYPE_ORDER = ['asset', 'liability', 'equity', 'revenue', 'other_income', 'cogs', 'opex', 'other_expense'];
+export const ANY_TYPE_LABEL: Record<string, string> = { ...TYPE_LABEL, revenue: 'Revenue', other_income: 'Other income', cogs: 'Cost of sales', opex: 'Operating expenses', other_expense: 'Other expenses' };
