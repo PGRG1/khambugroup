@@ -5838,9 +5838,11 @@ export type Database = {
           expense_account_id: string
           id: string
           in_service_date: string
+          is_opening: boolean
           method: string
           name: string
           notes: string | null
+          opening_depreciation: number
           proposal_draft_id: string | null
           purchase_date: string
           salvage_value: number
@@ -5872,9 +5874,11 @@ export type Database = {
           expense_account_id: string
           id?: string
           in_service_date: string
+          is_opening?: boolean
           method?: string
           name: string
           notes?: string | null
+          opening_depreciation?: number
           proposal_draft_id?: string | null
           purchase_date: string
           salvage_value?: number
@@ -5906,9 +5910,11 @@ export type Database = {
           expense_account_id?: string
           id?: string
           in_service_date?: string
+          is_opening?: boolean
           method?: string
           name?: string
           notes?: string | null
+          opening_depreciation?: number
           proposal_draft_id?: string | null
           purchase_date?: string
           salvage_value?: number
@@ -16896,6 +16902,7 @@ export type Database = {
         Args: { p_invoice: string; p_tenant: string; p_venue: string }
         Returns: undefined
       }
+      _opening_equity_account: { Args: { p_tenant: string }; Returns: string }
       _paid_by_account: {
         Args: { p_kind: string; p_tenant: string }
         Returns: string
@@ -16949,6 +16956,7 @@ export type Database = {
         }
         Returns: string
       }
+      add_opening_asset: { Args: { p: Json; t: string }; Returns: string }
       add_revenue_event_with_replacement: {
         Args: {
           p_event_mode: string
@@ -17948,6 +17956,10 @@ export type Database = {
         Returns: Json
       }
       post_invoice_payment: { Args: { p_payment_id: string }; Returns: Json }
+      post_opening_balances: {
+        Args: { p_org: string; p_tenant: string }
+        Returns: string
+      }
       post_payroll_accrual: {
         Args: { p_month: number; p_year: number }
         Returns: Json
@@ -18052,6 +18064,10 @@ export type Database = {
           p_venue: string
         }
         Returns: Json
+      }
+      remove_opening_asset: {
+        Args: { p_asset: string; t: string }
+        Returns: undefined
       }
       resolve_sales_receipt_intake: {
         Args: { _id: string; _reason: string }
@@ -18180,6 +18196,10 @@ export type Database = {
           p_type: string
         }
         Returns: string
+      }
+      save_opening_balances: {
+        Args: { p_as_at: string; p_org: string; p_rows: Json; p_tenant: string }
+        Returns: number
       }
       save_people_settings: {
         Args: { p: Json; t: string; v: string }
@@ -18357,6 +18377,10 @@ export type Database = {
         Returns: Json
       }
       undo_item_import: { Args: { p_batch: string }; Returns: Json }
+      unpost_opening_balances: {
+        Args: { p_org: string; p_tenant: string }
+        Returns: undefined
+      }
       user_has_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
